@@ -8,12 +8,13 @@ import {
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import Badge from "@/ui/Badge";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -37,14 +38,14 @@ export default function ConditionGroups({
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
-  const { project } = useDefinitions();
   const settings = useOrgSettings();
-
   const approvalFlowRequired =
     settings.approvalFlows?.savedGroups?.required ?? false;
+  const { project, projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canViewSavedGroupModal(project);
+  const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
   const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
     permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
   const canDeleteSavedGroup = (
@@ -62,13 +63,21 @@ export default function ConditionGroups({
       )
     : conditionGroups;
 
+  const conditionGroupsWithOwners = useAddComputedFields(
+    filteredConditionGroups,
+    (group) => ({
+      ownerNameDisplay: getOwnerDisplay(group.owner),
+    }),
+    [getOwnerDisplay],
+  );
+
   const { items, searchInputProps, isFiltered, SortableTH, pagination } =
     useSearch({
-      items: filteredConditionGroups,
+      items: conditionGroupsWithOwners,
       localStorageKey: "savedGroupsRuntime",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
-      searchFields: ["groupName^3", "condition^2", "owner"],
+      searchFields: ["groupName^3", "condition^2", "ownerNameDisplay"],
       pageSize: 50,
       updateSearchQueryOnChange: true,
     });
@@ -138,7 +147,7 @@ export default function ConditionGroups({
                       <SortableTH field="condition">Condition</SortableTH>
                       <th>Description</th>
                       <th className="col-2">Projects</th>
-                      <SortableTH field="owner">Owner</SortableTH>
+                      <SortableTH field="ownerNameDisplay">Owner</SortableTH>
                       <th>Approval Flows</th>
                       <SortableTH field="dateUpdated">Date Updated</SortableTH>
                       <th />
@@ -189,7 +198,7 @@ export default function ConditionGroups({
                               <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
-                          <td>{s.owner}</td>
+                          <td>{s.ownerNameDisplay}</td>
                           <td>
                             {openRevisionTargetIds?.has(s.id) && (
                               <Badge

@@ -38,7 +38,7 @@ export default function ProjectTagBar({
     getProjectById,
   } = useDefinitions();
 
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -57,7 +57,7 @@ export default function ProjectTagBar({
 
   const createdDate = date(experiment.dateCreated);
 
-  const ownerName = getUserDisplay(experiment.owner, false) || "";
+  const ownerName = getOwnerDisplay(experiment.owner);
 
   const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
 
@@ -148,11 +148,11 @@ export default function ProjectTagBar({
     return (
       <>
         <span>
-          {ownerName !== "" && (
+          {ownerName && (
             <UserAvatar name={ownerName} size="sm" variant="soft" />
           )}
           <Text weight="regular" className={metaDataStyles.valueColor}>
-            {ownerName === "" ? "None" : ownerName}
+            {ownerName || "None"}
           </Text>
         </span>
       </>

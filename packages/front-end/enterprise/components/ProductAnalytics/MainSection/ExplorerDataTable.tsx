@@ -1,5 +1,10 @@
 import { useMemo } from "react";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import type {
+  ExplorationConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
+import type { QueryInterface } from "shared/types/query";
+import { sortExplorationRows } from "@/enterprise/components/ProductAnalytics/util";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 
 type ColumnSlot =
@@ -105,10 +110,23 @@ function getSlotValue(
   return getMetricCellValue(row, slot.metricIndex, slot.sub);
 }
 
-export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
-  const { exploration, submittedExploreState, loading, error, isStale, query } =
-    useExplorerContext();
-
+export default function ExplorerDataTable({
+  exploration,
+  error,
+  submittedExploreState,
+  loading,
+  hasChart = false,
+  isStale = false,
+  query = null,
+}: {
+  exploration: ProductAnalyticsExploration | null;
+  error: string | null;
+  submittedExploreState: ExplorationConfig | null;
+  loading: boolean;
+  hasChart?: boolean;
+  isStale?: boolean;
+  query?: QueryInterface | null;
+}) {
   const dimensionColumnHeaders = useMemo(() => {
     const headers: string[] = [];
     for (const dimension of submittedExploreState?.dimensions || []) {
@@ -219,14 +237,7 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
     const isTimeseries =
       submittedExploreState?.dimensions?.[0]?.dimensionType === "date";
 
-    const rowsToProcess = isTimeseries
-      ? [...rawRows].sort((a, b) => {
-          const dateA = a.dimensions[0] || "";
-          const dateB = b.dimensions[0] || "";
-          if (!dateA || !dateB) return 0;
-          return new Date(dateA).getTime() - new Date(dateB).getTime();
-        })
-      : rawRows;
+    const rowsToProcess = sortExplorationRows(rawRows, isTimeseries);
 
     const context = {
       dimensionColumnHeaders,
@@ -248,19 +259,24 @@ export default function ExplorerDataTable({ hasChart }: { hasChart: boolean }) {
     submittedExploreState,
   ]);
 
+  const explorationReturnedNoData = useMemo(() => {
+    if (!exploration?.result?.rows?.length) return true;
+    return exploration.result.rows.every((r) => r.values.length === 0);
+  }, [exploration?.result.rows]);
+
   return (
     <DisplayTestQueryResults
       results={rowData}
       duration={query?.statistics?.executionDurationMs ?? 0}
       sql={query?.query || ""}
       error={error || ""}
+      showNoRowsWarning={explorationReturnedNoData && !hasChart}
       allowDownload={true}
       showSampleHeader={false}
       showDuration={!!query?.statistics}
       headerStructure={headerStructure ?? undefined}
       orderedColumnKeys={orderedColumnKeys}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
-      showNoRowsWarning={false}
     />
   );
 }

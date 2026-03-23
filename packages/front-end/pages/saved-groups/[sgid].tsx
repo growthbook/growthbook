@@ -56,6 +56,7 @@ import RevisionVersionSelector from "@/components/Revision/RevisionVersionSelect
 import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
+import { useUser } from "@/services/UserContext";
 
 const NUM_PER_PAGE = 10;
 
@@ -155,6 +156,12 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
+  const [importOperation, setImportOperation] = useState<"replace" | "append">(
+    "replace",
+  );
+  const { attributeSchema } = useOrgSettings();
+  const { projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const { hasLargeSavedGroupFeature, unsupportedConnections } =
     useLargeSavedGroupSupport();
@@ -653,7 +660,7 @@ export default function EditSavedGroupPage() {
             </Text>
             <Text>
               Owner:{" "}
-              <strong>{savedGroup.owner ? savedGroup.owner : "None"}</strong>
+              <strong>{getOwnerDisplay(savedGroup.owner) || "None"}</strong>
             </Text>
           </Flex>
           <Flex direction="column" align="end" gap="2">

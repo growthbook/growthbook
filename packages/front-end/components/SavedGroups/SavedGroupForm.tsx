@@ -36,6 +36,8 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 
 type SavedGroupFormValues = CreateSavedGroupProps;
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -112,6 +114,7 @@ const SavedGroupForm: FC<{
 
   const { mutateDefinitions, savedGroups, projects, project } =
     useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -172,10 +175,52 @@ const SavedGroupForm: FC<{
     }
   }, [currentRevision, liveVersion, type, project, form, current]);
 
-  const projectsOptions = projects.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
+
+  const selectedProjects = form.watch("projects") || [];
+  const projectsOptions = useProjectOptions(
+    (p) =>
+      current.id
+        ? permissionsUtil.canUpdateSavedGroup(
+            { projects: current.projects || [] },
+            { projects: [p] },
+          )
+        : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
+    selectedProjects,
+  );
+  const canCreateWithoutProject = current.id
+    ? permissionsUtil.canUpdateSavedGroup(
+        { projects: current.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateSavedGroup({ projects: [] });
+  const hasProjectPermission = current.id
+    ? permissionsUtil.canUpdateSavedGroup(
+        { projects: current.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
+  const ctaDisabledMessage = isEditBlocked
+    ? currentRevision?.status === "closed" ||
+      currentRevision?.status === "merged"
+      ? "This revision is closed and cannot be edited."
+      : "Cannot edit while there are open draft revisions."
+    : !hasProjectPermission
+      ? !selectedProjects.length && projectsOptions.length > 0
+        ? "Select a project to continue."
+        : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
+      : !isValid
+        ? !form.watch("groupName")
+          ? "Enter a name to continue."
+          : type === "list"
+            ? !form.watch("attributeKey")
+              ? "Select an attribute key to continue."
+              : listAboveSizeLimit && !adminBypassSizeLimit
+                ? "List size exceeds limit. Enable bypass or reduce size."
+                : undefined
+            : !form.watch("condition")
+              ? "Add a condition to continue."
+              : undefined
+        : undefined;
 
   const listAboveSizeLimit = savedGroupSizeLimit
     ? (form.watch("values") ?? []).length > savedGroupSizeLimit
@@ -224,7 +269,8 @@ const SavedGroupForm: FC<{
             : "Submit"}
         </>
       }
-      ctaEnabled={isValid && !isEditBlocked}
+      ctaEnabled={isValid && hasProjectPermission && !isEditBlocked}
+      disabledMessage={ctaDisabledMessage}
       backCTA={
         <div className="mt-3 mb-2">
           {current.id && (
@@ -419,8 +465,10 @@ const SavedGroupForm: FC<{
       <MultiSelectField
         label="Projects"
         labelClassName="font-weight-bold"
-        placeholder="All Projects"
-        value={form.watch("projects") || []}
+        placeholder={
+          canCreateWithoutProject ? "All Projects" : "Select projects..."
+        }
+        value={selectedProjects}
         onChange={(projects) => form.setValue("projects", projects)}
         options={projectsOptions}
         sort={false}
@@ -428,7 +476,6 @@ const SavedGroupForm: FC<{
       />
       {current.id && (
         <SelectOwner
-          resourceType="savedGroup"
           placeholder="Optional"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}

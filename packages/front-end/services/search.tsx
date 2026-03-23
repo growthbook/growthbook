@@ -441,13 +441,17 @@ export function parseQuery(query: string, regex: RegExp) {
       const field = match[2];
       const negated = !!match[3];
       const operator = match[4] as SearchTermFilterOperator;
-      const rawValue = match[5].replace(/"/g, "");
+      const rawValue = match[5];
+      // Split on commas that are outside of quotes, then strip quotes
+      const values = (rawValue.match(/"[^"]*"|[^,]+/g) || []).map((s) =>
+        s.trim().replace(/^"|"$/g, ""),
+      );
 
       syntaxFilters.push({
         field,
         operator,
         negated,
-        values: rawValue.split(",").map((s) => s.trim()),
+        values,
       });
     }
   }

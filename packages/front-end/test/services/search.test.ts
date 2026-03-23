@@ -46,6 +46,132 @@ describe("useSearch", () => {
         ],
       });
     });
+    it("handles unquoted single value", () => {
+      const query = `owner:Adriel`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Adriel"],
+          },
+        ],
+      });
+    });
+    it("preserves commas inside quoted values", () => {
+      const query = `owner:"Vieira, Adriel"`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira, Adriel"],
+          },
+        ],
+      });
+    });
+    it("treats comma-separated quoted values as separate values", () => {
+      const query = `owner:"Vieira","Adriel"`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira", "Adriel"],
+          },
+        ],
+      });
+    });
+    it("preserves commas inside quoted values mixed with unquoted CSV", () => {
+      const query = `owner:"Vieira, Adriel","Smith, John",bob`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira, Adriel", "Smith, John", "bob"],
+          },
+        ],
+      });
+    });
+    it("handles comma-only quoted value", () => {
+      const query = `owner:","`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: [","],
+          },
+        ],
+      });
+    });
+    it("handles negated filter with comma in quoted value", () => {
+      const query = `owner:!"Vieira, Adriel"`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: true,
+            values: ["Vieira, Adriel"],
+          },
+        ],
+      });
+    });
+    it("handles multiple filters where one has commas in quotes", () => {
+      const query = `owner:"Vieira, Adriel" tag:important`;
+      const result = transformQuery(query, ["owner", "tag"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira, Adriel"],
+          },
+          {
+            field: "tag",
+            operator: "",
+            negated: false,
+            values: ["important"],
+          },
+        ],
+      });
+    });
+    it("handles empty quoted value as no owner", () => {
+      const query = `owner:""`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: [""],
+          },
+        ],
+      });
+    });
     it("trims extra spaces", () => {
       const query = "test foo:bar  ";
       const result = transformQuery(query, ["foo"]);

@@ -176,7 +176,7 @@ export function useFeatureSearch({
     }
   >;
 }) {
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { getProjectById } = useDefinitions();
 
   const features = useAddComputedFields(
@@ -190,10 +190,10 @@ export function useFeatureSearch({
         projectId,
         projectName,
         projectIsDeReferenced,
-        ownerName: getUserDisplay(f.owner, false) || "",
+        ownerName: getOwnerDisplay(f.owner),
       };
     },
-    [getProjectById],
+    [getOwnerDisplay, getProjectById],
   );
   return useSearch({
     items: features,
@@ -248,7 +248,7 @@ export function useFeatureSearch({
       experiment: (item) => item.linkedExperiments || [],
       version: (item) => item.version,
       revision: (item) => item.version,
-      owner: (item) => item.owner,
+      owner: (item: ComputedFeatureInterface) => [item.owner, item.ownerName],
       tag: (item) => item.tags,
       type: (item) => item.valueType,
       on: (item) => {
@@ -935,13 +935,11 @@ export function getUnreachableRuleIndex(
       continue;
     }
 
-    // Skip non-force rules (require a non-null hash attribute, so may not match)
-    if (rule.type !== "force") {
-      continue;
-    }
+    // Only force rules and 100%-coverage rollouts consume all traffic
+    const isFullCoverage =
+      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
+    if (!isFullCoverage) continue;
 
-    // By this point, we have a force rule that matches all users
-    // Any rule after this is unreachable
     return i + 1;
   }
 
@@ -1420,11 +1418,9 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
-  update = false,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
     `/usage/features`,
-    { shouldRun: () => !!update },
   );
 
   // Mock data
@@ -1451,7 +1447,6 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
-    if (!update) return;
     let timer = 0;
     const cb = async () => {
       await mutate();
@@ -1461,7 +1456,7 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, [update]);
+  }, []);
 
   const max = useMemo(() => {
     return Math.max(

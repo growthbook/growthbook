@@ -1,18 +1,20 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
-import { FaTriangleExclamation } from "react-icons/fa6";
+import {
+  FaTriangleExclamation,
+  FaRegCircleCheck,
+  FaRegCircleXmark,
+} from "react-icons/fa6";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
-import Switch from "@/ui/Switch";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   useRealtimeData,
@@ -44,8 +46,6 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -56,23 +56,13 @@ export default function FeaturesPage() {
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
   const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
     useState<FeatureMetaInfo | null>(null);
-  const [confirmToggle, setConfirmToggle] = useState<{
-    featureId: string;
-    envId: string;
-    state: boolean;
-  } | null>(null);
-
-  const { apiCall } = useAuth();
-  const settings = useOrgSettings();
-  const showConfirmation = !!settings?.killswitchConfirmation;
-
-  const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
@@ -94,7 +84,6 @@ export default function FeaturesPage() {
   const { usage, usageDomain } = useRealtimeData(
     allFeatures as unknown as FeatureInterface[],
     !!router?.query?.mockdata,
-    showGraphs,
   );
 
   const statusHook = useFeaturesStatus();
@@ -191,21 +180,6 @@ export default function FeaturesPage() {
     setFeatureToDuplicate(null);
   }, [modalOpen]);
 
-  const handleToggle = useCallback(
-    async (featureId: string, envId: string, state: boolean) => {
-      if (showConfirmation) {
-        setConfirmToggle({ featureId, envId, state });
-      } else {
-        await statusHook.toggle(featureId, envId, state);
-        track("Feature Environment Toggle", {
-          environment: envId,
-          enabled: state,
-        });
-      }
-    },
-    [showConfirmation, statusHook],
-  );
-
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
@@ -247,12 +221,10 @@ export default function FeaturesPage() {
                 <th>Type</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                {showGraphs && (
-                  <th>
-                    Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
-                )}
+                <th>
+                  Recent Usage{" "}
+                  <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
+                </th>
                 <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
@@ -305,26 +277,38 @@ export default function FeaturesPage() {
                           {featureHasEnvironment(
                             feature as unknown as FeatureInterface,
                             en,
-                          ) && (
-                            <Switch
-                              id={`${feature.id}__${en.id}`}
-                              disabled={
-                                !permissionsUtil.canPublishFeature(
-                                  { project: feature.project },
-                                  [en.id],
-                                )
-                              }
-                              value={
+                          ) &&
+                            (() => {
+                              const enabled =
                                 statusHook.environmentStatus[feature.id]?.[
                                   en.id
-                                ] ?? false
-                              }
-                              onChange={(on) =>
-                                handleToggle(feature.id, en.id, on)
-                              }
-                              size="3"
-                            />
-                          )}
+                                ] ?? false;
+                              return (
+                                <Tooltip
+                                  body={
+                                    enabled
+                                      ? `${en.id}: enabled`
+                                      : `${en.id}: disabled`
+                                  }
+                                >
+                                  {enabled ? (
+                                    <FaRegCircleCheck
+                                      style={{
+                                        color: "var(--green-9)",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  ) : (
+                                    <FaRegCircleXmark
+                                      style={{
+                                        color: "var(--gray-8)",
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  )}
+                                </Tooltip>
+                              );
+                            })()}
                         </Flex>
                       </td>
                     ))}
@@ -343,14 +327,12 @@ export default function FeaturesPage() {
                     <td title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
                     </td>
-                    {showGraphs && (
-                      <td style={{ width: 170 }}>
-                        <RealTimeFeatureGraph
-                          data={usage?.[feature.id]?.realtime || []}
-                          yDomain={usageDomain}
-                        />
-                      </td>
-                    )}
+                    <td style={{ width: 170 }}>
+                      <RealTimeFeatureGraph
+                        data={usage?.[feature.id]?.realtime || []}
+                        yDomain={usageDomain}
+                      />
+                    </td>
                     <td>
                       <StaleFeatureIcon
                         context="list"
@@ -394,7 +376,7 @@ export default function FeaturesPage() {
               })}
               {!items.length && (
                 <tr>
-                  <td colSpan={showGraphs ? 7 : 6}>No matching features</td>
+                  <td colSpan={7}>No matching features</td>
                 </tr>
               )}
             </tbody>
@@ -414,19 +396,10 @@ export default function FeaturesPage() {
     );
   };
 
-  const canViewFeatureModal = useMemo(() => {
-    // If a specific project is selected, check permissions for that project
-    if (project) {
-      return permissionsUtil.canViewFeatureModal(project);
-    }
-    if (projects?.length) {
-      // If "All Projects" is selected, check if user has permissions for at least one project
-
-      return projects.some((p) => permissionsUtil.canViewFeatureModal(p.id));
-    }
-    // No projects - fall back to global permission check (e.g. admin in new org)
-    return permissionsUtil.canViewFeatureModal();
-  }, [project, projects, permissionsUtil]);
+  const canViewFeatureModal = permissionsUtil.canViewFeatureModal(
+    project,
+    projects,
+  );
 
   const canCreateFeatures = useMemo(() => {
     // If a specific project is selected, check permissions for that project
@@ -490,32 +463,6 @@ export default function FeaturesPage() {
 
   return (
     <div className="contents container pagecontents">
-      {confirmToggle && (
-        <Modal
-          trackingEventModalType=""
-          header="Toggle environment"
-          close={() => setConfirmToggle(null)}
-          open={true}
-          cta="Confirm"
-          useRadixButton={true}
-          submit={async () => {
-            await statusHook.toggle(
-              confirmToggle.featureId,
-              confirmToggle.envId,
-              confirmToggle.state,
-            );
-            track("Feature Environment Toggle", {
-              environment: confirmToggle.envId,
-              enabled: confirmToggle.state,
-            });
-            setConfirmToggle(null);
-          }}
-        >
-          You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
-          environment to{" "}
-          <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
-        </Modal>
-      )}
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}
@@ -534,7 +481,8 @@ export default function FeaturesPage() {
         <StaleDetectionModal
           close={() => setFeatureToToggleStaleDetection(null)}
           feature={featureToToggleStaleDetection}
-          mutate={mutate}
+          mutate={async () => mutate()}
+          setVersion={() => undefined}
           onEnable={async () => {
             const id = featureToToggleStaleDetection.id;
             staleHook.invalidate([id]);

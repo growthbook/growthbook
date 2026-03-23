@@ -2,7 +2,12 @@ import path from "path";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, { ErrorRequestHandler, Request, Response } from "express";
+import express, {
+  ErrorRequestHandler,
+  Request,
+  RequestHandler,
+  Response,
+} from "express";
 import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
@@ -242,8 +247,19 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb
-app.use(bodyParser.json({ limit: "2mb" }));
+// increase max payload json size to 2mb (10mb for the api screenshot upload)
+app.use((req, res, next) => {
+  const isScreenshotUpload =
+    req.method === "POST" &&
+    /^\/api\/v1\/experiments\/[^/]+\/variation\/[^/]+\/screenshot\/upload$/.test(
+      req.path,
+    );
+  bodyParser.json({ limit: isScreenshotUpload ? "10mb" : "2mb" })(
+    req,
+    res,
+    next,
+  );
+});
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -404,34 +420,38 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
-app.use(auth.middleware);
+app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
-app.use(asyncHandler(processJWT));
+app.use(asyncHandler(processJWT as unknown as RequestHandler));
 
 // Add logged in user props to the logger
-app.use(
-  (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-    res.log = req.log = req.log.child(getCustomLogProps(req as Request));
-    next();
-  },
-);
+app.use(((
+  req: AuthRequest,
+  res: Response & { log: AuthRequest["log"] },
+  next,
+) => {
+  res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+  next();
+}) as RequestHandler);
 
 // Add logged in user to Sentry if configured
 if (SENTRY_DSN) {
-  app.use(
-    (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-      Sentry.setUser({
-        id: req.currentUser.id,
-        email: req.currentUser.email,
-        name: req.currentUser.name,
-      });
-      if (req.organization) {
-        Sentry.setTag("organization", req.organization.id);
-      }
-      next();
-    },
-  );
+  app.use(((
+    req: AuthRequest,
+    res: Response & { log: AuthRequest["log"] },
+    next,
+  ) => {
+    Sentry.setUser({
+      id: req.currentUser.id,
+      email: req.currentUser.email,
+      name: req.currentUser.name,
+    });
+    if (req.organization) {
+      Sentry.setTag("organization", req.organization.id);
+    }
+    next();
+  }) as RequestHandler);
 }
 
 // Logged-in auth requests
@@ -442,14 +462,14 @@ if (!useSSO) {
 app.use("/user", usersRouter);
 
 // Every other route requires a userId to be set
-app.use(
-  asyncHandler(async (req: AuthRequest, res, next) => {
-    if (!req.userId) {
-      throw new Error("Must be authenticated.  Try refreshing the page.");
-    }
-    next();
-  }),
-);
+const requireUserIdHandler: RequestHandler = async (req, res, next) => {
+  const authReq = req as AuthRequest;
+  if (!authReq.userId) {
+    throw new Error("Must be authenticated.  Try refreshing the page.");
+  }
+  next();
+};
+app.use(asyncHandler(requireUserIdHandler));
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -772,6 +792,7 @@ app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
+app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
@@ -800,15 +821,21 @@ app.post(
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
+app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
 app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
 app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post(
+  "/feature/:id/:version/revert-draft",
+  featuresController.postFeatureRevertDraft,
+);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
   "/feature/:id/safeRollout/status",
@@ -1018,17 +1045,19 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get(
-  "/generated-hypothesis/:uuid",
-  async (req: AuthRequest<null, { uuid: string }>, res) => {
-    const context = getContextFromReq(req);
-    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
-      context,
-      req.params.uuid,
-    );
-    return res.json({ generatedHypothesis });
-  },
-);
+app.get("/generated-hypothesis/:uuid", (async (
+  req: express.Request,
+  res: express.Response,
+  _next: express.NextFunction,
+) => {
+  const authReq = req as AuthRequest<null, { uuid: string }>;
+  const context = getContextFromReq(authReq);
+  const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+    context,
+    authReq.params.uuid,
+  );
+  return res.json({ generatedHypothesis });
+}) as unknown as RequestHandler);
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);

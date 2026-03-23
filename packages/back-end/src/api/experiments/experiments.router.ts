@@ -6,6 +6,8 @@ import { listExperiments } from "./listExperiments";
 import { updateExperiment } from "./updateExperiment";
 import { postExperiment } from "./postExperiment";
 import { postExperimentSnapshot } from "./postExperimentSnapshot";
+import { postVariationImageUpload } from "./postVariationImageUpload";
+import { deleteVariationScreenshot } from "./deleteVariationScreenshot";
 
 const router = Router();
 
@@ -17,6 +19,14 @@ router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
 router.post("/:id", updateExperiment);
 router.post("/:id/snapshot", postExperimentSnapshot);
+router.post(
+  "/:id/variation/:variationId/screenshot/upload",
+  postVariationImageUpload,
+);
+router.delete(
+  "/:id/variation/:variationId/screenshot",
+  deleteVariationScreenshot,
+);
 
 // VisualChangeset Endpoints
 router.get("/:id/visual-changesets", listVisualChangesets);

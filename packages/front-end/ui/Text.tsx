@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { Text as RadixText } from "@radix-ui/themes";
 import type { TextProps as RadixTextProps } from "@radix-ui/themes";
 
-type TextSizes = "small" | "medium" | "large" | "inherit";
+type TextSizes = "small" | "medium" | "large" | "x-large" | "inherit";
 type TextWeights = "regular" | "medium" | "semibold";
 type TextAlign = "left" | "center" | "right";
 type TextOverflowWrap = "normal" | "anywhere" | "break-word";
@@ -20,6 +20,7 @@ const radixSizeMap: Record<TextSizes, RadixTextProps["size"] | undefined> = {
   small: "1",
   medium: "2",
   large: "3",
+  "x-large": "4",
   inherit: undefined,
 };
 

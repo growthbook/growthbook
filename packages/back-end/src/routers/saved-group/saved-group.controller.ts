@@ -48,7 +48,7 @@ export const postSavedGroup = async (
   res: Response<CreateSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org, userName } = context;
+  const { org, userId } = context;
   const {
     groupName,
     owner,
@@ -119,7 +119,7 @@ export const postSavedGroup = async (
     type,
     condition,
     groupName,
-    owner: owner || userName,
+    owner: owner || userId,
     attributeKey,
     description,
     projects,

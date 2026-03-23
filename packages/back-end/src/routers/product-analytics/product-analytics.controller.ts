@@ -45,6 +45,7 @@ export const getExplorationById = async (
   res: Response<{
     status: 200;
     exploration: ProductAnalyticsExploration;
+    query: QueryInterface | null;
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -55,8 +56,12 @@ export const getExplorationById = async (
     throw new NotFoundError("Exploration not found");
   }
 
+  const queryId = exploration?.queries?.[0]?.query;
+  const query = queryId ? await getQueryById(context, queryId) : null;
+
   return res.status(200).json({
     status: 200,
     exploration,
+    query,
   });
 };

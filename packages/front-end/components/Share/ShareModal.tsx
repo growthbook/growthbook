@@ -20,6 +20,7 @@ import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
 import { getValidDate, ago, datetime, date } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { PiArrowLeft, PiCaretRight, PiX } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -198,7 +199,7 @@ const ShareModal = ({
   >(null);
   const [saveThemeName, setSaveThemeName] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const { getOwnerDisplay, hasCommercialFeature } = useUser();
   const { blockFileUploads } = useOrgSettings();
   const hasPresentationStyling = hasCommercialFeature("adv-presentations");
   const canUploadLogo = hasUploadSupport() && !blockFileUploads;
@@ -804,7 +805,9 @@ const ShareModal = ({
                                               if (!phase) return null;
 
                                               let hasScreenShots = true;
-                                              e.variations.forEach((v) => {
+                                              getLatestPhaseVariations(
+                                                e,
+                                              ).forEach((v) => {
                                                 if (v.screenshots.length < 1) {
                                                   hasScreenShots = false;
                                                 }
@@ -853,10 +856,7 @@ const ShareModal = ({
                                                     />
                                                   </td>
                                                   <td className="nowrap">
-                                                    {getUserDisplay(
-                                                      e.owner,
-                                                      false,
-                                                    )}
+                                                    {getOwnerDisplay(e.owner)}
                                                   </td>
                                                   <td
                                                     className="nowrap"

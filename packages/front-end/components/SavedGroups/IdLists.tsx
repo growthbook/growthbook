@@ -8,7 +8,7 @@ import {
 } from "shared/types/saved-group";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
@@ -18,6 +18,7 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import Badge from "@/ui/Badge";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -40,14 +41,14 @@ export default function IdLists({
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
-  const { project } = useDefinitions();
   const settings = useOrgSettings();
-
   const approvalFlowRequired =
     settings.approvalFlows?.savedGroups?.required ?? false;
+  const { project, projects } = useDefinitions();
+  const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canViewSavedGroupModal(project);
+  const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
   const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
     permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
   const canDeleteSavedGroup = (
@@ -69,13 +70,26 @@ export default function IdLists({
     useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
+  const idListsWithOwners = useAddComputedFields(
+    filteredIdLists,
+    (group) => ({
+      ownerNameDisplay: getOwnerDisplay(group.owner),
+    }),
+    [getOwnerDisplay],
+  );
+
   const { items, searchInputProps, isFiltered, SortableTH, pagination } =
     useSearch({
-      items: filteredIdLists,
+      items: idListsWithOwners,
       localStorageKey: "savedGroups",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
-      searchFields: ["groupName^3", "attributeKey^2", "owner", "description^2"],
+      searchFields: [
+        "groupName^3",
+        "attributeKey^2",
+        "ownerNameDisplay",
+        "description^2",
+      ],
       pageSize: 50,
       updateSearchQueryOnChange: true,
     });
@@ -154,7 +168,7 @@ export default function IdLists({
                   <SortableTH field="attributeKey">Attribute</SortableTH>
                   <th>Description</th>
                   <th>Projects</th>
-                  <SortableTH field={"owner"}>Owner</SortableTH>
+                  <SortableTH field={"ownerNameDisplay"}>Owner</SortableTH>
                   <th>Approval Flows</th>
                   <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                   <th />
@@ -187,7 +201,7 @@ export default function IdLists({
                           <ProjectBadges resourceType="saved group" />
                         )}
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{s.ownerNameDisplay}</td>
                       <td>
                         {openRevisionTargetIds?.has(s.id) && (
                           <Badge

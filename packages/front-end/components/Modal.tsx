@@ -260,6 +260,7 @@ const Modal: FC<ModalProps> = ({
           ...(overflowAuto
             ? {
                 overflowY: "auto",
+                overflowX: "hidden",
                 scrollBehavior: "smooth",
                 marginBottom: stickyFooter ? "100px" : undefined,
               }
