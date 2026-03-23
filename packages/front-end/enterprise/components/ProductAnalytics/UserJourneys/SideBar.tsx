@@ -55,8 +55,6 @@ export default function SideBar({
       }));
   }, [factTable]);
 
-  console.log("draftUserJourneyState", draftUserJourneyState);
-
   const startingEventValueOptions = useMemo(() => {
     if (!factTable || !draftUserJourneyState.startingEventEventColumn?.column)
       return [];
@@ -534,7 +532,6 @@ export default function SideBar({
               <Button
                 size="xs"
                 variant="ghost"
-                disabled={!startingEventColumnSource}
                 onClick={() =>
                   setDraftUserJourneyState((prev) => ({
                     ...prev,

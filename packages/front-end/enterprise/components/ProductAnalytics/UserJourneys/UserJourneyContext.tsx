@@ -112,6 +112,8 @@ export function UserJourneyProvider({
     },
     [],
   );
+
+  //MKTODO: This logic isn't correct - I think we need a setter as well
   const isStale = useMemo(() => {
     if (!userJourneyState.submittedState) return false;
     return (

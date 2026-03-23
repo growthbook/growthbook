@@ -302,7 +302,7 @@ function hasNonEmptyValues(values: string[] | undefined): boolean {
 }
 
 /** Checks if a filter is complete (has a column and values). */
-function isCompleteFilter(filter: RowFilter): boolean {
+export function isCompleteFilter(filter: RowFilter): boolean {
   if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
     return hasNonEmptyValues(filter.values);
   }
