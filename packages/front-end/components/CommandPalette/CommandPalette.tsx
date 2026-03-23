@@ -40,8 +40,8 @@ interface CommandPaletteItem {
   url: string;
   tags: string;
   icon?: FC<{ className?: string }>;
-  /** Expands the Pages section instead of navigating */
-  action?: "expand-pages";
+  /** If set, activates "Show more" for this section instead of navigating */
+  expandSection?: CommandPaletteItemType;
 }
 
 // Pages first so route shortcuts (e.g. "exp" → Experiments) surface before entity hits.
@@ -75,58 +75,37 @@ const SECTION_ICONS: Record<
   dashboard: BsBarChartLine,
 };
 
-const MAX_PER_SECTION = 5;
-/** Max page matches from search before capping the pool. */
-const MAX_NAVIGATION_PER_SECTION = 8;
-/** Shown initially under Pages when collapse is active; "Show more" reveals the rest. */
-const NAVIGATION_INITIAL_VISIBLE = 3;
+/** Max matches kept per section from search; "Show more" reveals up to this many. */
+const MAX_ITEMS_PER_SECTION = 10;
+/** Rows shown per section before "Show more" (when more than this exist in the pool). */
+const SECTION_INITIAL_VISIBLE = 3;
 
-const EXPAND_PAGES_ROW_ID = "__palette_expand_pages__";
-
-function countGroupedResults(
-  groups: Record<CommandPaletteItemType, CommandPaletteItem[]>,
-): number {
-  let n = 0;
-  for (const type of SECTION_ORDER) {
-    n += groups[type].length;
-  }
-  return n;
+function expandSectionRowId(section: CommandPaletteItemType): string {
+  return `__palette_expand_section_${section}__`;
 }
 
-/**
- * Collapse Pages behind "Show more" only when the overall result set is large
- * (total matches across all sections exceed {@link MAX_NAVIGATION_PER_SECTION}).
- * Otherwise show every section in full (still subject to per-section pool caps).
- */
 function getSectionDisplayItems(
   type: CommandPaletteItemType,
   items: CommandPaletteItem[],
-  pagesSectionExpanded: boolean,
-  totalGroupedCount: number,
+  sectionExpanded: boolean,
 ): CommandPaletteItem[] {
   if (items.length === 0) return [];
-  const collapsePages =
-    type === "navigation" &&
-    totalGroupedCount > MAX_NAVIGATION_PER_SECTION &&
-    !pagesSectionExpanded &&
-    items.length > NAVIGATION_INITIAL_VISIBLE;
-
-  if (collapsePages) {
-    const hidden = items.length - NAVIGATION_INITIAL_VISIBLE;
-    return [
-      ...items.slice(0, NAVIGATION_INITIAL_VISIBLE),
-      {
-        id: EXPAND_PAGES_ROW_ID,
-        type: "navigation" as const,
-        name: `Show ${hidden} more…`,
-        description: "",
-        url: "",
-        tags: "",
-        action: "expand-pages" as const,
-      },
-    ];
+  if (sectionExpanded || items.length <= SECTION_INITIAL_VISIBLE) {
+    return items;
   }
-  return items;
+  const hidden = items.length - SECTION_INITIAL_VISIBLE;
+  return [
+    ...items.slice(0, SECTION_INITIAL_VISIBLE),
+    {
+      id: expandSectionRowId(type),
+      type,
+      name: `Show ${hidden} more…`,
+      description: "",
+      url: "",
+      tags: "",
+      expandSection: type,
+    },
+  ];
 }
 
 /**
@@ -179,7 +158,9 @@ export const CommandPaletteLauncher: FC = () => {
 const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [pagesSectionExpanded, setPagesSectionExpanded] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<
+    Partial<Record<CommandPaletteItemType, boolean>>
+  >({});
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -336,11 +317,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     };
 
     for (const item of ordered) {
-      const cap =
-        item.type === "navigation"
-          ? MAX_NAVIGATION_PER_SECTION
-          : MAX_PER_SECTION;
-      if (groups[item.type].length < cap) {
+      if (groups[item.type].length < MAX_ITEMS_PER_SECTION) {
         groups[item.type].push(item);
       }
     }
@@ -348,11 +325,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     return groups;
   }, [query, miniSearch, items]);
 
-  const totalGroupedCount = groupedResults
-    ? countGroupedResults(groupedResults)
-    : 0;
-
-  // Flat list for keyboard navigation (respects Pages collapse + "Show more" row)
+  // Flat list for keyboard navigation (respects per-section "Show more" rows)
   const flatResults = useMemo(() => {
     if (!groupedResults) return [];
     const flat: CommandPaletteItem[] = [];
@@ -361,19 +334,18 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
         ...getSectionDisplayItems(
           type,
           groupedResults[type],
-          pagesSectionExpanded,
-          totalGroupedCount,
+          !!expandedSections[type],
         ),
       );
     }
     return flat;
-  }, [groupedResults, pagesSectionExpanded, totalGroupedCount]);
+  }, [groupedResults, expandedSections]);
 
   useEffect(() => {
-    setPagesSectionExpanded(false);
+    setExpandedSections({});
   }, [query]);
 
-  // Reset selection when the search query or result set changes (not when only expanding Pages)
+  // Reset selection when the search query or result set changes (not when expanding a section)
   useEffect(() => {
     setSelectedIndex(0);
   }, [query, groupedResults]);
@@ -403,8 +375,9 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
   const activateItem = useCallback(
     (item: CommandPaletteItem) => {
-      if (item.action === "expand-pages") {
-        setPagesSectionExpanded(true);
+      const expand = item.expandSection;
+      if (expand !== undefined) {
+        setExpandedSections((prev) => ({ ...prev, [expand]: true }));
         return;
       }
       navigateTo(item.url);
@@ -491,8 +464,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                 const sectionItems = getSectionDisplayItems(
                   type,
                   groupedResults[type],
-                  pagesSectionExpanded,
-                  totalGroupedCount,
+                  !!expandedSections[type],
                 );
                 if (sectionItems.length === 0) return null;
                 const SectionIcon = SECTION_ICONS[type];
@@ -504,7 +476,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                     {sectionItems.map((item) => {
                       const idx = flatIndex++;
                       const Icon =
-                        item.action === "expand-pages"
+                        item.expandSection !== undefined
                           ? BsChevronDown
                           : item.icon || SectionIcon;
                       return (
@@ -512,7 +484,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                           key={item.id}
                           data-index={idx}
                           className={`${styles.item} ${
-                            item.action === "expand-pages"
+                            item.expandSection !== undefined
                               ? styles.showMore
                               : ""
                           } ${idx === selectedIndex ? styles.selected : ""}`}
