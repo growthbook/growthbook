@@ -1,6 +1,7 @@
 import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   DestinationURL,
@@ -74,7 +75,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
-    const variationIds = experiment.variations.map((v) => v.id);
+    const variationIds = getLatestPhaseVariations(experiment).map((v) => v.id);
     const reqVariationIds = doc.destinationURLs.map((r) => r.variation);
 
     const areValidVariations = variationIds.every((v) =>
@@ -87,6 +88,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
   protected async customValidation(
     doc: URLRedirectInterface,
+    previousDoc?: URLRedirectInterface,
     writeOptions?: WriteOptions,
   ) {
     if (!doc.urlPattern) {

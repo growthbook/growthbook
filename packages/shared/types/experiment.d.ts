@@ -36,6 +36,7 @@ export {
 
 export {
   ExperimentTemplateInterface,
+  ApiExperimentTemplateInterface,
   CreateTemplateProps,
   UpdateTemplateProps,
 } from "shared/validators";

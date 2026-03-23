@@ -182,9 +182,8 @@ export abstract class BaseModel<
     this.createValidator = this.getCreateValidator();
     this.updateValidator = this.getUpdateValidator();
     this._auditLogger = this.config.auditLog
-      ? createModelAuditLogger(
-          this.config.auditLog,
-          this.getEntityId.bind(this),
+      ? createModelAuditLogger(this.config.auditLog, (doc: object) =>
+          this.getEntityId(doc as z.infer<T>),
         )
       : null;
     this.updateIndexes();
@@ -260,6 +259,7 @@ export abstract class BaseModel<
   }
   protected async customValidation(
     doc: z.infer<T>,
+    previousDoc?: z.infer<T>,
     writeOptions?: WriteOptions,
   ) {
     // Do nothing by default
@@ -565,6 +565,7 @@ export abstract class BaseModel<
       limit,
       skip,
       bypassReadPermissionChecks,
+      bypassSanitization,
       projection,
       dangerousCrossOrganization,
     }: {
@@ -574,6 +575,7 @@ export abstract class BaseModel<
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;
+      bypassSanitization?: boolean;
       // Note: projection does not work when using config.yml
       projection?: Partial<Record<keyof z.infer<T>, 0 | 1>>;
       dangerousCrossOrganization?: boolean;
@@ -624,12 +626,18 @@ export abstract class BaseModel<
       ? migrated
       : await this.filterByReadPermissions(migrated);
 
-    if (!skip && !limit) return filtered;
+    const paged =
+      !skip && !limit
+        ? filtered
+        : filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
 
-    return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
+    return bypassSanitization ? paged : paged.map((doc) => this.sanitize(doc));
   }
 
-  protected async _findOne(query: ScopedFilterQuery<T, PKey>) {
+  protected async _findOne(
+    query: ScopedFilterQuery<T, PKey>,
+    { bypassSanitization }: { bypassSanitization?: boolean } = {},
+  ) {
     const fullQuery = this.applyBaseQuery(query);
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
@@ -643,7 +651,12 @@ export abstract class BaseModel<
       return null;
     }
 
-    return migrated;
+    return bypassSanitization ? migrated : this.sanitize(migrated);
+  }
+
+  // Remove or transform any sensitive fields before returning to users
+  protected sanitize(doc: z.infer<T>): z.infer<T> {
+    return doc;
   }
 
   protected async _createOne(
@@ -702,7 +715,7 @@ export abstract class BaseModel<
     }
 
     await this.validateProjectFields(doc);
-    await this.customValidation(doc, writeOptions);
+    await this.customValidation(doc, undefined, writeOptions);
 
     if (this.useConfigFile()) {
       throw new Error(
@@ -799,7 +812,7 @@ export abstract class BaseModel<
 
     await this.beforeUpdate(doc, allUpdates, newDoc, options?.writeOptions);
 
-    await this.customValidation(newDoc, options?.writeOptions);
+    await this.customValidation(newDoc, doc, options?.writeOptions);
 
     await this._dangerousGetCollection().updateOne(
       {
@@ -963,8 +976,8 @@ export abstract class BaseModel<
 
     docs.forEach((doc) => {
       const foreignKeys = this.getForeignKeys(doc);
-      Object.entries(foreignKeys).forEach(
-        ([type, id]: [keyof ForeignKeys, string]) => {
+      (Object.entries(foreignKeys) as [keyof ForeignKeys, string][]).forEach(
+        ([type, id]) => {
           mergedKeys[type] = mergedKeys[type] || [];
           mergedKeys[type]?.push(id);
         },
@@ -980,11 +993,14 @@ export abstract class BaseModel<
     const promises = [];
 
     const pKey = this.getPKey();
-    const pKeyIndex = pKey.reduce(
-      (acc, k) => ({ ...acc, [k]: 1 }),
-      {} as Record<string, 1>,
+    const pKeyIndex = pKey.reduce<Record<string, 1>>(
+      (acc, k) => ({ ...acc, [String(k)]: 1 as const }),
+      {},
     );
-    const orgPKeyIndex = { ...pKeyIndex, organization: 1 };
+    const orgPKeyIndex: Record<string, 1> = {
+      ...pKeyIndex,
+      organization: 1,
+    };
 
     // Always create a unique index for organization and primary key
     promises.push(

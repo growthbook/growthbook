@@ -402,6 +402,20 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/custom-fields": {
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
+    /** Create a single customField */
+    post: operations["createCustomField"];
+  };
+  "/custom-fields/{id}": {
+    /** Get a single customField */
+    get: operations["getCustomField"];
+    /** Update a single customField */
+    put: operations["updateCustomField"];
+    /** Delete a single customField */
+    delete: operations["deleteCustomField"];
+  };
   "/dashboards/{id}": {
     /** Get a single dashboard */
     get: operations["getDashboard"];
@@ -420,19 +434,9 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
-  "/custom-fields": {
-    /** Get all custom fields */
-    get: operations["listCustomFields"];
-    /** Create a single customField */
-    post: operations["createCustomField"];
-  };
-  "/custom-fields/{id}": {
-    /** Get a single customField */
-    get: operations["getCustomField"];
-    /** Update a single customField */
-    put: operations["updateCustomField"];
-    /** Delete a single customField */
-    delete: operations["deleteCustomField"];
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -476,6 +480,27 @@ export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    CustomField: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      placeholder?: string;
+      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      /** @enum {string} */
+      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+      values?: string;
+      required: boolean;
+      index?: boolean;
+      creator?: string;
+      projects?: (string)[];
+      /** @enum {string} */
+      section: "feature" | "experiment";
+      active?: boolean;
+    };
     Dashboard: {
       id: string;
       uid: string;
@@ -869,26 +894,58 @@ export interface components {
           };
         }))[];
     };
-    CustomField: {
+    ExperimentTemplate: {
       id: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
-      name: string;
+      project?: string;
+      owner: string;
+      templateMetadata: {
+        name: string;
+        description?: string;
+      };
+      /** @enum {string} */
+      type: "standard";
+      hypothesis?: string;
       description?: string;
-      placeholder?: string;
-      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      tags?: (string)[];
+      customFields?: {
+        [key: string]: string | undefined;
+      };
+      datasource: string;
+      exposureQueryId: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: boolean;
+      goalMetrics?: (string)[];
+      secondaryMetrics?: (string)[];
+      guardrailMetrics?: (string)[];
+      activationMetric?: string;
       /** @enum {string} */
-      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-      values?: string;
-      required: boolean;
-      index?: boolean;
-      creator?: string;
-      projects?: (string)[];
-      /** @enum {string} */
-      section: "feature" | "experiment";
-      active?: boolean;
+      statsEngine: "bayesian" | "frequentist";
+      segment?: string;
+      skipPartialData?: boolean;
+      targeting: {
+        coverage: number;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+        condition: string;
+      };
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     MetricGroup: {
       id: string;
@@ -3522,6 +3579,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -3919,6 +3977,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -9932,6 +9991,7 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                templateId?: string;
               })[];
           }) & {
             limit: number;
@@ -9950,10 +10010,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          /** @description ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided. */
           datasourceId?: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource */
-          assignmentQueryId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided. */
+          assignmentQueryId?: string;
           trackingKey: string;
           /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
           bypassDuplicateKeyCheck?: boolean;
@@ -9963,6 +10023,8 @@ export interface operations {
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields. */
+          templateId?: string;
           /** @description Hypothesis of the experiment */
           hypothesis?: string;
           /** @description Description of the experiment */
@@ -10262,6 +10324,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -10469,6 +10532,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -10531,7 +10595,18 @@ export interface operations {
           disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
+          /**
+           * @description The result status of the experiment. Maps to resultSummary.status in the GET response. 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response. */
+          analysis?: string;
+          /** @description The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response. */
           releasedVariationId?: string;
+          /** @description If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response. */
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
@@ -10803,6 +10878,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -12056,6 +12132,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -15120,6 +15197,216 @@ export interface operations {
       };
     };
   };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            })[];
+        };
+      };
+    };
+  };
+  createCustomField: {
+    /** Create a single customField */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The unique key for the custom field */
+          id: string;
+          /** @description The display name of the custom field */
+          name: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getCustomField: {
+    /** Get a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateCustomField: {
+    /** Update a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the custom field */
+          name?: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required?: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section?: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteCustomField: {
+    /** Delete a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   getDashboard: {
     /** Get a single dashboard */
     parameters: {
@@ -17819,8 +18106,8 @@ export interface operations {
       };
     };
   };
-  listCustomFields: {
-    /** Get all custom fields */
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
     parameters: {
       query: {
         projectId?: string;
@@ -17829,201 +18116,60 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            })[];
-        };
-      };
-    };
-  };
-  createCustomField: {
-    /** Create a single customField */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The unique key for the custom field */
-          id: string;
-          /** @description The display name of the custom field */
-          name: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
           "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  getCustomField: {
-    /** Get a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  updateCustomField: {
-    /** Update a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The display name of the custom field */
-          name?: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required?: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section?: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  deleteCustomField: {
-    /** Delete a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
           };
         };
       };

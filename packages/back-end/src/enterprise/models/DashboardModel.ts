@@ -9,11 +9,8 @@ import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
-  apiDashboardInterface,
   ApiDashboardInterface,
   ApiGetDashboardsForExperimentReturn,
-  apiGetDashboardsForExperimentReturn,
-  apiGetDashboardsForExperimentValidator,
   apiUpdateDashboardBody,
   dashboardInterface,
   DashboardInterface,
@@ -36,6 +33,10 @@ import {
   ToInterface,
 } from "back-end/src/util/mongo.util";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  dashboardApiSpec,
+  getDashboardsForExperimentEndpoint,
+} from "back-end/src/api/specs/dashboard.spec";
 import { determineNextDate } from "back-end/src/services/experiments";
 import { shouldRecalculateNextUpdate } from "back-end/src/enterprise/services/dashboards";
 
@@ -70,23 +71,10 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "dashboards",
-    modelSingular: "dashboard",
-    modelPlural: "dashboards",
-    apiInterface: apiDashboardInterface,
-    schemas: {
-      createBody: apiCreateDashboardBody,
-      updateBody: apiUpdateDashboardBody,
-    },
-    pathBase: "/dashboards",
-    includeDefaultCrud: true,
+    openApiSpec: dashboardApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "/by-experiment/:experimentId",
-        verb: "get",
-        operationId: "getDashboardsForExperiment",
-        validator: apiGetDashboardsForExperimentValidator,
-        zodReturnObject: apiGetDashboardsForExperimentReturn,
-        summary: "Get all dashboards for an experiment",
+        ...getDashboardsForExperimentEndpoint,
         reqHandler: async (
           req,
         ): Promise<ApiGetDashboardsForExperimentReturn> => ({

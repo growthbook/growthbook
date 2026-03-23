@@ -304,11 +304,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureArchiveModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureDeleteModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -387,11 +382,6 @@
   "packages/front-end/components/Features/RuleModal/index.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SDKConnections/SDKConnectionsList.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/SafeRollout/SafeRolloutStatusModal.tsx": {

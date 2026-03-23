@@ -89,7 +89,7 @@ import {
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
+import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import {
   addIdsToRules,
   arrayMove,
@@ -239,7 +239,7 @@ export async function getPayloadParamsFromApiKey(
       project,
       encryptSDK,
       encryptionKey,
-    } = await lookupOrganizationByApiKey(key);
+    } = await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       throw new UnrecoverableApiError("Invalid API Key");
     }
@@ -323,7 +323,8 @@ export async function getFeatureDefinitionsWithCache({
       capabilities,
       environment: params.environment,
       projects: filteredProjects,
-      encryptionKey: params.encryptPayload ? params.encryptionKey : undefined,
+      encryptPayload: params.encryptPayload,
+      encryptionKey: params.encryptionKey,
       includeVisualExperiments: params.includeVisualExperiments,
       includeDraftExperiments: params.includeDraftExperiments,
       includeExperimentNames: params.includeExperimentNames,
@@ -2392,8 +2393,8 @@ export async function putFeature(
   ];
 
   if (
-    Object.keys(updates).filter(
-      (key: keyof FeatureInterface) => !allowedKeys.includes(key),
+    (Object.keys(updates) as (keyof FeatureInterface)[]).filter(
+      (key) => !allowedKeys.includes(key),
     ).length > 0
   ) {
     throw new Error("Invalid update fields for feature");

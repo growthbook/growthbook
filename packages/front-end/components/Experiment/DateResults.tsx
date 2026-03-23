@@ -343,7 +343,7 @@ const DateResults: FC<{
         <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
-          variationNames={variations.map((v) => v.name)}
+          variations={variations}
           label="Units"
           datapoints={users}
           formatter={formatNumber}
@@ -391,7 +391,7 @@ const DateResults: FC<{
                     )
               }
               formatterOptions={metricFormatterOptions}
-              variationNames={variations.map((v) => v.name)}
+              variations={variations}
               statsEngine={statsEngine}
               hasStats={!cumulative}
             />
