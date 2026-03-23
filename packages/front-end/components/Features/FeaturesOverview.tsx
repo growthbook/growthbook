@@ -947,6 +947,7 @@ export default function FeaturesOverview({
                 marginBottom: 12,
                 display: "flex",
                 justifyContent: "center",
+                pointerEvents: "none",
               }}
             >
               <div
@@ -958,6 +959,7 @@ export default function FeaturesOverview({
                   maxWidth: bannerPinned ? "580px" : "2000px",
                   boxShadow: bannerPinned ? "var(--shadow-4)" : undefined,
                   transition: "all 200ms ease",
+                  pointerEvents: "auto",
                 }}
               >
                 <Flex
