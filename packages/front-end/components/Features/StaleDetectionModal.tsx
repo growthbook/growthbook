@@ -5,11 +5,13 @@ export default function StaleDetectionModal({
   close,
   feature,
   mutate,
+  setVersion,
   onEnable,
 }: {
   close: () => void;
   feature: { id: string; neverStale?: boolean };
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   /** Called after enabling detection (neverStale: true → false) */
   onEnable?: () => void;
 }) {
@@ -25,10 +27,12 @@ export default function StaleDetectionModal({
       } stale feature flag detection for ${feature.id}`}
       cta={enabling ? "Enable" : "Disable"}
       submit={async () => {
-        await apiCall(`/feature/${feature.id}/toggleStaleDetection`, {
-          method: "POST",
-        });
-        mutate();
+        const res = await apiCall<{ version?: number }>(
+          `/feature/${feature.id}/toggleStaleDetection`,
+          { method: "POST" },
+        );
+        await mutate();
+        if (res?.version) setVersion(res.version);
         if (enabling) onEnable?.();
       }}
       useRadixButton={true}

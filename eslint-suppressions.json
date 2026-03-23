@@ -329,11 +329,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/ForceSummary.tsx": {
     "no-restricted-imports": {
       "count": 1

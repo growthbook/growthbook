@@ -1,13 +1,14 @@
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { Flex, useThemeContext, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import Badge from "@/ui/Badge";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -35,7 +36,6 @@ export default function CompareEnvironmentsModal({
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
-  const { appearance } = useThemeContext();
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -70,15 +70,16 @@ export default function CompareEnvironmentsModal({
   return (
     <Modal
       trackingEventModalType="compare-environments"
-      header="Copy Rules Across Environments"
+      header="Sync rules across environments"
       open={true}
       close={cancel}
       submit={submit}
       cta="Overwrite Target Rules"
       ctaEnabled={!!sourceEnv && !!targetEnv}
       size="lg"
+      useRadixButton={true}
     >
-      <div>
+      <div className="mb-3">
         Rules from source environment will <strong>overwrite</strong> any
         existing rules on target environment for this Feature Rules Draft
         revision.
@@ -127,12 +128,7 @@ export default function CompareEnvironmentsModal({
           oldValue={JSON.stringify(rulesByEnv[targetEnv], null, 2)}
           newValue={JSON.stringify(rulesByEnv[sourceEnv], null, 2)}
           compareMethod={DiffMethod.LINES}
-          useDarkTheme={appearance === "dark"}
-          styles={{
-            contentText: {
-              wordBreak: "break-all",
-            },
-          }}
+          styles={COMPACT_DIFF_STYLES}
         />
       )}
     </Modal>

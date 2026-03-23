@@ -1,12 +1,15 @@
 import { FeatureInterface } from "shared/types/feature";
 import { getValidation } from "shared/util";
 import { useState } from "react";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -15,9 +18,16 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 export interface Props {
   feature: FeatureInterface;
   mutate: () => void;
+  setVersion?: (version: number) => void;
+  revisionList?: MinimalFeatureRevisionInterface[];
 }
 
-export default function JSONValidation({ feature, mutate }: Props) {
+export default function JSONValidation({
+  feature,
+  mutate,
+  setVersion,
+  revisionList,
+}: Props) {
   const { hasCommercialFeature } = useUser();
 
   const router = useRouter();
@@ -45,6 +55,8 @@ export default function JSONValidation({ feature, mutate }: Props) {
           close={() => setEdit(false)}
           feature={feature}
           mutate={mutate}
+          setVersion={setVersion}
+          revisionList={revisionList}
           defaultEnable={!validationEnabled}
           onEnable={() => {
             if (!validationEnabled) {
@@ -60,12 +72,17 @@ export default function JSONValidation({ feature, mutate }: Props) {
           commercialFeature="json-validation"
         />
       )}
-      <Flex align="center">
-        <h3 className="mb-0">
-          {hasJsonValidator && validationEnabled
-            ? "Validation Enabled"
-            : "Validation Not Enabled"}
-        </h3>
+      <Flex align="center" gap="1" mb="1">
+        <Heading as="h3" size="medium" mb="0">
+          JSON Validation
+        </Heading>
+        {hasJsonValidator && (
+          <Badge
+            label={validationEnabled ? "Enabled" : "Not enabled"}
+            color={validationEnabled ? "green" : "gray"}
+            variant="soft"
+          />
+        )}
         <div className="ml-auto">
           {!hasJsonValidator ? (
             <Button variant="ghost" onClick={() => setUpgradeModal(true)}>
@@ -87,6 +104,12 @@ export default function JSONValidation({ feature, mutate }: Props) {
           </Button>
         </div>
       </Flex>
+      {!validationEnabled && (
+        <em className="text-muted">
+          Prevent typos and mistakes by specifying validation rules using JSON
+          Schema or our Simple Validation Builder
+        </em>
+      )}
       {validationEnabled && (
         <Flex pt="2" align="center">
           <JSONSchemaDescription jsonSchema={jsonSchema} />
