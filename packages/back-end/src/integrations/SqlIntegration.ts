@@ -5249,7 +5249,7 @@ export default abstract class SqlIntegration
               groupBy: "event",
             },
           ],
-          getEventFilterWhereClause: () => "",
+          getEventFilterWhereClause: (_eventName: string) => "",
         };
     }
   }
@@ -6689,12 +6689,12 @@ ORDER BY column_name, count DESC
         partialAggregationFunction: (_column: string) => {
           throw new Error("Not implemented");
         },
-        reAggregationFunction: (_column: string, _quantileColumn: string) => {
+        reAggregationFunction: (_column: string, _quantileColumn?: string) => {
           throw new Error("Not implemented");
         },
         finalDataType: "integer",
-        fullAggregationFunction: (column: string, quantileColumn: string) =>
-          `SUM(${this.ifElse(`${column} <= ${quantileColumn}`, "1", "0")})`,
+        fullAggregationFunction: (column: string, quantileColumn?: string) =>
+          `SUM(${this.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
       };
     }
 

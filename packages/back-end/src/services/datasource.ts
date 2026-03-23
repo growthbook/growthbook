@@ -60,7 +60,7 @@ export function mergeParams(
   newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
-  Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
+  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
     // If a secret value is left empty, keep the original value
     if (secretKeys.includes(k) && !newParams[k]) return;
     integration.params[k] = newParams[k];

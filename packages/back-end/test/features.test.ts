@@ -1047,23 +1047,6 @@ describe("Changes are ignored when archived or disabled", () => {
   ).toEqual([]);
 });
 
-// todo: temporarily suppressing scrubbed fields
-function scrubPayloadFields(
-  def: Record<string, unknown> | null | undefined,
-): Record<string, unknown> | null | undefined {
-  if (!def) return def;
-  const result = { ...def };
-  delete result["project"];
-  if (Array.isArray(result.rules)) {
-    result.rules = (result.rules as Record<string, unknown>[]).map((r) => {
-      const rule = { ...r };
-      delete rule["id"];
-      return rule;
-    });
-  }
-  return result;
-}
-
 describe("SDK Payloads", () => {
   it("Rounds variation weights", () => {
     expect(roundVariationWeight(0.48675849)).toEqual(0.4868);
@@ -1270,16 +1253,14 @@ describe("SDK Payloads", () => {
     // Included with released variation id
     exp.releasedVariationId = "v1";
     expect(
-      scrubPayloadFields(
-        getFeatureDefinition({
-          feature,
-          environment: "production",
-          groupMap: groupMap,
-          experimentMap: experimentMap,
-          safeRolloutMap: safeRolloutMap,
-          capabilities: ["looseUnmarshalling"],
-        }) as Record<string, unknown>,
-      ),
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
@@ -1392,16 +1373,14 @@ describe("SDK Payloads", () => {
 
     // Includes the rolled-back safe rollout as a force rule with the control value
     expect(
-      scrubPayloadFields(
-        getFeatureDefinition({
-          feature: feature2,
-          environment: "production",
-          groupMap: groupMap,
-          experimentMap: experimentMap,
-          safeRolloutMap: safeRolloutMap,
-          capabilities: ["looseUnmarshalling"],
-        }) as Record<string, unknown>,
-      ),
+      getFeatureDefinition({
+        feature: feature2,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
@@ -1430,16 +1409,14 @@ describe("SDK Payloads", () => {
 
     // Includes the released safe rollout as a force rule with the variation value
     expect(
-      scrubPayloadFields(
-        getFeatureDefinition({
-          feature: feature3,
-          environment: "production",
-          groupMap: groupMap,
-          experimentMap: experimentMap,
-          safeRolloutMap: safeRolloutMap,
-          capabilities: ["looseUnmarshalling"],
-        }) as Record<string, unknown>,
-      ),
+      getFeatureDefinition({
+        feature: feature3,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
@@ -1556,16 +1533,14 @@ describe("SDK Payloads", () => {
     ];
 
     expect(
-      scrubPayloadFields(
-        getFeatureDefinition({
-          feature,
-          environment: "dev",
-          groupMap: groupMap,
-          experimentMap: experimentMap,
-          safeRolloutMap: safeRolloutMap,
-          capabilities: ["looseUnmarshalling"],
-        }) as Record<string, unknown>,
-      ),
+      getFeatureDefinition({
+        feature,
+        environment: "dev",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
@@ -1631,7 +1606,6 @@ describe("SDK Payloads", () => {
       const { features, savedGroups } = await getFeatureDefinitionsResponse({
         features: { featureName: cloneDeep(featureDef) },
         experiments: [],
-        holdouts: {},
         dateUpdated: new Date(),
         projects: [],
         capabilities: ["looseUnmarshalling"],
@@ -1662,7 +1636,6 @@ describe("SDK Payloads", () => {
       const { features, savedGroups } = await getFeatureDefinitionsResponse({
         features: { featureName: cloneDeep(featureDef) },
         experiments: [],
-        holdouts: {},
         dateUpdated: new Date(),
         projects: [],
         capabilities: ["savedGroupReferences"],

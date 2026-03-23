@@ -3,17 +3,6 @@ import { evaluatePrerequisiteState } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { generateFeaturesPayload } from "back-end/src/services/features";
 
-// todo: temporarily suppressing scrubbed fields
-function scrubRuleIds(
-  rules: Record<string, unknown>[],
-): Record<string, unknown>[] {
-  return rules.map((r) => {
-    const rule = { ...r };
-    delete rule["id"];
-    return rule;
-  });
-}
-
 describe("Prerequisite reduction in SDK Payload", () => {
   const childFeature: FeatureInterface = {
     id: "child1",
@@ -377,9 +366,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       experimentMap: new Map(),
       capabilities: [],
     });
-    expect(
-      scrubRuleIds(payload.child1.rules as Record<string, unknown>[]),
-    ).toStrictEqual([
+    expect(payload.child1.rules).toStrictEqual([
       {
         condition: { country: "US-1" },
         force: true,
@@ -567,9 +554,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
       capabilities: ["prerequisites"],
     });
 
-    expect(
-      scrubRuleIds(payload.child1.rules as Record<string, unknown>[]),
-    ).toStrictEqual([
+    expect(payload.child1.rules).toStrictEqual([
       {
         condition: {
           country: "US-1",

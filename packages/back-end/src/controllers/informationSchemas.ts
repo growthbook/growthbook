@@ -118,14 +118,12 @@ export async function getTableData(
     return;
   }
 
-  const columns: Column[] = tableData.map(
-    (row: { column_name: string; data_type: string }) => {
-      return {
-        columnName: row.column_name,
-        dataType: row.data_type,
-      };
-    },
-  );
+  const columns: Column[] = tableData.map((row) => {
+    return {
+      columnName: row.column_name,
+      dataType: row.data_type,
+    };
+  });
 
   // Create the table record in Mongo.
   const newTable = await createInformationSchemaTable({
