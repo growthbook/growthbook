@@ -801,8 +801,14 @@ export async function postFeatureRebase(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (revision.status !== "draft") {
-    throw new Error("Can only fix conflicts for Draft revisions");
+  const rebasableStatuses = [
+    "draft",
+    "pending-review",
+    "changes-requested",
+    "approved",
+  ];
+  if (!rebasableStatuses.includes(revision.status)) {
+    throw new Error("Can only fix conflicts for active draft revisions");
   }
 
   const live = await getRevision({
