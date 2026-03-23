@@ -78,6 +78,17 @@ export default function SDKConnectionsList() {
 
   const [initialModalSelectedLanguage, setInitialModalSelectedLanguage] =
     useState<SDKLanguage | null>(null);
+
+  const openModal = (language: SDKLanguage | null = null) => {
+    setInitialModalSelectedLanguage(language);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setInitialModalSelectedLanguage(null);
+  };
+
   const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
   const sdkLanguagesToShow = getLanguagesByFilter(
     showAllSdkLanguages ? "all" : "popular",
@@ -100,7 +111,7 @@ export default function SDKConnectionsList() {
         <strong>SDK Connections</strong> make it easy to integrate GrowthBook
         into your front-end, back-end, or mobile application.
       </p>
-      <Button onClick={() => setModalOpen(true)}>
+      <Button onClick={() => openModal()}>
         <GBAddCircle /> Create New SDK Connection
       </Button>
     </Box>
@@ -142,10 +153,7 @@ export default function SDKConnectionsList() {
             key={language}
             language={language}
             selected={false}
-            onClick={() => {
-              setInitialModalSelectedLanguage(language);
-              setModalOpen(true);
-            }}
+            onClick={() => openModal(language)}
           />
         ))}
       </Flex>
@@ -175,7 +183,7 @@ export default function SDKConnectionsList() {
               : undefined,
             includeRuleIds: true,
           }}
-          close={() => setModalOpen(false)}
+          close={closeModal}
           mutate={() => {
             mutate();
             mutateWebhooks();
@@ -190,7 +198,7 @@ export default function SDKConnectionsList() {
         </Heading>
         {canCreateSDKConnections &&
         (useNewEmptyStateLayout || connections.length > 0) ? (
-          <Button onClick={() => setModalOpen(true)}>Add SDK Connection</Button>
+          <Button onClick={() => openModal()}>Add SDK Connection</Button>
         ) : null}
       </Flex>
 
