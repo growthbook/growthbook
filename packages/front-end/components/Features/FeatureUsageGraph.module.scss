@@ -1,6 +1,7 @@
 .sparkTrigger {
   cursor: pointer;
-  padding: 2px 2px 2px 6px;
+  padding: 4px 4px 4px 6px;
+  margin-bottom: -10px;
   border-radius: var(--radius-3);
   border: none;
   background: transparent;
@@ -8,7 +9,7 @@
   transition: background-color 80ms ease;
 
   &:hover {
-    background-color: var(--violet-a2);
+    background-color: var(--violet-a3);
 
     .sparkCaret {
       opacity: 0.7;
