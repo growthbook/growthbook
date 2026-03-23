@@ -8032,8 +8032,6 @@ ORDER BY column_name, count DESC
             ${allDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
             , u.variation
             ${metricData
-              // TODO(incremental-refresh): here is where we need to nullif 0 for
-              // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map((data) => {
                 if (data.quantileMetric === "event") {
                   // KLL sketches cannot answer rank queries, so approximate the
@@ -8041,13 +8039,27 @@ ORDER BY column_name, count DESC
                   // main_sum exact in expectation and captures the per-user
                   // variance in event volume for the cluster adjustment, but does
                   // not capture per-user variance in the fraction below threshold.
+                  // Note: ignoreZeros for event quantiles is handled upstream in
+                  // addCaseWhenTimeFilter (zeros are filtered out of __newMetricRows
+                  // before sketching, so they never enter the KLL sketch or n_events).
                   const nu = data.metricQuantileSettings.quantile;
                   const nEventsCol = `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
                   return `, (${nu} * ${nEventsCol}) AS ${data.alias}_value
                   , ${nEventsCol} AS ${data.alias}_n_events`;
                 }
+                // Unit quantiles with ignoreZeros: reAggregationFunction already
+                // returns NULLIF(..., 0) so _value is NULL for zero-sum users.
+                // Preserve that NULL here (don't COALESCE) so approxQuantile
+                // excludes them. For all other metrics COALESCE is correct — a
+                // NULL from the LEFT JOIN means zero events for that user.
+                const nullIfZero =
+                  data.quantileMetric === "unit" &&
+                  data.metricQuantileSettings.ignoreZeros;
+                const valueCol = nullIfZero
+                  ? `${this.encodeMetricIdForColumnName(data.metric.id)}_value`
+                  : `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
                 return `, ${data.aggregatedValueTransformation({
-                  column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
+                  column: valueCol,
                   initialTimestampColumn: "u.first_exposure_timestamp",
                   analysisEndDate: params.settings.endDate,
                 })} AS ${data.alias}_value ${
