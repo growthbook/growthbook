@@ -78,22 +78,40 @@ const SECTION_ICONS: Record<
 const MAX_PER_SECTION = 5;
 /** Max page matches from search before capping the pool. */
 const MAX_NAVIGATION_PER_SECTION = 8;
-/** Shown initially under Pages; use "Show more" to reveal up to {@link MAX_NAVIGATION_PER_SECTION}. */
+/** Shown initially under Pages when collapse is active; "Show more" reveals the rest. */
 const NAVIGATION_INITIAL_VISIBLE = 3;
 
 const EXPAND_PAGES_ROW_ID = "__palette_expand_pages__";
 
+function countGroupedResults(
+  groups: Record<CommandPaletteItemType, CommandPaletteItem[]>,
+): number {
+  let n = 0;
+  for (const type of SECTION_ORDER) {
+    n += groups[type].length;
+  }
+  return n;
+}
+
+/**
+ * Collapse Pages behind "Show more" only when the overall result set is large
+ * (total matches across all sections exceed {@link MAX_NAVIGATION_PER_SECTION}).
+ * Otherwise show every section in full (still subject to per-section pool caps).
+ */
 function getSectionDisplayItems(
   type: CommandPaletteItemType,
   items: CommandPaletteItem[],
   pagesSectionExpanded: boolean,
+  totalGroupedCount: number,
 ): CommandPaletteItem[] {
   if (items.length === 0) return [];
-  if (
+  const collapsePages =
     type === "navigation" &&
+    totalGroupedCount > MAX_NAVIGATION_PER_SECTION &&
     !pagesSectionExpanded &&
-    items.length > NAVIGATION_INITIAL_VISIBLE
-  ) {
+    items.length > NAVIGATION_INITIAL_VISIBLE;
+
+  if (collapsePages) {
     const hidden = items.length - NAVIGATION_INITIAL_VISIBLE;
     return [
       ...items.slice(0, NAVIGATION_INITIAL_VISIBLE),
@@ -330,6 +348,10 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     return groups;
   }, [query, miniSearch, items]);
 
+  const totalGroupedCount = groupedResults
+    ? countGroupedResults(groupedResults)
+    : 0;
+
   // Flat list for keyboard navigation (respects Pages collapse + "Show more" row)
   const flatResults = useMemo(() => {
     if (!groupedResults) return [];
@@ -340,11 +362,12 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
           type,
           groupedResults[type],
           pagesSectionExpanded,
+          totalGroupedCount,
         ),
       );
     }
     return flat;
-  }, [groupedResults, pagesSectionExpanded]);
+  }, [groupedResults, pagesSectionExpanded, totalGroupedCount]);
 
   useEffect(() => {
     setPagesSectionExpanded(false);
@@ -469,6 +492,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                   type,
                   groupedResults[type],
                   pagesSectionExpanded,
+                  totalGroupedCount,
                 );
                 if (sectionItems.length === 0) return null;
                 const SectionIcon = SECTION_ICONS[type];
