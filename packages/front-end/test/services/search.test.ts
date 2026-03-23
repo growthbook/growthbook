@@ -354,6 +354,44 @@ describe("useSearch", () => {
     });
   });
 
+  describe("duplicate item ids", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+    };
+
+    it("searches all rows even when ids are duplicated", () => {
+      const items: SearchItem[] = [
+        { id: "dup", name: "firstrowtoken" },
+        { id: "dup", name: "secondrowtoken" },
+        { id: "unique", name: "othertoken" },
+      ];
+
+      const { result } = renderHook(() =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-duplicate-ids",
+          defaultSortField: "name",
+        }),
+      );
+
+      act(() => {
+        result.current.setSearchValue("secondrowtoken");
+      });
+      expect(result.current.unpaginatedItems.map((item) => item.name)).toContain(
+        "secondrowtoken",
+      );
+
+      act(() => {
+        result.current.setSearchValue("second");
+      });
+      expect(result.current.unpaginatedItems.map((item) => item.name)).toContain(
+        "secondrowtoken",
+      );
+    });
+  });
+
   describe("filterSearchTerm", () => {
     it("should filter with default operator", () => {
       // Strings (exact default)

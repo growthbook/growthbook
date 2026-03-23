@@ -121,7 +121,7 @@ export function useSearch<T extends { id: string }>({
   // We only want to re-create the MiniSearch instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
-  const { miniSearch, itemMap } = useMemo(() => {
+  const { miniSearch, indexedItemMap } = useMemo(() => {
     const keys: Record<string, number> = Object.fromEntries(
       searchFields.map((f) => {
         const [key, weight] = (f as string).split("^");
@@ -131,11 +131,17 @@ export function useSearch<T extends { id: string }>({
     );
     const fields = Object.keys(keys);
 
-    // Create a Map of item ID to item to use for lookups
-    // after a search is performed
-    const itemMap = new Map<string, T>();
-    items.forEach((item) => {
-      itemMap.set(item.id, item);
+    // MiniSearch requires globally unique document IDs.
+    // Some lists can contain duplicate business IDs (e.g. experiment tracking keys),
+    // so build an internal ID that is unique per row for indexing.
+    const indexedItemMap = new Map<string, T>();
+    const indexedItems = items.map((item, index) => {
+      const indexedId = `${item.id}::${index}`;
+      indexedItemMap.set(indexedId, item);
+      return {
+        ...item,
+        id: indexedId,
+      };
     });
 
     const miniSearchInstance = new MiniSearch({
@@ -149,12 +155,12 @@ export function useSearch<T extends { id: string }>({
 
     // Add items to the index
     try {
-      miniSearchInstance.addAll(items);
+      miniSearchInstance.addAll(indexedItems);
     } catch (error) {
       console.error("Error adding items to search index:", error);
     }
 
-    return { miniSearch: miniSearchInstance, itemMap };
+    return { miniSearch: miniSearchInstance, indexedItemMap };
   }, [items, JSON.stringify(searchFields)]);
 
   const { filtered, syntaxFilters, searchTerm } = useMemo(() => {
@@ -166,7 +172,9 @@ export function useSearch<T extends { id: string }>({
     let filtered = items;
     if (searchTerm.length > 0) {
       const searchResults = miniSearch.search(searchTerm);
-      filtered = searchResults.map((result) => itemMap.get(result.id) as T);
+      filtered = searchResults
+        .map((result) => indexedItemMap.get(result.id))
+        .filter((item): item is T => !!item);
     }
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
