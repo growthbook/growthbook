@@ -6756,16 +6756,17 @@ ORDER BY column_name, count DESC
       metric.metricType === "quantile" &&
       metric.quantileSettings?.type === "event"
     ) {
+      // For incremental refresh, event quantile metrics store a KLL sketch of
+      // event values per user-date. Sketches are merged (per user, then per
+      // variation) at stats-query time and the quantile grid is extracted via
+      // kllExtractPoint. The per-user "count below threshold" (main_sum) is
+      // approximated as `nu * n_events` since KLL sketches do not expose rank
+      // queries — see getIncrementalRefreshStatisticsQuery.
       return {
-        intermediateDataType: "float", // TODO(incremental-refresh): use array-based method
-        // potentially use array based methods to store an array of events
-        // and then count share of array below method instead of the following hap
-        partialAggregationFunction: (_column: string) => {
-          throw new Error("Not implemented");
-        },
-        reAggregationFunction: (_column: string, _quantileColumn?: string) => {
-          throw new Error("Not implemented");
-        },
+        intermediateDataType: "kll",
+        partialAggregationFunction: (column: string) => this.kllInit(column),
+        reAggregationFunction: (column: string) =>
+          this.kllMergePartial(column),
         finalDataType: "integer",
         fullAggregationFunction: (column: string, quantileColumn?: string) =>
           `SUM(${this.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
@@ -7522,6 +7523,17 @@ ORDER BY column_name, count DESC
           this.getDataType(denominatorMetadata.intermediateDataType),
         );
       }
+
+      // Event quantile metrics store a KLL sketch in _value plus a raw event
+      // count per user-date. The count is needed to compute n_events and the
+      // clustered-variance denominator at stats time (sketches cannot answer
+      // rank queries).
+      if (quantileMetricType(metric) === "event") {
+        schema.set(
+          `${this.encodeMetricIdForColumnName(metric.id)}_n_events`,
+          this.getDataType("integer"),
+        );
+      }
     });
 
     schema.set("refresh_timestamp", this.getDataType("timestamp"));
@@ -7749,6 +7761,11 @@ ORDER BY column_name, count DESC
                     ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
                     : ""
                 }
+                ${
+                  m.quantileMetric === "event"
+                    ? `, COUNT(${m.alias}_value) AS ${this.encodeMetricIdForColumnName(m.id)}_n_events`
+                    : ""
+                }
               `;
               })
               .join("\n")}
@@ -7765,6 +7782,10 @@ ORDER BY column_name, count DESC
                 `, ${this.encodeMetricIdForColumnName(m.id)}_value AS ${this.encodeMetricIdForColumnName(m.id)}_value${
                   m.ratioMetric
                     ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    : ""
+                }${
+                  m.quantileMetric === "event"
+                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_n_events AS ${this.encodeMetricIdForColumnName(m.id)}_n_events`
                     : ""
                 }`,
             )
