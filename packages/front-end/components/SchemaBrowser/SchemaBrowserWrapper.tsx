@@ -47,7 +47,10 @@ export default function SchemaBrowserWrapper({
             </label>
             {informationSchema && !informationSchema.error && (
               <div className="d-flex align-items-center pl-5">
-                <Tooltip body="Filter tables by name" tipPosition="top">
+                <Tooltip
+                  body="Filter databases, schemas, and tables"
+                  tipPosition="top"
+                >
                   <button
                     className={`btn btn-link p-0 ${
                       showTableFilter ? "text-primary" : "text-secondary"
@@ -56,8 +59,8 @@ export default function SchemaBrowserWrapper({
                       e.preventDefault();
                       onToggleTableFilter();
                     }}
-                    aria-label="Toggle table filter"
-                    title="Filter tables"
+                    aria-label="Toggle filter"
+                    title="Add filter..."
                   >
                     <FaFilter />
                   </button>
@@ -116,7 +119,7 @@ export default function SchemaBrowserWrapper({
                 type="search"
                 value={tableFilter}
                 onChange={(e) => onTableFilterChange(e.target.value)}
-                placeholder="Filter tables..."
+                placeholder="Search..."
                 containerClassName="mb-0 flex-grow-1"
                 autoFocus
                 onKeyDown={(e) => {

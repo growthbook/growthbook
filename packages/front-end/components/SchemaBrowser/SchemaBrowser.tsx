@@ -77,7 +77,7 @@ export default function SchemaBrowser({
         const filteredSchemas = database.schemas
           .map((schema) => {
             const filteredTables = schema.tables.filter((table) =>
-              table.tableName.toLowerCase().includes(normalizedTableFilter),
+              table.path.toLowerCase().includes(normalizedTableFilter),
             );
 
             return {
@@ -258,6 +258,8 @@ export default function SchemaBrowser({
   ]);
 
   if (!data) return <LoadingSpinner />;
+
+  console.log("filteredDatabases", filteredDatabases);
 
   return (
     <div className="d-flex flex-column h-100">
