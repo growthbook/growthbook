@@ -1267,7 +1267,7 @@ export async function applyHoldoutSideEffects(
       (exp) => exp?.type === "multi-armed-bandit",
     );
     const hasSafeRollouts = Object.values(feature.environmentSettings).some(
-      (env) => env.rules.some((rule) => rule.type === "safe-rollout"),
+      (env) => env.rules.some((rule) => rule?.type === "safe-rollout"),
     );
     if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
       throw new Error(
@@ -1493,7 +1493,7 @@ function getLinkedExperiments(
     const rules = feature.environmentSettings?.[env]?.rules;
     if (!rules) return;
     rules.forEach((rule) => {
-      if (rule.type === "experiment-ref") {
+      if (rule?.type === "experiment-ref") {
         expIds.add(rule.experimentId);
       }
     });
