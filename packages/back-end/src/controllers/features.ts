@@ -1257,7 +1257,7 @@ export async function postFeatureRevert(
   const changedEnvs: string[] = [];
   environmentIds.forEach((env) => {
     if (
-      revision.rules[env] &&
+      revision.rules?.[env] &&
       !isEqual(
         revision.rules[env],
         feature.environmentSettings?.[env]?.rules || [],
@@ -1367,7 +1367,9 @@ export async function postFeatureRevert(
     rules: Object.fromEntries(
       environmentIds.map((env) => [
         env,
-        revision.rules[env] ?? feature.environmentSettings?.[env]?.rules ?? [],
+        revision.rules?.[env] ??
+          feature.environmentSettings?.[env]?.rules ??
+          [],
       ]),
     ),
   };
@@ -1471,7 +1473,9 @@ export async function postFeatureRevertDraft(
     rules: Object.fromEntries(
       environmentIds.map((env) => [
         env,
-        revision.rules[env] ?? feature.environmentSettings?.[env]?.rules ?? [],
+        revision.rules?.[env] ??
+          feature.environmentSettings?.[env]?.rules ??
+          [],
       ]),
     ),
   };
