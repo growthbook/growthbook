@@ -51,7 +51,9 @@ const COLLECTION = "featurecoderefs";
 const toInterface: ToInterface<FeatureCodeRefsInterface> = (doc) =>
   removeMongooseFields(doc);
 
-export function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
+export function toApiInterface(
+  doc: FeatureCodeRefsInterface | FeatureCodeRefsDocument,
+): ApiCodeRef {
   return {
     branch: doc.branch,
     dateUpdated: doc.dateUpdated?.toISOString(),

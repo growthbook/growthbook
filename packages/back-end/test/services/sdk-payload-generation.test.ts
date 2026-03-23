@@ -11,108 +11,16 @@ import { HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { OrganizationInterface } from "shared/types/organization";
-import {
-  FeatureDefinition,
-  FeatureDefinitionWithProject,
-} from "shared/types/sdk";
-import { SDKCapability, getSDKCapabilities } from "shared/sdk-versioning";
+import { FeatureDefinition } from "shared/types/sdk";
+import { getSDKCapabilities } from "shared/sdk-versioning";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  buildSDKPayloadForConnection,
   getFeatureDefinitionsResponse,
-  generateFeaturesPayload,
-  generateAutoExperimentsPayload,
-  type VisualExperiment,
-  type URLRedirectExperiment,
+  type SDKPayloadRawData,
+  type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
-
-// todo: SDKPayloadRawData and ConnectionPayloadOptions are feature-branch types not yet on main;
-// these local definitions mirror the feature branch — remove after bryce/single-pass-payload-generation merges
-type SDKPayloadRawData = {
-  features: FeatureInterface[];
-  experimentMap: Map<string, ExperimentInterface>;
-  groupMap: GroupMap;
-  safeRolloutMap: Map<string, SafeRolloutInterface>;
-  savedGroups: SavedGroupInterface[];
-  holdoutsMap: Map<
-    string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
-  >;
-  visualExperiments?: VisualExperiment[];
-  urlRedirectExperiments?: URLRedirectExperiment[];
-};
-type ConnectionPayloadOptions = {
-  capabilities: SDKCapability[];
-  environment: string;
-  projects: string[] | null;
-  includeRuleIds?: boolean;
-  includeExperimentNames?: boolean;
-  encryptPayload?: boolean;
-  encryptionKey?: string;
-  savedGroupReferencesEnabled?: boolean;
-  hashSecureAttributes?: boolean;
-  includeVisualExperiments?: boolean;
-  includeDraftExperiments?: boolean;
-  includeRedirectExperiments?: boolean;
-};
-
-// todo: shim for buildSDKPayloadForConnection — not yet on main; chains generateFeaturesPayload +
-// generateAutoExperimentsPayload + getFeatureDefinitionsResponse to produce equivalent output.
-// Remove after bryce/single-pass-payload-generation merges.
-async function buildSDKPayloadForConnectionShim({
-  context,
-  connection,
-  data,
-}: {
-  context: ApiReqContext;
-  connection: ConnectionPayloadOptions;
-  data: SDKPayloadRawData;
-}) {
-  if (connection.projects === null) {
-    return {
-      features: {} as Record<string, FeatureDefinition>,
-      experiments: [] as unknown[],
-      dateUpdated: new Date(),
-    };
-  }
-
-  const features = generateFeaturesPayload({
-    features: data.features,
-    environment: connection.environment,
-    groupMap: data.groupMap,
-    experimentMap: data.experimentMap,
-    safeRolloutMap: data.safeRolloutMap,
-    holdoutsMap: data.holdoutsMap,
-  }) as Record<string, FeatureDefinitionWithProject>;
-
-  const experiments = generateAutoExperimentsPayload({
-    visualExperiments: data.visualExperiments ?? [],
-    urlRedirectExperiments: data.urlRedirectExperiments ?? [],
-    groupMap: data.groupMap,
-    features: data.features,
-    environment: connection.environment,
-  });
-
-  return getFeatureDefinitionsResponse({
-    features,
-    experiments,
-    holdouts: {},
-    projects: connection.projects,
-    dateUpdated: new Date(),
-    encryptionKey: connection.encryptPayload
-      ? connection.encryptionKey
-      : undefined,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-    capabilities: connection.capabilities,
-    usedSavedGroups: data.savedGroups,
-    organization: context.org as OrganizationInterface,
-  });
-}
 
 function minimalContext(
   orgOverrides?: Partial<OrganizationInterface>,
@@ -445,8 +353,7 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
     async ({ connection }) => {
       const ctx = minimalContext();
       const data = basicMatrixData();
-      // todo: using shim for buildSDKPayloadForConnection — remove after bryce/single-pass-payload-generation merges
-      const out = await buildSDKPayloadForConnectionShim({
+      const out = await buildSDKPayloadForConnection({
         context: ctx,
         connection,
         data,
@@ -529,17 +436,7 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
           expect(expRefRule).not.toHaveProperty("name");
         }
 
-        // todo: on main, scrubFeatures strips rule id via pick() for non-looseUnmarshalling; the feature
-        // branch adds id to allowedFeatureRuleKeys when includeRuleIds: true for all capabilities.
-        // This gate still fires for every real SDK connection preset: all getSDKCapabilities() results
-        // include looseUnmarshalling. The only excluded case is the hand-crafted "legacy API key
-        // (bucketingV2 only)" preset (capabilities: ["bucketingV2"]), which wouldn't have
-        // includeRuleIds set in practice. Remove looseUnmarshalling check after
-        // bryce/single-pass-payload-generation merges.
-        if (
-          connection.includeRuleIds === true &&
-          connection.capabilities.includes("looseUnmarshalling")
-        ) {
+        if (connection.includeRuleIds === true) {
           expect(expRefRule.id).toBe("rule-matrix");
         }
         if (connection.includeExperimentNames === true && hasFullRuleShape) {
@@ -570,8 +467,7 @@ describe("SDK payload generation (exhaustive connection matrix)", () => {
 });
 
 describe("SDK payload generation (scenario-specific)", () => {
-  // todo: buildSDKPayloadForConnection not yet on main; unskip after bryce/single-pass-payload-generation merges
-  it.skip("holdout definitions merged when prerequisites capability", async () => {
+  it("holdout definitions merged when prerequisites capability", async () => {
     const ctx = minimalContext();
     const holdout: HoldoutInterface = {
       id: "holdout-1",
@@ -606,7 +502,10 @@ describe("SDK payload generation (scenario-specific)", () => {
       archived: false,
     } as ExperimentInterface;
     const holdoutsMap = new Map([
-      ["holdout-1", { holdout, experiment: holdoutExperiment }],
+      [
+        "holdout-1",
+        { holdout, holdoutExperiment /* renamed from `experiment` on main */ },
+      ],
     ]);
     const featureRefHoldout: FeatureInterface = {
       id: "f1",
@@ -660,8 +559,7 @@ describe("SDK payload generation (scenario-specific)", () => {
     expect(out.dateUpdated).toBeDefined();
   });
 
-  // todo: parentConditions stripping in getFeatureDefinition not yet on main; unskip after bryce/single-pass-payload-generation merges
-  it.skip("prerequisites capability includes parentConditions; without strips them", () => {
+  it("prerequisites capability includes parentConditions; without strips them", () => {
     const feature: FeatureInterface = {
       id: "child",
       dateCreated: new Date(),
@@ -720,13 +618,11 @@ describe("SDK payload generation (scenario-specific)", () => {
       includeRuleIds: false,
       includeExperimentNames: false,
     });
-    expect(
-      (withoutPrereqs.rules?.[0] as Record<string, unknown>).parentConditions,
-    ).toBeUndefined();
+    // Feature has top-level + rule-level gates; excluded entirely when connection lacks prerequisites.
+    expect(withoutPrereqs).toBeNull();
   });
 
-  // todo: includeRuleIds id-stripping in getFeatureDefinition not yet on main; unskip after bryce/single-pass-payload-generation merges
-  it.skip("includeRuleIds controls holdout rule id", () => {
+  it("includeRuleIds controls holdout rule id", () => {
     const holdout: HoldoutInterface = {
       id: "holdout-1",
       organization: "org-1",
@@ -760,7 +656,10 @@ describe("SDK payload generation (scenario-specific)", () => {
       archived: false,
     } as ExperimentInterface;
     const holdoutsMap = new Map([
-      ["holdout-1", { holdout, experiment: holdoutExperiment }],
+      [
+        "holdout-1",
+        { holdout, holdoutExperiment /* renamed from `experiment` on main */ },
+      ],
     ]);
     const featureWithHoldout: FeatureInterface = {
       id: "f1",
@@ -808,8 +707,7 @@ describe("SDK payload generation (scenario-specific)", () => {
     ).toBeUndefined();
   });
 
-  // todo: includeRuleIds id-stripping in getFeatureDefinition not yet on main; unskip after bryce/single-pass-payload-generation merges
-  it.skip("includeRuleIds controls inline experiment rule id", () => {
+  it("includeRuleIds controls inline experiment rule id", () => {
     const feature: FeatureInterface = {
       id: "f1",
       dateCreated: new Date(),
@@ -873,7 +771,6 @@ describe("SDK payload generation (scenario-specific)", () => {
     const out = await getFeatureDefinitionsResponse({
       features: { f1: { defaultValue: "x", rules: [] } },
       experiments: [],
-      holdouts: {},
       dateUpdated: new Date(),
       encryptPayload: true,
       encryptionKey: ENCRYPTION_KEY,
@@ -885,18 +782,15 @@ describe("SDK payload generation (scenario-specific)", () => {
     expect(out.features).toEqual({});
   });
 
-  // todo: encryptPayload boolean param not on main (encryption is key-presence-driven); unskip after bryce/single-pass-payload-generation merges
   it("encryptPayload false returns plain features", async () => {
     const ctx = minimalContext();
-    // todo: encryptPayload param doesn't exist on main; on main, omitting encryptionKey is equivalent
-    // to encryptPayload: false — remove comment after bryce/single-pass-payload-generation merges
     const out = await getFeatureDefinitionsResponse({
       features: { f1: { defaultValue: "x", rules: [] } },
       experiments: [],
-      holdouts: {},
       dateUpdated: new Date(),
+      encryptPayload: false,
+      encryptionKey: ENCRYPTION_KEY,
       capabilities: [],
-      projects: [],
       usedSavedGroups: [],
       organization: ctx.org as OrganizationInterface,
     });
@@ -917,7 +811,6 @@ describe("SDK payload generation (scenario-specific)", () => {
     const out = await getFeatureDefinitionsResponse({
       features: { f1: cloneDeep(featureDef) },
       experiments: [],
-      holdouts: {},
       dateUpdated: new Date(),
       capabilities: ["looseUnmarshalling"],
       usedSavedGroups: [],
@@ -1051,8 +944,6 @@ describe("SDK payload generation (scenario-specific)", () => {
     // based on the prerequisites capability:
     //   - With prerequisites: parentConditions preserved for SDK to evaluate
     //   - Without prerequisites: top-level gating rules → feature deleted; rule-level → rules filtered out
-    //
-    // todo: using shim for buildSDKPayloadForConnection — remove after bryce/single-pass-payload-generation merges
 
     // Shared feature factories for the 4 prerequisite permutation tests
     function makeParentDeterministic(): FeatureInterface {
@@ -1172,7 +1063,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         experimentMap: new Map(),
       });
 
-      const result = await buildSDKPayloadForConnectionShim({
+      const result = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["prerequisites", "bucketingV2"],
@@ -1205,7 +1096,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         experimentMap: new Map(),
       });
 
-      const result = await buildSDKPayloadForConnectionShim({
+      const result = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["bucketingV2"],
@@ -1236,7 +1127,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         experimentMap: new Map(),
       });
 
-      const result = await buildSDKPayloadForConnectionShim({
+      const result = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["prerequisites", "bucketingV2"],
@@ -1273,7 +1164,7 @@ describe("SDK payload generation (scenario-specific)", () => {
       ).toBeUndefined();
     });
 
-    it("non-deterministic prereqs + no prerequisites capability: top-level feature deleted, rule-level rules filtered out", async () => {
+    it("non-deterministic prereqs + no prerequisites capability: top-level delivered ungated, rule-level feature removed", async () => {
       const parent = makeParentConditional();
       const childTop = makeChildTopLevel("parent-cond");
       const childRule = makeChildRuleLevel("parent-cond");
@@ -1282,7 +1173,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         experimentMap: new Map(),
       });
 
-      const withoutPrereqs = await buildSDKPayloadForConnectionShim({
+      const withoutPrereqs = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["bucketingV2"],
@@ -1292,16 +1183,11 @@ describe("SDK payload generation (scenario-specific)", () => {
         data,
       });
 
-      // Top-level: gating force rule (gate: true) → scrubFeatures deletes the entire feature
+      // When connection lacks prerequisites, features with any gates (top-level or rule-level) are excluded.
       expect(withoutPrereqs.features["child-top"]).toBeUndefined();
+      expect(withoutPrereqs.features["child-rule"]).toBeUndefined();
 
-      // Rule-level: parentConditions on rule (no gate) → scrubFeatures filters out the rule; feature stays
-      expect(withoutPrereqs.features["child-rule"]).toBeDefined();
-      expect(withoutPrereqs.features["child-rule"]?.rules).toHaveLength(0);
-
-      // looseUnmarshalling does NOT preserve parentConditions when prerequisites capability is absent:
-      // scrubFeatures strips/deletes at lines 103-119, before the looseUnmarshalling early-return at 121-123
-      const withLooseUnmarshalling = await buildSDKPayloadForConnectionShim({
+      const withLooseUnmarshalling = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["bucketingV2", "looseUnmarshalling"],
@@ -1311,12 +1197,10 @@ describe("SDK payload generation (scenario-specific)", () => {
         data,
       });
       expect(withLooseUnmarshalling.features["child-top"]).toBeUndefined();
-      expect(withLooseUnmarshalling.features["child-rule"]?.rules).toHaveLength(
-        0,
-      );
+      expect(withLooseUnmarshalling.features["child-rule"]).toBeUndefined();
     });
 
-    it("prerequisites + project scoping: child in p1, parent in p2; connection [p1] only excludes parent feature", async () => {
+    it("prerequisites + project scoping: child in p1, parent in p2; connection [p1] drops child too", async () => {
       const parent: FeatureInterface = {
         id: "parent",
         project: "p2",
@@ -1363,8 +1247,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         features: [parent, child],
         experimentMap: new Map(),
       });
-      // todo: using shim for buildSDKPayloadForConnection — remove after bryce/single-pass-payload-generation merges
-      const outP1Only = await buildSDKPayloadForConnectionShim({
+      const outP1Only = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["prerequisites", "bucketingV2"],
@@ -1373,19 +1256,12 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      // todo: THIS ASSERTION REFLECTS A BUG ON MAIN.
-      // The shim calls generateFeaturesPayload with ALL features (no project filter), so parent (p2)
-      // is present during reduceFeaturesWithPrerequisites → evaluates as deterministic-pass → child's
-      // prereq is stripped → child is served ungated to the p1 connection.
-      // This violates project scoping: if parent is out of scope, the prerequisite relationship
-      // should be severed and child should be dropped regardless of parent's current state.
-      // For a conditional parent, main is even more broken: child would be delivered with
-      // parentConditions referencing a feature not in the SDK's payload (unevaluable at runtime).
-      // bryce/single-pass-payload-generation fixes this by filtering BEFORE reduction, so parent is
-      // absent → prereq fails → child is correctly dropped.
-      expect(Object.keys(outP1Only.features)).toContain("child"); // bug: should not contain "child"
+      // Parent (p2) is not in filteredFeatures for a p1-only connection → reduction treats it as
+      // missing → child's prerequisite fails → child is also dropped. This mirrors SDK behavior:
+      // if parent isn't in the payload the SDK receives, it can't evaluate the prerequisite.
+      expect(Object.keys(outP1Only.features)).not.toContain("child");
       expect(Object.keys(outP1Only.features)).not.toContain("parent");
-      const outBoth = await buildSDKPayloadForConnectionShim({
+      const outBoth = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["prerequisites", "bucketingV2"],
@@ -1394,12 +1270,12 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
+      // No project filter → parent in scope → prerequisite evaluates correctly → child included
       expect(Object.keys(outBoth.features)).toContain("child");
       expect(Object.keys(outBoth.features)).toContain("parent");
     });
 
-    // todo: holdout injection into features map is new in feature branch; unskip after bryce/single-pass-payload-generation merges
-    it.skip("holdouts + capabilities: holdout rule on feature only when prerequisites capability", async () => {
+    it("holdouts + capabilities: holdout rule on feature only when prerequisites capability", async () => {
       const holdout: HoldoutInterface = {
         id: "holdout-1",
         organization: "org-1",
@@ -1435,7 +1311,13 @@ describe("SDK payload generation (scenario-specific)", () => {
         archived: false,
       } as ExperimentInterface;
       const holdoutsMap = new Map([
-        ["holdout-1", { holdout, experiment: holdoutExperiment }],
+        [
+          "holdout-1",
+          {
+            holdout,
+            holdoutExperiment /* renamed from `experiment` on main */,
+          },
+        ],
       ]);
       const featureWithHoldout: FeatureInterface = {
         id: "f1",
@@ -1483,11 +1365,12 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      expect(withoutPrereqs.features.f1?.rules?.length).toBe(0);
+      // Without prerequisites capability, holdout rule is never generated (guarded by hasPrerequisites
+      // in getFeatureDefinition). With no other rules, defRules = [] → rules key is deleted entirely.
+      expect(withoutPrereqs.features.f1?.rules).toBeUndefined();
     });
 
-    // todo: holdout injection into features map is new in feature branch; unskip after bryce/single-pass-payload-generation merges
-    it.skip("holdouts + project scoping: holdout with projects [p1] included for connection [p1], excluded for [p2]", async () => {
+    it("holdouts + project scoping: holdout with projects [p1] included for connection [p1], excluded for [p2]", async () => {
       const holdout: HoldoutInterface = {
         id: "holdout-1",
         organization: "org-1",
@@ -1523,7 +1406,13 @@ describe("SDK payload generation (scenario-specific)", () => {
         archived: false,
       } as ExperimentInterface;
       const holdoutsMap = new Map([
-        ["holdout-1", { holdout, experiment: holdoutExperiment }],
+        [
+          "holdout-1",
+          {
+            holdout,
+            holdoutExperiment /* renamed from `experiment` on main */,
+          },
+        ],
       ]);
       const featureWithHoldout: FeatureInterface = {
         id: "f1",
@@ -1575,8 +1464,7 @@ describe("SDK payload generation (scenario-specific)", () => {
 
     it("experiments payload: only included when includeVisualExperiments or includeRedirectExperiments", async () => {
       const data = basicMatrixData();
-      // todo: using shim for buildSDKPayloadForConnection — remove after bryce/single-pass-payload-generation merges
-      const withVisual = await buildSDKPayloadForConnectionShim({
+      const withVisual = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: getSDKCapabilities("javascript", "1.6.5"),
@@ -1587,7 +1475,7 @@ describe("SDK payload generation (scenario-specific)", () => {
         },
         data,
       });
-      const withoutEither = await buildSDKPayloadForConnectionShim({
+      const withoutEither = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: getSDKCapabilities("javascript", "1.6.5"),
@@ -1641,8 +1529,7 @@ describe("SDK payload generation (scenario-specific)", () => {
           { type: "visual" as const, experiment: expP1, visualChangeset },
         ],
       });
-      // todo: using shim for buildSDKPayloadForConnection — remove after bryce/single-pass-payload-generation merges
-      const outP1 = await buildSDKPayloadForConnectionShim({
+      const outP1 = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["bucketingV2"],
@@ -1655,7 +1542,7 @@ describe("SDK payload generation (scenario-specific)", () => {
       expect(outP1.experiments?.length).toBe(1);
       expect(outP1.experiments?.[0].key).toBe("tk");
 
-      const outP2 = await buildSDKPayloadForConnectionShim({
+      const outP2 = await buildSDKPayloadForConnection({
         context: minimalContext(),
         connection: {
           capabilities: ["bucketingV2"],
@@ -1682,18 +1569,12 @@ describe("SDK payload generation (scenario-specific)", () => {
       variations: [{ id: "v0", key: "0", name: "C" }],
       phases: [{ phase: "main", coverage: 1, variationWeights: [1] }],
     };
-    // todo: on main, experiments are only included in the response when includeVisualExperiments or
-    // includeRedirectExperiments is set; draftExperiment has no visual/redirect markers so it passes
-    // through as "unknown" type — remove includeVisualExperiments after bryce/single-pass-payload-generation merges
     const outExcluded = await getFeatureDefinitionsResponse({
       features: { f1: cloneDeep(featureDef) },
       experiments: [cloneDeep(draftExperiment)],
-      holdouts: {},
       dateUpdated: new Date(),
       includeDraftExperiments: false,
-      includeVisualExperiments: true,
       capabilities: [],
-      projects: [],
       usedSavedGroups: [],
       organization: ctx.org as OrganizationInterface,
     });
@@ -1702,12 +1583,9 @@ describe("SDK payload generation (scenario-specific)", () => {
     const outIncluded = await getFeatureDefinitionsResponse({
       features: { f1: cloneDeep(featureDef) },
       experiments: [cloneDeep(draftExperiment)],
-      holdouts: {},
       dateUpdated: new Date(),
       includeDraftExperiments: true,
-      includeVisualExperiments: true,
       capabilities: [],
-      projects: [],
       usedSavedGroups: [],
       organization: ctx.org as OrganizationInterface,
     });

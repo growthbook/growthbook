@@ -33,7 +33,7 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (req.body.project) {
     await req.context.models.projects.ensureProjectsExist([req.body.project]);
   }
