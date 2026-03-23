@@ -274,6 +274,7 @@ export default abstract class SqlIntegration
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       canGroupPercentileCappedMetrics: this.canGroupPercentileCappedMetrics(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
+      hasQuantileKLL: this.hasQuantileKLL(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
       maxColumns: 1000,
     };
@@ -426,6 +427,9 @@ export default abstract class SqlIntegration
   hasCountDistinctHLL(): boolean {
     return false;
   }
+  hasQuantileKLL(): boolean {
+    return false;
+  }
   supportsLimitZeroColumnValidation(): boolean {
     return false;
   }
@@ -445,6 +449,24 @@ export default abstract class SqlIntegration
   hllCardinality(col: string): string {
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllInit(col: string): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllMergePartial(col: string): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllExtractPoint(col: string, quantile: number): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
     );
   }
 
@@ -7194,6 +7216,8 @@ ORDER BY column_name, count DESC
       case "timestamp":
         return "TIMESTAMP";
       case "hll":
+        return "VARBINARY";
+      case "kll":
         return "VARBINARY";
       default: {
         const _: never = dataType;

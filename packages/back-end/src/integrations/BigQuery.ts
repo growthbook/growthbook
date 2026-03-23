@@ -194,6 +194,20 @@ export default class BigQuery extends SqlIntegration {
   hllCardinality(col: string): string {
     return `HLL_COUNT.EXTRACT(${col})`;
   }
+  hasQuantileKLL(): boolean {
+    return true;
+  }
+  kllInit(col: string): string {
+    // Precision is hardcoded to 1000 (BigQuery default). Mixed-precision
+    // sketches merge silently with degraded accuracy, so we never parameterize it.
+    return `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`;
+  }
+  kllMergePartial(col: string): string {
+    return `KLL_QUANTILES.MERGE_PARTIAL(${col})`;
+  }
+  kllExtractPoint(col: string, quantile: number): string {
+    return `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
     const quantileVal = Number(quantile)
@@ -290,6 +304,8 @@ export default class BigQuery extends SqlIntegration {
       case "timestamp":
         return "TIMESTAMP";
       case "hll":
+        return "BYTES";
+      case "kll":
         return "BYTES";
       default: {
         const _: never = dataType;
