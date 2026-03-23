@@ -1,8 +1,5 @@
-import {
-  analyzeExperimentPower,
-  tabulateCovariateImbalance,
-} from "shared/enterprise";
-
+import { analyzeExperimentPower } from "shared/enterprise";
+import { tabulateCovariateImbalance } from "shared/health";
 import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,

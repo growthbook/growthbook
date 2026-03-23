@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
-import { tabulateCovariateImbalance } from "shared/enterprise";
+import { tabulateCovariateImbalance } from "shared/health";
 import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
