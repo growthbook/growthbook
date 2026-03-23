@@ -362,9 +362,9 @@ describe("useSearch", () => {
 
     it("searches all rows even when ids are duplicated", () => {
       const items: SearchItem[] = [
-        { id: "dup", name: "firstrowtoken" },
-        { id: "dup", name: "secondrowtoken" },
-        { id: "unique", name: "othertoken" },
+        { id: "dup", name: "first row token" },
+        { id: "dup", name: "second row token" },
+        { id: "unique", name: "other token" },
       ];
 
       const { result } = renderHook(() =>
@@ -377,19 +377,45 @@ describe("useSearch", () => {
       );
 
       act(() => {
-        result.current.setSearchValue("secondrowtoken");
+        result.current.setSearchValue("second row token");
       });
-      expect(
-        result.current.unpaginatedItems.map((item) => item.name),
-      ).toContain("secondrowtoken");
+      expect(result.current.filteredItems.length).toBe(3);
+      expect(result.current.filteredItems.map((i) => i.name)).toStrictEqual([
+        "second row token",
+        "first row token",
+        "other token",
+      ]);
+      expect(result.current.filteredItems.map((i) => i.id)).toStrictEqual([
+        "dup",
+        "dup",
+        "unique",
+      ]);
 
       act(() => {
         result.current.setSearchValue("second");
       });
-      expect(
-        result.current.unpaginatedItems.map((item) => item.name),
-      ).toContain("secondrowtoken");
-      expect(result.current.unpaginatedItems[0]?.id).toBe("dup");
+      expect(result.current.filteredItems.length).toBe(1);
+      expect(result.current.filteredItems[0]?.id).toBe("dup");
+      expect(result.current.filteredItems[0]?.name).toBe("second row token");
+
+      act(() => {
+        result.current.setSearchValue("row");
+      });
+      expect(result.current.filteredItems.length).toBe(2);
+      expect(result.current.filteredItems.map((i) => i.name)).toStrictEqual([
+        "first row token",
+        "second row token",
+      ]);
+
+      act(() => {
+        result.current.setSearchValue("token");
+      });
+      expect(result.current.filteredItems.length).toBe(3);
+      expect(result.current.filteredItems.map((i) => i.name)).toStrictEqual([
+        "other token",
+        "first row token",
+        "second row token",
+      ]);
     });
   });
 

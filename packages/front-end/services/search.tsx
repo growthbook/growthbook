@@ -121,7 +121,7 @@ export function useSearch<T extends { id: string }>({
   // We only want to re-create the MiniSearch instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
-  const { miniSearch, indexedItemMap } = useMemo(() => {
+  const { miniSearch, itemMap } = useMemo(() => {
     const keys: Record<string, number> = Object.fromEntries(
       searchFields.map((f) => {
         const [key, weight] = (f as string).split("^");
@@ -135,10 +135,10 @@ export function useSearch<T extends { id: string }>({
     // Some lists can contain duplicate business IDs (e.g. experiment tracking keys),
     // so we store a separate internal ID only for indexing.
     const internalSearchIdField = "__gb_search_id";
-    const indexedItemMap = new Map<string, T>();
+    const itemMap = new Map<string, T>();
     const indexedItems = items.map((item, index) => {
       const indexedId = `${item.id}::${index}`;
-      indexedItemMap.set(indexedId, item);
+      itemMap.set(indexedId, item);
       return {
         ...item,
         [internalSearchIdField]: indexedId,
@@ -162,7 +162,7 @@ export function useSearch<T extends { id: string }>({
       console.error("Error adding items to search index:", error);
     }
 
-    return { miniSearch: miniSearchInstance, indexedItemMap };
+    return { miniSearch: miniSearchInstance, itemMap };
   }, [items, JSON.stringify(searchFields)]);
 
   const { filtered, syntaxFilters, searchTerm } = useMemo(() => {
@@ -175,7 +175,7 @@ export function useSearch<T extends { id: string }>({
     if (searchTerm.length > 0) {
       const searchResults = miniSearch.search(searchTerm);
       filtered = searchResults
-        .map((result) => indexedItemMap.get(result.id + ""))
+        .map((result) => itemMap.get(result.id + ""))
         .filter((item): item is T => !!item);
     }
     if (updateSearchQueryOnChange) {
