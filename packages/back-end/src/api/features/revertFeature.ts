@@ -78,7 +78,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
       if (
-        revision.rules[env] &&
+        revision.rules?.[env] &&
         !isEqual(
           revision.rules[env],
           feature.environmentSettings?.[env]?.rules || [],
