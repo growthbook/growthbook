@@ -16,6 +16,17 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import styles from "./SidebarLink.module.scss";
 
+export type SidebarLinkFilterProps = {
+  permissionsUtils: Permissions;
+  segments: SegmentInterface[];
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean;
+  isCloud: boolean;
+  isMultiOrg: boolean;
+  gb?: GrowthBook<AppFeatures>;
+  project?: string;
+};
+
 export type SidebarLinkProps = {
   name: string;
   href: string;
@@ -27,16 +38,7 @@ export type SidebarLinkProps = {
   className?: string;
   autoClose?: boolean;
   navigateOnExpand?: boolean;
-  filter?: (props: {
-    permissionsUtils: Permissions;
-    segments: SegmentInterface[];
-    permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-    superAdmin: boolean;
-    isCloud: boolean;
-    isMultiOrg: boolean;
-    gb?: GrowthBook<AppFeatures>;
-    project?: string;
-  }) => boolean;
+  filter?: (props: SidebarLinkFilterProps) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
 };

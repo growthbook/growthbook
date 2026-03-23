@@ -1,22 +1,31 @@
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   BsSearch,
   BsToggleOn,
   BsGraphUp,
   BsBarChartLine,
+  BsDiagram3,
+  BsChevronDown,
 } from "react-icons/bs";
 import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
 import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { isCloud, isMultiOrg } from "@/services/env";
+import { AppFeatures } from "@/types/app-features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
+import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
 import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
 import styles from "./CommandPalette.module.scss";
 
 type CommandPaletteItemType =
+  | "navigation"
   | "feature"
   | "experiment"
   | "metric"
@@ -31,9 +40,13 @@ interface CommandPaletteItem {
   url: string;
   tags: string;
   icon?: FC<{ className?: string }>;
+  /** Expands the Pages section instead of navigating */
+  action?: "expand-pages";
 }
 
+// Pages first so route shortcuts (e.g. "exp" → Experiments) surface before entity hits.
 const SECTION_ORDER: CommandPaletteItemType[] = [
+  "navigation",
   "feature",
   "experiment",
   "metric",
@@ -42,6 +55,7 @@ const SECTION_ORDER: CommandPaletteItemType[] = [
 ];
 
 const SECTION_LABELS: Record<CommandPaletteItemType, string> = {
+  navigation: "Pages",
   feature: "Features",
   experiment: "Experiments",
   metric: "Metrics",
@@ -53,6 +67,7 @@ const SECTION_ICONS: Record<
   CommandPaletteItemType,
   FC<{ className?: string }>
 > = {
+  navigation: BsDiagram3,
   feature: BsToggleOn,
   experiment: PiFlask,
   metric: BsGraphUp,
@@ -61,6 +76,40 @@ const SECTION_ICONS: Record<
 };
 
 const MAX_PER_SECTION = 5;
+/** Max page matches from search before capping the pool. */
+const MAX_NAVIGATION_PER_SECTION = 8;
+/** Shown initially under Pages; use "Show more" to reveal up to {@link MAX_NAVIGATION_PER_SECTION}. */
+const NAVIGATION_INITIAL_VISIBLE = 3;
+
+const EXPAND_PAGES_ROW_ID = "__palette_expand_pages__";
+
+function getSectionDisplayItems(
+  type: CommandPaletteItemType,
+  items: CommandPaletteItem[],
+  pagesSectionExpanded: boolean,
+): CommandPaletteItem[] {
+  if (items.length === 0) return [];
+  if (
+    type === "navigation" &&
+    !pagesSectionExpanded &&
+    items.length > NAVIGATION_INITIAL_VISIBLE
+  ) {
+    const hidden = items.length - NAVIGATION_INITIAL_VISIBLE;
+    return [
+      ...items.slice(0, NAVIGATION_INITIAL_VISIBLE),
+      {
+        id: EXPAND_PAGES_ROW_ID,
+        type: "navigation" as const,
+        name: `Show ${hidden} more…`,
+        description: "",
+        url: "",
+        tags: "",
+        action: "expand-pages" as const,
+      },
+    ];
+  }
+  return items;
+}
 
 /**
  * Lightweight wrapper that handles global Cmd/Ctrl+K and custom event listeners.
@@ -112,18 +161,43 @@ export const CommandPaletteLauncher: FC = () => {
 const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [pagesSectionExpanded, setPagesSectionExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  const { permissions, superAdmin } = useUser();
+  const { project, segments, metrics, factMetrics, metricGroups, savedGroups } =
+    useDefinitions();
+  const growthbook = useGrowthBook<AppFeatures>();
+  const permissionsUtils = usePermissionsUtil();
+
   const { features } = useFeatureMetaInfo();
   const { experiments } = useExperiments();
-  const { metrics, factMetrics, metricGroups, savedGroups } = useDefinitions();
   const { dashboards } = useDashboards(false);
 
   // Build unified item list
   const items = useMemo<CommandPaletteItem[]>(() => {
-    const result: CommandPaletteItem[] = [];
+    const filterProps = {
+      permissionsUtils,
+      permissions,
+      superAdmin: !!superAdmin,
+      isCloud: isCloud(),
+      isMultiOrg: isMultiOrg(),
+      gb: growthbook,
+      project,
+      segments,
+    };
+
+    const flatNav = flattenNavItems(navlinks, filterProps);
+    const result: CommandPaletteItem[] = flatNav.map((row) => ({
+      id: `nav::${row.href}::${row.name}`,
+      type: "navigation",
+      name: row.name,
+      description: row.parentName ?? "",
+      url: row.href,
+      tags: row.parentName ? `${row.parentName} ${row.name}` : row.name,
+    }));
 
     for (const f of features) {
       if (f.archived) continue;
@@ -211,6 +285,12 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
     return result;
   }, [
+    permissionsUtils,
+    permissions,
+    superAdmin,
+    growthbook,
+    project,
+    segments,
     features,
     experiments,
     metrics,
@@ -229,6 +309,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
     const ordered = combinedSearch(miniSearch, items, query.trim());
     const groups: Record<CommandPaletteItemType, CommandPaletteItem[]> = {
+      navigation: [],
       feature: [],
       experiment: [],
       metric: [],
@@ -237,7 +318,11 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     };
 
     for (const item of ordered) {
-      if (groups[item.type].length < MAX_PER_SECTION) {
+      const cap =
+        item.type === "navigation"
+          ? MAX_NAVIGATION_PER_SECTION
+          : MAX_PER_SECTION;
+      if (groups[item.type].length < cap) {
         groups[item.type].push(item);
       }
     }
@@ -245,20 +330,30 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     return groups;
   }, [query, miniSearch, items]);
 
-  // Flat list for keyboard navigation
+  // Flat list for keyboard navigation (respects Pages collapse + "Show more" row)
   const flatResults = useMemo(() => {
     if (!groupedResults) return [];
     const flat: CommandPaletteItem[] = [];
     for (const type of SECTION_ORDER) {
-      flat.push(...groupedResults[type]);
+      flat.push(
+        ...getSectionDisplayItems(
+          type,
+          groupedResults[type],
+          pagesSectionExpanded,
+        ),
+      );
     }
     return flat;
-  }, [groupedResults]);
+  }, [groupedResults, pagesSectionExpanded]);
 
-  // Reset selection when results change
+  useEffect(() => {
+    setPagesSectionExpanded(false);
+  }, [query]);
+
+  // Reset selection when the search query or result set changes (not when only expanding Pages)
   useEffect(() => {
     setSelectedIndex(0);
-  }, [flatResults]);
+  }, [query, groupedResults]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -281,6 +376,17 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       router.push(url);
     },
     [router, closeAndReset],
+  );
+
+  const activateItem = useCallback(
+    (item: CommandPaletteItem) => {
+      if (item.action === "expand-pages") {
+        setPagesSectionExpanded(true);
+        return;
+      }
+      navigateTo(item.url);
+    },
+    [navigateTo],
   );
 
   // Lock body scroll when mounted
@@ -311,7 +417,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
         case "Enter":
           e.preventDefault();
           if (flatResults[selectedIndex]) {
-            navigateTo(flatResults[selectedIndex].url);
+            activateItem(flatResults[selectedIndex]);
           }
           break;
         case "Escape":
@@ -320,7 +426,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
           break;
       }
     },
-    [flatResults, selectedIndex, navigateTo, closeAndReset],
+    [flatResults, selectedIndex, activateItem, closeAndReset],
   );
 
   let flatIndex = 0;
@@ -343,7 +449,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
               className={styles.input}
               type="text"
               autoFocus
-              placeholder="Search features, experiments, metrics..."
+              placeholder="Search pages, features, experiments, metrics..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
@@ -359,7 +465,11 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
             )}
             {groupedResults &&
               SECTION_ORDER.map((type) => {
-                const sectionItems = groupedResults[type];
+                const sectionItems = getSectionDisplayItems(
+                  type,
+                  groupedResults[type],
+                  pagesSectionExpanded,
+                );
                 if (sectionItems.length === 0) return null;
                 const SectionIcon = SECTION_ICONS[type];
                 return (
@@ -369,15 +479,20 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                     </div>
                     {sectionItems.map((item) => {
                       const idx = flatIndex++;
-                      const Icon = item.icon || SectionIcon;
+                      const Icon =
+                        item.action === "expand-pages"
+                          ? BsChevronDown
+                          : item.icon || SectionIcon;
                       return (
                         <div
                           key={item.id}
                           data-index={idx}
                           className={`${styles.item} ${
-                            idx === selectedIndex ? styles.selected : ""
-                          }`}
-                          onClick={() => navigateTo(item.url)}
+                            item.action === "expand-pages"
+                              ? styles.showMore
+                              : ""
+                          } ${idx === selectedIndex ? styles.selected : ""}`}
+                          onClick={() => activateItem(item)}
                           onMouseEnter={() => setSelectedIndex(idx)}
                         >
                           <Icon className={styles.itemIcon} />
