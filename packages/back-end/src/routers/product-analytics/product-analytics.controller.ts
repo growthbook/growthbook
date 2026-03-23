@@ -1,11 +1,15 @@
 import type { Response } from "express";
 import { z } from "zod";
+import type { ModelMessage, ToolResultPart } from "ai";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  explorationConfigValidator,
+  ProductAnalyticsResultRow,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextFromReq,
@@ -16,10 +20,19 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
 import {
-  streamingCompletion,
+  streamingChatCompletion,
   secondsUntilAICanBeUsedAgain,
   aiTool,
 } from "back-end/src/enterprise/services/ai";
+import {
+  addSnapshot,
+  getSnapshot,
+  getSessionSnapshots,
+} from "back-end/src/enterprise/services/snapshot-store";
+import {
+  getConversation,
+  appendMessages,
+} from "back-end/src/enterprise/services/conversation-store";
 
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
@@ -51,32 +64,21 @@ export const postProductAnalyticsRun = async (
   });
 };
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface ChatSnapshot {
-  id: string;
-  timestamp: string;
-  summary: string;
-  config: string;
-  resultData: string | null;
-}
-
 type FlushableResponse = Response & {
   flush?: () => void;
 };
 
+const METRICS_PREVIEW_COUNT = 5;
+
 function buildConfigSchemaSummary(): string {
   return [
     "Exploration config schema:",
-    '- Top-level fields: type, datasource, chartType, dateRange, dimensions, dataset',
+    "- Top-level fields: type, datasource, chartType, dateRange, dimensions, dataset",
     '- type: "metric" | "fact_table" | "data_source"',
     '- chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     '- dateRange.predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange"',
     '- IMPORTANT: "last14Days" is not valid. For 14 days use { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }',
-    '- dimensions[] supports:',
+    "- dimensions[] supports:",
     "  - date: { dimensionType: 'date', column: string|null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
     "  - dynamic: { dimensionType: 'dynamic', column: string|null, maxValues: number }",
     "  - static: { dimensionType: 'static', column: string, values: string[] }",
@@ -84,48 +86,225 @@ function buildConfigSchemaSummary(): string {
     '- dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters[] }] }',
     '- dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType, valueColumn, unit, rowFilters[] }] }',
     '- dataset for type="data_source": { type: "data_source", table, path, timestampColumn, columnTypes, values: [{ type: "data_source", name, valueType, valueColumn, unit, rowFilters[] }] }',
-    "Always return a complete config object when proposing updates.",
+    "Always return a complete config object when calling runExploration.",
   ].join("\n");
 }
 
-function buildMetricsContext(metrics: FactMetricInterface[]): string {
+function buildMetricsPreview(metrics: FactMetricInterface[]): string {
   if (!metrics.length) return "No metrics are configured for this datasource.";
 
-  return metrics
-    .map((m) => {
-      const parts = [
-        `- "${m.name}" (id: ${m.id}, type: ${m.metricType})`,
-      ];
-      if (m.description) parts.push(`  Description: ${m.description}`);
-      if (m.tags.length) parts.push(`  Tags: ${m.tags.join(", ")}`);
-      if (m.owner) parts.push(`  Owner: ${m.owner}`);
-      return parts.join("\n");
-    })
-    .join("\n");
+  const preview = metrics.slice(0, METRICS_PREVIEW_COUNT);
+  const lines = preview.map((m) => {
+    const parts = [`- "${m.name}" (id: ${m.id}, type: ${m.metricType})`];
+    if (m.description) parts.push(`  Description: ${m.description}`);
+    if (m.tags.length) parts.push(`  Tags: ${m.tags.join(", ")}`);
+    return parts.join("\n");
+  });
+
+  if (metrics.length > METRICS_PREVIEW_COUNT) {
+    lines.push(
+      `... and ${metrics.length - METRICS_PREVIEW_COUNT} more. Use the searchMetrics tool to discover additional metrics.`,
+    );
+  }
+
+  return lines.join("\n");
 }
 
-function buildSnapshotTimeline(snapshots: ChatSnapshot[]): string {
-  if (!snapshots.length) return "";
-  const lines = snapshots.map(
-    (s) =>
-      `  [${s.id}] ${s.timestamp} - ${s.summary}${s.resultData ? " (has result data)" : ""}`,
+function buildSnapshotSummary(
+  prev: ExplorationConfig | null,
+  curr: ExplorationConfig,
+): string {
+  const parts: string[] = [];
+
+  if (!prev) {
+    parts.push(
+      `Initial: ${curr.chartType} chart, ${curr.type} dataset, date range ${curr.dateRange.predefined}`,
+    );
+    const valueNames = curr.dataset?.values?.map((v) => v.name).filter(Boolean);
+    if (valueNames?.length) {
+      parts.push(`values: ${valueNames.join(", ")}`);
+    }
+    return parts.join(", ");
+  }
+
+  if (prev.chartType !== curr.chartType) {
+    parts.push(`chart type: ${prev.chartType} → ${curr.chartType}`);
+  }
+  if (prev.dateRange.predefined !== curr.dateRange.predefined) {
+    parts.push(
+      `date range: ${prev.dateRange.predefined} → ${curr.dateRange.predefined}`,
+    );
+  }
+
+  const prevNames = prev.dataset?.values?.map((v) => v.name) ?? [];
+  const currNames = curr.dataset?.values?.map((v) => v.name) ?? [];
+  const added = currNames.filter((n) => !prevNames.includes(n));
+  const removed = prevNames.filter((n) => !currNames.includes(n));
+  if (added.length) parts.push(`added: ${added.join(", ")}`);
+  if (removed.length) parts.push(`removed: ${removed.join(", ")}`);
+
+  const prevDims = prev.dimensions?.length ?? 0;
+  const currDims = curr.dimensions?.length ?? 0;
+  if (prevDims !== currDims) {
+    parts.push(`dimensions: ${prevDims} → ${currDims}`);
+  }
+
+  if (prev.datasource !== curr.datasource) {
+    parts.push("datasource changed");
+  }
+
+  return parts.length ? parts.join(", ") : "minor config update";
+}
+
+const MAX_RESULT_ROWS = 200;
+
+function buildResultCsv(
+  rows: ProductAnalyticsResultRow[],
+  config: ExplorationConfig | null,
+): string | null {
+  if (!rows.length || !config) return null;
+
+  const dimHeaders: string[] = (config.dimensions ?? []).map((d) => {
+    if (d.dimensionType === "date") return "Date";
+    if (d.dimensionType === "dynamic") return d.column ?? "Dimension";
+    if (d.dimensionType === "static") return d.column;
+    if (d.dimensionType === "slice") return "Slice";
+    return "Dimension";
+  });
+  if (!dimHeaders.length) dimHeaders.push("Total");
+
+  const valueNames = config.dataset?.values?.map((v) => v.name) ?? [];
+  const hasDenom = valueNames.map((_, i) =>
+    rows.some((r) => r.values[i]?.denominator != null),
   );
-  return "\n\nSnapshot timeline (use the getSnapshot tool to retrieve full details for any snapshot):\n" + lines.join("\n");
+
+  const metricHeaders: string[] = [];
+  for (let i = 0; i < valueNames.length; i++) {
+    if (hasDenom[i]) {
+      metricHeaders.push(
+        `${valueNames[i]} Numerator`,
+        `${valueNames[i]} Denominator`,
+        `${valueNames[i]} Value`,
+      );
+    } else {
+      metricHeaders.push(valueNames[i]);
+    }
+  }
+
+  const header = [...dimHeaders, ...metricHeaders].join(",");
+
+  const truncated = rows.slice(0, MAX_RESULT_ROWS);
+  const dataLines = truncated.map((row) => {
+    const dimCells =
+      dimHeaders.length === 1 && dimHeaders[0] === "Total"
+        ? ["Total"]
+        : row.dimensions.map((d) => d ?? "");
+
+    const metricCells: string[] = [];
+    for (let i = 0; i < valueNames.length; i++) {
+      const v = row.values[i];
+      if (hasDenom[i]) {
+        metricCells.push(
+          v?.numerator != null ? String(v.numerator) : "",
+          v?.denominator != null ? String(v.denominator) : "",
+          v?.numerator != null && v?.denominator != null
+            ? (v.numerator / v.denominator).toFixed(4)
+            : "",
+        );
+      } else {
+        const val =
+          v?.numerator != null
+            ? v.denominator
+              ? (v.numerator / v.denominator).toFixed(4)
+              : String(v.numerator)
+            : "";
+        metricCells.push(val);
+      }
+    }
+
+    return [...dimCells, ...metricCells]
+      .map((c) => (c.includes(",") ? `"${c}"` : c))
+      .join(",");
+  });
+
+  let csv = [header, ...dataLines].join("\n");
+  if (rows.length > MAX_RESULT_ROWS) {
+    csv += `\n... (${rows.length - MAX_RESULT_ROWS} more rows truncated)`;
+  }
+  return csv;
+}
+
+/**
+ * Replaces the content of tool result messages from older turns with compact
+ * snapshot stub references. The most recent assistant+tool pair is left
+ * untouched so the LLM has full context for its last action.
+ *
+ * Only the copy sent to the LLM is compacted — the conversation store always
+ * holds the full uncompacted messages.
+ */
+function compactMessages(messages: ModelMessage[]): ModelMessage[] {
+  // Find the index of the last assistant message in the array
+  let lastAssistantIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant") {
+      lastAssistantIdx = i;
+      break;
+    }
+  }
+
+  return messages.map((msg, idx) => {
+    // Leave the most recent assistant turn and everything after it untouched
+    if (idx >= lastAssistantIdx) return msg;
+
+    if (msg.role === "tool") {
+      const compactedContent = msg.content.map((part) => {
+        if (part.type !== "tool-result") return part;
+
+        // Extract snapshotId from runExploration results if available
+        let snapshotHint = "";
+        if (part.toolName === "runExploration") {
+          try {
+            const rawOutput = part.output;
+            const parsed =
+              rawOutput &&
+              typeof rawOutput === "object" &&
+              "type" in rawOutput &&
+              rawOutput.type === "text" &&
+              "value" in rawOutput
+                ? JSON.parse(rawOutput.value as string)
+                : null;
+            if (parsed?.snapshotId) {
+              snapshotHint = ` (snapshotId: ${parsed.snapshotId})`;
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        const stub = `[Result compacted${snapshotHint} — use getSnapshot to retrieve full data]`;
+        return {
+          ...part,
+          output: { type: "text" as const, value: stub },
+        } satisfies ToolResultPart;
+      });
+
+      return { ...msg, content: compactedContent };
+    }
+
+    return msg;
+  });
 }
 
 export const postChat = async (
   req: AuthRequest<{
-    messages: ChatMessage[];
+    message: string;
+    sessionId: string;
     datasourceId: string;
-    currentConfig?: ExplorationConfig;
-    resultData?: string;
-    snapshots?: ChatSnapshot[];
   }>,
   res: Response,
 ) => {
   const flushableRes = res as FlushableResponse;
-  const { messages, datasourceId, currentConfig, resultData, snapshots } =
-    req.body;
+  const { message, sessionId, datasourceId } = req.body;
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
@@ -157,62 +336,52 @@ export const postChat = async (
     ? allMetrics.filter((m) => m.datasource === datasourceId)
     : allMetrics;
 
-  const metricsContext = buildMetricsContext(metrics);
+  const metricsPreview = buildMetricsPreview(metrics);
 
-  const configContext = currentConfig
-    ? "\n\nCurrent exploration configuration:\n" + JSON.stringify(currentConfig, null, 2)
-    : "";
+  // Load existing conversation history from the store
+  const history = getConversation(sessionId);
 
-  const resultContext = resultData
-    ? "\n\nCurrent chart/table result data (CSV):\n" + resultData
-    : "";
+  // Append the new user message
+  const userMessage: ModelMessage = {
+    role: "user",
+    content: message,
+  };
+  const fullMessages: ModelMessage[] = [...history, userMessage];
 
-  const snapshotTimeline = buildSnapshotTimeline(snapshots ?? []);
+  const { prompt: userAdditionalPrompt, overrideModel } =
+    await context.models.aiPrompts.getAIPrompt("product-analytics-chat");
 
-  const conversationHistory = messages
-    .map(
-      (m: ChatMessage) =>
-        `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`,
-    )
-    .join("\n\n");
-
-  const instructions =
+  const staticInstructions =
     "You are an expert product analytics assistant for GrowthBook.\n" +
-    "You help users understand and work with their metrics and exploration configuration.\n" +
-    "You have access to the following fact metrics:\n\n" +
-    metricsContext +
-    configContext +
-    resultContext +
-    snapshotTimeline +
+    "You help users understand and work with their metrics and exploration configuration.\n\n" +
+    (datasourceId
+      ? `Datasource ID for this session: ${datasourceId}\n` +
+        "Always use this datasource ID in the config.datasource field when calling runExploration.\n\n"
+      : "") +
+    "Available metrics (sample):\n" +
+    metricsPreview +
     "\n\n" +
-    "Answer questions about these metrics, the current configuration, and the result data clearly and concisely.\n" +
+    buildConfigSchemaSummary() +
+    "\n\n" +
+    "Answer questions about metrics, the current configuration, and result data clearly and concisely.\n" +
     "When discussing data, reference specific numbers from the results.\n" +
-    "If the user asks you to build or change the explorer view, include a full valid config in a fenced code block exactly like:\n" +
-    "```exploration-config\n{...json...}\n```\n" +
-    "Only include this block when you want the app to update and rerun the explorer.\n" +
+    "When the user asks you to build or change a chart, use the runExploration tool with the full valid config.\n" +
+    "The runExploration tool will execute the query and automatically display the chart to the user — you do not need to embed config in your text response.\n" +
     'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
-    "If the user asks about previous configurations or why data changed, use the getSnapshot tool to retrieve historical details.\n" +
+    "Use the getSnapshot tool whenever you need to analyze result data — including right after calling runExploration if the user wants insights or questions answered about the data.\n" +
     "When selecting metrics, prefer using the searchMetrics tool instead of guessing metric IDs.\n" +
     "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
     "If asked about metrics that don't exist, let the user know.\n" +
     "Keep responses brief and actionable.";
 
-  const lastMessage = messages[messages.length - 1];
-  const prompt =
-    messages.length > 1
-      ? `Previous conversation:\n${conversationHistory}\n\nRespond to the latest user message.`
-      : lastMessage.content;
+  const system = userAdditionalPrompt
+    ? staticInstructions + "\n" + userAdditionalPrompt
+    : staticInstructions;
 
-  const { prompt: userAdditionalPrompt, overrideModel } =
-    await context.models.aiPrompts.getAIPrompt("product-analytics-chat");
+  // Maps toolCallId → snapshotId for chart results generated during this request
+  const pendingChartSnapshots = new Map<string, string>();
 
-  const fullInstructions = userAdditionalPrompt
-    ? instructions + "\n" + userAdditionalPrompt
-    : instructions;
-
-  const snapshotMap = new Map<string, ChatSnapshot>(
-    (snapshots ?? []).map((s: ChatSnapshot) => [s.id, s]),
-  );
+  // const sessionSnapshots = getSessionSnapshots(sessionId);
 
   const baseTools = {
     searchMetrics: aiTool({
@@ -220,7 +389,10 @@ export const postChat = async (
         "Search available metrics by name, description, owner, tags, or ID. " +
         "Use this to discover the right metrics before editing config.",
       inputSchema: z.object({
-        query: z.string().min(1).describe("Search term, e.g. 'average order value'"),
+        query: z
+          .string()
+          .min(1)
+          .describe("Search term, e.g. 'average order value'"),
         limit: z.number().int().min(1).max(20).default(8),
       }),
       execute: async ({ query, limit }: { query: string; limit: number }) => {
@@ -236,13 +408,17 @@ export const postChat = async (
             ]
               .join(" ")
               .toLowerCase();
-            const exact = m.name.toLowerCase() === q || m.id.toLowerCase() === q;
+            const exact =
+              m.name.toLowerCase() === q || m.id.toLowerCase() === q;
             const includes = haystack.includes(q);
             const score = exact ? 3 : includes ? 1 : 0;
             return { metric: m, score };
           })
           .filter((x) => x.score > 0)
-          .sort((a, b) => b.score - a.score || a.metric.name.localeCompare(b.metric.name))
+          .sort(
+            (a, b) =>
+              b.score - a.score || a.metric.name.localeCompare(b.metric.name),
+          )
           .slice(0, limit)
           .map(({ metric }) => ({
             id: metric.id,
@@ -260,11 +436,14 @@ export const postChat = async (
       },
     }),
     getCurrentConfig: aiTool({
-      description: "Get the current exploration config as JSON.",
+      description:
+        "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.",
       inputSchema: z.object({}),
       execute: async () => {
-        return currentConfig
-          ? JSON.stringify(currentConfig, null, 2)
+        const snaps = getSessionSnapshots(sessionId);
+        const latest = snaps.length > 0 ? snaps[snaps.length - 1] : null;
+        return latest?.config
+          ? JSON.stringify(latest.config, null, 2)
           : "No current exploration config is available yet.";
       },
     }),
@@ -274,59 +453,192 @@ export const postChat = async (
       inputSchema: z.object({}),
       execute: async () => buildConfigSchemaSummary(),
     }),
+    runExploration: aiTool({
+      description:
+        "Execute a product analytics exploration with the given config. " +
+        "Use this when the user asks to build, change, or rerun a chart. " +
+        "The chart will be automatically displayed to the user after execution. " +
+        "The result includes a snapshotId — call getSnapshot with that ID if you need to analyze the data or provide insights.",
+      inputSchema: z.object({
+        config: explorationConfigValidator,
+      }),
+      execute: async (
+        { config }: { config: ExplorationConfig },
+        options: { toolCallId: string },
+      ) => {
+        try {
+          const exploration = await runProductAnalyticsExploration(
+            context,
+            config,
+            { cache: "preferred" },
+          );
+
+          const snaps = getSessionSnapshots(sessionId);
+          const prevConfig =
+            snaps.length > 0 ? snaps[snaps.length - 1].config : null;
+          const summary = buildSnapshotSummary(prevConfig, config);
+          const resultCsv = buildResultCsv(
+            exploration?.result?.rows ?? [],
+            config,
+          );
+
+          const snap = addSnapshot(sessionId, {
+            summary,
+            config,
+            exploration: exploration ?? null,
+            resultCsv,
+          });
+
+          pendingChartSnapshots.set(options.toolCallId, snap.id);
+
+          return JSON.stringify({
+            status: "success",
+            snapshotId: snap.id,
+            rowCount: exploration?.result?.rows?.length ?? 0,
+            summary,
+          });
+        } catch (err) {
+          return JSON.stringify({
+            status: "error",
+            message: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      },
+    }),
   };
 
-  const tools = snapshots?.length
-    ? {
-        ...baseTools,
-        getSnapshot: aiTool({
-          description:
-            "Retrieve the full configuration and result data for a historical snapshot. " +
-            "Use this when the user asks about previous chart states, why data changed, or wants to compare configurations.",
-          inputSchema: z.object({
-            snapshotId: z
-              .string()
-              .describe("The snapshot ID from the timeline, e.g. 'snap_1'"),
-          }),
-          execute: async ({ snapshotId }: { snapshotId: string }) => {
-            console.log("Executing getSnapshot tool with snapshotId:", snapshotId);
-            const snap = snapshotMap.get(snapshotId);
-            if (!snap) return `Snapshot "${snapshotId}" not found.`;
-            return (
-              `Snapshot ${snap.id} (${snap.timestamp}):\n` +
-              `Summary: ${snap.summary}\n` +
-              `Config: ${snap.config}\n` +
-              (snap.resultData
-                ? `Result data (CSV):\n${snap.resultData}`
-                : "No result data.")
-            );
-          },
-        }),
-      }
-    : baseTools;
+  const tools = {
+    ...baseTools,
+    getSnapshot: aiTool({
+      description:
+        "Retrieve the full configuration and result data for any snapshot, including one just created by runExploration. " +
+        "Use this whenever you need to analyze result data — e.g. to provide insights, answer questions about values, compare configurations, or explain why data changed. " +
+        "Pass the snapshotId returned by runExploration to access data from the most recent chart run.",
+      inputSchema: z.object({
+        snapshotId: z
+          .string()
+          .describe(
+            "The snapshot ID returned by runExploration, e.g. 'snap_abc123_1'",
+          ),
+      }),
+      execute: async ({ snapshotId }: { snapshotId: string }) => {
+        const snap = getSnapshot(sessionId, snapshotId);
+        if (!snap) return `Snapshot "${snapshotId}" not found.`;
+        return (
+          `Snapshot ${snap.id} (${snap.timestamp}):\n` +
+          `Summary: ${snap.summary}\n` +
+          `Config: ${JSON.stringify(snap.config, null, 2)}\n` +
+          (snap.resultCsv
+            ? `Result data (CSV):\n${snap.resultCsv}`
+            : "No result data.")
+        );
+      },
+    }),
+  };
 
-  const stream = await streamingCompletion({
+  // Compact older turns before sending to the LLM
+  const messagesForLLM = compactMessages(fullMessages);
+
+  const stream = await streamingChatCompletion({
     context,
-    instructions: fullInstructions,
-    prompt,
+    system,
+    messages: messagesForLLM,
     temperature: 0.3,
     type: "product-analytics-chat",
     isDefaultPrompt: !userAdditionalPrompt,
     overrideModel,
     tools,
-    maxSteps: 3,
+    maxSteps: 10,
   });
 
-  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  flushableRes.flushHeaders();
+  flushableRes.flushHeaders?.();
 
-  for await (const chunk of stream.textStream) {
-    flushableRes.write(chunk);
-    flushableRes.flush?.();
+  const sendSSE = (event: string, data: unknown) => {
+    flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    (flushableRes as FlushableResponse).flush?.();
+  };
+
+  try {
+    for await (const part of stream.fullStream) {
+      // Log every raw stream part so we can see exactly what the AI SDK emits,
+      // including inter-step events (finish-step, start, etc.) that are not
+      // forwarded to the client. Useful for diagnosing latency between steps.
+      if (part.type !== "text-delta" && part.type !== "reasoning-delta") {
+        // Skip high-frequency deltas to keep logs readable; log everything else.
+        logger.debug(`[AI chat stream] part.type=${part.type}`, {
+          sessionId,
+          part: JSON.stringify(part),
+        });
+      }
+
+      switch (part.type) {
+        case "text-delta":
+          sendSSE("text-delta", { content: part.text });
+          break;
+        case "tool-input-start":
+          sendSSE("tool-call-start", {
+            toolName: part.toolName,
+            toolCallId: part.id,
+          });
+          break;
+        case "tool-result": {
+          if (part.toolName === "runExploration") {
+            const snapshotId = pendingChartSnapshots.get(part.toolCallId);
+            if (snapshotId) {
+              const snap = getSnapshot(sessionId, snapshotId);
+              if (snap) {
+                sendSSE("chart-result", {
+                  toolCallId: part.toolCallId,
+                  snapshotId: snap.id,
+                  config: snap.config,
+                  exploration: snap.exploration,
+                });
+              }
+              pendingChartSnapshots.delete(part.toolCallId);
+            }
+          } else {
+            sendSSE("tool-call-end", {
+              toolName: part.toolName,
+              toolCallId: part.toolCallId,
+            });
+          }
+          break;
+        }
+        case "reasoning-delta":
+          sendSSE("reasoning-delta", { text: part.text });
+          break;
+        case "error":
+          sendSSE("error", {
+            message:
+              part.error instanceof Error
+                ? part.error.message
+                : "An error occurred",
+          });
+          break;
+        default:
+          break;
+      }
+    }
+  } catch (err) {
+    sendSSE("error", {
+      message: err instanceof Error ? err.message : "An error occurred",
+    });
   }
 
+  // Save the user message and all LLM response messages (assistant + tool results)
+  // to the conversation store after the stream completes.
+  try {
+    const response = await stream.response;
+    appendMessages(sessionId, [userMessage, ...response.messages]);
+  } catch {
+    // Non-fatal: if we can't persist the messages, the next turn will just
+    // lose this turn's history.
+  }
+
+  sendSSE("done", {});
   flushableRes.end();
 };
 

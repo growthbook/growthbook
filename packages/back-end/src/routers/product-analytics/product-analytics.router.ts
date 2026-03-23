@@ -28,29 +28,14 @@ router.post(
   productAnalyticsController.postProductAnalyticsRun,
 );
 
-const chatMessageValidator = z.object({
-  role: z.enum(["user", "assistant"]),
-  content: z.string(),
-});
-
-const chatSnapshotValidator = z.object({
-  id: z.string(),
-  timestamp: z.string(),
-  summary: z.string(),
-  config: z.string(),
-  resultData: z.string().nullable(),
-});
-
 router.post(
   "/chat",
   validateRequestMiddleware({
     body: z
       .object({
-        messages: z.array(chatMessageValidator).min(1),
+        message: z.string().min(1),
+        sessionId: z.string().min(1),
         datasourceId: z.string(),
-        currentConfig: explorationConfigValidator.optional(),
-        resultData: z.string().max(100000).optional(),
-        snapshots: z.array(chatSnapshotValidator).max(20).optional(),
       })
       .strict(),
   }),

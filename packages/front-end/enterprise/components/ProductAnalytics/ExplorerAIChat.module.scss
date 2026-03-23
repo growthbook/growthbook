@@ -38,7 +38,6 @@
   border-radius: var(--radius-3);
   padding: 8px 12px;
   max-width: 85%;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -101,6 +100,21 @@
 
 .emptyOutput {
   height: 100%;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinIcon {
+  animation: spin 0.8s linear infinite;
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 .sendButton {
