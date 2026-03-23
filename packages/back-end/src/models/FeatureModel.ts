@@ -1101,23 +1101,27 @@ const updateSafeRolloutStatuses = async (
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
 ) => {
+  // If the revision has no rules at all, there are no rule changes to process
+  // and no safe rollout statuses to update.
+  if (!revision.rules) return;
+
   const safeRolloutStatusesMap: Record<
     string,
     { status: "running" | "rolled-back" | "released" | "stopped" }
   > = Object.fromEntries(
     Object.values(revision.rules)
       .flat()
-      .filter((rule) => rule.type === "safe-rollout")
+      .filter((rule) => rule?.type === "safe-rollout")
       .map((rule: SafeRolloutRule) => {
         return [rule.safeRolloutId, { status: rule.status }];
       }),
   );
   // stop safe rollouts that have been removed from the in the revision
-  Object.keys(feature.environmentSettings)
-    .flatMap((env) => feature.environmentSettings[env].rules)
+  Object.keys(feature.environmentSettings ?? {})
+    .flatMap((env) => feature.environmentSettings[env]?.rules ?? [])
     .forEach((rule: FeatureRule) => {
       if (
-        rule.type === "safe-rollout" &&
+        rule?.type === "safe-rollout" &&
         !safeRolloutStatusesMap[rule.safeRolloutId]
       ) {
         safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
