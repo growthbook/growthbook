@@ -21,6 +21,8 @@ import {
   isFeatureStale,
   IsFeatureStaleResult,
   mergeRevision,
+  liveRevisionFromFeature,
+  fillRevisionFromFeature,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -799,8 +801,14 @@ export async function postFeatureRebase(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  if (revision.status !== "draft") {
-    throw new Error("Can only fix conflicts for Draft revisions");
+  const rebasableStatuses = [
+    "draft",
+    "pending-review",
+    "changes-requested",
+    "approved",
+  ];
+  if (!rebasableStatuses.includes(revision.status)) {
+    throw new Error("Can only fix conflicts for active draft revisions");
   }
 
   const live = await getRevision({
@@ -826,23 +834,9 @@ export async function postFeatureRebase(
     throw new Error("Could not lookup feature history");
   }
 
-  // Fill sparse environmentsEnabled in older revisions with the current
-  // feature document's env state so autoMerge produces the same result as
-  // the front-end (which applies the same normalisation before serialising).
-  const featureEnvs: Record<string, boolean> = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
-      envId,
-      env.enabled,
-    ]),
-  );
-  const fillEnvs = (r: typeof live) => ({
-    ...r,
-    environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
-    holdout: feature.holdout ?? null,
-  });
   const mergeResult = autoMerge(
-    fillEnvs(live),
-    fillEnvs(base),
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
     revision,
     environmentIds,
     strategies || {},
@@ -1077,23 +1071,9 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
   }
-  // Fill sparse environmentsEnabled in older revisions with the current
-  // feature document's env state so autoMerge produces the same result as
-  // the front-end (which applies the same normalisation before serialising).
-  const featureEnvs: Record<string, boolean> = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
-      envId,
-      env.enabled,
-    ]),
-  );
-  const fillEnvs = (r: typeof live) => ({
-    ...r,
-    environmentsEnabled: { ...featureEnvs, ...(r.environmentsEnabled ?? {}) },
-    holdout: feature.holdout ?? null,
-  });
   const mergeResult = autoMerge(
-    fillEnvs(live),
-    fillEnvs(base),
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
     revision,
     environmentIds,
     {},
@@ -2625,6 +2605,12 @@ export async function postFeatureToggle(
 
   if (!feature) {
     throw new Error("Could not find feature");
+  }
+
+  if (!environments || typeof environments !== "object") {
+    throw new Error(
+      "Missing required field: environments (Record<string, boolean>)",
+    );
   }
 
   const envIds = Object.keys(environments);

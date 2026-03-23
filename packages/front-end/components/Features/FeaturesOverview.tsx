@@ -957,7 +957,7 @@ export default function FeaturesOverview({
                   borderRadius: "var(--radius-3)",
                   overflow: "hidden",
                   maxWidth: bannerPinned ? "580px" : "2000px",
-                  boxShadow: bannerPinned ? "var(--shadow-4)" : undefined,
+                  boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
                   transition: "all 200ms ease",
                   pointerEvents: "auto",
                 }}
