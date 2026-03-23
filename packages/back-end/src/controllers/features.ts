@@ -853,7 +853,13 @@ export async function postFeatureRebase(
 
   const newRules: Record<string, FeatureRule[]> = {};
   environmentIds.forEach((env) => {
-    newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
+    // Prefer the merge result, then fall back to the feature document's actual
+    // live rules (authoritative). Do NOT fall back to live.rules[env] directly
+    // since old revisions may be sparse and would incorrectly resolve to [].
+    newRules[env] =
+      mergeResult.result.rules?.[env] ??
+      feature.environmentSettings?.[env]?.rules ??
+      [];
   });
   await updateRevision(
     context,
@@ -861,7 +867,7 @@ export async function postFeatureRebase(
     revision,
     {
       baseVersion: live.version,
-      defaultValue: mergeResult.result.defaultValue ?? live.defaultValue,
+      defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
     },
     {
@@ -3603,24 +3609,21 @@ export async function getFeatureById(
   // Sanity check to make sure the published revision values and rules match what's stored in the feature
   const live = fullRevisions.find((r) => r.version === feature.version);
   if (live) {
-    try {
-      if (live.defaultValue !== feature.defaultValue) {
-        throw new Error(
-          `Published revision defaultValue does not match feature ${org.id}.${feature.id}`,
+    if (live.defaultValue !== feature.defaultValue) {
+      logger.error(
+        `Published revision defaultValue does not match feature ${org.id}.${feature.id}`,
+      );
+    }
+    const liveRules = live.rules ?? {};
+    environments.forEach((env) => {
+      const settings = feature.environmentSettings?.[env];
+      if (!settings) return;
+      if (!isEqual(settings.rules || [], liveRules[env] || [])) {
+        logger.error(
+          `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
         );
       }
-      environments.forEach((env) => {
-        const settings = feature.environmentSettings?.[env];
-        if (!settings) return;
-        if (!isEqual(settings.rules || [], live.rules[env] || [])) {
-          throw new Error(
-            `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
-          );
-        }
-      });
-    } catch (e) {
-      logger.error(e);
-    }
+    });
   }
 
   // find code references
