@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useRef } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
+import styles from "./Table.module.scss";
 
 /** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
 export const DEFAULT_STICKY_TOP_OFFSET_PX = 56;
@@ -63,7 +64,7 @@ export default function Table({
     <RadixTable.Root
       {...props}
       variant={radixVariant}
-      className={clsx(className, isListVariant && "table-list")}
+      className={clsx(className, isListVariant && styles.tableList)}
     >
       {children}
     </RadixTable.Root>
@@ -76,7 +77,7 @@ export default function Table({
   return (
     <div
       ref={wrapperRef}
-      className="table-list-wrapper"
+      className={styles.wrapper}
       style={
         useStickyHeader
           ? ({
