@@ -977,7 +977,13 @@ export async function copyFeatureEnvironmentRules(
     rules: revision.rules ? cloneDeep(revision.rules) : {},
     status: revision.status,
   };
-  changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
+  // Fall back to live rules for any env not yet modified in this draft,
+  // matching the mergeRevision behavior the frontend uses for the diff preview.
+  const effectiveSourceRules =
+    changes.rules[sourceEnv] ??
+    feature.environmentSettings?.[sourceEnv]?.rules ??
+    [];
+  changes.rules[targetEnv] = effectiveSourceRules;
   await updateRevision(
     context,
     feature,

@@ -205,11 +205,10 @@ export default function FeatureRules({
               <Link
                 ml="2"
                 onClick={() => setCompareEnvModal({ sourceEnv: env })}
-                underline="none"
                 wrap="nowrap"
                 size="1"
               >
-                Compare environments
+                Sync rules across environments
               </Link>
             )}
           </Flex>
