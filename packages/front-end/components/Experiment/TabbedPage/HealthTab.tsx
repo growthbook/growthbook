@@ -52,16 +52,17 @@ export default function HealthTab({
   const goalMetrics = experiment.goalMetrics ?? [];
   const guardrailMetrics = experiment.guardrailMetrics ?? [];
   const secondaryMetrics = experiment.secondaryMetrics ?? [];
+  const hasMetrics =
+    goalMetrics.length > 0 ||
+    guardrailMetrics.length > 0 ||
+    secondaryMetrics.length > 0;
 
   const analysisForCovariateImbalance = snapshot?.analyses.find(
     (a) => a.settings.useCovariateAsResponse === true,
   );
 
   const isEligibleForCovariateImbalanceAnalysis =
-    Boolean(analysisForCovariateImbalance) &&
-    (goalMetrics.length > 0 ||
-      guardrailMetrics.length > 0 ||
-      secondaryMetrics.length > 0);
+    !!analysisForCovariateImbalance && hasMetrics;
 
   const _covariateImbalanceResult =
     isEligibleForCovariateImbalanceAnalysis && analysisForCovariateImbalance
@@ -295,10 +296,7 @@ export default function HealthTab({
 
   return (
     <div className="mt-2">
-      <IssueTags
-        issues={healthIssues}
-        hasCovariateImbalance={_covariateImbalanceResult?.isImbalanced ?? false}
-      />
+      <IssueTags issues={healthIssues} />
       <TrafficCard
         traffic={traffic}
         variations={variations}
@@ -326,23 +324,11 @@ export default function HealthTab({
         )}
       </div>
       <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
-        {!isBandit ? (
+        {!isBandit && (
           <CovariateImbalanceCard
             covariateImbalanceResult={_covariateImbalanceResult}
-            traffic={traffic}
             variations={variations}
-            totalUsers={totalUsers}
-            onNotify={handleHealthNotification}
-            dataSource={datasource}
-            exposureQuery={exposureQuery}
-            healthTabConfigParams={healthTabConfigParams}
-            canConfigHealthTab={hasPermissionToConfigHealthTag}
-          />
-        ) : (
-          <BanditSRMCard
-            experiment={experiment}
             snapshot={snapshot}
-            phase={phaseObj}
             onNotify={handleHealthNotification}
           />
         )}

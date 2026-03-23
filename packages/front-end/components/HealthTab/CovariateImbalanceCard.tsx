@@ -1,33 +1,24 @@
-import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentReportVariation } from "shared/types/report";
-import { useEffect } from "react";
-import { CovariateImbalanceResult } from "shared/enterprise";
-import {
-  DataSourceInterfaceWithParams,
-  ExposureQuery,
-} from "shared/types/datasource";
-import {
-  CovariateImbalanceMetricVariationTable,
-  CovariateImbalanceMetricSummaryTable,
-} from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
-import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import { useEffect, useState } from "react";
+import { CovariateImbalanceResult } from "shared/health";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { CovariateImbalanceMetricVariationTable } from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import Callout from "@/ui/Callout";
 import CovariateImbalanceWarning from "@/components/Experiment/CovariateImbalanceWarning";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import Button from "@/ui/Button";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
   covariateImbalanceResult: CovariateImbalanceResult | null;
-  traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
-  totalUsers: number;
+  snapshot: ExperimentSnapshotInterface;
   onNotify?: (issue: IssueValue) => void;
-  dataSource: DataSourceInterfaceWithParams | null;
-  exposureQuery?: ExposureQuery;
-  healthTabConfigParams?: HealthTabConfigParams;
-  canConfigHealthTab: boolean;
-  newDesign?: boolean;
-  hideDimensions?: boolean;
 }
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
@@ -35,18 +26,13 @@ export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 export default function CovariateImbalanceCard({
   covariateImbalanceResult,
   variations,
+  snapshot,
   onNotify,
-  dataSource: _dataSource,
-  exposureQuery: _exposureQuery,
-  healthTabConfigParams: _healthTabConfigParams,
-  canConfigHealthTab: _canConfigHealthTab,
-  newDesign = false,
-  hideDimensions: _hideDimensions = false,
 }: Props) {
   const covariateImbalanceHealth = covariateImbalanceResult?.isImbalanced
     ? "unhealthy"
     : "healthy";
-
+  const [isCollapsed, setIsCollapsed] = useState(true);
   useEffect(() => {
     if (covariateImbalanceHealth === "unhealthy" && onNotify) {
       onNotify({
@@ -56,61 +42,84 @@ export default function CovariateImbalanceCard({
     }
   }, [covariateImbalanceHealth, onNotify]);
 
-  const classes = !newDesign ? "appbox container-fluid my-4 pl-3 py-3" : "";
+  const numMetricsTested =
+    (covariateImbalanceResult?.numGoalMetrics ?? 0) +
+    (covariateImbalanceResult?.numGuardrailMetrics ?? 0);
 
-  const numGoalMetricsTested = covariateImbalanceResult?.numGoalMetrics;
+  // Check if CUPED is enabled for the experiment or any of the metrics
+  const cupedEnabled =
+    snapshot.settings.regressionAdjustmentEnabled ||
+    snapshot.settings.metricSettings.some(
+      (m) => m.computedSettings?.regressionAdjustmentEnabled,
+    );
 
   return (
-    <div
-      className={classes}
-      style={{
-        ...(newDesign && {
-          border: "1px solid var(--slate-a4)",
-          borderRadius: "var(--radius-1)",
-          padding: "var(--space-4) var(--space-3) 0",
-        }),
-      }}
-    >
-      <div>
-        <h2 className="d-inline">Pre-Exposure Bias Check</h2>{" "}
+    <Box className="appbox" p="4" my="4">
+      <Box>
+        <Flex justify="between" align="center">
+          <Heading as="h2" size="large">
+            Pre-Exposure Bias Check
+          </Heading>
+          <Box>
+            {/* collapsible toggle */}
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setIsCollapsed((prev) => !prev)}
+            >
+              {isCollapsed ? (
+                <PiCaretRight size={15} />
+              ) : (
+                <PiCaretDown size={15} />
+              )}
+            </Button>
+          </Box>
+        </Flex>
         {covariateImbalanceHealth !== "healthy" && (
           <StatusBadge status={covariateImbalanceHealth} />
         )}
-        <p className="mt-1">
-          Detects differences in pre-exposure control vs treatment means.
-        </p>
-        <hr className="mb-0"></hr>
-        <div style={{ paddingTop: "10px" }}>
-          {numGoalMetricsTested === 0 ? (
-            <div className="ml-2 mr-2 mt-1 w-100">
-              <Callout status="info" contentsAs="div">
-                <b>No Goal Metrics had covariates tested.</b>
-              </Callout>
-            </div>
+        <Text as="p" mt="1">
+          Detects differences in pre-exposure control vs treatment means
+        </Text>
+        <Separator size="4" my="3" />
+        <Box pt="2">
+          {!cupedEnabled ? (
+            <Box mt="2">
+              <Text color="text-low">Only available with CUPED enabled.</Text>
+            </Box>
+          ) : numMetricsTested === 0 ? (
+            <Box mt="2">
+              <Text color="text-low">No metrics have been added.</Text>
+            </Box>
           ) : covariateImbalanceHealth === "healthy" ? (
-            <div className="ml-2 mr-2 mt-1 w-100">
-              <Callout status="info" contentsAs="div">
-                <b>Covariate imbalances were not detected.</b>
-              </Callout>
-            </div>
+            <Callout status="success">
+              <Text weight="semibold">
+                {numMetricsTested} metric{numMetricsTested > 1 ? "s" : ""} show
+                {numMetricsTested > 1 ? "" : "s"} no covariate imbalance.{" "}
+                <Link
+                  href="https://docs.growthbook.io/statistics/pre-exposure-bias"
+                  target="_blank"
+                >
+                  Learn more
+                </Link>
+                <Box display="inline-block" ml="1">
+                  <PiArrowSquareOut size={15} />
+                </Box>
+              </Text>
+            </Callout>
           ) : (
-            <>
-              <div className="mb-4">
-                {CovariateImbalanceMetricSummaryTable(covariateImbalanceResult)}
-              </div>
-              <div className="row justify-content-start w-100 overflow-auto">
-                <CovariateImbalanceMetricVariationTable
-                  covariateImbalanceResult={covariateImbalanceResult}
-                  variations={variations}
-                />
-              </div>
-              <div>
-                <CovariateImbalanceWarning />
-              </div>
-            </>
+            <CovariateImbalanceWarning />
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+        {!isCollapsed && (
+          <Box className="row justify-content-start w-100 overflow-auto">
+            <CovariateImbalanceMetricVariationTable
+              covariateImbalanceResult={covariateImbalanceResult}
+              variations={variations}
+            />
+          </Box>
+        )}
+      </Box>
+    </Box>
   );
 }
