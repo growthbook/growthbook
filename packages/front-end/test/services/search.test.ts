@@ -389,6 +389,7 @@ describe("useSearch", () => {
       expect(
         result.current.unpaginatedItems.map((item) => item.name),
       ).toContain("secondrowtoken");
+      expect(result.current.unpaginatedItems[0]?.id).toBe("dup");
     });
   });
 

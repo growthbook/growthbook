@@ -133,18 +133,20 @@ export function useSearch<T extends { id: string }>({
 
     // MiniSearch requires globally unique document IDs.
     // Some lists can contain duplicate business IDs (e.g. experiment tracking keys),
-    // so build an internal ID that is unique per row for indexing.
+    // so we store a separate internal ID only for indexing.
+    const internalSearchIdField = "__gb_search_id";
     const indexedItemMap = new Map<string, T>();
     const indexedItems = items.map((item, index) => {
       const indexedId = `${item.id}::${index}`;
       indexedItemMap.set(indexedId, item);
       return {
         ...item,
-        id: indexedId,
+        [internalSearchIdField]: indexedId,
       };
     });
 
     const miniSearchInstance = new MiniSearch({
+      idField: internalSearchIdField,
       fields,
       searchOptions: {
         boost: keys,
@@ -173,7 +175,7 @@ export function useSearch<T extends { id: string }>({
     if (searchTerm.length > 0) {
       const searchResults = miniSearch.search(searchTerm);
       filtered = searchResults
-        .map((result) => indexedItemMap.get(result.id))
+        .map((result) => indexedItemMap.get(result.id + ""))
         .filter((item): item is T => !!item);
     }
     if (updateSearchQueryOnChange) {
