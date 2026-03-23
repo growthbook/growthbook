@@ -118,7 +118,7 @@ function EnvStateGrid({
         </Flex>
 
         {/* Change summary */}
-        <Box mt="2" pb="1">
+        <Box mt="3" pb="1">
           <Flex
             align="center"
             pb="2"
@@ -451,6 +451,15 @@ export default function KillSwitchModal({
       (liveDoc.environmentSettings?.[env.id]?.enabled ?? false),
   );
 
+  // True only when the selected draft itself had changes vs live before the user touched anything.
+  const draftHadPendingChanges =
+    mode === "existing" &&
+    visibleEnvs.some(
+      (env) =>
+        (baseEnvEnabled[env.id] ?? false) !==
+        !!liveDoc.environmentSettings?.[env.id]?.enabled,
+    );
+
   const changedEnvs = visibleEnvs.filter(
     (env) => getEffectiveState(env.id) !== !!liveEnvSettings[env.id]?.enabled,
   );
@@ -496,12 +505,12 @@ export default function KillSwitchModal({
           scrollToEnvId={environment}
         />
 
-        <Flex justify="center" style={{ minHeight: 50 }}>
+        <Flex justify="center" style={{ minHeight: 50 }} mt="2">
           {noNetChange &&
             (touchedEnvs.size > 0 || environment !== undefined) && (
               <Text as="p" color="text-low">
                 <em>
-                  {mode === "existing"
+                  {draftHadPendingChanges
                     ? "This undoes pending draft changes — no net change from live."
                     : mode === "publish"
                       ? "Already matches live — nothing will be published."

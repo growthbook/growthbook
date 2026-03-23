@@ -475,15 +475,19 @@ export default function CompareRevisionsModal({
     return list.map((r) => r.version);
   }, [filteredRevisionList]);
 
+  // Compute the default comparison target from the full list so that the
+  // initial selection is correct regardless of which filters are active.
   const defaultAdjacentVersion = useMemo(() => {
-    if (versionsDesc.length < 2) return null;
-    const idx = versionsDesc.indexOf(currentVersion);
-    if (idx < 0) return versionsDesc[1] ?? versionsDesc[0];
-    if (idx === versionsDesc.length - 1) {
-      return versionsDesc[idx - 1] ?? null;
-    }
-    return versionsDesc[idx + 1];
-  }, [versionsDesc, currentVersion]);
+    const allDesc = [...revisionList]
+      .filter((r) => r.status !== "discarded")
+      .sort((a, b) => b.version - a.version)
+      .map((r) => r.version);
+    if (allDesc.length < 2) return null;
+    const idx = allDesc.indexOf(currentVersion);
+    if (idx < 0) return allDesc[1] ?? allDesc[0];
+    if (idx === allDesc.length - 1) return allDesc[idx - 1] ?? null;
+    return allDesc[idx + 1];
+  }, [revisionList, currentVersion]);
 
   const [selectedVersions, setSelectedVersions] = useState<number[]>(() => {
     if (initialMode === "most-recent-live") {
@@ -598,18 +602,18 @@ export default function CompareRevisionsModal({
   );
 
   const selectedSorted = useMemo(() => {
-    // Expand 2 endpoints to all visible versions between them for stepped diffing
+    // Always keep the selected endpoints even if they're filtered out;
+    // expand between them using only the currently visible revisions.
     if (selectedVersions.length < 2) {
-      return [...selectedVersions]
-        .filter((v) => filteredRevisionList.some((r) => r.version === v))
-        .sort((a, b) => a - b);
+      return [...selectedVersions].sort((a, b) => a - b);
     }
     const lo = Math.min(...selectedVersions);
     const hi = Math.max(...selectedVersions);
-    return filteredRevisionList
+    const inRange = new Set<number>(selectedVersions);
+    filteredRevisionList
       .filter((r) => r.version >= lo && r.version <= hi)
-      .map((r) => r.version)
-      .sort((a, b) => a - b);
+      .forEach((r) => inRange.add(r.version));
+    return [...inRange].sort((a, b) => a - b);
   }, [selectedVersions, filteredRevisionList]);
 
   // Compares ranges by endpoints only
@@ -639,6 +643,26 @@ export default function CompareRevisionsModal({
     initialPreviewDraft ?? null,
   );
 
+  // The sidebar always shows the filtered list plus any selected/preview
+  // revisions that would otherwise be hidden by the active filters.
+  const sidebarVersionsDesc = useMemo(() => {
+    const alwaysVisible = new Set<number>(selectedVersions);
+    if (previewDraftVersion !== null) alwaysVisible.add(previewDraftVersion);
+    const extra = revisionList.filter(
+      (r) =>
+        alwaysVisible.has(r.version) &&
+        !filteredRevisionList.some((fr) => fr.version === r.version),
+    );
+    return [...filteredRevisionList, ...extra]
+      .sort((a, b) => b.version - a.version)
+      .map((r) => r.version);
+  }, [
+    filteredRevisionList,
+    revisionList,
+    selectedVersions,
+    previewDraftVersion,
+  ]);
+
   const neededVersions = useMemo(() => {
     const set = new Set(selectedSortedSet);
     if (previewDraftVersion !== null) {
@@ -661,45 +685,6 @@ export default function CompareRevisionsModal({
   );
 
   const [diffPage, setDiffPage] = useState(0);
-  const resetToTopTwo = useCallback(
-    (prev: number[]) => {
-      const top2 = [...filteredRevisionList]
-        .sort((a, b) => b.version - a.version)
-        .slice(0, 2)
-        .map((r) => r.version)
-        .sort((a, b) => a - b);
-      return top2.length >= 2 ? top2 : prev;
-    },
-    [filteredRevisionList],
-  );
-
-  const prevShowDiscardedRef = useRef(showDiscarded);
-  useEffect(() => {
-    if (prevShowDiscardedRef.current === showDiscarded) return;
-    prevShowDiscardedRef.current = showDiscarded;
-    if (!showDiscarded) {
-      // If hiding discarded revision knocks out either endpoint, reset.
-      setSelectedVersions((prev) => {
-        const visibleSet = new Set(filteredRevisionList.map((r) => r.version));
-        if (prev.every((v) => visibleSet.has(v))) return prev;
-        return resetToTopTwo(prev);
-      });
-    }
-  }, [showDiscarded, filteredRevisionList, resetToTopTwo]);
-
-  const prevShowDraftsRef = useRef(showDrafts);
-  useEffect(() => {
-    if (prevShowDraftsRef.current === showDrafts) return;
-    prevShowDraftsRef.current = showDrafts;
-    if (!showDrafts) {
-      // If hiding drafts knocks out either endpoint, reset.
-      setSelectedVersions((prev) => {
-        const visibleSet = new Set(filteredRevisionList.map((r) => r.version));
-        if (prev.every((v) => visibleSet.has(v))) return prev;
-        return resetToTopTwo(prev);
-      });
-    }
-  }, [showDrafts, filteredRevisionList, resetToTopTwo]);
   useEffect(() => {
     setDiffPage((p) =>
       steps.length === 0 ? 0 : Math.min(p, steps.length - 1),
@@ -849,8 +834,8 @@ export default function CompareRevisionsModal({
   );
 
   const revisionListByVersion = useMemo(
-    () => new Map(filteredRevisionList.map((r) => [r.version, r])),
-    [filteredRevisionList],
+    () => new Map(revisionList.map((r) => [r.version, r])),
+    [revisionList],
   );
 
   // Use full unfiltered list so quick actions are independent of filter checkboxes
@@ -1230,7 +1215,7 @@ export default function CompareRevisionsModal({
                 })()}
             </Flex>
             <Flex direction="column" className={styles.revisionsList}>
-              {versionsDesc.map((v) => {
+              {sidebarVersionsDesc.map((v) => {
                 const minRev = revisionListByVersion.get(v);
                 const fullRev = getFullRevision(v);
                 const showBase = isOutOfOrderDraft(fullRev);
