@@ -1257,7 +1257,7 @@ export async function postFeatureRevert(
   const changedEnvs: string[] = [];
   environmentIds.forEach((env) => {
     if (
-      revision.rules[env] &&
+      revision.rules?.[env] &&
       !isEqual(
         revision.rules[env],
         feature.environmentSettings?.[env]?.rules || [],
@@ -1367,7 +1367,9 @@ export async function postFeatureRevert(
     rules: Object.fromEntries(
       environmentIds.map((env) => [
         env,
-        revision.rules[env] ?? feature.environmentSettings?.[env]?.rules ?? [],
+        revision.rules?.[env] ??
+          feature.environmentSettings?.[env]?.rules ??
+          [],
       ]),
     ),
   };
@@ -1471,7 +1473,9 @@ export async function postFeatureRevertDraft(
     rules: Object.fromEntries(
       environmentIds.map((env) => [
         env,
-        revision.rules[env] ?? feature.environmentSettings?.[env]?.rules ?? [],
+        revision.rules?.[env] ??
+          feature.environmentSettings?.[env]?.rules ??
+          [],
       ]),
     ),
   };
@@ -3566,17 +3570,17 @@ export async function getFeatureById(
   let hasSafeRollout = false;
   fullRevisions.forEach((revision) => {
     environments.forEach((env) => {
-      const rules = revision.rules[env];
+      const rules = revision.rules?.[env];
       if (!rules) return;
       rules.forEach((rule) => {
         // New rules store the experiment id directly
-        if (rule.type === "experiment-ref") {
+        if (rule?.type === "experiment-ref") {
           experimentIds.add(rule.experimentId);
         }
         // Old rules store the trackingKey
-        else if (rule.type === "experiment") {
+        else if (rule?.type === "experiment") {
           trackingKeys.add(rule.trackingKey || feature.id);
-        } else if (rule.type === "safe-rollout") {
+        } else if (rule?.type === "safe-rollout") {
           hasSafeRollout = true;
         }
       });
