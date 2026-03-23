@@ -5654,6 +5654,29 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
+  /**
+   * Like getQuantileGridColumns but extracts points from a merged KLL sketch
+   * column instead of calling APPROX_PERCENTILE on raw values. Used by the
+   * incremental-refresh path where the metric source table stores per-user-date
+   * sketches that are merged at stats time.
+   */
+  getKllQuantileGridColumns(
+    metricQuantileSettings: MetricQuantileSettings,
+    sketchCol: string,
+    prefix: string,
+  ) {
+    return `, ${this.kllExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile
+    ${N_STAR_VALUES.map((nstar) => {
+      const { lower, upper } = this.getQuantileBoundValues(
+        metricQuantileSettings.quantile,
+        0.05,
+        nstar,
+      );
+      return `, ${this.kllExtractPoint(sketchCol, lower)} AS ${prefix}quantile_lower_${nstar}
+          , ${this.kllExtractPoint(sketchCol, upper)} AS ${prefix}quantile_upper_${nstar}`;
+    }).join("\n")}`;
+  }
+
   public getColumnsTopValuesQuery({
     factTable,
     columns,
@@ -7822,6 +7845,7 @@ ORDER BY column_name, count DESC
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
     const percentileData = factTableWithMetricData.percentileData;
+    const eventQuantileData = factTableWithMetricData.eventQuantileData;
     const regressionAdjustedMetrics =
       factTableWithMetricData.regressionAdjustedMetrics;
 
@@ -7949,6 +7973,11 @@ ORDER BY column_name, count DESC
                   data.ratioMetric && denomReAggFunction
                     ? `, ${denomReAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
                     : ""
+                }
+                ${
+                  data.quantileMetric === "event"
+                    ? `, SUM(COALESCE(umj.${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)) AS ${this.encodeMetricIdForColumnName(data.metric.id)}_n_events`
+                    : ""
                 }`;
             })
             .join("\n")}
@@ -7956,6 +7985,49 @@ ORDER BY column_name, count DESC
         GROUP BY
           ${baseIdType}
       )
+      ${
+        eventQuantileData.length > 0
+          ? `
+      , __eventQuantileSketch AS (
+        -- Merge per-user KLL sketches by variation+dimension and extract the
+        -- quantile grid. The quantile point estimate and IID variance bounds
+        -- are exact (up to KLL precision); see __joinedData for the clustered-
+        -- variance approximation.
+        SELECT
+          u.variation AS variation
+          ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
+          ${metricData
+            .filter((d) => d.quantileMetric === "event")
+            .map(
+              (d) =>
+                `, ${this.kllMergePartial(`m.${this.encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
+            )
+            .join("\n")}
+        FROM __experimentUnits u
+        INNER JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
+        GROUP BY
+          u.variation
+          ${allDimensionCols.map((c) => `, u.${c.alias}`).join("")}
+      )
+      , __eventQuantileMetric AS (
+        SELECT
+          variation
+          ${allDimensionCols.map((c) => `, ${c.alias}`).join("")}
+          ${metricData
+            .filter((d) => d.quantileMetric === "event")
+            .map((d) =>
+              this.getKllQuantileGridColumns(
+                d.metricQuantileSettings,
+                `${d.alias}_sketch`,
+                `${d.alias}_`,
+              ),
+            )
+            .join("\n")}
+        FROM __eventQuantileSketch
+      )
+      `
+          : ""
+      }
       , __joinedData AS (
           SELECT
             u.${baseIdType}
@@ -7965,6 +8037,17 @@ ORDER BY column_name, count DESC
               // TODO(incremental-refresh): here is where we need to nullif 0 for
               // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map((data) => {
+                if (data.quantileMetric === "event") {
+                  // KLL sketches cannot answer rank queries, so approximate the
+                  // per-user "count below threshold" as nu * n_events. This makes
+                  // main_sum exact in expectation and captures the per-user
+                  // variance in event volume for the cluster adjustment, but does
+                  // not capture per-user variance in the fraction below threshold.
+                  const nu = data.metricQuantileSettings.quantile;
+                  const nEventsCol = `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
+                  return `, (${nu} * ${nEventsCol}) AS ${data.alias}_value
+                  , ${nEventsCol} AS ${data.alias}_n_events`;
+                }
                 return `, ${data.aggregatedValueTransformation({
                   column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
                   initialTimestampColumn: "u.first_exposure_timestamp",
@@ -8016,7 +8099,7 @@ ORDER BY column_name, count DESC
       ${this.getExperimentFactMetricStatisticsCTE({
         dimensionCols: allDimensionCols,
         metricData,
-        eventQuantileData: [], // TODO(incremental-refresh): quantiles
+        eventQuantileData,
         baseIdType,
         joinedMetricTableName: "__joinedData",
         eventQuantileTableName: "__eventQuantileMetric",
