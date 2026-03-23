@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useCallback, useMemo, useState } from "react";
+import { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -7,8 +7,9 @@ import {
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { PiInfoFill } from "react-icons/pi";
+import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField, {
@@ -490,19 +491,25 @@ const MetricsSelector: FC<{
                 />
               ) : (
                 <>
-                  <PiInfoFill size="13" style={{ color: "var(--violet-11)" }} />
-                  <Text className="px-1" style={{ color: "var(--violet-11)" }}>
-                    Create a Metric Group so you can easily re-use this set of
-                    metrics in other experiments.
-                  </Text>
-                  <Link
-                    role="button"
-                    onClick={() => setCreateMetricGroup(true)}
+                  <Flex
+                    align="center"
+                    gap="1"
+                    style={{ color: "var(--violet-11)" }}
                   >
-                    <strong style={{ textDecoration: "underline" }}>
-                      Convert now
-                    </strong>
-                  </Link>
+                    <PiInfoFill size="13" />
+                    <Text size="small">
+                      Create a Metric Group so you can easily re-use this set of
+                      metrics in other experiments.
+                    </Text>
+                    <Link
+                      role="button"
+                      onClick={() => setCreateMetricGroup(true)}
+                    >
+                      <strong style={{ textDecoration: "underline" }}>
+                        Convert now
+                      </strong>
+                    </Link>
+                  </Flex>
                 </>
               )}
             </Flex>
