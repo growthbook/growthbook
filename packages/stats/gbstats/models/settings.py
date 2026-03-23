@@ -49,7 +49,6 @@ class BanditSettingsForStatsEngine:
     current_weights: List[float]
     reweight: bool = True
     decision_metric: str = ""
-    bandit_weights_seed: int = 100
     bandit_weights_rng: np.random.Generator = field(
         default_factory=lambda: np.random.default_rng()
     )

@@ -5,6 +5,7 @@ import traceback
 import copy
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import numpy as np
 import pandas as pd
 
 from gbstats.bayesian.tests import (
@@ -1272,6 +1273,27 @@ def filter_query_rows(
     ]
 
 
+def get_bandit_settings(data: Dict[str, Any]) -> Optional[BanditSettingsForStatsEngine]:
+    """Build :class:`BanditSettingsForStatsEngine` from the stats-engine payload.
+
+    Copies every field defined on :class:`BanditSettingsForStatsEngine` from
+    ``data["bandit_settings"]`` except ``bandit_weights_rng``, which is always set to
+    :func:`numpy.random.default_rng` using ``bandit_weights_seed`` from that dict
+    (default ``100`` if the seed is omitted). Extra keys in the payload (e.g.
+    ``historical_weights`` from the API) are ignored.
+    """
+    if "bandit_settings" not in data or data["bandit_settings"] is None:
+        return None
+    raw = dict(data["bandit_settings"])
+    allowed = {f.name for f in dataclasses.fields(BanditSettingsForStatsEngine)}
+    kwargs = {
+        k: v for k, v in raw.items() if k in allowed and k != "bandit_weights_rng"
+    }
+    seed = int(kwargs.get("bandit_weights_seed", 100))
+    kwargs["bandit_weights_rng"] = np.random.default_rng(seed)
+    return BanditSettingsForStatsEngine(**kwargs)
+
+
 def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     return DataForStatsEngine(
         metrics={
@@ -1279,11 +1301,7 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
         },
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
-        bandit_settings=(
-            BanditSettingsForStatsEngine(**data["bandit_settings"])
-            if "bandit_settings" in data
-            else None
-        ),
+        bandit_settings=get_bandit_settings(data),
     )
 
 
