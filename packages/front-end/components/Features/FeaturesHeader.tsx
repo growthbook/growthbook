@@ -603,6 +603,7 @@ export default function FeaturesHeader({
         <StaleDetectionModal
           close={() => setStaleFFModal(false)}
           feature={feature}
+          revisionList={revisions}
           mutate={mutate}
           setVersion={setVersion}
           onEnable={handleRerunStale}

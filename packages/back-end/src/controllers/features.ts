@@ -852,15 +852,37 @@ export async function postFeatureRebase(
   }
 
   const newRules: Record<string, FeatureRule[]> = {};
+  const newEnvironmentsEnabled: Record<string, boolean> = {};
   environmentIds.forEach((env) => {
     // Prefer the merge result, then fall back to the feature document's actual
-    // live rules (authoritative). Do NOT fall back to live.rules[env] directly
+    // live state (authoritative). Do NOT fall back to live.rules[env] directly
     // since old revisions may be sparse and would incorrectly resolve to [].
     newRules[env] =
       mergeResult.result.rules?.[env] ??
       feature.environmentSettings?.[env]?.rules ??
       [];
+    newEnvironmentsEnabled[env] =
+      mergeResult.result.environmentsEnabled?.[env] ??
+      feature.environmentSettings?.[env]?.enabled ??
+      false;
   });
+
+  // Build complete metadata snapshot: start from live feature, overlay any
+  // metadata fields the merge result explicitly changed.
+  const featureMetadataSnapshot: RevisionMetadata = {
+    description: feature.description,
+    owner: feature.owner,
+    project: feature.project,
+    tags: feature.tags,
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+  };
+  const newMetadata: RevisionMetadata = mergeResult.result.metadata
+    ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
+    : featureMetadataSnapshot;
+
   await updateRevision(
     context,
     feature,
@@ -869,6 +891,15 @@ export async function postFeatureRebase(
       baseVersion: live.version,
       defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
+      environmentsEnabled: newEnvironmentsEnabled,
+      prerequisites:
+        mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
+      archived: mergeResult.result.archived ?? feature.archived ?? false,
+      metadata: newMetadata,
+      holdout:
+        "holdout" in mergeResult.result
+          ? mergeResult.result.holdout
+          : (feature.holdout ?? null),
     },
     {
       user: res.locals.eventAudit,
@@ -3844,7 +3875,15 @@ export async function getRealtimeUsage(
 }
 
 export async function toggleStaleFFDetectionForFeature(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<
+    {
+      neverStale: boolean;
+      autoPublish?: boolean;
+      draftVersion?: number;
+      forceNewDraft?: boolean;
+    },
+    { id: string }
+  >,
   res: Response<
     { status: 200; draftVersion?: number },
     EventUserForResponseLocals
@@ -3852,8 +3891,18 @@ export async function toggleStaleFFDetectionForFeature(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const feature = await getFeature(context, id);
+  const {
+    neverStale,
+    autoPublish,
+    draftVersion: reqDraftVersion,
+    forceNewDraft,
+  } = req.body;
 
+  if (typeof neverStale !== "boolean") {
+    throw new Error("Missing required field: neverStale (boolean)");
+  }
+
+  const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3862,17 +3911,48 @@ export async function toggleStaleFFDetectionForFeature(
     context.permissions.throwPermissionError();
   }
 
-  const newNeverStale = !feature.neverStale;
+  const comment = neverStale
+    ? "Disable stale detection"
+    : "Enable stale detection";
+
+  if (autoPublish) {
+    if ((feature.neverStale ?? false) === neverStale) {
+      return res.status(200).json({ status: 200 });
+    }
+    const environments = getEnvironmentIdsFromOrg(context.org);
+    const revision = await createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      environments,
+      baseVersion: feature.version,
+      changes: { metadata: { neverStale } },
+      publish: false,
+      comment,
+      org: context.org,
+    });
+    await assertCanAutoPublish(context, feature, revision);
+    await publishRevision(context, feature, revision, {
+      metadata: { neverStale },
+    });
+    return res
+      .status(200)
+      .json({ status: 200, draftVersion: revision.version });
+  }
+
+  // Non-autoPublish: write into the specified draft or the active draft.
   const draft = await createOrUpdateDraftWithChanges(
     context,
     feature,
-    { metadata: { neverStale: newNeverStale } },
+    { metadata: { neverStale } },
     {
       user: context.auditUser,
       action: "update",
       subject: "neverStale",
-      value: JSON.stringify({ neverStale: newNeverStale }),
+      value: JSON.stringify({ neverStale }),
     },
+    reqDraftVersion,
+    forceNewDraft,
   );
   return res.status(200).json({ status: 200, draftVersion: draft.version });
 }
