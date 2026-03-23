@@ -13,7 +13,7 @@ const docSections = {
   factTables: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
-  insights: "/app/insights",
+  insights: "/insights",
   powerCalculator: "/statistics/power",
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
@@ -109,6 +109,22 @@ const docSections = {
 
 export type DocSection = keyof typeof docSections;
 
+/**
+ * Human-readable title for search (e.g. Cmd+K). Handles camelCase, snake_case,
+ * and #anchors in keys (e.g. `sdkWebhooks#payload-format`).
+ */
+export function docTitleForSection(section: DocSection): string {
+  const raw = section as string;
+  const withSpaces = raw.replace(/#/g, " ").replace(/-/g, " ");
+  const splitCamel = withSpaces.replace(/([a-z])([A-Z])/g, "$1 $2");
+  return splitCamel
+    .replace(/_/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 const urlPathMapping: Record<string, DocSection> = {
   "/": "home",
   "/features": "features",
@@ -185,6 +201,21 @@ export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
 
   return docsOrigin + docsPath;
 };
+
+/** Stable rows for indexing documentation in the command palette. */
+export function getDocSectionsForCommandPalette(): {
+  section: DocSection;
+  title: string;
+  url: string;
+  tags: string;
+}[] {
+  return (Object.keys(docSections) as DocSection[]).map((section) => ({
+    section,
+    title: docTitleForSection(section),
+    url: docUrl(section),
+    tags: `${section} documentation`,
+  }));
+}
 
 export function DocLink({
   docSection,
