@@ -15,11 +15,11 @@ import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { isCloud, isMultiOrg } from "@/services/env";
 import { AppFeatures } from "@/types/app-features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
+import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
 import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
 import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
 import styles from "./CommandPalette.module.scss";
@@ -78,7 +78,7 @@ const SECTION_ICONS: Record<
 /** Max matches kept per section from search; "Show more" reveals up to this many. */
 const MAX_ITEMS_PER_SECTION = 10;
 /** Rows shown per section before "Show more" (when more than this exist in the pool). */
-const SECTION_INITIAL_VISIBLE = 3;
+const SECTION_INITIAL_VISIBLE = 5;
 
 function expandSectionRowId(section: CommandPaletteItemType): string {
   return `__palette_expand_section_${section}__`;
@@ -177,18 +177,17 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
 
   // Build unified item list
   const items = useMemo<CommandPaletteItem[]>(() => {
-    const filterProps = {
-      permissionsUtils,
-      permissions,
-      superAdmin: !!superAdmin,
-      isCloud: isCloud(),
-      isMultiOrg: isMultiOrg(),
-      gb: growthbook,
-      project,
-      segments,
-    };
-
-    const flatNav = flattenNavItems(navlinks, filterProps);
+    const flatNav = flattenNavItems(
+      navlinks,
+      buildSidebarLinkFilterProps({
+        permissionsUtils,
+        permissions,
+        superAdmin,
+        gb: growthbook,
+        project,
+        segments,
+      }),
+    );
     const result: CommandPaletteItem[] = flatNav.map((row) => ({
       id: `nav::${row.href}::${row.name}`,
       type: "navigation",

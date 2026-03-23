@@ -43,6 +43,27 @@ export type SidebarLinkProps = {
   beta?: boolean;
 };
 
+/** Same inputs the sidebar uses for `filter` on nav links — use for Cmd+K / tests so visibility stays in sync. */
+export function buildSidebarLinkFilterProps(input: {
+  permissionsUtils: Permissions;
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean | undefined;
+  gb: GrowthBook<AppFeatures> | undefined;
+  project: string | undefined;
+  segments: SegmentInterface[];
+}): SidebarLinkFilterProps {
+  return {
+    permissionsUtils: input.permissionsUtils,
+    permissions: input.permissions,
+    superAdmin: !!input.superAdmin,
+    isCloud: isCloud(),
+    isMultiOrg: isMultiOrg(),
+    gb: input.gb,
+    project: input.project,
+    segments: input.segments,
+  };
+}
+
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
@@ -65,16 +86,14 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
-  const filterProps = {
+  const filterProps = buildSidebarLinkFilterProps({
     permissionsUtils,
     permissions,
-    superAdmin: !!superAdmin,
-    isCloud: isCloud(),
-    isMultiOrg: isMultiOrg(),
+    superAdmin,
     gb: growthbook,
     project,
     segments,
-  };
+  });
 
   if (props.filter && !props.filter(filterProps)) {
     return null;
