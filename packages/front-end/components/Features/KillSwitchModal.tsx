@@ -466,7 +466,7 @@ export default function KillSwitchModal({
   const modalHeader =
     changedEnvs.length === 1
       ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
-      : "Change Kill Switches";
+      : "Change enabled environments";
 
   return (
     <Modal

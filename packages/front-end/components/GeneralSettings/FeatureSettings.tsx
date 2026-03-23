@@ -379,7 +379,7 @@ export default function FeatureSettings() {
                               />
                               <Checkbox
                                 id={`toggle-env-review-${i}`}
-                                label="Kill switch changes"
+                                label="Enabled environment changes (kill switches)"
                                 value={
                                   form.watch(
                                     `requireReviews.${i}.featureRequireEnvironmentReview`,
