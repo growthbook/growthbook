@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import type { UserJourney, UserJourneyConfig } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
 import { useAuth } from "@/services/auth";
+import { CacheOption } from "./useExploreData";
 
 export function useUserJourneyData() {
   const { apiCall } = useAuth();
@@ -10,17 +11,22 @@ export function useUserJourneyData() {
   const fetchData = useCallback(
     async (
       config: UserJourneyConfig,
+      options?: { cache?: CacheOption },
     ): Promise<{
       data: UserJourney | null;
       error: string | null;
       query: QueryInterface | null;
     }> => {
-      setLoading(true);
+      const cache = options?.cache ?? "preferred";
+      const silent = cache === "required";
+      if (!silent) {
+        setLoading(true);
+      }
       try {
         const response = await apiCall<{
           userJourney: UserJourney;
           query: QueryInterface | null;
-        }>("/product-analytics/user-journey/run?cache=never", {
+        }>(`/product-analytics/user-journey/run?cache=${cache}`, {
           method: "POST",
           body: JSON.stringify({ config }),
         });
@@ -41,7 +47,9 @@ export function useUserJourneyData() {
         const err = e instanceof Error ? e : new Error(String(e));
         return { data: null, error: err.message, query: null };
       } finally {
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       }
     },
     [apiCall],
@@ -53,17 +61,22 @@ export function useUserJourneyData() {
       config,
       pathToExtend,
       stepToExtend,
+      cache = "never",
     }: {
       id: string;
       config: UserJourneyConfig;
       pathToExtend: string[];
       stepToExtend: number;
+      cache?: CacheOption;
     }): Promise<{ data: UserJourney | null; error: string | null }> => {
-      setLoading(true);
+      const silent = cache === "required";
+      if (!silent) {
+        setLoading(true);
+      }
       try {
         const response = await apiCall<{
           userJourney: UserJourney;
-        }>(`/product-analytics/user-journey/${id}/extend?cache=never`, {
+        }>(`/product-analytics/user-journey/${id}/extend?cache=${cache}`, {
           method: "POST",
           body: JSON.stringify({
             config,
@@ -86,7 +99,9 @@ export function useUserJourneyData() {
         const err = e instanceof Error ? e : new Error(String(e));
         return { data: null, error: err.message };
       } finally {
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       }
     },
     [apiCall],

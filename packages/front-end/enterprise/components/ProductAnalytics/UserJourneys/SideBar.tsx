@@ -31,6 +31,8 @@ export default function SideBar({
     handleSubmit,
     loading,
     error,
+    isStale,
+    isSubmittable,
   } = useUserJourneyContext();
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const { factTables, project, getFactTableById } = useDefinitions();
@@ -116,14 +118,6 @@ export default function SideBar({
             <Button
               size="sm"
               ml="auto"
-              disabled={loading}
-              onClick={() => handleSubmit()}
-            >
-              Temporary Submit Button
-            </Button>
-            <Button
-              size="sm"
-              ml="auto"
               disabled={true}
               // disabled={!!saveToDashboardDisabledReason}
               onClick={() => {
@@ -149,23 +143,18 @@ export default function SideBar({
             {/* <DataSourceDropdown /> */}
             <Tooltip
               body="Configuration has changed. Click to refresh the chart."
-              // shouldDisplay={isStale}
+              shouldDisplay={isStale}
             >
               <Button
                 size="sm"
                 variant="solid"
-                // disabled={
-                //   loading ||
-                //   !draftExploreState?.dataset?.values?.length ||
-                //   !isSubmittable
-                // }
-                // onClick={() => handleSubmit({ force: isStale })}
-                onClick={() => console.log("update")}
+                disabled={loading || !isSubmittable}
+                onClick={() => handleSubmit({ force: isStale })}
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
                   Update
-                  {/* {isStale && (
+                  {isStale && (
                     <span
                       style={{
                         width: 6,
@@ -176,7 +165,7 @@ export default function SideBar({
                       }}
                       aria-hidden
                     />
-                  )} */}
+                  )}
                 </Flex>
               </Button>
             </Tooltip>
@@ -255,12 +244,6 @@ export default function SideBar({
                           - You can use filters to calculate the starting event
                           of this user journey.
                         </Text>
-                        {/* <Text>
-                          You can define a starting event by selecting a column
-                          + value from your Fact Table, or you can use filters
-                          to calculate the starting event of this user journey.
-                        </Text> */}
-                        {/* "You can define a starting event by selecting an event column & a value, or you can define a filter that will be used to calculate the starting event of this user journey." */}
                       </Flex>
                     }
                   />
@@ -420,10 +403,7 @@ export default function SideBar({
               <Text weight="medium">
                 <Flex align="center" gap="1">
                   Measured As
-                  <Tooltip
-                    body="Determine whether to count total events or unique events per id type"
-                    // shouldDisplay={isStale}
-                  ></Tooltip>
+                  <Tooltip body="Determine whether to count total events or unique events per id type"></Tooltip>
                 </Flex>
               </Text>
 
@@ -564,7 +544,6 @@ export default function SideBar({
           <UserJourneyGroupBySection />
         </>
       ) : null}
-      {/* Add check here */}
     </Flex>
   );
 }

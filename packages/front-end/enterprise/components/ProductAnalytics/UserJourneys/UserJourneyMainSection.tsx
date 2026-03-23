@@ -1,6 +1,14 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { PiDotsSix, PiTreeStructure } from "react-icons/pi";
+import {
+  PiArrowsClockwise,
+  PiDotsSix,
+  PiInfo,
+  PiTreeStructure,
+} from "react-icons/pi";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { useUserJourneyContext } from "./UserJourneyContext";
 import Toolbar from "./Toolbar";
@@ -8,8 +16,16 @@ import UserJourneyDataTable from "./UserJourneyDataTable";
 import UserJourneySankeyChart from "./UserJourneySankeyChart";
 
 export default function UserJourneyMainSection() {
-  const { userJourney, handleExtendPath, loading, error, query } =
-    useUserJourneyContext();
+  const {
+    userJourney,
+    handleExtendPath,
+    loading,
+    error,
+    query,
+    isStale,
+    isSubmittable,
+    handleSubmit,
+  } = useUserJourneyContext();
   return (
     <Flex
       direction="column"
@@ -95,6 +111,45 @@ export default function UserJourneyMainSection() {
               Select an event to see what your users do before and after it.
             </Text>
           </Flex>
+        )}
+        {(isStale || loading) && (
+          <Box
+            style={{
+              position: "absolute",
+              zIndex: 1000,
+              top: 15,
+              right: 15,
+              width: "auto",
+            }}
+          >
+            <Callout status="info" size="sm" icon={null} contentsAs="div">
+              <Flex align="center" gap="2">
+                {loading ? (
+                  <Flex align="center" gap="2">
+                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                    <Text>Loading...</Text>
+                  </Flex>
+                ) : (
+                  <>
+                    <Text title="Some configuration changes require running a new query against your data source">
+                      <PiInfo /> Latest changes not applied
+                    </Text>
+                    <Button
+                      size="sm"
+                      variant="solid"
+                      disabled={!isSubmittable}
+                      onClick={() => handleSubmit({ force: true })}
+                    >
+                      <Flex align="center" gap="2">
+                        <PiArrowsClockwise />
+                        Refresh
+                      </Flex>
+                    </Button>
+                  </>
+                )}
+              </Flex>
+            </Callout>
+          </Box>
         )}
       </Flex>
     </Flex>
