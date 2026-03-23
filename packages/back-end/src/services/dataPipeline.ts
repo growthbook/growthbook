@@ -109,9 +109,12 @@ export async function validateIncrementalPipeline({
       );
     }
 
-    if (quantileMetricType(metric)) {
+    if (
+      quantileMetricType(metric) &&
+      !integration.getSourceProperties().hasQuantileKLL
+    ) {
       throw new Error(
-        "Quantile metrics are not supported with incremental refresh.",
+        "Quantile metrics are not supported with incremental refresh on this data source.",
       );
     }
   });

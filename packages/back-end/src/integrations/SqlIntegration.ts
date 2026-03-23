@@ -7489,13 +7489,11 @@ ORDER BY column_name, count DESC
     );
 
     if (
-      sortedMetrics.some(
-        (m) =>
-          m.metricType === "quantile" && m.quantileSettings?.type === "event",
-      )
+      sortedMetrics.some((m) => m.metricType === "quantile") &&
+      !this.hasQuantileKLL()
     ) {
       throw new Error(
-        "Event quantiles not yet supported with incremental refresh.",
+        "Quantile metrics with incremental refresh require a data source that supports KLL quantile sketches.",
       );
     }
 
