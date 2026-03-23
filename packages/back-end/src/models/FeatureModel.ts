@@ -1267,7 +1267,7 @@ export async function applyHoldoutSideEffects(
       (exp) => exp?.type === "multi-armed-bandit",
     );
     const hasSafeRollouts = Object.values(feature.environmentSettings).some(
-      (env) => env.rules.some((rule) => rule?.type === "safe-rollout"),
+      (env) => (env?.rules ?? []).some((rule) => rule?.type === "safe-rollout"),
     );
     if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
       throw new Error(

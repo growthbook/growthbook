@@ -3566,17 +3566,17 @@ export async function getFeatureById(
   let hasSafeRollout = false;
   fullRevisions.forEach((revision) => {
     environments.forEach((env) => {
-      const rules = revision.rules[env];
+      const rules = revision.rules?.[env];
       if (!rules) return;
       rules.forEach((rule) => {
         // New rules store the experiment id directly
-        if (rule.type === "experiment-ref") {
+        if (rule?.type === "experiment-ref") {
           experimentIds.add(rule.experimentId);
         }
         // Old rules store the trackingKey
-        else if (rule.type === "experiment") {
+        else if (rule?.type === "experiment") {
           trackingKeys.add(rule.trackingKey || feature.id);
-        } else if (rule.type === "safe-rollout") {
+        } else if (rule?.type === "safe-rollout") {
           hasSafeRollout = true;
         }
       });
