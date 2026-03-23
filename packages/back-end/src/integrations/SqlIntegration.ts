@@ -967,6 +967,7 @@ export default abstract class SqlIntegration
       },
       null,
       [{ factTable, index: 0 }],
+      false,
       "m0",
     );
 
@@ -2760,6 +2761,7 @@ export default abstract class SqlIntegration
     > & { endDate?: Date },
     activationMetric: ExperimentMetricInterface | null,
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[],
+    covariateTableAlias: string = "m",
     alias: string,
   ): FactMetricData {
     const { metric, index: metricIndex } = metricWithIndex;
@@ -2813,14 +2815,14 @@ export default abstract class SqlIntegration
       columnRef: metric.denominator,
     });
     const capCoalesceCovariate = this.capCoalesceValue({
-      valueCol: `m${numeratorAlias}.${alias}_covariate_value`,
+      valueCol: `${covariateTableAlias}${numeratorAlias}.${alias}_covariate_value`,
       metric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const capCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `m${denominatorAlias}.${alias}_covariate_denominator`,
+      valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
       metric,
       capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
@@ -2848,14 +2850,14 @@ export default abstract class SqlIntegration
       columnRef: metric.denominator,
     });
     const uncappedCoalesceCovariate = this.capCoalesceValue({
-      valueCol: `m${numeratorAlias}.${alias}_covariate_value`,
+      valueCol: `${covariateTableAlias}${numeratorAlias}.${alias}_covariate_value`,
       metric: uncappedMetric,
       capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const uncappedCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `m${denominatorAlias}.${alias}_covariate_denominator`,
+      valueCol: `${covariateTableAlias}${denominatorAlias}.${alias}_covariate_denominator`,
       metric: uncappedMetric,
       capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
@@ -3132,6 +3134,7 @@ export default abstract class SqlIntegration
         settings,
         activationMetric,
         factTablesWithIndices,
+        "m",
         `m${metric.index}`,
       ),
     );
@@ -3551,7 +3554,6 @@ export default abstract class SqlIntegration
         eventQuantileTableName: "__eventQuantileMetric",
         capValueTableName: "__capValue",
         factTablesWithIndices,
-        regressionAdjustedTableIndices,
         percentileTableIndices,
       })}
       `
@@ -6760,6 +6762,7 @@ ORDER BY column_name, count DESC
     settings: ExperimentSnapshotSettings;
     factTableMap: FactTableMap;
     lastMaxTimestamp: Date | null;
+    covariateTableAlias: string;
     forcedUserIdType?: string;
   }): {
     factTablesWithMetricData: FactMetricSourceData[];
@@ -6793,6 +6796,7 @@ ORDER BY column_name, count DESC
         settings,
         activationMetric,
         factTablesWithMetrics,
+        params.covariateTableAlias,
         `m${m.index}`,
       );
     });
@@ -7235,12 +7239,14 @@ ORDER BY column_name, count DESC
       settings: ExperimentSnapshotSettings;
       factTableMap: FactTableMap;
       covariateWindowType: CovariateWindowType;
+      covariateTableAlias: string;
       forcedUserIdType?: string;
       lastMaxTimestamp: Date | null;
     } = {
       ...params,
       metrics: sortedMetrics,
       covariateWindowType: "phaseStart",
+      covariateTableAlias: "c",
       lastMaxTimestamp: null,
     };
 
@@ -7317,7 +7323,7 @@ ORDER BY column_name, count DESC
                           `${m.alias}_value`,
                           "NULL",
                         ),
-                      )} AS ${m.alias}_value`
+                      )} AS ${m.alias}_covariate_value`
                     : ""
                 }
                 ${
@@ -7331,7 +7337,7 @@ ORDER BY column_name, count DESC
                           `${m.alias}_denominator`,
                           "NULL",
                         ),
-                      )} AS ${m.alias}_denominator`
+                      )} AS ${m.alias}_covariate_denominator`
                     : ""
                 }
               `;
@@ -7566,8 +7572,10 @@ ORDER BY column_name, count DESC
 
     // TODO(incremental-refresh): use max hours to convert from here
     // for eventual "skipPartialData" feature
-    const { factTablesWithMetricData } =
-      this.parseExperimentFactMetricsParams(paramsMetricsSorted);
+    const { factTablesWithMetricData } = this.parseExperimentFactMetricsParams({
+      ...paramsMetricsSorted,
+      covariateTableAlias: "c",
+    });
 
     // TODO(incremental-refresh): ensure only one fact table with metric data
     // at this part of the query; multi-fact table metrics should be split across
@@ -7715,8 +7723,11 @@ ORDER BY column_name, count DESC
       undefined,
     );
 
-    const { factTablesWithMetricData } =
-      this.parseExperimentFactMetricsParams(params);
+    const { factTablesWithMetricData } = this.parseExperimentFactMetricsParams({
+      ...params,
+      // Covariate data joined to single table with `m` prefix before columns are extracted
+      covariateTableAlias: "m",
+    });
 
     // TODO(incremental-refresh): generalize to multiple sources
     if (factTablesWithMetricData.length !== 1) {
@@ -7947,7 +7958,6 @@ ORDER BY column_name, count DESC
             index: 0,
           },
         ],
-        regressionAdjustedTableIndices,
         percentileTableIndices,
       })}
       `,
