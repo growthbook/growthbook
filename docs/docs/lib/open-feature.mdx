@@ -424,14 +424,14 @@ Value config = client.getObjectValue("theme-config", new MutableStructure(), con
 
 ## Configuration Options
 
-| Option                     | Python | Go  | .NET | Java | Description                                                             |
-| -------------------------- | :----: | :-: | :--: | :--: | ----------------------------------------------------------------------- |
-| `api_host` / `apiHost`     |   ✓    |  ✓  |  ✓   |  ✓   | GrowthBook CDN or self-hosted URL                                       |
-| `client_key` / `clientKey` |   ✓    |  ✓  |  ✓   |  ✓   | SDK Connection key from GrowthBook                                      |
-| `decryption_key`           |   ✓    |  —  |  —   |  —   | Key for [encrypted feature payloads](/features/encrypt-feature-payload) |
-| `cache_ttl`                |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60)                       |
-| `enabled`                  |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely                                    |
-| `qa_mode`                  |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation                       |
+| Option                     | Python | Go  | .NET | Java | Description                                       |
+| -------------------------- | :----: | :-: | :--: | :--: | ------------------------------------------------- |
+| `api_host` / `apiHost`     |   ✓    |  ✓  |  ✓   |  ✓   | GrowthBook CDN or self-hosted URL                 |
+| `client_key` / `clientKey` |   ✓    |  ✓  |  ✓   |  ✓   | SDK Connection key from GrowthBook                |
+| `decryption_key`           |   ✓    |  —  |  —   |  —   | Key for encrypted SDK endpoint payloads           |
+| `cache_ttl`                |   ✓    |  ✓  |  —   |  —   | Seconds before re-fetching features (default: 60) |
+| `enabled`                  |   ✓    |  —  |  ✓   |  —   | Enable/disable the provider entirely              |
+| `qa_mode`                  |   ✓    |  —  |  —   |  —   | Forces all experiments into the control variation |
 
 ## Shutdown & Cleanup
 
