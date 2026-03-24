@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
+import { notificationPreferencesPatchSchema } from "shared/validators";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
@@ -19,6 +20,7 @@ import {
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
+import { isInAppNotificationsBackendEnabled } from "back-end/src/util/inAppNotifications";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -246,5 +248,38 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
   }
   res.status(200).json({
     message: "no org found",
+  });
+}
+
+export async function getNotificationPreferences(
+  req: AuthRequest,
+  res: Response,
+) {
+  if (!isInAppNotificationsBackendEnabled()) {
+    return res.status(404).json({ message: "Not found" });
+  }
+  const context = getContextFromReq(req);
+  const prefs =
+    await context.models.notificationPreferences.getOrCreateForCurrentUser();
+  return res.status(200).json({
+    categories: prefs.categories,
+    digestFrequency: prefs.digestFrequency ?? "instant",
+  });
+}
+
+export async function patchNotificationPreferences(
+  req: AuthRequest,
+  res: Response,
+) {
+  if (!isInAppNotificationsBackendEnabled()) {
+    return res.status(404).json({ message: "Not found" });
+  }
+  const context = getContextFromReq(req);
+  const body = notificationPreferencesPatchSchema.parse(req.body);
+  const prefs =
+    await context.models.notificationPreferences.patchForCurrentUser(body);
+  return res.status(200).json({
+    categories: prefs.categories,
+    digestFrequency: prefs.digestFrequency ?? "instant",
   });
 }

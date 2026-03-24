@@ -43,6 +43,7 @@ import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
+import { NotificationInboxBell } from "@/components/Notifications/NotificationInboxBell";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -450,6 +451,7 @@ const TopNav: FC<{
               </div>
             </>
           )}
+          <NotificationInboxBell />
           {renderOrganizationDropDown()}
           <DropdownMenu
             variant="solid"

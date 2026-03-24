@@ -12,5 +12,13 @@ router.post("/watch/:type/:id", usersController.postWatchItem);
 router.post("/unwatch/:type/:id", usersController.postUnwatchItem);
 router.get("/getRecommendedOrgs", usersController.getRecommendedOrgs);
 router.get("/history", usersController.getHistoryByUser);
+router.get(
+  "/notification-preferences",
+  usersController.getNotificationPreferences,
+);
+router.patch(
+  "/notification-preferences",
+  usersController.patchNotificationPreferences,
+);
 
 export { router as usersRouter };

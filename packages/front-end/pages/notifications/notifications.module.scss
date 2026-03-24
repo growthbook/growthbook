@@ -1,0 +1,20 @@
+.rowUnread {
+  background: var(--accent-a2);
+  box-shadow: inset 3px 0 0 var(--accent-9);
+}
+
+.rowRead {
+  background: transparent;
+}
+
+.rowRead td {
+  color: var(--gray-11);
+}
+
+.bodyUnread {
+  color: var(--gray-11);
+}
+
+.mutedBody {
+  color: var(--gray-10);
+}

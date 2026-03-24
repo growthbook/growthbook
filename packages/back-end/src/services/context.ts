@@ -69,6 +69,8 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { UserNotificationModel } from "back-end/src/models/UserNotificationModel";
+import { NotificationPreferencesModel } from "back-end/src/models/NotificationPreferencesModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -111,6 +113,8 @@ export type ModelName =
   | "analyticsExplorations"
   | "presentationThemes"
   | "watch"
+  | "userNotifications"
+  | "notificationPreferences"
   | "apiKeys";
 
 export const modelClasses = {
@@ -145,6 +149,8 @@ export const modelClasses = {
   analyticsExplorations: AnalyticsExplorationModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  userNotifications: UserNotificationModel,
+  notificationPreferences: NotificationPreferencesModel,
   apiKeys: ApiKeyModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
@@ -188,6 +194,8 @@ export class ReqContextClass {
       analyticsExplorations: new AnalyticsExplorationModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      userNotifications: new UserNotificationModel(this),
+      notificationPreferences: new NotificationPreferencesModel(this),
       apiKeys: new ApiKeyModel(this),
     };
   }

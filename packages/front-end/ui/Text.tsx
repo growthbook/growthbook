@@ -32,6 +32,7 @@ const radixWeightMap: Record<TextWeights, RadixTextProps["weight"]> = {
 
 export interface TextProps {
   children: React.ReactNode;
+  className?: string;
   size?: TextSizes;
   weight?: TextWeights;
   as?: "span" | "div" | "label" | "p";
@@ -61,6 +62,7 @@ export default forwardRef<
 >(function Text(
   {
     children,
+    className,
     size = "medium",
     weight = "regular",
     as,
@@ -100,6 +102,7 @@ export default forwardRef<
   return (
     <RadixText
       ref={ref}
+      className={className}
       size={radixSizeMap[size]}
       weight={radixWeightMap[weight]}
       align={align}

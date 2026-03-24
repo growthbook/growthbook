@@ -135,6 +135,39 @@ export default function track(
   }
 }
 
+export function trackNotificationPanelOpened(props: TrackEventProps = {}) {
+  track("notification_panel_opened", props);
+}
+
+export function trackNotificationShowAllClicked(props: TrackEventProps = {}) {
+  track("notification_show_all_clicked", props);
+}
+
+export function trackNotificationRead(
+  action: "single" | "mark_all",
+  props: TrackEventProps = {},
+) {
+  track("notification_read", { action, ...props });
+}
+
+export function trackNotificationDeepLinkClicked(props: TrackEventProps = {}) {
+  track("notification_deep_link_clicked", props);
+}
+
+export function trackNotificationDismissed(props: TrackEventProps = {}) {
+  track("notification_dismissed", props);
+}
+
+export function trackNotificationPreferencesChanged(
+  props: TrackEventProps = {},
+) {
+  track("notification_preferences_changed", props);
+}
+
+export function trackNotificationMuted(props: TrackEventProps = {}) {
+  track("notification_muted", props);
+}
+
 export function trackSnapshot(
   event: "create" | "update" | "delete",
   source: string,

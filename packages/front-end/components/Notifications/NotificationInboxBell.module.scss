@@ -1,0 +1,177 @@
+.panel {
+  width: 100%;
+  max-width: min(440px, calc(100vw - 24px));
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.popoverContent {
+  max-width: min(440px, calc(100vw - 24px));
+  box-sizing: border-box;
+}
+
+.headerRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.headerTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  align-self: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markAllWrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.bellButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  margin-right: 4px;
+  cursor: pointer;
+  color: var(--gray-11);
+  border-radius: var(--radius-2);
+
+  &:hover {
+    background: var(--gray-a3);
+    color: var(--gray-12);
+  }
+}
+
+.badge {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--red-9);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-bottom: 1px solid var(--gray-a5);
+  padding: 8px 0;
+  margin: 0;
+  border-radius: var(--radius-2);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.rowUnread {
+  box-shadow: inset 3px 0 0 var(--accent-9);
+  padding-left: 10px;
+  margin-left: -4px;
+  background: var(--accent-a2);
+}
+
+.rowRead {
+  background: transparent;
+  opacity: 1;
+}
+
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover .titleUnread {
+    color: var(--accent-11);
+  }
+
+  &:hover .titleRead {
+    color: var(--gray-12);
+  }
+}
+
+.titleUnread {
+  color: var(--gray-12);
+}
+
+.titleRead {
+  color: var(--gray-11);
+}
+
+.bodyUnread {
+  color: var(--gray-11);
+}
+
+.bodyRead {
+  color: var(--gray-10);
+}
+
+.body {
+  display: block;
+  margin-top: 4px;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--gray-9);
+  padding: 0 4px;
+
+  &:hover {
+    color: var(--gray-11);
+  }
+}
+
+.showAll,
+.settingsLink {
+  font-size: 13px;
+  color: var(--accent-11);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.settingsLink {
+  color: var(--gray-11);
+}

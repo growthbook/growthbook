@@ -235,6 +235,12 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageOrgSettings(),
       },
       {
+        name: "Notifications",
+        href: "/settings/notifications",
+        path: /^settings\/notifications/,
+        filter: ({ gb }) => !!gb?.isOn("in-app-notifications"),
+      },
+      {
         name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
@@ -360,6 +366,14 @@ const otherPageTitles = [
   {
     path: /^reports/,
     title: "My Reports",
+  },
+  {
+    path: /^notifications/,
+    title: "Notifications",
+  },
+  {
+    path: /^settings\/notifications/,
+    title: "Notification settings",
   },
   {
     path: /^account\/personal-access-tokens/,

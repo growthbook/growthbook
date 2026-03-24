@@ -45,6 +45,7 @@ import {
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { logger } from "back-end/src/util/logger";
+import { notifyFeatureWatchersOnUpdate } from "back-end/src/services/featureUserNotifications";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
@@ -757,6 +758,10 @@ export async function updateFeature(
 
   onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on feature update");
+  });
+
+  notifyFeatureWatchersOnUpdate(context, feature, updatedFeature).catch((e) => {
+    logger.error(e, "notifyFeatureWatchersOnUpdate");
   });
 
   return updatedFeature;

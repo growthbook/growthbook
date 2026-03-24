@@ -135,6 +135,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { notificationsRouter } from "./routers/notifications/notifications.router";
 
 const app = express();
 
@@ -469,6 +470,8 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+
+app.use("/notifications", notificationsRouter);
 
 // Organization and Settings
 app.use(organizationsRouter);
