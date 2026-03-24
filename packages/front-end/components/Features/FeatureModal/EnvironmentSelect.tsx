@@ -11,9 +11,17 @@ const EnvironmentSelect: FC<{
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
   label?: string;
-}> = ({ environmentSettings, environments, setValue, label }) => {
+  project?: string;
+}> = ({
+  environmentSettings,
+  environments,
+  setValue,
+  label,
+  project: projectProp,
+}) => {
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
+  const { project: globalProject } = useDefinitions();
+  const project = projectProp ?? globalProject;
   const environmentsUserCanAccess = useMemo(() => {
     return environments.filter((env) => {
       return permissionsUtil.canPublishFeature({ project }, [env.id]);

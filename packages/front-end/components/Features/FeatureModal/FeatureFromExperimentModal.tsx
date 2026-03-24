@@ -404,6 +404,7 @@ export default function FeatureFromExperimentModal({
           />
 
           <EnvironmentSelect
+            project={experiment.project}
             environmentSettings={environmentSettings}
             environments={environments}
             setValue={(env, on) => {

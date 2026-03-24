@@ -376,6 +376,7 @@ export default function FeatureModal({
         )}
 
         <EnvironmentSelect
+          project={selectedProject}
           environmentSettings={environmentSettings}
           environments={environments}
           setValue={(env, on) => {

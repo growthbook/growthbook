@@ -939,6 +939,7 @@ export default function RuleModal({
 
         {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
           <EnvironmentSelect
+            project={feature.project}
             environments={environments}
             environmentSettings={Object.fromEntries(
               environments.map((env) => [
