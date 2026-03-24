@@ -24,13 +24,6 @@ export function isConfigSubmittable(config: UserJourneyConfig): boolean {
     return false;
   }
 
-  if (config.startingEventMode === "eventColumn") {
-    return !!(
-      config.startingEventEventColumn?.column &&
-      config.startingEventEventColumn.value
-    );
-  }
-
   return config.startingEventFilters.some(isCompleteFilter);
 }
 

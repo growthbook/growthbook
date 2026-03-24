@@ -64,11 +64,6 @@ export default function UserJourney() {
   const defaultDraftState: UserJourneyConfig = {
     datasource: datasources[0]?.id || "",
     factTableId: "",
-    startingEventMode: "eventColumn",
-    startingEventEventColumn: {
-      column: "",
-      value: "",
-    },
     startingEventFilters: [],
     userIdType: "",
     globalFilters: [],

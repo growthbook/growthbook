@@ -22,16 +22,18 @@ export function RowFilterInput({
   value,
   setValue,
   factTable,
+  showLabel = true,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  showLabel?: boolean;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
 
   return (
     <Flex direction="column" gap="2">
-      <strong>Row Filter</strong>
+      {showLabel && <strong>Row Filter</strong>}
       {value.map((filter, i) => {
         const columnOptions: SingleValue[] = [];
 

@@ -1,5 +1,6 @@
 import { Flex } from "@radix-ui/themes";
 import { PiArrowsClockwise } from "react-icons/pi";
+import { canInlineFilterColumn } from "shared/experiments";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -129,9 +130,29 @@ export default function SideBar({
           value={draftUserJourneyState.factTableId || ""}
           disabled={!canRunFactQueries}
           onChange={(factTableId) => {
+            const selectedFactTable = factTables.find(
+              (f) => f.id === factTableId,
+            );
+            const seededColumn =
+              selectedFactTable?.columns.find(
+                (c) =>
+                  c.alwaysInlineFilter &&
+                  !c.deleted &&
+                  canInlineFilterColumn(selectedFactTable, c.column) &&
+                  !selectedFactTable.userIdTypes.includes(c.column),
+              )?.column ?? "";
+
             setDraftUserJourneyState((prev) => ({
               ...prev,
               factTableId,
+              startingEventFilters: [
+                {
+                  column: seededColumn,
+                  operator: "=",
+                  values: [],
+                },
+                ...prev.startingEventFilters.slice(1),
+              ],
             }));
           }}
           options={factTables

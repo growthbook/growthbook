@@ -299,13 +299,6 @@ export const userJourneyConfigValidator = z.object({
     .max(1)
     .optional(),
   factTableId: z.string(),
-  startingEventMode: z.enum(["eventColumn", "filter"]),
-  startingEventEventColumn: z
-    .object({
-      column: z.string(),
-      value: z.string(),
-    })
-    .nullable(),
   startingEventFilters: z.array(rowFilterValidator),
   globalFilters: z.array(rowFilterValidator),
   userIdType: z.string(),

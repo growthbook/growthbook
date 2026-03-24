@@ -1,18 +1,12 @@
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiPlus, PiUserFill } from "react-icons/pi";
+import { PiUserFill } from "react-icons/pi";
 import { useEffect, useMemo, useState } from "react";
-import { canInlineFilterColumn } from "shared/experiments";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
-import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import { getColumnInfo } from "@/components/FactTables/rowFilterUtils";
-import { ExplorerRowFilterInput } from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerRowFilterInput";
-import { factTableToColumnSource } from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerFilterRow";
+import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
 import { useUserJourneyContext } from "./UserJourneyContext";
 
 export default function StartingEventSection() {
@@ -20,48 +14,13 @@ export default function StartingEventSection() {
     draftUserJourneyState: draftState,
     setDraftUserJourneyState: setDraftState,
   } = useUserJourneyContext();
-  const { getFactTableById, project } = useDefinitions();
-  const { permissionsUtil } = useUser();
+  console.log("draftState", draftState);
+  const { getFactTableById } = useDefinitions();
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
-  const canRunFactQueries =
-    permissionsUtil.canRunFactQueries({ projects: [project] }) ||
-    permissionsUtil.canRunFactQueries({ projects: [] });
   const factTable = draftState.factTableId
     ? getFactTableById(draftState.factTableId)
     : null;
   const userIdTypes = useMemo(() => factTable?.userIdTypes ?? [], [factTable]);
-  const eventColumnOptions = useMemo(() => {
-    if (!factTable) return [];
-    return factTable.columns
-      .filter(
-        (c) =>
-          c.alwaysInlineFilter &&
-          canInlineFilterColumn(factTable, c.column) &&
-          !c.deleted,
-      )
-      .map((c) => ({
-        label: c.name || c.column,
-        value: c.column,
-      }));
-  }, [factTable]);
-  const startingEventValueOptions = useMemo(() => {
-    if (!factTable || !draftState.startingEventEventColumn?.column) return [];
-    const { topValues } = getColumnInfo(
-      factTable,
-      draftState.startingEventEventColumn.column,
-    );
-    if (!topValues?.length) return [];
-    return topValues
-      .filter((v) => v)
-      .map((v) => ({
-        label: v,
-        value: v,
-      }));
-  }, [factTable, draftState.startingEventEventColumn?.column]);
-  const startingEventColumnSource = useMemo(() => {
-    if (!factTable) return null;
-    return factTableToColumnSource(factTable);
-  }, [factTable]);
 
   useEffect(() => {
     if (!userIdTypes.length) return;
@@ -113,69 +72,12 @@ export default function StartingEventSection() {
             />
           </Flex>
         </Text>
-        <ButtonSelectField
-          className="w-100"
-          value={draftState.startingEventMode}
-          setValue={(value: "eventColumn" | "filter") => {
-            setDraftState((prev) => ({
-              ...prev,
-              startingEventMode: value,
-              startingEventFilters:
-                value === "filter" && prev.startingEventFilters.length === 0
-                  ? [{ column: "", operator: "=", values: [] }]
-                  : prev.startingEventFilters,
-            }));
-          }}
-          options={[
-            { label: "Event Column", value: "eventColumn" },
-            { label: "Filter", value: "filter" },
-          ]}
-        />
       </Flex>
-      <Box mt="2">
-        {draftState.startingEventMode === "eventColumn" ? (
-          <Flex wrap="wrap" gap="3">
-            <SelectField
-              label={<Text weight="medium">Event column</Text>}
-              value={draftState.startingEventEventColumn?.column || ""}
-              disabled={!draftState.factTableId || !canRunFactQueries}
-              onChange={(column) => {
-                setDraftState((prev) => ({
-                  ...prev,
-                  startingEventEventColumn: { column, value: "" },
-                }));
-              }}
-              options={eventColumnOptions}
-              placeholder={"Select column"}
-              forceUndefinedValueToNull
-            />
-            <SelectField
-              label={<Text weight="medium">Starting event</Text>}
-              value={draftState.startingEventEventColumn?.value || ""}
-              disabled={
-                !draftState.startingEventEventColumn?.column ||
-                !canRunFactQueries
-              }
-              onChange={(value) => {
-                setDraftState((prev) => ({
-                  ...prev,
-                  startingEventEventColumn: {
-                    column: prev.startingEventEventColumn?.column || "",
-                    value,
-                  },
-                }));
-              }}
-              options={startingEventValueOptions}
-              placeholder={"Select event"}
-              forceUndefinedValueToNull
-            />
-          </Flex>
-        ) : null}
-      </Box>
       <Box>
-        {startingEventColumnSource && (
-          <ExplorerRowFilterInput
-            columnSource={startingEventColumnSource}
+        {factTable && (
+          <RowFilterInput
+            factTable={factTable}
+            showLabel={false}
             value={draftState.startingEventFilters}
             setValue={(value) => {
               setDraftState((prev) => ({
@@ -185,24 +87,7 @@ export default function StartingEventSection() {
             }}
           />
         )}
-        <Flex justify="between" align="center">
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() =>
-              setDraftState((prev) => ({
-                ...prev,
-                startingEventFilters: [
-                  ...prev.startingEventFilters,
-                  { column: "", operator: "=", values: [] },
-                ],
-              }))
-            }
-          >
-            <Flex align="center" gap="2">
-              <PiPlus size={14} /> Add Filter
-            </Flex>
-          </Button>
+        <Flex justify="end" align="center">
           {userIdTypes.length ? (
             <DropdownMenu
               open={unitDropdownOpen}
