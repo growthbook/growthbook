@@ -42,7 +42,6 @@ import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
-
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
@@ -409,10 +408,6 @@ export function upgradeFeatureInterface(
     }
   }
 
-  if (newFeature.legacyDraft && !newFeature.legacyDraftMigrated) {
-    newFeature.hasDrafts = true;
-  }
-
   if (newFeature.jsonSchema) {
     newFeature.jsonSchema.schemaType =
       newFeature.jsonSchema.schemaType || "schema";
@@ -481,6 +476,13 @@ export function upgradeOrganizationDoc(
   // Add statsEngine setting if not defined
   if (!org.settings.statsEngine) {
     org.settings.statsEngine = DEFAULT_STATS_ENGINE;
+  }
+
+  // Backfill restApiBypassesReviews=true for orgs created before this field existed.
+  // New orgs have it set explicitly to false at creation time; only old orgs without
+  // the field should inherit the original "always bypass" behaviour.
+  if (org.settings.restApiBypassesReviews === undefined) {
+    org.settings.restApiBypassesReviews = true;
   }
 
   // Migrate Arroval Flow Settings

@@ -4,6 +4,11 @@
       "count": 1
     }
   },
+  "packages/back-end/src/util/migrations.ts": {
+    "prettier/prettier": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -169,11 +174,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -330,11 +330,6 @@
     }
   },
   "packages/front-end/components/Features/FeaturesHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
     "no-restricted-imports": {
       "count": 2
     }

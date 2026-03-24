@@ -935,13 +935,11 @@ export function getUnreachableRuleIndex(
       continue;
     }
 
-    // Skip non-force rules (require a non-null hash attribute, so may not match)
-    if (rule.type !== "force") {
-      continue;
-    }
+    // Only force rules and 100%-coverage rollouts consume all traffic
+    const isFullCoverage =
+      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
+    if (!isFullCoverage) continue;
 
-    // By this point, we have a force rule that matches all users
-    // Any rule after this is unreachable
     return i + 1;
   }
 

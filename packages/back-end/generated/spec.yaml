@@ -730,6 +730,10 @@ paths:
                     $ref: '#/components/schemas/FeatureWithRevisions'
     post:
       summary: Partially update a feature
+      description: |
+        Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+
+        Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
@@ -781,6 +785,21 @@ paths:
                   type: object
                   additionalProperties:
                     type: string
+                holdout:
+                  nullable: true
+                  description: |
+                    Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.
+                  type: object
+                  required:
+                    - id
+                    - value
+                  properties:
+                    id:
+                      type: string
+                      description: Holdout ID
+                    value:
+                      type: string
+                      description: The feature value assigned to users in the holdout treatment group
       responses:
         '200':
           content:
@@ -798,6 +817,10 @@ paths:
       tags:
         - features
       summary: Deletes a single feature
+      description: |
+        Permanently deletes a feature and all of its revisions.
+
+        Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
       operationId: deleteFeature
       x-codeSamples:
         - lang: cURL
@@ -822,6 +845,10 @@ paths:
       - $ref: '#/components/parameters/id'
     post:
       summary: Toggle a feature in one or more environments
+      description: |
+        Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+
+        Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
       tags:
         - features
       operationId: toggleFeature
@@ -871,6 +898,10 @@ paths:
       - $ref: '#/components/parameters/id'
     post:
       summary: Revert a feature to a specific revision
+      description: |
+        Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+
+        Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
       tags:
         - features
       operationId: revertFeature
@@ -1996,14 +2027,13 @@ paths:
                 - name
                 - variations
                 - trackingKey
-                - assignmentQueryId
               properties:
                 datasourceId:
                   type: string
-                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                  description: 'ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided.'
                 assignmentQueryId:
                   type: string
-                  description: The ID property of one of the assignment query objects associated with the datasource
+                  description: The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided.
                 trackingKey:
                   type: string
                 bypassDuplicateKeyCheck:
@@ -2020,6 +2050,9 @@ paths:
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
+                templateId:
+                  type: string
+                  description: 'ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.'
                 hypothesis:
                   type: string
                   description: Hypothesis of the experiment
@@ -20429,6 +20462,19 @@ components:
         customFields:
           type: object
           additionalProperties: true
+        holdout:
+          nullable: true
+          type: object
+          required:
+            - id
+            - value
+          properties:
+            id:
+              type: string
+              description: Holdout ID
+            value:
+              type: string
+              description: The feature value assigned to users in the holdout treatment group
     FeatureWithRevisions:
       allOf:
         - $ref: '#/components/schemas/Feature'
@@ -20888,6 +20934,9 @@ components:
           type: string
         publishedBy:
           type: string
+        defaultValue:
+          type: string
+          description: The default value at the time this revision was created
         rules:
           type: object
           additionalProperties:
@@ -20899,6 +20948,80 @@ components:
           additionalProperties:
             type: string
             description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+        environmentsEnabled:
+          type: object
+          description: Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)
+          additionalProperties:
+            type: boolean
+        envPrerequisites:
+          type: object
+          description: Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              required:
+                - id
+                - condition
+              properties:
+                id:
+                  type: string
+                  description: Feature ID
+                condition:
+                  type: string
+        prerequisites:
+          type: array
+          description: Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
+        metadata:
+          type: object
+          description: Metadata fields captured in this revision (only present when metadata gating is enabled)
+          properties:
+            description:
+              type: string
+            owner:
+              type: string
+            project:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            neverStale:
+              type: boolean
+            valueType:
+              type: string
+            jsonSchema:
+              type: object
+              properties:
+                schemaType:
+                  type: string
+                  enum:
+                    - schema
+                    - simple
+                schema:
+                  type: string
+                simple:
+                  type: object
+                  additionalProperties: true
+                date:
+                  type: string
+                  format: date-time
+                enabled:
+                  type: boolean
+            customFields:
+              type: object
+              additionalProperties: true
     SdkConnection:
       type: object
       required:
@@ -21235,6 +21358,8 @@ components:
             required:
               - slices
           description: Custom slices that apply to ALL applicable metrics in the experiment
+        templateId:
+          type: string
     ExperimentSnapshot:
       type: object
       required:
@@ -22619,6 +22744,11 @@ components:
           type: string
         killswitchConfirmation:
           type: boolean
+        featureKillSwitchBehavior:
+          type: string
+          enum:
+            - 'off'
+            - warn
         requireReviews:
           type: array
           items:
@@ -22636,6 +22766,12 @@ components:
                 type: array
                 items:
                   type: string
+              featureRequireEnvironmentReview:
+                type: boolean
+              featureRequireMetadataReview:
+                type: boolean
+        restApiBypassesReviews:
+          type: boolean
         featureKeyExample:
           type: string
         featureRegexValidator:

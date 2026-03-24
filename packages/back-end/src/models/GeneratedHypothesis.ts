@@ -184,7 +184,6 @@ export const findOrCreateGeneratedHypothesis = async (
       valueType: "boolean",
       defaultValue: "false",
       version: 1,
-      hasDrafts: false,
       tags: [],
       environmentSettings: {
         production: {
