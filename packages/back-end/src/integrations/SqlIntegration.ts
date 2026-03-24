@@ -469,6 +469,32 @@ export default abstract class SqlIntegration
       "KLL quantile sketches are not supported by this data source.",
     );
   }
+  // eslint-disable-next-line
+  kllExtractQuantiles(col: string, numQuantiles: number): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  /**
+   * Approximates the fraction of a user's events that fall below a threshold
+   * by extracting an evenly-spaced CDF from their KLL sketch and counting
+   * points below the threshold. Returns count_below_threshold ≈ frac × n_events.
+   *
+   * Precision: ±1/(numQuantiles+1) on the fraction (±0.5% at numQuantiles=100).
+   * NULL-safe: if sketch or threshold is NULL, returns 0.
+   */
+  kllRankApprox(
+    sketchCol: string,
+    thresholdCol: string,
+    nEventsCol: string,
+    numQuantiles: number,
+  ): string {
+    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at quantiles [0, 1/N, ..., 1].
+    // UNNEST(NULL) yields zero rows, so COUNT(*) is 0 for users with no events.
+    const cdfArray = this.kllExtractQuantiles(sketchCol, numQuantiles);
+    const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
+    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles + 1}.0, 0)`;
+  }
 
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
@@ -7987,10 +8013,10 @@ ORDER BY column_name, count DESC
         eventQuantileData.length > 0
           ? `
       , __eventQuantileSketch AS (
-        -- Merge per-user KLL sketches by variation+dimension and extract the
-        -- quantile grid. The quantile point estimate and IID variance bounds
-        -- are exact (up to KLL precision); see __joinedData for the clustered-
-        -- variance approximation.
+        -- Pass 1 of two-pass KLL rank recovery: merge per-user sketches by
+        -- variation+dimension. __eventQuantileMetric extracts the quantile grid
+        -- (including q_hat) from these merged sketches; __joinedData then uses
+        -- q_hat as the threshold for per-user rank recovery (pass 2).
         SELECT
           u.variation AS variation
           ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
@@ -8034,17 +8060,21 @@ ORDER BY column_name, count DESC
             ${metricData
               .map((data) => {
                 if (data.quantileMetric === "event") {
-                  // KLL sketches cannot answer rank queries, so approximate the
-                  // per-user "count below threshold" as nu * n_events. This makes
-                  // main_sum exact in expectation and captures the per-user
-                  // variance in event volume for the cluster adjustment, but does
-                  // not capture per-user variance in the fraction below threshold.
+                  // Two-pass KLL rank recovery: __eventQuantileMetric provides
+                  // the global q_hat per variation+dimension (pass 1). Here we
+                  // extract a 100-point CDF from each user's merged sketch and
+                  // count the fraction below q_hat to recover a per-user
+                  // "count below threshold" with ±0.5% rank precision (pass 2).
+                  // This preserves per-user variance in both event volume and
+                  // fraction-below-threshold, so the cluster-adjusted variance
+                  // estimator in QuantileClusteredStatistic is correct.
                   // Note: ignoreZeros for event quantiles is handled upstream in
                   // addCaseWhenTimeFilter (zeros are filtered out of __newMetricRows
                   // before sketching, so they never enter the KLL sketch or n_events).
-                  const nu = data.metricQuantileSettings.quantile;
-                  const nEventsCol = `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
-                  return `, (${nu} * ${nEventsCol}) AS ${data.alias}_value
+                  const nEventsCol = `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
+                  const sketchCol = `m.${this.encodeMetricIdForColumnName(data.metric.id)}_value`;
+                  const thresholdCol = `qm.${data.alias}_quantile`;
+                  return `, ${this.kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
                   , ${nEventsCol} AS ${data.alias}_n_events`;
                 }
                 // Unit quantiles with ignoreZeros: reAggregationFunction already
@@ -8075,6 +8105,14 @@ ORDER BY column_name, count DESC
               .join("\n")}
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
+          ${
+            eventQuantileData.length > 0
+              ? `LEFT JOIN __eventQuantileMetric qm ON (
+                  qm.variation = u.variation
+                  ${allDimensionCols.map((c) => `AND qm.${c.alias} = u.${c.alias}`).join("\n")}
+                )`
+              : ""
+          }
       )
       ${
         percentileData.length > 0

@@ -101,6 +101,26 @@ describe("BigQuery KLL quantile sketch methods", () => {
     );
   });
 
+  it("generates KLL EXTRACT (quantile array)", () => {
+    expect(integration.kllExtractQuantiles("sketch_col", 100)).toBe(
+      "KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)",
+    );
+  });
+
+  it("generates rank approximation via CDF counting", () => {
+    const sql = integration.kllRankApprox(
+      "m.sketch",
+      "qm.q_hat",
+      "m.n_events",
+      100,
+    );
+    // 100 quantiles → 101 points; count below threshold / 101 × n_events
+    expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64(m.sketch, 100)");
+    expect(sql).toContain("WHERE p < qm.q_hat");
+    expect(sql).toContain("* m.n_events / 101.0");
+    expect(sql).toContain("COALESCE(");
+  });
+
   it("generates quantile grid columns from a KLL sketch", () => {
     const grid = integration.getKllQuantileGridColumns(
       { type: "event", quantile: 0.9, ignoreZeros: false },

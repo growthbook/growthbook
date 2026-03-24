@@ -208,6 +208,9 @@ export default class BigQuery extends SqlIntegration {
   kllExtractPoint(col: string, quantile: number): string {
     return `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`;
   }
+  kllExtractQuantiles(col: string, numQuantiles: number): string {
+    return `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
     const quantileVal = Number(quantile)
