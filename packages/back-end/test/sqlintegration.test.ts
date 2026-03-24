@@ -1252,3 +1252,43 @@ describe("full fact metric experiment query - bigquery", () => {
     },
   );
 });
+
+describe("getFeatureEvalDiagnosticsQuery", () => {
+  beforeEach(() => {
+    jest.useFakeTimers("modern");
+    jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("replaces template variables in the feature usage query", () => {
+    const datasource = {
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: `SELECT ts AS timestamp, k AS feature_key FROM t WHERE ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'`,
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = bqIntegration.getFeatureEvalDiagnosticsQuery({
+      feature: "my-feature-key",
+    });
+
+    expect(sql).not.toContain("{{startDateISO}}");
+    expect(sql).not.toContain("{{endDateISO}}");
+    // compileSqlTemplate fills these with ISO-8601 timestamps
+    expect(sql).toMatch(
+      /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
+    );
+  });
+});
