@@ -70,6 +70,32 @@ export class RampScheduleModel extends BaseClass {
     });
   }
 
+  // Find pending ramps that are waiting for a specific revision to be published.
+  // Returns ramps where any target has activatingRevisionVersion === version for the given feature.
+  public async findByActivatingRevision(
+    featureId: string,
+    version: number,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({
+      status: "pending",
+      targets: {
+        $elemMatch: {
+          entityType: "feature",
+          entityId: featureId,
+          activatingRevisionVersion: version,
+        },
+      },
+    });
+  }
+
+  // Find ramps whose current approval-gated step is waiting on the given revision ref.
+  // revisionRef is "featureId:version".
+  public async findByPendingApprovalRevision(
+    revisionRef: string,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({ pendingApprovalRevisionId: revisionRef });
+  }
+
   public async getSchedulesDueForAdvance(
     now: Date,
   ): Promise<RampScheduleInterface[]> {

@@ -56,14 +56,38 @@ export function dedupeDiffBadges(badges: DiffBadge[]): DiffBadge[] {
   });
 }
 
-/**
- * Derive a human-readable label from a raw event string using the entity type
- * as a prefix to strip. E.g. "savedGroup.created" → "Created",
- * "experiment.phase.delete" → "Phase delete".
- */
+// Explicit labels for ramp schedule events (keyed by the suffix after "rampSchedule.").
+export const RAMP_EVENT_LABELS: Record<string, string> = {
+  created: "Created",
+  deleted: "Deleted",
+  started: "Started",
+  paused: "Paused",
+  resumed: "Resumed",
+  completed: "Completed",
+  expired: "Expired",
+  rolledBack: "Rolled back",
+  autoRollback: "Auto-rolled back",
+  reset: "Reset to start",
+  jumped: "Jumped to step",
+  conflict: "Conflict detected",
+  error: "Error",
+  "step.advanced": "Step advanced",
+  "step.approvalRequired": "Step awaiting approval",
+  "step.approved": "Step approved",
+};
+
+// Derive a human-readable label from a raw event string using the entity type
+// as a prefix to strip. E.g. "savedGroup.created" → "Created",
+// "experiment.phase.delete" → "Phase delete".
 export function formatEventLabel(event: string, entityType: string): string {
   const prefix = `${entityType}.`;
   const suffix = event.startsWith(prefix) ? event.slice(prefix.length) : event;
+
+  // Use explicit labels for ramp schedule events when available.
+  if (entityType === "rampSchedule" && RAMP_EVENT_LABELS[suffix]) {
+    return RAMP_EVENT_LABELS[suffix];
+  }
+
   const words = suffix
     .split(".")
     .join(" ")

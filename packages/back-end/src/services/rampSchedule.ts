@@ -9,7 +9,6 @@
  *   - initRampScheduleHooks (registers the hooks at startup)
  */
 
-import mongoose from "mongoose";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
@@ -29,6 +28,7 @@ import {
   discardRevision,
   getRevision,
   markRevisionAsPublished,
+  markRevisionAsPendingParent,
   markRevisionAsReviewRequested,
   registerRevisionDiscardedHook,
   registerRevisionPublishedHook,
@@ -299,7 +299,8 @@ export function computeRollbackPatch(
 /**
  * Create revisions for one step's actions.
  * Actions are grouped by entity so targets on the same entity share one revision.
- * Returns the created revision IDs and the previousValues collected.
+ * For approval-gated steps the primary entity's revision becomes the approval gate;
+ * secondary-entity revisions are held as pending-parent until it is approved.
  */
 async function createStepRevisions(
   ctx: ReqContext | ApiReqContext,
@@ -309,6 +310,7 @@ async function createStepRevisions(
 ): Promise<{
   revisionIds: string[];
   previousValues: { targetId: string; patch: FeatureRulePatch }[];
+  pendingApprovalRevisionId?: string;
 }> {
   // Group actions by entityId
   const byEntity = new Map<
@@ -333,11 +335,11 @@ async function createStepRevisions(
 
   const revisionIds: string[] = [];
   const allPreviousValues: { targetId: string; patch: FeatureRulePatch }[] = [];
-  const parentKey = `${schedule.entityType}:${schedule.entityId}`;
+  const primaryKey = `${schedule.entityType}:${schedule.entityId}`;
+  const isApprovalStep = schedule.steps[stepIndex]?.trigger.type === "approval";
 
-  const user: EventUser = {
-    type: "system",
-  };
+  const user: EventUser = { type: "system" };
+  let pendingApprovalRevisionId: string | undefined;
 
   for (const [key, group] of byEntity) {
     const handler = getEntityHandler(group.entityType);
@@ -357,9 +359,8 @@ async function createStepRevisions(
     );
     allPreviousValues.push(...previousValues);
 
-    const role = key === parentKey ? "parent" : "child";
+    const isPrimary = key === primaryKey;
 
-    // Create revision as draft (ramp-owned revisions skip normal approval detection)
     const revision = await createRevision({
       context: ctx,
       feature: feature as FeatureInterface,
@@ -372,49 +373,29 @@ async function createStepRevisions(
       org: ctx.org,
     });
 
-    // Tag the revision with ramp schedule metadata
-    await mongoose.model("FeatureRevision").updateOne(
-      {
-        organization: ctx.org.id,
-        featureId: feature.id,
-        version: revision.version,
-      },
-      {
-        $set: {
-          rampSchedules: [{ rampScheduleId: schedule.id, stepIndex, role }],
-        },
-      },
-    );
+    const revisionRef = `${feature.id}:${revision.version}`;
 
-    // For approval-trigger steps, auto-request review on the parent revision
-    const trigger = schedule.steps[stepIndex]?.trigger;
-    if (trigger?.type === "approval" && role === "parent") {
-      await markRevisionAsReviewRequested(
-        ctx,
-        {
-          ...revision,
-          rampSchedules: [{ rampScheduleId: schedule.id, stepIndex, role }],
-        },
-        user,
+    if (isApprovalStep && isPrimary) {
+      // This is the approval gate — request review and track it as the blocker
+      await markRevisionAsReviewRequested(ctx, revision, user);
+      pendingApprovalRevisionId = revisionRef;
+    } else if (!isPrimary) {
+      // Secondary-entity revision waits for the primary to be approved
+      await markRevisionAsPendingParent(
+        ctx.org.id,
+        feature.id,
+        revision.version,
       );
     }
 
-    // For child revisions, set status to pending-parent
-    if (role === "child") {
-      await mongoose.model("FeatureRevision").updateOne(
-        {
-          organization: ctx.org.id,
-          featureId: feature.id,
-          version: revision.version,
-        },
-        { $set: { status: "pending-parent" } },
-      );
-    }
-
-    revisionIds.push(`${feature.id}:${revision.version}`);
+    revisionIds.push(revisionRef);
   }
 
-  return { revisionIds, previousValues: allPreviousValues };
+  return {
+    revisionIds,
+    previousValues: allPreviousValues,
+    pendingApprovalRevisionId,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -439,12 +420,8 @@ export async function advanceStep(
 
   const now = new Date();
 
-  const { revisionIds, previousValues } = await createStepRevisions(
-    ctx,
-    schedule,
-    nextStepIndex,
-    step.actions,
-  );
+  const { revisionIds, previousValues, pendingApprovalRevisionId } =
+    await createStepRevisions(ctx, schedule, nextStepIndex, step.actions);
 
   const historyEntry: StepHistoryEntry = {
     stepIndex: nextStepIndex,
@@ -457,7 +434,6 @@ export async function advanceStep(
   const trigger = step.trigger;
   const isApprovalStep = trigger.type === "approval";
 
-  // For interval steps, compute when the next step should fire
   const nextNextStepIndex = nextStepIndex + 1;
   let nextStepAt: Date | null = null;
   if (!isApprovalStep && schedule.steps[nextNextStepIndex]) {
@@ -473,11 +449,10 @@ export async function advanceStep(
     currentStepIndex: nextStepIndex,
     nextStepAt,
     pendingRevisionIds: revisionIds,
+    pendingApprovalRevisionId,
     stepHistory: [...schedule.stepHistory, historyEntry],
-    ...(isApprovalStep ? {} : {}),
   });
 
-  // Fire webhook event
   await dispatchRampEvent(ctx, updated, "step.advanced", {
     object: {
       rampScheduleId: updated.id,
@@ -488,11 +463,7 @@ export async function advanceStep(
     },
   });
 
-  if (isApprovalStep) {
-    const parentRevisionId = revisionIds.find((id) => {
-      // Parent revision is the one for the parent controller entity
-      return id.startsWith(updated.entityId + ":");
-    });
+  if (isApprovalStep && pendingApprovalRevisionId) {
     await dispatchRampEvent(ctx, updated, "step.approvalRequired", {
       object: {
         rampScheduleId: updated.id,
@@ -500,7 +471,7 @@ export async function advanceStep(
         orgId: ctx.org.id,
         currentStepIndex: updated.currentStepIndex,
         status: updated.status,
-        revisionId: parentRevisionId ?? "",
+        revisionId: pendingApprovalRevisionId,
       },
     });
   }
@@ -653,6 +624,7 @@ export async function completeRollout(
     currentStepIndex: finalStepIndex,
     nextStepAt: null,
     pendingRevisionIds: revisionIds,
+    pendingApprovalRevisionId: undefined,
     stepHistory: [...schedule.stepHistory, historyEntry],
   });
 
@@ -733,16 +705,12 @@ export async function evaluateAutoRollback(
 // onRevisionPublished / onRevisionDiscarded
 // ---------------------------------------------------------------------------
 
-/**
- * Transitions a ramp from "pending" once its founding revision is published.
- * - "immediately": auto-start → "running", advance first step.
- * - "manual": → "ready" (waits for user to click Start).
- * - "scheduled": → "ready" (Agenda will start it when startTrigger.at <= now).
- *
- * Note: startActions are a TODO — they should be applied as an inline revision here
- * before advancing the first step, but that plumbing is deferred.
- */
-async function onFoundingRevisionPublished(
+// Transitions a ramp from "pending" once its activating revision is published.
+// - "immediately": auto-start → "running", advance first step.
+// - "manual": → "ready" (waits for user to click Start).
+// - "scheduled": → "ready" (Agenda auto-starts it when startTrigger.at <= now).
+// TODO: startActions should be applied as an inline revision before the first step advances.
+async function onActivatingRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
@@ -765,7 +733,7 @@ async function onFoundingRevisionPublished(
         current,
         makeAttribution(
           undefined,
-          "auto-started on founding revision publish",
+          "auto-started on activating revision publish",
           "system",
         ),
       );
@@ -790,86 +758,97 @@ export async function onRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<void> {
-  if (!revision.rampSchedules?.length) return;
+  const revisionRef = `${revision.featureId}:${revision.version}`;
 
-  for (const rampRef of revision.rampSchedules) {
-    const schedule = await ctx.models.rampSchedules.getById(
-      rampRef.rampScheduleId,
+  // Case 1: This revision activates a pending ramp (created atomically with a rule change)
+  const activatingRamps =
+    await ctx.models.rampSchedules.findByActivatingRevision(
+      revision.featureId,
+      revision.version,
     );
-    if (!schedule) continue;
+  for (const schedule of activatingRamps) {
+    await onActivatingRevisionPublished(ctx, schedule);
+  }
 
-    if (rampRef.role === "founder") {
-      // The user's draft that created this ramp has been published — start the lifecycle.
-      await onFoundingRevisionPublished(ctx, schedule);
-      continue;
-    }
-
-    if (rampRef.role === "parent") {
-      // Auto-publish all child (pending-parent) revisions for this step
-      await publishPendingChildren(ctx, schedule, rampRef.stepIndex, revision);
-
-      // Advance ramp state: mark step as completed
-      const completedEntry = schedule.stepHistory.find(
-        (h) => h.stepIndex === rampRef.stepIndex,
-      );
-      if (completedEntry) {
-        const updatedHistory = schedule.stepHistory.map((h) =>
-          h.stepIndex === rampRef.stepIndex
-            ? { ...h, completedAt: new Date() }
-            : h,
-        );
-        const now = new Date();
-
-        // Reset phaseStartedAt after approval gates
-        const step = schedule.steps[rampRef.stepIndex];
-        const wasApprovalGate = step?.trigger.type === "approval";
-
-        const nextStepIndex = rampRef.stepIndex + 1;
-        const nextStepAt = schedule.steps[nextStepIndex]
-          ? computeNextStepAt(
-              {
-                ...schedule,
-                phaseStartedAt: wasApprovalGate ? now : schedule.phaseStartedAt,
-              },
-              nextStepIndex,
-              now,
-            )
-          : null;
-
-        await ctx.models.rampSchedules.updateById(schedule.id, {
-          status: nextStepAt ? "running" : "completed",
-          nextStepAt,
-          stepHistory: updatedHistory,
-          pendingRevisionIds: [],
-          ...(wasApprovalGate ? { phaseStartedAt: now } : {}),
-        });
-
-        // Fire step.approved webhook
-        await dispatchRampEvent(ctx, schedule, "step.approved", {
-          object: {
-            rampScheduleId: schedule.id,
-            rampName: schedule.name,
-            orgId: ctx.org.id,
-            currentStepIndex: rampRef.stepIndex,
-            status: "running",
-            revisionId: `${revision.featureId}:${revision.version}`,
-          },
-        });
-      }
-    }
+  // Case 2: This is the approval-gate revision for a pending-approval step
+  const approvalRamps =
+    await ctx.models.rampSchedules.findByPendingApprovalRevision(revisionRef);
+  for (const schedule of approvalRamps) {
+    await onApprovalRevisionPublished(ctx, schedule, revision);
   }
 }
 
-async function publishPendingChildren(
+// Called when the approval-gate revision for a step is published.
+// Auto-publishes all other pending revisions for that step, then advances the ramp.
+async function onApprovalRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  stepIndex: number,
-  _parentRevision: FeatureRevisionInterface,
+  approvalRevision: FeatureRevisionInterface,
+): Promise<void> {
+  const approvalRef = `${approvalRevision.featureId}:${approvalRevision.version}`;
+
+  // Publish all other pending-parent revisions for this step
+  await publishPendingRevisions(ctx, schedule, approvalRef);
+
+  const stepIndex = schedule.currentStepIndex;
+  const completedEntry = schedule.stepHistory.find(
+    (h) => h.stepIndex === stepIndex,
+  );
+  if (!completedEntry) return;
+
+  const now = new Date();
+  const wasApprovalGate =
+    schedule.steps[stepIndex]?.trigger.type === "approval";
+  const updatedHistory = schedule.stepHistory.map((h) =>
+    h.stepIndex === stepIndex ? { ...h, completedAt: now } : h,
+  );
+
+  const nextStepIndex = stepIndex + 1;
+  const nextStepAt = schedule.steps[nextStepIndex]
+    ? computeNextStepAt(
+        {
+          ...schedule,
+          phaseStartedAt: wasApprovalGate ? now : schedule.phaseStartedAt,
+        },
+        nextStepIndex,
+        now,
+      )
+    : null;
+
+  await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: nextStepAt ? "running" : "completed",
+    nextStepAt,
+    stepHistory: updatedHistory,
+    pendingRevisionIds: [],
+    pendingApprovalRevisionId: undefined,
+    ...(wasApprovalGate ? { phaseStartedAt: now } : {}),
+  });
+
+  await dispatchRampEvent(ctx, schedule, "step.approved", {
+    object: {
+      rampScheduleId: schedule.id,
+      rampName: schedule.name,
+      orgId: ctx.org.id,
+      currentStepIndex: stepIndex,
+      status: "running",
+      revisionId: approvalRef,
+    },
+  });
+}
+
+// Publish all pending-parent revisions in the schedule's pendingRevisionIds,
+// skipping excludeRef (already being published or discarded by the caller).
+async function publishPendingRevisions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  excludeRef: string,
 ): Promise<void> {
   const pendingIds = schedule.pendingRevisionIds ?? [];
   const user: EventUser = { type: "system" };
 
   for (const refId of pendingIds) {
+    if (refId === excludeRef) continue;
+
     const [featureId, versionStr] = refId.split(":");
     const version = parseInt(versionStr, 10);
     if (!featureId || isNaN(version)) continue;
@@ -883,17 +862,7 @@ async function publishPendingChildren(
       featureId,
       version,
     });
-    if (!revision) continue;
-
-    const isChild = revision.rampSchedules?.some(
-      (r) =>
-        r.rampScheduleId === schedule.id &&
-        r.stepIndex === stepIndex &&
-        r.role === "child",
-    );
-    if (!isChild) continue;
-
-    if (revision.status !== "pending-parent") continue;
+    if (!revision || revision.status !== "pending-parent") continue;
 
     await markRevisionAsPublished(ctx, feature, revision, user);
   }
@@ -903,24 +872,21 @@ export async function onRevisionDiscarded(
   ctx: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<void> {
-  if (!revision.rampSchedules?.length) return;
+  const revisionRef = `${revision.featureId}:${revision.version}`;
 
-  for (const rampRef of revision.rampSchedules) {
-    if (rampRef.role !== "parent") continue;
+  // Only react when the approval-gate revision is discarded
+  const approvalRamps =
+    await ctx.models.rampSchedules.findByPendingApprovalRevision(revisionRef);
 
-    const schedule = await ctx.models.rampSchedules.getById(
-      rampRef.rampScheduleId,
-    );
-    if (!schedule) continue;
+  for (const schedule of approvalRamps) {
+    // Discard all other pending-parent revisions for this step
+    await discardPendingRevisions(ctx, schedule, revisionRef);
 
-    // Discard all child (pending-parent) revisions for this step
-    await discardPendingRevisions(ctx, schedule, rampRef.stepIndex);
-
-    // Pause the ramp schedule
     await ctx.models.rampSchedules.updateById(schedule.id, {
       status: "paused",
       pausedAt: new Date(),
       pendingRevisionIds: [],
+      pendingApprovalRevisionId: undefined,
     });
 
     await dispatchRampEvent(ctx, schedule, "paused", {
@@ -939,15 +905,20 @@ export async function onRevisionDiscarded(
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Discard all pending revisions in the schedule, skipping excludeRef if provided.
+// Used by completeRollout (discard all) and onRevisionDiscarded (discard all except the
+// one already being discarded).
 async function discardPendingRevisions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  stepIndex?: number,
+  excludeRef?: string,
 ): Promise<void> {
   const pendingIds = schedule.pendingRevisionIds ?? [];
   const user: EventUser = { type: "system" };
 
   for (const refId of pendingIds) {
+    if (excludeRef && refId === excludeRef) continue;
+
     const [featureId, versionStr] = refId.split(":");
     const version = parseInt(versionStr, 10);
     if (!featureId || isNaN(version)) continue;
@@ -959,16 +930,6 @@ async function discardPendingRevisions(
       version,
     });
     if (!revision) continue;
-
-    if (
-      stepIndex !== undefined &&
-      !revision.rampSchedules?.some(
-        (r) => r.rampScheduleId === schedule.id && r.stepIndex === stepIndex,
-      )
-    ) {
-      continue;
-    }
-
     if (revision.status === "published" || revision.status === "discarded") {
       continue;
     }

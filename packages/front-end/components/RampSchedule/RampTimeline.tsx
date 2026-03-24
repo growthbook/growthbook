@@ -257,8 +257,12 @@ export default function RampTimeline({ rs, onEditTarget }: Props) {
     currentStepIndex,
     startTrigger,
     endSchedule,
-    foundingRevisionVersion,
+    targets,
   } = rs;
+  // activatingRevisionVersion is now per-target; find the first target that has one
+  const activatingRevisionVersion = targets.find(
+    (t) => t.activatingRevisionVersion != null,
+  )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
 
   function getState(i: number): NodeState {
@@ -413,10 +417,10 @@ export default function RampTimeline({ rs, onEditTarget }: Props) {
                         <div style={{ lineHeight: 1.2 }}>
                           <Text size="small">awaiting publish</Text>
                         </div>
-                        {foundingRevisionVersion != null && (
+                        {activatingRevisionVersion != null && (
                           <div style={{ lineHeight: 1.2 }}>
                             <Text size="small">
-                              Revision {foundingRevisionVersion}
+                              Revision {activatingRevisionVersion}
                             </Text>
                           </div>
                         )}

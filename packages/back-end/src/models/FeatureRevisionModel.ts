@@ -54,16 +54,6 @@ const featureRevisionSchema = new mongoose.Schema({
       value: String,
     },
   ],
-  // Ramp schedule association — present when this revision was created by a ramp schedule.
-  // Ramp-owned revisions are immutable. Role determines approval cascade behavior.
-  rampSchedules: [
-    {
-      _id: false,
-      rampScheduleId: String,
-      stepIndex: Number,
-      role: String, // "parent" | "child"
-    },
-  ],
 });
 
 featureRevisionSchema.index(
@@ -983,16 +973,12 @@ export function registerRevisionDiscardedHook(hook: RevisionHook): void {
   _onRevisionDiscardedHook = hook;
 }
 
-/**
- * Dispatch ramp hooks after a revision is published.
- * Keyed off revision.rampSchedules — no-op when absent.
- * Call this after markRevisionAsPublished completes.
- */
+// Dispatch ramp hooks after a revision is published.
+// Always fires — the hook itself queries ramps by revision identity.
 export async function dispatchRevisionPublishedHook(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<void> {
-  if (!revision.rampSchedules?.length) return;
   if (!_onRevisionPublishedHook) return;
   try {
     await _onRevisionPublishedHook(context, revision);
@@ -1001,20 +987,29 @@ export async function dispatchRevisionPublishedHook(
   }
 }
 
-/**
- * Dispatch ramp hooks after a revision is discarded.
- * Keyed off revision.rampSchedules — no-op when absent.
- * Call this after discardRevision completes.
- */
+// Dispatch ramp hooks after a revision is discarded.
+// Always fires — the hook itself queries ramps by revision identity.
 export async function dispatchRevisionDiscardedHook(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<void> {
-  if (!revision.rampSchedules?.length) return;
   if (!_onRevisionDiscardedHook) return;
   try {
     await _onRevisionDiscardedHook(context, revision);
   } catch (e) {
     logger.error(e, "Error in revision discarded ramp hook");
   }
+}
+
+// Mark a revision as pending-parent so it waits for its sibling approval revision.
+// Used by the ramp service when creating multi-target approval-gated steps.
+export async function markRevisionAsPendingParent(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    { organization, featureId, version },
+    { $set: { status: "pending-parent" } },
+  );
 }

@@ -141,7 +141,7 @@ export const postRampSchedule = async (
           actions: endActions,
         }
       : undefined,
-    // Standalone ramps have no founding revision — they're immediately eligible to start.
+    // Standalone ramps have no activating revision — they're immediately eligible to start.
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,

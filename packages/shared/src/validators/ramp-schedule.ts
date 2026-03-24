@@ -34,11 +34,16 @@ export const rampTarget = z.object({
   status: z.enum(["pending-join", "active", "pending-eject", "ejected"]),
   joinRevisionId: z.string().optional(),
   ejectRevisionId: z.string().optional(),
+  // Version of the draft revision whose publication activates this ramp.
+  // Set when the ramp is created atomically alongside a rule change.
+  // Once all targets have had their activating revisions published the ramp
+  // transitions out of "pending" based on startTrigger.
+  activatingRevisionVersion: z.number().int().optional(),
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
 // Start trigger — always present, defaults to "immediately" for legacy documents.
-// "immediately": auto-starts when the founding draft is published.
+// "immediately": auto-starts when the activating draft is published.
 // "manual":      transitions to "ready" on publish; requires explicit user start action.
 // "scheduled":   transitions to "ready" on publish; Agenda auto-starts when now >= at.
 export const rampStartTrigger = z.discriminatedUnion("type", [
@@ -140,11 +145,7 @@ export const rampScheduleValidator = baseSchema
     autoRollback: z
       .object({ enabled: z.boolean(), criteriaId: z.string() })
       .optional(),
-    // The draft revision version whose publication triggers the ramp start lifecycle.
-    // Set when the ramp is created atomically alongside a rule change.
-    // Absent for standalone ramps (no founding revision).
-    foundingRevisionVersion: z.number().int().optional(),
-    // Controls when the ramp starts after the founding draft revision is published.
+    // Controls when the ramp starts after the activating draft revision is published.
     // "immediately": auto-start on revision publish.
     // "manual": transition to "ready"; requires user to click Start.
     // "scheduled": transition to "ready"; Agenda starts it when now >= at.
@@ -180,8 +181,14 @@ export const rampScheduleValidator = baseSchema
     // Computed at response time by the API (never stored). Milliseconds since startedAt,
     // calculated server-side to avoid client timezone/clock-skew issues.
     elapsedMs: z.number().int().optional(),
-    // IDs of draft/pending-parent revisions created for the current step.
+    // IDs of all revisions created for the current step ("featureId:version" format).
+    // Cleared when the step completes or the ramp is paused/rolled back.
     pendingRevisionIds: z.array(z.string()).optional(),
+    // The specific revision ref (from pendingRevisionIds) that requires explicit approval
+    // before the ramp can advance. Absent for auto-advance steps.
+    // When this revision is published all other pendingRevisionIds are auto-published.
+    // When it is discarded all other pendingRevisionIds are discarded and the ramp pauses.
+    pendingApprovalRevisionId: z.string().optional(),
     stepHistory: z.array(stepHistoryEntry),
   })
   .strict()

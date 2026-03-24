@@ -85,7 +85,7 @@ export default async function addRampScheduleJob(
           { status: "running", nextStepAt: { $ne: null, $lte: now } },
           // Ready schedules with a scheduled start time that has passed — Agenda auto-starts these.
           // "immediately" and "manual" ready schedules are NOT started by Agenda:
-          //   - "immediately" is started inline when the founding revision is published.
+          //   - "immediately" is started inline when the activating revision is published.
           //   - "manual" requires the user to click Start.
           {
             status: "ready",
@@ -207,7 +207,7 @@ export const advanceSingleRampSchedule = async (
     }
 
     // Auto-start "ready" schedules whose startTrigger.type === "scheduled" and at <= now.
-    // "immediately" ramps are started inline when the founding revision is published.
+    // "immediately" ramps are started inline when the activating revision is published.
     // "manual" ramps require an explicit user action (REST start endpoint).
     let current = schedule;
     if (

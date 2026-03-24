@@ -1,5 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef } from "react";
+import { RampScheduleInterface } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
@@ -31,6 +32,7 @@ import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
   mergeResultToDiffInput,
+  type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
@@ -48,6 +50,7 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  rampSchedules?: RampScheduleInterface[];
 }
 type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -58,6 +61,7 @@ export default function RequestReviewModal({
   close,
   mutate,
   experimentsMap,
+  rampSchedules,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -187,8 +191,91 @@ export default function RequestReviewModal({
     }
   };
 
+  // Activating ramps: pending ramps where this revision's publication triggers the start lifecycle.
+  const activatingRamps = (rampSchedules ?? []).filter(
+    (r) =>
+      r.status === "pending" &&
+      r.targets.some(
+        (t) =>
+          t.entityId === feature.id &&
+          t.activatingRevisionVersion === revision?.version,
+      ),
+  );
+
+  // Approval ramps: ramps waiting on this specific revision as the approval gate.
+  const approvalRevisionRef = `${feature.id}:${revision?.version}`;
+  const approvalRamps = (rampSchedules ?? []).filter(
+    (r) => r.pendingApprovalRevisionId === approvalRevisionRef,
+  );
+
+  const rampDiffs: FeatureRevisionDiff[] = [
+    ...activatingRamps.map((ramp) => {
+      const rampConfig = {
+        name: ramp.name,
+        targets: ramp.targets,
+        startTrigger: ramp.startTrigger,
+        startActions: ramp.startActions,
+        steps: ramp.steps,
+        endSchedule: ramp.endSchedule,
+        disableOutsideSchedule: ramp.disableOutsideSchedule,
+      };
+      const startDescription =
+        ramp.startTrigger?.type === "immediately"
+          ? "Starts automatically on publish."
+          : ramp.startTrigger?.type === "manual"
+            ? "Requires manual start after publish."
+            : "Starts at a scheduled date/time.";
+      return {
+        title: `Ramp Schedule – ${ramp.name}`,
+        a: "",
+        b: JSON.stringify(rampConfig, null, 2),
+        customRender: (
+          <p className="mb-0">
+            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
+            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
+            {startDescription}
+          </p>
+        ),
+        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      } as FeatureRevisionDiff;
+    }),
+    ...approvalRamps.map((ramp) => {
+      const stepIndex = ramp.currentStepIndex;
+      const thisStep = ramp.steps[stepIndex];
+      const prevStepActions =
+        stepIndex > 0 ? (ramp.steps[stepIndex - 1]?.actions ?? []) : [];
+      return {
+        title: `Ramp Schedule – ${ramp.name}`,
+        a: JSON.stringify(prevStepActions, null, 2),
+        b: JSON.stringify(thisStep?.actions ?? [], null, 2),
+        customRender: (
+          <p className="mb-0">
+            Advances ramp schedule <strong>{ramp.name}</strong> to step{" "}
+            {stepIndex + 1} of {ramp.steps.length}.
+          </p>
+        ),
+        badges: [
+          {
+            label: `Advance ramp: ${ramp.name} (step ${stepIndex + 1})`,
+            action: "advance ramp",
+          },
+        ],
+      } as FeatureRevisionDiff;
+    }),
+  ];
+
+  const linkedRamps = [
+    ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
+    ...approvalRamps.map((ramp) => ({
+      ramp,
+      role: "approval" as const,
+      stepIndex: ramp.currentStepIndex,
+    })),
+  ];
+
   if (!revision || !mergeResult) return null;
-  const hasChanges = mergeResultHasChanges(mergeResult);
+  const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
+  const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
   let ctaCopy = "Request Review";
   if (approved && !hasNextStep) {
     ctaCopy = "Publish";
@@ -243,6 +330,25 @@ export default function RequestReviewModal({
             publishing this draft.
           </Callout>
         )}
+
+        {linkedRamps.map(({ ramp, role, ...rest }) => (
+          <Callout key={ramp.id} status="info" mb="3">
+            {role === "activating" ? (
+              <>
+                Publishing this draft will activate ramp schedule{" "}
+                <strong>{ramp.name}</strong>. The ramp will begin once this
+                revision is live.
+              </>
+            ) : (
+              <>
+                This revision is controlled by ramp schedule{" "}
+                <strong>{ramp.name}</strong> (step{" "}
+                {"stepIndex" in rest ? rest.stepIndex + 1 : "?"}). Approving and
+                publishing will advance the ramp to the next step.
+              </>
+            )}
+          </Callout>
+        ))}
 
         {!hasChanges && !mergeResult.conflicts.length && (
           <Callout status="info">
@@ -314,13 +420,13 @@ export default function RequestReviewModal({
                     ))}
                   </div>
                 ) : null}
-                {resultDiffsWithChanges.length > 0 && (
+                {allDiffsWithChanges.length > 0 && (
                   <>
                     <h4 className="mb-3">Summary of changes</h4>
-                    {resultDiffsWithChanges.flatMap((d) => d.badges ?? [])
-                      .length > 0 && (
+                    {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                      0 && (
                       <Flex wrap="wrap" gap="2" className="mb-3">
-                        {resultDiffsWithChanges
+                        {allDiffsWithChanges
                           .flatMap((d) => d.badges ?? [])
                           .map(({ label, action }) => (
                             <Badge
@@ -332,9 +438,9 @@ export default function RequestReviewModal({
                           ))}
                       </Flex>
                     )}
-                    {resultDiffsWithChanges.some((d) => d.customRender) && (
+                    {allDiffsWithChanges.some((d) => d.customRender) && (
                       <div className="list-group mb-4">
-                        {resultDiffsWithChanges
+                        {allDiffsWithChanges
                           .filter((d) => d.customRender)
                           .map((d) => (
                             <div
@@ -353,8 +459,8 @@ export default function RequestReviewModal({
                 )}
                 <h4 className="mb-3">Change details</h4>
                 <div className="list-group mb-4">
-                  {resultDiffsWithChanges.length > 0 ? (
-                    resultDiffsWithChanges.map((diff) => (
+                  {allDiffsWithChanges.length > 0 ? (
+                    allDiffsWithChanges.map((diff) => (
                       <ExpandableDiff
                         key={diff.title}
                         title={diff.title}

@@ -14,12 +14,6 @@ import {
   PiLockSimple,
   PiProhibit,
 } from "react-icons/pi";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownSubMenu,
-} from "@/ui/DropdownMenu";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -42,6 +36,12 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -243,9 +243,16 @@ export default function FeaturesOverview({
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
-  const [confirmDeleteRamp, setConfirmDeleteRamp] = useState<{ id: string; name: string } | null>(null);
-  const [editScheduleRamp, setEditScheduleRamp] = useState<RampScheduleInterface | null>(null);
-  const [pendingRuleEdit, setPendingRuleEdit] = useState<{ environment: string; ruleId: string } | null>(null);
+  const [confirmDeleteRamp, setConfirmDeleteRamp] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [editScheduleRamp, setEditScheduleRamp] =
+    useState<RampScheduleInterface | null>(null);
+  const [pendingRuleEdit, setPendingRuleEdit] = useState<{
+    environment: string;
+    ruleId: string;
+  } | null>(null);
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
@@ -1598,10 +1605,7 @@ export default function FeaturesOverview({
                 Ramp Schedules
               </Heading>
               {(rampSchedules?.length ?? 0) > 0 && (
-                <Badge
-                  label={String(rampSchedules!.length)}
-                  color="gray"
-                />
+                <Badge label={String(rampSchedules!.length)} color="gray" />
               )}
             </Flex>
             <Button
@@ -1658,16 +1662,24 @@ export default function FeaturesOverview({
                     >
                       {/* Edit schedule */}
                       {rs.status === "running" ? (
-                        <Tooltip tipPosition="top" body="Pause the ramp to edit the schedule">
+                        <Tooltip
+                          tipPosition="top"
+                          body="Pause the ramp to edit the schedule"
+                        >
                           <div style={{ cursor: "not-allowed" }}>
-                            <DropdownMenuItem disabled>Edit schedule</DropdownMenuItem>
+                            <DropdownMenuItem disabled>
+                              Edit schedule
+                            </DropdownMenuItem>
                           </div>
                         </Tooltip>
                       ) : (
                         <DropdownMenuItem
                           onClick={() => {
                             const activeTargets = rs.targets.filter(
-                              (t) => t.status === "active" && t.ruleId && t.environment,
+                              (t) =>
+                                t.status === "active" &&
+                                t.ruleId &&
+                                t.environment,
                             );
                             if (activeTargets.length === 1) {
                               setPendingRuleEdit({
@@ -1687,7 +1699,16 @@ export default function FeaturesOverview({
 
                       {/* Start now — disabled with explanation when pending */}
                       {rs.status === "pending" && (
-                        <Tooltip tipPosition="top" body={`Cannot start while ramp is pending.${rs.foundingRevisionVersion != null ? ` Publish Revision ${rs.foundingRevisionVersion} first.` : ""}`}>
+                        <Tooltip
+                          tipPosition="top"
+                          body={`Cannot start while ramp is pending.${
+                            rs.targets.find(
+                              (t) => t.activatingRevisionVersion != null,
+                            )?.activatingRevisionVersion != null
+                              ? ` Publish Revision ${rs.targets.find((t) => t.activatingRevisionVersion != null)?.activatingRevisionVersion} first.`
+                              : ""
+                          }`}
+                        >
                           <div style={{ cursor: "not-allowed" }}>
                             <DropdownMenuItem disabled>
                               Start now
@@ -1702,7 +1723,10 @@ export default function FeaturesOverview({
                           {rs.status === "ready" && (
                             <DropdownMenuItem
                               onClick={async () => {
-                                await apiCall(`/ramp-schedule/${rs.id}/actions/start`, { method: "POST" });
+                                await apiCall(
+                                  `/ramp-schedule/${rs.id}/actions/start`,
+                                  { method: "POST" },
+                                );
                                 await mutate();
                               }}
                             >
@@ -1711,10 +1735,15 @@ export default function FeaturesOverview({
                           )}
 
                           {/* Pause / Resume */}
-                          {["running", "pending-approval"].includes(rs.status) && (
+                          {["running", "pending-approval"].includes(
+                            rs.status,
+                          ) && (
                             <DropdownMenuItem
                               onClick={async () => {
-                                await apiCall(`/ramp-schedule/${rs.id}/actions/pause`, { method: "POST" });
+                                await apiCall(
+                                  `/ramp-schedule/${rs.id}/actions/pause`,
+                                  { method: "POST" },
+                                );
                                 await mutate();
                               }}
                             >
@@ -1724,7 +1753,10 @@ export default function FeaturesOverview({
                           {rs.status === "paused" && (
                             <DropdownMenuItem
                               onClick={async () => {
-                                await apiCall(`/ramp-schedule/${rs.id}/actions/resume`, { method: "POST" });
+                                await apiCall(
+                                  `/ramp-schedule/${rs.id}/actions/resume`,
+                                  { method: "POST" },
+                                );
                                 await mutate();
                               }}
                             >
@@ -1733,10 +1765,15 @@ export default function FeaturesOverview({
                           )}
 
                           {/* Complete */}
-                          {!["completed", "expired", "rolled-back"].includes(rs.status) && (
+                          {!["completed", "expired", "rolled-back"].includes(
+                            rs.status,
+                          ) && (
                             <DropdownMenuItem
                               onClick={async () => {
-                                await apiCall(`/ramp-schedule/${rs.id}/actions/complete`, { method: "POST" });
+                                await apiCall(
+                                  `/ramp-schedule/${rs.id}/actions/complete`,
+                                  { method: "POST" },
+                                );
                                 await mutate();
                               }}
                             >
@@ -1745,10 +1782,15 @@ export default function FeaturesOverview({
                           )}
 
                           {/* Reset */}
-                          {!["completed", "expired", "rolled-back"].includes(rs.status) && (
+                          {!["completed", "expired", "rolled-back"].includes(
+                            rs.status,
+                          ) && (
                             <DropdownMenuItem
                               onClick={async () => {
-                                await apiCall(`/ramp-schedule/${rs.id}/actions/reset`, { method: "POST" });
+                                await apiCall(
+                                  `/ramp-schedule/${rs.id}/actions/reset`,
+                                  { method: "POST" },
+                                );
                                 await mutate();
                               }}
                             >
@@ -1757,43 +1799,59 @@ export default function FeaturesOverview({
                           )}
 
                           {/* Jump to */}
-                          {!["completed", "expired", "rolled-back"].includes(rs.status) && rs.steps.length > 0 && (
-                            <DropdownSubMenu trigger="Jump to">
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  await apiCall(`/ramp-schedule/${rs.id}/actions/jump`, {
-                                    method: "POST",
-                                    body: JSON.stringify({ targetStepIndex: -1 }),
-                                  });
-                                  await mutate();
-                                }}
-                              >
-                                Start
-                              </DropdownMenuItem>
-                              {rs.steps.map((_, stepIdx) => (
+                          {!["completed", "expired", "rolled-back"].includes(
+                            rs.status,
+                          ) &&
+                            rs.steps.length > 0 && (
+                              <DropdownSubMenu trigger="Jump to">
                                 <DropdownMenuItem
-                                  key={stepIdx}
                                   onClick={async () => {
-                                    await apiCall(`/ramp-schedule/${rs.id}/actions/jump`, {
-                                      method: "POST",
-                                      body: JSON.stringify({ targetStepIndex: stepIdx }),
-                                    });
+                                    await apiCall(
+                                      `/ramp-schedule/${rs.id}/actions/jump`,
+                                      {
+                                        method: "POST",
+                                        body: JSON.stringify({
+                                          targetStepIndex: -1,
+                                        }),
+                                      },
+                                    );
                                     await mutate();
                                   }}
                                 >
-                                  Step {stepIdx + 1}
+                                  Start
                                 </DropdownMenuItem>
-                              ))}
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  await apiCall(`/ramp-schedule/${rs.id}/actions/complete`, { method: "POST" });
-                                  await mutate();
-                                }}
-                              >
-                                End
-                              </DropdownMenuItem>
-                            </DropdownSubMenu>
-                          )}
+                                {rs.steps.map((_, stepIdx) => (
+                                  <DropdownMenuItem
+                                    key={stepIdx}
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/ramp-schedule/${rs.id}/actions/jump`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            targetStepIndex: stepIdx,
+                                          }),
+                                        },
+                                      );
+                                      await mutate();
+                                    }}
+                                  >
+                                    Step {stepIdx + 1}
+                                  </DropdownMenuItem>
+                                ))}
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/ramp-schedule/${rs.id}/actions/complete`,
+                                      { method: "POST" },
+                                    );
+                                    await mutate();
+                                  }}
+                                >
+                                  End
+                                </DropdownMenuItem>
+                              </DropdownSubMenu>
+                            )}
 
                           <DropdownMenuSeparator />
                         </>
@@ -1802,7 +1860,9 @@ export default function FeaturesOverview({
                       {/* Delete */}
                       <DropdownMenuItem
                         color="red"
-                        onClick={() => setConfirmDeleteRamp({ id: rs.id, name: rs.name })}
+                        onClick={() =>
+                          setConfirmDeleteRamp({ id: rs.id, name: rs.name })
+                        }
                       >
                         Delete
                       </DropdownMenuItem>
@@ -1813,7 +1873,8 @@ export default function FeaturesOverview({
             </>
           ) : (
             <Text size="small" color="text-low">
-              No ramp schedules yet. Create one to gradually roll out this feature.
+              No ramp schedules yet. Create one to gradually roll out this
+              feature.
             </Text>
           )}
         </Frame>
@@ -2097,6 +2158,7 @@ export default function FeaturesOverview({
             close={() => setReviewModal(false)}
             mutate={mutate}
             experimentsMap={experimentsMap}
+            rampSchedules={rampSchedules}
           />
         )}
         {draftModal && revision && (
@@ -2107,6 +2169,7 @@ export default function FeaturesOverview({
             close={() => setDraftModal(false)}
             mutate={mutate}
             experimentsMap={experimentsMap}
+            rampSchedules={rampSchedules}
           />
         )}
         {conflictModal && revision && (
@@ -2140,15 +2203,18 @@ export default function FeaturesOverview({
             closeCta="Cancel"
             useRadixButton={true}
             submit={async () => {
-              await apiCall(`/ramp-schedule/${confirmDeleteRamp.id}`, { method: "DELETE" });
+              await apiCall(`/ramp-schedule/${confirmDeleteRamp.id}`, {
+                method: "DELETE",
+              });
               await mutate();
               setConfirmDeleteRamp(null);
             }}
           >
             <p>
-              Are you sure you want to delete <strong>{confirmDeleteRamp.name}</strong>?
-              The feature rule will remain at its current state but will no longer be
-              automatically advanced.
+              Are you sure you want to delete{" "}
+              <strong>{confirmDeleteRamp.name}</strong>? The feature rule will
+              remain at its current state but will no longer be automatically
+              advanced.
             </p>
           </Modal>
         )}

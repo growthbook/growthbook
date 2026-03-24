@@ -284,19 +284,6 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .nullable()
       .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // Ramp schedule association — present when this revision was created by or is linked to a ramp.
-    // "founder": user's draft revision whose publication triggers the ramp's start lifecycle.
-    // "parent": ramp-created revision that drives approval cascade for a step.
-    // "child": ramp-created revision held as pending-parent until the parent publishes.
-    rampSchedules: z
-      .array(
-        z.object({
-          rampScheduleId: z.string(),
-          stepIndex: z.number().int(),
-          role: z.enum(["founder", "parent", "child"]),
-        }),
-      )
-      .optional(),
   })
   .strict();
 

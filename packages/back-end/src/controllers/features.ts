@@ -1819,7 +1819,9 @@ export async function postFeatureRule(
       const baseStartActions = rampSchedulePayload.startActions ?? [];
       const startActions = disable
         ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
-        : baseStartActions.length ? baseStartActions : undefined;
+        : baseStartActions.length
+          ? baseStartActions
+          : undefined;
 
       // Auto-append enabled:false to endSchedule actions when disableOutsideSchedule
       const baseEndActions = rampSchedulePayload.endSchedule?.actions ?? [];
@@ -1827,7 +1829,7 @@ export async function postFeatureRule(
         ? [...baseEndActions, { targetId, patch: disabledPatch }]
         : baseEndActions;
 
-      const newSchedule = await context.models.rampSchedules.create({
+      await context.models.rampSchedules.create({
         name: rampSchedulePayload.name,
         entityType: "feature",
         entityId: feature.id,
@@ -1839,38 +1841,37 @@ export async function postFeatureRule(
             ruleId: rule.id,
             environment: rampSchedulePayload.environment,
             status: "active",
+            // Track which revision version activates this ramp so that onRevisionPublished
+            // can query ramps directly without relying on revision-side metadata.
+            activatingRevisionVersion: revision.version,
           },
         ],
         steps: rampSchedulePayload.steps,
-        foundingRevisionVersion: revision.version,
         startTrigger: rampSchedulePayload.startTrigger
           ? rampSchedulePayload.startTrigger.type === "scheduled"
-            ? { type: "scheduled", at: new Date(rampSchedulePayload.startTrigger.at) }
+            ? {
+                type: "scheduled",
+                at: new Date(rampSchedulePayload.startTrigger.at),
+              }
             : rampSchedulePayload.startTrigger
           : { type: "immediately" },
         startActions: startActions?.length ? startActions : undefined,
         disableOutsideSchedule: disable || undefined,
         endSchedule: rampSchedulePayload.endSchedule
           ? {
-              trigger: { type: "scheduled", at: new Date(rampSchedulePayload.endSchedule.trigger.at) },
+              trigger: {
+                type: "scheduled",
+                at: new Date(rampSchedulePayload.endSchedule.trigger.at),
+              },
               actions: endActions,
             }
           : undefined,
-        // Ramp stays "pending" until this draft revision is published — then
-        // onFoundingRevisionPublished() transitions it based on startTrigger type.
+        // Ramp stays "pending" until the activating revision is published
         status: "pending",
         currentStepIndex: -1,
         nextStepAt: null,
         stepHistory: [],
       });
-
-      // Tag the draft revision as the "founding" revision for this ramp so that
-      // publishing it triggers the ramp's start lifecycle.
-      const mongoose = await import("mongoose");
-      await mongoose.default.model("FeatureRevision").updateOne(
-        { organization: context.org.id, featureId: feature.id, version: revision.version },
-        { $push: { rampSchedules: { rampScheduleId: newSchedule.id, stepIndex: -1, role: "founder" } } },
-      );
     } else if (rampSchedulePayload.mode === "link") {
       const existing = await context.models.rampSchedules.getById(
         rampSchedulePayload.rampScheduleId,
@@ -2667,13 +2668,15 @@ export async function putFeatureRule(
       const baseStartActions = rampSchedulePayload.startActions ?? [];
       const startActions = disable
         ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
-        : baseStartActions.length ? baseStartActions : undefined;
+        : baseStartActions.length
+          ? baseStartActions
+          : undefined;
       const baseEndActions = rampSchedulePayload.endSchedule?.actions ?? [];
       const endActions = disable
         ? [...baseEndActions, { targetId, patch: disabledPatch }]
         : baseEndActions;
 
-      const putNewSchedule = await context.models.rampSchedules.create({
+      await context.models.rampSchedules.create({
         name: rampSchedulePayload.name,
         entityType: "feature",
         entityId: feature.id,
@@ -2685,20 +2688,26 @@ export async function putFeatureRule(
             ruleId,
             environment: rampSchedulePayload.environment,
             status: "active",
+            activatingRevisionVersion: revision.version,
           },
         ],
         steps: rampSchedulePayload.steps,
-        foundingRevisionVersion: revision.version,
         startTrigger: rampSchedulePayload.startTrigger
           ? rampSchedulePayload.startTrigger.type === "scheduled"
-            ? { type: "scheduled", at: new Date(rampSchedulePayload.startTrigger.at) }
+            ? {
+                type: "scheduled",
+                at: new Date(rampSchedulePayload.startTrigger.at),
+              }
             : rampSchedulePayload.startTrigger
           : { type: "immediately" },
         startActions: startActions?.length ? startActions : undefined,
         disableOutsideSchedule: disable || undefined,
         endSchedule: rampSchedulePayload.endSchedule
           ? {
-              trigger: { type: "scheduled", at: new Date(rampSchedulePayload.endSchedule.trigger.at) },
+              trigger: {
+                type: "scheduled",
+                at: new Date(rampSchedulePayload.endSchedule.trigger.at),
+              },
               actions: endActions,
             }
           : undefined,
@@ -2707,20 +2716,19 @@ export async function putFeatureRule(
         nextStepAt: null,
         stepHistory: [],
       });
-
-      // Tag the draft revision as the "founding" revision for this ramp.
-      const mongooseModule = await import("mongoose");
-      await mongooseModule.default.model("FeatureRevision").updateOne(
-        { organization: context.org.id, featureId: feature.id, version: revision.version },
-        { $push: { rampSchedules: { rampScheduleId: putNewSchedule.id, stepIndex: -1, role: "founder" } } },
-      );
-
     } else if (rampSchedulePayload.mode === "update") {
-      const existing = await context.models.rampSchedules.getById(rampSchedulePayload.rampScheduleId);
-      if (existing && ["pending", "ready", "paused"].includes(existing.status)) {
+      const existing = await context.models.rampSchedules.getById(
+        rampSchedulePayload.rampScheduleId,
+      );
+      if (
+        existing &&
+        ["pending", "ready", "paused"].includes(existing.status)
+      ) {
         const updates: Record<string, unknown> = {};
-        if (rampSchedulePayload.name !== undefined) updates.name = rampSchedulePayload.name;
-        if (rampSchedulePayload.steps !== undefined) updates.steps = rampSchedulePayload.steps;
+        if (rampSchedulePayload.name !== undefined)
+          updates.name = rampSchedulePayload.name;
+        if (rampSchedulePayload.steps !== undefined)
+          updates.steps = rampSchedulePayload.steps;
         if (rampSchedulePayload.startTrigger !== undefined) {
           const st = rampSchedulePayload.startTrigger;
           updates.startTrigger = st
@@ -2729,18 +2737,28 @@ export async function putFeatureRule(
               : st
             : undefined;
         }
-        if (rampSchedulePayload.startActions !== undefined) updates.startActions = rampSchedulePayload.startActions ?? undefined;
-        if (rampSchedulePayload.disableOutsideSchedule !== undefined) updates.disableOutsideSchedule = rampSchedulePayload.disableOutsideSchedule ?? undefined;
+        if (rampSchedulePayload.startActions !== undefined)
+          updates.startActions = rampSchedulePayload.startActions ?? undefined;
+        if (rampSchedulePayload.disableOutsideSchedule !== undefined)
+          updates.disableOutsideSchedule =
+            rampSchedulePayload.disableOutsideSchedule ?? undefined;
         if (rampSchedulePayload.endSchedule !== undefined) {
           updates.endSchedule = rampSchedulePayload.endSchedule
-            ? { trigger: { type: "scheduled", at: new Date(rampSchedulePayload.endSchedule.trigger.at) }, actions: rampSchedulePayload.endSchedule.actions }
+            ? {
+                trigger: {
+                  type: "scheduled",
+                  at: new Date(rampSchedulePayload.endSchedule.trigger.at),
+                },
+                actions: rampSchedulePayload.endSchedule.actions,
+              }
             : undefined;
         }
         await context.models.rampSchedules.updateById(existing.id, updates);
       }
-
     } else if (rampSchedulePayload.mode === "link") {
-      const existing = await context.models.rampSchedules.getById(rampSchedulePayload.rampScheduleId);
+      const existing = await context.models.rampSchedules.getById(
+        rampSchedulePayload.rampScheduleId,
+      );
       if (existing) {
         await context.models.rampSchedules.updateById(existing.id, {
           targets: [
