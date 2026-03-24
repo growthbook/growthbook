@@ -11,6 +11,9 @@ type SankeyNodeData = {
   stepIndex: number;
   pathToNode: string[];
   value: number;
+  itemStyle?: {
+    color?: string;
+  };
 };
 
 type SankeyLinkData = {
@@ -176,6 +179,8 @@ export default function UserJourneySankeyChart({
   const ctaTextColor = theme === "dark" ? "#C4B5FD" : "#6D28D9";
   const ctaBackgroundColor =
     theme === "dark" ? "rgba(124, 58, 237, 0.35)" : "rgba(139, 92, 246, 0.18)";
+  const defaultNodeColor = theme === "dark" ? "#8B5CF6" : "#7C3AED";
+  const otherNodeColor = theme === "dark" ? "#6B7280" : "#9CA3AF";
   const ctaRichStyle: SankeyRichLabelStyle = useMemo(
     () => ({
       color: ctaTextColor,
@@ -193,10 +198,17 @@ export default function UserJourneySankeyChart({
     if (nodes.length === 0 || links.length === 0) {
       return { option: null, leafNodeIds: new Set<string>() };
     }
+    const coloredNodes: SankeyNodeData[] = nodes.map((node) => ({
+      ...node,
+      itemStyle: {
+        color:
+          node.displayLabel === "(Other)" ? otherNodeColor : defaultNodeColor,
+      },
+    }));
 
     const sourceNodeIds = new Set(links.map((link) => link.source));
     const computedLeafNodeIds = new Set(
-      nodes
+      coloredNodes
         .filter(
           (node) =>
             !sourceNodeIds.has(node.id) && node.displayLabel !== "(Other)",
@@ -231,12 +243,12 @@ export default function UserJourneySankeyChart({
       series: [
         {
           type: "sankey",
-          data: nodes,
+          data: coloredNodes,
           links,
           focusNodeAdjacency: true,
           draggable: false,
           nodeGap: 16,
-          lineStyle: { color: "gradient", curveness: 0.5 },
+          lineStyle: { color: "target" },
           label: {
             color: textColor,
             formatter: (params: SankeyLabelParams) =>
@@ -257,7 +269,14 @@ export default function UserJourneySankeyChart({
       ],
     };
     return { option: builtOption, leafNodeIds: computedLeafNodeIds };
-  }, [rows, textColor, tooltipBackgroundColor, ctaRichStyle]);
+  }, [
+    rows,
+    textColor,
+    tooltipBackgroundColor,
+    ctaRichStyle,
+    defaultNodeColor,
+    otherNodeColor,
+  ]);
 
   const onEvents = useMemo(
     () => ({
