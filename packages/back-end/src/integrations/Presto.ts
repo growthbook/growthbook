@@ -23,6 +23,24 @@ type Row = any;
 // limit in Snowflake
 const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
 
+const DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC = 3600;
+
+function getPrestoClientTimeoutSeconds(
+  requestTimeout: number | string | undefined | null,
+): number {
+  if (requestTimeout === undefined || requestTimeout === null) {
+    return DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC;
+  }
+  if (typeof requestTimeout === "string") {
+    const t = requestTimeout.trim();
+    if (t === "") return DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC;
+    const n = Number.parseInt(t);
+    return Number.isNaN(n) ? DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC : n;
+  }
+  const n = Number(requestTimeout);
+  return Number.isNaN(n) ? DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC : n;
+}
+
 export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
   requiresSchema = false;
@@ -51,14 +69,9 @@ export default class Presto extends SqlIntegration {
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
+      timeout: getPrestoClientTimeoutSeconds(this.params.requestTimeout),
       checkInterval: 500,
     };
-    if (
-      this.params.requestTimeout !== undefined &&
-      this.params.requestTimeout !== null
-    ) {
-      configOptions.timeout = this.params.requestTimeout;
-    }
     if (this.params.engine === "trino") {
       if (this.params.trinoUser) {
         configOptions.user = this.params.trinoUser;
