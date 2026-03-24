@@ -7085,6 +7085,12 @@ ORDER BY column_name, count DESC
       return "";
     }
 
+    // TODO(adriel): We should not scan all partitions for covariate, only startDate to endDate
+
+    // TODO(adriel): Do the same for the experiment + metric source if the experiment is stopped
+    // DONT_DO_THIS: Instead make update harder so it does not get scanned
+
+    // TODO(adriel): investigate contributes_exposure and if we can simplify it
     if (partitionSettings.type === "ingestYearMonthDay") {
       return this.getIngestYearMonthDayWhereClause({
         partitionSettings,
