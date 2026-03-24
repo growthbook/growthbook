@@ -480,7 +480,8 @@ export default abstract class SqlIntegration
    * by extracting an evenly-spaced CDF from their KLL sketch and counting
    * points below the threshold. Returns count_below_threshold ≈ frac × n_events.
    *
-   * Precision: ±1/(numQuantiles+1) on the fraction (±0.5% at numQuantiles=100).
+   * Precision: ±1/numQuantiles discretization precision on the fraction
+   * (±1% at numQuantiles=100).
    * NULL-safe: if sketch or threshold is NULL, returns 0.
    */
   kllRankApprox(
@@ -489,11 +490,13 @@ export default abstract class SqlIntegration
     nEventsCol: string,
     numQuantiles: number,
   ): string {
-    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at quantiles [0, 1/N, ..., 1].
+    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at levels {0, 1/N, ..., 1}.
+    // If the threshold is at percentile p, the count of points strictly below
+    // it is ≈ N*p, so dividing by N (not N+1) gives an unbiased estimate of p.
     // UNNEST(NULL) yields zero rows, so COUNT(*) is 0 for users with no events.
     const cdfArray = this.kllExtractQuantiles(sketchCol, numQuantiles);
     const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
-    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles + 1}.0, 0)`;
+    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   }
 
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
@@ -6809,8 +6812,8 @@ ORDER BY column_name, count DESC
       // event values per user-date. Sketches are merged (per user, then per
       // variation) at stats-query time and the quantile grid is extracted via
       // kllExtractPoint. The per-user "count below threshold" (main_sum) is
-      // approximated as `nu * n_events` since KLL sketches do not expose rank
-      // queries — see getIncrementalRefreshStatisticsQuery.
+      // recovered via two-pass rank recovery (kllRankApprox) — see
+      // getIncrementalRefreshStatisticsQuery.
       return {
         intermediateDataType: "kll",
         partialAggregationFunction: (column: string) => this.kllInit(column),
@@ -7515,11 +7518,11 @@ ORDER BY column_name, count DESC
     );
 
     if (
-      sortedMetrics.some((m) => m.metricType === "quantile") &&
+      sortedMetrics.some((m) => quantileMetricType(m) === "event") &&
       !this.hasQuantileKLL()
     ) {
       throw new Error(
-        "Quantile metrics with incremental refresh require a data source that supports KLL quantile sketches.",
+        "Event quantile metrics with incremental refresh require a data source that supports KLL quantile sketches.",
       );
     }
 
@@ -8086,8 +8089,8 @@ ORDER BY column_name, count DESC
                   data.quantileMetric === "unit" &&
                   data.metricQuantileSettings.ignoreZeros;
                 const valueCol = nullIfZero
-                  ? `${this.encodeMetricIdForColumnName(data.metric.id)}_value`
-                  : `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
+                  ? `m.${this.encodeMetricIdForColumnName(data.metric.id)}_value`
+                  : `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
                 return `, ${data.aggregatedValueTransformation({
                   column: valueCol,
                   initialTimestampColumn: "u.first_exposure_timestamp",
@@ -8095,7 +8098,7 @@ ORDER BY column_name, count DESC
                 })} AS ${data.alias}_value ${
                   data.ratioMetric
                     ? `, ${data.aggregatedValueTransformation({
-                        column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        column: `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
                         initialTimestampColumn: "u.first_exposure_timestamp",
                         analysisEndDate: params.settings.endDate,
                       })} AS ${data.alias}_denominator`
@@ -8106,6 +8109,9 @@ ORDER BY column_name, count DESC
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
           ${
+            // Dimension-equality join mirrors the existing pattern at
+            // getExperimentFactMetricStatisticsCTE (NULL = NULL → false is
+            // acceptable; dimensions are COALESCEd to a sentinel upstream).
             eventQuantileData.length > 0
               ? `LEFT JOIN __eventQuantileMetric qm ON (
                   qm.variation = u.variation

@@ -109,12 +109,16 @@ export async function validateIncrementalPipeline({
       );
     }
 
+    // Unit quantiles store a float and re-aggregate via SUM, so they work on
+    // any incremental-capable warehouse. Only event quantiles need KLL (the
+    // quantile must be computed over raw event values, which requires a
+    // mergeable sketch for incremental aggregation).
     if (
-      quantileMetricType(metric) &&
+      quantileMetricType(metric) === "event" &&
       !integration.getSourceProperties().hasQuantileKLL
     ) {
       throw new Error(
-        "Quantile metrics are not supported with incremental refresh on this data source.",
+        "Event quantile metrics are not supported with incremental refresh on this data source.",
       );
     }
   });

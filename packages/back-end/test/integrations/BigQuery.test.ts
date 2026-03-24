@@ -1,3 +1,4 @@
+import { FactMetricInterface } from "shared/types/fact-table";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 
@@ -114,10 +115,12 @@ describe("BigQuery KLL quantile sketch methods", () => {
       "m.n_events",
       100,
     );
-    // 100 quantiles → 101 points; count below threshold / 101 × n_events
+    // 100 quantiles → 101 points at levels {0, 1/100, ..., 1}.
+    // count of points strictly below percentile p is ≈100p, so divide by 100
+    // (not 101) for an unbiased estimate.
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64(m.sketch, 100)");
     expect(sql).toContain("WHERE p < qm.q_hat");
-    expect(sql).toContain("* m.n_events / 101.0");
+    expect(sql).toContain("* m.n_events / 100.0");
     expect(sql).toContain("COALESCE(");
   });
 
@@ -144,12 +147,13 @@ describe("BigQuery KLL quantile sketch methods", () => {
   });
 
   it("returns kll intermediate data type for event quantile metrics", () => {
+    const metricStub: Partial<FactMetricInterface> = {
+      metricType: "quantile",
+      quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      numerator: { factTableId: "ft1", column: "amount", filters: [] },
+    };
     const metadata = integration.getAggregationMetadata({
-      metric: {
-        metricType: "quantile",
-        quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
-        numerator: { factTableId: "ft1", column: "amount", filters: [] },
-      } as never,
+      metric: metricStub as FactMetricInterface,
       useDenominator: false,
     });
     expect(metadata.intermediateDataType).toBe("kll");
