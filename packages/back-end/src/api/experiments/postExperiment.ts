@@ -107,7 +107,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       };
     }
 
-    if (!payload.assignmentQueryId) {
+    if (payload.assignmentQueryId === undefined) {
       throw new Error(
         "assignmentQueryId is required unless provided by the template",
       );
