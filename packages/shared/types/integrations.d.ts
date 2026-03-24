@@ -301,12 +301,31 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
 }
 
+export type PartitionSettings =
+  | {
+      type: "yearMonthDay";
+      yearColumn: string;
+      monthColumn: string;
+      dayColumn: string;
+    }
+  | {
+      /** NB: Trino-only for now. Ingest-time based. */
+      type: "ingestYearMonthDay";
+      yearColumn: string;
+      monthColumn: string;
+      dayColumn: string;
+    }
+  | {
+      type: "timestamp";
+    };
+
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   factTableMap: FactTableMap;
   unitsTableFullName: string;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface UpdateExperimentIncrementalUnitsQueryParams
@@ -314,7 +333,9 @@ export interface UpdateExperimentIncrementalUnitsQueryParams
   segment: SegmentInterface | null;
   incrementalRefreshStartTime: Date;
   lastMaxTimestamp: Date | null;
+  lastIngestedPartition: string | null;
   unitsTempTableFullName: string;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface DropOldIncrementalUnitsQueryParams {
@@ -329,11 +350,13 @@ export interface AlterNewIncrementalUnitsQueryParams {
 export interface MaxTimestampIncrementalUnitsQueryParams {
   unitsTableFullName: string;
   lastMaxTimestamp: Date | null;
+  includeLastIngestedPartition?: boolean;
 }
 
 export interface MaxTimestampMetricSourceQueryParams {
   metricSourceTableFullName: string;
   lastMaxTimestamp: Date | null;
+  includeLastIngestedPartition?: boolean;
 }
 
 export interface CreateMetricSourceTableQueryParams {
@@ -341,6 +364,7 @@ export interface CreateMetricSourceTableQueryParams {
   metrics: FactMetricInterface[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface InsertMetricSourceDataQueryParams {
@@ -351,6 +375,8 @@ export interface InsertMetricSourceDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  lastIngestedPartition: string | null;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface DropMetricSourceCovariateTableQueryParams {
@@ -371,6 +397,8 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  lastIngestedPartition: string | null;
+  partitionSettings?: PartitionSettings;
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
@@ -645,6 +673,7 @@ export type DimensionSlicesQueryResponseRows = {
 
 export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
+  last_ingested_partition?: string;
 };
 
 export type UserExperimentExposuresQueryResponseRows = {

@@ -11,6 +11,7 @@ export const incrementalRefreshMetricSourceValidator = z.object({
     }),
   ),
   maxTimestamp: z.date().nullable(),
+  lastIngestedPartition: z.string().nullable().optional(),
   tableFullName: z.string(),
 });
 
@@ -28,6 +29,7 @@ const incrementalRefresh = z
     // Unit Source Settings
     unitsTableFullName: z.string().nullable(),
     unitsMaxTimestamp: z.date().nullable(),
+    unitsLastIngestedPartition: z.string().nullable().optional(),
     unitsDimensions: z.array(z.string()),
 
     // Experiment Settings Hash

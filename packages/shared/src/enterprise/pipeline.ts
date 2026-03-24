@@ -3,7 +3,10 @@ import type {
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
-import type { PipelineIntegration } from "shared/types/integrations";
+import type {
+  PartitionSettings,
+  PipelineIntegration,
+} from "shared/types/integrations";
 
 export type PipelineValidationResult = {
   result: "success" | "skipped" | "failed";
@@ -94,6 +97,28 @@ export function getPipelineValidationDropTableQuery({
   });
 }
 
+export function getRequiredColumnsForPipelineSettings(
+  settings: DataSourcePipelineSettings,
+): string[] {
+  const partitionSettings = settings.partitionSettings;
+  const type = partitionSettings?.type;
+  if (!type) return [];
+
+  switch (type) {
+    case "yearMonthDay":
+    case "ingestYearMonthDay":
+      return [
+        partitionSettings.yearColumn,
+        partitionSettings.monthColumn,
+        partitionSettings.dayColumn,
+      ];
+    case "timestamp":
+      return [];
+    default:
+      return (type satisfies never) ? [] : [];
+  }
+}
+
 export function bigQueryCreateTablePartitions(columns: string[]) {
   // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date column?
   const partitionBy = `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
@@ -116,4 +141,25 @@ export function prestoCreateTablePartitions(columns: string[]) {
     format = 'ORC',
     partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]
   )`;
+}
+
+export function isIngestYearMonthDayPartitionSettings(
+  partitionSettings: PartitionSettings | undefined,
+): partitionSettings is Extract<
+  PartitionSettings,
+  { type: "ingestYearMonthDay" }
+> {
+  return partitionSettings?.type === "ingestYearMonthDay";
+}
+
+export function validatePartitionSettingsEngine(
+  partitionSettings: PartitionSettings | undefined,
+  integration: { getFormatDialect?: () => unknown },
+): void {
+  if (
+    isIngestYearMonthDayPartitionSettings(partitionSettings) &&
+    integration.getFormatDialect?.() !== "trino"
+  ) {
+    throw new Error("Ingestion Date partitions require a Trino data source.");
+  }
 }

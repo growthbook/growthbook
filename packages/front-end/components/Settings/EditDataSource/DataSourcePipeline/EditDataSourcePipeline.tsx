@@ -6,6 +6,8 @@ import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineMode,
 } from "shared/types/datasource";
+import type { PartitionSettings } from "shared/types/integrations";
+import type { PrestoConnectionParams } from "shared/types/integrations/presto";
 import {
   UNITS_TABLE_RETENTION_HOURS_DEFAULT,
   type PipelineValidationResults,
@@ -18,6 +20,7 @@ import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/
 import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";
 import Modal from "@/components/Modal";
 import RadioGroup from "@/ui/RadioGroup";
+import { Select, SelectItem } from "@/ui/Select";
 import PipelineModeSelector from "./PipelineModeSelector";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
@@ -30,6 +33,7 @@ type FormValues = {
   writeDataset: string;
   unitsTableRetentionHours: number;
   unitsTableDeletion: boolean;
+  partitionSettings?: PartitionSettings;
   applyToAllExperiments: boolean;
   includedExperimentIds?: string[];
 };
@@ -77,6 +81,7 @@ export const EditDataSourcePipeline = ({
         initialPipelineSettings?.unitsTableRetentionHours ??
         UNITS_TABLE_RETENTION_HOURS_DEFAULT,
       unitsTableDeletion: initialPipelineSettings?.unitsTableDeletion ?? true,
+      partitionSettings: initialPipelineSettings?.partitionSettings,
       includedExperimentIds: initialPipelineSettings?.includedExperimentIds,
       applyToAllExperiments:
         initialPipelineSettings?.includedExperimentIds === undefined,
@@ -98,6 +103,7 @@ export const EditDataSourcePipeline = ({
         writeDataset: formValues.writeDataset,
         unitsTableRetentionHours: formValues.unitsTableRetentionHours,
         unitsTableDeletion: formValues.unitsTableDeletion,
+        partitionSettings: formValues.partitionSettings,
         includedExperimentIds: formValues.applyToAllExperiments
           ? undefined
           : formValues.includedExperimentIds,
@@ -122,6 +128,7 @@ export const EditDataSourcePipeline = ({
         writeDataset: formValues.writeDataset,
         unitsTableRetentionHours: formValues.unitsTableRetentionHours,
         unitsTableDeletion: formValues.unitsTableDeletion,
+        partitionSettings: formValues.partitionSettings,
         includedExperimentIds: formValues.applyToAllExperiments
           ? undefined
           : formValues.includedExperimentIds,
@@ -187,6 +194,12 @@ export const EditDataSourcePipeline = ({
                 form={form}
                 experimentOptions={experimentOptions}
               />
+              {dataSource.type === "presto" ? (
+                <IncrementalPartitionSettingsInputs
+                  form={form}
+                  dataSource={dataSource}
+                />
+              ) : null}
             </>
           ) : null}
 
@@ -335,6 +348,123 @@ function IncrementalScopeSelector({
           />
         </Box>
       ) : null}
+    </Box>
+  );
+}
+
+function IncrementalPartitionSettingsInputs({
+  form,
+  dataSource,
+}: {
+  form: ReturnType<typeof useForm<FormValues>>;
+  dataSource: DataSourceInterfaceWithParams;
+}) {
+  const partitionSettings = form.watch("partitionSettings");
+  const isTrino =
+    dataSource.type === "presto" &&
+    (dataSource.params as PrestoConnectionParams).engine === "trino";
+
+  const partitionType =
+    partitionSettings?.type === "yearMonthDay" ||
+    partitionSettings?.type === "ingestYearMonthDay"
+      ? partitionSettings.type
+      : "none";
+
+  const columnValues =
+    partitionSettings?.type === "yearMonthDay" ||
+    partitionSettings?.type === "ingestYearMonthDay"
+      ? {
+          yearColumn: partitionSettings.yearColumn,
+          monthColumn: partitionSettings.monthColumn,
+          dayColumn: partitionSettings.dayColumn,
+        }
+      : { yearColumn: "", monthColumn: "", dayColumn: "" };
+
+  return (
+    <Box>
+      <Flex direction="column" gap="3">
+        <Flex direction="column" gap="1">
+          <Text size="3" weight="bold">
+            Partition strategy (optional)
+          </Text>
+          <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+            Optional for Trino (default is timestamp). If you use mixed table
+            layouts, you must manage your own partitions using incremental
+            template variables in SQL.
+          </Text>
+        </Flex>
+        <Select
+          value={partitionType}
+          setValue={(value) => {
+            if (value === "yearMonthDay") {
+              form.setValue("partitionSettings", {
+                type: "yearMonthDay",
+                ...columnValues,
+              });
+              return;
+            }
+            if (value === "ingestYearMonthDay") {
+              form.setValue("partitionSettings", {
+                type: "ingestYearMonthDay",
+                ...columnValues,
+              });
+              return;
+            }
+            form.setValue("partitionSettings", undefined);
+          }}
+        >
+          <SelectItem value="none">No additional partition columns</SelectItem>
+          <SelectItem value="yearMonthDay">Year / Month / Day</SelectItem>
+          {isTrino ? (
+            <SelectItem value="ingestYearMonthDay">Ingestion Date</SelectItem>
+          ) : null}
+        </Select>
+
+        {partitionSettings?.type === "yearMonthDay" ||
+        partitionSettings?.type === "ingestYearMonthDay" ? (
+          <Flex direction="column" gap="3">
+            <Flex direction="column" gap="1">
+              <Text size="3" weight="medium">
+                Year column
+              </Text>
+              <TextField.Root
+                size="3"
+                required
+                value={form.watch("partitionSettings.yearColumn") || ""}
+                onChange={(e) =>
+                  form.setValue("partitionSettings.yearColumn", e.target.value)
+                }
+              />
+            </Flex>
+            <Flex direction="column" gap="1">
+              <Text size="3" weight="medium">
+                Month column
+              </Text>
+              <TextField.Root
+                size="3"
+                required
+                value={form.watch("partitionSettings.monthColumn") || ""}
+                onChange={(e) =>
+                  form.setValue("partitionSettings.monthColumn", e.target.value)
+                }
+              />
+            </Flex>
+            <Flex direction="column" gap="1">
+              <Text size="3" weight="medium">
+                Day column
+              </Text>
+              <TextField.Root
+                size="3"
+                required
+                value={form.watch("partitionSettings.dayColumn") || ""}
+                onChange={(e) =>
+                  form.setValue("partitionSettings.dayColumn", e.target.value)
+                }
+              />
+            </Flex>
+          </Flex>
+        ) : null}
+      </Flex>
     </Box>
   );
 }

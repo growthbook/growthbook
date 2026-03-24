@@ -119,8 +119,10 @@ export async function validateIncrementalPipeline({
   // If not forcing a full refresh and we have a previous run, ensure the
   // current configuration matches what the incremental pipeline was built with.
   if (analysisType === "main-update" && incrementalRefreshModel) {
-    const currentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+    const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      integration.datasource.settings?.pipelineSettings?.partitionSettings,
+    );
     if (
       incrementalRefreshModel.experimentSettingsHash &&
       currentSettingsHash !== incrementalRefreshModel.experimentSettingsHash

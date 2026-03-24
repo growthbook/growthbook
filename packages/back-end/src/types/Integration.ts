@@ -42,6 +42,7 @@ import {
   MetricValueQueryResponse,
   PastExperimentParams,
   PastExperimentQueryResponse,
+  PartitionSettings,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
   TestQueryParams,
@@ -149,6 +150,12 @@ export interface SourceIntegrationInterface {
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
   ): string;
+  getMaxIngestedPartitionSourceQuery?(params: {
+    sourceSql: string;
+    partitionSettings?: PartitionSettings;
+    lastIngestedPartition: string | null;
+    experimentStartDate: Date;
+  }): string | null;
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
   ): string;

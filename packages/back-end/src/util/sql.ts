@@ -59,6 +59,18 @@ function usesTemplateVariable(sql: string, variableName: string) {
   return sql.match(new RegExp(`{{[^}]*${variableName}`, "g"));
 }
 
+function getSqlDateParts(date: Date) {
+  const iso = date.toISOString();
+  return {
+    year: iso.substring(0, 4),
+    month: iso.substring(5, 7),
+    day: iso.substring(8, 10),
+    dateTime: iso.substring(0, 19).replace("T", " "),
+    iso,
+    unix: "" + Math.floor(date.getTime() / 1000),
+  };
+}
+
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
 export function compileSqlTemplate(
   sql: string,
@@ -93,22 +105,46 @@ export function compileSqlTemplate(
     experimentId = "%";
   }
 
+  const startDateParts = getSqlDateParts(startDate);
+  const endDateParts = getSqlDateParts(endDate);
+
+  const customIncrementalStartDate =
+    typeof customFields?.incrementalStartDate === "string"
+      ? customFields.incrementalStartDate
+      : undefined;
+  const customIncrementalStartYear =
+    typeof customFields?.incrementalStartYear === "string"
+      ? customFields.incrementalStartYear
+      : undefined;
+  const customIncrementalStartMonth =
+    typeof customFields?.incrementalStartMonth === "string"
+      ? customFields.incrementalStartMonth
+      : undefined;
+  const customIncrementalStartDay =
+    typeof customFields?.incrementalStartDay === "string"
+      ? customFields.incrementalStartDay
+      : undefined;
+
   const replacements: Record<string, unknown> = {
     ...templateVariables,
     customFields: customFields || {},
     phase: phase || {},
-    startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
-    startDateISO: startDate.toISOString(),
-    startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
-    startYear: startDate.toISOString().substr(0, 4),
-    startMonth: startDate.toISOString().substr(5, 2),
-    startDay: startDate.toISOString().substr(8, 2),
-    endDateUnix: "" + Math.floor(endDate.getTime() / 1000),
-    endDateISO: endDate.toISOString(),
-    endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
-    endYear: endDate.toISOString().substr(0, 4),
-    endMonth: endDate.toISOString().substr(5, 2),
-    endDay: endDate.toISOString().substr(8, 2),
+    startDateUnix: startDateParts.unix,
+    startDateISO: startDateParts.iso,
+    startDate: startDateParts.dateTime,
+    startYear: startDateParts.year,
+    startMonth: startDateParts.month,
+    startDay: startDateParts.day,
+    incrementalStartDate: customIncrementalStartDate || startDateParts.dateTime,
+    incrementalStartYear: customIncrementalStartYear || startDateParts.year,
+    incrementalStartMonth: customIncrementalStartMonth || startDateParts.month,
+    incrementalStartDay: customIncrementalStartDay || startDateParts.day,
+    endDateUnix: endDateParts.unix,
+    endDateISO: endDateParts.iso,
+    endDate: endDateParts.dateTime,
+    endYear: endDateParts.year,
+    endMonth: endDateParts.month,
+    endDay: endDateParts.day,
     experimentId,
   };
 
