@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/back-end/src/util/migrations.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 2

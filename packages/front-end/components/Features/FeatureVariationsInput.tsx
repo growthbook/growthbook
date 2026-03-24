@@ -98,6 +98,8 @@ export default function FeatureVariationsInput({
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
+  const renormalizeVariationKeysOnSort =
+    !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -288,7 +290,12 @@ export default function FeatureVariationsInput({
                   {!hideVariationIds && !hideValueField && editingIds && (
                     <th>Id</th>
                   )}
-                  {hideVariationIds && !valueAsId && <th>Value to Force</th>}
+                  {hideVariationIds && !hideValueField && valueAsId && (
+                    <th>Id</th>
+                  )}
+                  {hideVariationIds && !hideValueField && !valueAsId && (
+                    <th>Value to Force</th>
+                  )}
                   <th>Variation Name</th>
                   {showDescriptions && <th>Description</th>}
                   {!hideSplits && (
@@ -346,7 +353,9 @@ export default function FeatureVariationsInput({
               <tbody>
                 {variations && (
                   <SortableVariationsList
-                    valuesAsIds={idsMatchIndexes}
+                    valuesAsIds={
+                      idsMatchIndexes || renormalizeVariationKeysOnSort
+                    }
                     variations={variations}
                     setVariations={
                       !disableVariations ? setVariations : undefined
