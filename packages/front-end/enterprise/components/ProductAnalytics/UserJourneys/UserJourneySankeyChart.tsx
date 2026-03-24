@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { useMemo } from "react";
+import { Box } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import type { UserJourneyPathRow } from "shared/validators";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { PopoverContent } from "@/ui/Popover";
-import Button from "@/ui/Button";
 
 type SankeyNodeData = {
   id: string;
@@ -26,20 +24,6 @@ type SankeyLinkData = {
 type SankeyEventParams = {
   dataType?: string;
   data?: unknown;
-  event?: {
-    offsetX?: number;
-    offsetY?: number;
-    event?: {
-      offsetX?: number;
-      offsetY?: number;
-    };
-  };
-};
-
-type SelectedNodeState = {
-  node: SankeyNodeData;
-  x: number;
-  y: number;
 };
 
 type SankeyTooltipParams = {
@@ -52,6 +36,24 @@ type SankeyTooltipParams = {
   };
   value?: number;
   name?: string;
+};
+
+type SankeyLabelParams = {
+  data?: SankeyNodeData;
+};
+
+type SankeyRichLabelStyle = {
+  color?: string;
+  backgroundColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  fontSize?: number;
+  padding?: number;
+};
+
+type SankeyLabelRich = {
+  label: SankeyRichLabelStyle;
+  cta?: SankeyRichLabelStyle;
 };
 
 function getNodeId(stepIndex: number, pathToNode: string[]): string {
@@ -72,26 +74,12 @@ function isSankeyNodeData(data: unknown): data is SankeyNodeData {
   );
 }
 
-function getEventOffset(
-  params: SankeyEventParams,
-): { x: number; y: number } | null {
-  const rootEvent = params.event;
-  if (!rootEvent) return null;
-  const nestedEvent = rootEvent.event;
-  const offsetX = nestedEvent?.offsetX ?? rootEvent.offsetX;
-  const offsetY = nestedEvent?.offsetY ?? rootEvent.offsetY;
-  if (typeof offsetX !== "number" || typeof offsetY !== "number") return null;
-  return { x: offsetX, y: offsetY };
-}
-
 function pathRowsToSankeyData(rows: UserJourneyPathRow[]): {
   nodes: SankeyNodeData[];
   links: SankeyLinkData[];
 } {
   const linkMap = new Map<string, SankeyLinkData>();
   const nodeMap = new Map<string, SankeyNodeData>();
-
-  console.log("raw rows", rows);
 
   for (const row of rows) {
     const { steps, unit_count } = row;
@@ -146,10 +134,31 @@ function pathRowsToSankeyData(rows: UserJourneyPathRow[]): {
 
   const nodes = Array.from(nodeMap.values());
   const links = Array.from(linkMap.values());
-  console.log("nodes", nodes);
-  console.log("links", links);
 
   return { nodes, links };
+}
+
+function isExtendableLeaf(
+  node: SankeyNodeData | undefined,
+  sourceNodeIds: Set<string>,
+): boolean {
+  if (!node) return false;
+  return !sourceNodeIds.has(node.id) && node.displayLabel !== "(Other)";
+}
+
+function getNodeLabelText(
+  node: SankeyNodeData | undefined,
+  sourceNodeIds: Set<string>,
+  showCta: boolean,
+): string {
+  if (!node) return "";
+  if (!isExtendableLeaf(node, sourceNodeIds)) {
+    return node.displayLabel;
+  }
+  if (showCta) {
+    return `{label|${node.displayLabel}}  {cta|+}`;
+  }
+  return `{label|${node.displayLabel}}`;
 }
 
 export default function UserJourneySankeyChart({
@@ -164,18 +173,46 @@ export default function UserJourneySankeyChart({
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
-  const [selectedNode, setSelectedNode] = useState<SelectedNodeState | null>(
-    null,
+  const ctaTextColor = theme === "dark" ? "#C4B5FD" : "#6D28D9";
+  const ctaBackgroundColor =
+    theme === "dark" ? "rgba(124, 58, 237, 0.35)" : "rgba(139, 92, 246, 0.18)";
+  const ctaRichStyle: SankeyRichLabelStyle = useMemo(
+    () => ({
+      color: ctaTextColor,
+      backgroundColor: ctaBackgroundColor,
+      borderWidth: 1,
+      borderRadius: 10,
+      fontSize: 14,
+      padding: 10,
+    }),
+    [ctaTextColor, ctaBackgroundColor],
   );
-  const popoverRef = useRef<HTMLDivElement>(null);
 
-  const option = useMemo(() => {
+  const { option, leafNodeIds } = useMemo(() => {
     const { nodes, links } = pathRowsToSankeyData(rows);
     if (nodes.length === 0 || links.length === 0) {
-      return null;
+      return { option: null, leafNodeIds: new Set<string>() };
     }
+
+    const sourceNodeIds = new Set(links.map((link) => link.source));
+    const computedLeafNodeIds = new Set(
+      nodes
+        .filter(
+          (node) =>
+            !sourceNodeIds.has(node.id) && node.displayLabel !== "(Other)",
+        )
+        .map((node) => node.id),
+    );
+    const labelRich: SankeyLabelRich = {
+      label: { color: textColor },
+    };
+    const emphasisRich: SankeyLabelRich = {
+      label: { color: textColor },
+      cta: ctaRichStyle,
+    };
+
     const total = links.reduce((sum, l) => sum + l.value, 0);
-    return {
+    const builtOption = {
       tooltip: {
         trigger: "item",
         backgroundColor: tooltipBackgroundColor,
@@ -198,67 +235,44 @@ export default function UserJourneySankeyChart({
           links,
           focusNodeAdjacency: true,
           draggable: false,
+          nodeGap: 16,
           lineStyle: { color: "gradient", curveness: 0.5 },
           label: {
             color: textColor,
-            formatter: (params: { data?: SankeyNodeData }) =>
-              params.data?.displayLabel ?? "",
+            formatter: (params: SankeyLabelParams) =>
+              getNodeLabelText(params.data, sourceNodeIds, false),
+            rich: labelRich,
+          },
+          emphasis: {
+            focus: "adjacency",
+            label: {
+              formatter: (params: SankeyLabelParams) =>
+                getNodeLabelText(params.data, sourceNodeIds, true),
+              rich: emphasisRich,
+            },
           },
           itemStyle: { borderColor: "#fff", borderWidth: 1 },
-          emphasis: { focus: "adjacency" },
           nodeAlign: "left",
         },
       ],
     };
-  }, [rows, textColor, tooltipBackgroundColor]);
+    return { option: builtOption, leafNodeIds: computedLeafNodeIds };
+  }, [rows, textColor, tooltipBackgroundColor, ctaRichStyle]);
 
   const onEvents = useMemo(
     () => ({
-      click: (params: SankeyEventParams) => {
+      click: async (params: SankeyEventParams) => {
         if (params.dataType !== "node" || !isSankeyNodeData(params.data)) {
           return;
         }
-        const offset = getEventOffset(params);
-        if (!offset) return;
-        setSelectedNode({ node: params.data, x: offset.x, y: offset.y });
+        if (extending) return;
+        if (!leafNodeIds.has(params.data.id)) return;
+
+        await onExtendPath(params.data.pathToNode, params.data.stepIndex);
       },
-      // globalout: () => setSelectedNode(null),
     }),
-    [],
+    [extending, onExtendPath, leafNodeIds],
   );
-
-  const handleExtendPath = useCallback(async () => {
-    if (!selectedNode || extending) return;
-    await onExtendPath(
-      selectedNode.node.pathToNode,
-      selectedNode.node.stepIndex,
-    );
-    setSelectedNode(null);
-  }, [extending, selectedNode, onExtendPath]);
-
-  useEffect(() => {
-    if (!selectedNode) return;
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!popoverRef.current) return;
-      const target = event.target as Node | null;
-      if (target && popoverRef.current.contains(target)) return;
-      setSelectedNode(null);
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setSelectedNode(null);
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [selectedNode]);
 
   if (!option) {
     return (
@@ -279,32 +293,6 @@ export default function UserJourneySankeyChart({
 
   return (
     <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
-      {selectedNode && (
-        <Box
-          style={{
-            position: "absolute",
-            left: selectedNode.x,
-            top: selectedNode.y,
-            transform: "translate(-50%, -100%)",
-            zIndex: 10,
-          }}
-        >
-          <PopoverContent ref={popoverRef}>
-            <Box m="4">
-              <Flex direction="column" gap="2" style={{ minWidth: "180px" }}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={extending}
-                  onClick={handleExtendPath}
-                >
-                  Extend this Path
-                </Button>
-              </Flex>
-            </Box>
-          </PopoverContent>
-        </Box>
-      )}
       <EChartsReact
         option={option}
         onEvents={onEvents}
