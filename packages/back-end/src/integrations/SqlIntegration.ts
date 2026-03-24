@@ -967,7 +967,7 @@ export default abstract class SqlIntegration
       },
       null,
       [{ factTable, index: 0 }],
-      false,
+      "m",
       "m0",
     );
 
@@ -7725,7 +7725,7 @@ ORDER BY column_name, count DESC
 
     const { factTablesWithMetricData } = this.parseExperimentFactMetricsParams({
       ...params,
-      // Covariate data joined to single table with `m` prefix before columns are extracted
+      // Covariate data joined to single table with `m` alias before columns are extracted
       covariateTableAlias: "m",
     });
 
