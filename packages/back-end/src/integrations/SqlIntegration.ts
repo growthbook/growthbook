@@ -2668,10 +2668,14 @@ export default abstract class SqlIntegration
       ? this.datasource.settings.queries.featureUsage[0].query
       : "";
 
+    const compiledFeatureEvalQuery = compileSqlTemplate(featureEvalQuery, {
+      startDate: oneWeekAgo,
+    });
+
     return format(
       `-- Feature Evaluation Diagnostics Query
       WITH __featureEvalQuery AS (
-        ${featureEvalQuery}
+        ${compiledFeatureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
       WHERE feature_key = '${featureKey}' AND timestamp >= ${this.toTimestamp(oneWeekAgo)}
