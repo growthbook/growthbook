@@ -6,7 +6,6 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { CovariateImbalanceMetricVariationTable } from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import Callout from "@/ui/Callout";
-import CovariateImbalanceWarning from "@/components/Experiment/CovariateImbalanceWarning";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -20,8 +19,6 @@ interface Props {
   snapshot: ExperimentSnapshotInterface;
   onNotify?: (issue: IssueValue) => void;
 }
-
-export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 
 export default function CovariateImbalanceCard({
   covariateImbalanceResult,
@@ -108,7 +105,14 @@ export default function CovariateImbalanceCard({
               </Text>
             </Callout>
           ) : (
-            <CovariateImbalanceWarning />
+            <Callout status="warning">
+              <Text weight="semibold">
+                {numMetricsTested} goal or guardrail metric
+                {numMetricsTested > 1 ? "s" : ""} show
+                {numMetricsTested > 1 ? "" : "s"} show pre-exposure imbalance
+                (significance level 0.02).
+              </Text>
+            </Callout>
           )}
         </Box>
         {!isCollapsed && (
@@ -116,6 +120,9 @@ export default function CovariateImbalanceCard({
             <CovariateImbalanceMetricVariationTable
               covariateImbalanceResult={covariateImbalanceResult}
               variations={variations}
+              goalMetricIds={snapshot.settings.goalMetrics}
+              secondaryMetricIds={snapshot.settings.secondaryMetrics}
+              guardrailMetricIds={snapshot.settings.guardrailMetrics}
             />
           </Box>
         )}
