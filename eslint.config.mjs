@@ -28,6 +28,8 @@ export default defineConfig([
     "**/.next",
     "**/dist",
     "**/coverage",
+    "**/.venv",
+    "**/node_modules",
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",

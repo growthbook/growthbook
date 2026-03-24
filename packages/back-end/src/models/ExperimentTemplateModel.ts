@@ -1,12 +1,12 @@
 import { z } from "zod";
 import {
   ApiExperimentTemplateInterface,
-  apiExperimentTemplateValidator,
   apiListExperimentTemplatesValidator,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
 import { ApiRequest } from "back-end/src/util/handler";
+import { experimentTemplateApiSpec } from "back-end/src/api/specs/experiment-template.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -27,18 +27,7 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "experimentTemplates",
-    modelSingular: "experimentTemplate",
-    modelPlural: "experimentTemplates",
-    apiInterface: apiExperimentTemplateValidator,
-    schemas: {
-      createBody: z.never(),
-      updateBody: z.never(),
-    },
-    pathBase: "/experiment-templates",
-    crudActions: ["list"],
-    crudValidatorOverrides: {
-      list: apiListExperimentTemplatesValidator,
-    },
+    openApiSpec: experimentTemplateApiSpec,
   },
 });
 
