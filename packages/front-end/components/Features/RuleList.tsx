@@ -16,7 +16,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
+import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import {
@@ -46,6 +50,7 @@ export default function RuleList({
   holdoutIsDeleted,
   openHoldoutModal,
   revisionList,
+  rampSchedules,
 }: {
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
@@ -72,11 +77,28 @@ export default function RuleList({
   holdoutIsDeleted: boolean;
   openHoldoutModal: () => void;
   revisionList: MinimalFeatureRevisionInterface[];
+  rampSchedules?: RampScheduleInterface[];
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
+
+  // Build a ruleId → ramp schedule map for this environment so Rule can look
+  // up its associated ramp schedule in O(1) without prop drilling the full array.
+  const rampSchedulesMap = new Map<string, RampScheduleInterface>();
+  for (const rs of rampSchedules ?? []) {
+    for (const target of rs.targets) {
+      if (
+        target.ruleId &&
+        (!target.environment || target.environment === environment)
+      ) {
+        if (!rampSchedulesMap.has(target.ruleId)) {
+          rampSchedulesMap.set(target.ruleId, rs);
+        }
+      }
+    }
+  }
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -194,6 +216,7 @@ export default function RuleList({
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
+            rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
           />
         ))}
       </SortableContext>
@@ -219,6 +242,7 @@ export default function RuleList({
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
+            rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
           />
         ) : null}
       </DragOverlay>

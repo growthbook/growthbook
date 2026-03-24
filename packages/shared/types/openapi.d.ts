@@ -1018,6 +1018,124 @@ export interface components {
       hasMore: boolean;
       nextOffset: OneOf<[number, null]>;
     };
+    RampSchedule: {
+      /** @description Unique identifier for the ramp schedule (rs_ prefix) */
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      /** @description Human-readable name for the ramp schedule */
+      name: string;
+      /**
+       * @description Parent controller entity type 
+       * @enum {string}
+       */
+      entityType: "feature";
+      /** @description Parent controller entity ID */
+      entityId: string;
+      /** @description Controlled entity references with lifecycle status */
+      targets: ({
+          id: string;
+          /** @enum {string} */
+          entityType: "feature";
+          entityId: string;
+          /** @description Stable rule ID for sub-rule targeting */
+          ruleId?: string;
+          environment?: string;
+          /** @enum {string} */
+          status: "pending-join" | "active" | "pending-eject" | "ejected";
+          joinRevisionId?: string;
+          ejectRevisionId?: string;
+        })[];
+      /** @description Ordered list of ramp steps */
+      steps: ({
+          /** @description What causes this step to fire */
+          trigger: {
+            /** @enum {string} */
+            type: "interval" | "approval";
+            /** @description Duration in seconds before auto-advancing (interval triggers only) */
+            seconds?: number;
+          };
+          /** @description Patches to apply to targets when this step fires */
+          actions: ({
+              targetId: string;
+              patch: {
+                ruleId: string;
+                coverage?: number;
+                condition?: string;
+                /** @description Force value for force rules */
+                force?: any;
+              };
+            })[];
+          notifyOnEntry?: boolean;
+        })[];
+      /** @description Criteria-driven auto-rollback configuration */
+      autoRollback?: {
+        enabled: boolean;
+        criteriaId: string;
+      };
+      /**
+       * Format: date-time 
+       * @description Optional absolute start time; Agenda auto-starts when now >= startTime and status=pending
+       */
+      startTime?: string;
+      /** @description Optional hard deadline teardown; fires regardless of current step progress */
+      endSchedule?: {
+        /** Format: date-time */
+        at: string;
+        actions: ({
+            targetId: string;
+            patch: {
+              ruleId: string;
+              coverage?: number;
+              condition?: string;
+              /** @description Teardown force value */
+              force?: any;
+            };
+          })[];
+      };
+      /** @enum {string} */
+      status: "pending" | "running" | "paused" | "pending-approval" | "conflict" | "completed" | "expired" | "rolled-back";
+      /** @description Index of the current step; -1 means not yet started */
+      currentStepIndex: number;
+      /** Format: date-time */
+      startedAt?: string;
+      /**
+       * Format: date-time 
+       * @description Anchor for cumulative interval steps; resets after each approval gate
+       */
+      phaseStartedAt?: string;
+      /**
+       * Format: date-time 
+       * @description When the next step is scheduled to fire (null for approval steps and terminal states)
+       */
+      nextStepAt: string | null;
+      /** @description IDs of draft/pending-parent revisions created for the current step */
+      pendingRevisionIds?: (string)[];
+      /** @description Historical record of steps that have been executed */
+      stepHistory: ({
+          stepIndex: number;
+          /** Format: date-time */
+          enteredAt: string;
+          /** Format: date-time */
+          completedAt?: string;
+          revisionIds: (string)[];
+          /** @description Sparse patch-shaped previous values for rollback */
+          previousValues: ({
+              targetId: string;
+              patch: any;
+            })[];
+          triggeredBy: {
+            /** @enum {string} */
+            type: "schedule" | "manual" | "system";
+            userId?: string;
+            reason?: string;
+            source?: string;
+          };
+        })[];
+    };
     Dimension: {
       id: string;
       dateCreated: string;
@@ -18907,6 +19025,7 @@ import * as openApiValidators from "shared/validators";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
+export type ApiRampSchedule = z.infer<typeof openApiValidators.apiRampScheduleValidator>;
 export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
 export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;

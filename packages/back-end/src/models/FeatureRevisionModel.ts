@@ -54,6 +54,16 @@ const featureRevisionSchema = new mongoose.Schema({
       value: String,
     },
   ],
+  // Ramp schedule association — present when this revision was created by a ramp schedule.
+  // Ramp-owned revisions are immutable. Role determines approval cascade behavior.
+  rampSchedules: [
+    {
+      _id: false,
+      rampScheduleId: String,
+      stepIndex: Number,
+      role: String, // "parent" | "child"
+    },
+  ],
 });
 
 featureRevisionSchema.index(
@@ -947,4 +957,64 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
   }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
 
   return docs.map((m) => toInterface(m, context));
+}
+
+// ---------------------------------------------------------------------------
+// Ramp schedule hook registry
+//
+// Services that need to react to revision publish/discard events register
+// their handlers here at startup. Using a registry pattern avoids circular
+// module dependencies between FeatureRevisionModel and services/rampSchedule.
+// ---------------------------------------------------------------------------
+
+type RevisionHook = (
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+) => Promise<void>;
+
+let _onRevisionPublishedHook: RevisionHook | null = null;
+let _onRevisionDiscardedHook: RevisionHook | null = null;
+
+export function registerRevisionPublishedHook(hook: RevisionHook): void {
+  _onRevisionPublishedHook = hook;
+}
+
+export function registerRevisionDiscardedHook(hook: RevisionHook): void {
+  _onRevisionDiscardedHook = hook;
+}
+
+/**
+ * Dispatch ramp hooks after a revision is published.
+ * Keyed off revision.rampSchedules — no-op when absent.
+ * Call this after markRevisionAsPublished completes.
+ */
+export async function dispatchRevisionPublishedHook(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  if (!revision.rampSchedules?.length) return;
+  if (!_onRevisionPublishedHook) return;
+  try {
+    await _onRevisionPublishedHook(context, revision);
+  } catch (e) {
+    logger.error(e, "Error in revision published ramp hook");
+  }
+}
+
+/**
+ * Dispatch ramp hooks after a revision is discarded.
+ * Keyed off revision.rampSchedules — no-op when absent.
+ * Call this after discardRevision completes.
+ */
+export async function dispatchRevisionDiscardedHook(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  if (!revision.rampSchedules?.length) return;
+  if (!_onRevisionDiscardedHook) return;
+  try {
+    await _onRevisionDiscardedHook(context, revision);
+  } catch (e) {
+    logger.error(e, "Error in revision discarded ramp hook");
+  }
 }

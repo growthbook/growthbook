@@ -8,6 +8,7 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
+  RampScheduleInterface,
 } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
@@ -20,6 +21,7 @@ type FeaturePageResponse = {
   safeRollouts: SafeRolloutInterface[];
   codeRefs: FeatureCodeRefsInterface[];
   holdout: HoldoutInterface | undefined;
+  rampSchedules: RampScheduleInterface[];
 };
 
 function parseVersion(value: string | string[] | undefined): number | null {
@@ -69,6 +71,16 @@ export function useFeaturePageData(
     isValidating: isValidatingBase,
   } = useApi<FeaturePageResponse>(fid ? `/feature/${fid}` : "", {
     shouldRun: () => !!fid,
+  });
+
+  // Poll ramp schedules independently so the timeline stays live without
+  // reloading the full (heavy) feature page payload.
+  const { data: rampSchedulesData } = useApi<{
+    status: 200;
+    rampSchedules: RampScheduleInterface[];
+  }>(fid ? `/ramp-schedule?featureId=${fid}` : "", {
+    shouldRun: () => !!fid,
+    refreshInterval: 60_000,
   });
 
   // Only fetch a specific version if it isn't already in the base response or cache.
@@ -202,8 +214,11 @@ export function useFeaturePageData(
       ...baseData,
       revisionList,
       revisions: Object.values(cachedRevisions),
+      // Use polled ramp schedules when available so the timeline stays current
+      // without requiring a full page reload.
+      rampSchedules: rampSchedulesData?.rampSchedules ?? baseData.rampSchedules,
     };
-  }, [baseData, cachedRevisions]);
+  }, [baseData, cachedRevisions, rampSchedulesData]);
 
   const baseFeature = data?.feature;
   const revisions = data?.revisions;

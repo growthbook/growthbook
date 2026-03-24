@@ -1,0 +1,247 @@
+type: object
+required:
+  - id
+  - organization
+  - dateCreated
+  - dateUpdated
+  - name
+  - entityType
+  - entityId
+  - targets
+  - steps
+  - status
+  - currentStepIndex
+  - nextStepAt
+  - stepHistory
+properties:
+  id:
+    type: string
+    description: "Unique identifier for the ramp schedule (rs_ prefix)"
+  organization:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  name:
+    type: string
+    description: "Human-readable name for the ramp schedule"
+  entityType:
+    type: string
+    enum: ["feature"]
+    description: "Parent controller entity type"
+  entityId:
+    type: string
+    description: "Parent controller entity ID"
+  targets:
+    type: array
+    description: "Controlled entity references with lifecycle status"
+    items:
+      type: object
+      required:
+        - id
+        - entityType
+        - entityId
+        - status
+      properties:
+        id:
+          type: string
+        entityType:
+          type: string
+          enum: ["feature"]
+        entityId:
+          type: string
+        ruleId:
+          type: string
+          description: "Stable rule ID for sub-rule targeting"
+        environment:
+          type: string
+        status:
+          type: string
+          enum: ["pending-join", "active", "pending-eject", "ejected"]
+        joinRevisionId:
+          type: string
+        ejectRevisionId:
+          type: string
+  steps:
+    type: array
+    description: "Ordered list of ramp steps"
+    items:
+      type: object
+      required:
+        - trigger
+        - actions
+      properties:
+        trigger:
+          type: object
+          description: "What causes this step to fire"
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: ["interval", "approval"]
+            seconds:
+              type: number
+              description: "Duration in seconds before auto-advancing (interval triggers only)"
+        actions:
+          type: array
+          description: "Patches to apply to targets when this step fires"
+          items:
+            type: object
+            required:
+              - targetId
+              - patch
+            properties:
+              targetId:
+                type: string
+              patch:
+                type: object
+                required:
+                  - ruleId
+                properties:
+                  ruleId:
+                    type: string
+                  coverage:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  condition:
+                    type: string
+                  force:
+                    description: "Force value for force rules"
+        notifyOnEntry:
+          type: boolean
+  autoRollback:
+    type: object
+    description: "Criteria-driven auto-rollback configuration"
+    required:
+      - enabled
+      - criteriaId
+    properties:
+      enabled:
+        type: boolean
+      criteriaId:
+        type: string
+  startTime:
+    type: string
+    format: date-time
+    description: "Optional absolute start time; Agenda auto-starts when now >= startTime and status=pending"
+  endSchedule:
+    type: object
+    description: "Optional hard deadline teardown; fires regardless of current step progress"
+    required:
+      - at
+      - actions
+    properties:
+      at:
+        type: string
+        format: date-time
+      actions:
+        type: array
+        items:
+          type: object
+          required:
+            - targetId
+            - patch
+          properties:
+            targetId:
+              type: string
+            patch:
+              type: object
+              required:
+                - ruleId
+              properties:
+                ruleId:
+                  type: string
+                coverage:
+                  type: number
+                condition:
+                  type: string
+                force:
+                  description: "Teardown force value"
+  status:
+    type: string
+    enum:
+      - pending
+      - running
+      - paused
+      - pending-approval
+      - conflict
+      - completed
+      - expired
+      - rolled-back
+  currentStepIndex:
+    type: integer
+    minimum: -1
+    description: "Index of the current step; -1 means not yet started"
+  startedAt:
+    type: string
+    format: date-time
+  phaseStartedAt:
+    type: string
+    format: date-time
+    description: "Anchor for cumulative interval steps; resets after each approval gate"
+  nextStepAt:
+    type: string
+    format: date-time
+    nullable: true
+    description: "When the next step is scheduled to fire (null for approval steps and terminal states)"
+  pendingRevisionIds:
+    type: array
+    description: "IDs of draft/pending-parent revisions created for the current step"
+    items:
+      type: string
+  stepHistory:
+    type: array
+    description: "Historical record of steps that have been executed"
+    items:
+      type: object
+      required:
+        - stepIndex
+        - enteredAt
+        - revisionIds
+        - previousValues
+        - triggeredBy
+      properties:
+        stepIndex:
+          type: integer
+        enteredAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        revisionIds:
+          type: array
+          items:
+            type: string
+        previousValues:
+          type: array
+          description: "Sparse patch-shaped previous values for rollback"
+          items:
+            type: object
+            required:
+              - targetId
+              - patch
+            properties:
+              targetId:
+                type: string
+              patch:
+                type: object
+        triggeredBy:
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: ["schedule", "manual", "system"]
+            userId:
+              type: string
+            reason:
+              type: string
+            source:
+              type: string

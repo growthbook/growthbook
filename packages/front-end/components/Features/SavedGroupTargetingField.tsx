@@ -23,22 +23,33 @@ export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
+  slimMode?: boolean;
 }
 
 export default function SavedGroupTargetingField({
   value,
   setValue,
   project,
+  slimMode,
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const { unsupportedConnections, hasLargeSavedGroupFeature } =
     useLargeSavedGroupSupport(project);
 
+  const slimLabelStyle: React.CSSProperties | undefined = slimMode
+    ? {
+        fontSize: "var(--font-size-1)",
+        color: "var(--text-mid)",
+        marginBottom: 0,
+        fontWeight: "normal",
+      }
+    : undefined;
+
   if (!savedGroups.length)
     return (
       <Box>
-        <label>Target by Saved Groups</label>
+        <label style={slimLabelStyle}>Target by Saved Groups</label>
         <Box>
           <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
             You do not have any saved groups.
@@ -63,12 +74,14 @@ export default function SavedGroupTargetingField({
   if (value.length === 0) {
     return (
       <Box>
-        <label>Target by Saved Groups</label>
+        <label style={slimLabelStyle}>Target by Saved Groups</label>
         <Box>
-          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
-            No saved group targeting applied.
-          </Text>
-          <Box mt="2">
+          {!slimMode && (
+            <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+              No saved group targeting applied.
+            </Text>
+          )}
+          <Box mt={slimMode ? "0" : "2"}>
             <Link
               onClick={() => {
                 setValue([
@@ -80,7 +93,10 @@ export default function SavedGroupTargetingField({
                 ]);
               }}
             >
-              <Text weight="bold">
+              <Text
+                weight={slimMode ? "regular" : "bold"}
+                size={slimMode ? "1" : undefined}
+              >
                 <PiPlusCircleBold className="mr-1" />
                 Add group targeting
               </Text>
@@ -92,9 +108,9 @@ export default function SavedGroupTargetingField({
   }
 
   return (
-    <Box mb="6">
-      <Box>
-        <label>Target by Saved Groups</label>
+    <Box mb={slimMode ? "2" : "6"}>
+      <Box mb={slimMode ? "0" : undefined}>
+        <label style={slimLabelStyle}>Target by Saved Groups</label>
         <LargeSavedGroupPerformanceWarning
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           unsupportedConnections={unsupportedConnections}
@@ -117,8 +133,10 @@ export default function SavedGroupTargetingField({
       <TargetingConditionsCard
         targetingType="group"
         total={value.length}
+        slimMode={slimMode}
         addButton={
           <AddConditionButton
+            slimMode={slimMode}
             onClick={() => {
               setValue([
                 ...value,
@@ -143,7 +161,9 @@ export default function SavedGroupTargetingField({
               )}
               <ConditionRow
                 prefixSlot={
-                  <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
+                  slimMode ? undefined : (
+                    <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
+                  )
                 }
                 attributeSlot={
                   <SelectField

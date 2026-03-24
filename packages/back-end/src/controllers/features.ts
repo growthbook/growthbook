@@ -1652,6 +1652,7 @@ export async function postFeatureRule(
     environments: selectedEnvironments = [],
     rule,
     safeRolloutFields,
+    rampSchedule: rampSchedulePayload,
   } = req.body;
 
   const feature = await getFeature(context, id);
@@ -1804,6 +1805,92 @@ export async function postFeatureRule(
   ) {
     await addLinkedFeatureToExperiment(context, rule.experimentId, feature.id);
     await addLinkedExperiment(feature, rule.experimentId);
+  }
+
+  // Atomically create or link a ramp schedule if requested
+  if (rampSchedulePayload && rule.type === "rollout" && rule.id) {
+    if (rampSchedulePayload.mode === "create") {
+      const targetId = "t1";
+      const enabledPatch = { ruleId: rule.id, enabled: true };
+      const disabledPatch = { ruleId: rule.id, enabled: false };
+      const disable = !!rampSchedulePayload.disableOutsideSchedule;
+
+      // Auto-inject enabled:true at the front of startActions when disableOutsideSchedule
+      const baseStartActions = rampSchedulePayload.startActions ?? [];
+      const startActions = disable
+        ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
+        : baseStartActions.length ? baseStartActions : undefined;
+
+      // Auto-append enabled:false to endSchedule actions when disableOutsideSchedule
+      const baseEndActions = rampSchedulePayload.endSchedule?.actions ?? [];
+      const endActions = disable
+        ? [...baseEndActions, { targetId, patch: disabledPatch }]
+        : baseEndActions;
+
+      const newSchedule = await context.models.rampSchedules.create({
+        name: rampSchedulePayload.name,
+        entityType: "feature",
+        entityId: feature.id,
+        targets: [
+          {
+            id: targetId,
+            entityType: "feature",
+            entityId: feature.id,
+            ruleId: rule.id,
+            environment: rampSchedulePayload.environment,
+            status: "active",
+          },
+        ],
+        steps: rampSchedulePayload.steps,
+        foundingRevisionVersion: revision.version,
+        startTrigger: rampSchedulePayload.startTrigger
+          ? rampSchedulePayload.startTrigger.type === "scheduled"
+            ? { type: "scheduled", at: new Date(rampSchedulePayload.startTrigger.at) }
+            : rampSchedulePayload.startTrigger
+          : { type: "immediately" },
+        startActions: startActions?.length ? startActions : undefined,
+        disableOutsideSchedule: disable || undefined,
+        endSchedule: rampSchedulePayload.endSchedule
+          ? {
+              trigger: { type: "scheduled", at: new Date(rampSchedulePayload.endSchedule.trigger.at) },
+              actions: endActions,
+            }
+          : undefined,
+        // Ramp stays "pending" until this draft revision is published — then
+        // onFoundingRevisionPublished() transitions it based on startTrigger type.
+        status: "pending",
+        currentStepIndex: -1,
+        nextStepAt: null,
+        stepHistory: [],
+      });
+
+      // Tag the draft revision as the "founding" revision for this ramp so that
+      // publishing it triggers the ramp's start lifecycle.
+      const mongoose = await import("mongoose");
+      await mongoose.default.model("FeatureRevision").updateOne(
+        { organization: context.org.id, featureId: feature.id, version: revision.version },
+        { $push: { rampSchedules: { rampScheduleId: newSchedule.id, stepIndex: -1, role: "founder" } } },
+      );
+    } else if (rampSchedulePayload.mode === "link") {
+      const existing = await context.models.rampSchedules.getById(
+        rampSchedulePayload.rampScheduleId,
+      );
+      if (existing) {
+        await context.models.rampSchedules.updateById(existing.id, {
+          targets: [
+            ...existing.targets,
+            {
+              id: `t${existing.targets.length + 1}`,
+              entityType: "feature",
+              entityId: feature.id,
+              ruleId: rule.id,
+              environment: rampSchedulePayload.environment,
+              status: "active",
+            },
+          ],
+        });
+      }
+    }
   }
 
   res.status(200).json({
@@ -2474,7 +2561,7 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, i } = req.body;
+  const { environment, rule, i, rampSchedule: rampSchedulePayload } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -2553,6 +2640,10 @@ export async function putFeatureRule(
     settings: org?.settings,
   });
 
+  // Capture the existing rule ID before editing (used for ramp schedule operations).
+  const existingRuleId: string | undefined =
+    (revision.rules?.[environment]?.[i]?.id as string | undefined) ?? undefined;
+
   await editFeatureRule(
     context,
     feature,
@@ -2563,6 +2654,110 @@ export async function putFeatureRule(
     res.locals.eventAudit,
     resetReview,
   );
+
+  // Atomically handle ramp schedule operations alongside the rule edit.
+  if (rampSchedulePayload && existingRuleId) {
+    const ruleId = existingRuleId;
+
+    if (rampSchedulePayload.mode === "create") {
+      const targetId = "t1";
+      const disable = !!rampSchedulePayload.disableOutsideSchedule;
+      const enabledPatch = { ruleId, enabled: true };
+      const disabledPatch = { ruleId, enabled: false };
+      const baseStartActions = rampSchedulePayload.startActions ?? [];
+      const startActions = disable
+        ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
+        : baseStartActions.length ? baseStartActions : undefined;
+      const baseEndActions = rampSchedulePayload.endSchedule?.actions ?? [];
+      const endActions = disable
+        ? [...baseEndActions, { targetId, patch: disabledPatch }]
+        : baseEndActions;
+
+      const putNewSchedule = await context.models.rampSchedules.create({
+        name: rampSchedulePayload.name,
+        entityType: "feature",
+        entityId: feature.id,
+        targets: [
+          {
+            id: targetId,
+            entityType: "feature",
+            entityId: feature.id,
+            ruleId,
+            environment: rampSchedulePayload.environment,
+            status: "active",
+          },
+        ],
+        steps: rampSchedulePayload.steps,
+        foundingRevisionVersion: revision.version,
+        startTrigger: rampSchedulePayload.startTrigger
+          ? rampSchedulePayload.startTrigger.type === "scheduled"
+            ? { type: "scheduled", at: new Date(rampSchedulePayload.startTrigger.at) }
+            : rampSchedulePayload.startTrigger
+          : { type: "immediately" },
+        startActions: startActions?.length ? startActions : undefined,
+        disableOutsideSchedule: disable || undefined,
+        endSchedule: rampSchedulePayload.endSchedule
+          ? {
+              trigger: { type: "scheduled", at: new Date(rampSchedulePayload.endSchedule.trigger.at) },
+              actions: endActions,
+            }
+          : undefined,
+        status: "pending",
+        currentStepIndex: -1,
+        nextStepAt: null,
+        stepHistory: [],
+      });
+
+      // Tag the draft revision as the "founding" revision for this ramp.
+      const mongooseModule = await import("mongoose");
+      await mongooseModule.default.model("FeatureRevision").updateOne(
+        { organization: context.org.id, featureId: feature.id, version: revision.version },
+        { $push: { rampSchedules: { rampScheduleId: putNewSchedule.id, stepIndex: -1, role: "founder" } } },
+      );
+
+    } else if (rampSchedulePayload.mode === "update") {
+      const existing = await context.models.rampSchedules.getById(rampSchedulePayload.rampScheduleId);
+      if (existing && ["pending", "ready", "paused"].includes(existing.status)) {
+        const updates: Record<string, unknown> = {};
+        if (rampSchedulePayload.name !== undefined) updates.name = rampSchedulePayload.name;
+        if (rampSchedulePayload.steps !== undefined) updates.steps = rampSchedulePayload.steps;
+        if (rampSchedulePayload.startTrigger !== undefined) {
+          const st = rampSchedulePayload.startTrigger;
+          updates.startTrigger = st
+            ? st.type === "scheduled"
+              ? { type: "scheduled", at: new Date(st.at) }
+              : st
+            : undefined;
+        }
+        if (rampSchedulePayload.startActions !== undefined) updates.startActions = rampSchedulePayload.startActions ?? undefined;
+        if (rampSchedulePayload.disableOutsideSchedule !== undefined) updates.disableOutsideSchedule = rampSchedulePayload.disableOutsideSchedule ?? undefined;
+        if (rampSchedulePayload.endSchedule !== undefined) {
+          updates.endSchedule = rampSchedulePayload.endSchedule
+            ? { trigger: { type: "scheduled", at: new Date(rampSchedulePayload.endSchedule.trigger.at) }, actions: rampSchedulePayload.endSchedule.actions }
+            : undefined;
+        }
+        await context.models.rampSchedules.updateById(existing.id, updates);
+      }
+
+    } else if (rampSchedulePayload.mode === "link") {
+      const existing = await context.models.rampSchedules.getById(rampSchedulePayload.rampScheduleId);
+      if (existing) {
+        await context.models.rampSchedules.updateById(existing.id, {
+          targets: [
+            ...existing.targets,
+            {
+              id: `t${existing.targets.length + 1}`,
+              entityType: "feature",
+              entityId: feature.id,
+              ruleId,
+              environment: rampSchedulePayload.environment,
+              status: "active",
+            },
+          ],
+        });
+      }
+    }
+  }
 
   res.status(200).json({
     status: 200,
@@ -3673,6 +3868,14 @@ export async function getFeatureById(
     holdout = await context.models.holdout.getById(feature.holdout.id);
   }
 
+  // find active ramp schedules for this feature
+  const now = Date.now();
+  const rampSchedules = (
+    await context.models.rampSchedules.getAllByFeatureId(feature.id)
+  ).map((rs) =>
+    rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
+  );
+
   res.status(200).json({
     status: 200,
     feature,
@@ -3682,6 +3885,7 @@ export async function getFeatureById(
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
     holdout,
+    rampSchedules,
   });
 }
 

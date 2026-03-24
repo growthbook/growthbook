@@ -65,6 +65,7 @@ interface Props {
   project?: string;
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
+  slimMode?: boolean;
 }
 
 export default function PrerequisiteInput({
@@ -74,6 +75,7 @@ export default function PrerequisiteInput({
   project,
   environments,
   setPrerequisiteTargetingSdkIssues,
+  slimMode,
 }: Props) {
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
@@ -327,19 +329,33 @@ export default function PrerequisiteInput({
   };
 
   return (
-    <Box my="4">
-      <Flex mb="1">
+    <Box my={slimMode ? "1" : "4"}>
+      <Flex mb={slimMode ? "0" : "1"}>
         <PremiumTooltip
           commercialFeature="prerequisite-targeting"
           premiumText="Prerequisite targeting is available for Enterprise customers"
         >
-          <label>Target by Prerequisite Features</label>
+          <label
+            style={
+              slimMode
+                ? {
+                    fontSize: "var(--font-size-1)",
+                    color: "var(--text-mid)",
+                    marginBottom: 0,
+                    fontWeight: "normal",
+                  }
+                : undefined
+            }
+          >
+            Target by Prerequisite Features
+          </label>
         </PremiumTooltip>
       </Flex>
       {value.length > 0 ? (
         <TargetingConditionsCard
           targetingType="prerequisite"
           total={value.length}
+          slimMode={slimMode}
           advancedToggle={
             value.length > 0 &&
             featureNames.find((f) => f.id === value[0].id) ? (
@@ -358,6 +374,7 @@ export default function PrerequisiteInput({
           addButton={
             hasPrerequisitesCommercialFeature ? (
               <AddConditionButton
+                slimMode={slimMode}
                 onClick={() => {
                   setValue([
                     ...value,
@@ -901,7 +918,13 @@ export default function PrerequisiteInput({
                 : "not-allowed",
             }}
           >
-            <PiPlusCircleBold /> Add prerequisite targeting
+            <Text
+              weight={slimMode ? "regular" : "bold"}
+              size={slimMode ? "1" : undefined}
+            >
+              <PiPlusCircleBold className="mr-1" />
+              Add prerequisite targeting
+            </Text>
           </Link>
         </PremiumTooltip>
       )}

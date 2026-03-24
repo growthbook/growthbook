@@ -263,6 +263,11 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
+  /**
+   * Minimum ramp schedule step granularity in minutes (1–10, default 10).
+   * Self-hosted only — on Cloud this is always 10 and not user-configurable.
+   */
+  rampSchedulePollIntervalMinutes?: number;
 }
 
 export interface OrganizationConnections {

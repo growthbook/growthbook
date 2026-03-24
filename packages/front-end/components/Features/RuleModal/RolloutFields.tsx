@@ -3,6 +3,8 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
 import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
+import { RampScheduleInterface } from "shared/validators";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
@@ -12,6 +14,13 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import Checkbox from "@/ui/Checkbox";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Button from "@/ui/Button";
+import { useUser } from "@/services/UserContext";
+import RampScheduleSection, {
+  type RampSectionState,
+} from "@/components/Features/RuleModal/RampScheduleSection";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
@@ -27,6 +36,10 @@ export default function RolloutFields({
   conditionKey,
   scheduleToggleEnabled,
   setScheduleToggleEnabled,
+  featureRampSchedules,
+  ruleRampSchedule,
+  rampSectionState,
+  setRampSectionState,
 }: {
   feature: FeatureInterface;
   environments: string[];
@@ -37,6 +50,10 @@ export default function RolloutFields({
   conditionKey: number;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
+  featureRampSchedules: RampScheduleInterface[];
+  ruleRampSchedule: RampScheduleInterface | undefined;
+  rampSectionState: RampSectionState;
+  setRampSectionState: (s: RampSectionState) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -45,6 +62,51 @@ export default function RolloutFields({
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+  const { hasCommercialFeature } = useUser();
+  const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
+
+  // Fixed-date scheduling is legacy. Only show if the rule already has scheduled dates.
+  const hasLegacySchedule = (
+    "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
+  ).some((r) => r.timestamp !== null);
+
+  // "scheduling open" encompasses both schedule types; the outer toggle enables either
+  const schedulingOpen =
+    scheduleToggleEnabled || rampSectionState.mode !== "off";
+  // Which tab is active: "fixed" (legacy date picker) or "ramp"
+  const [scheduleTab, setScheduleTab] = useState<"fixed" | "ramp">(
+    hasLegacySchedule && rampSectionState.mode === "off" ? "fixed" : "ramp",
+  );
+
+  function handleSchedulingToggle(enabled: boolean) {
+    if (!enabled) {
+      setScheduleToggleEnabled(false);
+      setRampSectionState({ ...rampSectionState, mode: "off" });
+    } else {
+      if (hasLegacySchedule && scheduleTab === "fixed") {
+        setScheduleToggleEnabled(true);
+      } else {
+        setRampSectionState({
+          ...rampSectionState,
+          mode: ruleRampSchedule ? "link" : "create",
+        });
+      }
+    }
+  }
+
+  function handleTabChange(tab: "fixed" | "ramp") {
+    setScheduleTab(tab);
+    if (tab === "fixed") {
+      setScheduleToggleEnabled(true);
+      setRampSectionState({ ...rampSectionState, mode: "off" });
+    } else {
+      setScheduleToggleEnabled(false);
+      setRampSectionState({
+        ...rampSectionState,
+        mode: ruleRampSchedule ? "link" : "create",
+      });
+    }
+  }
 
   const renderOverviewSteps = () => {
     return (
@@ -70,12 +132,75 @@ export default function RolloutFields({
             showFullscreenButton={true}
           />
         </div>
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-        />
+        {/* Unified scheduling section */}
+        <div className="my-3">
+          <Checkbox
+            size="lg"
+            label={
+              <PremiumTooltip commercialFeature="schedule-feature-flag">
+                Apply Schedule
+              </PremiumTooltip>
+            }
+            description="Schedule this rule to launch/disable at fixed times, or gradually ramp up coverage"
+            value={schedulingOpen}
+            setValue={handleSchedulingToggle}
+            disabled={!canScheduleFeatureFlags}
+          />
+
+          {schedulingOpen && (
+            <div className="appbox mt-3 px-3 pt-3 pb-2 bg-light">
+              {hasLegacySchedule && (
+                /* Tab selector — only shown for rules that already have fixed-date schedules */
+                <Flex gap="2" mb="3">
+                  <Button
+                    variant={scheduleTab === "fixed" ? "solid" : "outline"}
+                    size="sm"
+                    onClick={() => handleTabChange("fixed")}
+                  >
+                    Fixed dates
+                  </Button>
+                  <Button
+                    variant={scheduleTab === "ramp" ? "solid" : "outline"}
+                    size="sm"
+                    onClick={() => handleTabChange("ramp")}
+                  >
+                    Ramp schedule
+                  </Button>
+                </Flex>
+              )}
+
+              {hasLegacySchedule && scheduleTab === "fixed" && (
+                <ScheduleInputs
+                  defaultValue={defaultValues.scheduleRules || []}
+                  onChange={(value) => form.setValue("scheduleRules", value)}
+                  scheduleToggleEnabled={true}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                  hideToggle={true}
+                />
+              )}
+
+              {(!hasLegacySchedule || scheduleTab === "ramp") && (
+                <RampScheduleSection
+                  featureRampSchedules={featureRampSchedules}
+                  ruleRampSchedule={ruleRampSchedule}
+                  state={rampSectionState}
+                  setState={setRampSectionState}
+                  hideOuterToggle={true}
+                  feature={feature}
+                  environments={environments}
+                  onSetRuleCoverage={(v) => form.setValue("coverage", v)}
+                  ruleBaseline={{
+                    coverage: form.watch("coverage") ?? 0,
+                    condition: form.watch("condition") ?? "{}",
+                    savedGroups: form.watch("savedGroups") ?? [],
+                    prerequisites: form.watch("prerequisites") ?? [],
+                    force: form.watch("value") ?? "",
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
           <RolloutPercentInput

@@ -21,6 +21,11 @@ import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJ
 import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
 import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
+import addRampScheduleJob, {
+  DEFAULT_RAMP_POLL_INTERVAL_MINUTES,
+} from "back-end/src/jobs/updateRampSchedules";
+import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import { getSelfHostedOrganization } from "back-end/src/models/OrganizationModel";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -42,6 +47,25 @@ export async function queueInit() {
   addDashboardUpdateJob(agenda);
   addHoldoutUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
+  // Read the ramp polling interval from org settings so we honour any saved
+  // override even after a server restart.  On Cloud this is always the default.
+  let rampPollIntervalMinutes = DEFAULT_RAMP_POLL_INTERVAL_MINUTES;
+  if (!IS_CLOUD) {
+    try {
+      const org = await getSelfHostedOrganization();
+      const saved = org?.settings?.rampSchedulePollIntervalMinutes;
+      if (typeof saved === "number" && saved >= 1 && saved <= 10) {
+        rampPollIntervalMinutes = saved;
+      }
+    } catch (e) {
+      logger.warn(
+        e,
+        "Could not read org rampSchedulePollIntervalMinutes at startup; defaulting to 10 minutes",
+      );
+    }
+  }
+  addRampScheduleJob(agenda, rampPollIntervalMinutes);
+  initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection
     .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })

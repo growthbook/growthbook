@@ -40,6 +40,7 @@ export interface Props {
   useCodeInput?: boolean;
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
+  hideCopyButton?: boolean;
 }
 
 export default function FeatureValueField({
@@ -56,6 +57,7 @@ export default function FeatureValueField({
   useCodeInput = false,
   showFullscreenButton = false,
   codeInputDefaultHeight,
+  hideCopyButton = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -242,7 +244,9 @@ export default function FeatureValueField({
 
   const combinedHelpTextForString =
     valueType === "string" ? (
-      helpText ? (
+      hideCopyButton ? (
+        (helpText ?? null)
+      ) : helpText ? (
         <Flex align="center" gap="3" style={{ width: "100%" }}>
           <div style={{ flex: 1 }}>{helpText}</div>
           {copyButton}

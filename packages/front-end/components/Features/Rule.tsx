@@ -11,7 +11,11 @@ import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
-import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
+import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -75,6 +79,7 @@ interface SortableProps {
   hideInactive?: boolean;
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
+  rampSchedule?: RampScheduleInterface;
 }
 
 type RuleProps = SortableProps &
@@ -136,6 +141,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       hideInactive,
       isDraft,
       holdout,
+      rampSchedule,
       ...props
     },
     ref,
@@ -329,6 +335,32 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         title
                       )}
                     </Heading>
+                    {rampSchedule && (
+                      <Badge
+                        label={
+                          <>
+                            ramp <strong>{rampSchedule.name}</strong>:{" "}
+                            {rampSchedule.status}
+                          </>
+                        }
+                        color={
+                          rampSchedule.status === "running"
+                            ? "green"
+                            : rampSchedule.status === "completed"
+                              ? "teal"
+                              : rampSchedule.status === "paused" ||
+                                  rampSchedule.status === "pending-approval" ||
+                                  rampSchedule.status === "conflict"
+                                ? "red"
+                                : rampSchedule.status === "rolled-back" ||
+                                    rampSchedule.status === "expired"
+                                  ? "gray"
+                                  : "amber"
+                        }
+                        variant="soft"
+                        radius="full"
+                      />
+                    )}
                     {info.pill}
                   </Flex>
                   {canEdit && !locked && (

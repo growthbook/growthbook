@@ -218,6 +218,9 @@ export const revisionStatusSchema = z.enum([
   "approved",
   "changes-requested",
   "pending-review",
+  // Held child revision created by a ramp schedule; auto-published when the parent
+  // controller revision is approved/published. Not user-actionable directly.
+  "pending-parent",
 ]);
 
 export type RevisionStatus = z.infer<typeof revisionStatusSchema>;
@@ -225,6 +228,7 @@ export type RevisionStatus = z.infer<typeof revisionStatusSchema>;
 export const activeDraftStatusSchema = revisionStatusSchema.exclude([
   "published",
   "discarded",
+  "pending-parent", // Excluded — managed by ramp schedule, not user-actionable
 ]);
 
 export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
@@ -280,6 +284,19 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .nullable()
       .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
+    // Ramp schedule association — present when this revision was created by or is linked to a ramp.
+    // "founder": user's draft revision whose publication triggers the ramp's start lifecycle.
+    // "parent": ramp-created revision that drives approval cascade for a step.
+    // "child": ramp-created revision held as pending-parent until the parent publishes.
+    rampSchedules: z
+      .array(
+        z.object({
+          rampScheduleId: z.string(),
+          stepIndex: z.number().int(),
+          role: z.enum(["founder", "parent", "child"]),
+        }),
+      )
+      .optional(),
   })
   .strict();
 

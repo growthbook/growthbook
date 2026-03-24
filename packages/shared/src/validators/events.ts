@@ -11,6 +11,24 @@ import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
 } from "./safe-rollout-notifications";
+import {
+  rampScheduleStartedPayload,
+  rampScheduleStepAdvancedPayload,
+  rampScheduleStepApprovalRequiredPayload,
+  rampScheduleStepApprovedPayload,
+  rampSchedulePausedPayload,
+  rampScheduleResumedPayload,
+  rampScheduleConflictPayload,
+  rampScheduleErrorPayload,
+  rampScheduleCompletedPayload,
+  rampScheduleExpiredPayload,
+  rampScheduleRolledBackPayload,
+  rampScheduleAutoRollbackPayload,
+  rampScheduleCreatedPayload,
+  rampScheduleDeletedPayload,
+  rampScheduleResetPayload,
+  rampScheduleJumpedPayload,
+} from "./ramp-schedule-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import { experimentInfoSignificance } from "./experiment-info";
@@ -146,6 +164,80 @@ export const notificationEvents = {
       description: "Triggered when a webhook is being tested",
       isDiff: false,
       noDoc: true,
+    },
+  },
+  rampSchedule: {
+    started: {
+      schema: rampScheduleStartedPayload,
+      description: "Triggered when a ramp schedule starts",
+    },
+    "step.advanced": {
+      schema: rampScheduleStepAdvancedPayload,
+      description: "Triggered when a ramp schedule advances to the next step",
+    },
+    "step.approvalRequired": {
+      schema: rampScheduleStepApprovalRequiredPayload,
+      description:
+        "Triggered when an approval-gated ramp step is waiting for review",
+    },
+    "step.approved": {
+      schema: rampScheduleStepApprovedPayload,
+      description:
+        "Triggered when an approval gate is cleared and the ramp step proceeds",
+    },
+    paused: {
+      schema: rampSchedulePausedPayload,
+      description: "Triggered when a ramp schedule is paused",
+    },
+    resumed: {
+      schema: rampScheduleResumedPayload,
+      description: "Triggered when a paused ramp schedule is resumed",
+    },
+    conflict: {
+      schema: rampScheduleConflictPayload,
+      description:
+        "Triggered when a ramp revision conflict is detected during an approval window",
+    },
+    error: {
+      schema: rampScheduleErrorPayload,
+      description:
+        "Triggered when an unexpected error occurs during ramp step execution",
+    },
+    completed: {
+      schema: rampScheduleCompletedPayload,
+      description: "Triggered when a ramp schedule completes all steps",
+    },
+    expired: {
+      schema: rampScheduleExpiredPayload,
+      description:
+        "Triggered when a ramp schedule's endSchedule fires (hard deadline teardown)",
+    },
+    rolledBack: {
+      schema: rampScheduleRolledBackPayload,
+      description: "Triggered when a ramp schedule is manually rolled back",
+    },
+    autoRollback: {
+      schema: rampScheduleAutoRollbackPayload,
+      description:
+        "Triggered when a ramp schedule is automatically rolled back by a criteria/metric evaluation",
+    },
+    created: {
+      schema: rampScheduleCreatedPayload,
+      description: "Triggered when a ramp schedule is created",
+    },
+    deleted: {
+      schema: rampScheduleDeletedPayload,
+      description: "Triggered when a ramp schedule is deleted",
+    },
+    reset: {
+      schema: rampScheduleResetPayload,
+      description:
+        "Triggered when a ramp schedule is reset to its initial state",
+    },
+    jumped: {
+      schema: rampScheduleJumpedPayload,
+      description:
+        "Triggered when a ramp schedule is jumped to a specific step",
     },
   },
 } as const;

@@ -96,6 +96,11 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
+import {
+  rescheduleRampScheduleJob,
+  DEFAULT_RAMP_POLL_INTERVAL_MINUTES,
+} from "back-end/src/jobs/updateRampSchedules";
+import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
@@ -1615,6 +1620,27 @@ export async function putOrganization(
     }
 
     await updateOrganization(org.id, updates);
+
+    // Re-register the ramp schedule polling job if the interval changed.
+    // Cloud is always 10 minutes and ignores the org setting.
+    if (!IS_CLOUD && settings?.rampSchedulePollIntervalMinutes !== undefined) {
+      const newInterval =
+        settings.rampSchedulePollIntervalMinutes ??
+        DEFAULT_RAMP_POLL_INTERVAL_MINUTES;
+      const oldInterval =
+        org.settings?.rampSchedulePollIntervalMinutes ??
+        DEFAULT_RAMP_POLL_INTERVAL_MINUTES;
+      if (newInterval !== oldInterval) {
+        try {
+          await rescheduleRampScheduleJob(getAgendaInstance(), newInterval);
+        } catch (e) {
+          req.log.error(
+            e,
+            "Failed to reschedule ramp job after settings change",
+          );
+        }
+      }
+    }
 
     await req.audit({
       event: "organization.update",

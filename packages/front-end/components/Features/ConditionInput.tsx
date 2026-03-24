@@ -134,6 +134,7 @@ interface Props {
   require?: boolean;
   allowNestedSavedGroups?: boolean;
   excludeSavedGroupId?: string;
+  slimMode?: boolean;
 }
 
 export default function ConditionInput(props: Props) {
@@ -231,27 +232,45 @@ export default function ConditionInput(props: Props) {
     );
 
     return (
-      <Box mb="6">
-        <Flex gap="2" mb="1">
+      <Box mb={props.slimMode ? "2" : "6"}>
+        <Flex gap="2" mb={props.slimMode ? "0" : "1"}>
           <Box flexGrow="1">
-            <label className={props.labelClassName}>{title}</label>
+            <label
+              className={clsx(
+                props.labelClassName,
+                props.slimMode && "font-weight-normal",
+              )}
+              style={
+                props.slimMode
+                  ? {
+                      fontSize: "var(--font-size-1)",
+                      color: "var(--text-mid)",
+                      marginBottom: 0,
+                    }
+                  : undefined
+              }
+            >
+              {title}
+            </label>
           </Box>
           {simpleAllowed && attributes.size > 0 && (
-            <Switch
-              value={advanced}
-              onChange={(checked) => {
-                if (checked) {
-                  setAdvanced(true);
-                } else {
-                  const newConds = jsonToConds(value, attributes);
-                  if (newConds === null) return;
-                  setConds(newConds);
-                  setAdvanced(false);
-                }
-              }}
-              label="Advanced"
-              size="1"
-            />
+            <Box mr={props.slimMode ? "5" : undefined}>
+              <Switch
+                value={advanced}
+                onChange={(checked) => {
+                  if (checked) {
+                    setAdvanced(true);
+                  } else {
+                    const newConds = jsonToConds(value, attributes);
+                    if (newConds === null) return;
+                    setConds(newConds);
+                    setAdvanced(false);
+                  }
+                }}
+                label="Advanced"
+                size="1"
+              />
+            </Box>
           )}
         </Flex>
         <Box mb="3">
@@ -287,13 +306,31 @@ export default function ConditionInput(props: Props) {
 
   if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
-      <Box my="4">
-        <label className={props.labelClassName}>{title}</label>
+      <Box my={props.slimMode ? "1" : "4"}>
+        <label
+          className={clsx(
+            props.labelClassName,
+            props.slimMode && "font-weight-normal",
+          )}
+          style={
+            props.slimMode
+              ? {
+                  fontSize: "var(--font-size-1)",
+                  color: "var(--text-mid)",
+                  marginBottom: 0,
+                }
+              : undefined
+          }
+        >
+          {title}
+        </label>
         <Box>
-          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
-            {emptyText}
-          </Text>
-          <Box mt="2">
+          {!props.slimMode && (
+            <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+              {emptyText}
+            </Text>
+          )}
+          <Box mt={props.slimMode ? "0" : "2"}>
             <Link
               onClick={() => {
                 const prop = attributeSchema[0];
@@ -313,7 +350,10 @@ export default function ConditionInput(props: Props) {
                 ]);
               }}
             >
-              <Text weight="bold">
+              <Text
+                weight={props.slimMode ? "regular" : "bold"}
+                size={props.slimMode ? "1" : undefined}
+              >
                 <PiPlusCircleBold className="mr-1" />
                 Add attribute targeting
               </Text>
@@ -324,37 +364,57 @@ export default function ConditionInput(props: Props) {
     );
   }
   return (
-    <Box mb="6">
-      <Flex justify="between" align="center" mb="1">
-        <label className={props.labelClassName}>{title}</label>
+    <Box mb={props.slimMode ? "2" : "6"}>
+      <Flex justify="between" align="center" mb={props.slimMode ? "0" : "1"}>
+        <label
+          className={clsx(
+            props.labelClassName,
+            props.slimMode && "font-weight-normal",
+          )}
+          style={
+            props.slimMode
+              ? {
+                  fontSize: "var(--font-size-1)",
+                  color: "var(--text-mid)",
+                  marginBottom: 0,
+                }
+              : undefined
+          }
+        >
+          {title}
+        </label>
         {attributes.size > 0 && (
-          <Switch
-            value={advanced}
-            onChange={(checked) => {
-              if (checked) {
-                setAdvanced(true);
-              } else {
-                const newConds = jsonToConds(value, attributes);
-                if (newConds === null) return;
-                setConds(newConds);
-                setAdvanced(false);
-              }
-            }}
-            label="Advanced"
-            size="1"
-          />
+          <Box mr={props.slimMode ? "5" : undefined}>
+            <Switch
+              value={advanced}
+              onChange={(checked) => {
+                if (checked) {
+                  setAdvanced(true);
+                } else {
+                  const newConds = jsonToConds(value, attributes);
+                  if (newConds === null) return;
+                  setConds(newConds);
+                  setAdvanced(false);
+                }
+              }}
+              label="Advanced"
+              size="1"
+            />
+          </Box>
         )}
       </Flex>
 
       {conds.map((andGroup, i) => (
         <Box key={i}>
-          {i > 0 && <OrSeparator />}
+          {i > 0 && <OrSeparator slimMode={props.slimMode} />}
           <TargetingConditionsCard
             targetingType="attribute"
             total={conds.length}
+            slimMode={props.slimMode}
             addButton={
               attributeSchema.length > 0 ? (
                 <AddConditionButton
+                  slimMode={props.slimMode}
                   onClick={() => {
                     const prop = attributeSchema[0];
                     const newAndGroups = [...conds];
@@ -396,6 +456,7 @@ export default function ConditionInput(props: Props) {
               require={props.require}
               allowNestedSavedGroups={props.allowNestedSavedGroups}
               excludeSavedGroupId={props.excludeSavedGroupId}
+              slimMode={props.slimMode}
             />
           </TargetingConditionsCard>
         </Box>
@@ -403,6 +464,7 @@ export default function ConditionInput(props: Props) {
 
       {attributeSchema.length > 0 && (
         <AddOrGroupButton
+          slimMode={props.slimMode}
           onClick={() => {
             const prop = attributeSchema[0];
             setConds([
@@ -452,6 +514,7 @@ function ConditionAndGroupInput({
   require?: boolean;
   allowNestedSavedGroups?: boolean;
   excludeSavedGroupId?: string;
+  slimMode?: boolean;
 }) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
@@ -662,7 +725,11 @@ function ConditionAndGroupInput({
               : []),
             <ConditionRow
               key={i}
-              prefixSlot={<ConditionRowLabel label={i === 0 ? "IF" : "AND"} />}
+              prefixSlot={
+                props.slimMode ? undefined : (
+                  <ConditionRowLabel label={i === 0 ? "IF" : "AND"} />
+                )
+              }
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
@@ -896,7 +963,11 @@ function ConditionAndGroupInput({
             : []),
           <ConditionRow
             key={i}
-            prefixSlot={<ConditionRowLabel label={i === 0 ? "IF" : "AND"} />}
+            prefixSlot={
+              props.slimMode ? undefined : (
+                <ConditionRowLabel label={i === 0 ? "IF" : "AND"} />
+              )
+            }
             attributeSlot={fieldSelector}
             operatorSlot={
               <Flex gap="3" align="start">

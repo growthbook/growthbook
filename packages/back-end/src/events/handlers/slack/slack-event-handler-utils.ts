@@ -124,6 +124,26 @@ export const getSlackMessageForNotificationEvent = async (
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
 
+    case "rampSchedule.started":
+    case "rampSchedule.step.advanced":
+    case "rampSchedule.step.approvalRequired":
+    case "rampSchedule.step.approved":
+    case "rampSchedule.paused":
+    case "rampSchedule.resumed":
+    case "rampSchedule.conflict":
+    case "rampSchedule.error":
+    case "rampSchedule.completed":
+    case "rampSchedule.expired":
+    case "rampSchedule.rolledBack":
+    case "rampSchedule.autoRollback":
+    case "rampSchedule.created":
+    case "rampSchedule.deleted":
+    case "rampSchedule.reset":
+    case "rampSchedule.jumped":
+      // Ramp schedule events do not currently have dedicated Slack message templates.
+      // TODO: add buildSlackMessageForRampScheduleEvent() when Slack templates are designed.
+      return null;
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
