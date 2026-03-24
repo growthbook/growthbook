@@ -366,6 +366,10 @@ export const postChat = async (
     "Answer questions about metrics, the current configuration, and result data clearly and concisely.\n" +
     "When discussing data, reference specific numbers from the results.\n" +
     "When the user asks you to build or change a chart, use the runExploration tool with the full valid config.\n" +
+    "Chart mode vs time dimension: line, area, and timeseries-table charts are always timeseries — include a date dimension. " +
+    "Bar charts (bar, stackedBar, horizontalBar, stackedHorizontalBar), the plain table chart, and bigNumber are cumulative — do not use a date dimension. " +
+    "When switching between timeseries and cumulative chart types, add or remove the date dimension accordingly.\n" +
+    "When the user does not specify a chart style, default to chartType line for timeseries and chartType bar for cumulative.\n" +
     "The runExploration tool will execute the query and automatically display the chart to the user — you do not need to embed config in your text response.\n" +
     'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
     "Use the getSnapshot tool whenever you need to analyze result data — including right after calling runExploration if the user wants insights or questions answered about the data.\n" +
@@ -396,6 +400,7 @@ export const postChat = async (
         limit: z.number().int().min(1).max(20).default(8),
       }),
       execute: async ({ query, limit }: { query: string; limit: number }) => {
+        console.log("searchMetrics", query, limit);
         const q = query.trim().toLowerCase();
         const scored = metrics
           .map((m) => {

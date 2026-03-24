@@ -24,7 +24,7 @@ import styles from "./ExplorerAIChat.module.scss";
 
 const TOOL_STATUS_LABELS: Record<string, string> = {
   runExploration: "Running query...",
-  getSnapshot: "Looking up snapshot...",
+  getSnapshot: "Inspecting data...",
   searchMetrics: "Searching metrics...",
   getCurrentConfig: "Reading current config...",
   getConfigSchema: "Loading config schema...",
@@ -495,13 +495,12 @@ export default function ExplorerAIChat() {
     if (item.kind === "chart") {
       const chartData = chartDataRef.current.get(item.snapshotId);
       if (!chartData) return null;
-      const ts = new Date().toLocaleTimeString();
       return (
         <Box key={item.id} className={styles.chartMessage}>
           <Flex align="center" gap="2" mb="2">
             <PiSparkle size={12} />
             <Text size="small" weight="medium">
-              Generated chart ({ts})
+              Generated chart
             </Text>
           </Flex>
           <Box className={styles.chartMessageInner}>
@@ -616,73 +615,75 @@ export default function ExplorerAIChat() {
             </Flex>
           )}
 
-          {/* Finalized messages from completed turns */}
-          {messages.map((msg) => {
-            if (msg.kind === "tool-call") {
-              return (
-                <Box key={msg.id} className={styles.assistantMessage}>
-                  <Flex align="center" gap="2">
-                    <PiCheckCircle size={12} color="var(--green-9)" />
-                    <Text size="small" color="text-low">
-                      {msg.toolLabel}
-                    </Text>
-                  </Flex>
-                </Box>
-              );
-            }
-
-            if (msg.kind === "chart" && msg.snapshotId) {
-              const chartData = chartDataRef.current.get(msg.snapshotId);
-              if (!chartData) {
+          {/* Render finalized messages and active turn items in a single
+              flat array so React reconciles keys across both — this prevents
+              charts from unmounting/remounting (and re-animating) when
+              finalizeTurn moves them from activeTurnItems into messages. */}
+          {[
+            ...messages.map((msg) => {
+              if (msg.kind === "tool-call") {
                 return (
                   <Box key={msg.id} className={styles.assistantMessage}>
-                    <Text size="small" color="text-low">
-                      Chart data unavailable.
-                    </Text>
+                    <Flex align="center" gap="2">
+                      <PiCheckCircle size={12} color="var(--green-9)" />
+                      <Text size="small" color="text-low">
+                        {msg.toolLabel}
+                      </Text>
+                    </Flex>
                   </Box>
                 );
               }
-              const ts = new Date().toLocaleTimeString();
-              return (
-                <Box key={msg.id} className={styles.chartMessage}>
-                  <Flex align="center" gap="2" mb="2">
-                    <PiSparkle size={12} />
-                    <Text size="small" weight="medium">
-                      Generated chart ({ts})
-                    </Text>
-                  </Flex>
-                  <Box className={styles.chartMessageInner}>
-                    <ExplorerChart
-                      exploration={chartData.exploration}
-                      error={null}
-                      submittedExploreState={chartData.config}
-                      loading={false}
-                    />
+
+              if (msg.kind === "chart" && msg.snapshotId) {
+                const chartData = chartDataRef.current.get(msg.snapshotId);
+                if (!chartData) {
+                  return (
+                    <Box key={msg.id} className={styles.assistantMessage}>
+                      <Text size="small" color="text-low">
+                        Chart data unavailable.
+                      </Text>
+                    </Box>
+                  );
+                }
+                return (
+                  <Box key={msg.snapshotId} className={styles.chartMessage}>
+                    <Flex align="center" gap="2" mb="2">
+                      <PiSparkle size={12} />
+                      <Text size="small" weight="medium">
+                        Generated chart
+                      </Text>
+                    </Flex>
+                    <Box className={styles.chartMessageInner}>
+                      <ExplorerChart
+                        exploration={chartData.exploration}
+                        error={null}
+                        submittedExploreState={chartData.config}
+                        loading={false}
+                      />
+                    </Box>
                   </Box>
+                );
+              }
+
+              return (
+                <Box
+                  key={msg.id}
+                  className={
+                    msg.role === "user"
+                      ? styles.userMessage
+                      : styles.assistantMessage
+                  }
+                >
+                  {msg.role === "assistant" ? (
+                    <Markdown>{msg.content}</Markdown>
+                  ) : (
+                    <Text size="small">{msg.content}</Text>
+                  )}
                 </Box>
               );
-            }
-
-            return (
-              <Box
-                key={msg.id}
-                className={
-                  msg.role === "user"
-                    ? styles.userMessage
-                    : styles.assistantMessage
-                }
-              >
-                {msg.role === "assistant" ? (
-                  <Markdown>{msg.content}</Markdown>
-                ) : (
-                  <Text size="small">{msg.content}</Text>
-                )}
-              </Box>
-            );
-          })}
-
-          {/* Current turn items rendered in the order they arrived */}
-          {activeTurnItems.map(renderActiveTurnItem)}
+            }),
+            ...activeTurnItems.map(renderActiveTurnItem),
+          ]}
 
           {/* Initial thinking indicator before any events arrive */}
           {loading && activeTurnItems.length === 0 && (
