@@ -2,6 +2,9 @@ import { ReactNode, useMemo, useState } from "react";
 import isEqual from "lodash/isEqual";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
+// Export DiffBadge for external use
+export type { DiffBadge };
+
 // Standalone types (not from audit system)
 export interface RevisionDiffSection<T> {
   label: string;
@@ -16,13 +19,19 @@ export interface RevisionDiffConfig<T> {
   normalizeSnapshot?: (snapshot: T) => T;
 }
 
-interface RevisionDiffItem {
+export interface DiffItem {
   label: string;
   a: string; // JSON string for old value
   b: string; // JSON string for new value
   customRender?: ReactNode;
   customBadges?: DiffBadge[];
   suppressCardLabel?: boolean;
+}
+
+export interface CustomRenderGroup {
+  label: string;
+  renders: (ReactNode | null | undefined)[];
+  suppressCardLabel: boolean;
 }
 
 // Helper: Extract only specified keys from object
@@ -47,8 +56,8 @@ function computeDiff<T>(
   pre: T | null,
   post: T,
   config: RevisionDiffConfig<T>,
-): RevisionDiffItem[] {
-  const diffs: RevisionDiffItem[] = [];
+): DiffItem[] {
+  const diffs: DiffItem[] = [];
 
   for (const section of config.sections) {
     const prePick = pickKeys(pre, section.keys);

@@ -110,7 +110,7 @@ export const postRevision = async (
       snapshot: originalEntity as SavedGroupInterface,
       proposedChanges,
     },
-    status: "pending-review",
+    status: "draft",
     authorId: userId,
     reviews: [],
     activityLog: [],
@@ -269,6 +269,75 @@ export const getRevision = async (
 };
 
 // endregion GET /revision/:id
+
+// region POST /revision/:id/submit
+
+type PostSubmitRequest = AuthRequest<Record<string, never>, { id: string }>;
+
+type PostSubmitResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/submit
+ * Submit a draft revision for review (changes status from "draft" to "pending-review")
+ * @param req
+ * @param res
+ */
+export const postSubmit = async (
+  req: PostSubmitRequest,
+  res: Response<PostSubmitResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+
+  const revisionModel = new RevisionModel(context);
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Can only submit drafts
+  if (existingRevision.status !== "draft") {
+    return res.status(400).json({
+      message: "Only draft revisions can be submitted for review",
+    });
+  }
+
+  // Only the author can submit their own draft
+  if (existingRevision.authorId !== userId) {
+    return res.status(403).json({
+      message: "Only the revision author can submit it for review",
+    });
+  }
+
+  // Must have permission to edit the underlying entity
+  if (existingRevision.target.type === "saved-group") {
+    const savedGroup = await context.models.savedGroups.getById(
+      existingRevision.target.id,
+    );
+    if (!savedGroup) {
+      return res
+        .status(404)
+        .json({ message: "Underlying saved group not found" });
+    }
+    if (!context.permissions.canUpdateSavedGroup(savedGroup, {})) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  const revision = await revisionModel.submitForReview(id, userId);
+
+  res.status(200).json({
+    status: 200,
+    revision,
+  });
+};
+
+// endregion POST /revision/:id/submit
 
 // region POST /revision/:id/review
 
@@ -660,14 +729,42 @@ export const postMerge = async (
       project: savedGroup.projects?.[0] || "",
     });
 
-    // Must be approved OR user can bypass
-    if (revision.status !== "approved" && !canBypass) {
+    // Check if approval is required for saved groups
+    const approvalRequired =
+      context.org.settings?.approvalFlows?.savedGroups?.required || false;
+
+    // If approval is required: must be approved OR user can bypass
+    // If approval is not required: can always publish
+    if (approvalRequired && revision.status !== "approved" && !canBypass) {
       return res.status(400).json({
         message: "The revision must be approved before it can be published",
       });
     }
 
-    const isBypass = revision.status !== "approved";
+    const isBypass = approvalRequired && revision.status !== "approved";
+
+    // Clean up null values to undefined for Zod validation
+    const proposedChanges = revision.target
+      .proposedChanges as UpdateProps<SavedGroupInterface>;
+    const cleanedChanges = Object.fromEntries(
+      Object.entries(proposedChanges).map(([key, value]) => [
+        key,
+        value === null ? undefined : value,
+      ]),
+    ) as UpdateProps<SavedGroupInterface>;
+
+    // Check if there are any actual changes
+    const hasChanges = Object.keys(cleanedChanges).some((key) => {
+      const newValue = cleanedChanges[key as keyof typeof cleanedChanges];
+      const currentValue = savedGroup[key as keyof SavedGroupInterface];
+      return JSON.stringify(newValue) !== JSON.stringify(currentValue);
+    });
+
+    if (!hasChanges) {
+      return res.status(400).json({
+        message: "Cannot publish: no changes detected in this revision",
+      });
+    }
 
     // Check for merge conflicts before applying
     const conflictResult = checkMergeConflicts(
@@ -683,10 +780,7 @@ export const postMerge = async (
     }
 
     // Apply entity update FIRST, then mark revision as merged (defensive write ordering)
-    await context.models.savedGroups.update(
-      savedGroup,
-      revision.target.proposedChanges as UpdateProps<SavedGroupInterface>,
-    );
+    await context.models.savedGroups.update(savedGroup, cleanedChanges);
     const mergedRevision = await revisionModel.merge(id, userId, {
       bypass: isBypass,
     });

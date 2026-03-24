@@ -23,13 +23,20 @@ export default function RevisionVersionSelector({
 }: RevisionVersionSelectorProps) {
   const { getUserDisplay } = useUser();
 
+  // Create a map of revision ID to revision number
   const sortedAllRevisions = [...allRevisions].sort(
     (a, b) =>
       new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
   );
 
   const revisionNumberById = new Map<string, number>(
-    sortedAllRevisions.map((revision, i) => [revision.id, i + 1]),
+    allRevisions.map((revision) => {
+      // Use stored version if available, otherwise calculate from position
+      const version =
+        revision.version ??
+        sortedAllRevisions.findIndex((r) => r.id === revision.id) + 1;
+      return [revision.id, version];
+    }),
   );
 
   // Separate revisions by status

@@ -672,6 +672,25 @@ export function logBadgeColor(
   if (action === "Approved") return "green";
   if (action === "Requested Changes") return "red";
   if (action === "Review Requested") return "amber";
+
+  // Handle common diff actions
+  const lowerAction = action.toLowerCase();
+  if (lowerAction.includes("add") || lowerAction.includes("enable"))
+    return "green";
+  if (
+    lowerAction.includes("delete") ||
+    lowerAction.includes("remove") ||
+    lowerAction.includes("disable")
+  )
+    return "red";
+  if (
+    lowerAction.includes("edit") ||
+    lowerAction.includes("change") ||
+    lowerAction.includes("update") ||
+    lowerAction.includes("reorder")
+  )
+    return "amber";
+
   return "gray";
 }
 

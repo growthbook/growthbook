@@ -106,19 +106,29 @@ export function useSavedGroupRevision(
     [updateUrl],
   );
 
-  // Called after creating a revision — receives the revision from the backend response.
+  // Called after creating/updating a revision — receives the revision from the backend response.
   // Selects it in the dropdown so the status callout appears.
   const onRevisionCreated = useCallback(
     (revision: Revision) => {
-      // Optimistically add the new revision to the SWR cache so that when the URL
-      // update triggers a re-render, selectedRevision is non-null. Without
-      // this, Effect 2 would see selectedRevisionId set but
-      // selectedRevision=null (SWR re-fetch still in-flight) and
-      // immediately clear the URL back to Live.
+      // Optimistically update the revision in the SWR cache. If it exists, replace it.
+      // Otherwise, add it. This ensures the UI reflects the latest changes immediately.
       mutateRevisions(
-        (current) => ({
-          revisions: [...(current?.revisions ?? []), revision],
-        }),
+        (current) => {
+          const existingIndex = (current?.revisions ?? []).findIndex(
+            (r) => r.id === revision.id,
+          );
+          if (existingIndex !== -1) {
+            // Replace existing revision
+            const newRevisions = [...(current?.revisions ?? [])];
+            newRevisions[existingIndex] = revision;
+            return { revisions: newRevisions };
+          } else {
+            // Add new revision
+            return {
+              revisions: [...(current?.revisions ?? []), revision],
+            };
+          }
+        },
         { revalidate: true },
       );
       updateUrl(revision.id);

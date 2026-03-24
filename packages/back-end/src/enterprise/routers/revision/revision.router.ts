@@ -75,6 +75,19 @@ router.get(
   revisionController.getRevision,
 );
 
+// Submit a draft for review (changes status from "draft" to "pending-review")
+router.post(
+  "/:id/submit",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.postSubmit,
+);
+
 // Add a review to a revision
 router.post(
   "/:id/review",

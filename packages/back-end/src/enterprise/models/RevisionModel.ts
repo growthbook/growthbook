@@ -22,7 +22,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "revision.update",
     deleteEvent: "revision.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
       fields: {
@@ -105,6 +105,26 @@ export class RevisionModel extends BaseClass {
   }
 
   protected async beforeCreate(doc: Revision) {
+    // Calculate and set the version number
+    const allRevisions = await this._find({
+      "target.type": doc.target.type,
+      "target.id": doc.target.id,
+    } as Record<string, unknown>);
+
+    // Sort by creation date to determine the next version
+    const sortedRevisions = allRevisions.sort(
+      (a, b) =>
+        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
+    );
+
+    // Set version to the next sequential number
+    doc.version = sortedRevisions.length + 1;
+
+    // Set default title if not provided
+    if (!doc.title) {
+      doc.title = `Revision ${doc.version}`;
+    }
+
     if (!doc.activityLog || doc.activityLog.length === 0) {
       const activityLog: Array<{
         id: string;
@@ -132,18 +152,6 @@ export class RevisionModel extends BaseClass {
 
       // If this is a revert, add a note in the activity log with revision number
       if (doc.revertedFrom) {
-        // Get all revisions for this target to calculate the revision number
-        const allRevisions = await this._find({
-          "target.type": doc.target.type,
-          "target.id": doc.target.id,
-        } as Record<string, unknown>);
-
-        const sortedRevisions = allRevisions.sort(
-          (a, b) =>
-            new Date(a.dateCreated).getTime() -
-            new Date(b.dateCreated).getTime(),
-        );
-
         const revisionNumber =
           sortedRevisions.findIndex((r) => r.id === doc.revertedFrom) + 1;
 
@@ -200,6 +208,29 @@ export class RevisionModel extends BaseClass {
   }
 
   // Review
+
+  async submitForReview(id: string, userId: string) {
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Revision not found");
+
+    if (existing.status !== "draft") {
+      throw new Error("Only draft revisions can be submitted for review");
+    }
+
+    return this.update(existing, {
+      status: "pending-review",
+      activityLog: [
+        ...existing.activityLog,
+        {
+          id: uniqid("act_"),
+          userId,
+          action: "created",
+          description: "Submitted for review",
+          dateCreated: new Date(),
+        },
+      ],
+    } as Partial<Revision>);
+  }
 
   async addReview(
     id: string,
@@ -442,7 +473,7 @@ export class RevisionModel extends BaseClass {
       target,
       title: target.title,
       revertedFrom: target.revertedFrom,
-      status: "pending-review",
+      status: "draft",
       authorId: this.context.userId,
       reviews: [],
       activityLog: [],

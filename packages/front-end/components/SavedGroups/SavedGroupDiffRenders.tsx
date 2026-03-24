@@ -1,14 +1,18 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
 import {
   ChangeField,
   toConditionString,
   renderFallback,
   ProjectName,
+  OwnerName,
 } from "@/components/AuditHistoryExplorer/DiffRenderUtils";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 
 type Pre = Partial<SavedGroupInterface> | null;
@@ -55,6 +59,70 @@ function ValuesBox({
         ) : (
           <em className="text-muted">None</em>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Uses ChangeField for single-line values (booleans, numbers, short strings)
+// and an inline ReactDiffViewer for multi-line / JSON values.
+function ValueChangedField({
+  label,
+  pre,
+  post,
+}: {
+  label?: string;
+  pre: string | null | undefined;
+  post: string | null | undefined;
+}) {
+  if (isEqual(pre, post)) return null;
+  // Treat null, undefined, and empty string as unset
+  const displayVal = (v: string | null | undefined): ReactNode =>
+    v == null || v === "" ? <em>unset</em> : v;
+  const isSimple = (v: string | null | undefined): boolean =>
+    v == null || (!v.includes("\n") && v.length <= 80);
+  if (isSimple(pre) && isSimple(post)) {
+    if (label) {
+      return (
+        <ChangeField
+          label={label}
+          changed
+          oldNode={displayVal(pre)}
+          newNode={displayVal(post)}
+        />
+      );
+    }
+    return (
+      <div className="d-flex align-items-start mb-2">
+        <div className="text-danger d-flex align-items-start">
+          <div className="text-center mr-2" style={{ width: 16 }}>
+            Δ
+          </div>
+          <div>{displayVal(pre)}</div>
+        </div>
+        <div className="font-weight-bold text-success d-flex align-items-start ml-4">
+          <div className="text-center mx-2" style={{ width: 16 }}>
+            →
+          </div>
+          <div>{displayVal(post)}</div>
+        </div>
+      </div>
+    );
+  }
+  // Multi-line content — use inline diff viewer.
+  return (
+    <div className="mb-2">
+      {label && <div className="font-weight-bold mb-1">{label}</div>}
+      <div
+        className="diff-wrapper diff-wrapper-compact"
+        style={{ maxHeight: 250, overflowY: "auto" }}
+      >
+        <ReactDiffViewer
+          oldValue={pre ?? ""}
+          newValue={post ?? ""}
+          compareMethod={DiffMethod.LINES}
+          styles={COMPACT_DIFF_STYLES}
+        />
       </div>
     </div>
   );
@@ -138,17 +206,67 @@ export function renderSavedGroupValues(pre: Pre, post: Post): ReactNode | null {
     const useInline = preCount <= INLINE_LIMIT && postCount <= INLINE_LIMIT;
 
     if (useInline) {
-      rows.push(
-        <div key="values" className="mb-2">
-          <div className="mb-1">
-            <Text size="medium" weight="medium" color="text-mid">
-              Values
-            </Text>
-          </div>
-          <ValuesBox values={preVals} marker="Δ" colorClass="text-danger" />
-          <ValuesBox values={postVals} marker="→" colorClass="text-success" />
-        </div>,
-      );
+      // For small deltas, show individual changes as badges
+      const added = postVals.filter((v) => !preVals.includes(v));
+      const removed = preVals.filter((v) => !postVals.includes(v));
+      const deltaCount = added.length + removed.length;
+
+      if (deltaCount > 0 && deltaCount <= 20) {
+        rows.push(
+          <div key="values-badges" className="mb-2">
+            <div className="mb-1">
+              <Text size="medium" weight="medium" color="text-mid">
+                Values
+              </Text>
+            </div>
+            <div className="d-flex flex-wrap" style={{ gap: 4 }}>
+              {removed.slice(0, 10).map((v) => (
+                <Badge
+                  key={`removed-${v}`}
+                  label={`− ${v.length > 30 ? v.slice(0, 30) + "…" : v}`}
+                  color="red"
+                  variant="soft"
+                />
+              ))}
+              {removed.length > 10 && (
+                <Badge
+                  label={`− ${removed.length - 10} more`}
+                  color="red"
+                  variant="soft"
+                />
+              )}
+              {added.slice(0, 10).map((v) => (
+                <Badge
+                  key={`added-${v}`}
+                  label={`+ ${v.length > 30 ? v.slice(0, 30) + "…" : v}`}
+                  color="green"
+                  variant="soft"
+                />
+              ))}
+              {added.length > 10 && (
+                <Badge
+                  label={`+ ${added.length - 10} more`}
+                  color="green"
+                  variant="soft"
+                />
+              )}
+            </div>
+          </div>,
+        );
+      } else {
+        // Large delta or complete replacement - show side-by-side boxes
+        rows.push(
+          <div key="values" className="mb-2">
+            <div className="mb-1">
+              <Text size="medium" weight="medium" color="text-mid">
+                Values
+              </Text>
+            </div>
+            <ValuesBox values={preVals} marker="Δ" colorClass="text-danger" />
+            <ValuesBox values={postVals} marker="→" colorClass="text-success" />
+          </div>,
+        );
+      }
     } else {
       const countChanged = preCount !== postCount;
       rows.push(
@@ -210,6 +328,33 @@ export function renderSavedGroupSettings(
     );
   }
 
+  if (!isEqual(pre?.owner, post.owner) && post.owner !== undefined) {
+    rows.push(
+      <ChangeField
+        key="owner"
+        label="Owner"
+        changed
+        oldNode={pre?.owner ? <OwnerName id={pre.owner} /> : <em>unset</em>}
+        newNode={post.owner ? <OwnerName id={post.owner} /> : <em>unset</em>}
+      />,
+    );
+  }
+
+  if (
+    !isEqual(pre?.description, post.description) &&
+    post.description !== undefined &&
+    (pre?.description || "") !== (post.description || "")
+  ) {
+    rows.push(
+      <ValueChangedField
+        key="description"
+        label="Description"
+        pre={pre?.description || null}
+        post={post.description || null}
+      />,
+    );
+  }
+
   rows.push(
     ...renderFallback(
       pre as Record<string, unknown>,
@@ -231,6 +376,7 @@ export function renderSavedGroupSettings(
 }
 
 // "Projects" — projects array with resolved names.
+// Shows added/removed as badges for better visual clarity.
 export function renderSavedGroupProjects(
   pre: Pre,
   post: Post,
@@ -240,41 +386,86 @@ export function renderSavedGroupProjects(
   const postProjects = post.projects ?? [];
   if (!preProjects.length && !postProjects.length) return null;
 
-  const rows: ReactNode[] = [
-    <ChangeField
-      key="projects"
-      label="Projects"
-      changed
-      oldNode={
-        preProjects.length ? (
-          <>
-            {preProjects.map((id, i) => (
-              <span key={id}>
-                {i > 0 ? ", " : ""}
-                <ProjectName id={id} />
-              </span>
-            ))}
-          </>
-        ) : (
-          <em>None</em>
-        )
-      }
-      newNode={
-        postProjects.length ? (
-          <>
-            {postProjects.map((id, i) => (
-              <span key={id}>
-                {i > 0 ? ", " : ""}
-                <ProjectName id={id} />
-              </span>
-            ))}
-          </>
-        ) : (
-          <em>None</em>
-        )
-      }
-    />,
-  ];
+  const added = postProjects.filter((id) => !preProjects.includes(id));
+  const removed = preProjects.filter((id) => !postProjects.includes(id));
+
+  const rows: ReactNode[] = [];
+
+  // If there are additions/removals, show them as badges
+  if (added.length || removed.length) {
+    rows.push(
+      <div key="projects-badges" className="mb-2">
+        <div className="mb-1">
+          <Text size="medium" weight="medium" color="text-mid">
+            Projects
+          </Text>
+        </div>
+        <div className="d-flex flex-wrap" style={{ gap: 4 }}>
+          {removed.map((id) => (
+            <Badge
+              key={id}
+              label={
+                <>
+                  − <ProjectName id={id} />
+                </>
+              }
+              color="red"
+              variant="soft"
+            />
+          ))}
+          {added.map((id) => (
+            <Badge
+              key={id}
+              label={
+                <>
+                  + <ProjectName id={id} />
+                </>
+              }
+              color="green"
+              variant="soft"
+            />
+          ))}
+        </div>
+      </div>,
+    );
+  } else {
+    // No additions/removals, just show the change
+    rows.push(
+      <ChangeField
+        key="projects"
+        label="Projects"
+        changed
+        oldNode={
+          preProjects.length ? (
+            <>
+              {preProjects.map((id, i) => (
+                <span key={id}>
+                  {i > 0 ? ", " : ""}
+                  <ProjectName id={id} />
+                </span>
+              ))}
+            </>
+          ) : (
+            <em>None</em>
+          )
+        }
+        newNode={
+          postProjects.length ? (
+            <>
+              {postProjects.map((id, i) => (
+                <span key={id}>
+                  {i > 0 ? ", " : ""}
+                  <ProjectName id={id} />
+                </span>
+              ))}
+            </>
+          ) : (
+            <em>None</em>
+          )
+        }
+      />,
+    );
+  }
 
   rows.push(
     ...renderFallback(
@@ -293,7 +484,7 @@ export function renderSavedGroupProjects(
     ),
   );
 
-  return <div className="mt-1">{rows}</div>;
+  return rows.length ? <div className="mt-1">{rows}</div> : null;
 }
 
 // ─── Badge getters ────────────────────────────────────────────────────────────

@@ -111,7 +111,7 @@ export type ModelName =
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
-  | "revisions";
+  | "revisions"
   | "watch"
   | "apiKeys";
 

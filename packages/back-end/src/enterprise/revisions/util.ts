@@ -21,8 +21,13 @@ export function isRevisionRequired(
 export function buildSavedGroupSnapshot(
   savedGroup: SavedGroupInterface,
 ): SavedGroupInterface {
+  // Remove MongoDB's _id field but keep everything else including organization
+
+  const { _id, ...rest } = savedGroup as SavedGroupInterface & {
+    _id?: unknown;
+  };
   return {
-    ...savedGroup,
+    ...rest,
     values: savedGroup.values ?? undefined,
     condition: savedGroup.condition ?? undefined,
     attributeKey: savedGroup.attributeKey ?? undefined,
@@ -33,12 +38,27 @@ export function buildSavedGroupSnapshot(
 }
 
 /**
+ * Clean proposed changes by converting null values to undefined for Zod validation.
+ */
+function cleanProposedChanges(
+  changes: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(changes).map(([key, value]) => [
+      key,
+      value === null ? undefined : value,
+    ]),
+  );
+}
+
+/**
  * Create a new revision or update an existing open one for the current user.
  * Centralizes the create-or-update pattern used by all saved-group mutation endpoints.
  * @param replaceChanges If true, replace proposed changes entirely instead of merging
  * @param forceCreate If true, always create a new revision (don't update existing)
  * @param title Optional title for the revision
  * @param revertedFrom Optional ID of the revision this is reverting
+ * @param revisionId Optional specific revision ID to update (instead of finding by author)
  */
 export async function createOrUpdateSavedGroupRevision(
   context: ReqContext | ApiReqContext,
@@ -48,7 +68,32 @@ export async function createOrUpdateSavedGroupRevision(
   forceCreate = false,
   title?: string,
   revertedFrom?: string,
+  revisionId?: string,
 ): Promise<Revision> {
+  // Clean proposed changes to convert null to undefined
+  const cleanedChanges = cleanProposedChanges(proposedChanges);
+
+  // If updating a specific revision by ID, use that
+  if (revisionId && !forceCreate) {
+    const targetRevision = await context.models.revisions.getById(revisionId);
+    if (targetRevision) {
+      const finalChanges = replaceChanges
+        ? cleanedChanges
+        : cleanProposedChanges({
+            ...targetRevision.target.proposedChanges,
+            ...cleanedChanges,
+          });
+
+      const result = await context.models.revisions.updateProposedChanges(
+        targetRevision.id,
+        finalChanges,
+        context.userId,
+      );
+
+      return result;
+    }
+  }
+
   // If forceCreate is true, skip checking for existing revisions
   if (!forceCreate) {
     const existingRevision =
@@ -59,8 +104,11 @@ export async function createOrUpdateSavedGroupRevision(
       );
     if (existingRevision) {
       const finalChanges = replaceChanges
-        ? proposedChanges
-        : { ...existingRevision.target.proposedChanges, ...proposedChanges };
+        ? cleanedChanges
+        : cleanProposedChanges({
+            ...existingRevision.target.proposedChanges,
+            ...cleanedChanges,
+          });
 
       const result = await context.models.revisions.updateProposedChanges(
         existingRevision.id,
@@ -76,7 +124,7 @@ export async function createOrUpdateSavedGroupRevision(
     type: "saved-group",
     id: savedGroup.id,
     snapshot: buildSavedGroupSnapshot(savedGroup),
-    proposedChanges,
+    proposedChanges: cleanedChanges,
     title,
     revertedFrom,
   });

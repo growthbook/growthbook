@@ -71,6 +71,7 @@ export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
 export const revisionValidator = z.object({
   id: z.string(),
   authorId: z.string(),
+  version: z.number().optional(), // Optional for backward compatibility with existing revisions
   title: z.string().optional(),
   revertedFrom: z.string().optional(), // ID of the revision this is reverting
   target: revisionTargetValidator,

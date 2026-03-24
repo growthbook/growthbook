@@ -16,12 +16,11 @@ import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { ExpandableDiff } from "@/components/Features/DraftModal";
-import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
-import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
+import { getStatusBadge } from "./revisionUtils";
+import { RevisionDiff } from "./RevisionDiff";
 
 interface RevisionDetailProps<T> {
   revision: Revision;
@@ -33,6 +32,8 @@ interface RevisionDetailProps<T> {
   onReopen?: (revisionId: string) => Promise<void>;
   diffConfig: RevisionDiffConfig<T>;
   allRevisions?: Revision[];
+  requiresApproval?: boolean;
+  closeModal?: () => void;
 }
 
 function RevisionDetail<T>({
@@ -45,6 +46,8 @@ function RevisionDetail<T>({
   onReopen,
   diffConfig,
   allRevisions = [],
+  requiresApproval = true,
+  closeModal,
 }: RevisionDetailProps<T>) {
   const { getUserDisplay, userId, user } = useUser();
   const { apiCall } = useAuth();
@@ -177,6 +180,32 @@ function RevisionDetail<T>({
   }, [isRevisionAuthor, reviewDecision]);
 
   // Handle submitting a review
+  const handleSubmitForReview = async () => {
+    setIsSubmitting(true);
+    setReviewError(null);
+    try {
+      const response = await apiCall<{ revision: Revision }>(
+        `/revision/${revision.id}/submit`,
+        {
+          method: "POST",
+        },
+      );
+
+      // Update the current revision with the response
+      if (response.revision) {
+        setCurrentRevision(response.revision);
+      }
+      mutate?.();
+      closeModal?.();
+    } catch (error) {
+      setReviewError(
+        error instanceof Error ? error.message : "Failed to submit for review",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmitReview = async (
     decision: "approve" | "request-changes" | "comment",
     reviewCommentText: string,
@@ -267,6 +296,16 @@ function RevisionDetail<T>({
   const canMerge = (): boolean => {
     if (!isOpen) return false;
     if (!!mergeResult && !mergeResult.success) return false;
+    // Don't allow publishing if there are no changes
+    if (diffs.length === 0) return false;
+    // If approval is not required, allow publishing drafts directly
+    if (!requiresApproval) {
+      return permissionsUtil.canUpdateSavedGroup(
+        currentState as SavedGroupInterface,
+        {},
+      );
+    }
+    // If approval is required, check for approval or bypass
     if (revision.status !== "approved" && !canBypass) return false;
     return permissionsUtil.canUpdateSavedGroup(
       currentState as SavedGroupInterface,
@@ -375,7 +414,7 @@ function RevisionDetail<T>({
           publish?
         </Modal>
       )}
-      {confirmBypass && (
+      {confirmBypass && requiresApproval && (
         <Modal
           trackingEventModalType=""
           header="Bypass Approval & Publish"
@@ -463,6 +502,7 @@ function RevisionDetail<T>({
           </Flex>
         </Callout>
       )}
+
       {(revision.title || isEditingTitle || (isRevisionAuthor && isOpen)) && (
         <Box mb="2">
           {isEditingTitle ? (
@@ -491,7 +531,7 @@ function RevisionDetail<T>({
                 maxWidth: "500px",
               }}
             />
-          ) : revision.title ? (
+          ) : (
             <Flex align="center" gap="2">
               <Heading as="h3">{revision.title}</Heading>
               {isRevisionAuthor && isOpen && (
@@ -505,16 +545,13 @@ function RevisionDetail<T>({
                 </Button>
               )}
             </Flex>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditingTitle(true)}
-            >
-              + Add title
-            </Button>
           )}
         </Box>
+      )}
+      {reviewError && revision.status === "draft" && requiresApproval && (
+        <Callout status="error" mb="3">
+          {reviewError}
+        </Callout>
       )}
       <Flex justify="between" align="center" mb="4">
         <Flex align="center" gap="2">
@@ -526,6 +563,7 @@ function RevisionDetail<T>({
           <Text size="large" weight="medium">
             {`${getUserDisplay(revision.authorId)} on ${date(revision.dateCreated)}`}
           </Text>
+          {getStatusBadge(revision.status, requiresApproval)}
         </Flex>
         <Flex gap="2">
           {isOpen && (
@@ -538,181 +576,183 @@ function RevisionDetail<T>({
               Discard
             </Button>
           )}
-          <Popover.Root
-            open={reviewDropdownOpen}
-            onOpenChange={setReviewDropdownOpen}
-          >
-            <Popover.Trigger>
-              <Button
-                variant="solid"
-                preventDefault={false}
-                disabled={
-                  revision.status === "closed" || revision.status === "merged"
+          {revision.status === "draft" ? (
+            // For drafts: show either "Request Approval" or "Publish" based on approval requirement
+            requiresApproval ? (
+              <Tooltip
+                content={
+                  diffs.length === 0 ? "No changes to submit" : undefined
                 }
+                enabled={diffs.length === 0}
               >
-                Submit review <PiCaretDown style={{ marginLeft: "4px" }} />
-              </Button>
-            </Popover.Trigger>
-            <Popover.Content width="320px" size="2" align="end">
-              <Text size="medium" weight="medium" mb="2" as="p">
-                Leave a comment
-              </Text>
-              <Field
-                textarea
-                minRows={2}
-                placeholder="Add your review comment..."
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-              />
-              <Box my="3">
-                <RadioGroup
-                  value={reviewDecision}
-                  setValue={(v) =>
-                    setReviewDecision(
-                      v as "approve" | "request-changes" | "comment",
-                    )
-                  }
-                  options={[
-                    {
-                      value: "comment",
-                      label: "Comment",
-                      description: "Leave a comment without a decision",
-                    },
-                    {
-                      value: "request-changes",
-                      label: "Request Changes",
-                      description: "Submit feedback that must be addressed",
-                      disabled: isRevisionAuthor,
-                      disabledReason: requestOwnChangesMessage,
-                    },
-                    {
-                      value: "approve",
-                      label: "Approve",
-                      description: "Approve and allow merging",
-                      disabled: isRevisionAuthor,
-                      disabledReason: approveOwnChangesMessage,
-                    },
-                  ]}
-                />
-              </Box>
-              {!canUserReview && (
-                <Text size="small" color="text-low">
-                  Permission checks are validated on submit.
-                </Text>
-              )}
-              {reviewError && (
-                <Text size="medium" mb="2" as="p">
-                  {reviewError}
-                </Text>
-              )}
-              <Flex justify="end" mt="3">
-                <Button
-                  variant="solid"
-                  color="violet"
-                  onClick={() => {
-                    handleSubmitReview(reviewDecision, reviewComment);
-                  }}
-                  disabled={
-                    isSubmitting ||
-                    (reviewDecision === "comment" && !reviewComment.trim())
-                  }
-                >
-                  {isSubmitting ? "Submitting..." : "Confirm"}
-                </Button>
-              </Flex>
-            </Popover.Content>
-          </Popover.Root>
-          <Tooltip
-            content={
-              canBypass ? undefined : "Approval is required before publishing"
-            }
-            enabled={!canMerge() && !isSubmitting}
-          >
-            <span style={{ display: "inline-block" }}>
-              <Button
-                variant="solid"
-                color="violet"
-                onClick={() =>
-                  canBypass ? setConfirmBypass(true) : setConfirmPublish(true)
+                <span style={{ display: "inline-block" }}>
+                  <Button
+                    variant="solid"
+                    color="violet"
+                    onClick={handleSubmitForReview}
+                    disabled={isSubmitting || diffs.length === 0}
+                    style={
+                      diffs.length === 0 ? { pointerEvents: "none" } : undefined
+                    }
+                  >
+                    {isSubmitting ? "Submitting..." : "Request Approval"}
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
+              <Tooltip
+                content={
+                  diffs.length === 0 ? "No changes to publish" : undefined
                 }
-                disabled={isSubmitting || !canMerge()}
-                style={!canMerge() ? { pointerEvents: "none" } : undefined}
+                enabled={!canMerge() && !isSubmitting}
               >
-                Publish
-              </Button>
-            </span>
-          </Tooltip>
+                <span style={{ display: "inline-block" }}>
+                  <Button
+                    variant="solid"
+                    color="violet"
+                    onClick={() => setConfirmPublish(true)}
+                    disabled={isSubmitting || !canMerge()}
+                    style={!canMerge() ? { pointerEvents: "none" } : undefined}
+                  >
+                    Publish
+                  </Button>
+                </span>
+              </Tooltip>
+            )
+          ) : (
+            // For non-drafts: show review button and publish button
+            <>
+              <Popover.Root
+                open={reviewDropdownOpen}
+                onOpenChange={setReviewDropdownOpen}
+              >
+                <Popover.Trigger>
+                  <Button
+                    variant="solid"
+                    preventDefault={false}
+                    disabled={
+                      revision.status === "closed" ||
+                      revision.status === "merged"
+                    }
+                  >
+                    {requiresApproval ? "Submit review" : "Add comment"}{" "}
+                    <PiCaretDown style={{ marginLeft: "4px" }} />
+                  </Button>
+                </Popover.Trigger>
+                <Popover.Content width="320px" size="2" align="end">
+                  <Text size="medium" weight="medium" mb="2" as="p">
+                    Leave a comment
+                  </Text>
+                  <Field
+                    textarea
+                    minRows={2}
+                    placeholder={
+                      requiresApproval
+                        ? "Add your review comment..."
+                        : "Add a comment..."
+                    }
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                  />
+                  {requiresApproval && (
+                    <Box my="3">
+                      <RadioGroup
+                        value={reviewDecision}
+                        setValue={(v) =>
+                          setReviewDecision(
+                            v as "approve" | "request-changes" | "comment",
+                          )
+                        }
+                        options={[
+                          {
+                            value: "comment",
+                            label: "Comment",
+                            description: "Leave a comment without a decision",
+                          },
+                          {
+                            value: "request-changes",
+                            label: "Request Changes",
+                            description:
+                              "Submit feedback that must be addressed",
+                            disabled: isRevisionAuthor,
+                            disabledReason: requestOwnChangesMessage,
+                          },
+                          {
+                            value: "approve",
+                            label: "Approve",
+                            description: "Approve and allow merging",
+                            disabled: isRevisionAuthor,
+                            disabledReason: approveOwnChangesMessage,
+                          },
+                        ]}
+                      />
+                    </Box>
+                  )}
+                  {requiresApproval && !canUserReview && (
+                    <Text size="small" color="text-low">
+                      Permission checks are validated on submit.
+                    </Text>
+                  )}
+                  {reviewError && (
+                    <Text size="medium" mb="2" as="p">
+                      {reviewError}
+                    </Text>
+                  )}
+                  <Flex justify="end" mt="3">
+                    <Button
+                      variant="solid"
+                      color="violet"
+                      onClick={() => {
+                        handleSubmitReview(
+                          requiresApproval ? reviewDecision : "comment",
+                          reviewComment,
+                        );
+                      }}
+                      disabled={isSubmitting || !reviewComment.trim()}
+                    >
+                      {isSubmitting ? "Submitting..." : "Confirm"}
+                    </Button>
+                  </Flex>
+                </Popover.Content>
+              </Popover.Root>
+              <Tooltip
+                content={
+                  diffs.length === 0
+                    ? "No changes to publish"
+                    : requiresApproval
+                      ? canBypass
+                        ? undefined
+                        : "Approval is required before publishing"
+                      : undefined
+                }
+                enabled={!canMerge() && !isSubmitting}
+              >
+                <span style={{ display: "inline-block" }}>
+                  <Button
+                    variant="solid"
+                    color="violet"
+                    onClick={() =>
+                      requiresApproval && canBypass
+                        ? setConfirmBypass(true)
+                        : setConfirmPublish(true)
+                    }
+                    disabled={isSubmitting || !canMerge()}
+                    style={!canMerge() ? { pointerEvents: "none" } : undefined}
+                  >
+                    Publish
+                  </Button>
+                </span>
+              </Tooltip>
+            </>
+          )}
         </Flex>
       </Flex>
 
-      <Box mb="6">
-        {diffs.length === 0 ? (
-          <Text size="medium" color="text-low">
-            No changes to display.
-          </Text>
-        ) : (
-          <>
-            {/* Summary of changes */}
-            {(badges.length > 0 || customRenderGroups.length > 0) && (
-              <Box mb="4">
-                <Heading as="h5" size="small" mb="3">
-                  Summary of changes
-                </Heading>
-
-                {badges.length > 0 && (
-                  <Flex wrap="wrap" gap="2" mb="3">
-                    {badges.map(({ label }, i) => (
-                      <Badge
-                        key={`${label}-${i}`}
-                        color="gray"
-                        variant="soft"
-                        label={label}
-                      />
-                    ))}
-                  </Flex>
-                )}
-
-                {customRenderGroups.map(
-                  ({ label, renders, suppressCardLabel }) => (
-                    <Box key={label} p="3" mb="3" className="rounded bg-light">
-                      {!suppressCardLabel && (
-                        <Heading as="h6" size="small" mb="2">
-                          {label}
-                        </Heading>
-                      )}
-                      {renders.map((r, i) => (
-                        <Box key={i}>{r}</Box>
-                      ))}
-                    </Box>
-                  ),
-                )}
-              </Box>
-            )}
-
-            {/* Change details */}
-            {diffs.length > 0 && (
-              <Box>
-                <Heading as="h5" size="small" mb="3">
-                  Change details
-                </Heading>
-                <Flex direction="column" gap="4">
-                  {diffs.map((d, i) => (
-                    <Box key={i}>
-                      <ExpandableDiff
-                        title={d.label}
-                        a={d.a}
-                        b={d.b}
-                        defaultOpen={true}
-                        styles={COMPACT_DIFF_STYLES}
-                      />
-                    </Box>
-                  ))}
-                </Flex>
-              </Box>
-            )}
-          </>
-        )}
-      </Box>
+      <RevisionDiff
+        diffs={diffs}
+        badges={badges}
+        customRenderGroups={customRenderGroups}
+      />
 
       {/* Comments Section */}
       <Box mb="4">

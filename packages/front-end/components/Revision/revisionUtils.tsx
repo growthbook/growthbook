@@ -15,7 +15,15 @@ export const STATUS_CONFIG: Record<
   closed: { color: "gray", label: "Closed" },
 };
 
-export function getStatusBadge(status: RevisionStatus) {
+export function getStatusBadge(
+  status: RevisionStatus,
+  requiresApproval: boolean = true,
+) {
+  // If approvals are not required, show pending-review as Draft
+  if (status === "pending-review" && !requiresApproval) {
+    const config = STATUS_CONFIG["draft"];
+    return <Badge label={config.label} color={config.color} variant="soft" />;
+  }
   const config = STATUS_CONFIG[status];
   return <Badge label={config.label} color={config.color} variant="soft" />;
 }

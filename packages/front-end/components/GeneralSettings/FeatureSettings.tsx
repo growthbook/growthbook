@@ -5,12 +5,13 @@ import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle } from "react-icons/fa";
 import { PiPlus } from "react-icons/pi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
@@ -22,7 +23,10 @@ export default function FeatureSettings() {
 
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
+  const { projects } = useDefinitions();
   const form = useFormContext();
+
+  const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const [showProjectScope, setShowProjectScope] = useState<
     Record<number, boolean>

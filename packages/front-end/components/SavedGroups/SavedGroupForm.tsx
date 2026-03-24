@@ -36,7 +36,6 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 
 type SavedGroupFormValues = CreateSavedGroupProps;
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 
 const SavedGroupForm: FC<{
@@ -112,9 +111,7 @@ const SavedGroupForm: FC<{
     currentRevision?.status === "closed" ||
     currentRevision?.status === "merged";
 
-  const { mutateDefinitions, savedGroups, projects, project } =
-    useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
+  const { mutateDefinitions, savedGroups, project } = useDefinitions();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -140,7 +137,7 @@ const SavedGroupForm: FC<{
     },
   });
 
-  // Update form values when selected revision changes
+  // Update form values when selected revision changes OR when current prop updates
   useEffect(() => {
     let baseData: Partial<SavedGroupInterface>;
 
@@ -159,7 +156,8 @@ const SavedGroupForm: FC<{
       baseData = current;
     }
 
-    form.reset({
+    const currentFormValues = form.getValues();
+    const newValues = {
       groupName: baseData.groupName || "",
       owner: baseData.owner || "",
       attributeKey: baseData.attributeKey || "",
@@ -168,13 +166,17 @@ const SavedGroupForm: FC<{
       values: baseData.values || [],
       description: baseData.description || "",
       projects: baseData.projects || (project ? [project] : []),
-    });
+    };
+
+    // Only reset if values actually changed to avoid unnecessary re-renders
+    if (JSON.stringify(currentFormValues) !== JSON.stringify(newValues)) {
+      form.reset(newValues);
+    }
 
     if (baseData.description) {
       setShowDescription(true);
     }
   }, [currentRevision, liveVersion, type, project, form, current]);
-
 
   const selectedProjects = form.watch("projects") || [];
   const projectsOptions = useProjectOptions(
@@ -199,6 +201,16 @@ const SavedGroupForm: FC<{
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
+  const listAboveSizeLimit = savedGroupSizeLimit
+    ? (form.watch("values") ?? []).length > savedGroupSizeLimit
+    : false;
+  const isValid =
+    !!form.watch("groupName") &&
+    (type === "list"
+      ? !!form.watch("attributeKey") &&
+        (!listAboveSizeLimit || adminBypassSizeLimit)
+      : !!form.watch("condition"));
+
   const ctaDisabledMessage = isEditBlocked
     ? currentRevision?.status === "closed" ||
       currentRevision?.status === "merged"
@@ -221,16 +233,6 @@ const SavedGroupForm: FC<{
               ? "Add a condition to continue."
               : undefined
         : undefined;
-
-  const listAboveSizeLimit = savedGroupSizeLimit
-    ? (form.watch("values") ?? []).length > savedGroupSizeLimit
-    : false;
-  const isValid =
-    !!form.watch("groupName") &&
-    (type === "list"
-      ? !!form.watch("attributeKey") &&
-        (!listAboveSizeLimit || adminBypassSizeLimit)
-      : !!form.watch("condition"));
 
   // Create a Map from saved groups for cycle detection
   const groupMap = useMemo(
@@ -318,8 +320,8 @@ const SavedGroupForm: FC<{
           }
           if (currentRevision?.id) {
             params.set("revisionId", currentRevision.id);
-          }
-          if (isCreatingNewRevision && !currentRevision) {
+          } else {
+            // Always create a revision when there's no current revision to update
             params.set("forceCreateRevision", "1");
           }
           const queryString = params.toString();
@@ -333,11 +335,10 @@ const SavedGroupForm: FC<{
             method: "PUT",
             body: JSON.stringify(payload),
           });
-          if (res?.requiresApproval) {
+          // If a revision was created or updated, handle it
+          if (res?.revision) {
             mutateDefinitions({});
-            if (res.revision) {
-              onRevisionCreated?.(res.revision);
-            }
+            onRevisionCreated?.(res.revision);
             close();
             return;
           }
