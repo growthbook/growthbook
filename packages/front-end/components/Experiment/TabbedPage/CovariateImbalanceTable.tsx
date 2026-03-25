@@ -3,7 +3,7 @@ import {
   CovariateImbalanceResult,
   MetricVariationCovariateImbalanceResult,
 } from "shared/health";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { pValueFormatter } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -261,11 +261,20 @@ export default function CovariateImbalanceTable({
   secondaryMetricIds,
   guardrailMetricIds,
 }: Props) {
-  const { goalRows, guardrailRows, secondaryRows } = splitRowsByMetricType(
-    covariateImbalanceResult,
-    goalMetricIds,
-    secondaryMetricIds,
-    guardrailMetricIds,
+  const { goalRows, guardrailRows, secondaryRows } = useMemo(
+    () =>
+      splitRowsByMetricType(
+        covariateImbalanceResult,
+        goalMetricIds,
+        secondaryMetricIds,
+        guardrailMetricIds,
+      ),
+    [
+      covariateImbalanceResult,
+      goalMetricIds,
+      secondaryMetricIds,
+      guardrailMetricIds,
+    ],
   );
   return (
     <>
