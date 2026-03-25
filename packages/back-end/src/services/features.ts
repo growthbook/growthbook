@@ -6,10 +6,21 @@ import omit from "lodash/omit";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
-  FeatureMetadata,
-  ExperimentMetadata,
   GrowthBook,
 } from "@growthbook/growthbook";
+
+// Metadata types for features and experiments
+export interface FeatureMetadata {
+  projects?: string[];
+  customFields?: Record<string, unknown>;
+  tags?: string[];
+}
+export type ExperimentMetadata = FeatureMetadata;
+
+// Extended AutoExperiment type with metadata
+export type AutoExperimentWithMetadata = AutoExperiment & {
+  metadata?: ExperimentMetadata;
+};
 import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
@@ -294,11 +305,11 @@ export function generateAutoExperimentsPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeExperimentNames?: boolean;
   projectsMap?: Map<string, ProjectInterface>;
-}): AutoExperiment[] {
+}): AutoExperimentWithMetadata[] {
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
-    e: AutoExperiment | null,
-  ): e is AutoExperiment => !!e;
+    e: AutoExperimentWithMetadata | null,
+  ): e is AutoExperimentWithMetadata => !!e;
 
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
     visualExperiments,
@@ -389,7 +400,7 @@ export function generateAutoExperimentsPayload({
         metadata.tags = e.tags;
       }
 
-      const exp: AutoExperiment = {
+      const exp: AutoExperimentWithMetadata = {
         key: e.trackingKey,
         changeId: sha256(
           `${e.trackingKey}_${data.type}_${implementationId}`,
@@ -814,7 +825,7 @@ export async function refreshSDKPayloadCache({
 
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinition>;
-  experiments?: AutoExperiment[];
+  experiments?: AutoExperimentWithMetadata[];
   dateUpdated: Date | null;
   encryptPayload?: boolean;
   encryptionKey?: string;
@@ -848,7 +859,7 @@ export async function getFeatureDefinitionsResponse({
   includeTags,
 }: FeatureDefinitionsResponseArgs): Promise<{
   features: Record<string, FeatureDefinition>;
-  experiments?: AutoExperiment[];
+  experiments?: AutoExperimentWithMetadata[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
@@ -856,7 +867,7 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
 }> {
   features = cloneDeep(features);
-  let processedExperiments: AutoExperiment[] =
+  let processedExperiments: AutoExperimentWithMetadata[] =
     experiments !== undefined ? cloneDeep(experiments) : [];
   usedSavedGroups = cloneDeep(usedSavedGroups);
 
@@ -1008,7 +1019,7 @@ export async function getFeatureDefinitionsResponse({
       }
       
       // Return experiment with filtered metadata
-      const expWithFilteredMetadata: AutoExperiment = {
+      const expWithFilteredMetadata: AutoExperimentWithMetadata = {
         ...exp,
         ...(Object.keys(metadata).length > 0 && { metadata }),
       };
@@ -1296,7 +1307,7 @@ export async function buildSDKPayloadForConnection(
 
 export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
-  experiments?: AutoExperiment[];
+  experiments?: AutoExperimentWithMetadata[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;

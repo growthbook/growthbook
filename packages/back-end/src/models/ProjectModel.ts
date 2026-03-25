@@ -35,6 +35,7 @@ const BaseClass = MakeModelClass({
 
 interface CreateProjectProps {
   name: string;
+  publicId?: string;
   description?: string;
   id?: string;
   managedBy?: ManagedBy;

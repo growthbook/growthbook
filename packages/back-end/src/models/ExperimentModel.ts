@@ -31,7 +31,6 @@ import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
   VisualExperiment,
-  shouldRefreshForMetadataChanges,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
@@ -1807,17 +1806,7 @@ const onExperimentUpdate = async ({
     newExperiment,
   );
 
-  // Check if tags or customFields changed, and if any SDK connections use them
-  const needsMetadataRefresh = await shouldRefreshForMetadataChanges(
-    context,
-    oldExperiment,
-    newExperiment,
-  );
-
-  if (
-    !bypassWebhooks &&
-    (hasOtherChangesForSDKPayloadRefresh || needsMetadataRefresh)
-  ) {
+  if (!bypassWebhooks && hasOtherChangesForSDKPayloadRefresh) {
     // Get linked features
     const featureIds = new Set([
       ...(oldExperiment.linkedFeatures || []),
