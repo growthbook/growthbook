@@ -99,6 +99,7 @@ import {
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
+  getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
 import {
   getSDKPayloadCacheLocation,
@@ -639,48 +640,6 @@ export async function postFeatures(
     status: 200,
     feature,
   });
-}
-
-export async function getLiveAndBaseRevisionsForFeature({
-  context,
-  organizationId,
-  featureId,
-  liveVersion,
-  baseVersion,
-}: {
-  context: ReqContext | ApiReqContext;
-  organizationId: string;
-  featureId: string;
-  liveVersion: number;
-  baseVersion: number;
-}): Promise<{
-  live: FeatureRevisionInterface;
-  base: FeatureRevisionInterface;
-}> {
-  const live = await getRevision({
-    context,
-    organization: organizationId,
-    featureId,
-    version: liveVersion,
-  });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: organizationId,
-          featureId,
-          version: baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  return { live, base };
 }
 
 export async function postFeatureRebase(

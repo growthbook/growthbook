@@ -146,10 +146,8 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import {
-  getDraftRevision,
-  getLiveAndBaseRevisionsForFeature,
-} from "./features";
+import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import { getDraftRevision } from "./features";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
