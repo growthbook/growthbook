@@ -4008,6 +4008,24 @@ export async function postExperimentFeatureValues(
 
   const changes: Changeset = {};
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  if (linkedFeatures.length !== Object.keys(features).length) {
+    res.status(400).json({
+      status: 400,
+      message: "One or more features not found",
+    });
+    return;
+  }
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
+
   if (variationsChanged) {
     changes.variations = variations;
   }
@@ -4027,28 +4045,6 @@ export async function postExperimentFeatureValues(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  if (linkedFeatures.length !== Object.keys(features).length) {
-    res.status(400).json({
-      status: 400,
-      message: "One or more features not found",
-    });
-    return;
-  }
-
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
-    context.permissions.throwPermissionError();
-  }
-
   // Check for permission to update each feature
   for (const feature of linkedFeatures) {
     if (
@@ -4062,6 +4058,9 @@ export async function postExperimentFeatureValues(
   // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
   let experimentForResponse = experiment;
   if (changes.variations || changes.phases) {
+    if (!context.permissions.canRunExperiment(experiment, envs)) {
+      context.permissions.throwPermissionError();
+    }
     experimentForResponse = await updateExperimentAndSync({
       context,
       experiment,
