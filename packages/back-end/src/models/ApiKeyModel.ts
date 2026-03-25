@@ -6,6 +6,7 @@ import {
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -131,8 +132,7 @@ export class ApiKeyModel extends BaseClass {
 
   private validateEnvironments(environments: string[]) {
     if (!environments.length) return;
-    const orgEnvIds =
-      this.context.org.settings?.environments?.map((e) => e.id) || [];
+    const orgEnvIds = getEnvironmentIdsFromOrg(this.context.org);
     for (const env of environments) {
       if (!orgEnvIds.includes(env)) {
         this.context.throwBadRequestError(`Invalid environment: ${env}`);
