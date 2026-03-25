@@ -279,10 +279,8 @@ const hourTimeframeValidator = z.object({
 });
 
 // Path spine step. Alternative: forwardPath could be z.array(z.string()) (spine only);
-// topEvents would then come from result.rows (retained when extending) rather than config.
 const pathStepValidator = z.object({
   event: z.string(),
-  topEvents: z.array(z.string()), // This will be used to display the top events for the step
   filters: z.array(rowFilterValidator),
 });
 
@@ -299,7 +297,7 @@ export const userJourneyConfigValidator = z.object({
     .max(1)
     .optional(),
   factTableId: z.string(),
-  startingEventFilters: z.array(rowFilterValidator),
+  startingEvent: z.array(rowFilterValidator),
   globalFilters: z.array(rowFilterValidator),
   userIdType: z.string(),
   conversionWindow: z.discriminatedUnion("unit", [

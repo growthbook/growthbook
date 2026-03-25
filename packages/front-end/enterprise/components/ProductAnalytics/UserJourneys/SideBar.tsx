@@ -145,13 +145,13 @@ export default function SideBar({
             setDraftUserJourneyState((prev) => ({
               ...prev,
               factTableId,
-              startingEventFilters: [
+              startingEvent: [
                 {
                   column: seededColumn,
                   operator: "=",
                   values: [],
                 },
-                ...prev.startingEventFilters.slice(1),
+                ...prev.startingEvent.slice(1),
               ],
             }));
           }}
@@ -161,7 +161,7 @@ export default function SideBar({
               label: ft.name,
               value: ft.id,
             }))}
-          placeholder="Select fact table..."
+          placeholder="Select your events table..."
           forceUndefinedValueToNull
         />
       </Flex>

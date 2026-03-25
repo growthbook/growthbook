@@ -1,4 +1,4 @@
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiUserFill } from "react-icons/pi";
 import { useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -51,22 +51,22 @@ export default function StartingEventSection() {
       <Flex direction="column" gap="1">
         <Text weight="medium">
           <Flex align="center" gap="1" mb="1">
-            Define a Starting Event
+            Define the starting event
             <Tooltip
               body={
                 <Flex direction="column" gap="2">
                   <Text weight="medium">
-                    There are two ways to define a starting event:
+                    Select at least one column + a value from your events table.
                   </Text>
-                  <Separator size="4" />
-                  <Text>
-                    - You can select a column + a value from your Fact Table
-                  </Text>
-                  <Text weight="semibold"> OR </Text>
-                  <Text>
-                    - You can use filters to calculate the starting event of
-                    this user journey.
-                  </Text>
+                  <Flex direction="column" gap="1">
+                    <Text weight="semibold">Example:</Text>
+                    <Text>
+                      - <strong className="pr-2">Column:</strong>event_name
+                    </Text>
+                    <Text>
+                      - <strong className="pr-2">Value:</strong>page_view
+                    </Text>
+                  </Flex>
                 </Flex>
               }
             />
@@ -78,11 +78,11 @@ export default function StartingEventSection() {
           <RowFilterInput
             factTable={factTable}
             showLabel={false}
-            value={draftState.startingEventFilters}
+            value={draftState.startingEvent}
             setValue={(value) => {
               setDraftState((prev) => ({
                 ...prev,
-                startingEventFilters: value,
+                startingEvent: value,
               }));
             }}
           />

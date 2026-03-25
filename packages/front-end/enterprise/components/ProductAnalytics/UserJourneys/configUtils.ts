@@ -7,7 +7,7 @@ export function cleanUserJourneyConfigForSubmission(
 ): UserJourneyConfig {
   return {
     ...config,
-    startingEventFilters: config.startingEventFilters.filter(isCompleteFilter),
+    startingEvent: config.startingEvent.filter(isCompleteFilter),
     globalFilters: config.globalFilters.filter(isCompleteFilter),
   };
 }
@@ -24,7 +24,7 @@ export function isConfigSubmittable(config: UserJourneyConfig): boolean {
     return false;
   }
 
-  return config.startingEventFilters.some(isCompleteFilter);
+  return config.startingEvent.some(isCompleteFilter);
 }
 
 export function compareUserJourneyConfig(
