@@ -1,0 +1,31 @@
+parameters: []
+tags:
+  - product-analytics-explorations
+summary: Run a fact table exploration
+operationId: postFactTableExploration
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/fact-table \
+        -H 'Content-Type: application/json' \
+        -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"fact_table","factTableId":"ft_abc123","values":[{"type":"fact_table","name":"My Value","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostFactTableExplorationPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - productAnalyticsExploration
+          properties:
+            productAnalyticsExploration:
+              $ref: "../schemas/ProductAnalyticsExploration.yaml"
+            query:
+              $ref: "../schemas/Query.yaml"

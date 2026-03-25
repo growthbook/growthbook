@@ -1,0 +1,31 @@
+parameters: []
+tags:
+  - product-analytics-explorations
+summary: Run a metric exploration
+operationId: postMetricExploration
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/metric \
+        -H 'Content-Type: application/json' \
+        -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"metric","values":[{"type":"metric","name":"My Metric","rowFilters":[],"metricId":"fact__abc123","unit":null,"denominatorUnit":null}]}}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostMetricExplorationPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - productAnalyticsExploration
+          properties:
+            productAnalyticsExploration:
+              $ref: "../schemas/ProductAnalyticsExploration.yaml"
+            query:
+              $ref: "../schemas/Query.yaml"

@@ -123,6 +123,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: product-analytics-explorations
+    x-displayName: Product Analytics Explorations
+    description: Run product analytics queries and retrieve results. Each endpoint corresponds to a specific exploration type (metric, fact table, or raw data source).
 paths:
   /features:
     get:
@@ -370,6 +373,15 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
+  /product-analytics-explorations/metric:
+    post:
+      $ref: "./paths/postMetricExploration.yaml"
+  /product-analytics-explorations/fact-table:
+    post:
+      $ref: "./paths/postFactTableExploration.yaml"
+  /product-analytics-explorations/data-source:
+    post:
+      $ref: "./paths/postDataSourceExploration.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

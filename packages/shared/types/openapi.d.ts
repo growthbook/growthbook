@@ -422,6 +422,18 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/product-analytics-explorations/metric": {
+    /** Run a metric exploration */
+    post: operations["postMetricExploration"];
+  };
+  "/product-analytics-explorations/fact-table": {
+    /** Run a fact table exploration */
+    post: operations["postFactTableExploration"];
+  };
+  "/product-analytics-explorations/data-source": {
+    /** Run a raw data source exploration */
+    post: operations["postDataSourceExploration"];
+  };
   "/custom-fields": {
     /** Get all custom fields */
     get: operations["listCustomFields"];
@@ -4644,6 +4656,31 @@ export interface components {
           /** @description The feature flag key referenced */
           flagKey: string;
         })[];
+    };
+    ProductAnalyticsExploration: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      datasource: string;
+      /** @enum {string} */
+      status: "running" | "success" | "error";
+      /** Format: date-time */
+      dateStart: string;
+      /** Format: date-time */
+      dateEnd: string;
+      error?: string | null;
+      result?: {
+        rows: ({
+            dimensions: (string | null)[];
+            values: ({
+                metricId: string;
+                numerator: number | null;
+                denominator: number | null;
+              })[];
+          })[];
+      };
     };
   };
   responses: {
@@ -15474,6 +15511,383 @@ export interface operations {
       };
     };
   };
+  postMetricExploration: {
+    /** Run a metric exploration */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID of the datasource to query */
+          datasource: string;
+          /** @description Dimensions to group results by */
+          dimensions: ({
+              /** @enum {string} */
+              dimensionType: "date" | "dynamic" | "static" | "slice";
+              /** @description Required for `date`, `dynamic`, and `static` dimension types. */
+              column?: string | null;
+              /**
+               * @description Required when dimensionType is `date`. 
+               * @enum {string}
+               */
+              dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+              /** @description Required when dimensionType is `dynamic`. */
+              maxValues?: number;
+              /** @description Required when dimensionType is `static`. */
+              values?: (string)[];
+              /** @description Required when dimensionType is `slice`. */
+              slices?: ({
+                  name: string;
+                  filters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                })[];
+            })[];
+          /** @enum {string} */
+          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+          dateRange: {
+            /** @enum {string} */
+            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+            /** @description Required when predefined is `customLookback`. */
+            lookbackValue: number | null;
+            /**
+             * @description Required when predefined is `customLookback`. 
+             * @enum {string|null}
+             */
+            lookbackUnit: "hour" | "day" | "week" | "month" | null;
+            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            startDate: string | null;
+            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            endDate: string | null;
+          };
+          dataset: {
+            /** @enum {string} */
+            type: "metric";
+            /** @description One or more metrics to chart */
+            values: ({
+                /** @enum {string} */
+                type: "metric";
+                name: string;
+                rowFilters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+                metricId: string;
+                unit: string | null;
+                denominatorUnit: string | null;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            productAnalyticsExploration: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              datasource: string;
+              /** @enum {string} */
+              status: "running" | "success" | "error";
+              /** Format: date-time */
+              dateStart: string;
+              /** Format: date-time */
+              dateEnd: string;
+              error?: string | null;
+              result?: {
+                rows: ({
+                    dimensions: (string | null)[];
+                    values: ({
+                        metricId: string;
+                        numerator: number | null;
+                        denominator: number | null;
+                      })[];
+                  })[];
+              };
+            };
+            query?: {
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  postFactTableExploration: {
+    /** Run a fact table exploration */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID of the datasource to query */
+          datasource: string;
+          /** @description Dimensions to group results by */
+          dimensions: ({
+              /** @enum {string} */
+              dimensionType: "date" | "dynamic" | "static" | "slice";
+              /** @description Required for `date`, `dynamic`, and `static` dimension types. */
+              column?: string | null;
+              /**
+               * @description Required when dimensionType is `date`. 
+               * @enum {string}
+               */
+              dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+              /** @description Required when dimensionType is `dynamic`. */
+              maxValues?: number;
+              /** @description Required when dimensionType is `static`. */
+              values?: (string)[];
+              /** @description Required when dimensionType is `slice`. */
+              slices?: ({
+                  name: string;
+                  filters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                })[];
+            })[];
+          /** @enum {string} */
+          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+          dateRange: {
+            /** @enum {string} */
+            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+            /** @description Required when predefined is `customLookback`. */
+            lookbackValue: number | null;
+            /**
+             * @description Required when predefined is `customLookback`. 
+             * @enum {string|null}
+             */
+            lookbackUnit: "hour" | "day" | "week" | "month" | null;
+            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            startDate: string | null;
+            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            endDate: string | null;
+          };
+          dataset: {
+            /** @enum {string} */
+            type: "fact_table";
+            /** @description ID of the fact table to query */
+            factTableId: string | null;
+            /** @description One or more values to chart from the fact table */
+            values: ({
+                /** @enum {string} */
+                type: "fact_table";
+                name: string;
+                rowFilters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+                /** @enum {string} */
+                valueType: "unit_count" | "count" | "sum";
+                valueColumn: string | null;
+                unit: string | null;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            productAnalyticsExploration: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              datasource: string;
+              /** @enum {string} */
+              status: "running" | "success" | "error";
+              /** Format: date-time */
+              dateStart: string;
+              /** Format: date-time */
+              dateEnd: string;
+              error?: string | null;
+              result?: {
+                rows: ({
+                    dimensions: (string | null)[];
+                    values: ({
+                        metricId: string;
+                        numerator: number | null;
+                        denominator: number | null;
+                      })[];
+                  })[];
+              };
+            };
+            query?: {
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  postDataSourceExploration: {
+    /** Run a raw data source exploration */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID of the datasource to query */
+          datasource: string;
+          /** @description Dimensions to group results by */
+          dimensions: ({
+              /** @enum {string} */
+              dimensionType: "date" | "dynamic" | "static" | "slice";
+              /** @description Required for `date`, `dynamic`, and `static` dimension types. */
+              column?: string | null;
+              /**
+               * @description Required when dimensionType is `date`. 
+               * @enum {string}
+               */
+              dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+              /** @description Required when dimensionType is `dynamic`. */
+              maxValues?: number;
+              /** @description Required when dimensionType is `static`. */
+              values?: (string)[];
+              /** @description Required when dimensionType is `slice`. */
+              slices?: ({
+                  name: string;
+                  filters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                })[];
+            })[];
+          /** @enum {string} */
+          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+          dateRange: {
+            /** @enum {string} */
+            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+            /** @description Required when predefined is `customLookback`. */
+            lookbackValue: number | null;
+            /**
+             * @description Required when predefined is `customLookback`. 
+             * @enum {string|null}
+             */
+            lookbackUnit: "hour" | "day" | "week" | "month" | null;
+            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            startDate: string | null;
+            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            endDate: string | null;
+          };
+          dataset: {
+            /** @enum {string} */
+            type: "data_source";
+            /** @description SQL table name */
+            table: string;
+            /** @description Path to the table */
+            path: string;
+            /** @description Column used for timestamps */
+            timestampColumn: string;
+            /** @description Map of column names to their data types */
+            columnTypes: {
+              [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+            };
+            /** @description One or more values to chart from the raw table */
+            values: ({
+                /** @enum {string} */
+                type: "data_source";
+                name: string;
+                rowFilters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+                /** @enum {string} */
+                valueType: "unit_count" | "count" | "sum";
+                valueColumn: string | null;
+                unit: string | null;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            productAnalyticsExploration: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              datasource: string;
+              /** @enum {string} */
+              status: "running" | "success" | "error";
+              /** Format: date-time */
+              dateStart: string;
+              /** Format: date-time */
+              dateEnd: string;
+              error?: string | null;
+              result?: {
+                rows: ({
+                    dimensions: (string | null)[];
+                    values: ({
+                        metricId: string;
+                        numerator: number | null;
+                        denominator: number | null;
+                      })[];
+                  })[];
+              };
+            };
+            query?: {
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
   listCustomFields: {
     /** Get all custom fields */
     parameters: {
@@ -18949,6 +19363,7 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiProductAnalyticsExploration = z.infer<typeof openApiValidators.apiProductAnalyticsExplorationValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -19051,3 +19466,6 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
+export type PostMetricExplorationResponse = operations["postMetricExploration"]["responses"]["200"]["content"]["application/json"];
+export type PostFactTableExplorationResponse = operations["postFactTableExploration"]["responses"]["200"]["content"]["application/json"];
+export type PostDataSourceExplorationResponse = operations["postDataSourceExploration"]["responses"]["200"]["content"]["application/json"];

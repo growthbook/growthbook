@@ -1,0 +1,31 @@
+parameters: []
+tags:
+  - product-analytics-explorations
+summary: Run a raw data source exploration
+operationId: postDataSourceExploration
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/data-source \
+        -H 'Content-Type: application/json' \
+        -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"created_at","dateGranularity":"day"}],"dataset":{"type":"data_source","table":"orders","path":"public.orders","timestampColumn":"created_at","columnTypes":{"user_id":"string","amount":"number","created_at":"date"},"values":[{"type":"data_source","name":"Orders","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostDataSourceExplorationPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - productAnalyticsExploration
+          properties:
+            productAnalyticsExploration:
+              $ref: "../schemas/ProductAnalyticsExploration.yaml"
+            query:
+              $ref: "../schemas/Query.yaml"

@@ -120,6 +120,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: product-analytics-explorations
+    x-displayName: Product Analytics Explorations
+    description: 'Run product analytics queries and retrieve results. Each endpoint corresponds to a specific exploration type (metric, fact table, or raw data source).'
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -222,6 +225,9 @@ tags:
   - name: PaginationFields_model
     x-displayName: PaginationFields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
+  - name: ProductAnalyticsExploration_model
+    x-displayName: ProductAnalyticsExploration
+    description: <SchemaDefinition schemaRef="#/components/schemas/ProductAnalyticsExploration" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -6267,6 +6273,715 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
+  /product-analytics-explorations/metric:
+    post:
+      parameters: []
+      tags:
+        - product-analytics-explorations
+      summary: Run a metric exploration
+      operationId: postMetricExploration
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/metric \
+              -H 'Content-Type: application/json' \
+              -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"metric","values":[{"type":"metric","name":"My Metric","rowFilters":[],"metricId":"fact__abc123","unit":null,"denominatorUnit":null}]}}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - dataset
+              properties:
+                datasource:
+                  type: string
+                  description: ID of the datasource to query
+                dimensions:
+                  $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
+                chartType:
+                  $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/ChartType'
+                dateRange:
+                  $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/DateRange'
+                dataset:
+                  type: object
+                  required:
+                    - type
+                    - values
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - metric
+                    values:
+                      type: array
+                      description: One or more metrics to chart
+                      items:
+                        type: object
+                        required:
+                          - type
+                          - name
+                          - rowFilters
+                          - metricId
+                          - unit
+                          - denominatorUnit
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - metric
+                          name:
+                            type: string
+                          rowFilters:
+                            $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                          metricId:
+                            type: string
+                          unit:
+                            type: string
+                            nullable: true
+                          denominatorUnit:
+                            type: string
+                            nullable: true
+              $defs:
+                ChartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                DateRange:
+                  type: object
+                  required:
+                    - predefined
+                    - lookbackValue
+                    - lookbackUnit
+                    - startDate
+                    - endDate
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      type: number
+                      nullable: true
+                      description: Required when predefined is `customLookback`.
+                    lookbackUnit:
+                      type: string
+                      nullable: true
+                      enum:
+                        - hour
+                        - day
+                        - week
+                        - month
+                      description: Required when predefined is `customLookback`.
+                    startDate:
+                      type: string
+                      nullable: true
+                      description: ISO date string. Required when predefined is `customDateRange`.
+                    endDate:
+                      type: string
+                      nullable: true
+                      description: ISO date string. Required when predefined is `customDateRange`.
+                RowFilters:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - operator
+                    properties:
+                      operator:
+                        type: string
+                        enum:
+                          - '='
+                          - '!='
+                          - <
+                          - <=
+                          - '>'
+                          - '>='
+                          - in
+                          - not_in
+                          - contains
+                          - not_contains
+                          - starts_with
+                          - ends_with
+                          - is_null
+                          - not_null
+                          - is_true
+                          - is_false
+                          - sql_expr
+                          - saved_filter
+                      column:
+                        type: string
+                      values:
+                        type: array
+                        items:
+                          type: string
+                Dimensions:
+                  type: array
+                  description: Dimensions to group results by
+                  items:
+                    type: object
+                    required:
+                      - dimensionType
+                    properties:
+                      dimensionType:
+                        type: string
+                        enum:
+                          - date
+                          - dynamic
+                          - static
+                          - slice
+                      column:
+                        type: string
+                        nullable: true
+                        description: 'Required for `date`, `dynamic`, and `static` dimension types.'
+                      dateGranularity:
+                        type: string
+                        enum:
+                          - auto
+                          - hour
+                          - day
+                          - week
+                          - month
+                          - year
+                        description: Required when dimensionType is `date`.
+                      maxValues:
+                        type: number
+                        description: Required when dimensionType is `dynamic`.
+                      values:
+                        type: array
+                        items:
+                          type: string
+                        description: Required when dimensionType is `static`.
+                      slices:
+                        type: array
+                        description: Required when dimensionType is `slice`.
+                        items:
+                          type: object
+                          required:
+                            - name
+                            - filters
+                          properties:
+                            name:
+                              type: string
+                            filters:
+                              $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - productAnalyticsExploration
+                properties:
+                  productAnalyticsExploration:
+                    $ref: '#/components/schemas/ProductAnalyticsExploration'
+                  query:
+                    $ref: '#/components/schemas/Query'
+  /product-analytics-explorations/fact-table:
+    post:
+      parameters: []
+      tags:
+        - product-analytics-explorations
+      summary: Run a fact table exploration
+      operationId: postFactTableExploration
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/fact-table \
+              -H 'Content-Type: application/json' \
+              -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"fact_table","factTableId":"ft_abc123","values":[{"type":"fact_table","name":"My Value","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - dataset
+              properties:
+                datasource:
+                  type: string
+                  description: ID of the datasource to query
+                dimensions:
+                  $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
+                chartType:
+                  $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/ChartType'
+                dateRange:
+                  $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/DateRange'
+                dataset:
+                  type: object
+                  required:
+                    - type
+                    - factTableId
+                    - values
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - fact_table
+                    factTableId:
+                      type: string
+                      nullable: true
+                      description: ID of the fact table to query
+                    values:
+                      type: array
+                      description: One or more values to chart from the fact table
+                      items:
+                        type: object
+                        required:
+                          - type
+                          - name
+                          - rowFilters
+                          - valueType
+                          - valueColumn
+                          - unit
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - fact_table
+                          name:
+                            type: string
+                          rowFilters:
+                            $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                          valueType:
+                            type: string
+                            enum:
+                              - unit_count
+                              - count
+                              - sum
+                          valueColumn:
+                            type: string
+                            nullable: true
+                          unit:
+                            type: string
+                            nullable: true
+              $defs:
+                ChartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                DateRange:
+                  type: object
+                  required:
+                    - predefined
+                    - lookbackValue
+                    - lookbackUnit
+                    - startDate
+                    - endDate
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      type: number
+                      nullable: true
+                      description: Required when predefined is `customLookback`.
+                    lookbackUnit:
+                      type: string
+                      nullable: true
+                      enum:
+                        - hour
+                        - day
+                        - week
+                        - month
+                      description: Required when predefined is `customLookback`.
+                    startDate:
+                      type: string
+                      nullable: true
+                      description: ISO date string. Required when predefined is `customDateRange`.
+                    endDate:
+                      type: string
+                      nullable: true
+                      description: ISO date string. Required when predefined is `customDateRange`.
+                RowFilters:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - operator
+                    properties:
+                      operator:
+                        type: string
+                        enum:
+                          - '='
+                          - '!='
+                          - <
+                          - <=
+                          - '>'
+                          - '>='
+                          - in
+                          - not_in
+                          - contains
+                          - not_contains
+                          - starts_with
+                          - ends_with
+                          - is_null
+                          - not_null
+                          - is_true
+                          - is_false
+                          - sql_expr
+                          - saved_filter
+                      column:
+                        type: string
+                      values:
+                        type: array
+                        items:
+                          type: string
+                Dimensions:
+                  type: array
+                  description: Dimensions to group results by
+                  items:
+                    type: object
+                    required:
+                      - dimensionType
+                    properties:
+                      dimensionType:
+                        type: string
+                        enum:
+                          - date
+                          - dynamic
+                          - static
+                          - slice
+                      column:
+                        type: string
+                        nullable: true
+                        description: 'Required for `date`, `dynamic`, and `static` dimension types.'
+                      dateGranularity:
+                        type: string
+                        enum:
+                          - auto
+                          - hour
+                          - day
+                          - week
+                          - month
+                          - year
+                        description: Required when dimensionType is `date`.
+                      maxValues:
+                        type: number
+                        description: Required when dimensionType is `dynamic`.
+                      values:
+                        type: array
+                        items:
+                          type: string
+                        description: Required when dimensionType is `static`.
+                      slices:
+                        type: array
+                        description: Required when dimensionType is `slice`.
+                        items:
+                          type: object
+                          required:
+                            - name
+                            - filters
+                          properties:
+                            name:
+                              type: string
+                            filters:
+                              $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - productAnalyticsExploration
+                properties:
+                  productAnalyticsExploration:
+                    $ref: '#/components/schemas/ProductAnalyticsExploration'
+                  query:
+                    $ref: '#/components/schemas/Query'
+  /product-analytics-explorations/data-source:
+    post:
+      parameters: []
+      tags:
+        - product-analytics-explorations
+      summary: Run a raw data source exploration
+      operationId: postDataSourceExploration
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/data-source \
+              -H 'Content-Type: application/json' \
+              -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"created_at","dateGranularity":"day"}],"dataset":{"type":"data_source","table":"orders","path":"public.orders","timestampColumn":"created_at","columnTypes":{"user_id":"string","amount":"number","created_at":"date"},"values":[{"type":"data_source","name":"Orders","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - dataset
+              properties:
+                datasource:
+                  type: string
+                  description: ID of the datasource to query
+                dimensions:
+                  $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
+                chartType:
+                  $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/ChartType'
+                dateRange:
+                  $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/DateRange'
+                dataset:
+                  type: object
+                  required:
+                    - type
+                    - table
+                    - path
+                    - timestampColumn
+                    - columnTypes
+                    - values
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - data_source
+                    table:
+                      type: string
+                      description: SQL table name
+                    path:
+                      type: string
+                      description: Path to the table
+                    timestampColumn:
+                      type: string
+                      description: Column used for timestamps
+                    columnTypes:
+                      type: object
+                      description: Map of column names to their data types
+                      additionalProperties:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - date
+                          - boolean
+                          - other
+                    values:
+                      type: array
+                      description: One or more values to chart from the raw table
+                      items:
+                        type: object
+                        required:
+                          - type
+                          - name
+                          - rowFilters
+                          - valueType
+                          - valueColumn
+                          - unit
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - data_source
+                          name:
+                            type: string
+                          rowFilters:
+                            $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                          valueType:
+                            type: string
+                            enum:
+                              - unit_count
+                              - count
+                              - sum
+                          valueColumn:
+                            type: string
+                            nullable: true
+                          unit:
+                            type: string
+                            nullable: true
+              $defs:
+                ChartType:
+                  type: string
+                  enum:
+                    - line
+                    - area
+                    - timeseries-table
+                    - table
+                    - bar
+                    - stackedBar
+                    - horizontalBar
+                    - stackedHorizontalBar
+                    - bigNumber
+                DateRange:
+                  type: object
+                  required:
+                    - predefined
+                    - lookbackValue
+                    - lookbackUnit
+                    - startDate
+                    - endDate
+                  properties:
+                    predefined:
+                      type: string
+                      enum:
+                        - today
+                        - last7Days
+                        - last30Days
+                        - last90Days
+                        - customLookback
+                        - customDateRange
+                    lookbackValue:
+                      type: number
+                      nullable: true
+                      description: Required when predefined is `customLookback`.
+                    lookbackUnit:
+                      type: string
+                      nullable: true
+                      enum:
+                        - hour
+                        - day
+                        - week
+                        - month
+                      description: Required when predefined is `customLookback`.
+                    startDate:
+                      type: string
+                      nullable: true
+                      description: ISO date string. Required when predefined is `customDateRange`.
+                    endDate:
+                      type: string
+                      nullable: true
+                      description: ISO date string. Required when predefined is `customDateRange`.
+                RowFilters:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - operator
+                    properties:
+                      operator:
+                        type: string
+                        enum:
+                          - '='
+                          - '!='
+                          - <
+                          - <=
+                          - '>'
+                          - '>='
+                          - in
+                          - not_in
+                          - contains
+                          - not_contains
+                          - starts_with
+                          - ends_with
+                          - is_null
+                          - not_null
+                          - is_true
+                          - is_false
+                          - sql_expr
+                          - saved_filter
+                      column:
+                        type: string
+                      values:
+                        type: array
+                        items:
+                          type: string
+                Dimensions:
+                  type: array
+                  description: Dimensions to group results by
+                  items:
+                    type: object
+                    required:
+                      - dimensionType
+                    properties:
+                      dimensionType:
+                        type: string
+                        enum:
+                          - date
+                          - dynamic
+                          - static
+                          - slice
+                      column:
+                        type: string
+                        nullable: true
+                        description: 'Required for `date`, `dynamic`, and `static` dimension types.'
+                      dateGranularity:
+                        type: string
+                        enum:
+                          - auto
+                          - hour
+                          - day
+                          - week
+                          - month
+                          - year
+                        description: Required when dimensionType is `date`.
+                      maxValues:
+                        type: number
+                        description: Required when dimensionType is `dynamic`.
+                      values:
+                        type: array
+                        items:
+                          type: string
+                        description: Required when dimensionType is `static`.
+                      slices:
+                        type: array
+                        description: Required when dimensionType is `slice`.
+                        items:
+                          type: object
+                          required:
+                            - name
+                            - filters
+                          properties:
+                            name:
+                              type: string
+                            filters:
+                              $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - productAnalyticsExploration
+                properties:
+                  productAnalyticsExploration:
+                    $ref: '#/components/schemas/ProductAnalyticsExploration'
+                  query:
+                    $ref: '#/components/schemas/Query'
   /custom-fields:
     post:
       $skipValidatorGeneration: true
@@ -22855,6 +23570,77 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    ProductAnalyticsExploration:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - datasource
+        - status
+        - dateStart
+        - dateEnd
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        datasource:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        dateStart:
+          type: string
+          format: date-time
+        dateEnd:
+          type: string
+          format: date-time
+        error:
+          type: string
+          nullable: true
+        result:
+          type: object
+          required:
+            - rows
+          properties:
+            rows:
+              type: array
+              items:
+                type: object
+                required:
+                  - dimensions
+                  - values
+                properties:
+                  dimensions:
+                    type: array
+                    items:
+                      type: string
+                      nullable: true
+                  values:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - metricId
+                        - numerator
+                        - denominator
+                      properties:
+                        metricId:
+                          type: string
+                        numerator:
+                          type: number
+                          nullable: true
+                        denominator:
+                          type: number
+                          nullable: true
   securitySchemes:
     bearerAuth:
       type: http
@@ -22913,6 +23699,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
+      - product-analytics-explorations
       - CustomFields
       - Dashboards
       - ExperimentTemplates
@@ -22954,6 +23741,7 @@ x-tagGroups:
       - MetricUsage_model
       - Organization_model
       - PaginationFields_model
+      - ProductAnalyticsExploration_model
       - Project_model
       - Query_model
       - SavedGroup_model
