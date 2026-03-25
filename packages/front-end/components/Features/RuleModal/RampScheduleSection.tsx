@@ -3,7 +3,19 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
-import { PiPlusBold, PiLinkBold, PiXBold } from "react-icons/pi";
+import {
+  PiPlusBold,
+  PiLinkBold,
+  PiXBold,
+  PiHourglassMediumFill,
+} from "react-icons/pi";
+import Badge from "@/ui/Badge";
+import {
+  getRampBadgeColor,
+  getRampStatusLabel,
+  getRampStepsCompleted,
+} from "@/components/RampSchedule/RampTimeline";
+import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import type {
   FeatureInterface,
   SavedGroupTargeting,
@@ -77,7 +89,7 @@ export type UIStep = {
   intervalUnit: IntervalUnit;
 };
 
-export type RampMode = "off" | "create" | "edit" | "link";
+export type RampMode = "off" | "create" | "edit" | "link" | "detach";
 export type StartMode = "immediately" | "manual" | "specific-time";
 
 export interface RampSectionState {
@@ -1049,46 +1061,61 @@ export default function RampScheduleSection({
 
   const content = (
     <>
-      {/* Existing ramp status badge — shown in edit mode for running/non-editable ramps */}
-      {ruleRampSchedule && !canEdit && (
-        <Box
-          mb="3"
-          p="3"
-          style={{
-            border: "1px solid var(--accent-a6)",
-            borderRadius: "var(--radius-3)",
-            background: "var(--accent-a2)",
-          }}
-        >
-          <Flex align="center" gap="2" mb="1">
-            <PiLinkBold />
+      {/* Linked ramp header row — shown whenever a ramp is attached */}
+      {ruleRampSchedule && state.mode !== "detach" && (
+        <Box mb="3">
+          <Flex align="center" gap="2" mb="2" wrap="nowrap">
+            <PiHourglassMediumFill size={16} />
             <Text size="medium" weight="medium">
               {ruleRampSchedule.name}
             </Text>
+            <Badge
+              label={getRampStatusLabel(ruleRampSchedule)}
+              color={getRampBadgeColor(ruleRampSchedule.status)}
+              radius="full"
+            />
+            {ruleRampSchedule.steps.length > 0 && (
+              <span style={{ flexShrink: 0 }}>
+                <Text size="small" color="text-low">
+                  Step {getRampStepsCompleted(ruleRampSchedule)} of{" "}
+                  {ruleRampSchedule.steps.length}
+                </Text>
+              </span>
+            )}
+            <Box flexGrow="1" />
+            {/* Detach only allowed when ramp is in a non-active state */}
+            {["pending", "paused", "completed", "expired", "rolled-back"].includes(
+              ruleRampSchedule.status,
+            ) && (
+              <Tooltip content="Detach this rule from the ramp schedule">
+                <Link
+                  color="ruby"
+                  onClick={() => patchState({ mode: "detach" })}
+                >
+                  Detach
+                </Link>
+              </Tooltip>
+            )}
           </Flex>
-          <Text size="medium" color="text-low">
-            Status:{" "}
-            <span style={{ textTransform: "capitalize" }}>
-              {ruleRampSchedule.status}
-            </span>{" "}
-            · Step {ruleRampSchedule.currentStepIndex + 1} of{" "}
-            {ruleRampSchedule.steps.length}
-          </Text>
+          <RampScheduleDisplay
+            rs={ruleRampSchedule}
+            targetId={
+              ruleRampSchedule.targets.find((t) => t.status === "active")?.id
+            }
+          />
         </Box>
       )}
 
-      {/* Compact status line shown at top of editor when editing an existing ramp */}
-      {ruleRampSchedule && canEdit && (
+      {/* Detach confirmation row */}
+      {ruleRampSchedule && state.mode === "detach" && (
         <Flex align="center" gap="2" mb="3">
-          <PiLinkBold />
           <Text size="medium" color="text-low">
-            Editing ramp:{" "}
-            <span
-              style={{ textTransform: "capitalize", color: "var(--text-mid)" }}
-            >
-              {ruleRampSchedule.status}
-            </span>
+            This rule will be detached from &ldquo;
+            <strong>{ruleRampSchedule.name}</strong>&rdquo; on save.
           </Text>
+          <Link onClick={() => patchState({ mode: "edit", linkedRampId: ruleRampSchedule.id })}>
+            Undo
+          </Link>
         </Flex>
       )}
 

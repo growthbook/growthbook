@@ -1891,6 +1891,18 @@ export async function postFeatureRule(
           ],
         });
       }
+    } else if (rampSchedulePayload.mode === "detach") {
+      const existing = await context.models.rampSchedules.getById(
+        rampSchedulePayload.rampScheduleId,
+      );
+      if (existing) {
+        const remainingTargets = existing.targets.filter(
+          (t) => t.ruleId !== rule.id,
+        );
+        await context.models.rampSchedules.updateById(existing.id, {
+          targets: remainingTargets,
+        });
+      }
     }
   }
 
@@ -2772,6 +2784,18 @@ export async function putFeatureRule(
               status: "active",
             },
           ],
+        });
+      }
+    } else if (rampSchedulePayload.mode === "detach") {
+      const existing = await context.models.rampSchedules.getById(
+        rampSchedulePayload.rampScheduleId,
+      );
+      if (existing) {
+        const remainingTargets = existing.targets.filter(
+          (t) => t.ruleId !== ruleId,
+        );
+        await context.models.rampSchedules.updateById(existing.id, {
+          targets: remainingTargets,
         });
       }
     }

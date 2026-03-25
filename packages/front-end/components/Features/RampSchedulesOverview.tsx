@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiHourglassMediumFill } from "react-icons/pi";
+import {
+  PiHourglassMediumFill,
+  PiPencilSimple,
+  PiPlayFill,
+  PiPauseFill,
+  PiFastForward,
+  PiRewind,
+  PiArrowUUpLeft,
+  PiArrowUUpRight,
+} from "react-icons/pi";
 import { RampScheduleInterface } from "shared/validators";
 import {
   DropdownMenu,
@@ -105,6 +114,7 @@ export default function RampSchedulesOverview({
                   <Button
                     size="sm"
                     variant="ghost"
+                    icon={<PiPencilSimple />}
                     onClick={() => {
                       if (activeTargets.length === 1) {
                         onEditTarget(
@@ -123,6 +133,7 @@ export default function RampSchedulesOverview({
                   <Button
                     size="sm"
                     variant="ghost"
+                    icon={<PiPlayFill />}
                     onClick={async () => {
                       await apiCall(`/ramp-schedule/${rs.id}/actions/resume`, {
                         method: "POST",
@@ -138,6 +149,7 @@ export default function RampSchedulesOverview({
                     <Button
                       size="sm"
                       variant="ghost"
+                      icon={<PiPlayFill />}
                       loading={approveLoading[rs.id]}
                       onClick={async () => {
                         setApproveErrors((prev) => ({ ...prev, [rs.id]: "" }));
@@ -193,9 +205,7 @@ export default function RampSchedulesOverview({
                       body="Pause the ramp to edit the schedule"
                     >
                       <div style={{ cursor: "not-allowed" }}>
-                        <DropdownMenuItem disabled>
-                          Edit schedule
-                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled>Edit schedule</DropdownMenuItem>
                       </div>
                     </Tooltip>
                   ) : (
@@ -230,7 +240,11 @@ export default function RampSchedulesOverview({
                       }`}
                     >
                       <div style={{ cursor: "not-allowed" }}>
-                        <DropdownMenuItem disabled>Start now</DropdownMenuItem>
+                        <DropdownMenuItem disabled>
+                          <Flex align="center" gap="2">
+                            <PiPlayFill /> Start now
+                          </Flex>
+                        </DropdownMenuItem>
                       </div>
                     </Tooltip>
                   )}
@@ -245,7 +259,9 @@ export default function RampSchedulesOverview({
                         await mutate();
                       }}
                     >
-                      Start now
+                      <Flex align="center" gap="2">
+                        <PiPlayFill /> Start now
+                      </Flex>
                     </DropdownMenuItem>
                   )}
 
@@ -259,7 +275,9 @@ export default function RampSchedulesOverview({
                         await mutate();
                       }}
                     >
-                      Pause
+                      <Flex align="center" gap="2">
+                        <PiPauseFill /> Pause
+                      </Flex>
                     </DropdownMenuItem>
                   )}
 
@@ -274,7 +292,9 @@ export default function RampSchedulesOverview({
                         await mutate();
                       }}
                     >
-                      Resume
+                      <Flex align="center" gap="2">
+                        <PiPlayFill /> Resume
+                      </Flex>
                     </DropdownMenuItem>
                   )}
 
@@ -283,17 +303,6 @@ export default function RampSchedulesOverview({
                     rs.status,
                   ) && (
                     <>
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          await apiCall(
-                            `/ramp-schedule/${rs.id}/actions/complete`,
-                            { method: "POST" },
-                          );
-                          await mutate();
-                        }}
-                      >
-                        Complete ramp up
-                      </DropdownMenuItem>
                       {/* Roll back to > — backward targets only */}
                       {rs.currentStepIndex >= 0 &&
                         (() => {
@@ -301,7 +310,13 @@ export default function RampSchedulesOverview({
                             .map((_, stepIdx) => stepIdx)
                             .filter((stepIdx) => stepIdx < rs.currentStepIndex);
                           return (
-                            <DropdownSubMenu trigger="Roll back to">
+                            <DropdownSubMenu
+                              trigger={
+                                <Flex align="center" gap="2">
+                                  <PiArrowUUpLeft /> Roll back to
+                                </Flex>
+                              }
+                            >
                               <DropdownMenuItem
                                 onClick={async () => {
                                   await apiCall(
@@ -316,7 +331,9 @@ export default function RampSchedulesOverview({
                                   await mutate();
                                 }}
                               >
-                                Start
+                                <Flex align="center" gap="2">
+                                  <PiRewind /> Start
+                                </Flex>
                               </DropdownMenuItem>
                               {backSteps.length > 0 && (
                                 <DropdownMenuSeparator />
@@ -345,7 +362,13 @@ export default function RampSchedulesOverview({
                         })()}
                       {/* Jump ahead to > — forward targets only (End is already "Complete ramp up") */}
                       {rs.currentStepIndex < rs.steps.length - 1 && (
-                        <DropdownSubMenu trigger="Jump ahead to">
+                        <DropdownSubMenu
+                          trigger={
+                            <Flex align="center" gap="2">
+                              <PiArrowUUpRight /> Jump ahead to
+                            </Flex>
+                          }
+                        >
                           {rs.steps
                             .map((_, stepIdx) => stepIdx)
                             .filter((stepIdx) => stepIdx > rs.currentStepIndex)
@@ -370,6 +393,19 @@ export default function RampSchedulesOverview({
                             ))}
                         </DropdownSubMenu>
                       )}
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          await apiCall(
+                            `/ramp-schedule/${rs.id}/actions/complete`,
+                            { method: "POST" },
+                          );
+                          await mutate();
+                        }}
+                      >
+                        <Flex align="center" gap="2">
+                          <PiFastForward /> Complete ramp
+                        </Flex>
+                      </DropdownMenuItem>
                     </>
                   )}
 
@@ -385,7 +421,9 @@ export default function RampSchedulesOverview({
                         await mutate();
                       }}
                     >
-                      Restart ramp
+                      <Flex align="center" gap="2">
+                        <PiRewind /> Restart ramp
+                      </Flex>
                     </DropdownMenuItem>
                   )}
 

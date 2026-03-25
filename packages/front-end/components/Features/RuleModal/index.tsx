@@ -774,6 +774,14 @@ export default function RuleModal({
                   : undefined,
               };
             } else if (
+              rampSectionState.mode === "detach" &&
+              ruleRampSchedule?.id
+            ) {
+              rampScheduleInline = {
+                mode: "detach",
+                rampScheduleId: ruleRampSchedule.id,
+              };
+            } else if (
               rampSectionState.mode === "link" &&
               rampSectionState.linkedRampId
             ) {

@@ -45,6 +45,12 @@ export type InlineRampScheduleLink = {
   environment: string;
 };
 
+/** Detach a rule from a ramp schedule (removes it from the targets array). */
+export type InlineRampScheduleDetach = {
+  mode: "detach";
+  rampScheduleId: string;
+};
+
 /** Update an existing pending/paused ramp schedule. */
 export type InlineRampScheduleUpdate = {
   mode: "update";
@@ -62,17 +68,21 @@ export type PostFeatureRuleBody = {
   rule: FeatureRule;
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
-  /** Optional ramp schedule to create or link atomically with the rule. */
-  rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleLink;
+  /** Optional ramp schedule to create, link, or detach atomically with the rule. */
+  rampSchedule?:
+    | InlineRampScheduleCreate
+    | InlineRampScheduleLink
+    | InlineRampScheduleDetach;
 };
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   environment: string;
   i: number;
-  /** Optional ramp schedule to create, update, or link atomically with the rule edit. */
+  /** Optional ramp schedule to create, update, link, or detach atomically with the rule edit. */
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate
-    | InlineRampScheduleLink;
+    | InlineRampScheduleLink
+    | InlineRampScheduleDetach;
 };

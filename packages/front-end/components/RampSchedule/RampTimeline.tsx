@@ -15,7 +15,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function formatTrigger(trigger: RampTrigger): ReactNode {
+export function formatTrigger(trigger: RampTrigger): ReactNode {
   if (trigger.type === "approval") return <Text size="small">approval</Text>;
   if (trigger.type === "scheduled") return formatScheduledDate(trigger.at);
   const s = trigger.seconds;

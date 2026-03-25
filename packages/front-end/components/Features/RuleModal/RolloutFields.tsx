@@ -138,10 +138,10 @@ export default function RolloutFields({
             size="lg"
             label={
               <PremiumTooltip commercialFeature="schedule-feature-flag">
-                Apply Schedule
+                Apply Ramp Up or Schedule
               </PremiumTooltip>
             }
-            description="Schedule this rule to launch/disable at fixed times, or gradually ramp up coverage"
+            description="Create a ramp schedule to gradually roll out percent coverage, targeting, or feature values — or schedule this rule to launch/disable at specific times"
             value={schedulingOpen}
             setValue={handleSchedulingToggle}
             disabled={!canScheduleFeatureFlags}
@@ -153,18 +153,18 @@ export default function RolloutFields({
                 /* Tab selector — only shown for rules that already have fixed-date schedules */
                 <Flex gap="2" mb="3">
                   <Button
-                    variant={scheduleTab === "fixed" ? "solid" : "outline"}
-                    size="sm"
-                    onClick={() => handleTabChange("fixed")}
-                  >
-                    Fixed dates
-                  </Button>
-                  <Button
                     variant={scheduleTab === "ramp" ? "solid" : "outline"}
-                    size="sm"
+                    size="xs"
                     onClick={() => handleTabChange("ramp")}
                   >
                     Ramp schedule
+                  </Button>
+                  <Button
+                    variant={scheduleTab === "fixed" ? "solid" : "outline"}
+                    size="xs"
+                    onClick={() => handleTabChange("fixed")}
+                  >
+                    Fixed dates (legacy)
                   </Button>
                 </Flex>
               )}
