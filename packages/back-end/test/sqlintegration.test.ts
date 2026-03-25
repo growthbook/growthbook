@@ -1252,3 +1252,204 @@ describe("full fact metric experiment query - bigquery", () => {
     },
   );
 });
+describe("activation dimension with skipPartialData cutoff", () => {
+  let bqIntegration: BigQuery;
+  beforeEach(() => {
+    // @ts-expect-error -- context not needed for test
+    bqIntegration = new BigQuery("", {});
+  });
+
+  const factTable = factTableFactory.build();
+  const factTableMap = new Map([[factTable.id, factTable]]);
+  const exposureQuery: ExposureQuery = {
+    id: "exposure",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: [],
+  };
+
+  const baseSettings = {
+    manual: false,
+    dimensions: [],
+    metricSettings: [],
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    activationMetric: null,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    regressionAdjustmentEnabled: false,
+    attributionModel: "firstExposure" as const,
+    experimentId: "",
+    queryFilter: "",
+    segment: "",
+    datasourceId: "",
+    exposureQueryId: "",
+    startDate: new Date("2023-01-01"),
+    endDate: new Date("2023-01-31"),
+    variations: [],
+  };
+
+  const activationDimension = { type: "activation" } as const;
+
+  it("includes cutoff condition in fact metric activation dimension when skipPartialData is true", () => {
+    const getExposureQuerySpy = jest
+      // eslint-disable-next-line
+      .spyOn(bqIntegration as any, "getExposureQuery")
+      .mockReturnValue(exposureQuery);
+
+    const metric = factMetricFactory.build({
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+    const activationMetric = factMetricFactory.build({
+      numerator: {
+        factTableId: factTable.id,
+        column: "value",
+        aggregation: "sum",
+      },
+    });
+
+    const sql = bqIntegration["getExperimentFactMetricsQuery"]({
+      settings: {
+        ...baseSettings,
+        skipPartialData: true,
+      },
+      unitsSource: "exposureQuery",
+      activationMetric,
+      dimensions: [activationDimension],
+      segment: null,
+      metrics: [metric],
+      factTableMap,
+    });
+
+    const cutoffTimestamp = bqIntegration["toTimestamp"](
+      baseSettings.endDate,
+    ).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    expect(sql).toMatch(
+      new RegExp(
+        `first_activation_timestamp IS NULL\\s+OR first_activation_timestamp > ${cutoffTimestamp}`,
+      ),
+    );
+
+    getExposureQuerySpy.mockRestore();
+  });
+
+  it("includes cutoff condition in legacy metric activation dimension when skipPartialData is true", () => {
+    const getExposureQuerySpy = jest
+      // eslint-disable-next-line
+      .spyOn(bqIntegration as any, "getExposureQuery")
+      .mockReturnValue(exposureQuery);
+
+    const baseMetric: MetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 24,
+        delayUnit: "hours",
+        delayValue: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.1,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    const sql = bqIntegration["getExperimentMetricQuery"]({
+      settings: {
+        ...baseSettings,
+        skipPartialData: true,
+      },
+      unitsSource: "exposureQuery",
+      activationMetric: baseMetric,
+      dimensions: [activationDimension],
+      segment: null,
+      metric: baseMetric,
+      denominatorMetrics: [],
+      factTableMap,
+    });
+
+    const cutoffTimestamp = bqIntegration["toTimestamp"](
+      baseSettings.endDate,
+    ).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    expect(sql).toMatch(
+      new RegExp(
+        `first_activation_timestamp IS NULL\\s+OR first_activation_timestamp > ${cutoffTimestamp}`,
+      ),
+    );
+
+    getExposureQuerySpy.mockRestore();
+  });
+});
+describe("getFeatureEvalDiagnosticsQuery", () => {
+  beforeEach(() => {
+    jest.useFakeTimers("modern");
+    jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("replaces template variables in the feature usage query", () => {
+    const datasource = {
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: `SELECT ts AS timestamp, k AS feature_key FROM t WHERE ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'`,
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = bqIntegration.getFeatureEvalDiagnosticsQuery({
+      feature: "my-feature-key",
+    });
+
+    expect(sql).not.toContain("{{startDateISO}}");
+    expect(sql).not.toContain("{{endDateISO}}");
+    // compileSqlTemplate fills these with ISO-8601 timestamps
+    expect(sql).toMatch(
+      /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
+    );
+  });
+});

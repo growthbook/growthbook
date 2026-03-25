@@ -3241,7 +3241,10 @@ export default abstract class SqlIntegration
     );
 
     const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
-      this.getDimensionCol(d),
+      this.getDimensionCol(d, {
+        endDate,
+        skipPartialData: settings.skipPartialData,
+      }),
     );
     // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
     // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
@@ -3448,6 +3451,34 @@ export default abstract class SqlIntegration
                   `,
               )
               .join("\n")}
+            ${
+              // CUPED pre-exposure covariate columns
+              regressionAdjustedTableIndices.has(f.index)
+                ? regressionAdjustedMetrics
+                    .map(
+                      (metric) =>
+                        `${
+                          metric.numeratorSourceIndex === f.index
+                            ? `, ${this.ifElse(
+                                `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                                `m.${metric.alias}_value`,
+                                "NULL",
+                              )} AS ${metric.alias}_covariate_value`
+                            : ""
+                        }${
+                          metric.ratioMetric &&
+                          metric.denominatorSourceIndex === f.index
+                            ? `, ${this.ifElse(
+                                `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                                `m.${metric.alias}_denominator`,
+                                "NULL",
+                              )} AS ${metric.alias}_covariate_denominator`
+                            : ""
+                        }`,
+                    )
+                    .join("\n")
+                : ""
+            }
           FROM
             __distinctUsers d
           LEFT JOIN __factTable${f.index === 0 ? "" : f.index} m ON (
@@ -3803,7 +3834,10 @@ export default abstract class SqlIntegration
     `;
   }
 
-  getDimensionCol(dimension: Dimension): DimensionColumnData {
+  getDimensionCol(
+    dimension: Dimension,
+    options?: { endDate?: Date; skipPartialData?: boolean },
+  ): DimensionColumnData {
     switch (dimension.type) {
       case "experiment":
         return {
@@ -3822,15 +3856,24 @@ export default abstract class SqlIntegration
           )}`,
           alias: "dim_pre_date",
         };
-      case "activation":
+      case "activation": {
+        // When skipping partial data, activation slices should use the same
+        // cutoff boundary as activation-only user filtering.
+        const notActivatedCondition =
+          options?.skipPartialData && options.endDate
+            ? `first_activation_timestamp IS NULL OR first_activation_timestamp > ${this.toTimestamp(
+                options.endDate,
+              )}`
+            : "first_activation_timestamp IS NULL";
         return {
           value: this.ifElse(
-            `first_activation_timestamp IS NULL`,
+            notActivatedCondition,
             "'Not Activated'",
             "'Activated'",
           ),
           alias: "dim_activation",
         };
+      }
     }
   }
 
@@ -4024,7 +4067,12 @@ export default abstract class SqlIntegration
       ),
     );
 
-    const dimensionCols = params.dimensions.map((d) => this.getDimensionCol(d));
+    const dimensionCols = params.dimensions.map((d) =>
+      this.getDimensionCol(d, {
+        endDate,
+        skipPartialData: settings.skipPartialData,
+      }),
+    );
     // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
     // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
     // column specified. See `BANDIT_DIMENSION` in gbstats.py.
