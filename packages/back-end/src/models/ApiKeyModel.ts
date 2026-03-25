@@ -73,27 +73,49 @@ export class ApiKeyModel extends BaseClass {
   }
 
   protected async customValidation(doc: ApiKeyInterface) {
-    this.validateRole(doc.role);
-    for (const pr of doc.projectRoles) {
-      this.validateRole(pr.role);
-    }
-    await this.validateTeams(doc.teams);
+    if (doc.userId) {
+      // PATs inherit permissions from their user — scoping fields must not be set
+      if (doc.limitAccessByEnvironment) {
+        this.context.throwBadRequestError(
+          "PATs do not support environment restrictions.",
+        );
+      }
+      if (doc.projectRoles.length > 0) {
+        this.context.throwBadRequestError(
+          "PATs do not support project-scoped roles.",
+        );
+      }
+      if (doc.teams.length > 0) {
+        this.context.throwBadRequestError(
+          "PATs do not support team assignments.",
+        );
+      }
+    } else {
+      // Org API keys — validate role, environments, project roles, teams, and commercial features
+      this.validateRole(doc.role);
+      this.validateEnvironments(doc.environments);
+      for (const pr of doc.projectRoles) {
+        this.validateRole(pr.role);
+        await this.validateProject(pr.project);
+      }
+      await this.validateTeams(doc.teams);
 
-    if (
-      doc.limitAccessByEnvironment &&
-      !this.context.hasPremiumFeature("advanced-permissions")
-    ) {
-      this.context.throwPlanDoesNotAllowError(
-        "Your plan does not support restricting API key permissions by environment.",
-      );
-    }
-    if (
-      doc.projectRoles.length > 0 &&
-      !this.context.hasPremiumFeature("advanced-permissions")
-    ) {
-      this.context.throwPlanDoesNotAllowError(
-        "Your plan does not support project-level permissions on API keys.",
-      );
+      if (
+        doc.limitAccessByEnvironment &&
+        !this.context.hasPremiumFeature("advanced-permissions")
+      ) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support restricting API key permissions by environment.",
+        );
+      }
+      if (
+        doc.projectRoles.length > 0 &&
+        !this.context.hasPremiumFeature("advanced-permissions")
+      ) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support project-level permissions on API keys.",
+        );
+      }
     }
   }
 
@@ -104,6 +126,26 @@ export class ApiKeyModel extends BaseClass {
     }
     if (!getRoleById(role, this.context.org)) {
       this.context.throwBadRequestError(`Invalid role: ${role}`);
+    }
+  }
+
+  private validateEnvironments(environments: string[]) {
+    if (!environments.length) return;
+    const orgEnvIds =
+      this.context.org.settings?.environments?.map((e) => e.id) || [];
+    for (const env of environments) {
+      if (!orgEnvIds.includes(env)) {
+        this.context.throwBadRequestError(`Invalid environment: ${env}`);
+      }
+    }
+  }
+
+  private async validateProject(projectId: string) {
+    const project = (await this.context.getProjects()).find(
+      ({ id }) => id === projectId,
+    );
+    if (!project) {
+      this.context.throwBadRequestError(`Invalid project: ${projectId}`);
     }
   }
 
