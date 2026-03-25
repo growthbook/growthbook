@@ -78,6 +78,23 @@ export class ApiKeyModel extends BaseClass {
       this.validateRole(pr.role);
     }
     await this.validateTeams(doc.teams);
+
+    if (
+      doc.limitAccessByEnvironment &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support restricting API key permissions by environment.",
+      );
+    }
+    if (
+      doc.projectRoles.length > 0 &&
+      !this.context.hasPremiumFeature("advanced-permissions")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support project-level permissions on API keys.",
+      );
+    }
   }
 
   private validateRole(role: string | undefined) {
