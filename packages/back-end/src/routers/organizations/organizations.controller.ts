@@ -1712,12 +1712,23 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     type: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ProjectMemberRole[];
+    teams?: string[];
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { userId } = context;
-  const { description = "", type } = req.body;
+  const {
+    description = "",
+    type,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    teams,
+  } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1741,6 +1752,10 @@ export async function postApiKey(
     const key = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+      teams,
     });
 
     return res.status(200).json({

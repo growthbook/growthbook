@@ -1,4 +1,11 @@
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
+const apiKeyDefaults = {
+  limitAccessByEnvironment: false,
+  environments: [],
+  projectRoles: [],
+  teams: [],
+};
+
 describe("secret API keys utils", () => {
   describe("groupApiKeysByType", () => {
     const input = [
@@ -10,6 +17,7 @@ describe("secret API keys utils", () => {
         environment: "production",
         dateCreated: new Date("2022-09-12T21:25:42.576Z"),
         dateUpdated: new Date("2022-09-12T21:25:42.576Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -20,6 +28,7 @@ describe("secret API keys utils", () => {
         environment: "staging",
         dateCreated: new Date("2022-10-05T19:20:58.680Z"),
         dateUpdated: new Date("2022-10-05T19:20:58.680Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -33,6 +42,7 @@ describe("secret API keys utils", () => {
         id: "key_sktwial7ld29z9g1",
         dateCreated: new Date("2023-01-18T23:08:30.481Z"),
         dateUpdated: new Date("2023-01-18T23:08:30.481Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -46,6 +56,7 @@ describe("secret API keys utils", () => {
         id: "key_sktwib8ild2axd99",
         dateCreated: new Date("2023-01-18T23:35:01.725Z"),
         dateUpdated: new Date("2023-01-18T23:35:01.725Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -59,6 +70,7 @@ describe("secret API keys utils", () => {
         id: "key_sktwibduld2b6spp",
         dateCreated: new Date("2023-01-18T23:42:21.661Z"),
         dateUpdated: new Date("2023-01-18T23:42:21.661Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -72,6 +84,7 @@ describe("secret API keys utils", () => {
         id: "key_sktwibduld2b6v1h",
         dateCreated: new Date("2023-01-18T23:42:24.677Z"),
         dateUpdated: new Date("2023-01-18T23:42:24.677Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -85,6 +98,7 @@ describe("secret API keys utils", () => {
         id: "key_sktwibduld2b6xhf",
         dateCreated: new Date("2023-01-18T23:42:27.843Z"),
         dateUpdated: new Date("2023-01-18T23:42:27.843Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -100,6 +114,7 @@ describe("secret API keys utils", () => {
         role: "admin",
         dateCreated: new Date("2023-02-15T21:49:21.802Z"),
         dateUpdated: new Date("2023-02-15T21:49:21.802Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -115,6 +130,7 @@ describe("secret API keys utils", () => {
         role: "admin",
         dateCreated: new Date("2023-03-20T20:39:00.093Z"),
         dateUpdated: new Date("2023-03-20T20:39:00.093Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -130,6 +146,7 @@ describe("secret API keys utils", () => {
         userId: "u_sktwi1id9l7z9xkis",
         dateCreated: new Date("2023-05-03T20:25:41.300Z"),
         dateUpdated: new Date("2023-05-03T20:25:41.300Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -145,6 +162,7 @@ describe("secret API keys utils", () => {
         userId: "u_sktwi1id9l7z9xkis",
         dateCreated: new Date("2023-05-03T20:27:11.928Z"),
         dateUpdated: new Date("2023-05-03T20:27:11.928Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
       {
@@ -160,6 +178,7 @@ describe("secret API keys utils", () => {
         role: "readonly",
         dateCreated: new Date("2023-05-03T20:27:49.688Z"),
         dateUpdated: new Date("2023-05-03T20:27:49.688Z"),
+        ...apiKeyDefaults,
         __v: 0,
       },
     ];
@@ -181,6 +200,7 @@ describe("secret API keys utils", () => {
           role: "admin",
           dateCreated: new Date("2023-02-15T21:49:21.802Z"),
           dateUpdated: new Date("2023-02-15T21:49:21.802Z"),
+          ...apiKeyDefaults,
           __v: 0,
         },
         {
@@ -196,6 +216,7 @@ describe("secret API keys utils", () => {
           role: "admin",
           dateCreated: new Date("2023-03-20T20:39:00.093Z"),
           dateUpdated: new Date("2023-03-20T20:39:00.093Z"),
+          ...apiKeyDefaults,
           __v: 0,
         },
       ]);
@@ -213,6 +234,7 @@ describe("secret API keys utils", () => {
           userId: "u_sktwi1id9l7z9xkis",
           dateCreated: new Date("2023-05-03T20:25:41.300Z"),
           dateUpdated: new Date("2023-05-03T20:25:41.300Z"),
+          ...apiKeyDefaults,
           __v: 0,
         },
         {
@@ -228,6 +250,7 @@ describe("secret API keys utils", () => {
           userId: "u_sktwi1id9l7z9xkis",
           dateCreated: new Date("2023-05-03T20:27:11.928Z"),
           dateUpdated: new Date("2023-05-03T20:27:11.928Z"),
+          ...apiKeyDefaults,
           __v: 0,
         },
       ]);
@@ -245,6 +268,7 @@ describe("secret API keys utils", () => {
           role: "readonly",
           dateCreated: new Date("2023-05-03T20:27:49.688Z"),
           dateUpdated: new Date("2023-05-03T20:27:49.688Z"),
+          ...apiKeyDefaults,
           __v: 0,
         },
       ]);
