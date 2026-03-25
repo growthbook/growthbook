@@ -67,7 +67,7 @@ export const RAMP_EVENT_LABELS: Record<string, string> = {
   expired: "Expired",
   rolledBack: "Rolled back",
   autoRollback: "Auto-rolled back",
-  reset: "Reset to start",
+  reset: "Restart from beginning",
   jumped: "Jumped to step",
   conflict: "Conflict detected",
   error: "Error",

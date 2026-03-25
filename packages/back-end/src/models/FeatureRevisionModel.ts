@@ -713,6 +713,8 @@ export async function markRevisionAsPublished(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  await dispatchRevisionPublishedHook(context, revision);
 }
 
 export async function markRevisionAsReviewRequested(
@@ -838,6 +840,8 @@ export async function discardRevision(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  await dispatchRevisionDiscardedHook(context, revision);
 }
 
 export async function getFeatureRevisionsByFeatureIds(

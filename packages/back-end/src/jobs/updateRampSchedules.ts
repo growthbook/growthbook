@@ -1,9 +1,9 @@
 import Agenda, { Job } from "agenda";
-import { RampScheduleInterface } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
   advanceStep,
+  advanceUntilBlocked,
   completeRollout,
   makeAttribution,
 } from "back-end/src/services/rampSchedule";
@@ -74,38 +74,45 @@ export default async function addRampScheduleJob(
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
 
-    // Collect all orgs with active ramp schedules that need processing
-    // We do a direct DB query here to avoid loading context for every org
+    // Collect all orgs with active ramp schedules that need processing.
+    // Uses db.collection() directly since RampScheduleModel is a BaseModel (not mongoose.model).
     const mongoose = await import("mongoose");
-    const scheduleDocs = await mongoose.default
-      .model<RampScheduleInterface>("RampSchedule")
-      .find({
-        $or: [
-          // Running schedules with a step timer due
-          { status: "running", nextStepAt: { $ne: null, $lte: now } },
-          // Ready schedules with a scheduled start time that has passed — Agenda auto-starts these.
-          // "immediately" and "manual" ready schedules are NOT started by Agenda:
-          //   - "immediately" is started inline when the activating revision is published.
-          //   - "manual" requires the user to click Start.
-          {
-            status: "ready",
-            "startTrigger.type": "scheduled",
-            "startTrigger.at": { $lte: now },
-          },
-          // Running/paused/pending-approval schedules with a hard deadline due
-          {
-            status: { $in: ["running", "paused", "pending-approval"] },
-            "endSchedule.trigger.at": { $lte: now },
-          },
-        ],
-      })
-      .select("_id organization")
-      .lean();
+    const scheduleDocs = await mongoose.default.connection.db
+      .collection("rampschedules")
+      .find(
+        {
+          $or: [
+            // Running schedules with a step timer due
+            { status: "running", nextStepAt: { $ne: null, $lte: now } },
+            // Ready schedules with a scheduled start time that has passed — Agenda auto-starts these.
+            // "immediately" and "manual" ready schedules are NOT started by Agenda:
+            //   - "immediately" is started inline when the activating revision is published.
+            //   - "manual" requires the user to click Start.
+            {
+              status: "ready",
+              "startTrigger.type": "scheduled",
+              "startTrigger.at": { $lte: now },
+            },
+            // Running/paused/pending-approval schedules with a hard deadline due
+            {
+              status: { $in: ["running", "paused", "pending-approval"] },
+              "endSchedule.trigger.at": { $lte: now },
+            },
+          ],
+        },
+        { projection: { _id: 1, id: 1, organization: 1 } },
+      )
+      .toArray();
 
     for (const doc of scheduleDocs) {
+      const d = doc as unknown as {
+        id?: string;
+        _id: unknown;
+        organization: string;
+      };
       await queueRampScheduleAdvance(agenda, {
-        id: (doc as unknown as { id: string }).id || String(doc._id),
-        organization: (doc as { organization: string }).organization,
+        id: d.id || String(d._id),
+        organization: d.organization,
       });
     }
   });
@@ -134,43 +141,6 @@ export default async function addRampScheduleJob(
  * Approval-trigger steps naturally break the loop because advanceStep sets
  * status to "pending-approval", which fails the loop's status check.
  */
-async function advanceUntilBlocked(
-  context: Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
-  initial: import("shared/validators").RampScheduleInterface,
-  now: Date,
-  attribution: import("shared/validators").RampAttribution,
-): Promise<void> {
-  let current = initial;
-  // Cap iterations at the total number of steps to guard against runaway loops
-  const maxSteps = current.steps.length;
-
-  for (let i = 0; i < maxSteps; i++) {
-    // Re-check endSchedule before each step — it's a hard deadline
-    if (
-      current.endSchedule &&
-      current.endSchedule.trigger.type === "scheduled" &&
-      current.endSchedule.trigger.at <= now &&
-      ["running", "paused", "pending-approval"].includes(current.status)
-    ) {
-      await completeRollout(
-        context,
-        current,
-        makeAttribution(undefined, "endSchedule deadline reached", "system"),
-      );
-      return;
-    }
-
-    if (current.status !== "running") return;
-    if (!current.nextStepAt || current.nextStepAt > now) return;
-
-    current = await advanceStep(context, current, attribution);
-
-    // If the step we just applied was an approval gate, status is now
-    // "pending-approval" and the loop will exit on the next iteration's
-    // status check. If all steps are exhausted, advanceStep sets status
-    // to "completed" with nextStepAt === null.
-  }
-}
 
 export const advanceSingleRampSchedule = async (
   job: AdvanceSingleRampScheduleJob,

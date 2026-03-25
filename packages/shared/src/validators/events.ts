@@ -53,7 +53,11 @@ const eventUserApiKey = z
   })
   .strict();
 
-const eventUserSystem = z.object({ type: z.literal("system") }).strict();
+const eventUserSystem = z.object({
+  type: z.literal("system"),
+  subtype: z.string().optional(),
+  id: z.string().optional(),
+});
 
 export type EventUserApiKey = z.infer<typeof eventUserApiKey>;
 

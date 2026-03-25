@@ -6,14 +6,14 @@ import { baseSchema } from "./base-model";
 // The ramp service merges this with current state to build a full revision change set.
 export const featureRulePatch = z.object({
   ruleId: z.string(),
-  coverage: z.number().min(0).max(1).optional(),
-  condition: z.string().optional(),
-  savedGroups: z.array(savedGroupTargeting).optional(),
-  prerequisites: z.array(featurePrerequisite).optional(),
+  coverage: z.number().min(0).max(1).nullish(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
   force: z.unknown().optional(),
   // Internal only — managed automatically by disableRuleBeforeStart / disableRuleAfterComplete.
   // Never user-authored or shown in the UI.
-  enabled: z.boolean().optional(),
+  enabled: z.boolean().nullish(),
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
@@ -29,16 +29,16 @@ export const rampTarget = z.object({
   id: z.string(),
   entityType: z.enum(["feature"]), // TODO v2: add "experiment"
   entityId: z.string(),
-  ruleId: z.string().optional(),
-  environment: z.string().optional(),
+  ruleId: z.string().nullish(),
+  environment: z.string().nullish(),
   status: z.enum(["pending-join", "active", "pending-eject", "ejected"]),
-  joinRevisionId: z.string().optional(),
-  ejectRevisionId: z.string().optional(),
+  joinRevisionId: z.string().nullish(),
+  ejectRevisionId: z.string().nullish(),
   // Version of the draft revision whose publication activates this ramp.
   // Set when the ramp is created atomically alongside a rule change.
   // Once all targets have had their activating revisions published the ramp
   // transitions out of "pending" based on startTrigger.
-  activatingRevisionVersion: z.number().int().optional(),
+  activatingRevisionVersion: z.number().int().nullish(),
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
@@ -86,15 +86,16 @@ export type RampTrigger = z.infer<typeof rampTrigger>;
 export const rampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(rampStepAction).min(1),
-  notifyOnEntry: z.boolean().optional(),
+  notifyOnEntry: z.boolean().nullish(),
 });
 export type RampStep = z.infer<typeof rampStep>;
 
 export const rampAttribution = z.object({
   type: z.enum(["schedule", "manual", "system"]),
-  userId: z.string().optional(),
-  reason: z.string().optional(),
-  source: z.string().optional(),
+  // nullish: tolerates null stored in MongoDB for optional string fields.
+  userId: z.string().nullish(),
+  reason: z.string().nullish(),
+  source: z.string().nullish(),
 });
 export type RampAttribution = z.infer<typeof rampAttribution>;
 
@@ -103,7 +104,7 @@ export type RampAttribution = z.infer<typeof rampAttribution>;
 export const stepHistoryEntry = z.object({
   stepIndex: z.number().int(),
   enteredAt: z.date(),
-  completedAt: z.date().optional(),
+  completedAt: z.date().nullish(),
   revisionIds: z.array(z.string()),
   // Sparse patch-shaped snapshot — only the specific fields this step changed, per target.
   // Full rollback and N-step rollbacks are computed by accumulating these across steps.
@@ -144,7 +145,7 @@ export const rampScheduleValidator = baseSchema
     // When set, a failing criteria result from evaluateAutoRollback() triggers rollback.
     autoRollback: z
       .object({ enabled: z.boolean(), criteriaId: z.string() })
-      .optional(),
+      .nullish(),
     // Controls when the ramp starts after the activating draft revision is published.
     // "immediately": auto-start on revision publish.
     // "manual": transition to "ready"; requires user to click Start.
@@ -153,11 +154,11 @@ export const rampScheduleValidator = baseSchema
     startTrigger: rampStartTrigger,
     // Actions applied immediately when the ramp transitions to "running".
     // Typically used to set initial coverage to 0 before stepping up.
-    startActions: z.array(rampStepAction).optional(),
+    startActions: z.array(rampStepAction).nullish(),
     // When true, the rule is disabled (hidden from SDK payload) while the ramp is pending,
     // and again after the ramp completes/expires. The backend auto-injects enabled:true into
     // startActions and enabled:false into the completion patch.
-    disableOutsideSchedule: z.boolean().optional(),
+    disableOutsideSchedule: z.boolean().nullish(),
     // Optional hard deadline teardown. Fires via Agenda or immediately via the REST
     // "complete" action. Discards any pending-approval revisions and applies its patch.
     endSchedule: z
@@ -165,30 +166,30 @@ export const rampScheduleValidator = baseSchema
         trigger: rampEndTrigger,
         actions: z.array(rampStepAction),
       })
-      .optional(),
+      .nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
-    startedAt: z.date().optional(),
+    startedAt: z.date().nullish(),
     // Anchor for cumulative interval steps. Set to startedAt when the ramp transitions
     // to "running"; resets to approval-completion time after each approval gate so
     // subsequent interval steps remain on schedule regardless of how long the gate was open.
-    phaseStartedAt: z.date().optional(),
+    phaseStartedAt: z.date().nullish(),
     // Set when the ramp is manually paused. Cleared on resume. Used to shift
     // phaseStartedAt and nextStepAt forward by the pause duration so interval
     // steps continue exactly where they left off.
-    pausedAt: z.date().optional(),
+    pausedAt: z.date().nullish(),
     nextStepAt: z.date().nullable(),
     // Computed at response time by the API (never stored). Milliseconds since startedAt,
     // calculated server-side to avoid client timezone/clock-skew issues.
-    elapsedMs: z.number().int().optional(),
+    elapsedMs: z.number().int().nullish(),
     // IDs of all revisions created for the current step ("featureId:version" format).
     // Cleared when the step completes or the ramp is paused/rolled back.
-    pendingRevisionIds: z.array(z.string()).optional(),
+    pendingRevisionIds: z.array(z.string()).nullish(),
     // The specific revision ref (from pendingRevisionIds) that requires explicit approval
     // before the ramp can advance. Absent for auto-advance steps.
     // When this revision is published all other pendingRevisionIds are auto-published.
     // When it is discarded all other pendingRevisionIds are discarded and the ramp pauses.
-    pendingApprovalRevisionId: z.string().optional(),
+    pendingApprovalRevisionId: z.string().nullish(),
     stepHistory: z.array(stepHistoryEntry),
   })
   .strict()

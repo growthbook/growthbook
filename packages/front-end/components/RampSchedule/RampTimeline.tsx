@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiLockSimple, PiCheckBold, PiCaretDownFill } from "react-icons/pi";
+import { PiCheckBold, PiCaretDownFill } from "react-icons/pi";
 import { format } from "date-fns";
 import {
   RampScheduleInterface,
@@ -59,33 +59,30 @@ function completedNodeCount(rs: RampScheduleInterface): number {
   if (rs.status === "completed" || rs.status === "expired")
     return rs.steps.length + 2;
   if (rs.status === "pending" || rs.status === "ready") return 0;
-  return rs.currentStepIndex + 2; // start(1) + completed steps
+  // currentStepIndex is the step currently active/in-progress (0-indexed).
+  // Nodes before it (start + prior steps) are completed; it is active.
+  // Node index = stepIndex + 1 (start occupies node 0).
+  return rs.currentStepIndex + 1;
 }
 
 type NodeState = "completed" | "active" | "future";
 
 function activeDotColor(status: RampScheduleStatus): string {
-  if (
-    status === "pending" ||
-    status === "ready" ||
-    status === "paused" ||
-    status === "pending-approval"
-  )
+  if (status === "running") return "var(--green-9)";
+  if (status === "pending" || status === "ready" || status === "paused")
     return "var(--amber-9)";
-  if (status === "conflict") return "var(--red-9)";
+  if (status === "pending-approval" || status === "conflict")
+    return "var(--orange-9)";
   if (status === "rolled-back") return "var(--gray-8)";
   return "var(--accent-9)";
 }
 
 function activeLabelColor(status: RampScheduleStatus): string {
-  if (
-    status === "pending" ||
-    status === "ready" ||
-    status === "paused" ||
-    status === "pending-approval"
-  )
+  if (status === "running") return "var(--green-11)";
+  if (status === "pending" || status === "ready" || status === "paused")
     return "var(--amber-11)";
-  if (status === "conflict") return "var(--red-11)";
+  if (status === "pending-approval" || status === "conflict")
+    return "var(--orange-11)";
   if (status === "rolled-back") return "var(--gray-10)";
   return "var(--accent-11)";
 }
@@ -102,10 +99,8 @@ function nodeLabelColor(state: NodeState, status: RampScheduleStatus): string {
   return activeLabelColor(status);
 }
 
-function connectorColor(left: NodeState, right: NodeState): string {
-  return left === "completed" && right === "completed"
-    ? "var(--violet-9)"
-    : "var(--gray-4)";
+function connectorColor(left: NodeState): string {
+  return left === "completed" ? "var(--violet-9)" : "var(--gray-4)";
 }
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -179,10 +174,7 @@ function Node({
             flexShrink: 0,
           }}
         >
-          {state === "completed" && <PiCheckBold size={9} color="white" />}
-          {state === "active" && node.isApproval && (
-            <PiLockSimple size={11} color="white" />
-          )}
+          {state === "completed" && <PiCheckBold size={11} color="white" />}
         </Box>
       </Box>
 
@@ -202,17 +194,6 @@ function Node({
             {node.label}
           </Text>
         </span>
-        {node.isApproval && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <PiLockSimple size={9} />
-          </div>
-        )}
         {node.sublabel}
       </Flex>
     </Flex>
@@ -223,7 +204,7 @@ const CONNECTOR_WIDTH = 44;
 
 // ─── Connector ───────────────────────────────────────────────────────────────
 
-function Connector({ left, right }: { left: NodeState; right: NodeState }) {
+function Connector({ left }: { left: NodeState }) {
   return (
     <Box
       style={{
@@ -231,7 +212,7 @@ function Connector({ left, right }: { left: NodeState; right: NodeState }) {
         flexShrink: 0,
         height: 2,
         marginTop: CONNECTOR_MARGIN_TOP,
-        backgroundColor: connectorColor(left, right),
+        backgroundColor: connectorColor(left),
         alignSelf: "flex-start",
       }}
     />
@@ -243,6 +224,7 @@ function Connector({ left, right }: { left: NodeState; right: NodeState }) {
 interface Props {
   rs: RampScheduleInterface;
   onEditTarget?: (target: RampTarget) => void;
+  hideHeader?: boolean;
 }
 
 function targetLabel(target: RampTarget, index: number): string {
@@ -250,15 +232,55 @@ function targetLabel(target: RampTarget, index: number): string {
   return `${env} (target ${index + 1})`;
 }
 
-export default function RampTimeline({ rs, onEditTarget }: Props) {
-  const {
-    steps,
-    status,
-    currentStepIndex,
-    startTrigger,
-    endSchedule,
-    targets,
-  } = rs;
+// ─── Exported helpers (used by parent pages to build header rows) ─────────────
+
+export function getRampStatusLabel(rs: RampScheduleInterface): string {
+  if (rs.status === "ready") {
+    return rs.startTrigger?.type === "manual" ? "ready to start" : "scheduled";
+  }
+  const labels: Partial<Record<RampScheduleStatus, string>> = {
+    pending: "pending",
+    running: "running",
+    paused: "paused",
+    "pending-approval": "needs approval",
+    conflict: "conflict",
+    completed: "complete",
+    expired: "expired",
+    "rolled-back": "rolled back",
+  };
+  return labels[rs.status] ?? rs.status;
+}
+
+export function getRampBadgeColor(
+  status: RampScheduleStatus,
+): "amber" | "green" | "orange" | "gray" {
+  const colors: Record<
+    RampScheduleStatus,
+    "amber" | "green" | "orange" | "gray"
+  > = {
+    pending: "amber",
+    ready: "amber",
+    running: "green",
+    paused: "amber",
+    "pending-approval": "orange",
+    conflict: "orange",
+    completed: "gray",
+    expired: "gray",
+    "rolled-back": "gray",
+  };
+  return colors[status] ?? "gray";
+}
+
+export function getRampStepsCompleted(rs: RampScheduleInterface): number {
+  if (rs.status === "pending" || rs.status === "ready") return 0;
+  // currentStepIndex is the active step (0-indexed); display as 1-indexed.
+  return Math.min(rs.steps.length, Math.max(0, rs.currentStepIndex + 1));
+}
+
+// ─── RampTimeline ─────────────────────────────────────────────────────────────
+
+export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
+  const { steps, status, startTrigger, endSchedule, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
   const activatingRevisionVersion = targets.find(
     (t) => t.activatingRevisionVersion != null,
@@ -318,86 +340,77 @@ export default function RampTimeline({ rs, onEditTarget }: Props) {
     },
   ];
 
-  const stepsCompleted = Math.max(0, currentStepIndex + 1);
-
-  const statusLabel: Record<typeof status, string> = {
-    pending: "pending",
-    ready: startTrigger?.type === "manual" ? "ready to start" : "scheduled",
-    running: "running",
-    paused: "needs intervention",
-    "pending-approval": "needs intervention",
-    conflict: "needs intervention",
-    completed: "complete",
-    expired: "expired",
-    "rolled-back": "rolled back",
-  };
-
-  const badgeColor: Record<
-    typeof status,
-    "amber" | "green" | "red" | "teal" | "gray"
-  > = {
-    pending: "amber",
-    ready: "amber",
-    running: "green",
-    paused: "red",
-    "pending-approval": "red",
-    conflict: "red",
-    completed: "teal",
-    expired: "gray",
-    "rolled-back": "gray",
-  };
-
+  const stepsCompleted = getRampStepsCompleted(rs);
   const activeTargets = rs.targets.filter((t) => t.status === "active");
 
   return (
     <Box style={{ minWidth: 0, overflow: "hidden" }}>
-      {/* Header */}
-      <Flex align="center" gap="3" mb="2" wrap="wrap">
-        <Text weight="medium" size="medium">
-          {rs.name}
-        </Text>
-        {steps.length > 0 && (
-          <Text size="small" color="text-low">
-            Step {stepsCompleted} of {steps.length}
-          </Text>
-        )}
-        <Badge label={statusLabel[status]} color={badgeColor[status]} />
-      </Flex>
+      {!hideHeader && (
+        <>
+          {/* Header */}
+          <Flex align="center" gap="3" mb="2" wrap="wrap">
+            <Text weight="medium" size="medium">
+              {rs.name}
+            </Text>
+            {steps.length > 0 &&
+              (status === "completed" ||
+              status === "expired" ||
+              status === "rolled-back" ? (
+                <Text size="small" color="text-low">
+                  ramp complete
+                </Text>
+              ) : (
+                <Text size="small" color="text-low">
+                  Step {stepsCompleted} of {steps.length}
+                </Text>
+              ))}
+            <Badge
+              label={getRampStatusLabel(rs)}
+              color={getRampBadgeColor(status)}
+              radius="full"
+            />
+          </Flex>
 
-      {/* Implementation CTA */}
-      {onEditTarget && activeTargets.length === 1 && (
-        <Flex align="center" gap="1" mb="2">
-          <Text size="small" color="text-low">
-            Implementation:
-          </Text>
-          <Link size="1" onClick={() => onEditTarget(activeTargets[0])}>
-            {targetLabel(activeTargets[0], 0)}
-          </Link>
-        </Flex>
-      )}
-      {onEditTarget && activeTargets.length > 1 && (
-        <Flex align="center" gap="1" mb="2">
-          <Text size="small" color="text-low">
-            Implementations:
-          </Text>
-          <DropdownMenu
-            trigger={
-              <Link
-                size="1"
-                style={{ display: "inline-flex", alignItems: "center", gap: 3 }}
-              >
-                Select implementation ({activeTargets.length} total)
-                <PiCaretDownFill size={10} />
+          {/* Implementation CTA */}
+          {onEditTarget && activeTargets.length === 1 && (
+            <Flex align="center" gap="1" mb="2">
+              <Text size="small" color="text-low">
+                Implementation:
+              </Text>
+              <Link size="1" onClick={() => onEditTarget(activeTargets[0])}>
+                {targetLabel(activeTargets[0], 0)}
               </Link>
-            }
-          >
-            {activeTargets.map((t, i) => (
-              <DropdownMenuItem key={t.id} onClick={() => onEditTarget(t)}>
-                {targetLabel(t, i)}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenu>
-        </Flex>
+            </Flex>
+          )}
+          {onEditTarget && activeTargets.length > 1 && (
+            <Flex align="center" gap="1" mb="2">
+              <Text size="small" color="text-low">
+                Implementations:
+              </Text>
+              <DropdownMenu
+                trigger={
+                  <Link
+                    size="1"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
+                  >
+                    Select implementation ({activeTargets.length} total)
+                    <PiCaretDownFill size={10} />
+                  </Link>
+                }
+              >
+                {activeTargets.map((t, i) => (
+                  <DropdownMenuItem key={t.id} onClick={() => onEditTarget(t)}>
+                    {targetLabel(t, i)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            </Flex>
+          )}
+        </>
       )}
 
       {/* Single-row timeline */}
@@ -447,13 +460,7 @@ export default function RampTimeline({ rs, onEditTarget }: Props) {
 
           {nodes.map((node, i) => (
             <>
-              {i > 0 && (
-                <Connector
-                  key={`conn-${i}`}
-                  left={getState(i - 1)}
-                  right={getState(i)}
-                />
-              )}
+              {i > 0 && <Connector key={`conn-${i}`} left={getState(i - 1)} />}
               <Node
                 key={node.key}
                 node={node}

@@ -1218,8 +1218,11 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
+  // When a draft only activates a ramp schedule (no feature content changes),
+  // there's nothing to write to the feature document — just return it as-is so
+  // the caller can still mark the revision as published and trigger lifecycle hooks.
   if (!hasChanges) {
-    throw new Error("No changes to publish");
+    return feature;
   }
 
   if (changes.environmentSettings) {

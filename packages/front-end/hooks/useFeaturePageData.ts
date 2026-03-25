@@ -75,7 +75,7 @@ export function useFeaturePageData(
 
   // Poll ramp schedules independently so the timeline stays live without
   // reloading the full (heavy) feature page payload.
-  const { data: rampSchedulesData } = useApi<{
+  const { data: rampSchedulesData, mutate: mutateRampSchedules } = useApi<{
     status: 200;
     rampSchedules: RampScheduleInterface[];
   }>(fid ? `/ramp-schedule?featureId=${fid}` : "", {
@@ -147,10 +147,11 @@ export function useFeaturePageData(
   }, [fid]);
 
   const refreshData = async () => {
-    await mutateBase();
-    if (shouldFetchFromRevisionsEndpoint) {
-      await mutateSelectedVersion();
-    }
+    await Promise.all([
+      mutateBase(),
+      mutateRampSchedules(),
+      shouldFetchFromRevisionsEndpoint ? mutateSelectedVersion() : Promise.resolve(),
+    ]);
   };
 
   // Seed cache from initial response
@@ -245,15 +246,17 @@ export function useFeaturePageData(
       return;
     }
 
-    // Search revisionList (200 items) not revisions (5 items) to find all drafts
+    // Search revisionList (200 items) not revisions (5 items) to find all drafts.
+    // Skip ramp-generated revisions so the page defaults to human-authored drafts.
     const draft =
       data?.revisionList &&
       data.revisionList.find(
         (r) =>
-          r.status === "draft" ||
-          r.status === "approved" ||
-          r.status === "changes-requested" ||
-          r.status === "pending-review",
+          !(r.createdBy?.type === "system" && r.createdBy.subtype === "ramp-schedule") &&
+          (r.status === "draft" ||
+            r.status === "approved" ||
+            r.status === "changes-requested" ||
+            r.status === "pending-review"),
       );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [cacheSeeded, data, version, forcedVersionFromQuery, baseFeatureVersion]);

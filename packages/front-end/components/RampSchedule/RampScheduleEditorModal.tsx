@@ -273,9 +273,7 @@ export default function RampScheduleEditorModal({
         ...a,
         patch: {
           ...a.patch,
-          ...(prevCov !== undefined
-            ? { coverage: Math.min(1, prevCov + 0.25) }
-            : {}),
+          ...(prevCov != null ? { coverage: Math.min(1, prevCov + 0.25) } : {}),
         },
       };
     });

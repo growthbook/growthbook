@@ -8,7 +8,7 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
-import { PiArrowBendRightDown } from "react-icons/pi";
+import { PiArrowBendRightDown, PiHourglassMediumFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
@@ -17,6 +17,10 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import {
+  getRampStatusLabel,
+  getRampBadgeColor,
+} from "@/components/RampSchedule/RampTimeline";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 import {
@@ -336,30 +340,36 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       )}
                     </Heading>
                     {rampSchedule && (
-                      <Badge
-                        label={
-                          <>
-                            ramp <strong>{rampSchedule.name}</strong>:{" "}
-                            {rampSchedule.status}
-                          </>
-                        }
-                        color={
-                          rampSchedule.status === "running"
-                            ? "green"
-                            : rampSchedule.status === "completed"
-                              ? "teal"
-                              : rampSchedule.status === "paused" ||
-                                  rampSchedule.status === "pending-approval" ||
-                                  rampSchedule.status === "conflict"
-                                ? "red"
-                                : rampSchedule.status === "rolled-back" ||
-                                    rampSchedule.status === "expired"
-                                  ? "gray"
-                                  : "amber"
-                        }
-                        variant="soft"
-                        radius="full"
-                      />
+                      <span
+                        style={{ cursor: "pointer" }}
+                        onClick={() => {
+                          const el = document.getElementById(
+                            `ramp-${rampSchedule.id}`,
+                          );
+                          if (el) {
+                            const y =
+                              el.getBoundingClientRect().top +
+                              window.scrollY -
+                              160; // padding due to sticky header
+                            window.scrollTo({ top: y, behavior: "smooth" });
+                          }
+                        }}
+                      >
+                        <Badge
+                          label={
+                            <>
+                              <PiHourglassMediumFill
+                                size={14}
+                                style={{ verticalAlign: -3 }}
+                              />{" "}
+                              {getRampStatusLabel(rampSchedule)}
+                            </>
+                          }
+                          color={getRampBadgeColor(rampSchedule.status)}
+                          variant="soft"
+                          radius="full"
+                        />
+                      </span>
                     )}
                     {info.pill}
                   </Flex>

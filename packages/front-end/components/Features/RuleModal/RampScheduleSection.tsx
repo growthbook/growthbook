@@ -1162,12 +1162,11 @@ export function reconstructUIPatch(
 ): UIStepPatch {
   if (!patch) return {};
   const p: UIStepPatch = {};
-  if (patch.coverage !== undefined)
-    p.coverage = Math.round(patch.coverage * 100);
-  if (patch.condition !== undefined) p.condition = patch.condition;
-  if (patch.savedGroups !== undefined)
+  if (patch.coverage != null) p.coverage = Math.round(patch.coverage * 100);
+  if (patch.condition != null) p.condition = patch.condition;
+  if (patch.savedGroups != null)
     p.savedGroups = patch.savedGroups as SavedGroupTargeting[];
-  if (patch.prerequisites !== undefined)
+  if (patch.prerequisites != null)
     p.prerequisites = patch.prerequisites as FeaturePrerequisite[];
   if (patch.force !== undefined) {
     p.force =

@@ -883,6 +883,58 @@ function revisionHasMetadataOnlyGlobalChange(
   );
 }
 
+// Try to merge two diverged rule arrays at the individual rule level (matched by id).
+// Returns the merged array when each modified rule was only touched by one side,
+// or null when the same rule was modified by both sides (a genuine conflict).
+function tryRuleLevelMerge(
+  base: FeatureRule[],
+  live: FeatureRule[],
+  revision: FeatureRule[],
+): FeatureRule[] | null {
+  const baseById = new Map(base.map((r) => [r.id, r]));
+  const liveById = new Map(live.map((r) => [r.id, r]));
+  const revById = new Map(revision.map((r) => [r.id, r]));
+
+  const allIds = new Set([
+    ...base.map((r) => r.id),
+    ...live.map((r) => r.id),
+    ...revision.map((r) => r.id),
+  ]);
+
+  for (const id of allIds) {
+    const liveChanged = !isEqual(liveById.get(id), baseById.get(id));
+    const revChanged = !isEqual(revById.get(id), baseById.get(id));
+    if (
+      liveChanged &&
+      revChanged &&
+      !isEqual(liveById.get(id), revById.get(id))
+    ) {
+      return null;
+    }
+  }
+
+  // No per-rule conflicts. Walk live ordering, applying revision-side changes.
+  const merged: FeatureRule[] = [];
+  const handledIds = new Set<string>();
+
+  for (const liveRule of live) {
+    handledIds.add(liveRule.id);
+    const revRule = revById.get(liveRule.id);
+    const revChanged =
+      revRule !== undefined && !isEqual(revRule, baseById.get(liveRule.id));
+    merged.push(revChanged ? revRule! : liveRule);
+  }
+
+  // Append rules added only in the revision (not present in live).
+  for (const revRule of revision) {
+    if (!handledIds.has(revRule.id)) {
+      merged.push(revRule);
+    }
+  }
+
+  return merged;
+}
+
 export function autoMerge(
   live: RevisionFields,
   base: RevisionFields,
@@ -1011,22 +1063,32 @@ export function autoMerge(
       !isEqual(live.rules[env] || [], base.rules[env] || []) &&
       !isEqual(live.rules[env] || [], rules)
     ) {
-      const conflictInfo: MergeConflict = {
-        name: `Rules - ${env}`,
-        key: `rules.${env}`,
-        base: JSON.stringify(base.rules[env], null, 2),
-        live: JSON.stringify(live.rules[env], null, 2),
-        revision: JSON.stringify(rules, null, 2),
-        resolved: false,
-      };
-      const strategy = strategies[conflictInfo.key];
-      if (strategy === "overwrite") {
-        conflictInfo.resolved = true;
-        result.rules[env] = rules;
-      } else if (strategy === "discard") {
-        conflictInfo.resolved = true;
+      // Both sides changed — try per-rule merge before raising a conflict.
+      const autoMerged = tryRuleLevelMerge(
+        base.rules[env] || [],
+        live.rules[env] || [],
+        rules,
+      );
+      if (autoMerged !== null) {
+        result.rules[env] = autoMerged;
+      } else {
+        const conflictInfo: MergeConflict = {
+          name: `Rules - ${env}`,
+          key: `rules.${env}`,
+          base: JSON.stringify(base.rules[env], null, 2),
+          live: JSON.stringify(live.rules[env], null, 2),
+          revision: JSON.stringify(rules, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.rules[env] = rules;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
       }
-      conflicts.push(conflictInfo);
     } else {
       result.rules[env] = rules;
     }

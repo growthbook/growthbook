@@ -4,7 +4,10 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   advanceStep,
+  advanceUntilBlocked,
+  approveAndPublishStep,
   completeRollout,
+  computeNextStepAt,
   dispatchRampEvent,
   makeAttribution,
   rollbackToStep,
@@ -289,7 +292,10 @@ export const postRampScheduleAction = async (
         startedAt: now,
         phaseStartedAt: now,
       });
-      updated = await advanceStep(context, updated, attribution);
+      // Advance step 0 immediately (and any subsequent overdue steps) inline.
+      await advanceUntilBlocked(context, updated, now, attribution);
+      updated =
+        (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
       await dispatchRampEvent(context, updated, "started", {
         object: {
           rampScheduleId: updated.id,
@@ -297,9 +303,9 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId,
-          reason: attribution.reason,
-          source: attribution.source,
+          userId: attribution.userId ?? undefined,
+          reason: attribution.reason ?? undefined,
+          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -322,9 +328,9 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId,
-          reason: attribution.reason,
-          source: attribution.source,
+          userId: attribution.userId ?? undefined,
+          reason: attribution.reason ?? undefined,
+          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -338,26 +344,67 @@ export const postRampScheduleAction = async (
       }
       // Shift phaseStartedAt and nextStepAt forward by the duration of the pause
       // so interval steps continue from exactly where they left off.
+      // When resuming after a terminal restart startedAt/phaseStartedAt will be
+      // null (cleared by the reset), so we anchor them to now as a fresh start.
       const pauseDurationMs = schedule.pausedAt
         ? now.getTime() - schedule.pausedAt.getTime()
         : 0;
-      const resumeUpdates: Record<string, unknown> = { status: "running" };
-      if (pauseDurationMs > 0) {
-        if (schedule.phaseStartedAt) {
-          resumeUpdates.phaseStartedAt = new Date(
-            schedule.phaseStartedAt.getTime() + pauseDurationMs,
+
+      const newStartedAt = schedule.startedAt ? schedule.startedAt : now;
+
+      const newPhaseStartedAt = schedule.phaseStartedAt
+        ? new Date(
+            schedule.phaseStartedAt.getTime() +
+              (pauseDurationMs > 0 ? pauseDurationMs : 0),
+          )
+        : now;
+
+      const resumeUpdates: Record<string, unknown> = {
+        status: "running",
+        pausedAt: null,
+        startedAt: newStartedAt,
+        phaseStartedAt: newPhaseStartedAt,
+      };
+
+      if (schedule.nextStepAt) {
+        // Shift the existing deadline forward by the pause duration.
+        resumeUpdates.nextStepAt = new Date(
+          schedule.nextStepAt.getTime() + pauseDurationMs,
+        );
+      } else {
+        // nextStepAt was null (after a reset/rollback). Recompute from the
+        // now-anchored phaseStartedAt so the agenda job picks this ramp up.
+        const nextStepIndex = schedule.currentStepIndex + 1;
+        if (nextStepIndex < schedule.steps.length) {
+          const tempSchedule = {
+            ...schedule,
+            startedAt: newStartedAt,
+            phaseStartedAt: newPhaseStartedAt,
+          };
+          resumeUpdates.nextStepAt = computeNextStepAt(
+            tempSchedule,
+            nextStepIndex,
+            now,
           );
         }
-        if (schedule.nextStepAt) {
-          resumeUpdates.nextStepAt = new Date(
-            schedule.nextStepAt.getTime() + pauseDurationMs,
-          );
-        }
+      }
+
+      // Clear stale pending revision tracking from before the pause
+      // (e.g., a rollback revision that was already auto-published).
+      // Preserve them only when pendingApprovalRevisionId is set — that
+      // means an approval gate is still open and we must not discard it.
+      if (!schedule.pendingApprovalRevisionId) {
+        resumeUpdates.pendingRevisionIds = [];
       }
       updated = await context.models.rampSchedules.updateById(
         schedule.id,
         resumeUpdates,
       );
+      // Advance immediately if step 0 is pending (fresh/restarted ramp) or
+      // if any steps became overdue during a long pause.
+      await advanceUntilBlocked(context, updated, now, attribution);
+      updated =
+        (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
       await dispatchRampEvent(context, updated, "resumed", {
         object: {
           rampScheduleId: updated.id,
@@ -365,9 +412,9 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId,
-          reason: attribution.reason,
-          source: attribution.source,
+          userId: attribution.userId ?? undefined,
+          reason: attribution.reason ?? undefined,
+          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -405,23 +452,29 @@ export const postRampScheduleAction = async (
       break;
 
     case "reset": {
-      if (["completed", "expired", "rolled-back"].includes(schedule.status)) {
-        return res.status(400).json({
-          status: 400,
-          message: `Cannot reset a schedule in terminal status "${schedule.status}"`,
-        });
-      }
-      // Revert all applied steps to the initial state, but stay paused (not rolled-back)
-      // so the user can resume from the beginning.
-      const resetRolled = await rollbackToStep(
-        context,
-        schedule,
-        -1,
-        attribution,
+      const isTerminal = ["completed", "expired", "rolled-back"].includes(
+        schedule.status,
       );
+      // Revert all applied steps to the initial state.
+      // For terminal states (restart): clear timing fields and set to "ready"
+      // so the user starts the ramp fresh with an explicit Start action.
+      // For active states: stay paused so the user can resume from the beginning.
+      const resetRolled =
+        schedule.currentStepIndex >= 0
+          ? await rollbackToStep(context, schedule, -1, attribution)
+          : schedule;
+      // Both terminal and non-terminal restarts land in "paused" so the user
+      // must explicitly resume to kick off the ramp again. For terminal cases
+      // we also clear the timing anchors so resume starts fresh from now.
       updated = await context.models.rampSchedules.updateById(resetRolled.id, {
         status: "paused",
         pausedAt: now,
+        pendingRevisionIds: [],
+        pendingApprovalRevisionId: null,
+        ...(isTerminal && {
+          startedAt: null,
+          phaseStartedAt: null,
+        }),
       });
       await dispatchRampEvent(context, updated, "reset", {
         object: {
@@ -430,9 +483,9 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId,
-          reason: attribution.reason,
-          source: attribution.source,
+          userId: attribution.userId ?? undefined,
+          reason: attribution.reason ?? undefined,
+          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -456,7 +509,7 @@ export const postRampScheduleAction = async (
         });
       }
       if (jumpTarget < schedule.currentStepIndex) {
-        // Backward: rollback then override to paused
+        // Backward: rollback then override to paused, clearing any pending approval state
         const j = await rollbackToStep(
           context,
           schedule,
@@ -466,6 +519,8 @@ export const postRampScheduleAction = async (
         updated = await context.models.rampSchedules.updateById(j.id, {
           status: "paused",
           pausedAt: now,
+          pendingRevisionIds: [],
+          pendingApprovalRevisionId: null,
         });
       } else if (jumpTarget > schedule.currentStepIndex) {
         // Forward: advance step-by-step up to target, then pause
@@ -493,11 +548,58 @@ export const postRampScheduleAction = async (
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
           targetStepIndex: jumpTarget,
-          userId: attribution.userId,
-          reason: attribution.reason,
-          source: attribution.source,
+          userId: attribution.userId ?? undefined,
+          reason: attribution.reason ?? undefined,
+          source: attribution.source ?? undefined,
         },
       });
+      break;
+    }
+
+    case "approve-step": {
+      if (schedule.status !== "pending-approval") {
+        return res.status(400).json({
+          status: 400,
+          message: `Cannot approve step: schedule is not in "pending-approval" status (currently "${schedule.status}")`,
+        });
+      }
+      const approveErr = await approveAndPublishStep(context, schedule);
+      if (approveErr) {
+        const httpStatus =
+          approveErr.code === "permission_denied"
+            ? 403
+            : approveErr.code === "merge_conflict"
+              ? 409
+              : approveErr.code === "no_pending_approval" ||
+                  approveErr.code === "revision_not_found"
+                ? 404
+                : 400;
+        return res.status(httpStatus).json({
+          status: httpStatus,
+          code: approveErr.code,
+          message:
+            approveErr.code === "merge_conflict"
+              ? `Merge conflict on: ${approveErr.detail}. Open the draft to resolve conflicts before continuing.`
+              : approveErr.code === "permission_denied"
+                ? `Permission denied: ${approveErr.detail}`
+                : approveErr.code === "no_pending_approval"
+                  ? "No pending approval revision found for this ramp step"
+                  : approveErr.code === "revision_not_found"
+                    ? "Pending approval revision no longer exists"
+                    : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`,
+        });
+      }
+      // onRevisionPublished hook advances the ramp — re-fetch for fresh state
+      const afterApprove = await context.models.rampSchedules.getById(
+        schedule.id,
+      );
+      if (!afterApprove) {
+        return res.status(404).json({
+          status: 404,
+          message: "Ramp schedule not found after approve",
+        });
+      }
+      updated = afterApprove;
       break;
     }
 

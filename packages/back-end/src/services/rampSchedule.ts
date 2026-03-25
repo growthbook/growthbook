@@ -20,9 +20,19 @@ import {
   StepHistoryEntry,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
+import {
+  autoMerge,
+  fillRevisionFromFeature,
+  filterEnvironmentsByFeature,
+  liveRevisionFromFeature,
+} from "shared/util";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironments,
+} from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature } from "back-end/src/models/FeatureModel";
+import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
   discardRevision,
@@ -32,6 +42,7 @@ import {
   markRevisionAsReviewRequested,
   registerRevisionDiscardedHook,
   registerRevisionPublishedHook,
+  submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
@@ -66,7 +77,13 @@ export function makeAttribution(
   source?: string,
 ): RampAttribution {
   const type = userId ? "manual" : source === "system" ? "system" : "schedule";
-  return { type, userId, reason, source };
+  // Omit undefined fields so MongoDB doesn't store them as null.
+  return {
+    type,
+    ...(userId !== undefined && { userId }),
+    ...(reason !== undefined && { reason }),
+    ...(source !== undefined && { source }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -105,16 +122,16 @@ function applyPatchToRule(
   patch: Omit<FeatureRulePatch, "ruleId">,
 ): FeatureRule {
   const updated = { ...existing };
-  if (patch.coverage !== undefined) {
+  if (patch.coverage != null) {
     (updated as { coverage?: number }).coverage = patch.coverage;
   }
-  if (patch.condition !== undefined) {
+  if (patch.condition != null) {
     updated.condition = patch.condition;
   }
-  if (patch.savedGroups !== undefined) {
+  if (patch.savedGroups != null) {
     updated.savedGroups = patch.savedGroups;
   }
-  if (patch.prerequisites !== undefined) {
+  if (patch.prerequisites != null) {
     updated.prerequisites = patch.prerequisites;
   }
   if ("force" in patch && patch.force !== undefined) {
@@ -246,13 +263,16 @@ export function computeNextStepAt(
   if (!step) return null;
 
   const trigger = step.trigger;
-  if (trigger.type === "approval") return null;
+  // Approval steps have no time-based delay — fire as soon as the previous step completes.
+  if (trigger.type === "approval") return now;
   if (trigger.type === "scheduled") return trigger.at;
 
   const phaseStart = schedule.phaseStartedAt ?? schedule.startedAt ?? now;
 
+  // Sum the intervals of all steps *before* nextStepIndex — each step's interval
+  // is the hold time after that step fires before the next one advances.
   let total = 0;
-  for (let i = 0; i <= nextStepIndex; i++) {
+  for (let i = 0; i < nextStepIndex; i++) {
     const t = schedule.steps[i]?.trigger;
     if (t?.type === "interval") total += t.seconds;
   }
@@ -338,7 +358,11 @@ async function createStepRevisions(
   const primaryKey = `${schedule.entityType}:${schedule.entityId}`;
   const isApprovalStep = schedule.steps[stepIndex]?.trigger.type === "approval";
 
-  const user: EventUser = { type: "system" };
+  const user: EventUser = {
+    type: "system",
+    subtype: "ramp-schedule",
+    id: schedule.id,
+  };
   let pendingApprovalRevisionId: string | undefined;
 
   for (const [key, group] of byEntity) {
@@ -368,24 +392,77 @@ async function createStepRevisions(
       environments: ctx.environments,
       changes,
       publish: false,
-      comment: `Ramp schedule step ${stepIndex + 1}`,
-      title: `Ramp: ${schedule.name} — step ${stepIndex + 1}`,
+      comment:
+        stepIndex >= schedule.steps.length
+          ? `Ramp complete`
+          : `Ramp schedule step ${stepIndex + 1}`,
+      title:
+        stepIndex >= schedule.steps.length
+          ? `Ramp complete: ${schedule.name}`
+          : `Ramp [${stepIndex + 1} of ${schedule.steps.length}]: ${schedule.name}`,
       org: ctx.org,
     });
 
     const revisionRef = `${feature.id}:${revision.version}`;
 
     if (isApprovalStep && isPrimary) {
-      // This is the approval gate — request review and track it as the blocker
+      // Approval gate — request review and track it as the blocker.
       await markRevisionAsReviewRequested(ctx, revision, user);
       pendingApprovalRevisionId = revisionRef;
     } else if (!isPrimary) {
-      // Secondary-entity revision waits for the primary to be approved
+      // Secondary-entity revision waits for the primary to be approved.
       await markRevisionAsPendingParent(
         ctx.org.id,
         feature.id,
         revision.version,
       );
+    } else {
+      // Non-approval primary step: org-level approval requirements do NOT apply.
+      // The ramp controls its own publication lifecycle — approval gates are only
+      // introduced by explicit "approval" trigger steps. Interval steps always
+      // auto-publish immediately.
+      const allEnvironments = getEnvironmentIdsFromOrg(ctx.org);
+      const featureEnvs: Record<string, boolean> = Object.fromEntries(
+        Object.entries(
+          (feature as FeatureInterface).environmentSettings ?? {},
+        ).map(([envId, env]) => [envId, !!env.enabled]),
+      );
+      const fillEnvs = (r: FeatureRevisionInterface) => ({
+        ...fillRevisionFromFeature(r, feature as FeatureInterface),
+        environmentsEnabled: {
+          ...featureEnvs,
+          ...(r.environmentsEnabled ?? {}),
+        },
+      });
+      const liveRevision = await getRevision({
+        context: ctx,
+        organization: feature.organization,
+        featureId: feature.id,
+        version: (feature as FeatureInterface).version,
+      });
+      if (liveRevision) {
+        const mergeResult = autoMerge(
+          fillEnvs(liveRevision),
+          fillEnvs(liveRevision),
+          revision,
+          allEnvironments,
+          {},
+        );
+        if (mergeResult.success) {
+          await publishRevision(
+            ctx,
+            feature as FeatureInterface,
+            revision,
+            mergeResult.result,
+            `Ramp: ${schedule.name} — step ${stepIndex + 1}`,
+          );
+        } else {
+          logger.warn(
+            { scheduleId: schedule.id, stepIndex },
+            "Ramp step auto-publish: merge conflict, leaving as draft",
+          );
+        }
+      }
     }
 
     revisionIds.push(revisionRef);
@@ -434,13 +511,18 @@ export async function advanceStep(
   const trigger = step.trigger;
   const isApprovalStep = trigger.type === "approval";
 
+  // A step is "blocked" if it's an explicit approval-type step OR if the
+  // org's review policy gates the ramp's target environments (policy-gated
+  // interval steps set pendingApprovalRevisionId in createStepRevisions).
+  const isBlocked = isApprovalStep || !!pendingApprovalRevisionId;
+
   const nextNextStepIndex = nextStepIndex + 1;
   let nextStepAt: Date | null = null;
-  if (!isApprovalStep && schedule.steps[nextNextStepIndex]) {
+  if (!isBlocked && schedule.steps[nextNextStepIndex]) {
     nextStepAt = computeNextStepAt(schedule, nextNextStepIndex, now);
   }
 
-  const newStatus: RampScheduleInterface["status"] = isApprovalStep
+  const newStatus: RampScheduleInterface["status"] = isBlocked
     ? "pending-approval"
     : "running";
 
@@ -463,7 +545,7 @@ export async function advanceStep(
     },
   });
 
-  if (isApprovalStep && pendingApprovalRevisionId) {
+  if (pendingApprovalRevisionId) {
     await dispatchRampEvent(ctx, updated, "step.approvalRequired", {
       object: {
         rampScheduleId: updated.id,
@@ -540,9 +622,9 @@ export async function rollbackToStep(
       currentStepIndex: updated.currentStepIndex,
       status: updated.status,
       targetStepIndex,
-      userId: attribution.userId,
-      reason: attribution.reason,
-      source: attribution.source,
+      userId: attribution.userId ?? undefined,
+      reason: attribution.reason ?? undefined,
+      source: attribution.source ?? undefined,
     },
   });
 
@@ -639,9 +721,9 @@ export async function completeRollout(
         orgId: ctx.org.id,
         currentStepIndex: updated.currentStepIndex,
         status: updated.status,
-        userId: attribution.userId,
-        reason: attribution.reason,
-        source: attribution.source,
+        userId: attribution.userId ?? undefined,
+        reason: attribution.reason ?? undefined,
+        source: attribution.source ?? undefined,
       },
     },
   );
@@ -726,17 +808,15 @@ async function onActivatingRevisionPublished(
       phaseStartedAt: now,
     });
 
-    // Advance the first step immediately
+    const startAttribution = makeAttribution(
+      undefined,
+      "auto-started on activating revision publish",
+      "system",
+    );
+    // Advance the first step (and any immediately-due subsequent steps) inline.
     if (current.steps.length > 0) {
-      current = await advanceStep(
-        ctx,
-        current,
-        makeAttribution(
-          undefined,
-          "auto-started on activating revision publish",
-          "system",
-        ),
-      );
+      await advanceUntilBlocked(ctx, current, now, startAttribution);
+      current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     }
 
     await dispatchRampEvent(ctx, current, "started", {
@@ -882,9 +962,15 @@ export async function onRevisionDiscarded(
     // Discard all other pending-parent revisions for this step
     await discardPendingRevisions(ctx, schedule, revisionRef);
 
+    // The approval draft was never published, so its step changes were never applied.
+    // Roll currentStepIndex back to the last successfully applied step so that
+    // resuming will retry this step rather than skipping it.
+    const revertedStepIndex = Math.max(-1, schedule.currentStepIndex - 1);
+
     await ctx.models.rampSchedules.updateById(schedule.id, {
       status: "paused",
       pausedAt: new Date(),
+      currentStepIndex: revertedStepIndex,
       pendingRevisionIds: [],
       pendingApprovalRevisionId: undefined,
     });
@@ -894,7 +980,7 @@ export async function onRevisionDiscarded(
         rampScheduleId: schedule.id,
         rampName: schedule.name,
         orgId: ctx.org.id,
-        currentStepIndex: schedule.currentStepIndex,
+        currentStepIndex: revertedStepIndex,
         status: "paused",
       },
     });
@@ -982,4 +1068,180 @@ export async function dispatchRampEvent<
 export function initRampScheduleHooks(): void {
   registerRevisionPublishedHook(onRevisionPublished);
   registerRevisionDiscardedHook(onRevisionDiscarded);
+}
+
+// ---------------------------------------------------------------------------
+// advanceUntilBlocked — shared by agenda job and inline start/resume paths
+// ---------------------------------------------------------------------------
+
+/**
+ * Advance a running schedule through all steps that are currently due,
+ * creating a separate revision for each step.  The loop stops when:
+ *   - The schedule leaves "running" (approval gate, completion, error)
+ *   - No more steps remain (nextStepAt === null)
+ *   - The next step is not yet due (nextStepAt > now)
+ *   - A safety cap of schedule.steps.length iterations is reached
+ */
+export async function advanceUntilBlocked(
+  ctx: ReqContext | ApiReqContext,
+  initial: RampScheduleInterface,
+  now: Date,
+  attribution: RampAttribution,
+): Promise<void> {
+  let current = initial;
+  const maxSteps = current.steps.length;
+
+  for (let i = 0; i < maxSteps; i++) {
+    if (
+      current.endSchedule &&
+      current.endSchedule.trigger.type === "scheduled" &&
+      current.endSchedule.trigger.at <= now &&
+      ["running", "paused", "pending-approval"].includes(current.status)
+    ) {
+      await completeRollout(
+        ctx,
+        current,
+        makeAttribution(undefined, "endSchedule deadline reached", "system"),
+      );
+      return;
+    }
+
+    if (current.status !== "running") return;
+
+    // Step 0 always fires immediately — the interval is time *between* steps,
+    // not a delay before the first one. For all subsequent steps, respect nextStepAt.
+    const isFirstStep = current.currentStepIndex === -1;
+    if (!isFirstStep && (!current.nextStepAt || current.nextStepAt > now))
+      return;
+
+    current = await advanceStep(ctx, current, attribution);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Approve and publish a pending-approval ramp step atomically
+// ---------------------------------------------------------------------------
+
+export type ApproveStepError =
+  | { code: "no_pending_approval" }
+  | { code: "revision_not_found" }
+  | { code: "feature_not_found" }
+  | { code: "permission_denied"; detail: string }
+  | { code: "merge_conflict"; detail: string }
+  | { code: "error"; detail: string };
+
+/**
+ * Atomically approve and publish the ramp's pending approval revision.
+ * Returns null on success, or a structured error that the controller can map to
+ * an appropriate HTTP response.
+ *
+ * The caller does not need to pass a serialized merge result — we compute it
+ * here and reject if there are unresolvable conflicts, returning a structured
+ * error so the UI can prompt the user to open the diff view.
+ */
+export async function approveAndPublishStep(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<ApproveStepError | null> {
+  if (!schedule.pendingApprovalRevisionId) {
+    return { code: "no_pending_approval" };
+  }
+
+  // pendingApprovalRevisionId is stored as "featureId:version"
+  const parts = schedule.pendingApprovalRevisionId.split(":");
+  const revVersion = parseInt(parts[parts.length - 1], 10);
+  const featureId = parts.slice(0, parts.length - 1).join(":");
+
+  const feature = await getFeature(ctx, featureId);
+  if (!feature) return { code: "feature_not_found" };
+
+  if (!ctx.permissions.canUpdateFeature(feature, {})) {
+    return { code: "permission_denied", detail: "Cannot update this feature" };
+  }
+  if (!ctx.permissions.canReviewFeatureDrafts(feature)) {
+    return {
+      code: "permission_denied",
+      detail: "Cannot review drafts for this feature",
+    };
+  }
+
+  const revision = await getRevision({
+    context: ctx,
+    organization: ctx.org.id,
+    featureId: feature.id,
+    version: revVersion,
+  });
+  if (!revision) return { code: "revision_not_found" };
+
+  const live = await getRevision({
+    context: ctx,
+    organization: ctx.org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!live) return { code: "error", detail: "Could not load live revision" };
+
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision({
+          context: ctx,
+          organization: ctx.org.id,
+          featureId: feature.id,
+          version: revision.baseVersion,
+        });
+  if (!base) return { code: "error", detail: "Could not load base revision" };
+
+  const allEnvironments = getEnvironments(ctx.org);
+  const environmentIds = filterEnvironmentsByFeature(
+    allEnvironments,
+    feature,
+  ).map((e) => e.id);
+
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    environmentIds,
+    {},
+  );
+
+  if (!mergeResult.success) {
+    return {
+      code: "merge_conflict",
+      detail: mergeResult.conflicts
+        .filter((c) => !c.resolved)
+        .map((c) => c.name)
+        .join(", "),
+    };
+  }
+
+  // Check publish permissions for the affected environments
+  const changedEnvs = Object.keys(mergeResult.result.rules ?? {});
+  const envsToCheck =
+    mergeResult.result.defaultValue !== undefined
+      ? environmentIds
+      : changedEnvs;
+  if (
+    envsToCheck.length > 0 &&
+    !ctx.permissions.canPublishFeature(feature, envsToCheck)
+  ) {
+    return {
+      code: "permission_denied",
+      detail: "Cannot publish to one or more affected environments",
+    };
+  }
+
+  // Mark as approved
+  const user: EventUser = {
+    type: "system",
+    subtype: "ramp-schedule",
+    id: schedule.id,
+  };
+  await submitReviewAndComments(ctx, revision, user, "Approved");
+
+  // Publish — this triggers onRevisionPublished which advances the ramp
+  await publishRevision(ctx, feature, revision, mergeResult.result);
+
+  return null;
 }
