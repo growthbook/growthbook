@@ -12,6 +12,7 @@ import {
   isBinomialMetric,
   isRatioMetric,
   quantileMetricType,
+  getRowFilterSQL,
 } from "shared/experiments";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -19,7 +20,6 @@ import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { getRowFilterSQL } from "shared/src/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -193,7 +193,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -220,8 +220,6 @@ export default function FactMetricPage() {
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const isMetricSlicesFeatureEnabled =
-    growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   if (!ready) return <LoadingOverlay />;
@@ -476,7 +474,6 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -658,7 +655,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
+          Owner: {getOwnerDisplay(factMetric.owner) || "None"}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"
@@ -769,52 +766,50 @@ export default function FactMetricPage() {
               </div>
             ) : null}
 
-            {isMetricSlicesFeatureEnabled && (
-              <div className="appbox p-3 mb-3">
-                <h4>
-                  Auto Slices
-                  <PaidFeatureBadge
-                    commercialFeature="metric-slices"
-                    premiumText="This is an Enterprise feature"
-                    variant="outline"
-                    ml="2"
-                  />
-                </h4>
-                <Text
-                  as="p"
-                  className="mb-2"
-                  style={{ color: "var(--color-text-mid)" }}
-                >
-                  Choose metric breakdowns to automatically analyze in your
-                  experiments.{" "}
-                  <DocLink docSection="autoSlices">
-                    Learn More <PiArrowSquareOut />
-                  </DocLink>
-                </Text>
-                <div className="mt-2">
-                  <FactTableAutoSliceSelector
-                    factMetric={factMetric}
-                    factTableId={factMetric.numerator.factTableId}
-                    canEdit={
-                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-                      !factMetric.managedBy &&
-                      hasMetricSlicesFeature
-                    }
-                    onUpdate={async (metricAutoSlices) => {
-                      await apiCall(`/fact-metrics/${factMetric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          metricAutoSlices,
-                        }),
-                      });
-                      mutateDefinitions();
-                    }}
-                    compactButtons={false}
-                    containerWidth="auto"
-                  />
-                </div>
+            <div className="appbox p-3 mb-3">
+              <h4>
+                Auto Slices
+                <PaidFeatureBadge
+                  commercialFeature="metric-slices"
+                  premiumText="This is an Enterprise feature"
+                  variant="outline"
+                  ml="2"
+                />
+              </h4>
+              <Text
+                as="p"
+                className="mb-2"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                Choose metric breakdowns to automatically analyze in your
+                experiments.{" "}
+                <DocLink docSection="autoSlices">
+                  Learn More <PiArrowSquareOut />
+                </DocLink>
+              </Text>
+              <div className="mt-2">
+                <FactTableAutoSliceSelector
+                  factMetric={factMetric}
+                  factTableId={factMetric.numerator.factTableId}
+                  canEdit={
+                    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                    !factMetric.managedBy &&
+                    hasMetricSlicesFeature
+                  }
+                  onUpdate={async (metricAutoSlices) => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        metricAutoSlices,
+                      }),
+                    });
+                    mutateDefinitions();
+                  }}
+                  compactButtons={false}
+                  containerWidth="auto"
+                />
               </div>
-            )}
+            </div>
           </div>
 
           <div className="mb-4">
@@ -1070,12 +1065,10 @@ export default function FactMetricPage() {
             <GBExperiment className="mr-1" />
             Experiments
           </TabsTrigger>
-          {growthbook.isOn("bandits") && (
-            <TabsTrigger value="bandits">
-              <GBBandit className="mr-1" />
-              Bandits
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="bandits">
+            <GBBandit className="mr-1" />
+            Bandits
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis">
@@ -1092,11 +1085,9 @@ export default function FactMetricPage() {
           <MetricExperiments metric={factMetric} />
         </TabsContent>
 
-        {growthbook.isOn("bandits") && (
-          <TabsContent value="bandits">
-            <MetricExperiments metric={factMetric} bandits={true} />
-          </TabsContent>
-        )}
+        <TabsContent value="bandits">
+          <MetricExperiments metric={factMetric} bandits={true} />
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -30,7 +30,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }) {
-  const { needsUpdate, draftExploreState, handleSubmit } = useExplorerContext();
+  const { needsFetch, needsUpdate, draftExploreState, handleSubmit } =
+    useExplorerContext();
   const pendingCloseRef = useRef(false);
   const onSaveAndCloseRef = useRef(onSaveAndClose);
   onSaveAndCloseRef.current = onSaveAndClose;
@@ -43,13 +44,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       setBlock({
         ...block,
         config: draftExploreState,
-        explorerAnalysisId: "",
+        // Only invalidate the cached analysis when the change requires new data
+        explorerAnalysisId: needsFetch ? "" : block.explorerAnalysisId,
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
         | DataSourceExplorationBlockInterface);
     }
-  }, [needsUpdate, setBlock, block, draftExploreState]);
+  }, [needsFetch, needsUpdate, setBlock, block, draftExploreState]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
   useEffect(() => {

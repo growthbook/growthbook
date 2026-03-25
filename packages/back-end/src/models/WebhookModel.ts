@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import { WebhookInterface } from "shared/types/webhook";
 import { webhookSchema } from "shared/validators";
 import {
@@ -14,7 +15,7 @@ const BaseClass = MakeModelClass({
   schema: webhookSchema,
   collectionName: COLLECTION_NAME,
   idPrefix: "wh_",
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   readonlyFields: [],
   additionalIndexes: [
     {
@@ -59,6 +60,9 @@ export class SdkWebhookModel extends BaseClass {
     }
     if (!castDoc.dateCreated && castDoc.created)
       newDoc.dateCreated = castDoc.created;
+    if (castDoc.consecutiveFailures === undefined)
+      newDoc.consecutiveFailures = 0;
+    if (castDoc.disabled === undefined) newDoc.disabled = false;
     return newDoc;
   }
 
@@ -105,10 +109,24 @@ export class SdkWebhookModel extends BaseClass {
     webhook: WebhookInterface,
     error: string,
   ) {
-    await this.update(webhook, {
-      error,
-      lastSuccess: error ? undefined : new Date(),
-    });
+    if (error) {
+      const consecutiveFailures = (webhook.consecutiveFailures || 0) + 1;
+      const updates: Partial<WebhookInterface> = {
+        error,
+        consecutiveFailures,
+      };
+      if (consecutiveFailures >= WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD) {
+        updates.disabled = true;
+      }
+      await this.update(webhook, updates);
+    } else {
+      await this.update(webhook, {
+        error: "",
+        lastSuccess: new Date(),
+        consecutiveFailures: 0,
+        disabled: false,
+      });
+    }
   }
 
   public static async dangerousFindSdkWebhookByIdAcrossOrgs(id: string) {
@@ -132,6 +150,8 @@ export class SdkWebhookModel extends BaseClass {
       useSdkMode: true,
       featuresOnly: true,
       sdks: [sdkConnectionId],
+      consecutiveFailures: 0,
+      disabled: false,
     };
   }
 }

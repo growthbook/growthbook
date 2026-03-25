@@ -44,6 +44,7 @@ interface Props
   minSampleSize?: number;
   minPercentChange?: number;
   currentMetricTotal?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function PercentGraph({
@@ -75,6 +76,7 @@ export default function PercentGraph({
   minSampleSize = 0,
   minPercentChange = 0,
   currentMetricTotal = 0,
+  pValueAdjustmentEnabled,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
   const _confidenceLevels = useConfidenceLevels();
@@ -131,6 +133,7 @@ export default function PercentGraph({
       minSampleSize,
       minPercentChange,
       currentMetricTotal,
+      pValueAdjustmentEnabled,
     },
   });
 

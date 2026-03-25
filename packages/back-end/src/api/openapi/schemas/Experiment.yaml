@@ -258,3 +258,5 @@ properties:
       required:
         - slices
     description: "Custom slices that apply to ALL applicable metrics in the experiment"
+  templateId:
+    type: string

@@ -211,26 +211,54 @@ export type RevisionLog = z.infer<typeof revisionLog>;
 const revisionRulesSchema = z.record(z.string(), z.array(featureRule));
 export type RevisionRules = z.infer<typeof revisionRulesSchema>;
 
+export const revisionStatusSchema = z.enum([
+  "draft",
+  "published",
+  "discarded",
+  "approved",
+  "changes-requested",
+  "pending-review",
+]);
+
+export type RevisionStatus = z.infer<typeof revisionStatusSchema>;
+
+export const activeDraftStatusSchema = revisionStatusSchema.exclude([
+  "published",
+  "discarded",
+]);
+
+export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
+
+export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
+
 const minimalFeatureRevisionInterface = z
   .object({
     version: z.number(),
     datePublished: z.union([z.null(), z.date()]),
     dateUpdated: z.date(),
     createdBy: eventUser,
-    status: z.enum([
-      "draft",
-      "published",
-      "discarded",
-      "approved",
-      "changes-requested",
-      "pending-review",
-    ]),
+    status: revisionStatusSchema,
+    comment: z.string(),
+    title: z.string().optional(),
   })
   .strict();
 
 export type MinimalFeatureRevisionInterface = z.infer<
   typeof minimalFeatureRevisionInterface
 >;
+
+const revisionMetadataSchema = z.object({
+  description: z.string().optional(),
+  owner: z.string().optional(),
+  project: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  neverStale: z.boolean().optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+  jsonSchema: JSONSchemaDef.optional(),
+  valueType: z.enum(featureValueType).optional(),
+});
+
+export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
@@ -242,6 +270,15 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     comment: z.string(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
+    // Revision envelopes — only present when explicitly changed
+    environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    archived: z.boolean().optional(),
+    metadata: revisionMetadataSchema.optional(),
+    holdout: z
+      .object({ id: z.string(), value: z.string() })
+      .nullable()
+      .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();
@@ -262,7 +299,6 @@ export const featureInterface = z
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
     version: z.number(),
-    hasDrafts: z.boolean().optional(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),
@@ -293,7 +329,6 @@ export const computedFeatureInterface = featureInterface
     projectIsDeReferenced: z.boolean(),
     savedGroups: z.array(z.string()),
     stale: z.boolean(),
-    staleReason: z.string(),
     ownerName: z.string(),
   })
   .strict();

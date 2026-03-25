@@ -35,6 +35,7 @@ interface Props
   statsEngine?: StatsEngine;
   ssrPolyfills?: SSRPolyfills;
   minSampleSize?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function PValueColumn({
@@ -53,6 +54,7 @@ export default function PValueColumn({
   statsEngine,
   ssrPolyfills,
   minSampleSize = 0,
+  pValueAdjustmentEnabled,
   ...otherProps
 }: Props) {
   let pValText = (
@@ -78,6 +80,7 @@ export default function PValueColumn({
     ssrPolyfills,
     minSampleSize,
     showSuspicious,
+    pValueAdjustmentEnabled,
   });
 
   const renderContent = () => {

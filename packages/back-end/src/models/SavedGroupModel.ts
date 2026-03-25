@@ -20,7 +20,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "savedGroup.updated",
     deleteEvent: "savedGroup.deleted",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
 });
 
 export class SavedGroupModel extends BaseClass {

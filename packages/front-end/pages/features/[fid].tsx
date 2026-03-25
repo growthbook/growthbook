@@ -1,6 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState, useMemo } from "react";
-import { getDependentExperiments, getDependentFeatures } from "shared/util";
+import { useEffect, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -9,16 +8,17 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useFeaturesList } from "@/services/features";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
-import { useExperiments } from "@/hooks/useExperiments";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
+import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
@@ -33,24 +33,22 @@ export default function FeaturePage() {
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
+
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
   // Clean state when feature id changes
   useEffect(() => {
     setDiagnosticsResults(null);
   }, [fid]);
 
   const { apiCall } = useAuth();
-  const { experiments: allExperiments } = useExperiments();
 
   const {
     data,
     error,
-    isValidating,
-    revisionLoading,
     refreshData,
     feature,
     baseFeature,
     revision,
-    environments,
     version,
     setVersion,
   } = useFeaturePageData(fid, router.query.v);
@@ -59,11 +57,7 @@ export default function FeaturePage() {
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
 
-  // Scope stale detection to the current feature's project
-  const { features } = useFeaturesList({
-    project: baseFeature?.project,
-    skipFetch: !baseFeature,
-  });
+  const { dependents: dependentsData } = useFeatureDependents(baseFeature?.id);
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
@@ -93,20 +87,9 @@ export default function FeaturePage() {
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab]);
 
-  const envs = environments.map((e) => e.id);
-
-  // note: project-scoped dependents by default
-  const dependentFeatures = useMemo(() => {
-    if (!feature || !features) return [];
-    return getDependentFeatures(feature, features, envs);
-  }, [feature, features, envs]);
-
-  const dependentExperiments = useMemo(() => {
-    if (!feature || !allExperiments) return [];
-    return getDependentExperiments(feature, allExperiments);
-  }, [feature, allExperiments]);
-
-  const dependents = dependentFeatures.length + dependentExperiments.length;
+  const dependents =
+    (dependentsData?.features.length ?? 0) +
+    (dependentsData?.experiments.length ?? 0);
 
   if (error) {
     return <Callout status="error">An error occurred: {error.message}</Callout>;
@@ -117,98 +100,109 @@ export default function FeaturePage() {
   }
 
   return (
-    <FeatureUsageProvider feature={feature}>
-      <PageHead
-        breadcrumb={[
-          { display: "Features", href: "/features" },
-          { display: feature.id },
-        ]}
-      />
-      <FeaturesHeader
-        feature={feature}
-        features={features}
-        experiments={experiments}
-        mutate={refreshData}
-        tab={tab}
-        setTab={setTabAndScroll}
-        setEditFeatureInfoModal={setEditFeatureInfoModal}
-        holdout={holdout}
-        dependentExperiments={dependentExperiments}
-      />
-
-      {tab === "overview" && (
-        <FeaturesOverview
-          baseFeature={baseFeature}
+    <FeatureRevisionsContext.Provider
+      value={{
+        revisions: data.revisions,
+        baseFeature,
+        currentVersion: version ?? baseFeature.version,
+      }}
+    >
+      <FeatureUsageProvider feature={feature}>
+        <PageHead
+          breadcrumb={[
+            { display: "Features", href: "/features" },
+            { display: feature.id },
+          ]}
+        />
+        <FeaturesHeader
           feature={feature}
-          revision={revision}
-          revisionList={data.revisionList}
-          loading={isValidating}
-          revisionLoading={revisionLoading}
-          revisions={data.revisions}
-          experiments={experiments}
-          safeRollouts={safeRollouts}
+          mutate={refreshData}
+          setVersion={setVersion}
+          version={version}
+          revisions={data.revisionList || []}
+          tab={tab}
+          setTab={setTabAndScroll}
+          setEditFeatureInfoModal={setEditFeatureInfoModal}
           holdout={holdout}
-          mutate={refreshData}
-          editProjectModal={editProjectModal}
-          setEditProjectModal={setEditProjectModal}
-          version={version}
-          setVersion={setVersion}
-        />
-      )}
-
-      {tab === "test" && (
-        <FeatureTest
-          baseFeature={baseFeature}
-          feature={feature}
-          revision={revision}
-          revisions={data.revisionList}
-          version={version}
-          setVersion={setVersion}
-        />
-      )}
-
-      {tab === "stats" && (
-        <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
-      )}
-
-      {tab === "diagnostics" && (
-        <FeatureDiagnostics
-          feature={feature}
-          results={diagnosticsResults}
-          setResults={setDiagnosticsResults}
-        />
-      )}
-
-      {editTagsModal && (
-        <EditTagsForm
-          tags={feature.tags || []}
-          save={async (tags) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ tags }),
-            });
+          isReadOnly={
+            revision.status === "discarded" ||
+            (revision.status === "published" &&
+              revision.version !== feature.version)
+          }
+          onCopyLink={() => {
+            const url =
+              window.location.href.replace(/[?#].*/, "") +
+              `?v=${version ?? feature.version}`;
+            performCopy(url);
           }}
-          cancel={() => setEditTagsModal(false)}
-          mutate={refreshData}
+          copyLinkSuccess={copySuccess}
         />
-      )}
 
-      {editFeatureInfoModal && (
-        <EditFeatureInfoModal
-          resourceType="feature"
-          source="feature-header"
-          dependents={dependents}
-          feature={feature}
-          save={async (updates) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ ...updates }),
-            });
-          }}
-          cancel={() => setEditFeatureInfoModal(false)}
-          mutate={refreshData}
-        />
-      )}
-    </FeatureUsageProvider>
+        {tab === "overview" && (
+          <FeaturesOverview
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            revisionList={data.revisionList}
+            revisions={data.revisions}
+            experiments={experiments}
+            safeRollouts={safeRollouts}
+            holdout={holdout}
+            mutate={refreshData}
+            editProjectModal={editProjectModal}
+            setEditProjectModal={setEditProjectModal}
+            version={version}
+            setVersion={setVersion}
+          />
+        )}
+
+        {tab === "test" && (
+          <FeatureTest
+            baseFeature={baseFeature}
+            feature={feature}
+            revision={revision}
+            version={version}
+          />
+        )}
+
+        {tab === "stats" && (
+          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+        )}
+
+        {tab === "diagnostics" && (
+          <FeatureDiagnostics
+            feature={feature}
+            results={diagnosticsResults}
+            setResults={setDiagnosticsResults}
+          />
+        )}
+
+        {editTagsModal && (
+          <EditTagsForm
+            tags={feature.tags || []}
+            save={async (tags) => {
+              await apiCall(`/feature/${feature.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ tags }),
+              });
+            }}
+            cancel={() => setEditTagsModal(false)}
+            mutate={refreshData}
+          />
+        )}
+
+        {editFeatureInfoModal && (
+          <EditFeatureInfoModal
+            source="feature-header"
+            dependents={dependents}
+            feature={feature}
+            revisionList={data.revisionList || []}
+            cancel={() => setEditFeatureInfoModal(false)}
+            mutate={refreshData}
+            setVersion={setVersion}
+          />
+        )}
+      </FeatureUsageProvider>
+    </FeatureRevisionsContext.Provider>
   );
 }

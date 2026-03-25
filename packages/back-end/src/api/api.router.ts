@@ -1,10 +1,16 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
-import { Router, Request } from "express";
+import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
@@ -31,12 +37,21 @@ import bulkImportRouter from "./bulk-import/bulk-import.router";
 import membersRouter from "./members/members.router";
 import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
+import { getFeatureStale } from "./features/getFeatureStale";
 import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
-import { API_MODELS, defineRouterForApiConfig } from "./ApiModel";
+import { defineRouterForApiConfig } from "./ApiModel";
+
+const API_MODELS: ModelClass[] = [
+  DashboardModel,
+  CustomFieldModel,
+  MetricGroupModel,
+  TeamModel,
+  ExperimentTemplatesModel,
+];
 
 const router = Router();
 let openapiSpec: string;
@@ -61,11 +76,11 @@ router.get("/openapi.yaml", (req, res) => {
 router.use(bodyParser.json({ limit: "2mb" }));
 router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
-router.use(authenticateApiRequestMiddleware);
+router.use(authenticateApiRequestMiddleware as RequestHandler);
 
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {
-  router.use((req: Request & ApiRequestLocals, res, next) => {
+  router.use(((req: Request & ApiRequestLocals, res, next) => {
     if (req.user) {
       Sentry.setUser({
         id: req.user.id,
@@ -77,7 +92,7 @@ if (SENTRY_DSN) {
       Sentry.setTag("organization", req.context.org.id);
     }
     next();
-  });
+  }) as RequestHandler);
 }
 
 const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
@@ -89,7 +104,7 @@ router.use(
     max: API_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: Request & ApiRequestLocals) => req.apiKey,
+    keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
     message: {
       message: `Too many requests, limit to ${overallRateLimit} per minute`,
     },
@@ -108,6 +123,7 @@ router.get("/", (req, res) => {
 // API endpoints
 router.use("/features", featuresRouter);
 router.get("/feature-keys", getFeatureKeys);
+router.get("/stale-features", getFeatureStale);
 router.use("/experiments", experimentsRouter);
 router.get("/experiment-names", getExperimentNames);
 router.use("/snapshots", snapshotsRouter);
@@ -139,7 +155,7 @@ API_MODELS.forEach((modelClass) => {
   if (!apiConfig) return;
   const r = defineRouterForApiConfig(apiConfig);
   if (r) {
-    router.use(apiConfig.pathBase, r);
+    router.use(apiConfig.openApiSpec.pathBase, r);
   }
 });
 
