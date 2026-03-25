@@ -748,30 +748,38 @@ export default function RuleModal({
                 "t1",
                 ruleId,
               );
+              const startTrigger =
+                rampSectionState.startMode === "manual"
+                  ? ({ type: "manual" } as const)
+                  : rampSectionState.startMode === "specific-time" &&
+                      rampSectionState.startTime
+                    ? ({
+                        type: "scheduled",
+                        at: rampSectionState.startTime,
+                      } as const)
+                    : ({ type: "immediately" } as const);
               rampScheduleInline = {
                 mode: "create",
                 name: rampSectionState.name.trim(),
                 environment,
                 steps: buildRampSteps(rampSectionState.steps, "t1", ruleId),
-                startTrigger:
-                  rampSectionState.startMode === "manual"
-                    ? { type: "manual" }
-                    : rampSectionState.startMode === "specific-time" &&
-                        rampSectionState.startTime
-                      ? { type: "scheduled", at: rampSectionState.startTime }
-                      : { type: "immediately" },
-                startActions: startActions.length ? startActions : undefined,
+                startCondition: {
+                  trigger: startTrigger,
+                  actions: startActions.length ? startActions : undefined,
+                },
                 disableOutsideSchedule:
                   rampSectionState.disableOutsideSchedule || undefined,
-                endSchedule: rampSectionState.endScheduleAt
+                endCondition: rampSectionState.endScheduleAt
                   ? {
                       trigger: {
                         type: "scheduled",
                         at: rampSectionState.endScheduleAt,
                       },
-                      actions: endActions,
+                      actions: endActions.length ? endActions : undefined,
                     }
-                  : undefined,
+                  : endActions.length
+                    ? { actions: endActions }
+                    : undefined,
               };
             } else if (
               rampSectionState.mode === "detach" &&
@@ -805,30 +813,38 @@ export default function RuleModal({
                 "t1",
                 ruleId,
               );
+              const startTrigger =
+                rampSectionState.startMode === "manual"
+                  ? ({ type: "manual" } as const)
+                  : rampSectionState.startMode === "specific-time" &&
+                      rampSectionState.startTime
+                    ? ({
+                        type: "scheduled",
+                        at: rampSectionState.startTime,
+                      } as const)
+                    : ({ type: "immediately" } as const);
               rampScheduleInline = {
                 mode: "update",
                 rampScheduleId: ruleRampSchedule.id,
                 name: rampSectionState.name.trim() || undefined,
                 steps: buildRampSteps(rampSectionState.steps, "t1", ruleId),
-                startTrigger:
-                  rampSectionState.startMode === "manual"
-                    ? { type: "manual" }
-                    : rampSectionState.startMode === "specific-time" &&
-                        rampSectionState.startTime
-                      ? { type: "scheduled", at: rampSectionState.startTime }
-                      : { type: "immediately" },
-                startActions: startActions.length ? startActions : null,
+                startCondition: {
+                  trigger: startTrigger,
+                  actions: startActions.length ? startActions : undefined,
+                },
                 disableOutsideSchedule:
                   rampSectionState.disableOutsideSchedule || null,
-                endSchedule: rampSectionState.endScheduleAt
+                endCondition: rampSectionState.endScheduleAt
                   ? {
                       trigger: {
                         type: "scheduled",
                         at: rampSectionState.endScheduleAt,
                       },
-                      actions: endActions,
+                      actions: endActions.length ? endActions : undefined,
                     }
-                  : null,
+                  : endActions.length
+                    ? { actions: endActions }
+                    : null,
               };
             }
           }
@@ -871,6 +887,16 @@ export default function RuleModal({
               "t1",
               effectiveRuleId,
             );
+            const startTrigger =
+              rampSectionState.startMode === "manual"
+                ? ({ type: "manual" } as const)
+                : rampSectionState.startMode === "specific-time" &&
+                    rampSectionState.startTime
+                  ? ({
+                      type: "scheduled",
+                      at: rampSectionState.startTime,
+                    } as const)
+                  : ({ type: "immediately" } as const);
             rampScheduleInline = {
               mode: "create",
               name: rampSectionState.name.trim(),
@@ -880,25 +906,23 @@ export default function RuleModal({
                 "t1",
                 effectiveRuleId,
               ),
-              startTrigger:
-                rampSectionState.startMode === "manual"
-                  ? { type: "manual" }
-                  : rampSectionState.startMode === "specific-time" &&
-                      rampSectionState.startTime
-                    ? { type: "scheduled", at: rampSectionState.startTime }
-                    : { type: "immediately" },
-              startActions: startActions.length ? startActions : undefined,
+              startCondition: {
+                trigger: startTrigger,
+                actions: startActions.length ? startActions : undefined,
+              },
               disableOutsideSchedule:
                 rampSectionState.disableOutsideSchedule || undefined,
-              endSchedule: rampSectionState.endScheduleAt
+              endCondition: rampSectionState.endScheduleAt
                 ? {
                     trigger: {
                       type: "scheduled",
                       at: rampSectionState.endScheduleAt,
                     },
-                    actions: endActions,
+                    actions: endActions.length ? endActions : undefined,
                   }
-                : undefined,
+                : endActions.length
+                  ? { actions: endActions }
+                  : undefined,
             };
           } else if (
             rampSectionState.mode === "link" &&

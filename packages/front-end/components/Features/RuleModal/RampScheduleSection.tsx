@@ -339,7 +339,9 @@ export default function RampScheduleSection({
 
     patchState({
       startPatch: rebuildPatch(state.startPatch),
-      endSchedulePatch: rebuildPatch(state.endSchedulePatch),
+      // Pre-seed coverage: 100 so newly-activated coverage on the end patch defaults to
+      // 100% rather than 0. Explicitly set values from state are preserved by rebuildPatch.
+      endSchedulePatch: rebuildPatch({ coverage: 100, ...state.endSchedulePatch }),
       steps: state.steps.map((s, i) => ({
         ...s,
         patch: rebuildPatch(s.patch, i),
@@ -1005,7 +1007,11 @@ export default function RampScheduleSection({
               variant="outline"
               size="sm"
               onClick={() => {
-                patchState({ steps: p.steps(), name: p.name });
+                patchState({
+                  steps: p.steps(),
+                  name: p.name,
+                  endSchedulePatch: { coverage: 100 },
+                });
                 onSetRuleCoverage?.(0);
               }}
             >
@@ -1233,27 +1239,28 @@ export function reconstructUIStep(step: RampStep): UIStep {
 export function rampScheduleToSectionState(
   rs: RampScheduleInterface,
 ): RampSectionState {
+  const trigger = rs.startCondition?.trigger;
   return {
     mode: "edit",
     name: rs.name,
     startMode:
-      rs.startTrigger?.type === "scheduled"
+      trigger?.type === "scheduled"
         ? "specific-time"
-        : rs.startTrigger?.type === "manual"
+        : trigger?.type === "manual"
           ? "manual"
           : "immediately",
     startTime:
-      rs.startTrigger?.type === "scheduled"
-        ? new Date(rs.startTrigger.at).toISOString()
+      trigger?.type === "scheduled"
+        ? new Date(trigger.at).toISOString()
         : "",
-    startPatch: reconstructUIPatch(rs.startActions?.[0]?.patch),
+    startPatch: reconstructUIPatch(rs.startCondition?.actions?.[0]?.patch),
     disableOutsideSchedule: rs.disableOutsideSchedule ?? false,
     steps: rs.steps.map(reconstructUIStep),
     endScheduleAt:
-      rs.endSchedule?.trigger.type === "scheduled"
-        ? new Date(rs.endSchedule.trigger.at).toISOString()
+      rs.endCondition?.trigger?.type === "scheduled"
+        ? new Date(rs.endCondition.trigger.at).toISOString()
         : "",
-    endSchedulePatch: reconstructUIPatch(rs.endSchedule?.actions?.[0]?.patch),
+    endSchedulePatch: reconstructUIPatch(rs.endCondition?.actions?.[0]?.patch),
     linkedRampId: rs.id,
   };
 }
@@ -1273,7 +1280,7 @@ export function defaultRampSectionState(
     disableOutsideSchedule: false,
     steps: DEFAULT_STEPS.map((s) => ({ ...s, patch: { ...s.patch } })),
     endScheduleAt: "",
-    endSchedulePatch: {},
+    endSchedulePatch: { coverage: 100 },
     linkedRampId: "",
   };
 }

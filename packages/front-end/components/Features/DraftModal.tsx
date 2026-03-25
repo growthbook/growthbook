@@ -206,16 +206,16 @@ export default function DraftModal({
       const rampConfig = {
         name: ramp.name,
         targets: ramp.targets,
-        startTrigger: ramp.startTrigger,
-        startActions: ramp.startActions,
+        startCondition: ramp.startCondition,
         steps: ramp.steps,
-        endSchedule: ramp.endSchedule,
+        endCondition: ramp.endCondition,
         disableOutsideSchedule: ramp.disableOutsideSchedule,
       };
+      const startTriggerType = ramp.startCondition?.trigger.type;
       const startDescription =
-        ramp.startTrigger?.type === "immediately"
+        startTriggerType === "immediately"
           ? "Starts automatically on publish."
-          : ramp.startTrigger?.type === "manual"
+          : startTriggerType === "manual"
             ? "Requires manual start after publish."
             : "Starts at a scheduled date/time.";
       return {

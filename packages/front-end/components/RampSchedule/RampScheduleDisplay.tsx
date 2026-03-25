@@ -12,43 +12,59 @@ import {
   RampStepAction,
 } from "shared/src/validators/ramp-schedule";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrigger } from "@/components/RampSchedule/RampTimeline";
 
-// ─── Patch chips ─────────────────────────────────────────────────────────────
+// ─── Effect row ──────────────────────────────────────────────────────────────
 
-function PatchDisplay({ actions }: { actions: RampStepAction[] }) {
-  const parts: ReactNode[] = [];
+const EFFECT_LABEL_W = 100;
+
+function EffectRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Flex align="start" gap="2">
+      <Box style={{ width: EFFECT_LABEL_W, flexShrink: 0 }}>
+        <Text size="small" color="text-low">
+          {label}:
+        </Text>
+      </Box>
+      <Box style={{ minWidth: 0 }}>
+        <Text size="small">{children}</Text>
+      </Box>
+    </Flex>
+  );
+}
+
+// ─── Patch display ────────────────────────────────────────────────────────────
+
+// syntheticEnabled: inject an enabled/disabled effect that isn't stored in actions
+// (happens when disableOutsideSchedule auto-injects at start/end but no endCondition trigger).
+function PatchDisplay({
+  actions,
+  syntheticEnabled,
+  noChangesLabel = "—",
+}: {
+  actions: RampStepAction[];
+  syntheticEnabled?: boolean;
+  noChangesLabel?: string;
+}) {
+  const items: ReactNode[] = [];
 
   actions.forEach((action, ai) => {
     const p = action.patch;
+    const k = (s: string) => `${ai}-${s}`;
 
     if (p.coverage !== null && p.coverage !== undefined) {
-      parts.push(
-        <Badge
-          key={`${ai}-cov`}
-          color="violet"
-          label={`${Math.round(p.coverage * 100)}%`}
-        />,
-      );
-    }
-
-    const hasTargeting =
-      (p.condition && p.condition !== "{}") ||
-      (p.savedGroups && p.savedGroups.length > 0) ||
-      (p.prerequisites && p.prerequisites.length > 0);
-
-    if (hasTargeting) {
-      parts.push(
-        <Box key={`${ai}-cond`}>
-          <ConditionDisplay
-            condition={p.condition ?? undefined}
-            savedGroups={p.savedGroups ?? undefined}
-            prerequisites={p.prerequisites ?? undefined}
-          />
-        </Box>,
+      items.push(
+        <EffectRow key={k("cov")} label="Coverage">
+          {Math.round(p.coverage * 100)}%
+        </EffectRow>,
       );
     }
 
@@ -57,38 +73,80 @@ function PatchDisplay({ actions }: { actions: RampStepAction[] }) {
         typeof p.force === "string"
           ? p.force
           : stringify(p.force as object);
-      parts.push(
-        <Flex key={`${ai}-force`} align="center" gap="1">
-          <Text size="small" color="text-low">
-            value:
-          </Text>
+      items.push(
+        <EffectRow key={k("force")} label="Feature value">
           <InlineCode language="json" code={forceStr} />
-        </Flex>,
+        </EffectRow>,
       );
     }
 
-    if (p.enabled === false) {
-      parts.push(
-        <Badge key={`${ai}-disabled`} color="gray" label="disabled" />,
+    if (p.condition && p.condition !== "{}") {
+      items.push(
+        <EffectRow key={k("cond")} label="Targeting">
+          <ConditionDisplay condition={p.condition} />
+        </EffectRow>,
       );
-    } else if (p.enabled === true) {
-      parts.push(
-        <Badge key={`${ai}-enabled`} color="green" label="enabled" />,
+    }
+
+    if (p.savedGroups && p.savedGroups.length > 0) {
+      items.push(
+        <EffectRow key={k("sg")} label="Saved groups">
+          <ConditionDisplay savedGroups={p.savedGroups} />
+        </EffectRow>,
+      );
+    }
+
+    if (p.prerequisites && p.prerequisites.length > 0) {
+      items.push(
+        <EffectRow key={k("prereq")} label="Prerequisites">
+          <ConditionDisplay prerequisites={p.prerequisites} />
+        </EffectRow>,
+      );
+    }
+
+    // Skip enabled patches from actions — they're shown via syntheticEnabled instead
+    // so we don't double-render when the backend stored them explicitly in endCondition.
+    if (p.enabled === false && syntheticEnabled === undefined) {
+      items.push(
+        <EffectRow key={k("enabled")} label="Rule">
+          disabled
+        </EffectRow>,
+      );
+    } else if (p.enabled === true && syntheticEnabled === undefined) {
+      items.push(
+        <EffectRow key={k("enabled")} label="Rule">
+          enabled
+        </EffectRow>,
       );
     }
   });
 
-  if (parts.length === 0) {
+  // Synthetic enabled/disabled from disableOutsideSchedule (not stored explicitly in actions)
+  if (syntheticEnabled === false) {
+    items.push(
+      <EffectRow key="syn-enabled" label="Rule">
+        disabled
+      </EffectRow>,
+    );
+  } else if (syntheticEnabled === true) {
+    items.push(
+      <EffectRow key="syn-enabled" label="Rule">
+        enabled
+      </EffectRow>,
+    );
+  }
+
+  if (items.length === 0) {
     return (
       <Text size="small" color="text-low">
-        (no changes)
+        {noChangesLabel}
       </Text>
     );
   }
 
   return (
-    <Flex gap="2" wrap="wrap" align="center">
-      {parts}
+    <Flex direction="column" gap="1">
+      {items}
     </Flex>
   );
 }
@@ -107,26 +165,41 @@ function StartTriggerLabel({ trigger }: { trigger: RampStartTrigger }) {
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
-const LABEL_W = 38;
-const TRIGGER_W = 100;
+const LABEL_W = 40;
+const TRIGGER_W = 110;
 
 function Row({
   label,
   trigger,
   actions,
+  syntheticEnabled,
+  dimmed,
   isActive,
   isComplete,
 }: {
   label: ReactNode;
   trigger: ReactNode;
   actions: RampStepAction[];
+  syntheticEnabled?: boolean;
+  dimmed?: boolean;
   isActive?: boolean;
   isComplete?: boolean;
 }) {
-  const labelColor = isActive ? "violet" : isComplete ? "text-mid" : "text-low";
+  const labelColor: "text-mid" | "text-low" = isActive
+    ? "text-mid"
+    : "text-low";
 
   return (
-    <Flex align="flex-start" gap="3" py="1">
+    <Flex
+      align="start"
+      gap="3"
+      my="3"
+      pl="2"
+      style={{
+        borderLeft: "2px solid var(--gray-4)",
+        opacity: dimmed ? 0.5 : 1,
+      }}
+    >
       <Box style={{ width: LABEL_W, flexShrink: 0 }}>
         <Text size="small" weight="medium" color={labelColor}>
           {label}
@@ -137,22 +210,17 @@ function Row({
           {trigger}
         </Text>
       </Box>
-      <Box style={{ minWidth: 0 }}>
-        <PatchDisplay actions={actions} />
+      <Box style={{ minWidth: 0, flex: 1 }}>
+        <PatchDisplay
+          actions={actions}
+          syntheticEnabled={syntheticEnabled}
+        />
       </Box>
     </Flex>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
-interface Props {
-  rs: RampScheduleInterface;
-  // When set, only actions belonging to this targetId are shown.
-  // When absent, all actions are shown (useful in multi-target ramps).
-  targetId?: string;
-  defaultOpen?: boolean;
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function filterActions(
   actions: RampStepAction[],
@@ -162,21 +230,33 @@ function filterActions(
   return actions.filter((a) => a.targetId === targetId);
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
+interface Props {
+  rs: RampScheduleInterface;
+  // When set, only actions belonging to this targetId are shown.
+  targetId?: string;
+  defaultOpen?: boolean;
+  // Override the toggle label. Defaults to "View/Hide ramp schedule · N steps".
+  triggerLabel?: string;
+}
+
 export default function RampScheduleDisplay({
   rs,
   targetId,
   defaultOpen = false,
+  triggerLabel,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const stepCount = rs.steps.length;
   const current = rs.currentStepIndex;
 
-  const startActions = filterActions(rs.startActions ?? [], targetId);
-  const endActions = filterActions(rs.endSchedule?.actions ?? [], targetId);
+  const startActions = filterActions(rs.startCondition?.actions ?? [], targetId);
+  const endActions = filterActions(rs.endCondition?.actions ?? [], targetId);
 
   return (
     <Box>
-      {/* Toggle header */}
+      {/* Toggle */}
       <Flex
         align="center"
         gap="1"
@@ -193,48 +273,58 @@ export default function RampScheduleDisplay({
           <PiCaretRightBold size={10} color="var(--gray-9)" />
         </Box>
         <Text size="small" color="text-low">
-          {open ? "Hide" : "View"} schedule
-          {stepCount > 0 && (
-            <> &middot; {stepCount} step{stepCount !== 1 ? "s" : ""}</>
+          {triggerLabel ?? (
+            <>
+              {open ? "Hide" : "View"} ramp schedule
+              {stepCount > 0 && (
+                <>
+                  {" "}
+                  &middot; {stepCount} step{stepCount !== 1 ? "s" : ""}
+                </>
+              )}
+            </>
           )}
         </Text>
       </Flex>
 
-      {/* Collapsible body */}
+      {/* Body */}
       {open && (
-        <Box
-          mt="2"
-          pl="2"
-          style={{ borderLeft: "2px solid var(--gray-4)" }}
-        >
+        <Box mt="2" mx="2">
           {/* Column headers */}
-          <Flex gap="3" mb="1">
+          <Flex
+            gap="3"
+            mb="1"
+            pl="2"
+            style={{ borderLeft: "2px solid transparent" }}
+          >
             <Box style={{ width: LABEL_W, flexShrink: 0 }}>
               <Text size="small" color="text-low" weight="medium">
-                step
+                Step
               </Text>
             </Box>
             <Box style={{ width: TRIGGER_W, flexShrink: 0 }}>
               <Text size="small" color="text-low" weight="medium">
-                trigger
+                Trigger
               </Text>
             </Box>
             <Box>
               <Text size="small" color="text-low" weight="medium">
-                effects
+                Effects
               </Text>
             </Box>
           </Flex>
 
-          {/* Start row */}
+          {/* Start — when disableOutsideSchedule and no explicit start action stored,
+               the enabled:true is auto-injected by the backend into startCondition.actions
+               so it should already appear in the data. Only synthesize if absent. */}
           <Row
             label="start"
-            trigger={<StartTriggerLabel trigger={rs.startTrigger} />}
+            trigger={<StartTriggerLabel trigger={rs.startCondition.trigger} />}
             actions={startActions}
             isComplete={current >= 0}
           />
 
-          {/* Intermediate steps */}
+          {/* Steps */}
           {rs.steps.map((step, i) => (
             <Row
               key={i}
@@ -246,16 +336,40 @@ export default function RampScheduleDisplay({
             />
           ))}
 
-          {/* End row */}
-          {rs.endSchedule && (
-            <Row
-              label="end"
-              trigger={formatTrigger(rs.endSchedule.trigger)}
-              actions={endActions}
-            />
-          )}
+          {/* End — always shown.
+               When endCondition is absent but disableOutsideSchedule is set, synthesize
+               Rule: disabled since the backend applies it at completion without storing
+               it in an endCondition (no explicit trigger was provided). */}
+          {(() => {
+            const hasExplicitEnd = !!rs.endCondition;
+            const implicitDisable =
+              !hasExplicitEnd && !!rs.disableOutsideSchedule;
+            const terminal =
+              rs.status === "completed" ||
+              rs.status === "expired" ||
+              rs.status === "rolled-back";
+            return (
+              <Row
+                label="end"
+                trigger={
+                  hasExplicitEnd && rs.endCondition?.trigger ? (
+                    formatTrigger(rs.endCondition.trigger)
+                  ) : (
+                    <Text size="small" color="text-low">
+                      auto
+                    </Text>
+                  )
+                }
+                actions={endActions}
+                syntheticEnabled={implicitDisable ? false : undefined}
+                dimmed={!hasExplicitEnd && !implicitDisable}
+                isComplete={terminal}
+              />
+            );
+          })()}
         </Box>
       )}
     </Box>
   );
 }
+

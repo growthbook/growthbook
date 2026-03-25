@@ -90,13 +90,13 @@ export default async function addRampScheduleJob(
             //   - "manual" requires the user to click Start.
             {
               status: "ready",
-              "startTrigger.type": "scheduled",
-              "startTrigger.at": { $lte: now },
+              "startCondition.trigger.type": "scheduled",
+              "startCondition.trigger.at": { $lte: now },
             },
             // Running/paused/pending-approval schedules with a hard deadline due
             {
               status: { $in: ["running", "paused", "pending-approval"] },
-              "endSchedule.trigger.at": { $lte: now },
+              "endCondition.trigger.at": { $lte: now },
             },
           ],
         },
@@ -163,27 +163,26 @@ export const advanceSingleRampSchedule = async (
   try {
     // Hard deadline — trumps everything else
     if (
-      schedule.endSchedule &&
-      schedule.endSchedule.trigger.type === "scheduled" &&
-      schedule.endSchedule.trigger.at <= now &&
+      schedule.endCondition?.trigger?.type === "scheduled" &&
+      schedule.endCondition.trigger.at <= now &&
       ["running", "paused", "pending-approval"].includes(schedule.status)
     ) {
       await completeRollout(
         context,
         schedule,
-        makeAttribution(undefined, "endSchedule deadline reached", "system"),
+        makeAttribution(undefined, "endCondition deadline reached", "system"),
       );
       return;
     }
 
-    // Auto-start "ready" schedules whose startTrigger.type === "scheduled" and at <= now.
+    // Auto-start "ready" schedules whose startCondition.trigger.type === "scheduled" and at <= now.
     // "immediately" ramps are started inline when the activating revision is published.
     // "manual" ramps require an explicit user action (REST start endpoint).
     let current = schedule;
     if (
       current.status === "ready" &&
-      current.startTrigger?.type === "scheduled" &&
-      current.startTrigger.at <= now
+      current.startCondition?.trigger.type === "scheduled" &&
+      current.startCondition.trigger.at <= now
     ) {
       current = await context.models.rampSchedules.updateById(current.id, {
         status: "running",
@@ -195,7 +194,7 @@ export const advanceSingleRampSchedule = async (
         current,
         makeAttribution(
           undefined,
-          "auto-started by scheduled startTrigger",
+          "auto-started by scheduled startCondition trigger",
           "system",
         ),
       );

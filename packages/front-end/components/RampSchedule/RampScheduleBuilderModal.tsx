@@ -468,10 +468,18 @@ export default function RampScheduleBuilderModal({
         actions: [{ targetId, patch: buildPatch(s.patch, effectiveRuleId) }],
         notifyOnEntry: i === 0,
       })),
-      startTime: startTime || undefined,
-      endSchedule: endScheduleAt
-        ? { at: endScheduleAt, actions: endActions }
+      startCondition: startTime
+        ? { trigger: { type: "scheduled" as const, at: startTime } }
         : undefined,
+      endCondition:
+        endScheduleAt || endActions.length
+          ? {
+              trigger: endScheduleAt
+                ? { type: "scheduled" as const, at: endScheduleAt }
+                : undefined,
+              actions: endActions.length ? endActions : undefined,
+            }
+          : undefined,
     };
 
     await apiCall("/ramp-schedule", {

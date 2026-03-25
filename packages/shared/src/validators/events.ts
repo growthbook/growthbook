@@ -214,7 +214,7 @@ export const notificationEvents = {
     expired: {
       schema: rampScheduleExpiredPayload,
       description:
-        "Triggered when a ramp schedule's endSchedule fires (hard deadline teardown)",
+        "Triggered when a ramp schedule's endCondition deadline fires (hard deadline teardown)",
     },
     rolledBack: {
       schema: rampScheduleRolledBackPayload,

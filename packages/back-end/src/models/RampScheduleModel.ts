@@ -108,7 +108,7 @@ export class RampScheduleModel extends BaseClass {
         // Running schedules with a hard deadline due
         {
           status: { $in: ["running", "paused", "pending-approval"] },
-          "endSchedule.at": { $lte: now },
+          "endCondition.trigger.at": { $lte: now },
         },
       ],
     });

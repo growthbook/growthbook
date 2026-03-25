@@ -146,25 +146,26 @@ export const rampScheduleValidator = baseSchema
     autoRollback: z
       .object({ enabled: z.boolean(), criteriaId: z.string() })
       .nullish(),
-    // Controls when the ramp starts after the activating draft revision is published.
-    // "immediately": auto-start on revision publish.
-    // "manual": transition to "ready"; requires user to click Start.
-    // "scheduled": transition to "ready"; Agenda starts it when now >= at.
-    // Always required — legacy documents without this field are treated as "immediately".
-    startTrigger: rampStartTrigger,
-    // Actions applied immediately when the ramp transitions to "running".
-    // Typically used to set initial coverage to 0 before stepping up.
-    startActions: z.array(rampStepAction).nullish(),
+    // Combined start trigger + initial actions — mirrors the shape of a step.
+    // trigger: when the ramp starts (immediately/manual/scheduled).
+    // actions: applied when the ramp transitions to "running" (e.g. set coverage to 0).
+    startCondition: z.object({
+      trigger: rampStartTrigger,
+      actions: z.array(rampStepAction).nullish(),
+    }),
     // When true, the rule is disabled (hidden from SDK payload) while the ramp is pending,
     // and again after the ramp completes/expires. The backend auto-injects enabled:true into
-    // startActions and enabled:false into the completion patch.
+    // startCondition.actions and enabled:false into endCondition.actions.
     disableOutsideSchedule: z.boolean().nullish(),
-    // Optional hard deadline teardown. Fires via Agenda or immediately via the REST
-    // "complete" action. Discards any pending-approval revisions and applies its patch.
-    endSchedule: z
+    // Optional teardown condition — mirrors the shape of a step.
+    // trigger: optional hard deadline (scheduled datetime). When reached, Agenda discards
+    //   pending steps and fires endCondition.actions regardless of current progress.
+    //   Absent = no deadline; endCondition.actions still fire on natural/manual completion.
+    // actions: applied whenever the ramp ends (deadline, manual complete, or last step done).
+    endCondition: z
       .object({
-        trigger: rampEndTrigger,
-        actions: z.array(rampStepAction),
+        trigger: rampEndTrigger.optional(),
+        actions: z.array(rampStepAction).nullish(),
       })
       .nullish(),
     status: z.enum(rampScheduleStatusArray),
@@ -197,13 +198,13 @@ export const rampScheduleValidator = baseSchema
     // A zero-step ramp is only meaningful if at least one absolute datetime anchor exists.
     if (
       data.steps.length === 0 &&
-      data.startTrigger.type !== "scheduled" &&
-      !data.endSchedule
+      data.startCondition.trigger.type !== "scheduled" &&
+      !data.endCondition?.trigger
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "A ramp schedule with no steps must have a scheduled startTrigger or an endSchedule.",
+          "A ramp schedule with no steps must have a scheduled start trigger or an end condition trigger.",
         path: ["steps"],
       });
     }

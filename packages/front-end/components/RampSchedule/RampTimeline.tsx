@@ -251,7 +251,7 @@ function targetLabel(target: RampTarget, index: number): string {
 
 export function getRampStatusLabel(rs: RampScheduleInterface): string {
   if (rs.status === "ready") {
-    return rs.startTrigger?.type === "manual" ? "ready to start" : "scheduled";
+    return rs.startCondition?.trigger.type === "manual" ? "ready to start" : "scheduled";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
     pending: "pending",
@@ -295,7 +295,8 @@ export function getRampStepsCompleted(rs: RampScheduleInterface): number {
 // ─── RampTimeline ─────────────────────────────────────────────────────────────
 
 export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
-  const { steps, status, startTrigger, endSchedule, targets } = rs;
+  const { steps, status, startCondition, endCondition, targets } = rs;
+  const startTrigger = startCondition?.trigger;
   // activatingRevisionVersion is now per-target; find the first target that has one
   const activatingRevisionVersion = targets.find(
     (t) => t.activatingRevisionVersion != null,
@@ -346,8 +347,8 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
       key: "end",
       label: "end",
       sublabel:
-        endSchedule?.trigger.type === "scheduled" ? (
-          formatScheduledDate(endSchedule.trigger.at)
+        endCondition?.trigger?.type === "scheduled" ? (
+          formatScheduledDate(endCondition.trigger.at)
         ) : (
           <Text size="small">auto</Text>
         ),
@@ -433,7 +434,7 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
         <Flex align="start" style={{ width: "fit-content" }}>
           {/* Pre-timeline indicator node for states where the ramp hasn't started yet */}
           {(status === "pending" ||
-            (status === "ready" && startTrigger?.type === "manual")) && (
+            (status === "ready" && startCondition?.trigger.type === "manual")) && (
             <>
               <Node
                 node={{

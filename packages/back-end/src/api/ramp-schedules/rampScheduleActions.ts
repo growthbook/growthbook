@@ -169,7 +169,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
 });
 
 // POST /ramp-schedules/:id/actions/complete
-// "Complete rollout" — jumps to last step or applies endSchedule immediately
+// "Complete rollout" — jumps to last step or applies endCondition immediately
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,

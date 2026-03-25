@@ -20,21 +20,23 @@ export type InlineRampScheduleCreate = {
   name: string;
   /** The environment the rule lives in (used to build the ramp target). */
   environment: string;
-  /** May be empty when the ramp is defined purely by startTrigger/endSchedule. */
+  /** May be empty when the ramp is defined purely by startCondition/endCondition triggers. */
   steps: RampStep[];
-  /** Controls when the ramp auto-starts. Absent = "immediately". */
-  startTrigger?: RampStartTrigger;
-  /** Patch applied immediately when the ramp starts (e.g. set coverage to 0). */
-  startActions?: RampStepAction[];
+  /** Start trigger + initial actions, mirrors step shape. Absent = immediately, no start actions. */
+  startCondition?: {
+    trigger: RampStartTrigger;
+    actions?: RampStepAction[];
+  };
   /**
    * When true, the rule is hidden from the SDK payload while the ramp is pending and again
-   * after it completes. The backend auto-injects enabled:true into startActions and
-   * enabled:false into the completion patch.
+   * after it completes. The backend auto-injects enabled:true into startCondition.actions and
+   * enabled:false into endCondition.actions.
    */
   disableOutsideSchedule?: boolean;
-  endSchedule?: {
-    trigger: RampEndTrigger;
-    actions: RampStepAction[];
+  /** End trigger + teardown actions. trigger is optional (no deadline = fires on natural completion). */
+  endCondition?: {
+    trigger?: RampEndTrigger;
+    actions?: RampStepAction[];
   };
 };
 
@@ -57,11 +59,11 @@ export type InlineRampScheduleUpdate = {
   rampScheduleId: string;
   name?: string;
   steps: RampStep[];
-  /** null clears the trigger back to "immediately". */
-  startTrigger?: RampStartTrigger | null;
-  startActions?: RampStepAction[] | null;
+  /** null resets start condition to { trigger: "immediately" }. */
+  startCondition?: { trigger?: RampStartTrigger; actions?: RampStepAction[] } | null;
   disableOutsideSchedule?: boolean | null;
-  endSchedule?: { trigger: RampEndTrigger; actions: RampStepAction[] } | null;
+  /** null clears the end condition entirely. */
+  endCondition?: { trigger?: RampEndTrigger; actions?: RampStepAction[] } | null;
 };
 
 export type PostFeatureRuleBody = {

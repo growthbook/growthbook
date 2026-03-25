@@ -3,7 +3,6 @@ import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiHourglassMediumFill,
-  PiPencilSimple,
   PiPlayFill,
   PiPauseFill,
   PiFastForward,
@@ -21,8 +20,9 @@ import {
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
+import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import RampTimeline, {
   getRampBadgeColor,
   getRampStatusLabel,
@@ -110,25 +110,6 @@ export default function RampSchedulesOverview({
 
               {/* Inline CTAs */}
               <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
-                {rs.status === "pending" && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={<PiPencilSimple />}
-                    onClick={() => {
-                      if (activeTargets.length === 1) {
-                        onEditTarget(
-                          activeTargets[0].environment!,
-                          activeTargets[0].ruleId!,
-                        );
-                      } else {
-                        onEditSchedule(rs);
-                      }
-                    }}
-                  >
-                    Edit ramp
-                  </Button>
-                )}
                 {rs.status === "paused" && (
                   <Button
                     size="sm"
@@ -179,7 +160,7 @@ export default function RampSchedulesOverview({
                         }
                       }}
                     >
-                      Approve and continue
+                      Approve and Continue
                     </Button>
                   )}
                 {/* ⋮ menu */}
@@ -198,14 +179,14 @@ export default function RampSchedulesOverview({
                   menuPlacement="end"
                   variant="soft"
                 >
-                  {/* Edit schedule */}
+                  {/* Edit ramp schedule */}
                   {rs.status === "running" ? (
                     <Tooltip
-                      tipPosition="top"
-                      body="Pause the ramp to edit the schedule"
+                      content="Pause the ramp to edit the schedule"
+                      side="left"
                     >
                       <div style={{ cursor: "not-allowed" }}>
-                        <DropdownMenuItem disabled>Edit schedule</DropdownMenuItem>
+                        <DropdownMenuItem disabled>Edit ramp schedule</DropdownMenuItem>
                       </div>
                     </Tooltip>
                   ) : (
@@ -221,7 +202,7 @@ export default function RampSchedulesOverview({
                         }
                       }}
                     >
-                      Edit schedule
+                      Edit ramp schedule
                     </DropdownMenuItem>
                   )}
 
@@ -230,8 +211,8 @@ export default function RampSchedulesOverview({
                   {/* pending: blocked Start */}
                   {rs.status === "pending" && (
                     <Tooltip
-                      tipPosition="top"
-                      body={`Cannot start while ramp is pending.${
+                      side="left"
+                      content={`Cannot start while ramp is pending.${
                         rs.targets.find(
                           (t) => t.activatingRevisionVersion != null,
                         )?.activatingRevisionVersion != null
@@ -298,8 +279,8 @@ export default function RampSchedulesOverview({
                     </DropdownMenuItem>
                   )}
 
-                  {/* Complete + Reset + Jump — active (non-terminal) states only */}
-                  {!["completed", "expired", "rolled-back"].includes(
+                  {/* Complete + Reset + Jump — only once the ramp has started */}
+                  {["running", "paused", "pending-approval"].includes(
                     rs.status,
                   ) && (
                     <>
@@ -432,8 +413,8 @@ export default function RampSchedulesOverview({
                   {/* Delete — blocked while running or pending-approval */}
                   {["running", "pending-approval"].includes(rs.status) ? (
                     <Tooltip
-                      tipPosition="bottom"
-                      body="Pause or complete the ramp before deleting."
+                      content="Pause or complete the ramp before deleting."
+                      side="left"
                     >
                       <div style={{ cursor: "not-allowed" }}>
                         <DropdownMenuItem disabled color="red">
@@ -472,7 +453,7 @@ export default function RampSchedulesOverview({
                           if (!isNaN(v)) onReviewDraft(v);
                         }}
                       >
-                        Open draft
+                        Open Draft
                       </Button>
                     )}
                     <Button
@@ -499,6 +480,11 @@ export default function RampSchedulesOverview({
                 }
               }}
             />
+
+            {/* Row 3: Collapsible schedule detail */}
+            <Box mt="2">
+              <RampScheduleDisplay rs={rs} triggerLabel="View details" />
+            </Box>
           </div>
         );
       })}

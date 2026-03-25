@@ -306,7 +306,7 @@ export default function RampScheduleEditorModal({
     <Modal
       open
       close={onClose}
-      header={`Edit schedule: ${rs.name}`}
+      header={`Edit ramp schedule: ${rs.name}`}
       size="lg"
       submit={handleSubmit}
       cta="Save"

@@ -641,10 +641,10 @@ export async function rollbackToStep(
 // completeRollout
 // ---------------------------------------------------------------------------
 
-// "Complete rollout" action: merges all remaining step patches and any endSchedule
+// "Complete rollout" action: merges all remaining step patches and any endCondition
 // actions into a single revision, then marks the schedule fully complete.
 // Bypasses timing and approval gates. Used by the REST "complete" action and the
-// endSchedule deadline handler (which passes explicit system attribution).
+// endCondition deadline handler (which passes explicit system attribution).
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -653,9 +653,9 @@ export async function completeRollout(
   await discardPendingRevisions(ctx, schedule);
 
   const now = new Date();
-  const hasEndActions = !!schedule.endSchedule?.actions?.length;
+  const endConditionActions = schedule.endCondition?.actions ?? [];
 
-  // Merge all remaining step patches + endSchedule into one combined action set.
+  // Merge all remaining step patches + endCondition actions into one combined action set.
   // Later entries overwrite earlier ones for the same target+field (last-write-wins),
   // so the single revision lands at the fully-completed final state.
   const mergedPatches = new Map<string, FeatureRulePatch>();
@@ -667,13 +667,11 @@ export async function completeRollout(
       mergedPatches.set(action.targetId, { ...prev, ...action.patch });
     }
   }
-  if (hasEndActions) {
-    for (const action of schedule.endSchedule!.actions) {
-      const prev = mergedPatches.get(action.targetId) ?? {
-        ruleId: action.patch.ruleId,
-      };
-      mergedPatches.set(action.targetId, { ...prev, ...action.patch });
-    }
+  for (const action of endConditionActions) {
+    const prev = mergedPatches.get(action.targetId) ?? {
+      ruleId: action.patch.ruleId,
+    };
+    mergedPatches.set(action.targetId, { ...prev, ...action.patch });
   }
 
   let revisionIds: string[] = [];
@@ -694,7 +692,8 @@ export async function completeRollout(
     schedule.steps.length > 0
       ? schedule.steps.length - 1
       : schedule.currentStepIndex;
-  const finalStatus: RampScheduleInterface["status"] = hasEndActions
+  const hasEndCondition = endConditionActions.length > 0;
+  const finalStatus: RampScheduleInterface["status"] = hasEndCondition
     ? "expired"
     : "completed";
 
@@ -719,7 +718,7 @@ export async function completeRollout(
   await dispatchRampEvent(
     ctx,
     updated,
-    hasEndActions ? "expired" : "completed",
+    hasEndCondition ? "expired" : "completed",
     {
       object: {
         rampScheduleId: updated.id,
@@ -796,15 +795,15 @@ export async function evaluateAutoRollback(
 // Transitions a ramp from "pending" once its activating revision is published.
 // - "immediately": auto-start → "running", advance first step.
 // - "manual": → "ready" (waits for user to click Start).
-// - "scheduled": → "ready" (Agenda auto-starts it when startTrigger.at <= now).
-// TODO: startActions should be applied as an inline revision before the first step advances.
+// - "scheduled": → "ready" (Agenda auto-starts it when startCondition.trigger.at <= now).
+// TODO: startCondition.actions should be applied as an inline revision before the first step advances.
 async function onActivatingRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
   if (schedule.status !== "pending") return;
 
-  const trigger = schedule.startTrigger ?? { type: "immediately" as const };
+  const trigger = schedule.startCondition?.trigger ?? { type: "immediately" as const };
 
   if (trigger.type === "immediately") {
     const now = new Date();
@@ -1099,15 +1098,14 @@ export async function advanceUntilBlocked(
 
   for (let i = 0; i < maxSteps; i++) {
     if (
-      current.endSchedule &&
-      current.endSchedule.trigger.type === "scheduled" &&
-      current.endSchedule.trigger.at <= now &&
+      current.endCondition?.trigger?.type === "scheduled" &&
+      current.endCondition.trigger.at <= now &&
       ["running", "paused", "pending-approval"].includes(current.status)
     ) {
       await completeRollout(
         ctx,
         current,
-        makeAttribution(undefined, "endSchedule deadline reached", "system"),
+        makeAttribution(undefined, "endCondition deadline reached", "system"),
       );
       return;
     }

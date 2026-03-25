@@ -460,12 +460,13 @@ function rampDiffsForRevision(
     }
 
     const alreadyStarted = ramp.status !== "pending";
+    const startTriggerType = ramp.startCondition?.trigger.type;
     const startDescription =
-      ramp.startTrigger?.type === "immediately"
+      startTriggerType === "immediately"
         ? alreadyStarted
           ? "Started automatically on publish."
           : "Starts automatically on publish."
-        : ramp.startTrigger?.type === "manual"
+        : startTriggerType === "manual"
           ? alreadyStarted
             ? "Required manual start after publish."
             : "Requires manual start after publish."
@@ -480,10 +481,9 @@ function rampDiffsForRevision(
         {
           name: ramp.name,
           targets: ramp.targets,
-          startTrigger: ramp.startTrigger,
-          startActions: ramp.startActions,
+          startCondition: ramp.startCondition,
           steps: ramp.steps,
-          endSchedule: ramp.endSchedule,
+          endCondition: ramp.endCondition,
           disableOutsideSchedule: ramp.disableOutsideSchedule,
         },
         null,

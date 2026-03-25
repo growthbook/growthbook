@@ -18,9 +18,16 @@ type StartTrigger =
   | { type: "manual" }
   | { type: "scheduled"; at: Date | string };
 
-type EndSchedule = {
-  trigger: { type: "scheduled"; at: Date | string };
-  actions: RampScheduleInterface["steps"][number]["actions"];
+type EndTrigger = { type: "scheduled"; at: Date | string };
+
+type StartCondition = {
+  trigger: StartTrigger;
+  actions?: RampScheduleInterface["steps"][number]["actions"];
+};
+
+type EndCondition = {
+  trigger?: EndTrigger;
+  actions?: RampScheduleInterface["steps"][number]["actions"];
 };
 
 type CreateBody = Pick<
@@ -28,18 +35,16 @@ type CreateBody = Pick<
   "name" | "entityType" | "entityId" | "targets" | "steps"
 > & {
   autoRollback?: RampScheduleInterface["autoRollback"];
-  startTrigger?: StartTrigger;
-  startActions?: RampScheduleInterface["startActions"];
+  startCondition?: StartCondition;
   disableOutsideSchedule?: boolean;
-  endSchedule?: EndSchedule;
+  endCondition?: EndCondition;
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   autoRollback?: RampScheduleInterface["autoRollback"];
-  startTrigger?: StartTrigger | null;
-  startActions?: RampScheduleInterface["startActions"] | null;
+  startCondition?: StartCondition | null;
   disableOutsideSchedule?: boolean | null;
-  endSchedule?: EndSchedule | null;
+  endCondition?: EndCondition | null;
 };
 
 type ActionBody = {
@@ -95,7 +100,8 @@ export const postRampSchedule = async (
 
   const disable = !!body.disableOutsideSchedule;
   // Mirror the disableOutsideSchedule injection done in the atomic features controller:
-  // auto-prepend enabled:true to startActions and auto-append enabled:false to endSchedule.
+  // auto-prepend enabled:true to startCondition.actions and auto-append enabled:false
+  // to endCondition.actions when disableOutsideSchedule is set.
   const firstTarget = body.targets[0];
   const enabledPatch = firstTarget
     ? { ruleId: firstTarget.ruleId ?? "", enabled: true }
@@ -104,22 +110,35 @@ export const postRampSchedule = async (
     ? { ruleId: firstTarget.ruleId ?? "", enabled: false }
     : undefined;
 
-  const baseStartActions = body.startActions ?? [];
-  const startActions =
-    disable && enabledPatch
-      ? [
-          { targetId: firstTarget!.id, patch: enabledPatch },
-          ...baseStartActions,
-        ]
-      : baseStartActions.length
-        ? baseStartActions
-        : undefined;
+  const rawStartTrigger = body.startCondition?.trigger;
+  const resolvedStartTrigger: RampScheduleInterface["startCondition"]["trigger"] =
+    rawStartTrigger
+      ? rawStartTrigger.type === "scheduled"
+        ? { type: "scheduled", at: new Date(rawStartTrigger.at) }
+        : rawStartTrigger
+      : { type: "immediately" };
 
-  const baseEndActions = body.endSchedule?.actions ?? [];
-  const endActions =
+  const baseStartActions = body.startCondition?.actions ?? [];
+  const startConditionActions =
+    disable && enabledPatch
+      ? [{ targetId: firstTarget!.id, patch: enabledPatch }, ...baseStartActions]
+      : baseStartActions;
+
+  const baseEndActions = body.endCondition?.actions ?? [];
+  const endConditionActions =
     disable && disabledPatch
       ? [...baseEndActions, { targetId: firstTarget!.id, patch: disabledPatch }]
       : baseEndActions;
+
+  const rawEndTrigger = body.endCondition?.trigger;
+  const resolvedEndTrigger = rawEndTrigger
+    ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
+    : undefined;
+
+  const endCondition =
+    resolvedEndTrigger || endConditionActions.length
+      ? { trigger: resolvedEndTrigger, actions: endConditionActions }
+      : undefined;
 
   const schedule = await context.models.rampSchedules.create({
     name: body.name,
@@ -128,22 +147,12 @@ export const postRampSchedule = async (
     targets: body.targets,
     steps: body.steps,
     autoRollback: body.autoRollback,
-    startTrigger: body.startTrigger
-      ? body.startTrigger.type === "scheduled"
-        ? { type: "scheduled", at: new Date(body.startTrigger.at) }
-        : body.startTrigger
-      : { type: "immediately" },
-    startActions: startActions?.length ? startActions : undefined,
+    startCondition: {
+      trigger: resolvedStartTrigger,
+      actions: startConditionActions.length ? startConditionActions : undefined,
+    },
     disableOutsideSchedule: disable || undefined,
-    endSchedule: body.endSchedule
-      ? {
-          trigger: {
-            type: "scheduled",
-            at: new Date(body.endSchedule.trigger.at),
-          },
-          actions: endActions,
-        }
-      : undefined,
+    endCondition,
     // Standalone ramps have no activating revision — they're immediately eligible to start.
     status: "ready",
     currentStepIndex: -1,
@@ -192,30 +201,39 @@ export const putRampSchedule = async (
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
   if (body.autoRollback !== undefined) updates.autoRollback = body.autoRollback;
-  if (body.startTrigger !== undefined) {
-    const st = body.startTrigger;
-    updates.startTrigger = st
-      ? st.type === "scheduled"
-        ? { type: "scheduled", at: new Date(st.at) }
-        : st
-      : undefined;
-  }
-  if (body.startActions !== undefined) {
-    updates.startActions = body.startActions ?? undefined;
+  if (body.startCondition !== undefined) {
+    const sc = body.startCondition;
+    if (!sc) {
+      updates.startCondition = { trigger: { type: "immediately" } };
+    } else {
+      const rawTrigger = sc.trigger;
+      const trigger =
+        rawTrigger?.type === "scheduled"
+          ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+          : rawTrigger ?? { type: "immediately" as const };
+      updates.startCondition = {
+        trigger,
+        actions: sc.actions ?? undefined,
+      };
+    }
   }
   if (body.disableOutsideSchedule !== undefined) {
     updates.disableOutsideSchedule = body.disableOutsideSchedule ?? undefined;
   }
-  if (body.endSchedule !== undefined) {
-    updates.endSchedule = body.endSchedule
-      ? {
-          trigger: {
-            type: "scheduled",
-            at: new Date(body.endSchedule.trigger.at),
-          },
-          actions: body.endSchedule.actions,
-        }
-      : undefined;
+  if (body.endCondition !== undefined) {
+    const ec = body.endCondition;
+    if (!ec) {
+      updates.endCondition = undefined;
+    } else {
+      const rawTrigger = ec.trigger;
+      const trigger = rawTrigger
+        ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+        : undefined;
+      updates.endCondition = {
+        trigger,
+        actions: ec.actions ?? undefined,
+      };
+    }
   }
 
   const updated = await context.models.rampSchedules.updateById(

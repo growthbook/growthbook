@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { rampStep, rampStepAction } from "shared/validators";
+import { rampStep } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const startTriggerSchema = z.discriminatedUnion("type", [
@@ -8,23 +8,17 @@ const startTriggerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("scheduled"), at: z.string().datetime() }),
 ]);
 
-const endScheduleSchema = z.object({
-  trigger: z.object({
-    type: z.literal("scheduled"),
-    at: z.string().datetime(),
-  }),
-  actions: z.array(
-    z.object({
-      targetId: z.string(),
-      patch: z.object({
-        ruleId: z.string(),
-        coverage: z.number().min(0).max(1).optional(),
-        condition: z.string().optional(),
-        force: z.unknown().optional(),
-      }),
+const actionSchema = z.array(
+  z.object({
+    targetId: z.string(),
+    patch: z.object({
+      ruleId: z.string(),
+      coverage: z.number().min(0).max(1).optional(),
+      condition: z.string().optional(),
+      force: z.unknown().optional(),
     }),
-  ),
-});
+  }),
+);
 
 const putRampScheduleValidator = {
   paramsSchema: z.object({ id: z.string() }),
@@ -34,10 +28,23 @@ const putRampScheduleValidator = {
     autoRollback: z
       .object({ enabled: z.boolean(), criteriaId: z.string() })
       .optional(),
-    startTrigger: startTriggerSchema.optional().nullable(),
-    startActions: z.array(rampStepAction).optional().nullable(),
+    startCondition: z
+      .object({
+        trigger: startTriggerSchema.optional(),
+        actions: actionSchema.optional(),
+      })
+      .optional()
+      .nullable(),
     disableOutsideSchedule: z.boolean().optional().nullable(),
-    endSchedule: endScheduleSchema.optional().nullable(),
+    endCondition: z
+      .object({
+        trigger: z
+          .object({ type: z.literal("scheduled"), at: z.string().datetime() })
+          .optional(),
+        actions: actionSchema.optional(),
+      })
+      .optional()
+      .nullable(),
   }),
 };
 
@@ -64,30 +71,33 @@ export const putRampSchedule = createApiRequestHandler(
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
   if (body.autoRollback !== undefined) updates.autoRollback = body.autoRollback;
-  if (body.startTrigger !== undefined) {
-    const st = body.startTrigger;
-    updates.startTrigger = st
-      ? st.type === "scheduled"
-        ? { type: "scheduled", at: new Date(st.at) }
-        : st
-      : undefined;
-  }
-  if (body.startActions !== undefined) {
-    updates.startActions = body.startActions ?? undefined;
+  if (body.startCondition !== undefined) {
+    const sc = body.startCondition;
+    if (!sc) {
+      updates.startCondition = { trigger: { type: "immediately" } };
+    } else {
+      const rawTrigger = sc.trigger;
+      const trigger =
+        rawTrigger?.type === "scheduled"
+          ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+          : rawTrigger ?? { type: "immediately" as const };
+      updates.startCondition = { trigger, actions: sc.actions ?? undefined };
+    }
   }
   if (body.disableOutsideSchedule !== undefined) {
     updates.disableOutsideSchedule = body.disableOutsideSchedule ?? undefined;
   }
-  if (body.endSchedule !== undefined) {
-    updates.endSchedule = body.endSchedule
-      ? {
-          trigger: {
-            type: "scheduled",
-            at: new Date(body.endSchedule.trigger.at),
-          },
-          actions: body.endSchedule.actions,
-        }
-      : undefined;
+  if (body.endCondition !== undefined) {
+    const ec = body.endCondition;
+    if (!ec) {
+      updates.endCondition = undefined;
+    } else {
+      const rawTrigger = ec.trigger;
+      const trigger = rawTrigger
+        ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+        : undefined;
+      updates.endCondition = { trigger, actions: ec.actions ?? undefined };
+    }
   }
 
   const updated = await req.context.models.rampSchedules.updateById(
