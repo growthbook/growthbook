@@ -4,6 +4,7 @@ import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
 import { AISuggestionType, computeAIUsageData } from "shared/ai";
+import { parseIntWithDefault } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -77,7 +78,10 @@ export default function EditHypothesisModal({
           },
           (responseData) => {
             if (responseData.status === 429) {
-              const retryAfter = parseInt(responseData.retryAfter);
+              const retryAfter = parseIntWithDefault(
+                responseData.retryAfter,
+                NaN,
+              );
               const hours = Math.floor(retryAfter / 3600);
               const minutes = Math.floor((retryAfter % 3600) / 60);
               setError(

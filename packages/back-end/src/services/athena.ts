@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-athena";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
+import { parseIntWithDefault } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
@@ -84,7 +85,7 @@ export async function runAthenaQuery(
   const { database, bucketUri, workGroup, catalog } = conn;
 
   const retryWaitTime =
-    (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
+    parseIntWithDefault(process.env.ATHENA_RETRY_WAIT_TIME, 60) * 1000;
 
   const startQueryExecutionArgs: StartQueryExecutionCommandInput = {
     QueryString: sql,
@@ -102,7 +103,7 @@ export async function runAthenaQuery(
   };
 
   const resultReuseMaxAgeInMinutes = conn.resultReuseMaxAgeInMinutes
-    ? parseInt(conn.resultReuseMaxAgeInMinutes)
+    ? parseIntWithDefault(conn.resultReuseMaxAgeInMinutes, NaN)
     : undefined;
 
   // Skipped when parsed setting is 0, NaN, or not present

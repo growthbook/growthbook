@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
+import { parseIntWithDefault } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
@@ -576,8 +577,9 @@ const MetricPage: FC = () => {
                             },
                             (responseData) => {
                               if (responseData.status === 429) {
-                                const retryAfter = parseInt(
+                                const retryAfter = parseIntWithDefault(
                                   responseData.retryAfter,
+                                  NaN,
                                 );
                                 const hours = Math.floor(retryAfter / 3600);
                                 const minutes = Math.floor(

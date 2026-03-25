@@ -7,6 +7,7 @@ import {
   QueryStatus,
   QueryType,
 } from "shared/types/query";
+import { parseIntWithDefault } from "shared/util";
 import {
   countRunningQueries,
   createNewQuery,
@@ -660,12 +661,9 @@ export abstract class QueryRunner<
       logger.debug("Trying to reuse existing query for " + name);
       try {
         // Use datasource-specific cache TTL if set, otherwise use global default
-        const queryCacheTTLSetting =
-          this.integration.datasource.settings.queryCacheTTLMins;
-        const parsedTTL = queryCacheTTLSetting
-          ? parseInt(queryCacheTTLSetting)
-          : NaN;
-        const cacheTTLMins = isNaN(parsedTTL) ? undefined : parsedTTL;
+        const rawTTL = this.integration.datasource.settings.queryCacheTTLMins;
+        const parsedTTL = parseIntWithDefault(rawTTL, NaN);
+        const cacheTTLMins = Number.isNaN(parsedTTL) ? undefined : parsedTTL;
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
@@ -785,8 +783,9 @@ export abstract class QueryRunner<
   private async concurrencyLimitReached(): Promise<boolean> {
     if (!this.integration.datasource.settings.maxConcurrentQueries)
       return new Promise<boolean>((resolve) => resolve(false));
-    const numericConcurrencyLimit = parseInt(
+    const numericConcurrencyLimit = parseIntWithDefault(
       this.integration.datasource.settings.maxConcurrentQueries,
+      NaN,
     );
     if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {
       return new Promise<boolean>((resolve) => resolve(false));

@@ -9,7 +9,10 @@ import {
   getProviderFromModel,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
-import { ensureValuesExactlyMatchUnion } from "shared/util";
+import {
+  ensureValuesExactlyMatchUnion,
+  parseIntWithDefault,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
@@ -297,7 +300,10 @@ export default function AISettings({
         },
         (responseData) => {
           if (responseData.status === 429) {
-            const retryAfter = parseInt(responseData.retryAfter);
+            const retryAfter = parseIntWithDefault(
+              responseData.retryAfter,
+              NaN,
+            );
             const hours = Math.floor(retryAfter / 3600);
             const minutes = Math.floor((retryAfter % 3600) / 60);
             setError(

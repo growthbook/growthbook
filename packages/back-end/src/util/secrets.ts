@@ -1,6 +1,6 @@
 import Handlebars from "handlebars";
 import trimEnd from "lodash/trimEnd";
-import { stringToBoolean } from "shared/util";
+import { parseIntWithDefault, stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 import { z } from "zod";
 
@@ -100,7 +100,7 @@ export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
 
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
-export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
+export const EMAIL_PORT = parseIntWithDefault(process.env.EMAIL_PORT, 587);
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
@@ -111,41 +111,60 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
-export const JOB_TIMEOUT_MS =
-  parseInt(process.env.JOB_TIMEOUT_MS || "") || 2 * 60 * 60 * 1000; // Defaults to 2 hours
+export const JOB_TIMEOUT_MS = parseIntWithDefault(
+  process.env.JOB_TIMEOUT_MS,
+  2 * 60 * 60 * 1000,
+); // Defaults to 2 hours
 
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
 // Update results every X hours
-export const EXPERIMENT_REFRESH_FREQUENCY =
-  parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
+export const EXPERIMENT_REFRESH_FREQUENCY = parseIntWithDefault(
+  process.env.EXPERIMENT_REFRESH_FREQUENCY,
+  6,
+);
 
-export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
-  DEFAULT_METRIC_WINDOW_HOURS;
+export const DEFAULT_CONVERSION_WINDOW_HOURS = parseIntWithDefault(
+  process.env.DEFAULT_CONVERSION_WINDOW_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+);
 
 // Update metrics every X hours
-export const METRIC_REFRESH_FREQUENCY =
-  parseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
+export const METRIC_REFRESH_FREQUENCY = parseIntWithDefault(
+  process.env.METRIC_REFRESH_FREQUENCY,
+  24,
+);
 
-export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS =
-  parseInt(process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS || "") || 168; // Default: 7 days
+export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS = parseIntWithDefault(
+  process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
+  168,
+); // Default: 7 days
 
-export const QUERY_CACHE_TTL_MINS =
-  parseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
+export const QUERY_CACHE_TTL_MINS = parseIntWithDefault(
+  process.env.QUERY_CACHE_TTL_MINS,
+  60,
+);
 
 // When importing past experiments, limit to this number of days:
-export const IMPORT_LIMIT_DAYS =
-  parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
+export const IMPORT_LIMIT_DAYS = parseIntWithDefault(
+  process.env?.IMPORT_LIMIT_DAYS,
+  365,
+);
 
 // cache control currently feature only /api/features/*
-export const CACHE_CONTROL_MAX_AGE =
-  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
-export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
-  parseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
-export const CACHE_CONTROL_STALE_IF_ERROR =
-  parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
+export const CACHE_CONTROL_MAX_AGE = parseIntWithDefault(
+  process.env?.CACHE_CONTROL_MAX_AGE,
+  30,
+);
+export const CACHE_CONTROL_STALE_WHILE_REVALIDATE = parseIntWithDefault(
+  process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE,
+  3600,
+);
+export const CACHE_CONTROL_STALE_IF_ERROR = parseIntWithDefault(
+  process.env?.CACHE_CONTROL_STALE_IF_ERROR,
+  36000,
+);
 
 // remote Eval Edge
 export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
@@ -262,7 +281,7 @@ const getTrustProxyConfig = (): boolean | string | number => {
   // Check for nth hop config
   //    Trust the nth hop from the front-facing proxy server as the client.
   if (value.match(/^[0-9]+$/)) {
-    return parseInt(value);
+    return parseIntWithDefault(value, NaN);
   }
 
   // If not a recognized boolean format or a valid integer, return value verbatim

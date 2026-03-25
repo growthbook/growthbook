@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { experimentHasLinkedChanges } from "shared/util";
+import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import {
   getRoles,
   areProjectRolesValid,
@@ -253,7 +253,7 @@ export async function getAllHistory(
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = Math.min(parseIntWithDefault(req.query.limit, 50), 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -336,7 +336,7 @@ export async function getHistory(
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = Math.min(parseIntWithDefault(req.query.limit, 50), 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
