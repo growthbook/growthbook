@@ -98,7 +98,7 @@ export class ApiKeyModel extends BaseClass {
   }
 
   private validateRole(role: string | undefined) {
-    if (!role) return;
+    if (role === undefined) return;
     if (this.context.org.deactivatedRoles?.includes(role)) {
       this.context.throwBadRequestError(`Role has been deactivated: ${role}`);
     }
