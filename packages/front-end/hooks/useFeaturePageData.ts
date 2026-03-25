@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -150,9 +150,51 @@ export function useFeaturePageData(
     await Promise.all([
       mutateBase(),
       mutateRampSchedules(),
-      shouldFetchFromRevisionsEndpoint ? mutateSelectedVersion() : Promise.resolve(),
+      shouldFetchFromRevisionsEndpoint
+        ? mutateSelectedVersion()
+        : Promise.resolve(),
     ]);
   };
+
+  // When the ramp-schedule poll detects an advancement (step or status change),
+  // re-fetch the full feature payload so revisions and rule state stay in sync.
+  const prevRampSchedulesRef = useRef<RampScheduleInterface[]>([]);
+  useEffect(() => {
+    const prev = prevRampSchedulesRef.current;
+    const curr = rampSchedulesData?.rampSchedules ?? [];
+    const hasAdvancement =
+      prev.length > 0 &&
+      curr.some((rs) => {
+        const p = prev.find((r) => r.id === rs.id);
+        return (
+          p &&
+          (rs.currentStepIndex !== p.currentStepIndex || rs.status !== p.status)
+        );
+      });
+    prevRampSchedulesRef.current = curr;
+    if (hasAdvancement) {
+      mutateBase();
+    }
+  }, [rampSchedulesData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When the live feature version increments (e.g. ramp auto-published above)
+  // and the user was already viewing the live revision, snap them to the new live version.
+  const versionRef = useRef(version);
+  versionRef.current = version;
+  const prevLiveVersionRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const prevLive = prevLiveVersionRef.current;
+    const newLive = baseFeatureVersion;
+    prevLiveVersionRef.current = newLive ?? undefined;
+    if (
+      prevLive !== undefined &&
+      newLive !== undefined &&
+      newLive !== prevLive &&
+      versionRef.current === prevLive
+    ) {
+      setVersion(newLive);
+    }
+  }, [baseFeatureVersion]);
 
   // Seed cache from initial response
   useEffect(() => {
@@ -252,7 +294,10 @@ export function useFeaturePageData(
       data?.revisionList &&
       data.revisionList.find(
         (r) =>
-          !(r.createdBy?.type === "system" && r.createdBy.subtype === "ramp-schedule") &&
+          !(
+            r.createdBy?.type === "system" &&
+            r.createdBy.subtype === "ramp-schedule"
+          ) &&
           (r.status === "draft" ||
             r.status === "approved" ||
             r.status === "changes-requested" ||

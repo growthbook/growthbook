@@ -193,6 +193,7 @@ function ColHeader({
 const PRESETS = [
   {
     label: "Linear / 30 min",
+    name: "linear 30-min rollout",
     steps: () =>
       [0, 20, 40, 60, 80, 100].map((coverage) => ({
         patch: { coverage } as UIStepPatch,
@@ -203,6 +204,7 @@ const PRESETS = [
   },
   {
     label: "Linear / 1 hr",
+    name: "linear 1-hour rollout",
     steps: () =>
       [0, 20, 40, 60, 80, 100].map((coverage) => ({
         patch: { coverage } as UIStepPatch,
@@ -213,6 +215,7 @@ const PRESETS = [
   },
   {
     label: "Fast (3 steps)",
+    name: "fast 3-step rollout",
     steps: () =>
       [0, 25, 75, 100].map((coverage) => ({
         patch: { coverage } as UIStepPatch,
@@ -223,6 +226,7 @@ const PRESETS = [
   },
   {
     label: "With approvals",
+    name: "approval-gated rollout",
     steps: () =>
       [0, 25, 75, 100].map((coverage) => ({
         patch: { coverage } as UIStepPatch,
@@ -977,14 +981,6 @@ export default function RampScheduleSection({
 
   const createContent = (
     <>
-      <Field
-        label="Ramp schedule name"
-        required={state.mode === "create"}
-        value={state.name}
-        onChange={(e) => patchState({ name: e.target.value })}
-        placeholder="e.g. Gradual rollout"
-      />
-
       {/* Presets */}
       <Box mb="4">
         <Text size="medium" weight="medium" mb="1" as="p">
@@ -997,7 +993,7 @@ export default function RampScheduleSection({
               variant="outline"
               size="sm"
               onClick={() => {
-                patchState({ steps: p.steps() });
+                patchState({ steps: p.steps(), name: p.name });
                 onSetRuleCoverage?.(0);
               }}
             >
@@ -1006,6 +1002,14 @@ export default function RampScheduleSection({
           ))}
         </Flex>
       </Box>
+
+      <Field
+        label="Ramp schedule name"
+        required={state.mode === "create"}
+        value={state.name}
+        onChange={(e) => patchState({ name: e.target.value })}
+        placeholder="e.g. ramp up"
+      />
 
       {/* Subtle lifecycle option — above the grid */}
       <Flex align="center" mb="3">
@@ -1235,7 +1239,7 @@ export function defaultRampSectionState(
   }
   return {
     mode: "off",
-    name: "",
+    name: "ramp up",
     startMode: "immediately" as StartMode,
     startTime: "",
     startPatch: { coverage: 0 },

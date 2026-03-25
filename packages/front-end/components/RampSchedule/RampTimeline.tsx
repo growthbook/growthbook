@@ -151,16 +151,31 @@ function Node({
         }}
       >
         {state === "active" && (
-          <Box
-            style={{
-              position: "absolute",
-              width: dotSize + 6,
-              height: dotSize + 6,
-              borderRadius: "50%",
-              border: `2px solid ${color}`,
-              opacity: 0.35,
-            }}
-          />
+          <>
+            {status === "running" && (
+              <style>{`
+                @keyframes ramp-dot-blip {
+                  0%        { transform: scale(1);    opacity: 0; }
+                  20%, 60%   { transform: scale(1);    opacity: 0.35; }
+                  80%       { transform: scale(1.3);  opacity: 0; }
+                  100%      { transform: scale(1.3);  opacity: 0; }
+                }
+              `}</style>
+            )}
+            <Box
+              style={{
+                position: "absolute",
+                width: dotSize + 6,
+                height: dotSize + 6,
+                borderRadius: "50%",
+                border: `2px solid ${color}`,
+                opacity: 0.35,
+                ...(status === "running" && {
+                  animation: "ramp-dot-blip 2.5s ease-in-out infinite",
+                }),
+              }}
+            />
+          </>
         )}
         <Box
           style={{

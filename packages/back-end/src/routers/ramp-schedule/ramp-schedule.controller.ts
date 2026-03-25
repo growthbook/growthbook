@@ -508,6 +508,21 @@ export const postRampScheduleAction = async (
           message: `Invalid targetStepIndex ${jumpTarget}`,
         });
       }
+
+      // After any jump, reset phaseStartedAt so the target step's interval
+      // runs fresh from resume time rather than being stale from the original start.
+      // phaseStartedAt = now - sum(intervals of steps 0..target-1)
+      // This ensures nextStepAt = phaseStartedAt + sum(0..target) = now + steps[target].seconds
+      const freshPhaseStartedAt = (() => {
+        if (jumpTarget <= 0) return now;
+        let elapsed = 0;
+        for (let i = 0; i < jumpTarget; i++) {
+          const t = schedule.steps[i]?.trigger;
+          if (t?.type === "interval") elapsed += t.seconds;
+        }
+        return new Date(now.getTime() - elapsed * 1000);
+      })();
+
       if (jumpTarget < schedule.currentStepIndex) {
         // Backward: rollback then override to paused, clearing any pending approval state
         const j = await rollbackToStep(
@@ -519,6 +534,8 @@ export const postRampScheduleAction = async (
         updated = await context.models.rampSchedules.updateById(j.id, {
           status: "paused",
           pausedAt: now,
+          phaseStartedAt: freshPhaseStartedAt,
+          nextStepAt: null,
           pendingRevisionIds: [],
           pendingApprovalRevisionId: null,
         });
@@ -531,6 +548,7 @@ export const postRampScheduleAction = async (
         updated = await context.models.rampSchedules.updateById(current.id, {
           status: "paused",
           pausedAt: now,
+          phaseStartedAt: freshPhaseStartedAt,
           nextStepAt: null,
         });
       } else {
@@ -538,6 +556,8 @@ export const postRampScheduleAction = async (
         updated = await context.models.rampSchedules.updateById(schedule.id, {
           status: "paused",
           pausedAt: now,
+          phaseStartedAt: freshPhaseStartedAt,
+          nextStepAt: null,
         });
       }
       await dispatchRampEvent(context, updated, "jumped", {

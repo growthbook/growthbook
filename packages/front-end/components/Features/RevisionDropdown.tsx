@@ -211,7 +211,7 @@ export default function RevisionDropdown({
   ).length;
   const generatedCount = allSorted.filter(isRampGenerated).length;
 
-  const triggerWidth = context === "header" ? 250 : "100%";
+  const triggerWidth = context === "header" ? 280 : "100%";
 
   const trigger = (
     <Flex

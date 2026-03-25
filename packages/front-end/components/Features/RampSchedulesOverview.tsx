@@ -71,10 +71,7 @@ export default function RampSchedulesOverview({
                 gap="1"
                 style={{ flexShrink: 0, minWidth: 0 }}
               >
-                <PiHourglassMediumFill
-                  size={18}
-                  style={{ color: "var(--violet-9)", flexShrink: 0 }}
-                />
+                <PiHourglassMediumFill size={18} />
                 <span style={{ whiteSpace: "nowrap" }}>
                   <Text weight="medium">{rs.name}</Text>
                 </span>

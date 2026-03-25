@@ -518,8 +518,14 @@ export async function advanceStep(
 
   const nextNextStepIndex = nextStepIndex + 1;
   let nextStepAt: Date | null = null;
-  if (!isBlocked && schedule.steps[nextNextStepIndex]) {
-    nextStepAt = computeNextStepAt(schedule, nextNextStepIndex, now);
+  if (!isBlocked) {
+    if (schedule.steps[nextNextStepIndex]) {
+      nextStepAt = computeNextStepAt(schedule, nextNextStepIndex, now);
+    } else {
+      // Last step applied — set nextStepAt to now so the agenda job (and
+      // advanceUntilBlocked) fires one more time and hits the !step completion branch.
+      nextStepAt = now;
+    }
   }
 
   const newStatus: RampScheduleInterface["status"] = isBlocked
@@ -1078,7 +1084,7 @@ export function initRampScheduleHooks(): void {
  * Advance a running schedule through all steps that are currently due,
  * creating a separate revision for each step.  The loop stops when:
  *   - The schedule leaves "running" (approval gate, completion, error)
- *   - No more steps remain (nextStepAt === null)
+ *   - No more steps remain (advanceStep sets status to "completed")
  *   - The next step is not yet due (nextStepAt > now)
  *   - A safety cap of schedule.steps.length iterations is reached
  */
