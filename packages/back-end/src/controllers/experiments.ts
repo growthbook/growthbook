@@ -20,6 +20,7 @@ import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   getAllVariations,
+  isVariationWeightsSumValid,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -3999,6 +4000,14 @@ export async function postExperimentFeatureValues(
     return;
   }
 
+  if (!experiment.phases?.length) {
+    res.status(400).json({
+      status: 400,
+      message: "Experiment must have at least one phase",
+    });
+    return;
+  }
+
   // Check that variations and variationWeights are the same length
   if (variations.length !== variationWeights.length) {
     res.status(400).json({
@@ -4007,32 +4016,19 @@ export async function postExperimentFeatureValues(
     });
     return;
   }
-
-  validateVariationIds(variations);
-  const variationWeightSum = variationWeights.reduce(
-    (acc, weight) => acc + weight,
-    0,
-  );
-  if (variationWeightSum !== 1) {
+  if (!isVariationWeightsSumValid(variationWeights)) {
     res.status(400).json({
       status: 400,
       message: "variationWeights must add up to 1.",
     });
     return;
   }
+  validateVariationIds(variations);
 
   if (Object.values(features).some((v) => v.length !== variations.length)) {
     res.status(400).json({
       status: 400,
       message: "All features must specify values for all variations.",
-    });
-    return;
-  }
-
-  if (!experiment.phases?.length) {
-    res.status(400).json({
-      status: 400,
-      message: "Experiment must have at least one phase",
     });
     return;
   }
@@ -4063,6 +4059,14 @@ export async function postExperimentFeatureValues(
 
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
+  if (linkedFeatures.length !== Object.keys(features).length) {
+    res.status(400).json({
+      status: 400,
+      message: "One or more features not found",
+    });
+    return;
+  }
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
@@ -4071,14 +4075,6 @@ export async function postExperimentFeatureValues(
 
   if (!context.permissions.canRunExperiment(experiment, envs)) {
     context.permissions.throwPermissionError();
-  }
-
-  if (linkedFeatures.length !== Object.keys(features).length) {
-    res.status(400).json({
-      status: 400,
-      message: "One or more features not found",
-    });
-    return;
   }
 
   // Check for permission to update each feature

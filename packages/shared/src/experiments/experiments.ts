@@ -1483,6 +1483,24 @@ export function generateSliceStringFromLevels(
   return generateSliceString(slices);
 }
 
+/**
+ * Allowed drift when checking that variation weights sum to 1.
+ * Matches sdk-js and NewPhaseForm (0.99 … 1.01 inclusive).
+ */
+const VARIATION_WEIGHTS_SUM_TOLERANCE = 0.01;
+
+/**
+ * Returns whether variation weights are valid: their sum is ~1 within tolerance
+ * (avoids strict float equality).
+ */
+export function isVariationWeightsSumValid(
+  weights: number[],
+  tolerance: number = VARIATION_WEIGHTS_SUM_TOLERANCE,
+): boolean {
+  const sum = weights.reduce((acc, w) => acc + w, 0);
+  return Math.abs(sum - 1) <= tolerance;
+}
+
 // Returns n "equal" decimals rounded to 3 places that add up to 1
 // The sum always adds to 1. In some cases the values are not equal.
 // For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
