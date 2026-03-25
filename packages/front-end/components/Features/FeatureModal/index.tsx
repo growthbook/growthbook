@@ -101,6 +101,7 @@ const genFormDefaultValues = ({
   | "environmentSettings"
   | "customFields"
   | "holdout"
+  | "jsonSchema"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -130,6 +131,7 @@ const genFormDefaultValues = ({
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
           : undefined,
+        jsonSchema: featureToDuplicate.jsonSchema,
       }
     : {
         valueType: "" as FeatureValueType,
