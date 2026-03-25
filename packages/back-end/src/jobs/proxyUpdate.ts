@@ -87,35 +87,6 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
       params: connection,
     }),
   );
-<<<<<<< HEAD
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    connection.projects,
-    environmentDoc,
-    true,
-  );
-
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities: getConnectionSDKCapabilities(connection),
-    environment: connection.environment,
-    projects: filteredProjects,
-    encryptionKey: connection.encryptPayload
-      ? connection.encryptionKey
-      : undefined,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    includeProjectPublicId: connection.includeProjectPublicId,
-    includeCustomFields: connection.includeCustomFields,
-    includeTags: connection.includeTags,
-    hashSecureAttributes: connection.hashSecureAttributes,
-  });
-
-  const payload = JSON.stringify(defs);
-=======
->>>>>>> origin/main
 
   // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
   const signature = createHmac("sha256", connection.proxy.signingKey)

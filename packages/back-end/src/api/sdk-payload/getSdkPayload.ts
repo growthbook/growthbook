@@ -14,48 +14,11 @@ export const getSdkPayload = createApiRequestHandler()(async (
     throw new Error("Missing API key in request");
   }
 
-<<<<<<< HEAD
-  const {
-    capabilities,
-    environment,
-    encrypted,
-    projects,
-    encryptionKey,
-    includeVisualExperiments,
-    includeDraftExperiments,
-    includeExperimentNames,
-    includeRedirectExperiments,
-    includeRuleIds,
-    includeProjectPublicId,
-    includeCustomFields,
-    includeTags,
-    hashSecureAttributes,
-    savedGroupReferencesEnabled,
-  } = await getPayloadParamsFromApiKey(key, req);
-=======
   const params = await getPayloadParamsFromApiKey(key, req);
->>>>>>> origin/main
 
   const defs = await getFeatureDefinitionsWithCache({
     context: req.context,
-<<<<<<< HEAD
-    capabilities,
-    environment,
-    projects: filteredProjects,
-    encryptionKey: encrypted ? encryptionKey : "",
-    includeVisualExperiments,
-    includeDraftExperiments,
-    includeExperimentNames,
-    includeRedirectExperiments,
-    includeRuleIds,
-    includeProjectPublicId,
-    includeCustomFields,
-    includeTags,
-    hashSecureAttributes,
-    savedGroupReferencesEnabled,
-=======
     params,
->>>>>>> origin/main
   });
 
   return {

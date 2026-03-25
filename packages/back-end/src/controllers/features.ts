@@ -310,29 +310,7 @@ export type SDKPayloadParams = Pick<
 export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request,
-<<<<<<< HEAD
-): Promise<{
-  organization: string;
-  capabilities: SDKCapability[];
-  projects: string[];
-  environment: string;
-  encrypted: boolean;
-  encryptionKey?: string;
-  includeVisualExperiments?: boolean;
-  includeDraftExperiments?: boolean;
-  includeExperimentNames?: boolean;
-  includeRedirectExperiments?: boolean;
-  includeRuleIds?: boolean;
-  includeProjectPublicId?: boolean;
-  includeCustomFields?: string[];
-  includeTags?: boolean;
-  hashSecureAttributes?: boolean;
-  remoteEvalEnabled?: boolean;
-  savedGroupReferencesEnabled?: boolean;
-}> {
-=======
 ): Promise<SDKPayloadParams> {
->>>>>>> origin/main
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
@@ -361,9 +339,6 @@ export async function getPayloadParamsFromApiKey(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
-      includeProjectPublicId: connection.includeProjectPublicId,
-      includeCustomFields: connection.includeCustomFields,
-      includeTags: connection.includeTags,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -424,68 +399,6 @@ export async function getPayloadParamsFromApiKey(
 // Accepts: SDKPayloadParams - either a full SDKConnectionInterface object or a subset via API key lookup.
 export async function getFeatureDefinitionsWithCache({
   context,
-<<<<<<< HEAD
-  projects,
-  environmentDoc,
-  capabilities,
-  encrypted,
-  encryptionKey,
-  includeVisualExperiments,
-  includeDraftExperiments,
-  includeExperimentNames,
-  includeRedirectExperiments,
-  includeRuleIds,
-  includeProjectPublicId,
-  includeCustomFields,
-  includeTags,
-  hashSecureAttributes,
-  savedGroupReferencesEnabled,
-  environment,
-}: {
-  context: ReqContext | ApiReqContext;
-  projects: string[];
-  environmentDoc: Environment | undefined;
-  capabilities: SDKCapability[];
-  encrypted: boolean;
-  encryptionKey: string | undefined;
-  includeVisualExperiments: boolean | undefined;
-  includeDraftExperiments: boolean | undefined;
-  includeExperimentNames: boolean | undefined;
-  includeRedirectExperiments: boolean | undefined;
-  includeRuleIds: boolean | undefined;
-  includeProjectPublicId: boolean | undefined;
-  includeCustomFields: string[] | undefined;
-  includeTags: boolean | undefined;
-  hashSecureAttributes: boolean | undefined;
-  savedGroupReferencesEnabled: boolean | undefined;
-  environment: string;
-}) {
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    projects,
-    environmentDoc,
-    true,
-  );
-
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities,
-    environment,
-    projects: filteredProjects,
-    encryptionKey: encrypted ? encryptionKey : "",
-    includeVisualExperiments,
-    includeDraftExperiments,
-    includeExperimentNames,
-    includeRedirectExperiments,
-    includeRuleIds,
-    includeProjectPublicId,
-    includeCustomFields,
-    includeTags,
-    hashSecureAttributes,
-    savedGroupReferencesEnabled:
-      savedGroupReferencesEnabled &&
-      capabilities.includes("savedGroupReferences"),
-  });
-=======
   params,
 }: {
   context: ReqContext | ApiReqContext;
@@ -564,7 +477,6 @@ export async function getFeatureDefinitionsWithCache({
         });
     }
   }
->>>>>>> origin/main
 
   return defs;
 }
@@ -577,29 +489,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-<<<<<<< HEAD
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      includeProjectPublicId,
-      includeCustomFields,
-      includeTags,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-      savedGroupReferencesEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
-=======
     const params = await getPayloadParamsFromApiKey(key, req);
->>>>>>> origin/main
 
     if (!params.organization) {
       throw new UnrecoverableApiError("Organization not found for API key");
@@ -615,26 +505,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     const defs = await getFeatureDefinitionsWithCache({
       context,
-<<<<<<< HEAD
-      projects,
-      environmentDoc,
-      capabilities,
-      encrypted,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      includeProjectPublicId,
-      includeCustomFields,
-      includeTags,
-      hashSecureAttributes,
-      savedGroupReferencesEnabled,
-      environment,
-=======
       params,
->>>>>>> origin/main
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -687,28 +558,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       throw new UnrecoverableApiError("Missing API key in request");
     }
 
-<<<<<<< HEAD
-    const {
-      organization,
-      capabilities,
-      environment,
-      encrypted,
-      projects,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      includeProjectPublicId,
-      includeCustomFields,
-      includeTags,
-      hashSecureAttributes,
-      remoteEvalEnabled,
-    } = await getPayloadParamsFromApiKey(key, req);
-=======
     const params = await getPayloadParamsFromApiKey(key, req);
->>>>>>> origin/main
 
     if (!params.organization) {
       throw new UnrecoverableApiError("Organization not found for API key");
@@ -735,23 +585,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     const defs = await getFeatureDefinitionsWithCache({
       context,
-<<<<<<< HEAD
-      capabilities,
-      environment,
-      projects: filteredProjects,
-      encryptionKey: encrypted ? encryptionKey : "",
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      includeRuleIds,
-      includeProjectPublicId,
-      includeCustomFields,
-      includeTags,
-      hashSecureAttributes,
-=======
       params,
->>>>>>> origin/main
     });
 
     // This endpoint should never be cached

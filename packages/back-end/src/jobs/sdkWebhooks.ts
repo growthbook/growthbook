@@ -335,26 +335,7 @@ export async function fireSdkWebhook(
 
         const defs = await getFeatureDefinitionsWithCache({
           context: webhookContext,
-<<<<<<< HEAD
-          capabilities: getConnectionSDKCapabilities(connection),
-          environment: connection.environment,
-          projects: filteredProjects,
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          includeRedirectExperiments: connection.includeRedirectExperiments,
-          includeRuleIds: connection.includeRuleIds,
-          includeProjectPublicId: connection.includeProjectPublicId,
-          includeCustomFields: connection.includeCustomFields,
-          includeTags: connection.includeTags,
-          hashSecureAttributes: connection.hashSecureAttributes,
-          savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-=======
           params: connection,
->>>>>>> origin/main
         });
 
         return [[connection.key, defs], ...payloads];
@@ -381,26 +362,7 @@ export async function fireGlobalSdkWebhooks(
   for (const connection of connections) {
     const payload = await getFeatureDefinitionsWithCache({
       context,
-<<<<<<< HEAD
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      includeRuleIds: connection.includeRuleIds,
-      includeProjectPublicId: connection.includeProjectPublicId,
-      includeCustomFields: connection.includeCustomFields,
-      includeTags: connection.includeTags,
-      hashSecureAttributes: connection.hashSecureAttributes,
-=======
       params: connection,
->>>>>>> origin/main
     });
 
     WEBHOOKS.forEach((webhook) => {

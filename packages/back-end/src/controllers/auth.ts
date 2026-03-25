@@ -1,9 +1,5 @@
 import { Request, Response } from "express";
-<<<<<<< HEAD
-import { generateProjectPublicIdFromName } from "shared/util";
-=======
 import { UserInterface } from "shared/types/user";
->>>>>>> origin/main
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -308,12 +304,8 @@ export async function postFirstTimeRegister(
 
   const context = getContextForAgendaJobByOrgObject(org);
 
-  const projectName = "My First Project";
-  const basePublicId =
-    generateProjectPublicIdFromName(projectName) || "my-first-project";
   const project = await context.models.projects.create({
-    name: projectName,
-    publicId: basePublicId,
+    name: "My First Project",
   });
 
   sendLocalSuccessResponse(req, res, user, project.id);

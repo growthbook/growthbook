@@ -8,9 +8,6 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-<<<<<<< HEAD
-import { generateProjectPublicIdFromName } from "shared/util";
-=======
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
@@ -22,7 +19,6 @@ import {
   FactMetricInterface,
   MetricWindowSettings,
 } from "shared/types/fact-table";
->>>>>>> origin/main
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { createDataSource } from "back-end/src/models/DataSourceModel";
@@ -221,13 +217,9 @@ export const postDemoDatasourceProject = async (
   }
 
   try {
-    const projectName = "Sample Data";
-    const basePublicId =
-      generateProjectPublicIdFromName(projectName) || "sample-data";
     const project = await context.models.projects.create({
       id: demoProjId,
-      name: projectName,
-      publicId: basePublicId,
+      name: "Sample Data",
     });
     const datasource = await createDataSource(
       context,
