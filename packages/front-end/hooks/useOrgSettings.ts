@@ -3,7 +3,10 @@ import { useUser } from "@/services/UserContext";
 import { isCloud, hasAnyAIKey } from "@/services/env";
 
 export default function useOrgSettings() {
-  const { settings } = useUser();
+  const { settings, hasCommercialFeature } = useUser();
+  if (!hasCommercialFeature("require-approvals") && settings) {
+    return { ...settings, requireReviews: [] };
+  }
   return settings;
 }
 

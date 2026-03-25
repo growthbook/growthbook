@@ -1,6 +1,7 @@
 import React, { ReactNode, ReactElement } from "react";
 import isEqual from "lodash/isEqual";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 
 // After normalizeSnapshot, `condition` may already be a parsed object.
@@ -181,4 +182,10 @@ export function renderFallback(
 export function ProjectName({ id }: { id: string }): ReactElement {
   const { getProjectById } = useDefinitions();
   return <>{getProjectById(id)?.name ?? id}</>;
+}
+
+// Resolves an owner ID/string to its display name. Falls back to the raw value.
+export function OwnerName({ id }: { id: string }): ReactElement {
+  const { getOwnerDisplay } = useUser();
+  return <>{getOwnerDisplay(id) || id}</>;
 }
