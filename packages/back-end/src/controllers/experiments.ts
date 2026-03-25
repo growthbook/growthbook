@@ -70,6 +70,7 @@ import {
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
+  updateExperimentAndSync,
   validateExperimentData,
 } from "back-end/src/services/experiments";
 import {
@@ -90,7 +91,6 @@ import {
   deleteVisualChangesetById,
   findVisualChangesetById,
   findVisualChangesetsByExperiment,
-  syncVisualChangesWithVariations,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
@@ -1787,45 +1787,11 @@ export async function postExperiment(
     }
   }
 
-  const updated = await updateExperiment({
+  const updated = await updateExperimentAndSync({
     context,
     experiment,
     changes,
   });
-
-  // if variations have changed, update the experiment's visualchangesets if they exist
-  if (changes.variations && updated) {
-    const visualChangesets = await findVisualChangesetsByExperiment(
-      experiment.id,
-      org.id,
-    );
-
-    if (visualChangesets.length) {
-      await Promise.all(
-        visualChangesets.map((vc) =>
-          syncVisualChangesWithVariations({
-            visualChangeset: vc,
-            experiment: updated,
-            context,
-          }),
-        ),
-      );
-    }
-
-    const urlRedirects = await context.models.urlRedirects.findByExperiment(
-      experiment.id,
-    );
-    if (urlRedirects.length) {
-      await Promise.all(
-        urlRedirects.map((urlRedirect) =>
-          context.models.urlRedirects.syncURLRedirectsWithVariations(
-            urlRedirect,
-            updated,
-          ),
-        ),
-      );
-    }
-  }
   if (
     aiSettings.aiEnabled &&
     (changes.name || changes.description || changes.hypothesis)
@@ -4036,20 +4002,28 @@ export async function postExperimentFeatureValues(
   const variationsChanged =
     JSON.stringify(variations) !== JSON.stringify(experiment.variations);
 
+  const variationWeightsChanged =
+    JSON.stringify(variationWeights) !==
+    JSON.stringify(
+      experiment.phases[experiment.phases.length - 1].variationWeights,
+    );
+
   const changes: Changeset = {};
 
   if (variationsChanged) {
     changes.variations = variations;
   }
 
-  // Mirror `postExperiment`: variationWeights are updated on the last phase only.
-  const phases = [...experiment.phases];
-  const lastIndex = phases.length - 1;
-  phases[lastIndex] = {
-    ...phases[lastIndex],
-    variationWeights,
-  };
-  changes.phases = phases;
+  if (variationWeightsChanged) {
+    // Mirror `postExperiment`: variationWeights are updated on the last phase only.
+    const phases = [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variationWeights,
+    };
+    changes.phases = phases;
+  }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
@@ -4087,44 +4061,14 @@ export async function postExperimentFeatureValues(
     }
   }
 
-  // If variations have changed, update the experiment and sync visual changesets and url redirects
-  if (changes.variations) {
-    const updated = await updateExperiment({
+  // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
+  let experimentForResponse = experiment;
+  if (changes.variations || changes.phases) {
+    experimentForResponse = await updateExperimentAndSync({
       context,
       experiment,
       changes,
     });
-
-    const visualChangesets = await findVisualChangesetsByExperiment(
-      experiment.id,
-      org.id,
-    );
-
-    if (visualChangesets.length) {
-      await Promise.all(
-        visualChangesets.map((vc) =>
-          syncVisualChangesWithVariations({
-            visualChangeset: vc,
-            experiment: updated,
-            context,
-          }),
-        ),
-      );
-    }
-
-    const urlRedirects = await context.models.urlRedirects.findByExperiment(
-      experiment.id,
-    );
-    if (urlRedirects.length) {
-      await Promise.all(
-        urlRedirects.map((urlRedirect) =>
-          context.models.urlRedirects.syncURLRedirectsWithVariations(
-            urlRedirect,
-            updated,
-          ),
-        ),
-      );
-    }
   }
 
   // Go through features and create revisions
@@ -4259,6 +4203,6 @@ export async function postExperimentFeatureValues(
 
   res.status(200).json({
     status: 200,
-    experiment,
+    experiment: experimentForResponse,
   });
 }

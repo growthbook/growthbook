@@ -118,6 +118,10 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
+} from "back-end/src/models/VisualChangesetModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -930,6 +934,84 @@ export function resetExperimentBanditSettings({
   } as ExperimentInterface);
 
   return changes;
+}
+
+/**
+ * Keeps visual changesets and URL redirects aligned when an experiment's
+ * variations or phases (e.g. weights) change.
+ */
+export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
+  context,
+  updated,
+}: {
+  context: ReqContext | ApiReqContext;
+  updated: ExperimentInterface;
+}): Promise<void> {
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    updated.id,
+    context.org.id,
+  );
+
+  if (visualChangesets.length) {
+    await Promise.all(
+      visualChangesets.map((vc) =>
+        syncVisualChangesWithVariations({
+          visualChangeset: vc,
+          experiment: updated,
+          context,
+        }),
+      ),
+    );
+  }
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    updated.id,
+  );
+  if (urlRedirects.length) {
+    await Promise.all(
+      urlRedirects.map((urlRedirect) =>
+        context.models.urlRedirects.syncURLRedirectsWithVariations(
+          urlRedirect,
+          updated,
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Persists experiment changes and syncs linked visual changesets and URL
+ * redirects when `variations` or `phases` are in the changeset.
+ */
+export async function updateExperimentAndSync({
+  context,
+  experiment,
+  changes,
+  bypassWebhooks = false,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+  bypassWebhooks?: boolean;
+}): Promise<ExperimentInterface> {
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes,
+    bypassWebhooks,
+  });
+
+  const shouldSyncLinked =
+    changes.variations !== undefined || changes.phases !== undefined;
+
+  if (shouldSyncLinked) {
+    await syncVisualChangesetsAndUrlRedirectsForExperiment({
+      context,
+      updated,
+    });
+  }
+
+  return updated;
 }
 
 export function updateExperimentBanditSettings({
