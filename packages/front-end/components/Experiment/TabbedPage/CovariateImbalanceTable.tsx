@@ -42,7 +42,7 @@ const percentageFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-const INITIAL_VISIBLE_ROW_COUNT = 10;
+const INITIAL_VISIBLE_ROW_COUNT = 5;
 const SHOW_MORE_CHUNK_SIZE = 10;
 
 const covariateImbalanceColumnWidths = {
@@ -254,7 +254,7 @@ function CovariateImbalanceTableSection({
   );
 }
 
-export function CovariateImbalanceMetricVariationTable({
+export default function CovariateImbalanceTable({
   covariateImbalanceResult,
   variations,
   goalMetricIds,

@@ -5,7 +5,7 @@ import { CovariateImbalanceResult } from "shared/health";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
-import { CovariateImbalanceMetricVariationTable } from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
+import CovariateImbalanceTable from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -59,6 +59,114 @@ const testCovariateImbalanceResult: CovariateImbalanceResult = {
     },
     {
       metricId: "fact__367olmrmljuqf6l",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
       variation: 1,
       isImbalanced: true,
       baselineSampleSize: 5000,
@@ -204,7 +312,7 @@ export default function CovariateImbalanceCard({
       </Box>
       {!isCollapsed && covariateImbalanceResult && (
         <Box mt="4">
-          <CovariateImbalanceMetricVariationTable
+          <CovariateImbalanceTable
             covariateImbalanceResult={covariateImbalanceResult}
             variations={variations}
             goalMetricIds={snapshot.settings.goalMetrics}
