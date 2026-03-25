@@ -1,8 +1,11 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
-import { tabulateCovariateImbalance } from "shared/health";
+import {
+  DEFAULT_DECISION_FRAMEWORK_ENABLED,
+  DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
+} from "shared/constants";
+import { CovariateImbalanceResult } from "shared/health";
 import { Flex } from "@radix-ui/themes";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
@@ -28,6 +31,70 @@ import {
 const noExposureQueryMessage =
   "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
 
+/** Set to `true` locally to preview imbalanced covariate UI without snapshot data. */
+const USE_COVARIATE_IMBALANCE_IMBALANCED_FIXTURE = true;
+
+const testCovariateImbalanceResult: CovariateImbalanceResult = {
+  isImbalanced: true,
+  pValueThreshold: DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
+  numGoalMetrics: 3,
+  numGoalMetricsImbalanced: 2,
+  numGuardrailMetrics: 1,
+  numGuardrailMetricsImbalanced: 1,
+  numSecondaryMetrics: 3,
+  numSecondaryMetricsImbalanced: 1,
+  metricVariationCovariateImbalanceResults: [
+    {
+      metricId: "fact__367olmrmljuqf5d",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.12,
+      variationMean: 0.18,
+      baselineStandardError: 0.004,
+      variationStandardError: 0.0042,
+      pValue: 0.00005,
+    },
+    {
+      metricId: "fact__demo-d7-purchase-retention",
+      variation: 1,
+      isImbalanced: false,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf6l",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+    {
+      metricId: "fact__367olmrmljuqf5e",
+      variation: 1,
+      isImbalanced: true,
+      baselineSampleSize: 5000,
+      variationSampleSize: 4800,
+      baselineMean: 0.05,
+      variationMean: 0.09,
+      baselineStandardError: 0.003,
+      variationStandardError: 0.0031,
+      pValue: 0.0002,
+    },
+  ],
+};
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onHealthNotify: () => void;
@@ -49,30 +116,6 @@ export default function HealthTab({
     setAnalysisSettings,
   } = useSnapshot();
 
-  const goalMetrics = experiment.goalMetrics ?? [];
-  const guardrailMetrics = experiment.guardrailMetrics ?? [];
-  const secondaryMetrics = experiment.secondaryMetrics ?? [];
-  const hasMetrics =
-    goalMetrics.length > 0 ||
-    guardrailMetrics.length > 0 ||
-    secondaryMetrics.length > 0;
-
-  const analysisForCovariateImbalance = snapshot?.analyses.find(
-    (a) => a.settings.useCovariateAsResponse === true,
-  );
-
-  const isEligibleForCovariateImbalanceAnalysis =
-    !!analysisForCovariateImbalance && hasMetrics;
-
-  const _covariateImbalanceResult =
-    isEligibleForCovariateImbalanceAnalysis && analysisForCovariateImbalance
-      ? tabulateCovariateImbalance(
-          analysisForCovariateImbalance,
-          goalMetrics,
-          guardrailMetrics,
-          secondaryMetrics,
-        )
-      : null;
   const {
     runHealthTrafficQuery,
     decisionFrameworkEnabled,
@@ -114,6 +157,11 @@ export default function HealthTab({
     setLoading,
     resetResultsSettings,
   };
+
+  const covariateImbalanceResultForCard =
+    USE_COVARIATE_IMBALANCE_IMBALANCED_FIXTURE
+      ? testCovariateImbalanceResult
+      : snapshot?.health?.covariateImbalance;
 
   // Clean up notification counter & health issues before unmounting
   useEffect(() => {
@@ -326,7 +374,7 @@ export default function HealthTab({
       <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit && (
           <CovariateImbalanceCard
-            covariateImbalanceResult={_covariateImbalanceResult}
+            covariateImbalanceResult={covariateImbalanceResultForCard}
             variations={variations}
             snapshot={snapshot}
             onNotify={handleHealthNotification}

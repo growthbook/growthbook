@@ -9,6 +9,7 @@ import { ExperimentReportResultDimension } from "shared/types/report";
 export const MetricVariationCovariateImbalanceResultValidator = z.object({
   metricId: z.string(),
   variation: z.number(),
+  isImbalanced: z.boolean(),
   baselineSampleSize: z.number(),
   variationSampleSize: z.number(),
   baselineMean: z.number(),
@@ -70,6 +71,7 @@ function pValueFromChanceToWin(chanceToWin: number): number {
 export interface CovariateImbalanceTableRow {
   metricId: string;
   variation: number;
+  isImbalanced: boolean;
   baselineSampleSize: number;
   variationSampleSize: number;
   baselineMean: number;
@@ -92,6 +94,7 @@ function tabulateCovariateImbalanceByGroup(
   metrics: string[],
   covariateImbalanceTable: CovariateImbalanceTableRow[],
   pValueThreshold: number,
+  tabulatedMetricVariationByKey: Map<string, CovariateImbalanceTableRow>,
 ): SingleGroupCovariateImbalanceResult {
   let isImbalanced = false;
   let processedMetrics = 0;
@@ -108,6 +111,18 @@ function tabulateCovariateImbalanceByGroup(
       const treatmentMetrics = overallResult.variations[variationIndex].metrics;
 
       for (const metricId of metrics) {
+        const metricVariationKey = `${metricId}\0${variationIndex}`;
+        const existingRow =
+          tabulatedMetricVariationByKey.get(metricVariationKey);
+        if (existingRow) {
+          processedMetrics += 1;
+          if (existingRow.isImbalanced) {
+            isImbalanced = true;
+            numMetricsImbalanced += 1;
+          }
+          continue;
+        }
+
         const baselineMetric = getMetric(baselineMetrics, metricId);
         const treatmentMetric = getMetric(treatmentMetrics, metricId);
 
@@ -125,24 +140,28 @@ function tabulateCovariateImbalanceByGroup(
         let pValueForTable: number | undefined;
 
         if (typeof treatmentMetric.pValue === "number") {
-          if (statSigFrequentist(treatmentMetric.pValue, pValueThreshold)) {
-            metricIsImbalanced = true;
-            pValueForTable = treatmentMetric.pValue;
-          }
+          metricIsImbalanced = statSigFrequentist(
+            treatmentMetric.pValue,
+            pValueThreshold,
+          );
+          pValueForTable = treatmentMetric.pValue;
         } else if (typeof treatmentMetric.chanceToWin === "number") {
           const chanceThreshold = 0.5 * pValueThreshold;
-          if (statSigBayesian(treatmentMetric.chanceToWin, chanceThreshold)) {
-            metricIsImbalanced = true;
-            pValueForTable = pValueFromChanceToWin(treatmentMetric.chanceToWin);
-          }
+          metricIsImbalanced = statSigBayesian(
+            treatmentMetric.chanceToWin,
+            chanceThreshold,
+          );
+          pValueForTable = pValueFromChanceToWin(treatmentMetric.chanceToWin);
         }
 
-        if (!metricIsImbalanced || pValueForTable === undefined) {
+        if (pValueForTable === undefined) {
           continue;
         }
 
-        isImbalanced = true;
-        numMetricsImbalanced += 1;
+        if (metricIsImbalanced) {
+          isImbalanced = true;
+          numMetricsImbalanced += 1;
+        }
         const baselineStandardError =
           baselineMetric.users > 0 && baselineMetric.stats?.stddev
             ? baselineMetric.stats.stddev / Math.sqrt(baselineMetric.users)
@@ -151,9 +170,10 @@ function tabulateCovariateImbalanceByGroup(
           treatmentMetric.users > 0 && treatmentMetric.stats?.stddev
             ? treatmentMetric.stats.stddev / Math.sqrt(treatmentMetric.users)
             : 0;
-        covariateImbalanceTable.push({
+        const row: CovariateImbalanceTableRow = {
           metricId,
           variation: variationIndex,
+          isImbalanced: metricIsImbalanced,
           baselineSampleSize: baselineMetric.users,
           variationSampleSize: treatmentMetric.users,
           baselineMean: baselineMetric.cr,
@@ -162,7 +182,9 @@ function tabulateCovariateImbalanceByGroup(
           variationStandardError,
           pValue: pValueForTable,
           errorMessage: treatmentMetric.errorMessage,
-        });
+        };
+        covariateImbalanceTable.push(row);
+        tabulatedMetricVariationByKey.set(metricVariationKey, row);
       }
     }
   }
@@ -206,23 +228,31 @@ export function tabulateCovariateImbalance(
   const nTests = Math.max(1, goalMetrics.length + guardrailMetrics.length);
   const adjustedThreshold = pValueThreshold / nTests;
 
+  const tabulatedMetricVariationByKey = new Map<
+    string,
+    CovariateImbalanceTableRow
+  >();
+
   const goalMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
     goalMetrics,
     covariateImbalanceTable,
     adjustedThreshold,
+    tabulatedMetricVariationByKey,
   );
   const guardrailMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
     guardrailMetrics,
     covariateImbalanceTable,
     adjustedThreshold,
+    tabulatedMetricVariationByKey,
   );
   const secondaryMetricsResult = tabulateCovariateImbalanceByGroup(
     overallResult,
     secondaryMetrics,
     covariateImbalanceTable,
     adjustedThreshold,
+    tabulatedMetricVariationByKey,
   );
 
   const isImbalanced =

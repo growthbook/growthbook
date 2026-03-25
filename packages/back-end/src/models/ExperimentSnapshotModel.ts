@@ -158,12 +158,19 @@ const experimentSnapshotSchema = new mongoose.Schema({
     covariateImbalance: {
       _id: false,
       isImbalanced: Boolean,
+      pValueThreshold: Number,
+      numGoalMetrics: Number,
+      numGoalMetricsImbalanced: Number,
+      numGuardrailMetrics: Number,
+      numGuardrailMetricsImbalanced: Number,
+      numSecondaryMetrics: Number,
+      numSecondaryMetricsImbalanced: Number,
       metricVariationCovariateImbalanceResults: [
         {
           _id: false,
           metricId: String,
           variation: Number,
-          errorMessage: String,
+          isImbalanced: Boolean,
           baselineSampleSize: Number,
           variationSampleSize: Number,
           baselineMean: Number,
@@ -171,6 +178,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
           baselineStandardError: Number,
           variationStandardError: Number,
           pValue: Number,
+          errorMessage: String,
         },
       ],
     },

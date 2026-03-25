@@ -4,7 +4,7 @@ import {
   MetricVariationCovariateImbalanceResult,
 } from "shared/health";
 import { useState } from "react";
-import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
+import { Box, Flex } from "@radix-ui/themes";
 import { pValueFormatter } from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
@@ -15,6 +15,7 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+import Text from "@/ui/Text";
 
 export interface Props {
   covariateImbalanceResult: CovariateImbalanceResult | null;
@@ -24,11 +25,6 @@ export interface Props {
   guardrailMetricIds: string[];
   srm?: number;
 }
-
-const sampleSizeFormatter = Intl.NumberFormat(undefined, {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
 
 const meanFormatter = Intl.NumberFormat(undefined, {
   minimumFractionDigits: 2,
@@ -46,7 +42,30 @@ const percentageFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-const VISIBLE_ROW_COUNT = 5;
+const INITIAL_VISIBLE_ROW_COUNT = 10;
+const SHOW_MORE_CHUNK_SIZE = 10;
+
+const covariateImbalanceColumnWidths = {
+  metric: "20%",
+  variation: "15%",
+  pValue: "10%",
+  baselineMean: "20%",
+  variationMean: "20%",
+  pctChange: "10%",
+} as const;
+
+function sortCovariateRowsImbalancedFirst(
+  rows: MetricVariationCovariateImbalanceResult[],
+): MetricVariationCovariateImbalanceResult[] {
+  return [...rows].sort((a, b) => {
+    const aImbalanced = a.isImbalanced ?? true;
+    const bImbalanced = b.isImbalanced ?? true;
+    if (aImbalanced !== bImbalanced) {
+      return aImbalanced ? -1 : 1;
+    }
+    return a.pValue - b.pValue;
+  });
+}
 
 function splitRowsByMetricType(
   covariateImbalanceResult: CovariateImbalanceResult | null,
@@ -60,55 +79,72 @@ function splitRowsByMetricType(
   const secondarySet = new Set(secondaryMetricIds);
   const guardrailSet = new Set(guardrailMetricIds);
 
-  const goalRows = rows.filter((row) => goalSet.has(row.metricId));
-  const secondaryRows = rows.filter((row) => secondarySet.has(row.metricId));
-  const guardrailRows = rows.filter((row) => guardrailSet.has(row.metricId));
+  const goalRows = sortCovariateRowsImbalancedFirst(
+    rows.filter((row) => goalSet.has(row.metricId)),
+  );
+  const secondaryRows = sortCovariateRowsImbalancedFirst(
+    rows.filter((row) => secondarySet.has(row.metricId)),
+  );
+  const guardrailRows = sortCovariateRowsImbalancedFirst(
+    rows.filter((row) => guardrailSet.has(row.metricId)),
+  );
 
   return { goalRows, guardrailRows, secondaryRows };
 }
 
 interface CovariateImbalanceTableProps {
-  type: "goal" | "secondary" | "guardrail";
+  type: "Goal" | "Secondary" | "Guardrail";
   rows: MetricVariationCovariateImbalanceResult[];
   variations: ExperimentReportVariation[];
-  getExperimentMetricById: ReturnType<
-    typeof useDefinitions
-  >["getExperimentMetricById"];
 }
 
 function CovariateImbalanceTableSection({
   type,
   rows,
   variations,
-  getExperimentMetricById,
 }: CovariateImbalanceTableProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [visibleRowCount, setVisibleRowCount] = useState(
+    INITIAL_VISIBLE_ROW_COUNT,
+  );
+  const { getExperimentMetricById } = useDefinitions();
 
-  const visibleRows = expanded ? rows : rows.slice(0, VISIBLE_ROW_COUNT);
+  const visibleRows = rows.slice(0, visibleRowCount);
 
   if (!rows.length) return null;
   return (
-    <div className="mb-4">
-      <Table size="1" className="mx-2 mt-0 mb-2">
+    <Box mb="4">
+      <Table size="1" layout="fixed" mx="2" mt="0" mb="2">
         <TableHeader>
           <TableRow>
-            <TableColumnHeader className="text-center">
-              {type} Metrics ({rows.length})
+            <TableColumnHeader width={covariateImbalanceColumnWidths.metric}>
+              {type} Metrics <Text weight="regular">({rows.length})</Text>
             </TableColumnHeader>
-            <TableColumnHeader className="text-center">
+            <TableColumnHeader width={covariateImbalanceColumnWidths.variation}>
               Variation
             </TableColumnHeader>
-            <TableColumnHeader className="text-center">
-              Sample size
+            <TableColumnHeader
+              width={covariateImbalanceColumnWidths.pValue}
+              justify="end"
+            >
+              p-value
             </TableColumnHeader>
-            <TableColumnHeader className="text-center">
+            <TableColumnHeader
+              width={covariateImbalanceColumnWidths.baselineMean}
+              justify="end"
+            >
               Baseline mean (std)
             </TableColumnHeader>
-            <TableColumnHeader className="text-center">
+            <TableColumnHeader
+              width={covariateImbalanceColumnWidths.variationMean}
+              justify="end"
+            >
               Variation mean (std)
             </TableColumnHeader>
-            <TableColumnHeader className="text-center">
-              % change
+            <TableColumnHeader
+              width={covariateImbalanceColumnWidths.pctChange}
+              justify="end"
+            >
+              % Change
             </TableColumnHeader>
           </TableRow>
         </TableHeader>
@@ -119,14 +155,16 @@ function CovariateImbalanceTableSection({
 
             return (
               <TableRow key={`${row.metricId}-${row.variation}`}>
-                <TableCell className="border-right">
+                <TableCell width={covariateImbalanceColumnWidths.metric}>
                   <b>{metric?.name ?? row.metricId}</b>
                 </TableCell>
                 <TableCell
-                  className={`border-right variation with-variation-label variation${row.variation}`}
+                  width={covariateImbalanceColumnWidths.variation}
+                  className={`variation with-variation-label variation${row.variation}`}
                 >
-                  <div className="d-flex align-items-center">
-                    <span
+                  <Flex align="center" gap="2">
+                    <Box
+                      as="span"
                       className="label"
                       style={{
                         width: 20,
@@ -134,38 +172,57 @@ function CovariateImbalanceTableSection({
                       }}
                     >
                       {row.variation}
-                    </span>{" "}
+                    </Box>{" "}
                     {variation?.name ?? ""}
-                  </div>
+                  </Flex>
                 </TableCell>
-                <TableCell className="border-right text-right">
-                  {sampleSizeFormatter.format(row.variationSampleSize ?? 0)}
+                <TableCell
+                  width={covariateImbalanceColumnWidths.pValue}
+                  justify="end"
+                  style={{
+                    backgroundColor: row.isImbalanced
+                      ? "var(--red-a3)"
+                      : undefined,
+                  }}
+                >
+                  {pValueFormatter(row.pValue)}
                 </TableCell>
-                <TableCell className="border-right text-right">
-                  <b>
+                <TableCell
+                  width={covariateImbalanceColumnWidths.baselineMean}
+                  justify="end"
+                >
+                  <Text as="span" weight="semibold">
                     {row.baselineMean !== undefined
                       ? meanFormatter.format(row.baselineMean)
                       : "-"}
-                    {row.baselineStandardError !== undefined
-                      ? ` (${standardErrorFormatter.format(
-                          row.baselineStandardError,
-                        )})`
-                      : ""}
-                  </b>
-                </TableCell>
-                <TableCell className="border-right text-right">
-                  {row.variationMean !== undefined
-                    ? meanFormatter.format(row.variationMean)
+                  </Text>
+                  {row.baselineStandardError
+                    ? ` (${standardErrorFormatter.format(
+                        row.baselineStandardError,
+                      )})`
                     : "-"}
-                  {row.variationStandardError !== undefined
+                </TableCell>
+                <TableCell
+                  width={covariateImbalanceColumnWidths.variationMean}
+                  justify="end"
+                >
+                  <Text as="span" weight="semibold">
+                    {row.variationMean
+                      ? meanFormatter.format(row.variationMean)
+                      : "-"}
+                  </Text>
+                  {row.variationStandardError
                     ? ` (${standardErrorFormatter.format(
                         row.variationStandardError,
                       )})`
-                    : ""}
+                    : "-"}
                 </TableCell>
-                <TableCell className="border-right text-right">
-                  {row.baselineMean !== undefined &&
-                  row.variationMean !== undefined &&
+                <TableCell
+                  width={covariateImbalanceColumnWidths.pctChange}
+                  justify="end"
+                >
+                  {row.baselineMean &&
+                  row.variationMean &&
                   row.baselineMean !== 0
                     ? percentageFormatter.format(
                         (row.variationMean - row.baselineMean) /
@@ -176,24 +233,24 @@ function CovariateImbalanceTableSection({
               </TableRow>
             );
           })}
-          <TableRow className="text-left">
-            <TableCell colSpan={2} className="text-nowrap text-muted">
-              {`p-value < ${pValueFormatter(
-                DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
-              )}`}
-            </TableCell>
-            <TableCell colSpan={4}></TableCell>
-          </TableRow>
         </TableBody>
       </Table>
-      {!expanded && rows.length > VISIBLE_ROW_COUNT && (
-        <div className="mx-2">
-          <Button variant="ghost" size="xs" onClick={() => setExpanded(true)}>
+      {visibleRowCount < rows.length && (
+        <Box mx="2">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
+              setVisibleRowCount((count) =>
+                Math.min(count + SHOW_MORE_CHUNK_SIZE, rows.length),
+              )
+            }
+          >
             Show more...
           </Button>
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -204,33 +261,28 @@ export function CovariateImbalanceMetricVariationTable({
   secondaryMetricIds,
   guardrailMetricIds,
 }: Props) {
-  const { getExperimentMetricById } = useDefinitions();
   const { goalRows, guardrailRows, secondaryRows } = splitRowsByMetricType(
     covariateImbalanceResult,
     goalMetricIds,
     secondaryMetricIds,
     guardrailMetricIds,
   );
-
   return (
     <>
       <CovariateImbalanceTableSection
-        type="goal"
+        type="Goal"
         rows={goalRows}
         variations={variations}
-        getExperimentMetricById={getExperimentMetricById}
       />
       <CovariateImbalanceTableSection
-        type="secondary"
+        type="Secondary"
         rows={secondaryRows}
         variations={variations}
-        getExperimentMetricById={getExperimentMetricById}
       />
       <CovariateImbalanceTableSection
-        type="guardrail"
+        type="Guardrail"
         rows={guardrailRows}
         variations={variations}
-        getExperimentMetricById={getExperimentMetricById}
       />
     </>
   );
