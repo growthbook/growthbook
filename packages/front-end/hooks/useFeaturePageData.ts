@@ -177,25 +177,6 @@ export function useFeaturePageData(
     }
   }, [rampSchedulesData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When the live feature version increments (e.g. ramp auto-published above)
-  // and the user was already viewing the live revision, snap them to the new live version.
-  const versionRef = useRef(version);
-  versionRef.current = version;
-  const prevLiveVersionRef = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    const prevLive = prevLiveVersionRef.current;
-    const newLive = baseFeatureVersion;
-    prevLiveVersionRef.current = newLive ?? undefined;
-    if (
-      prevLive !== undefined &&
-      newLive !== undefined &&
-      newLive !== prevLive &&
-      versionRef.current === prevLive
-    ) {
-      setVersion(newLive);
-    }
-  }, [baseFeatureVersion]);
-
   // Seed cache from initial response
   useEffect(() => {
     if (!baseData || !baseData.feature || baseData.feature.id !== fid) {
@@ -266,6 +247,25 @@ export function useFeaturePageData(
   const baseFeature = data?.feature;
   const revisions = data?.revisions;
   const baseFeatureVersion = baseFeature?.version;
+
+  // When the live feature version increments (e.g. ramp auto-published above)
+  // and the user was already viewing the live revision, snap them to the new live version.
+  const versionRef = useRef(version);
+  versionRef.current = version;
+  const prevLiveVersionRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const prevLive = prevLiveVersionRef.current;
+    const newLive = baseFeatureVersion;
+    prevLiveVersionRef.current = newLive ?? undefined;
+    if (
+      prevLive !== undefined &&
+      newLive !== undefined &&
+      newLive !== prevLive &&
+      versionRef.current === prevLive
+    ) {
+      setVersion(newLive);
+    }
+  }, [baseFeatureVersion]);
 
   // Set initial version: URL query > draft revision > live version.
   // Wait for cache to seed to avoid incorrectly selecting live when drafts exist.
