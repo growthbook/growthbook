@@ -131,14 +131,22 @@ export function useSearch<T extends { id: string }>({
     );
     const fields = Object.keys(keys);
 
-    // Create a Map of item ID to item to use for lookups
-    // after a search is performed
+    // MiniSearch requires globally unique document IDs.
+    // Some lists can contain duplicate business IDs (e.g. experiment tracking keys),
+    // so we store a separate internal ID only for indexing.
+    const internalSearchIdField = "__gb_search_id";
     const itemMap = new Map<string, T>();
-    items.forEach((item) => {
-      itemMap.set(item.id, item);
+    const indexedItems = items.map((item, index) => {
+      const indexedId = `${item.id}::${index}`;
+      itemMap.set(indexedId, item);
+      return {
+        ...item,
+        [internalSearchIdField]: indexedId,
+      };
     });
 
     const miniSearchInstance = new MiniSearch({
+      idField: internalSearchIdField,
       fields,
       searchOptions: {
         boost: keys,
@@ -149,7 +157,7 @@ export function useSearch<T extends { id: string }>({
 
     // Add items to the index
     try {
-      miniSearchInstance.addAll(items);
+      miniSearchInstance.addAll(indexedItems);
     } catch (error) {
       console.error("Error adding items to search index:", error);
     }
@@ -166,7 +174,9 @@ export function useSearch<T extends { id: string }>({
     let filtered = items;
     if (searchTerm.length > 0) {
       const searchResults = miniSearch.search(searchTerm);
-      filtered = searchResults.map((result) => itemMap.get(result.id) as T);
+      filtered = searchResults
+        .map((result) => itemMap.get(result.id + ""))
+        .filter((item): item is T => !!item);
     }
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
@@ -441,13 +451,17 @@ export function parseQuery(query: string, regex: RegExp) {
       const field = match[2];
       const negated = !!match[3];
       const operator = match[4] as SearchTermFilterOperator;
-      const rawValue = match[5].replace(/"/g, "");
+      const rawValue = match[5];
+      // Split on commas that are outside of quotes, then strip quotes
+      const values = (rawValue.match(/"[^"]*"|[^,]+/g) || []).map((s) =>
+        s.trim().replace(/^"|"$/g, ""),
+      );
 
       syntaxFilters.push({
         field,
         operator,
         negated,
-        values: rawValue.split(",").map((s) => s.trim()),
+        values,
       });
     }
   }

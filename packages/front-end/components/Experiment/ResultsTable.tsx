@@ -9,10 +9,7 @@ import React, {
   useState,
 } from "react";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "shared/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { ExperimentStatus } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -391,23 +388,20 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] =
-    useMemo(() => {
-      const sorted = variations
-        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-        .sort((a, b) => {
-          if (a.index === baselineRow) return -1;
-          return a.index - b.index;
-        });
-      // fix browser .sort() quirks. manually move the control row to top:
-      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-      if (baselineIndex > -1) {
-        const baseline = sorted[baselineIndex];
-        sorted.splice(baselineIndex, 1);
-        sorted.unshift(baseline);
-      }
-      return sorted;
-    }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariation[] = useMemo(() => {
+    const sorted = [...variations].sort((a, b) => {
+      if (a.index === baselineRow) return -1;
+      return a.index - b.index;
+    });
+    // fix browser .sort() quirks. manually move the control row to top:
+    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+    if (baselineIndex > -1) {
+      const baseline = sorted[baselineIndex];
+      sorted.splice(baselineIndex, 1);
+      sorted.unshift(baseline);
+    }
+    return sorted;
+  }, [variations, baselineRow]);
 
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index),
@@ -1140,6 +1134,9 @@ export default function ResultsTable({
                                               minSampleSize={getMinSampleSizeForMetric(
                                                 row.metric,
                                               )}
+                                              pValueAdjustmentEnabled={
+                                                !!appliedPValueCorrection
+                                              }
                                             />
                                           )
                                         ) : (
@@ -1209,6 +1206,9 @@ export default function ResultsTable({
                                             currentMetricTotal={
                                               rowResults.currentMetricTotal
                                             }
+                                            pValueAdjustmentEnabled={
+                                              !!appliedPValueCorrection
+                                            }
                                           />
                                         ) : (
                                           <AlignedGraph
@@ -1249,6 +1249,9 @@ export default function ResultsTable({
                                             minSampleSize={getMinSampleSizeForMetric(
                                               row.metric,
                                             )}
+                                            pValueAdjustmentEnabled={
+                                              !!appliedPValueCorrection
+                                            }
                                           />
                                         ) : (
                                           <td></td>
@@ -1287,14 +1290,11 @@ export default function ResultsTable({
                                           phase={phase}
                                           metric={row.metric}
                                           differenceType={differenceType}
-                                          variationNames={orderedVariations.map(
-                                            (v) => v.name,
-                                          )}
+                                          variations={orderedVariations}
                                           showVariations={showVariations}
                                           statsEngine={statsEngine}
                                           pValueAdjustmentEnabled={
-                                            !!appliedPValueCorrection &&
-                                            rows.length > 1
+                                            !!appliedPValueCorrection
                                           }
                                           firstDateToRender={getValidDate(
                                             startDate,
