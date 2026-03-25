@@ -3787,6 +3787,7 @@ export interface components {
           };
           metrics: ({
               metricId: string;
+              deleted?: boolean;
               variations: ({
                   variationId: string;
                   users?: number;
@@ -11073,6 +11074,7 @@ export interface operations {
                   };
                   metrics: ({
                       metricId: string;
+                      deleted?: boolean;
                       variations: ({
                           variationId: string;
                           users?: number;

@@ -21430,6 +21430,8 @@ components:
                   properties:
                     metricId:
                       type: string
+                    deleted:
+                      type: boolean
                     variations:
                       type: array
                       items:
