@@ -1,6 +1,6 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "shared/validators";
-import { CovariateImbalanceResult } from "shared/src/enterprise/covariate-imbalance";
+import { CovariateImbalanceResult } from "shared/health";
 import { PhaseSQLVar } from "shared/types/sql";
 import {
   MetricSettingsForStatsEngine,

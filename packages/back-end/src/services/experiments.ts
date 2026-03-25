@@ -3299,6 +3299,8 @@ export async function getExperimentAnalysisSummary({
 
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;
   const snapshotHealthPower = experimentSnapshot.health?.power;
+  const snapshotCovariateImbalance =
+    experimentSnapshot.health?.covariateImbalance;
 
   const standardSnapshot =
     experimentSnapshot.type === "standard" &&
@@ -3339,6 +3341,12 @@ export async function getExperimentAnalysisSummary({
         type: "success",
         isLowPowered: snapshotHealthPower.isLowPowered,
         additionalDaysNeeded: snapshotHealthPower.additionalDaysNeeded,
+      };
+    }
+
+    if (snapshotCovariateImbalance) {
+      analysisSummary.health.covariateImbalance = {
+        isImbalanced: snapshotCovariateImbalance.isImbalanced,
       };
     }
   }

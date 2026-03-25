@@ -256,9 +256,7 @@ export function tabulateCovariateImbalance(
   );
 
   const isImbalanced =
-    goalMetricsResult.isImbalanced ||
-    guardrailMetricsResult.isImbalanced ||
-    secondaryMetricsResult.isImbalanced;
+    goalMetricsResult.isImbalanced || guardrailMetricsResult.isImbalanced;
 
   return {
     isImbalanced,
