@@ -1,7 +1,7 @@
 import { Response } from "express";
+import { OrganizationInterface } from "shared/types/organization";
+import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
-import { OrganizationInterface } from "back-end/types/organization";
-import { UserInterface } from "back-end/types/user";
 import {
   _dangerousCreateSSOConnection,
   _dangerousUpdateSSOConnection,

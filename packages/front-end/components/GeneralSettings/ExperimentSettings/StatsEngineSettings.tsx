@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
+  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { StatsEngine, PValueCorrection } from "back-end/types/stats";
-import { MetricDefaults } from "back-end/types/organization";
+import { StatsEngine, PValueCorrection } from "shared/types/stats";
+import { MetricDefaults } from "shared/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -15,6 +16,7 @@ import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
@@ -29,7 +31,7 @@ interface FormValues {
   sequentialTestingEnabled: boolean;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
-  postStratificationDisabled: boolean;
+  postStratificationEnabled: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
@@ -176,7 +178,7 @@ export default function StatsEngineSettings() {
       <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
-            Variance Reduction (CUPEDps)
+            Variance Reduction (CUPED + Post-stratification)
           </PremiumTooltip>
         </Heading>
         <Flex direction="column" gap="3">
@@ -195,7 +197,7 @@ export default function StatsEngineSettings() {
             <Box>
               <Text size="2" className="font-weight-semibold">
                 <label htmlFor="toggle-regressionAdjustmentEnabled">
-                  Use CUPEDps by default on all experiments
+                  Use CUPED by default on all experiments
                 </label>
               </Text>
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
@@ -241,21 +243,26 @@ export default function StatsEngineSettings() {
           <Flex align="start" gap="3">
             <Checkbox
               id="toggle-postStratification"
-              value={!form.watch("postStratificationDisabled")}
+              value={
+                form.watch("postStratificationEnabled") ??
+                DEFAULT_POST_STRATIFICATION_ENABLED
+              }
               setValue={(v) => {
-                form.setValue("postStratificationDisabled", !v);
+                form.setValue("postStratificationEnabled", v);
               }}
               disabled={hasFileConfig()}
             />
             <Flex direction="column">
               <Text size="2" className="font-weight-semibold">
                 <label htmlFor="toggle-postStratification">
-                  Enable post-stratification
+                  Use post-stratification by default on all experiments
                 </label>
               </Text>
               <Text size="1">
-                When checked, post-stratification will be used whenever CUPEDps
-                is enabled and pre-computed dimensions are available.
+                When checked, post-stratification will be used by default
+                whenever{" "}
+                <Link href="#experiment-settings">pre-computed dimensions</Link>{" "}
+                are available.
               </Text>
             </Flex>
           </Flex>

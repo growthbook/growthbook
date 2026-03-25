@@ -1,13 +1,14 @@
 import { format } from "shared/sql";
-import BigQuery from "back-end/src/integrations/BigQuery";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
   FactMetricType,
   MetricCappingSettings,
-} from "back-end/types/fact-table";
-import { ExposureQuery } from "back-end/types/datasource";
+  RowFilter,
+} from "shared/types/fact-table";
+import { ExposureQuery } from "shared/types/datasource";
+import BigQuery from "back-end/src/integrations/BigQuery";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 
@@ -265,7 +266,6 @@ describe("bigquery integration", () => {
         factTableId: factTable.id,
         column: "value",
         aggregation: "sum",
-        filters: [],
       },
     });
 
@@ -317,7 +317,12 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        filters: ["filter1"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
     // inline filter
@@ -326,9 +331,13 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        inlineFilters: {
-          country: ["UK"],
-        },
+        rowFilters: [
+          {
+            operator: "=",
+            column: "country",
+            values: ["UK"],
+          },
+        ],
       },
     });
 
@@ -361,7 +370,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((country = 'UK')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(country = 'UK'))\n" +
         "",
     );
 
@@ -371,7 +380,6 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        filters: [],
       },
     });
 
@@ -426,7 +434,12 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value",
         aggregation: "sum",
-        filters: ["filter1"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
     const factMetric2 = factMetricFactory.build({
@@ -434,7 +447,12 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "value2",
         aggregation: "sum",
-        filters: ["filter1"], // Same filter as factMetric1
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
 
@@ -467,7 +485,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (event_type = 'purchase')\n" +
         "",
     );
   });
@@ -500,13 +518,23 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "conversions",
         aggregation: "sum",
-        filters: ["filter1"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
       denominator: {
         factTableId: factTableWithFilters.id,
         column: "sessions",
         aggregation: "sum",
-        filters: ["filter2"],
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter2"],
+          },
+        ],
       },
     });
 
@@ -536,7 +564,7 @@ describe("bigquery integration", () => {
         "SELECT user_id, anonymous_id, timestamp, value FROM events\n" +
         ") m\n" +
         "\n" +
-        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND (((event_type = 'purchase')) OR ((event_type = 'session_start')))\n" +
+        "WHERE m.timestamp >= '2023-01-01 00:00:00' AND m.timestamp <= '2023-01-31 00:00:00' AND ((event_type = 'purchase')\nOR\n(event_type = 'session_start'))\n" +
         "",
     );
   });
@@ -560,13 +588,19 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "conversions",
         aggregation: "sum",
-        filters: ["filter1"], // Has filter
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
       denominator: {
         factTableId: factTableWithFilters.id,
         column: "sessions",
         aggregation: "sum",
-        filters: [], // No filter
+        // No filter
+        rowFilters: [],
       },
     });
 
@@ -609,13 +643,18 @@ describe("bigquery integration", () => {
         factTableId: factTableWithFilters.id,
         column: "conversions",
         aggregation: "sum",
-        filters: [], // No filter
+        rowFilters: [],
       },
       denominator: {
         factTableId: factTableWithFilters.id,
         column: "sessions",
         aggregation: "sum",
-        filters: ["filter1"], // No filter
+        rowFilters: [
+          {
+            operator: "saved_filter",
+            values: ["filter1"],
+          },
+        ],
       },
     });
 
@@ -701,13 +740,23 @@ describe("full fact metric experiment query - bigquery", () => {
     "count distinct",
     "max",
   ];
-  const inlineFilters: ColumnRef["inlineFilters"][] = [
+
+  const inlineFilters: (RowFilter | undefined)[] = [
     undefined,
     {
-      type: ["discount"],
+      column: "type",
+      operator: "=",
+      values: ["discount"],
     },
   ];
-  const filters: ColumnRef["filters"][] = [[], ["orders.mobile"]];
+
+  const filters: (RowFilter | undefined)[] = [
+    undefined,
+    {
+      operator: "saved_filter",
+      values: ["orders.mobile"],
+    },
+  ];
   const aggregateFilters: {
     aggregateFilter: ColumnRef["aggregateFilter"];
     aggregateFilterColumn: ColumnRef["aggregateFilterColumn"];
@@ -934,11 +983,11 @@ describe("full fact metric experiment query - bigquery", () => {
               for (const aggregateFilter of aggregateFilters) {
                 for (const windowSetting of retentionWindowSettings) {
                   // skip combined filters
-                  if (filter.length > 0 && inlineFilter) {
+                  if (filter && inlineFilter) {
                     continue;
                   }
                   // skip aggregate filters with pre-defined filters
-                  if (aggregateFilter.aggregateFilter && filter.length > 0) {
+                  if (aggregateFilter.aggregateFilter && filter) {
                     continue;
                   }
                   const metric = createMetric({
@@ -975,8 +1024,8 @@ describe("full fact metric experiment query - bigquery", () => {
     cappingType?: MetricCappingSettings["type"];
     aggregationType?: ColumnRef["aggregation"];
     column: string;
-    inlineFilter?: ColumnRef["inlineFilters"];
-    filter?: ColumnRef["filters"];
+    inlineFilter?: RowFilter | undefined;
+    filter?: RowFilter | undefined;
     windowSetting?: FactMetricInterface["windowSettings"];
     regressionSetting?: {
       regressionAdjustmentEnabled: boolean;
@@ -1012,10 +1061,8 @@ describe("full fact metric experiment query - bigquery", () => {
       cappingType ? `cap_${cappingType}` : "cap_none",
       `agg_${aggregationType?.replace(" ", "_") ?? "none"}`,
       `col_${column.replace("$$", "special_")}`,
-      inlineFilter ? `inline_${Object.keys(inlineFilter)[0]}` : "inline_none",
-      filter && filter.length > 0
-        ? `filter_${filter[0].split(".")[1]}`
-        : "filter_none",
+      inlineFilter ? `inline_${inlineFilter.column}` : "inline_none",
+      filter ? `filter_${filter.values?.[0].split(".")[1]}` : "filter_none",
       windowSetting?.type ? `window_${windowSetting.type}` : "window_none",
       regressionSetting?.regressionAdjustmentEnabled
         ? `regadj_${regressionSetting.regressionAdjustmentDays}d`
@@ -1049,7 +1096,7 @@ describe("full fact metric experiment query - bigquery", () => {
     const id = idParts.join("__");
 
     // Build base metric configuration
-    const baseConfig = {
+    const baseConfig: Partial<FactMetricInterface> = {
       id,
       name: `Generated Metric: ${metricType} (${aggregationType || "sum"} ${column})`,
       metricType,
@@ -1057,11 +1104,13 @@ describe("full fact metric experiment query - bigquery", () => {
         factTableId: "orders",
         column: column,
         aggregation: aggregationType || "sum",
-        filters: filter || [],
-        inlineFilters: inlineFilter,
+        rowFilters: [
+          ...(inlineFilter ? [inlineFilter] : []),
+          ...(filter ? [filter] : []),
+        ],
         aggregateFilter,
         aggregateFilterColumn,
-      } as ColumnRef,
+      },
       cappingSettings: {
         type: (cappingType || "") as MetricCappingSettings["type"],
         value:
@@ -1094,8 +1143,7 @@ describe("full fact metric experiment query - bigquery", () => {
           factTableId: denominatorFactTableId || "orders",
           column: denominatorColumn || "amount",
           aggregation: denominatorAggregation || "sum",
-          filters: [],
-        } as ColumnRef,
+        },
       });
     } else if (metricType === "quantile") {
       // Quantile metrics need quantileSettings
@@ -1203,4 +1251,44 @@ describe("full fact metric experiment query - bigquery", () => {
       getExposureQuerySpy.mockRestore();
     },
   );
+});
+
+describe("getFeatureEvalDiagnosticsQuery", () => {
+  beforeEach(() => {
+    jest.useFakeTimers("modern");
+    jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("replaces template variables in the feature usage query", () => {
+    const datasource = {
+      settings: {
+        queries: {
+          featureUsage: [
+            {
+              id: "fu1",
+              query: `SELECT ts AS timestamp, k AS feature_key FROM t WHERE ts BETWEEN '{{startDateISO}}' AND '{{endDateISO}}'`,
+            },
+          ],
+        },
+      },
+      params: "",
+    };
+    // @ts-expect-error -- context not needed for test
+    const bqIntegration = new BigQuery("", datasource);
+
+    const sql = bqIntegration.getFeatureEvalDiagnosticsQuery({
+      feature: "my-feature-key",
+    });
+
+    expect(sql).not.toContain("{{startDateISO}}");
+    expect(sql).not.toContain("{{endDateISO}}");
+    // compileSqlTemplate fills these with ISO-8601 timestamps
+    expect(sql).toMatch(
+      /BETWEEN '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z' AND '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z'/,
+    );
+  });
 });

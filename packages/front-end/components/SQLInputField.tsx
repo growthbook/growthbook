@@ -1,4 +1,4 @@
-import { UserIdType } from "back-end/types/datasource";
+import { UserIdType } from "shared/types/datasource";
 import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";

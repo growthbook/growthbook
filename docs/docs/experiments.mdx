@@ -82,7 +82,7 @@ within your data warehouse, you can use GrowthBook to analyse the results of you
 
 ## How GrowthBook Assigns Users to Experiments
 
-GrowthBook uses a consistent hashing algorithm to assign users to experiments, ensuring that the same user will always receive the same variation as long as the experiment settings (experiment key and user hashing ID) remain unchanged. This makes it possible to run experiments across multiple pages or applications while maintaining consistent user experiences without storing any state or using additional cookies.
+GrowthBook uses a consistent hashing algorithm to assign users to experiments, ensuring that the same user will always receive the same variation as long as the experiment settings (experiment seed and user hashing ID) remain unchanged. This makes it possible to run experiments across multiple pages or applications while maintaining consistent user experiences without storing any state or using additional cookies.
 
 In cases where experiment settings do change but consistent assignment is still required, GrowthBook offers a feature called [sticky bucketing](/app/sticky-bucketing), which requires additional configuration.
 

@@ -4,7 +4,7 @@ import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
-} from "back-end/types/metric";
+} from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
@@ -15,11 +15,20 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { generateEmbeddings } from "back-end/src/enterprise/services/openai";
+import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
+import { createModelAuditLogger } from "back-end/src/services/audit";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
+
+const audit = createModelAuditLogger({
+  entity: "metric",
+  createEvent: "metric.create",
+  updateEvent: "metric.update",
+  deleteEvent: "metric.delete",
+  autocreateEvent: "metric.autocreate",
+});
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -170,7 +179,9 @@ export async function insertMetric(
     context.permissions.throwPermissionError();
   }
 
-  return toInterface(await MetricModel.create(metric));
+  const created = toInterface(await MetricModel.create(metric));
+  await audit.logCreate(context, created);
+  return created;
 }
 
 export async function insertMetrics(
@@ -195,7 +206,11 @@ export async function insertMetrics(
       context.permissions.throwPermissionError();
     }
   }
-  return (await MetricModel.insertMany(metrics)).map(toInterface);
+  const created = (await MetricModel.insertMany(metrics)).map(toInterface);
+  for (const metric of created) {
+    await audit.logAutocreate(context, metric);
+  }
+  return created;
 }
 
 export async function deleteMetricById(
@@ -225,10 +240,15 @@ export async function deleteMetricById(
   // Experiments
   await removeMetricFromExperiments(context, metric.id);
 
+  // Metric Groups
+  await context.models.metricGroups.removeMetricFromAllGroups(metric.id);
+
   await MetricModel.deleteOne({
     id: metric.id,
     organization: context.org.id,
   });
+
+  await audit.logDelete(context, metric);
 }
 
 /**
@@ -501,8 +521,8 @@ function addDateUpdatedToUpdates(
   // If any field requires dateUpdated to be set
   if (
     Object.keys(updates).some(
-      (k: keyof MetricInterface) =>
-        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k),
+      (k) =>
+        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k as keyof MetricInterface),
     )
   ) {
     return { ...updates, dateUpdated: new Date() };
@@ -534,8 +554,8 @@ export async function updateMetric(
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
-  const safeUpdates = Object.keys(updates).every((k: keyof MetricInterface) =>
-    FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
+  const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
+    (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
   );
   if (!safeUpdates) {
     if (metric.managedBy === "config") {
@@ -571,6 +591,8 @@ export async function updateMetric(
   }
 
   await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
+
+  await audit.logUpdate(context, metric, { ...metric, ...updates });
 }
 
 export async function removeSegmentFromAllMetrics(
@@ -604,17 +626,14 @@ export async function generateMetricEmbeddings(
   for (let i = 0; i < metricsToGenerateEmbeddings.length; i += batchSize) {
     const batch = metricsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((m) => getTextForEmbedding(m));
-    const embeddings = await generateEmbeddings({
-      context,
-      input,
-    });
+    const embeddings = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const m = batch[j];
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateMetricVector(m.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j],
         });
       } catch (error) {
         throw new Error("Error updating embeddings");

@@ -4,7 +4,7 @@ import { omit } from "lodash";
 import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
-} from "back-end/types/experimentLaunchChecklist";
+} from "shared/types/experimentLaunchChecklist";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 

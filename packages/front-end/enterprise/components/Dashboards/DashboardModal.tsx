@@ -1,12 +1,12 @@
 import cronstrue from "cronstrue";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useMemo, useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import React, { useEffect, useMemo } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   DashboardEditLevel,
   DashboardShareLevel,
   DashboardUpdateSchedule,
-} from "back-end/src/enterprise/validators/dashboard";
+} from "shared/enterprise";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
@@ -15,19 +15,26 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import RadioGroup from "@/ui/RadioGroup";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import {
   autoUpdateDisabledMessage,
   CreateDashboardArgs,
 } from "./DashboardsTab";
+import { useCronValidation } from "./useCronValidation";
+import DashboardUpdateScheduleSelector from "./DashboardUpdateScheduleSelector";
 
-const defaultUpdateSchedule = {
-  type: "stale",
-  hours: 6,
+export const defaultUpdateSchedules = {
+  stale: {
+    type: "stale",
+    hours: 6,
+  },
+  cron: {
+    type: "cron",
+    cron: "0 0 */2 * *",
+  },
 } as const;
 
-const defaultFormInit = {
+export const defaultFormInit = {
   title: "",
   editLevel: "private",
   shareLevel: "private",
@@ -50,7 +57,6 @@ export default function DashboardModal({
   submit: (data: CreateDashboardArgs["data"]) => void;
   type?: "general" | "experiment";
 }) {
-  const [cronString, setCronString] = useState("");
   const defaultRefreshInterval = getExperimentRefreshFrequency();
   const {
     settings: { updateSchedule },
@@ -119,18 +125,8 @@ export default function DashboardModal({
     );
   }, [form, initial, isGeneralDashboard]);
 
-  function updateCronString(cron?: string) {
-    if (!cron) {
-      setCronString("");
-      return;
-    }
-    setCronString(
-      `${cronstrue.toString(cron, {
-        throwExceptionOnParseError: false,
-        verbose: true,
-      })} (UTC time)`,
-    );
-  }
+  const currentUpdateSchedule = form.watch("updateSchedule");
+  const { cronString, cronError } = useCronValidation(currentUpdateSchedule);
 
   const hasGeneralDashboardSharing = hasCommercialFeature(
     "share-product-analytics-dashboards",
@@ -207,7 +203,7 @@ export default function DashboardModal({
       }
       cta={dashboardFirstSave ? "Save" : initial ? "Done" : "Create"}
       submit={() => submit(form.getValues())}
-      ctaEnabled={!!form.watch("title")}
+      ctaEnabled={!!form.watch("title") && !cronError}
       close={close}
       closeCta="Cancel"
     >
@@ -220,7 +216,6 @@ export default function DashboardModal({
         {mode === "edit" ? (
           <SelectOwner
             disabled={!canManageSharingAndEditLevels}
-            resourceType="dashboard"
             value={form.watch("userId")}
             onChange={(v) => form.setValue("userId", v)}
           />
@@ -242,84 +237,25 @@ export default function DashboardModal({
                 form.setValue("enableAutoUpdates", checked);
                 form.setValue(
                   "updateSchedule",
-                  checked ? defaultUpdateSchedule : undefined,
+                  checked ? defaultUpdateSchedules["stale"] : undefined,
                 );
               }}
             />
             {form.watch("enableAutoUpdates") && (
-              <Box width="100%">
-                <Box className="appbox p-3">
-                  <RadioGroup
-                    options={[
-                      {
-                        label: "Refresh results after a specified duration",
-                        value: "stale",
-                        description: (
-                          <Field
-                            label="Refresh when"
-                            append="hours old"
-                            type="number"
-                            style={{ width: "180px" }}
-                            step={1}
-                            min={1}
-                            max={168}
-                            disabled={
-                              form.watch("updateSchedule.type") !== "stale"
-                            }
-                            value={form.watch("updateSchedule.hours")}
-                            onChange={(e) => {
-                              let hours = 6;
-                              try {
-                                hours = parseInt(e.target.value);
-                              } catch {
-                                // pass
-                              }
-                              form.setValue("updateSchedule.hours", hours);
-                            }}
-                          />
-                        ),
-                      },
-                      {
-                        label: "Cron Schedule",
-                        value: "cron",
-                        description: (
-                          <>
-                            <Text mb="2" as="p">
-                              Enter cron string to specify frequency. Minimum
-                              once an hour.
-                            </Text>
-                            <Field
-                              disabled={
-                                form.watch("updateSchedule.type") !== "cron"
-                              }
-                              {...form.register("updateSchedule.cron")}
-                              placeholder="0 0 */2 * * *"
-                              onFocus={(e) => {
-                                updateCronString(e.target.value);
-                              }}
-                              onBlur={(e) => {
-                                updateCronString(e.target.value);
-                              }}
-                              helpText={
-                                <span className="ml-2">{cronString}</span>
-                              }
-                            />
-                          </>
-                        ),
-                      },
-                    ]}
-                    gap="2"
-                    descriptionSize="2"
-                    value={form.watch("updateSchedule.type")}
-                    setValue={(v) => {
-                      form.setValue(
-                        "updateSchedule.type",
-                        v as DashboardUpdateSchedule["type"],
-                      );
-                    }}
-                  />
-                </Box>
-              </Box>
+              <DashboardUpdateScheduleSelector
+                currentUpdateSchedule={currentUpdateSchedule}
+                cronString={cronString}
+                cronError={cronError}
+                onHoursChange={(hours) =>
+                  form.setValue("updateSchedule.hours", hours)
+                }
+                onCronChange={(cron) =>
+                  form.setValue("updateSchedule", { type: "cron", cron })
+                }
+                onScheduleTypeChange={(type) =>
+                  form.setValue("updateSchedule", defaultUpdateSchedules[type])
+                }
+              />
             )}
           </>
         ) : (

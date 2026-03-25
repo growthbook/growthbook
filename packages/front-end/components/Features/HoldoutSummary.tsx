@@ -1,7 +1,8 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -33,12 +34,7 @@ export default function HoldoutSummary({
           }
         />
         of
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute} />
       </Flex>
       <Flex direction="row" gap="2">
         <Text weight="medium">SERVE</Text>

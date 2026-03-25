@@ -269,7 +269,7 @@ export default function ExperimentGraph({
               {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
             </h4>
           </div>
-          <div>no data to show</div>
+          <div>No data to show</div>
         </div>
       </>
     );

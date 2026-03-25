@@ -4,7 +4,7 @@ import {
   DecisionCriteriaData,
   ExperimentResultStatusData,
   ExperimentDataForStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { getExperimentResultStatus } from "./decisionCriteria";
 
 export type StatusIndicatorData = {

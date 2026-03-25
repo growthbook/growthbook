@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { Response } from "express";
-import { OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "shared/types/organization";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
@@ -16,13 +16,9 @@ import {
   getUserByEmail,
   updateUser,
 } from "back-end/src/models/UserModel";
-import {
-  deleteWatchedByEntity,
-  upsertWatch,
-} from "back-end/src/models/WatchModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { findAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
+import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
 
 function isValidWatchEntityType(type: string): boolean {
   if (type === "experiment" || type === "feature") {
@@ -33,7 +29,7 @@ function isValidWatchEntityType(type: string): boolean {
 }
 export async function getHistoryByUser(req: AuthRequest<null>, res: Response) {
   const { org, userId } = getContextFromReq(req);
-  const events = await findAuditByUserIdAndOrganization(userId, org.id);
+  const events = await findRecentAuditByUserIdAndOrganization(userId, org.id);
   res.status(200).json({
     status: 200,
     events,
@@ -173,9 +169,8 @@ export async function postWatchItem(
     throw new Error(`Could not find ${item}`);
   }
 
-  await upsertWatch({
+  await context.models.watch.upsertWatch({
     userId,
-    organization: org.id,
     item: id,
     type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
   });
@@ -189,7 +184,8 @@ export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response,
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { userId } = context;
   const { type, id } = req.params;
 
   if (!isValidWatchEntityType(type)) {
@@ -201,8 +197,7 @@ export async function postUnwatchItem(
   }
 
   try {
-    await deleteWatchedByEntity({
-      organization: org.id,
+    await context.models.watch.deleteWatchedByEntity({
       userId,
       type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
       item: id,

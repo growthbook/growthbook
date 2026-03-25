@@ -2,24 +2,40 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import uniqWith from "lodash/uniqWith";
-import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
-import { SafeRolloutInterface } from "shared/validators";
+import {
+  MergeResultChanges,
+  getApiFeatureEnabledEnvs,
+  getApiFeatureAllEnvs,
+  checkIfRevisionNeedsReview,
+  autoMerge,
+  fillRevisionFromFeature,
+  PermissionError,
+} from "shared/util";
+import {
+  SafeRolloutInterface,
+  SafeRolloutRule,
+  simpleSchemaValidator,
+} from "shared/validators";
 import {
   FeatureEnvironment,
   FeatureInterface,
+  FeatureMetaInfo,
   FeatureRule,
   JSONSchemaDef,
   LegacyFeatureInterface,
-} from "back-end/types/feature";
-import { ExperimentInterface } from "back-end/types/experiment";
+} from "shared/types/feature";
+import { EventUser } from "shared/types/events/event-types";
+import { OrganizationInterface } from "shared/types/organization";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ResourceEvents } from "shared/types/events/base-types";
+import { DiffResult } from "shared/types/events/diff";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   generateRuleId,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
-  refreshSDKPayloadCache,
-  shouldRefreshForMetadataChanges,
+  queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
@@ -30,29 +46,21 @@ import {
   getEnabledEnvironments,
   getSDKPayloadKeys,
 } from "back-end/src/util/features";
-import { EventUser } from "back-end/types/events/event-types";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  SafeRolloutRule,
-  simpleSchemaValidator,
-} from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
-import { ResourceEvents } from "back-end/types/events/base-types";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
   updateVercelExperimentationItemFromFeature,
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
-import { DiffResult } from "back-end/types/events/diff";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "../enterprise/sandbox/sandbox-eval";
+import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -61,18 +69,19 @@ import {
 } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  getExperimentById,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
-  getExperimentsByIds,
+  updateExperiment,
 } from "./ExperimentModel";
 import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
   getRevision,
-  hasDraft,
   markRevisionAsPublished,
   updateRevision,
+  createRevision,
 } from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
@@ -149,7 +158,6 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   legacyDraftMigrated: Boolean,
-  hasDrafts: Boolean,
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -182,7 +190,7 @@ const toInterface = (
   const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
   featureInterface.environmentSettings = applyEnvironmentInheritance(
     context.org.settings?.environments || [],
-    featureInterface.environmentSettings,
+    featureInterface.environmentSettings || {},
   );
   return featureInterface;
 };
@@ -214,8 +222,68 @@ export async function getAllFeatures(
   );
 }
 
-const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
-  typeof x !== "undefined";
+function featureListQuery(
+  orgId: string,
+  opts: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+): FilterQuery<FeatureDocument> {
+  const { project, projectIds, includeArchived = false } = opts;
+  return {
+    organization: orgId,
+    ...(project != null
+      ? { project }
+      : projectIds != null
+        ? { project: { $in: projectIds } }
+        : {}),
+    ...(includeArchived ? {} : { archived: { $ne: true } }),
+  };
+}
+
+export async function getFeaturesPage(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+    limit = 10,
+    offset = 0,
+  }: {
+    project?: string;
+    projectIds?: string[];
+    includeArchived?: boolean;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<FeatureInterface[]> {
+  if (projectIds?.length === 0) return [];
+  const q = featureListQuery(context.org.id, {
+    project,
+    projectIds,
+    includeArchived,
+  });
+  const docs = await FeatureModel.find(q)
+    .sort({ _id: 1 })
+    .skip(offset)
+    .limit(limit);
+  return docs
+    .map((m) => upgradeFeatureInterface(toInterface(m, context)))
+    .filter((feature) =>
+      context.permissions.canReadSingleProjectResource(feature.project),
+    );
+}
+
+export async function countFeatures(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    projectIds,
+    includeArchived = false,
+  }: { project?: string; projectIds?: string[]; includeArchived?: boolean },
+): Promise<number> {
+  if (projectIds?.length === 0) return 0;
+  return FeatureModel.countDocuments(
+    featureListQuery(context.org.id, { project, projectIds, includeArchived }),
+  );
+}
 
 export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
@@ -231,45 +299,6 @@ export async function hasArchivedFeatures(
 
   const f = await FeatureModel.findOne(q);
   return !!f;
-}
-
-export async function getAllFeaturesWithLinkedExperiments(
-  context: ReqContext | ApiReqContext,
-  {
-    project,
-    includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {},
-): Promise<{
-  features: FeatureInterface[];
-  experiments: ExperimentInterface[];
-}> {
-  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
-  if (project) {
-    q.project = project;
-  }
-  if (!includeArchived) {
-    q.archived = { $ne: true };
-  }
-
-  const allFeatures = await FeatureModel.find(q);
-
-  const features = allFeatures.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
-  );
-  const expIds = new Set<string>(
-    features
-      .map((f) => f.linkedExperiments)
-      .filter(_undefinedTypeGuard)
-      .flat(),
-  );
-  const experiments = await getExperimentsByIds(context, [...expIds]);
-
-  return {
-    features: features.map((m) =>
-      upgradeFeatureInterface(toInterface(m, context)),
-    ),
-    experiments,
-  };
 }
 
 export async function getFeature(
@@ -303,7 +332,6 @@ export async function migrateDraft(
       {
         $set: {
           legacyDraftMigrated: true,
-          hasDrafts: true,
         },
       },
     );
@@ -431,7 +459,7 @@ export const createFeatureEvent = async <
   data: CreateEventData<"feature", Event, FeatureInterface>;
 }) => {
   const event: CreateEventParams<"feature", Event> = await (async () => {
-    const groupMap = await getSavedGroupMap(eventData.context.org);
+    const groupMap = await getSavedGroupMap(eventData.context);
     const experimentMap = await getExperimentMapForFeature(
       eventData.context,
       eventData.data.object.id,
@@ -465,7 +493,10 @@ export const createFeatureEvent = async <
         },
         projects: [currentApiFeature.project],
         tags: currentApiFeature.tags,
-        environments: getApiFeatureEnabledEnvs(currentApiFeature),
+        environments:
+          eventData.event === "deleted"
+            ? getApiFeatureAllEnvs(currentApiFeature)
+            : getApiFeatureEnabledEnvs(currentApiFeature),
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
 
@@ -586,10 +617,18 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+    auditContext: {
+      event: "created",
+      model: "feature",
+      id: feature.id,
+    },
+  });
 
   await logFeatureCreatedEvent(context, feature);
 
@@ -604,10 +643,18 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
-  await refreshSDKPayloadCache(
+  queueSDKPayloadRefresh({
     context,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(context.org)),
-  );
+    payloadKeys: getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(context.org),
+    ),
+    auditContext: {
+      event: "deleted",
+      model: "feature",
+      id: feature.id,
+    },
+  });
 
   await logFeatureDeletedEvent(context, feature);
 
@@ -624,50 +671,26 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-  let payloadKeys = getSDKPayloadKeysByDiff(
-    feature,
-    updatedFeature,
-    getEnvironmentIdsFromOrg(context.org),
-  );
-
-  // Check if tags or customFields changed, and if any SDK connections use them
-  const needsMetadataRefresh = await shouldRefreshForMetadataChanges(
+  queueSDKPayloadRefresh({
     context,
-    feature,
-    updatedFeature,
-  );
-
-  if (needsMetadataRefresh) {
-    // Add all enabled environments for this feature
-    const environments = getEnabledEnvironments(
-      [feature, updatedFeature],
+    payloadKeys: getSDKPayloadKeysByDiff(
+      feature,
+      updatedFeature,
       getEnvironmentIdsFromOrg(context.org),
-    );
-    const projects = new Set([
-      "",
-      feature.project || "",
-      updatedFeature.project || "",
-    ]);
-    const additionalKeys = getSDKPayloadKeys(environments, projects);
-    payloadKeys = uniqWith([...payloadKeys, ...additionalKeys], isEqual);
-  }
-
-  await refreshSDKPayloadCache(
-    context,
-    payloadKeys,
-    null,
-    undefined,
-    safeRolloutMap,
+    ),
     skipRefreshForProject,
-  );
+    auditContext: {
+      event: "updated",
+      model: "feature",
+      id: feature.id,
+    },
+  });
 
   // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
   if (
     !isEqual(
-      omit(feature, ["dateUpdated", "hasDrafts"]),
-      omit(updatedFeature, ["dateUpdated", "hasDrafts"]),
+      omit(feature, ["dateUpdated"]),
+      omit(updatedFeature, ["dateUpdated"]),
     )
   ) {
     // Event-based webhooks
@@ -741,6 +764,24 @@ export async function updateFeature(
   return updatedFeature;
 }
 
+// Targeted write for the scheduled-features cron job. Bypasses onFeatureUpdate
+// to avoid generating an audit event for this system-driven housekeeping change.
+export async function updateNextScheduledDate(
+  feature: FeatureInterface,
+  nextScheduledUpdate: Date | null,
+): Promise<FeatureInterface> {
+  const dateUpdated = new Date();
+  await FeatureModel.updateOne(
+    { organization: feature.organization, id: feature.id },
+    { $set: { nextScheduledUpdate, dateUpdated } },
+  );
+  return {
+    ...feature,
+    nextScheduledUpdate: nextScheduledUpdate ?? undefined,
+    dateUpdated,
+  };
+}
+
 export async function addLinkedExperiment(
   feature: FeatureInterface,
   experimentId: string,
@@ -761,6 +802,7 @@ export async function getScheduledFeaturesToUpdate() {
   const features = await FeatureModel.find({
     nextScheduledUpdate: {
       $exists: true,
+      $ne: null,
       $lt: new Date(),
     },
   });
@@ -937,7 +979,13 @@ export async function copyFeatureEnvironmentRules(
     rules: revision.rules ? cloneDeep(revision.rules) : {},
     status: revision.status,
   };
-  changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
+  // Fall back to live rules for any env not yet modified in this draft,
+  // matching the mergeRevision behavior the frontend uses for the diff preview.
+  const effectiveSourceRules =
+    changes.rules[sourceEnv] ??
+    feature.environmentSettings?.[sourceEnv]?.rules ??
+    [];
+  changes.rules[targetEnv] = effectiveSourceRules;
   await updateRevision(
     context,
     feature,
@@ -1055,23 +1103,27 @@ const updateSafeRolloutStatuses = async (
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
 ) => {
+  // If the revision has no rules at all, there are no rule changes to process
+  // and no safe rollout statuses to update.
+  if (!revision.rules) return;
+
   const safeRolloutStatusesMap: Record<
     string,
     { status: "running" | "rolled-back" | "released" | "stopped" }
   > = Object.fromEntries(
     Object.values(revision.rules)
       .flat()
-      .filter((rule) => rule.type === "safe-rollout")
+      .filter((rule) => rule?.type === "safe-rollout")
       .map((rule: SafeRolloutRule) => {
         return [rule.safeRolloutId, { status: rule.status }];
       }),
   );
   // stop safe rollouts that have been removed from the in the revision
-  Object.keys(feature.environmentSettings)
-    .flatMap((env) => feature.environmentSettings[env].rules)
+  Object.keys(feature.environmentSettings ?? {})
+    .flatMap((env) => feature.environmentSettings[env]?.rules ?? [])
     .forEach((rule: FeatureRule) => {
       if (
-        rule.type === "safe-rollout" &&
+        rule?.type === "safe-rollout" &&
         !safeRolloutStatusesMap[rule.safeRolloutId]
       ) {
         safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
@@ -1119,7 +1171,9 @@ export async function applyRevisionChanges(
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];
-    if (!rules) return;
+    const envEnabled = result.environmentsEnabled?.[env];
+
+    if (rules === undefined && envEnabled === undefined) return;
 
     changes.environmentSettings =
       changes.environmentSettings ||
@@ -1127,9 +1181,44 @@ export async function applyRevisionChanges(
     changes.environmentSettings[env] = changes.environmentSettings[env] || {};
     changes.environmentSettings[env].enabled =
       changes.environmentSettings[env].enabled || false;
-    changes.environmentSettings[env].rules = rules;
+
+    if (rules !== undefined) {
+      changes.environmentSettings[env].rules = rules;
+    }
+    if (envEnabled !== undefined) {
+      changes.environmentSettings[env].enabled = envEnabled;
+    }
     hasChanges = true;
   });
+
+  if (result.prerequisites !== undefined) {
+    changes.prerequisites = result.prerequisites;
+    hasChanges = true;
+  }
+
+  if (result.archived !== undefined) {
+    changes.archived = result.archived;
+    hasChanges = true;
+  }
+
+  if (result.holdout !== undefined) {
+    // null means remove from holdout; object means set/change holdout
+    changes.holdout = result.holdout ?? undefined;
+    hasChanges = true;
+  }
+
+  if (result.metadata) {
+    const m = result.metadata;
+    if (m.description !== undefined) changes.description = m.description;
+    if (m.owner !== undefined) changes.owner = m.owner;
+    if (m.project !== undefined) changes.project = m.project;
+    if (m.tags !== undefined) changes.tags = m.tags;
+    if (m.neverStale !== undefined) changes.neverStale = m.neverStale;
+    if (m.customFields !== undefined)
+      changes.customFields = m.customFields as Record<string, unknown>;
+    if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    hasChanges = true;
+  }
 
   if (!hasChanges) {
     throw new Error("No changes to publish");
@@ -1144,12 +1233,102 @@ export async function applyRevisionChanges(
 
   changes.version = revision.version;
 
-  // Update the `hasDrafts` field
-  changes.hasDrafts = await hasDraft(context.org.id, feature, [
-    revision.version,
-  ]);
   await updateSafeRolloutStatuses(context, feature, revision);
   return await updateFeature(context, feature, changes);
+}
+
+/**
+ * Run HoldoutModel / Experiment side-effects when a feature's holdout membership
+ * changes at publish time. Called automatically by publishRevision when result.holdout
+ * is defined, so all publish paths (direct, approval flow, revert, etc.) are covered.
+ *
+ * @param feature     The feature's state *before* the publish (used for prevHoldout).
+ * @param newHoldout  The incoming holdout value, or null to remove from holdout.
+ */
+export async function applyHoldoutSideEffects(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  newHoldout: { id: string; value: string } | null,
+) {
+  const prevHoldoutId = feature.holdout?.id;
+  const newHoldoutId = newHoldout?.id;
+
+  if (newHoldoutId === prevHoldoutId) return;
+
+  // Guard: cannot change holdout when there are running experiments, bandits, or safe rollouts
+  if (newHoldout !== null) {
+    const experiments = await Promise.all(
+      (feature.linkedExperiments ?? []).map((id) =>
+        getExperimentById(context, id),
+      ),
+    );
+    const hasNonDraftExperiments = experiments.some(
+      (exp) => exp?.status !== "draft",
+    );
+    const hasBandits = experiments.some(
+      (exp) => exp?.type === "multi-armed-bandit",
+    );
+    const hasSafeRollouts = Object.values(feature.environmentSettings).some(
+      (env) => (env?.rules ?? []).some((rule) => rule?.type === "safe-rollout"),
+    );
+    if (hasNonDraftExperiments || hasBandits || hasSafeRollouts) {
+      throw new Error(
+        "Cannot change holdout when there are running linked experiments, safe rollout rules, or multi-armed bandit rules",
+      );
+    }
+  }
+
+  // Remove feature from the old holdout
+  if (prevHoldoutId) {
+    await context.models.holdout.removeFeatureFromHoldout(
+      prevHoldoutId,
+      feature.id,
+    );
+  }
+
+  // Link feature (and its experiments) to the new holdout
+  if (newHoldoutId) {
+    const holdoutObj = await context.models.holdout.getById(newHoldoutId);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+
+    await context.models.holdout.updateById(newHoldoutId, {
+      linkedFeatures: {
+        [feature.id]: { id: feature.id, dateAdded: new Date() },
+        ...holdoutObj.linkedFeatures,
+      },
+      ...(feature.linkedExperiments?.length
+        ? {
+            linkedExperiments: {
+              ...Object.fromEntries(
+                feature.linkedExperiments.map((experimentId) => [
+                  experimentId,
+                  { id: experimentId, dateAdded: new Date() },
+                ]),
+              ),
+              ...holdoutObj.linkedExperiments,
+            },
+          }
+        : {}),
+    });
+
+    if (feature.linkedExperiments?.length) {
+      const linkedExperiments = await Promise.all(
+        feature.linkedExperiments.map((eid) => getExperimentById(context, eid)),
+      );
+      await Promise.all(
+        linkedExperiments.map(async (exp) => {
+          if (!exp) return;
+          return updateExperiment({
+            context,
+            experiment: exp,
+            changes: { holdoutId: newHoldoutId },
+          });
+        }),
+      );
+    }
+  }
 }
 
 export async function publishRevision(
@@ -1171,6 +1350,11 @@ export async function publishRevision(
     result,
   );
 
+  // Run holdout side-effects for every publish path (approval flow, revert, direct publish, etc.)
+  if (result.holdout !== undefined) {
+    await applyHoldoutSideEffects(context, feature, result.holdout);
+  }
+
   await markRevisionAsPublished(
     context,
     feature,
@@ -1180,6 +1364,121 @@ export async function publishRevision(
   );
 
   return updatedFeature;
+}
+
+// Create a new revision from the given changes and immediately publish it.
+// Either the revision is published and the updated feature is returned, or an
+// error is thrown — a pending-review draft is never silently left behind.
+// canBypassApprovalChecks should be true when the org-level restApiBypassesReviews
+// setting is on; individual role permissions do not bypass on the REST path.
+export async function createAndPublishRevision({
+  context,
+  feature,
+  user,
+  org,
+  changes,
+  comment,
+  canBypassApprovalChecks,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  user: EventUser;
+  org: OrganizationInterface;
+  changes: Parameters<typeof createRevision>[0]["changes"];
+  comment?: string;
+  canBypassApprovalChecks: boolean;
+}): Promise<{
+  revision: FeatureRevisionInterface;
+  updatedFeature: FeatureInterface;
+}> {
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  // Determine whether the revision would require review before we create anything.
+  // We need a synthetic revision to check against, mirroring what createRevision would build.
+  const liveRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!liveRevision) throw new Error("Could not load live revision");
+
+  // Build a temporary revision shape for the review check (same logic as createRevision).
+  const syntheticRevision: FeatureRevisionInterface = {
+    ...liveRevision,
+    ...(changes ?? {}),
+  };
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: liveRevision,
+    revision: syntheticRevision,
+    allEnvironments,
+    settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (requiresReview && !canBypassApprovalChecks) {
+    throw new PermissionError(
+      "This feature requires approval before changes can be published. " +
+        "Enable 'REST API always bypasses approval requirements' in organization settings.",
+    );
+  }
+
+  // Create the draft revision (never auto-publishes; publish=false).
+  const revision = await createRevision({
+    context,
+    feature,
+    user,
+    baseVersion: feature.version,
+    comment: comment ?? "Created via REST API",
+    environments: allEnvironments,
+    publish: false,
+    changes,
+    org,
+    canBypassApprovalChecks,
+  });
+
+  // Compute the merge result the same way postFeaturePublish does —
+  // filling sparse environmentsEnabled + holdout from the live feature.
+  const featureEnvs: Record<string, boolean> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
+      envId,
+      !!env.enabled,
+    ]),
+  );
+  const fillEnvs = (r: FeatureRevisionInterface) => ({
+    ...fillRevisionFromFeature(r, feature),
+    environmentsEnabled: {
+      ...featureEnvs,
+      ...(r.environmentsEnabled ?? {}),
+    },
+    holdout: feature.holdout ?? null,
+  });
+
+  const mergeResult = autoMerge(
+    fillEnvs(liveRevision),
+    fillEnvs(liveRevision), // base === live for a fresh revision off HEAD
+    revision,
+    allEnvironments,
+    {},
+  );
+
+  if (!mergeResult.success) {
+    // Shouldn't happen for a brand-new revision off HEAD, but guard anyway.
+    throw new Error(
+      "Merge conflict detected while publishing revision. Please retry.",
+    );
+  }
+
+  const updatedFeature = await publishRevision(
+    context,
+    feature,
+    revision,
+    mergeResult.result,
+    comment,
+  );
+
+  return { revision, updatedFeature };
 }
 
 function getLinkedExperiments(
@@ -1196,7 +1495,7 @@ function getLinkedExperiments(
     const rules = feature.environmentSettings?.[env]?.rules;
     if (!rules) return;
     rules.forEach((rule) => {
-      if (rule.type === "experiment-ref") {
+      if (rule?.type === "experiment-ref") {
         expIds.add(rule.experimentId);
       }
     });
@@ -1205,11 +1504,167 @@ function getLinkedExperiments(
   return [...expIds];
 }
 
-//TODO: I don't see this being called anywhere - can we remove?
 export async function toggleNeverStale(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   neverStale: boolean,
 ) {
   return await updateFeature(context, feature, { neverStale });
+}
+
+export async function hasNonDemoFeature(context: ReqContext | ApiReqContext) {
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
+  const feature = await FeatureModel.findOne(
+    {
+      organization: context.org.id,
+      project: { $ne: demoProjectId },
+    },
+    { _id: 1 },
+  );
+  return !!feature;
+}
+
+export async function getFeatureMetaInfoById(
+  context: ReqContext | ApiReqContext,
+  opts: {
+    includeDefaultValue?: boolean;
+    project?: string;
+    ids?: string[];
+  } = {},
+): Promise<FeatureMetaInfo[]> {
+  const { includeDefaultValue = false, project, ids } = opts;
+
+  const query: Record<string, unknown> = { organization: context.org.id };
+  if (project) {
+    query.project = project;
+  }
+  if (ids?.length) {
+    query.id = { $in: ids };
+  }
+
+  const projection: Record<string, number> = {
+    id: 1,
+    project: 1,
+    archived: 1,
+    description: 1,
+    dateCreated: 1,
+    dateUpdated: 1,
+    tags: 1,
+    owner: 1,
+    valueType: 1,
+    version: 1,
+    linkedExperiments: 1,
+    neverStale: 1,
+    "jsonSchema.enabled": 1,
+    revision: 1,
+  };
+  if (includeDefaultValue) {
+    projection.defaultValue = 1;
+  }
+
+  const features = await FeatureModel.find(query, projection);
+
+  return features
+    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .map((f) => ({
+      id: f.id,
+      project: f.project,
+      archived: f.archived,
+      description: f.description,
+      dateCreated: f.dateCreated,
+      dateUpdated: f.dateUpdated,
+      tags: f.tags,
+      owner: f.owner,
+      valueType: f.valueType,
+      version: f.version,
+      linkedExperiments: f.linkedExperiments,
+      neverStale: f.neverStale,
+      revision: f.revision as FeatureMetaInfo["revision"],
+      ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+    }));
+}
+
+export async function getFeatureMetaInfoByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<FeatureMetaInfo[]> {
+  if (!ids.length) return [];
+
+  const features = await FeatureModel.find(
+    { organization: context.org.id, id: { $in: ids } },
+    {
+      id: 1,
+      project: 1,
+      archived: 1,
+      description: 1,
+      dateCreated: 1,
+      dateUpdated: 1,
+      tags: 1,
+      owner: 1,
+      valueType: 1,
+      version: 1,
+      linkedExperiments: 1,
+      neverStale: 1,
+      "jsonSchema.enabled": 1,
+      revision: 1,
+    },
+  );
+
+  return features
+    .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
+    .map((f) => ({
+      id: f.id,
+      project: f.project,
+      archived: f.archived,
+      description: f.description,
+      dateCreated: f.dateCreated,
+      dateUpdated: f.dateUpdated,
+      tags: f.tags,
+      owner: f.owner,
+      valueType: f.valueType,
+      version: f.version,
+      linkedExperiments: f.linkedExperiments,
+      neverStale: f.neverStale,
+      revision: f.revision as FeatureMetaInfo["revision"],
+    }));
+}
+
+export async function getFeatureEnvStatus(
+  context: ReqContext | ApiReqContext,
+  ids?: string[],
+): Promise<
+  { id: string; environmentSettings: FeatureInterface["environmentSettings"] }[]
+> {
+  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
+  if (ids && ids.length > 0) {
+    q.id = { $in: ids };
+  }
+
+  // Push project-level read restrictions into the query to avoid fetching
+  // documents that will be filtered out anyway.
+  const allowedProjects =
+    context.permissions.getProjectsWithPermission("readData");
+  if (allowedProjects !== null) {
+    if (allowedProjects.length === 0) return [];
+    // Also include features with no project — they're globally accessible
+    q.$or = [
+      { project: { $in: allowedProjects } },
+      { project: { $in: ["", null] } },
+    ];
+  }
+
+  const docs = await FeatureModel.find(q, {
+    id: 1,
+    environmentSettings: 1,
+  });
+
+  return docs.map((f) => ({
+    id: f.id,
+    environmentSettings: applyEnvironmentInheritance(
+      context.org.settings?.environments || [],
+      f.environmentSettings || {},
+    ),
+  }));
 }

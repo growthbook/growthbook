@@ -1,10 +1,10 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
-import { DimensionInterface } from "back-end/types/dimension";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { MetricInterface, MetricType } from "back-end/types/metric";
-import { QueryStatistics } from "back-end/types/query";
+import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import { DimensionInterface } from "shared/types/dimension";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { MetricInterface, MetricType } from "shared/types/metric";
+import { QueryStatistics } from "shared/types/query";
 import {
   FactTableMap,
   ColumnInterface,
@@ -12,8 +12,8 @@ import {
   FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
-} from "back-end/types/fact-table";
-import type { PopulationDataQuerySettings } from "back-end/types/query";
+} from "shared/types/fact-table";
+import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
 import { TemplateVariables } from "shared/types/sql";
 
@@ -121,6 +121,7 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
   capCoalesceMetric: string;
@@ -131,6 +132,10 @@ export type FactMetricData = {
   denominatorAggFns: FactMetricAggregationMetadata;
   covariateNumeratorAggFns: FactMetricAggregationMetadata;
   covariateDenominatorAggFns: FactMetricAggregationMetadata;
+  uncappedCoalesceMetric: string;
+  uncappedCoalesceDenominator: string;
+  uncappedCoalesceCovariate: string;
+  uncappedCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricFirstExposureSettings: CovariateFirstExposureSettings;
   raMetricPhaseStartSettings: CovariatePhaseStartSettings;
@@ -257,6 +262,7 @@ export type ProcessedDimensions = {
   unitDimensions: UserDimension[];
   experimentDimensions: ExperimentDimension[];
   activationDimension: ActivationDimension | null;
+  dateDimension: DateDimension | null;
 };
 
 export interface DropTableQueryParams {
@@ -272,11 +278,12 @@ export type TestQueryParams = {
 
 export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
-  column: ColumnInterface;
+  columns: ColumnInterface[];
   limit?: number;
   lookbackDays?: number;
 };
 export type ColumnTopValuesResponseRow = {
+  column: string;
   value: string;
   count: number;
 };
@@ -369,7 +376,8 @@ export interface InsertMetricSourceCovariateDataQueryParams {
 export interface IncrementalRefreshStatisticsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
-  dimensions: Dimension[];
+  dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
+  dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   metricSourceCovariateTableFullName: string | null;
@@ -425,6 +433,10 @@ export type UserExperimentExposuresQueryParams = {
   lookbackDays: number;
 };
 
+export type FeatureEvalDiagnosticsQueryParams = {
+  feature: string;
+};
+
 export type PastExperimentParams = {
   from: Date;
   forceRefresh?: boolean;
@@ -445,6 +457,11 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+};
+
+export type ProductAnalyticsExplorationParams = {
+  factTableMap: FactTableMap;
+  factMetricMap: Map<string, FactMetricInterface>;
 };
 
 export type DimensionColumnData = {
@@ -637,6 +654,12 @@ export type UserExperimentExposuresQueryResponseRows = {
   [key: string]: string | null;
 }[];
 
+export type FeatureEvalDiagnosticsQueryResponseRows = {
+  timestamp: string;
+  feature_key: string;
+  [key: string]: unknown;
+}[];
+
 export type QueryResponseColumnData = {
   name: string;
   dataType?: FactTableColumnType;
@@ -676,6 +699,10 @@ export type ColumnTopValuesResponse = QueryResponse<
 >;
 export type UserExperimentExposuresQueryResponse =
   QueryResponse<UserExperimentExposuresQueryResponseRows> & {
+    truncated?: boolean;
+  };
+export type FeatureEvalDiagnosticsQueryResponse =
+  QueryResponse<FeatureEvalDiagnosticsQueryResponseRows> & {
     truncated?: boolean;
   };
 

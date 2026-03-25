@@ -19,8 +19,12 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
+import {
+  OrganizationInterface,
+  OrgMemberInfo,
+} from "shared/types/organization";
 import { fetch } from "back-end/src/util/http.util";
-import { OrganizationInterface } from "back-end/types/organization";
+import { LicenseServerError } from "back-end/src/util/errors";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
 
@@ -272,16 +276,6 @@ function getAgentOptions() {
     !!process.env.https_proxy ||
     !!process.env.HTTPS_PROXY;
   return use_proxy ? { agent: new ProxyAgent() } : {};
-}
-
-export class LicenseServerError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.status = status;
-    this.name = "LicenseServerError";
-  }
 }
 
 export async function callLicenseServer({
@@ -648,8 +642,8 @@ async function getLicenseDataFromServer(
 
 async function updateLicenseFromServer(
   licenseKey: string,
-  org: MinimalOrganization,
-  getUserCodesForOrg: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
+  org: OrgMemberInfo,
+  getUserCodesForOrg: (org: OrgMemberInfo) => Promise<LicenseUserCodes>,
   getLicenseMetaData: () => Promise<LicenseMetaData>,
   mongoCache: LicenseInterface | null,
 ) {
@@ -697,8 +691,8 @@ const keyToCacheDate: Record<string, Date> = {};
 export let backgroundUpdateLicenseFromServerForTests: Promise<void | LicenseInterface>;
 
 export async function licenseInit(
-  org?: MinimalOrganization,
-  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
+  org?: OrgMemberInfo,
+  getUserCodesForOrg?: (org: OrgMemberInfo) => Promise<LicenseUserCodes>,
   getLicenseMetaData?: () => Promise<LicenseMetaData>,
   forceRefresh = false,
 ): Promise<Partial<LicenseInterface> | undefined> {

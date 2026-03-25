@@ -5,12 +5,13 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import { ReactElement, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,8 +21,8 @@ import {
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,
-  useFeaturesList,
 } from "@/services/features";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
@@ -86,7 +87,8 @@ const genFormDefaultValues = ({
     permissions,
     project,
   });
-  const type = experiment.variations.length > 2 ? "string" : "boolean";
+  const type =
+    getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
     existing: "",
@@ -98,7 +100,7 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
-    variations: experiment.variations.map((v, i) => {
+    variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
         variationId: v.id,
@@ -132,14 +134,14 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  // Scope features to the experiment's project (or all features if experiment has no project)
+  const { features } = useFeatureMetaInfo({ project: experiment.project });
 
   // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
     // Skip features that already have this experiment
     if (experiment.linkedFeatures?.includes(f.id)) return false;
-    if ((experiment.project || "") !== (f.project || "")) return false;
     return true;
   });
 
@@ -218,13 +220,22 @@ export default function FeatureFromExperimentModal({
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
+        const existingFeature = existing
+          ? (
+              await apiCall<{ feature: FeatureInterface }>(
+                `/feature/${existing}`,
+                { method: "GET" },
+              )
+            ).feature
+          : undefined;
+
         const featureToCreate:
           | undefined
           | Omit<
               FeatureInterface,
               "organization" | "dateCreated" | "dateUpdated"
             > = existing
-          ? features.find((f) => f.id === existing)
+          ? existingFeature
           : {
               ...feature,
               defaultValue: variations[0].value,
@@ -268,9 +279,7 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
-          const featureHoldoutId = validFeatures.find(
-            (f) => f.id === featureToCreate.id,
-          )?.holdout?.id;
+          const featureHoldoutId = existingFeature?.holdout?.id;
           // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
           if (experiment.holdoutId && !featureHoldoutId) {
             throw new Error(
@@ -321,7 +330,6 @@ export default function FeatureFromExperimentModal({
         }
 
         await mutate();
-        await mutateFeatures();
       })}
     >
       <SelectField
@@ -422,7 +430,7 @@ export default function FeatureFromExperimentModal({
       <div className="form-group">
         <label>Variation Values</label>
         <div className="mb-3 bg-light border p-3">
-          {experiment.variations.map((v, i) => (
+          {getLatestPhaseVariations(experiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
               label={v.name}

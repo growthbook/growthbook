@@ -1,7 +1,8 @@
+import { getAllVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { FaClock, FaPencilAlt } from "react-icons/fa";
 import {
   experimentHasLinkedChanges,
@@ -38,17 +39,17 @@ export default function StoppedExperimentBanner({
   if (experiment.status !== "stopped") return null;
 
   const result = experiment.results;
+  const variations = getAllVariations(experiment);
 
   const winningVariation =
     (result === "lost"
-      ? experiment.variations[0]?.name
+      ? variations[0]?.name
       : result === "won"
-        ? experiment.variations[experiment.winner || 1]?.name
+        ? variations[experiment.winner || 1]?.name
         : "") || "";
 
   const releasedVariation =
-    experiment.variations.find((v) => v.id === experiment.releasedVariationId)
-      ?.name || "";
+    variations.find((v) => v.id === experiment.releasedVariationId)?.name || "";
 
   return (
     <div className="appbox">

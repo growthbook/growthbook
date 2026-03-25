@@ -3,7 +3,7 @@ import {
   InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "shared/types/integrations";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 

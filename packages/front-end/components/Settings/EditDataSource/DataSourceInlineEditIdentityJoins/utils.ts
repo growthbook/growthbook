@@ -1,7 +1,7 @@
 import isEqual from "lodash/isEqual";
 import sortBy from "lodash/sortBy";
 
-import { IdentityJoinQuery } from "back-end/types/datasource";
+import { IdentityJoinQuery } from "shared/types/datasource";
 
 /**
  * Given a new list of IDs, checks if they're in the existing list of identity joins

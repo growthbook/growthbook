@@ -1,4 +1,4 @@
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import { pValueFormatter } from "@/services/experiments";
 
 export interface Props {
@@ -38,9 +38,9 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
         <tbody>
           {variations.map((v, i) => {
             return (
-              <tr key={i}>
+              <tr key={v.id}>
                 <td
-                  className={`border-right variation with-variation-label variation${i}`}
+                  className={`border-right variation with-variation-label variation${v.index}`}
                 >
                   <div className="d-flex align-items-center">
                     <span
@@ -50,7 +50,7 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
                         height: 20,
                       }}
                     >
-                      {i}
+                      {v.index}
                     </span>{" "}
                     {v.name}
                   </div>

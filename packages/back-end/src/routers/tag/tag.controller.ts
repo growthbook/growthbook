@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { TagInterface } from "shared/types/tag";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -7,8 +8,8 @@ import { addTag, removeTag } from "back-end/src/models/TagModel";
 import { removeTagInMetrics } from "back-end/src/models/MetricModel";
 import { removeTagInFeature } from "back-end/src/models/FeatureModel";
 import { removeTagFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
+import { removeTagInAttribute } from "back-end/src/routers/attributes/attributes.controller";
 import { removeTagFromExperiments } from "back-end/src/models/ExperimentModel";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 
 // region POST /tag
 
@@ -82,6 +83,9 @@ export const deleteTag = async (
 
   // features
   await removeTagInFeature(context, id);
+
+  // attributes
+  await removeTagInAttribute(context, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

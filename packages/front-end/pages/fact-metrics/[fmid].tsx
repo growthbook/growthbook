@@ -2,17 +2,18 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
-import { FactMetricType, FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactMetricType,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
 import {
   getAggregateFilters,
   isBinomialMetric,
   isRatioMetric,
   quantileMetricType,
+  getRowFilterSQL,
 } from "shared/experiments";
-import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
-  DEFAULT_WIN_RISK_THRESHOLD,
-} from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -65,6 +66,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/ui/Callout";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -76,30 +78,6 @@ function FactTableLink({ id }: { id?: string }) {
     <Link href={`/fact-tables/${factTable.id}`}>
       {factTable.name} <FaExternalLinkAlt />
     </Link>
-  );
-}
-
-function FilterBadges({
-  ids,
-  factTable,
-}: {
-  ids: string[] | null | undefined;
-  factTable?: FactTableInterface | null;
-}) {
-  if (!factTable || !ids) return null;
-
-  return (
-    <>
-      {ids.map((id) => {
-        const filter = factTable.filters.find((f) => f.id === id);
-        if (!filter) return null;
-        return (
-          <span className="badge badge-secondary mr-2" key={filter.id}>
-            {filter.name}
-          </span>
-        );
-      })}
-    </>
   );
 }
 
@@ -160,6 +138,38 @@ function MetricType({
   }
 }
 
+function RowFilterCodeDisplay({
+  rowFilters,
+  factTable,
+}: {
+  rowFilters: RowFilter[];
+  factTable?: FactTableInterface | null;
+}) {
+  if (!rowFilters.length) return null;
+
+  const text = `WHERE ${
+    factTable
+      ? rowFilters
+          .map((rf) =>
+            getRowFilterSQL({
+              rowFilter: rf,
+              factTable,
+              escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              evalBoolean: (col, value) =>
+                `${col} IS ${value ? "TRUE" : "FALSE"}`,
+              jsonExtract: (col, path) => `${col}.${path}`,
+              showSourceComment: true,
+            }),
+          )
+          .join("\nAND ")
+      : rowFilters
+          .map((rf) => `${rf.column} ${rf.operator} ${rf.values?.join(", ")}`)
+          .join("\nAND ")
+  }`;
+
+  return <Code language="sql" code={text} expandable filename={"SQL"} />;
+}
+
 export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
@@ -183,7 +193,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -210,8 +220,6 @@ export default function FactMetricPage() {
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const isMetricSlicesFeatureEnabled =
-    growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   if (!ready) return <LoadingOverlay />;
@@ -261,28 +269,19 @@ export default function FactMetricPage() {
       label: `Fact Table`,
       value: <FactTableLink id={factMetric.numerator.factTableId} />,
     },
-    ...Object.entries(factMetric.numerator.inlineFilters || {})
-      .filter(([, v]) => v.some((v) => !!v))
-      .map(([k, v]) => {
-        const columnName =
-          factTable?.columns.find((c) => c.column === k)?.name || k;
-        return {
-          label: columnName,
-          value: v.join(" OR "),
-        };
-      }),
-    {
-      label: `Row Filter`,
-      value:
-        factMetric.numerator.filters.length > 0 ? (
-          <FilterBadges
-            factTable={factTable}
-            ids={factMetric.numerator.filters}
-          />
-        ) : (
-          <em>None</em>
-        ),
-    },
+    ...(factMetric.numerator.rowFilters?.length
+      ? [
+          {
+            label: "Row Filter",
+            value: (
+              <RowFilterCodeDisplay
+                rowFilters={factMetric.numerator.rowFilters}
+                factTable={factTable}
+              />
+            ),
+          },
+        ]
+      : []),
     ...(!isBinomialMetric(factMetric)
       ? [
           {
@@ -344,29 +343,19 @@ export default function FactMetricPage() {
             label: `Fact Table`,
             value: <FactTableLink id={factMetric.denominator.factTableId} />,
           },
-          ...Object.entries(factMetric.denominator.inlineFilters || {})
-            .filter(([, v]) => v.some((v) => !!v))
-            .map(([k, v]) => {
-              const columnName =
-                denominatorFactTable?.columns.find((c) => c.column === k)
-                  ?.name || k;
-              return {
-                label: columnName,
-                value: v.join(" OR "),
-              };
-            }),
-          {
-            label: `Row Filter`,
-            value:
-              factMetric.denominator.filters.length > 0 ? (
-                <FilterBadges
-                  factTable={denominatorFactTable}
-                  ids={factMetric.denominator.filters}
-                />
-              ) : (
-                <em>None</em>
-              ),
-          },
+          ...(factMetric.denominator.rowFilters?.length
+            ? [
+                {
+                  label: "Row Filter",
+                  value: (
+                    <RowFilterCodeDisplay
+                      rowFilters={factMetric.denominator.rowFilters}
+                      factTable={denominatorFactTable}
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             label: `Value`,
             value:
@@ -485,7 +474,6 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -667,7 +655,7 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
-          Owner:{` ${factMetric.owner ?? ""}`}
+          Owner: {getOwnerDisplay(factMetric.owner) || "None"}
           {canEdit && (
             <a
               className="ml-1 cursor-pointer"
@@ -697,13 +685,20 @@ export default function FactMetricPage() {
               canEdit={canEdit}
               value={factMetric.description}
               aiSuggestFunction={async () => {
+                // Only evaluate the feature flag if suggestion is requested
+                const aiTemperature =
+                  growthbook?.getFeatureValue(
+                    "ai-suggestions-temperature",
+                    0.1,
+                  ) || 0.1;
+
                 const res = await apiCall<{
                   status: number;
                   data: {
                     description: string;
                   };
                 }>(
-                  `/metrics/${factMetric.id}/gen-description`,
+                  `/metrics/${factMetric.id}/gen-description?temperature=${aiTemperature}`,
                   {
                     method: "GET",
                   },
@@ -715,6 +710,8 @@ export default function FactMetricPage() {
                       throw new Error(
                         `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                       );
+                    } else if (responseData.message) {
+                      throw new Error(responseData.message);
                     } else {
                       throw new Error("Error getting AI suggestion");
                     }
@@ -756,60 +753,63 @@ export default function FactMetricPage() {
                     ? "Numerator"
                     : "Metric Details"
                 }
+                maxColumns={1}
               />
             </div>
             {factMetric.metricType === "ratio" ? (
               <div className="appbox p-3 mb-3">
-                <DataList data={denominatorData} header="Denominator" />
+                <DataList
+                  data={denominatorData}
+                  header="Denominator"
+                  maxColumns={1}
+                />
               </div>
             ) : null}
 
-            {isMetricSlicesFeatureEnabled && (
-              <div className="appbox p-3 mb-3">
-                <h4>
-                  Auto Slices
-                  <PaidFeatureBadge
-                    commercialFeature="metric-slices"
-                    premiumText="This is an Enterprise feature"
-                    variant="outline"
-                    ml="2"
-                  />
-                </h4>
-                <Text
-                  as="p"
-                  className="mb-2"
-                  style={{ color: "var(--color-text-mid)" }}
-                >
-                  Choose metric breakdowns to automatically analyze in your
-                  experiments.{" "}
-                  <DocLink docSection="autoSlices">
-                    Learn More <PiArrowSquareOut />
-                  </DocLink>
-                </Text>
-                <div className="mt-2">
-                  <FactTableAutoSliceSelector
-                    factMetric={factMetric}
-                    factTableId={factMetric.numerator.factTableId}
-                    canEdit={
-                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-                      !factMetric.managedBy &&
-                      hasMetricSlicesFeature
-                    }
-                    onUpdate={async (metricAutoSlices) => {
-                      await apiCall(`/fact-metrics/${factMetric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          metricAutoSlices,
-                        }),
-                      });
-                      mutateDefinitions();
-                    }}
-                    compactButtons={false}
-                    containerWidth="auto"
-                  />
-                </div>
+            <div className="appbox p-3 mb-3">
+              <h4>
+                Auto Slices
+                <PaidFeatureBadge
+                  commercialFeature="metric-slices"
+                  premiumText="This is an Enterprise feature"
+                  variant="outline"
+                  ml="2"
+                />
+              </h4>
+              <Text
+                as="p"
+                className="mb-2"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                Choose metric breakdowns to automatically analyze in your
+                experiments.{" "}
+                <DocLink docSection="autoSlices">
+                  Learn More <PiArrowSquareOut />
+                </DocLink>
+              </Text>
+              <div className="mt-2">
+                <FactTableAutoSliceSelector
+                  factMetric={factMetric}
+                  factTableId={factMetric.numerator.factTableId}
+                  canEdit={
+                    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                    !factMetric.managedBy &&
+                    hasMetricSlicesFeature
+                  }
+                  onUpdate={async (metricAutoSlices) => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        metricAutoSlices,
+                      }),
+                    });
+                    mutateDefinitions();
+                  }}
+                  compactButtons={false}
+                  containerWidth="auto"
+                />
               </div>
-            )}
+            </div>
           </div>
 
           <div className="mb-4">
@@ -978,33 +978,6 @@ export default function FactMetricPage() {
                 </ul>
               </RightRailSectionGroup>
 
-              <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled mb-4">
-                  <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
-                    </small>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {factMetric?.winRisk * 100 ||
-                        DEFAULT_WIN_RISK_THRESHOLD * 100}
-                      %
-                    </span>
-                  </li>
-                  <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
-                    <span className="font-weight-bold">
-                      {factMetric?.loseRisk * 100 ||
-                        DEFAULT_LOSE_RISK_THRESHOLD * 100}
-                      %
-                    </span>
-                  </li>
-                </ul>
-              </RightRailSectionGroup>
-
               <MetricPriorRightRailSectionGroup
                 metric={factMetric}
                 metricDefaults={metricDefaults}
@@ -1092,12 +1065,10 @@ export default function FactMetricPage() {
             <GBExperiment className="mr-1" />
             Experiments
           </TabsTrigger>
-          {growthbook.isOn("bandits") && (
-            <TabsTrigger value="bandits">
-              <GBBandit className="mr-1" />
-              Bandits
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="bandits">
+            <GBBandit className="mr-1" />
+            Bandits
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis">
@@ -1114,11 +1085,9 @@ export default function FactMetricPage() {
           <MetricExperiments metric={factMetric} />
         </TabsContent>
 
-        {growthbook.isOn("bandits") && (
-          <TabsContent value="bandits">
-            <MetricExperiments metric={factMetric} bandits={true} />
-          </TabsContent>
-        )}
+        <TabsContent value="bandits">
+          <MetricExperiments metric={factMetric} bandits={true} />
+        </TabsContent>
       </Tabs>
     </div>
   );

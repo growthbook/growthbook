@@ -4,8 +4,9 @@ import {
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
+import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { ClickHouseConnectionParams } from "back-end/types/integrations/clickhouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -29,6 +30,9 @@ export default class ClickHouse extends SqlIntegration {
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
+  }
+  getFormatDialect(): FormatDialect {
+    return "clickhouse";
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
@@ -77,8 +81,8 @@ export default class ClickHouse extends SqlIntegration {
   ): string {
     return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
-  dateTrunc(col: string) {
-    return `dateTrunc('day', ${col})`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    return `dateTrunc('${granularity}', ${col})`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `dateDiff('day', ${startCol}, ${endCol})`;

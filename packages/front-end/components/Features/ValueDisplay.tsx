@@ -2,7 +2,7 @@ import {
   FeatureInterface,
   FeatureTestResult,
   FeatureValueType,
-} from "back-end/types/feature";
+} from "shared/types/feature";
 import React, { CSSProperties, useMemo, useState } from "react";
 import stringify from "json-stringify-pretty-compact";
 import { Flex, IconButton } from "@radix-ui/themes";
@@ -189,7 +189,7 @@ export function ArchetypeValueDisplay({
   feature,
 }: {
   result: FeatureTestResult;
-  feature: FeatureInterface;
+  feature: { valueType: FeatureInterface["valueType"] };
 }) {
   const { matchedRuleName, brief, debugLog } = parseFeatureResult(result);
   return (

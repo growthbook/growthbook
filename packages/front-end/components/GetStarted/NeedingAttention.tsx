@@ -7,19 +7,17 @@ import {
   PiDatabaseBold,
   PiChartLineBold,
 } from "react-icons/pi";
-import { ComputedExperimentInterface } from "back-end/types/experiment";
-import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { EventUserLoggedIn } from "back-end/types/events/event-types";
-import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { ComputedExperimentInterface } from "shared/types/experiment";
+import { FeatureMetaInfo } from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { EventUserLoggedIn } from "shared/types/events/event-types";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
 import { AuditInterface } from "shared/types/audit";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { Box } from "spectacle";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioCards from "@/ui/RadioCards";
@@ -28,7 +26,6 @@ import Pagination from "@/ui/Pagination";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useExperimentSearch } from "@/services/experiments";
-import { useFeaturesList } from "@/services/features";
 import useApi from "@/hooks/useApi";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
@@ -42,7 +39,7 @@ import LinkButton from "@/ui/LinkButton";
 import styles from "./NeedingAttention.module.scss";
 
 type FeaturesAndRevisions = FeatureRevisionInterface & {
-  feature: FeatureInterface;
+  featureMeta?: FeatureMetaInfo;
   safeRollout: SafeRolloutInterface | undefined;
 };
 
@@ -56,6 +53,8 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   project: string | undefined;
   creator: string | undefined;
   comment: string;
+  owner: string | undefined;
+  ownerNameDisplay: string;
   dateAndStatus: number;
 };
 
@@ -83,8 +82,8 @@ const NeedingAttention = (): React.ReactElement | null => {
     return items;
   }, []);
 
-  const { features } = useFeaturesList();
-  const { hasCommercialFeature, organization, user } = useUser();
+  const { hasCommercialFeature, organization, user, getOwnerDisplay } =
+    useUser();
   const {
     items: experimentsNeedingAttention,
     SortableTH: SortableTHExperiments,
@@ -122,7 +121,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             item.status === "draft") &&
           item.createdBy?.type === "dashboard" &&
           item.createdBy?.id === user?.id;
-        const isArchived = item.feature.archived;
+        const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
         return (
@@ -146,12 +145,12 @@ const NeedingAttention = (): React.ReactElement | null => {
   const safeRollouts = safeRolloutData?.safeRollouts;
   const draftAndReviewData = useApi<{
     status: number;
-    revisions: FeatureRevisionInterface[];
-  }>(`/revision/feature`);
+    revisions: (FeatureRevisionInterface & { featureMeta?: FeatureMetaInfo })[];
+  }>(`/revision/feature?sparse=true`);
   const { data: revisionsData } = draftAndReviewData;
   const { data: historyData } = useApi<{
     status: number;
-    events: AuditInterface[];
+    events: Omit<AuditInterface, "details">[];
   }>(`/user/history`);
 
   const getRecentlyUsedFeatures = useCallback((): {
@@ -169,7 +168,6 @@ const NeedingAttention = (): React.ReactElement | null => {
       if (!recentlyUsed[event.entity.id]) {
         switch (event.entity?.object) {
           case "feature":
-            if (!features.find((f) => f.id == event.entity.id)) break;
             recentlyUsed[event.entity.id] = {
               type: "feature",
               id: event.entity.id,
@@ -200,59 +198,62 @@ const NeedingAttention = (): React.ReactElement | null => {
       }
     });
     return recentlyUsed;
-  }, [
-    historyData?.events,
-    features,
-    experiments,
-    getDatasourceById,
-    getMetricById,
-  ]);
+  }, [historyData?.events, experiments, getDatasourceById, getMetricById]);
 
   const featuresAndRevisions = revisionsData?.revisions.reduce<
     FeaturesAndRevisions[]
   >((result, revision) => {
-    const feature = features.find((f) => f.id === revision.featureId);
-    if (feature && feature?.dateCreated <= revision.dateCreated) {
+    if (
+      revision.featureMeta &&
+      revision.featureMeta.dateCreated <= revision.dateCreated
+    ) {
       result.push({
         ...revision,
-        feature,
-        safeRollout: safeRollouts?.find((sr) => sr.featureId === feature?.id),
+        safeRollout: safeRollouts?.find(
+          (sr) => sr.featureId === revision.featureId,
+        ),
       });
     }
     return result;
   }, []);
 
-  const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
-    let dateAndStatus = new Date(revision?.dateUpdated).getTime();
-    switch (revision?.status) {
-      case "draft":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
-        break;
-      case "approved":
-        dateAndStatus = parseInt(`0${dateAndStatus}`);
-        break;
-      case "pending-review":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
-        break;
-      case "changes-requested":
-        dateAndStatus = parseInt(`1${dateAndStatus}`);
-        break;
-    }
-    return {
-      // Need a unique id for each item
-      id: revision.feature?.id + ":::" + revision?.version,
-      tags: revision.feature?.tags,
-      status: revision?.status,
-      version: revision?.version,
-      dateCreated: revision?.dateCreated,
-      dateUpdated: revision?.dateUpdated,
-      project: revision.feature?.project,
-      creator: createdBy?.name,
-      comment: revision?.comment,
-      dateAndStatus,
-    };
-  });
+  const revisions = useAddComputedFields(
+    featuresAndRevisions,
+    (revision) => {
+      const createdBy = revision?.createdBy as EventUserLoggedIn | null;
+      let dateAndStatus = new Date(revision?.dateUpdated).getTime();
+      switch (revision?.status) {
+        case "draft":
+          dateAndStatus = parseInt(`0${dateAndStatus}`);
+          break;
+        case "approved":
+          dateAndStatus = parseInt(`0${dateAndStatus}`);
+          break;
+        case "pending-review":
+          dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+        case "changes-requested":
+          dateAndStatus = parseInt(`1${dateAndStatus}`);
+          break;
+      }
+      return {
+        // Need a unique id for each item
+        id: revision.featureId + ":::" + revision?.version,
+        tags: revision.featureMeta?.tags || [],
+        status: revision?.status,
+        version: revision?.version,
+        dateCreated: revision?.dateCreated,
+        dateUpdated: revision?.dateUpdated,
+        project: revision.featureMeta?.project,
+        creator: createdBy?.name,
+        comment: revision?.comment,
+        owner: revision.featureMeta?.owner,
+        ownerNameDisplay: getOwnerDisplay(revision.featureMeta?.owner),
+        dateAndStatus,
+      };
+    },
+    [getOwnerDisplay],
+  );
   const {
     items: featureFlagsNeedingAttention,
     SortableTH: SortableTHFeatureFlags,
@@ -275,7 +276,7 @@ const NeedingAttention = (): React.ReactElement | null => {
         let avatar = <PiFlag />;
         switch (type) {
           case "feature":
-            label = features.find((f) => f.id === id)?.id || label;
+            label = id || label;
             url = `/features/${id}`;
             avatar = <PiFlagBold />;
             break;
@@ -515,10 +516,10 @@ const NeedingAttention = (): React.ReactElement | null => {
                 <SortableTHFeatureFlags field="featureId">
                   Feature Key
                 </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="feature">
+                <SortableTHFeatureFlags field="project">
                   Project
                 </SortableTHFeatureFlags>
-                <SortableTHFeatureFlags field="status">
+                <SortableTHFeatureFlags field="ownerNameDisplay">
                   Owner
                 </SortableTHFeatureFlags>
                 <SortableTHFeatureFlags field="status">
@@ -539,14 +540,14 @@ const NeedingAttention = (): React.ReactElement | null => {
                         padding: "0px",
                       }}
                     >
-                      {item.feature.id}
+                      {item.featureId}
                     </Link>
                   </td>
                   <td className="text-truncate">
-                    {getProjectById(item.feature?.project || "")?.name}
+                    {getProjectById(item.featureMeta?.project || "")?.name}
                   </td>
                   <td className={styles.ownerTd}>
-                    {getAvatarAndName(item.feature.owner)}
+                    {getAvatarAndName(item.ownerNameDisplay)}
                   </td>
                   <td className="text-truncate">{renderStatusCopy(item)}</td>
                 </tr>
@@ -578,19 +579,21 @@ const NeedingAttention = (): React.ReactElement | null => {
       </Container>
     );
   };
-  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || "",
-  );
 
-  const hasFeatures = features.some((f) => f.project !== demoProjectId);
-  const hasExperiments = experiments.some((e) => e.project !== demoProjectId);
-  const orgIsUsingFeatureAndExperiment = hasFeatures || hasExperiments;
+  const { data: featureExpUsageData } = useApi<{
+    hasFeatures: boolean;
+    hasExperiments: boolean;
+  }>("/organization/feature-exp-usage");
+
+  const orgIsUsingFeatureAndExperiment =
+    featureExpUsageData?.hasFeatures || featureExpUsageData?.hasExperiments;
+
   return !orgIsUsingFeatureAndExperiment ? null : (
-    <Box>
+    <div>
       {displayRecentUsedFeatures()}
       {displayExperimentsRequiringAttention()}
       {displayFeatureFlagsRequiringAttention()}
-    </Box>
+    </div>
   );
 };
 

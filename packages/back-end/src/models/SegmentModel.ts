@@ -14,8 +14,11 @@ const BaseClass = MakeModelClass({
     updateEvent: "segment.update",
     deleteEvent: "segment.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+  },
 });
 
 type LegacySegmentInterface = Omit<SegmentInterface, "type"> & {

@@ -3,12 +3,12 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  dashboardBlockHasIds,
+} from "shared/enterprise";
 import React, { useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
-import { dashboardBlockHasIds } from "shared/enterprise";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,
@@ -21,13 +21,19 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
-import useExperimentPipelineMode from "@/hooks/useExperimentPipelineMode";
-import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
+import {
+  BLOCK_SUBGROUPS,
+  BLOCK_TYPE_INFO,
+  isBlockTypeAllowed,
+} from "@/enterprise/components/Dashboards/DashboardEditor";
 import EditSingleBlock from "./EditSingleBlock";
 
 // Block types that are allowed in general dashboards (non-experiment specific)
 const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
   "sql-explorer",
   "metric-explorer",
 ];
@@ -95,11 +101,6 @@ export default function DashboardEditorSidebar({
     number | undefined
   >(undefined);
 
-  // TODO(incremental-refresh): remove when dimensions supported in dashboard
-  const experimentalRefreshMode = useExperimentPipelineMode(
-    experiment ?? undefined,
-  );
-
   const resetDragState = () => {
     setDraggingBlockIndex(undefined);
     setPreviewBlockPlacement(undefined);
@@ -128,11 +129,7 @@ export default function DashboardEditorSidebar({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(
-            bType,
-            isGeneralDashboard,
-            experimentalRefreshMode === "incremental-refresh",
-          ),
+          isBlockTypeAllowed(bType, isGeneralDashboard),
         );
 
         // Don't render the subgroup if no block types are allowed
@@ -148,61 +145,66 @@ export default function DashboardEditorSidebar({
             key={`${subgroup}-${i}`}
             width="100%"
           >
-            {/* We hide the `Other` subgroup title for general dashboards since those are the only available options */}
-            {experiment ? (
-              <Text
-                weight="medium"
-                size="1"
-                style={{
-                  color: "var(--color-text-high)",
-                  textTransform: "uppercase",
-                }}
-              >
-                {subgroup}
-              </Text>
-            ) : null}
+            <Text
+              weight="medium"
+              size="1"
+              style={{
+                color: "var(--color-text-high)",
+                textTransform: "uppercase",
+              }}
+            >
+              {subgroup}
+            </Text>
 
-            {allowedBlockTypes.map((bType) => (
-              <a
-                href="#"
-                key={bType}
-                onClick={(e) => {
-                  e.preventDefault();
-                  addBlockType(bType);
-                }}
-                style={{
-                  display: "block",
-                  padding: "5px",
-                  margin: "0 -5px",
-                  width: "100%",
-                  borderRadius: "6px",
-                }}
-                className="hover-show no-underline hover-border-violet"
-              >
-                <Flex align="center">
-                  <Avatar
-                    radius="small"
-                    color="indigo"
-                    variant="soft"
-                    mr="2"
-                    size="sm"
-                  >
-                    {BLOCK_TYPE_INFO[bType].icon}
-                  </Avatar>
-                  <Text
-                    size="2"
-                    weight="regular"
-                    style={{ color: "var(--color-text-high" }}
-                  >
-                    {BLOCK_TYPE_INFO[bType].name}
-                  </Text>
-                  <div style={{ flex: 1 }} />
-                  <Text color="violet" className="ml-auto show-target instant">
-                    <PiPlusCircle /> Add
-                  </Text>
-                </Flex>
-              </a>
-            ))}
+            {allowedBlockTypes.map((bType) => {
+              if (BLOCK_TYPE_INFO[bType].deprecated) {
+                return null;
+              }
+              return (
+                <a
+                  href="#"
+                  key={bType}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    addBlockType(bType);
+                  }}
+                  style={{
+                    display: "block",
+                    padding: "5px",
+                    margin: "0 -5px",
+                    width: "100%",
+                    borderRadius: "6px",
+                  }}
+                  className="hover-show no-underline hover-border-violet"
+                >
+                  <Flex align="center">
+                    <Avatar
+                      radius="small"
+                      color="indigo"
+                      variant="soft"
+                      mr="2"
+                      size="sm"
+                    >
+                      {BLOCK_TYPE_INFO[bType].icon}
+                    </Avatar>
+                    <Text
+                      size="2"
+                      weight="regular"
+                      style={{ color: "var(--color-text-high" }}
+                    >
+                      {BLOCK_TYPE_INFO[bType].name}
+                    </Text>
+                    <div style={{ flex: 1 }} />
+                    <Text
+                      color="violet"
+                      className="ml-auto show-target instant"
+                    >
+                      <PiPlusCircle /> Add
+                    </Text>
+                  </Flex>
+                </a>
+              );
+            })}
           </Flex>
         );
       })}

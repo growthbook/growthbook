@@ -5,7 +5,8 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { getAllVariations } from "shared/experiments";
 import { getValidDate, date } from "shared/dates";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -19,7 +20,7 @@ import { format } from "date-fns";
 import { GridColumns } from "@visx/grid";
 import styles from "@/components/Metrics/DateGraph.module.scss";
 import EmptyState from "@/components/EmptyState";
-import ExperimentStatusIndicator from "../TabbedPage/ExperimentStatusIndicator";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 const margin = { top: 30, right: 60, bottom: 30, left: 200 }; // Increased right margin to prevent end tick cutoff
 
@@ -565,11 +566,12 @@ const HoldoutTimeline: React.FC<{
               {experiments.map((experiment) => {
                 if (experiment.phases) {
                   // Find shipped variation index and name if it exists
-                  const variationIndex = experiment.variations.findIndex(
+                  const variations = getAllVariations(experiment);
+                  const variationIndex = variations.findIndex(
                     (v) => v.id === experiment.releasedVariationId,
                   );
-                  const shippedVariation = experiment.variations[variationIndex]
-                    ? experiment.variations[variationIndex].name
+                  const shippedVariation = variations[variationIndex]
+                    ? variations[variationIndex].name
                     : null;
                   return experiment.phases.map((phase, i) => {
                     const start = getValidDate(phase.dateStarted) ?? "";

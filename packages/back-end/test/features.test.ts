@@ -1,6 +1,20 @@
 import cloneDeep from "lodash/cloneDeep";
-import { GroupMap, SavedGroupInterface } from "shared/types/groups";
-import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
+import { FeatureDefinition } from "shared/types/sdk";
+import { FeatureInterface, ScheduleRule } from "shared/types/feature";
+import {
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "shared/types/organization";
+import { ExperimentInterface } from "shared/types/experiment";
+import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import {
+  getFeatureDefinitionsResponse,
+  hashStrings,
+  sha256,
+} from "back-end/src/services/features";
+import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -8,23 +22,8 @@ import {
   getJSONValue,
   getParsedCondition,
   getSDKPayloadKeysByDiff,
-  replaceSavedGroupsInCondition,
   roundVariationWeight,
 } from "back-end/src/util/features";
-import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
-import { FeatureInterface, ScheduleRule } from "back-end/types/feature";
-import {
-  getFeatureDefinitionsResponse,
-  hashStrings,
-  sha256,
-} from "back-end/src/services/features";
-import {
-  OrganizationInterface,
-  SDKAttribute,
-  SDKAttributeSchema,
-} from "back-end/types/organization";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -405,162 +404,63 @@ describe("getParsedCondition", () => {
 
     groupMap.clear();
   });
-});
 
-describe("replaceSavedGroupsInCondition", () => {
-  it("does not format condition that doesn't contain $inGroup", () => {
-    const rawCondition = JSON.stringify({ id: "1234" });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      JSON.stringify({ id: "1234" }),
-    );
-  });
-
-  it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
-    const ids = ["123", "345", "678", "910"];
-    const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$in": ["123","345","678","910"]}}',
-    );
-  });
-
-  it("replaces the $notInGroup and groupId with $nin and the array of IDs", () => {
-    const ids = ["123", "345", "678", "910"];
-    const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$nin": ["123","345","678","910"]}}',
-    );
-  });
-
-  it("should replace the $in operator in and if the group.attributeKey is a number, the output array should be numbers", () => {
-    const ids = [1, 2, 3, 4];
-    const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$in": [1,2,3,4]}}',
-    );
-  });
-
-  it("should replace the $in operator in more complex conditions correctly", () => {
-    const ids = [1, 2, 3, 4];
-    const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({
-      number: { $inGroup: groupId },
-      id: "123",
-      browser: "chrome",
+  it("works with nested condition groups", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      type: "condition",
+      condition: JSON.stringify({
+        foo: "bar",
+        $savedGroups: ["b"],
+      }),
+    });
+    groupMap.set("b", {
+      type: "condition",
+      condition: JSON.stringify({
+        bar: "baz",
+        $savedGroups: ["c"],
+      }),
+    });
+    groupMap.set("c", {
+      type: "condition",
+      condition: JSON.stringify({
+        baz: "foo",
+      }),
     });
 
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}',
-    );
-  });
-
-  it("should correctly replace the $in operator in advanced mode conditions", () => {
-    const ids = [1, 2, 3, 4];
-    const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({
+    expect(
+      getParsedCondition(
+        groupMap,
+        JSON.stringify({
+          country: "US",
+        }),
+        [
+          {
+            match: "all",
+            ids: ["a"],
+          },
+        ],
+      ),
+    ).toEqual({
       $and: [
         {
-          $or: [{ browser: "chrome" }, { deviceId: { $inGroup: groupId } }],
+          country: "US",
         },
         {
-          $not: [{ company: { $notInGroup: groupId } }],
+          $and: [
+            {
+              foo: "bar",
+            },
+            {
+              bar: "baz",
+            },
+            {
+              baz: "foo",
+            },
+          ],
         },
       ],
     });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}',
-    );
-  });
-
-  it("handle extra whitespace and spaces correctly", () => {
-    const ids = ["123", "345", "678", "910"];
-    const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    /* eslint-disable */
-    const rawCondition =
-      '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
-    /* eslint-enable */
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$in": ["123","345","678","910"]}}',
-    );
-  });
-
-  it("handle extra newlines and spaces correctly", () => {
-    const ids = ["123", "345", "678", "910"];
-    const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    /* eslint-disable */
-    const rawCondition = `{"id":{"$notInGroup"
-       :
-             "grp_exl5jgrdl8bzy4x4"
-    }}`;
-    /* eslint-enable */
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$nin": ["123","345","678","910"]}}',
-    );
-  });
-
-  it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
-    const ids = ["1", "2", "3", "4"];
-    const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({
-      number: { $inGroup: "invalid-groupId" },
-    });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$in": []}}',
-    );
-  });
-
-  it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
-    const ids = ["1", "2", "3", "4"];
-    const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({
-      number: { $eq: "$inGroup" },
-    });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$eq":"$inGroup"}}',
-    );
-  });
-
-  it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
-    const ids = ["1", "2", "3", "4"];
-    const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
-
-    const rawCondition = JSON.stringify({
-      number: { $inGroup: false },
-    });
-
-    expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$inGroup":false}}',
-    );
   });
 });
 
@@ -1283,6 +1183,9 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+        includeExperimentNames: true,
+        includeRuleIds: true,
       }),
     ).toEqual({
       defaultValue: true,
@@ -1325,6 +1228,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1340,6 +1244,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1354,12 +1259,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
       rules: [
         {
-          id: "abc",
           coverage: 0.8,
           hashAttribute: "user_id",
           hashVersion: 2,
@@ -1382,6 +1287,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1416,10 +1322,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+        includeExperimentNames: true,
+        includeRuleIds: true,
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
           id: "abc",
@@ -1471,13 +1379,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
-          id: "abc",
           force: false,
         },
       ],
@@ -1508,13 +1415,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
-          id: "abc",
           force: true,
         },
       ],
@@ -1531,6 +1437,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1545,6 +1452,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual(null);
 
@@ -1555,6 +1463,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual(null);
 
@@ -1630,6 +1539,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1639,13 +1549,11 @@ describe("SDK Payloads", () => {
             country: "US",
           },
           force: false,
-          id: "1",
         },
         {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
-          id: "2",
         },
         {
           coverage: 1,
@@ -1654,7 +1562,6 @@ describe("SDK Payloads", () => {
           meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
-          id: "3",
         },
       ],
     });
@@ -1681,11 +1588,10 @@ describe("SDK Payloads", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
-    const featureDef: FeatureDefinitionWithProject = {
+    const featureDef: FeatureDefinition = {
       defaultValue: true,
       rules: [
         {
-          id: "1",
           condition: {
             id: {
               $inGroup: "groupId",
@@ -1702,12 +1608,11 @@ describe("SDK Payloads", () => {
         experiments: [],
         dateUpdated: new Date(),
         projects: [],
-        capabilities: [],
-        savedGroups: [cloneDeep(groupDef)],
+        capabilities: ["looseUnmarshalling"],
+        usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
-        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {
@@ -1735,11 +1640,10 @@ describe("SDK Payloads", () => {
         projects: [],
         capabilities: ["savedGroupReferences"],
         savedGroupReferencesEnabled: true,
-        savedGroups: [cloneDeep(groupDef)],
+        usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
-        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {

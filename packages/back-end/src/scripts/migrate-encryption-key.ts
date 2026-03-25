@@ -1,3 +1,5 @@
+// We need to import the aliases here to make the imports work.
+// eslint-disable-next-line no-restricted-imports
 import "../init/aliases";
 import { AES, enc } from "crypto-js";
 import {
@@ -54,14 +56,12 @@ async function run() {
         params: encryptParams(parsed),
       });
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.log(`- Could not decrypt '${ds.name}' (${ds.id}), skipping`);
     }
   }
 }
 run()
   .then(() => {
-    // eslint-disable-next-line no-console
     console.log("Done!");
   })
   .catch((e) => {

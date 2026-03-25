@@ -1,7 +1,7 @@
 ---
 title: GrowthBookSDKs - Feature Flags & Experimentation
 description: Choose the right GrowthBook SDK for your application. Support for JavaScript, React, Python, Node.js, mobile, and edge platforms. Get started with feature flags and experiments in minutes.
-sidebar_label: SDKs
+sidebar_label: SDK Overview
 keywords:
   - feature flags
   - A/B testing
@@ -42,7 +42,7 @@ All SDKs use the same assignment logic, so the same attributes always produce th
 
 The main differences between SDK types are where they run and what problems they solve best.
 
-### Client-Side SDKs
+### Client SDKs
 
 **Where they run:** In the browser or mobile device
 
@@ -58,7 +58,7 @@ The main differences between SDK types are where they run and what problems they
 
 **SDKs:** [JavaScript](/lib/js), [React](/lib/react), [Vue](/lib/vue), [Swift](/lib/swift), [Kotlin](/lib/kotlin), [Flutter](/lib/flutter), [React Native](/lib/react-native)
 
-### Server-Side SDKs
+### Server SDKs
 
 **Where they run:** On your backend infrastructure
 
@@ -94,14 +94,14 @@ The main differences between SDK types are where they run and what problems they
 **SDKs:** [Cloudflare Workers](/lib/edge/cloudflare), [Fastly Compute](/lib/edge/fastly), [Lambda@Edge](/lib/edge/lambda)
 
 :::tip Not sure which to choose?
-**Most users start with a client-side SDK**. They're the easiest to implement and work great for UI changes and experiments.
+**Most users start with a client SDK**. They're the easiest to implement and work great for UI changes and experiments.
 :::
 
 ## Getting Started
 
 Choose your SDK below to see installation and setup instructions:
 
-### Client-Side
+### Client
 
 <div className="button-card-grid">
   <ButtonCard
@@ -134,11 +134,6 @@ Choose your SDK below to see installation and setup instructions:
     description="Vue 3 with composables and Nuxt support"
     icon={<CodeLogos name="vue" />}
   />
-</div>
-
-### Mobile
-
-<div className="button-card-grid">
   <ButtonCard
     to="/lib/kotlin"
     title="Kotlin (Android)"
@@ -165,7 +160,7 @@ Choose your SDK below to see installation and setup instructions:
   />
 </div>
 
-### Server-Side
+### Server
 
 <div className="button-card-grid">
   <ButtonCard
@@ -215,6 +210,12 @@ Choose your SDK below to see installation and setup instructions:
     title="Elixir"
     description="Phoenix and Elixir applications"
     icon={<CodeLogos name="elixir" />}
+  />
+  <ButtonCard
+    to="/lib/rust"
+    title="Rust"
+    description="Actix, Axum, Rocket, and more"
+    icon={<CodeLogos name="rust" />}
   />
   <ButtonCard
     to="/lib/nextjs"

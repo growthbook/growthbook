@@ -1,13 +1,18 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   MetricSnapshotSettings,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import {
+  getEffectiveLookbackOverride, getLatestPhaseVariations,
+} from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -16,6 +21,7 @@ import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import PublicExperimentAnalysisSettingsBar from "@/components/Experiment/Public/PublicExperimentAnalysisSettingsBar";
 
 export default function PublicExperimentResults({
@@ -35,9 +41,10 @@ export default function PublicExperimentResults({
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -117,7 +124,32 @@ export default function PublicExperimentResults({
             <LoadingSpinner />
           </div>
         ) : (
-          <>
+          <MetricDrilldownProvider
+            experimentId={experiment.id}
+            phase={phase}
+            experimentStatus={experiment.status}
+            analysis={analysis ?? null}
+            variations={variations}
+            goalMetrics={experiment.goalMetrics}
+            secondaryMetrics={experiment.secondaryMetrics}
+            guardrailMetrics={experiment.guardrailMetrics}
+            metricOverrides={experiment.metricOverrides ?? []}
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+            customMetricSlices={experiment.customMetricSlices}
+            statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+            pValueCorrection={pValueCorrection}
+            startDate={phaseObj?.dateStarted ?? ""}
+            endDate={phaseObj?.dateEnded ?? ""}
+            reportDate={snapshot.dateCreated}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            lookbackOverride={getEffectiveLookbackOverride(
+              snapshot?.settings?.attributionModel,
+              snapshot?.settings?.lookbackOverride,
+            )}
+            differenceType={analysis?.settings?.differenceType || "relative"}
+            ssrPolyfills={ssrPolyfills}
+          >
             {showDateResults ? (
               <DateResults
                 goalMetrics={experiment.goalMetrics}
@@ -156,7 +188,6 @@ export default function PublicExperimentResults({
                 differenceType={analysis.settings?.differenceType}
                 experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={true}
               />
             ) : showCompactResults ? (
               <CompactResults
@@ -184,10 +215,9 @@ export default function PublicExperimentResults({
                 isTabActive={isTabActive}
                 experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
-                hideDetails={true}
               />
             ) : null}
-          </>
+          </MetricDrilldownProvider>
         )}
       </div>
     </>

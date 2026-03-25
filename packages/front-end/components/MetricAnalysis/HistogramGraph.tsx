@@ -148,47 +148,43 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
     setHoverBin(bin);
   };
 
-  useEffect(
-    () => {
-      if (hoverBin === null || !data || data.length === 0) {
-        hideTooltip();
-        return;
-      }
-      const datapoint = data[hoverBin];
-      if (!datapoint) {
-        hideTooltip();
-        return;
-      }
-      const innerWidth = outerWidth - marginLeft - marginRight;
-      const tooltipData = getTooltipDataFromDatapoint(
-        datapoint,
-        data,
-        innerWidth,
-        yScale,
-      );
-      if (!tooltipData) {
-        hideTooltip();
-        return;
-      }
-
-      showTooltip({
-        tooltipLeft: tooltipData.x,
-        tooltipTop: tooltipData.y,
-        tooltipData: tooltipData,
-      });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      hoverBin,
+  useEffect(() => {
+    if (hoverBin === null || !data || data.length === 0) {
+      hideTooltip();
+      return;
+    }
+    const datapoint = data[hoverBin];
+    if (!datapoint) {
+      hideTooltip();
+      return;
+    }
+    const innerWidth = outerWidth - marginLeft - marginRight;
+    const tooltipData = getTooltipDataFromDatapoint(
+      datapoint,
       data,
-      marginLeft,
-      marginRight,
-      outerWidth,
-      showTooltip,
-      hideTooltip,
+      innerWidth,
       yScale,
-    ],
-  );
+    );
+    if (!tooltipData) {
+      hideTooltip();
+      return;
+    }
+
+    showTooltip({
+      tooltipLeft: tooltipData.x,
+      tooltipTop: tooltipData.y,
+      tooltipData: tooltipData,
+    });
+  }, [
+    hoverBin,
+    data,
+    marginLeft,
+    marginRight,
+    outerWidth,
+    showTooltip,
+    hideTooltip,
+    yScale,
+  ]);
 
   const getContentXScale = useCallback(
     (currentXMax: number) => {

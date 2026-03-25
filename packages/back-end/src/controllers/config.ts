@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { Request, Response } from "express";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
 import {
   ExperimentInterface,
   LegacyExperimentPhase,
   LegacyVariation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { ErrorResponse, ExperimentOverridesResponse } from "back-end/types/api";
 import {
   getContextForAgendaJobByOrgId,
@@ -35,7 +35,8 @@ export async function getExperimentConfig(
   const { key } = req.params;
 
   try {
-    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    const { organization, secret } =
+      await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -103,7 +104,8 @@ export async function getExperimentsScript(
   const { key } = req.params;
 
   try {
-    const { organization, secret } = await lookupOrganizationByApiKey(key);
+    const { organization, secret } =
+      await dangerousLookupOrganizationByApiKey(key);
     if (!organization) {
       return res
         .status(400)

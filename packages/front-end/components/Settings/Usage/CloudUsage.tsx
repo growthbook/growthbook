@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { DailyUsage, UsageLimits } from "back-end/types/organization";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { AreaClosed } from "@visx/shape";

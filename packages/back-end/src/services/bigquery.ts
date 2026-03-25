@@ -1,4 +1,4 @@
-import { FactTableColumnType } from "back-end/types/fact-table";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { logger } from "back-end/src/util/logger";
 
 export type BigQueryDataType =

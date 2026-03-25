@@ -4,16 +4,16 @@ on:
     branches: [main]
     paths:
       - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
+      - "pnpm-lock.yaml"
+      - "eslint.config.mjs"
+      - "eslint-suppressions.json"
       - ".prettierignore"
   pull_request:
     paths:
       - "packages/**"
-      - "yarn.lock"
-      - ".eslintrc"
-      - ".eslintignore"
+      - "pnpm-lock.yaml"
+      - "eslint.config.mjs"
+      - "eslint-suppressions.json"
       - ".prettierignore"
 
 jobs:
@@ -22,74 +22,99 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
-          cache: "yarn"
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
-          cache: "pip"
+          node-version: "24"
+          cache: "pnpm"
 
       - name: Cache eslint
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ github.workspace }}/.eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'eslint-suppressions.json', 'pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
 
-      - name: Install dependencies
-        run: |
-          # Main app
-          yarn install
+      - name: Cache tsbuildinfo
+        uses: actions/cache@v5
+        with:
+          path: |
+            **/tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-
 
+      - name: Install pnpm dependencies
+        run: pnpm install
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.11
+          cache: "pip"
+          cache-dependency-path: "packages/stats/requirements.txt"
+
+      - name: Install python dependencies
+        run: |
           # Stats engine
           pip install pipx
           pipx install poetry
+          poetry config virtualenvs.in-project true
         env:
           CI: true
+
+      - name: Cache poetry dependencies
+        uses: actions/cache@v5
+        id: poetry-cache
+        with:
+          path: packages/stats/.venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('packages/stats/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
 
       - name: Build dependencies
         run: |
           # Build required dependencies (sdks/shared package)
           # This is required for linting/type checks to work
-          yarn setup
+          pnpm run setup
+          # Generate Next.js types (next-env.d.ts, routes.d.ts) for front-end type-check
+          pnpm --filter front-end exec next typegen
         env:
           CI: true
 
       - name: Lint
         run: |
-          yarn lint:ci
-          yarn workspace stats lint:ci
+          pnpm lint:ci
+          pnpm --filter stats lint:ci
         env:
           CI: true
 
       - name: Check api types
         run: |
-          yarn generate-api-types
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
+          pnpm generate-api-types
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-api-types" && git status --porcelain && exit 1 || true
 
       - name: Check doc
         run: |
           cd docs
-          yarn
-          yarn gen
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
+          pnpm install
+          pnpm gen
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |
-          yarn type-check
+          pnpm type-check
         env:
           CI: true
 
       - name: Test
         run: |
-          yarn test
+          pnpm test
         env:
           CI: true

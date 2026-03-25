@@ -8,7 +8,7 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute } from "shared/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -17,6 +17,10 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
@@ -78,7 +82,14 @@ export default function FallbackAttributeSelector({
     ...attributeSchema
       .filter((s) => !hasHashAttributes || s.hashAttribute)
       .filter((s) => s.property !== form.watch("hashAttribute"))
-      .map((s) => ({ label: s.property, value: s.property })),
+      .map((s) => ({
+        label: s.property,
+        value: s.property,
+        description: s.description,
+        tags: s.tags,
+        datatype: s.datatype,
+        hashAttribute: s.hashAttribute,
+      })),
   ];
 
   // If the current fallbackAttribute isn't in the list (it was archived or has been project-scoped), add it for backwards compatibility
@@ -89,20 +100,32 @@ export default function FallbackAttributeSelector({
     fallbackAttributeOptions.push({
       label: fallbackAttribute,
       value: fallbackAttribute,
+      description: undefined,
+      tags: undefined,
+      datatype: undefined,
+      hashAttribute: undefined,
     });
   }
 
   return (
     <SelectField
+      withRadixThemedPortal
       containerClassName="flex-1"
       label="Fallback Attribute"
       labelClassName="font-weight-bold"
       options={fallbackAttributeOptions}
-      formatOptionLabel={({ value, label }) => {
-        if (!value) {
-          return <em className="text-muted">{label}</em>;
+      formatOptionLabel={(o, meta) => {
+        if (!o.value) {
+          return <em className="text-muted">{o.label}</em>;
         }
-        return label;
+        return (
+          <AttributeOptionWithTooltip
+            option={o as AttributeOptionForTooltip}
+            context={meta.context}
+          >
+            {o.label}
+          </AttributeOptionWithTooltip>
+        );
       }}
       sort={false}
       value={orgStickyBucketing ? form.watch("fallbackAttribute") || "" : ""}

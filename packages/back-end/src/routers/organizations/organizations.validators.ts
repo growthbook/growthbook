@@ -25,3 +25,14 @@ export const putDefaultRoleValidator = z
     defaultRole: memberRoleWithProjectsValidator,
   })
   .strict();
+
+export const putMemberProjectRoleValidator = z
+  .object({
+    projectRole: projectMemberRoleValidator,
+  })
+  .strict();
+
+export const postApiKeyValidator = z.strictObject({
+  type: z.string(),
+  description: z.string().optional(),
+});

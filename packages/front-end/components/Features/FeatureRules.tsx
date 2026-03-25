@@ -1,16 +1,16 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import React, { useEffect, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  FeatureRevisionInterface,
   FeatureRule,
-} from "back-end/src/validators/features";
-import { Environment } from "back-end/types/organization";
+  SafeRolloutInterface,
+  HoldoutInterface,
+} from "shared/validators";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
-import { SafeRolloutInterface } from "shared/validators";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
@@ -24,7 +24,7 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
-import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
+import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 import HoldoutValueModal from "./HoldoutValueModal";
 
@@ -33,7 +33,6 @@ export default function FeatureRules({
   feature,
   isLocked,
   canEditDrafts,
-  revisions,
   experimentsMap,
   mutate,
   currentVersion,
@@ -42,12 +41,14 @@ export default function FeatureRules({
   isDraft,
   safeRolloutsMap,
   holdout,
+  baseFeature,
+  revisionList,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   isLocked: boolean;
   canEditDrafts: boolean;
-  revisions: FeatureRevisionInterface[];
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
   currentVersion: number;
@@ -56,6 +57,7 @@ export default function FeatureRules({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
+  revisionList: MinimalFeatureRevisionInterface[];
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
@@ -199,20 +201,27 @@ export default function FeatureRules({
                 )}
               </Flex>
             </TabsList>
-            <Link
-              ml="2"
-              onClick={() => setCompareEnvModal({ sourceEnv: env })}
-              underline="none"
-              wrap="nowrap"
-              size="1"
-            >
-              Compare environments
-            </Link>
+            {!isLocked && (
+              <Link
+                ml="2"
+                onClick={() => setCompareEnvModal({ sourceEnv: env })}
+                wrap="nowrap"
+                size="1"
+              >
+                Sync rules across environments
+              </Link>
+            )}
           </Flex>
         </Container>
         {environments.map((e) => {
-          const includeHoldoutRule =
+          const liveHoldoutActive =
             !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
+          // Also show as deleted if the draft removes the holdout but it's still live
+          const draftDeletesHoldout =
+            !feature.holdout?.id &&
+            !!baseFeature.holdout?.id &&
+            !!holdout?.environmentSettings?.[e.id]?.enabled;
+          const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
@@ -220,6 +229,7 @@ export default function FeatureRules({
                   <RuleList
                     environment={e.id}
                     feature={feature}
+                    baseFeature={baseFeature}
                     mutate={mutate}
                     setRuleModal={setRuleModal}
                     setCopyRuleModal={setCopyRuleModal}
@@ -230,8 +240,10 @@ export default function FeatureRules({
                     hideInactive={hideInactive}
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
-                    holdout={includeHoldoutRule ? holdout : undefined}
+                    holdout={liveHoldoutActive ? holdout : undefined}
+                    holdoutIsDeleted={draftDeletesHoldout}
                     openHoldoutModal={() => setHoldoutModal(true)}
+                    revisionList={revisionList}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -304,10 +316,9 @@ export default function FeatureRules({
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
-          version={currentVersion}
           setVersion={setVersion}
-          revisions={revisions}
           mode={ruleModal.mode}
+          revisionList={revisionList}
         />
       )}
       {copyRuleModal !== null && (
@@ -343,8 +354,10 @@ export default function FeatureRules({
       {holdoutModal && (
         <HoldoutValueModal
           feature={feature}
+          revisionList={revisionList}
           close={() => setHoldoutModal(false)}
           mutate={mutate}
+          setVersion={setVersion}
         />
       )}
     </>

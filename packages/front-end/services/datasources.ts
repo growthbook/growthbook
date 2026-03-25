@@ -5,8 +5,8 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
-} from "back-end/types/datasource";
-import { MetricType } from "back-end/types/metric";
+} from "shared/types/datasource";
+import { MetricType } from "shared/types/metric";
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -627,7 +627,10 @@ export function getExposureQuery(
   const queries = settings?.queries?.exposure || [];
 
   if (!exposureQueryId) {
-    exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+    return (
+      queries.find((q) => q.userIdType === (userIdType ?? "anonymous_id")) ??
+      null
+    );
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
 }

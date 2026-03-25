@@ -1,5 +1,9 @@
-import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
-import { ListExperimentsResponse } from "back-end/types/openapi";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  listExperimentsValidator,
+} from "shared/validators";
+import { ListExperimentsResponse } from "shared/types/openapi";
+import { ProjectInterface } from "shared/types/project";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import {
@@ -7,7 +11,6 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listExperimentsValidator } from "back-end/src/validators/openapi";
 
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator,
@@ -30,10 +33,24 @@ export const listExperiments = createApiRequestHandler(
     req.query,
   );
 
+  // Batch-load all projects for the filtered experiments to avoid N+1 queries
+  const projectIds = [
+    ...new Set(
+      filtered.map((exp) => exp.project).filter((p): p is string => !!p),
+    ),
+  ];
+  const projects = projectIds.length
+    ? await req.context.models.projects.getByIds(projectIds)
+    : [];
+  const projectMap = new Map<string, ProjectInterface>(
+    projects.map((p) => [p.id, p]),
+  );
+
   const promises = filtered.map((experiment) =>
     toExperimentApiInterface(
       req.context,
       experiment as ExperimentInterfaceExcludingHoldouts,
+      projectMap,
     ),
   );
   const apiExperiments = await Promise.all(promises);

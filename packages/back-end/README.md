@@ -135,7 +135,7 @@ const BaseClass = MakeModelClass({
   },
   // If true, `id` is globally unique across all orgs
   // If false (default), the `organization`/`id` combo is unique.
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: [],
 });
 
@@ -228,7 +228,7 @@ Note: Permission checks, migrations, etc. are all done automatically within the 
 The following hooks are available, letting you add additional validation or perform trigger-like behavior without messing with data model internals. All of these besides `migrate` are async. Define these in your child class and they will be called at appropriate times.
 
 - `migrate(legacyObj): newObj`
-- `customValidation(obj)` (called for both update/create flows)
+- `customValidation(obj, previousObj, writeOptions)` (called for both update/create flows; `previousObj` is only populated on update)
 - `beforeCreate(newObj)`
 - `afterCreate(newObj)`
 - `beforeUpdate(existing, updates, newObj)`
@@ -300,7 +300,7 @@ type WriteOptions = {
 
 export class FactMetricModel extends BaseClass<WriteOptions> {
   // ...
-  protected async customValidation(doc, writeOptions) {
+  protected async customValidation(doc, previousDoc, writeOptions) {
     if (!writeOptions.skipTestQuery) {
       // Run a test query against the data warehouse to make sure it works
     }
@@ -397,7 +397,7 @@ First, you would document the endpoint using OpenAPI:
 We use a generator to automatically create Typescript types, Zod validators, and API documentation for all of our resources and endpoints. Any time you edit the `yaml` files, you will need to re-run this generator.
 
 ```bash
-yarn generate-api-types
+pnpm generate-api-types
 ```
 
 ### Router and Business Logic
@@ -406,7 +406,7 @@ Next, you'll need to create a helper function to convert from our internal DB in
 
 ```ts
 // src/models/ProjectModel.ts
-import { ApiProject } from "back-end/types/openapi";
+import { ApiProject } from "shared/types/openapi";
 import { ProjectInterface } from "back-end/types/project";
 
 export class ProjectModel extends BaseClass {
@@ -424,12 +424,12 @@ export class ProjectModel extends BaseClass {
 Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
-import { ListProjectsResponse } from "back-end/types/openapi";
+import { ListProjectsResponse } from "shared/types/openapi";
 import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { listProjectsValidator } from "back-end/src/validators/openapi";
+import { listProjectsValidator } from "shared/validators";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {

@@ -1,8 +1,4 @@
-import {
-  DefaultMemberRole,
-  Permission,
-  Role,
-} from "back-end/types/organization";
+import { DefaultMemberRole, Permission, Role } from "shared/types/organization";
 
 export const POLICIES = [
   "ReadData",
@@ -34,6 +30,7 @@ export const POLICIES = [
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
   "ProjectsFullAccess",
+  "ProjectAdminAccess",
   "TagsFullAccess",
   "APIKeysFullAccess",
   "IntegrationsFullAccess",
@@ -124,7 +121,13 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
   NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
   TeamManagementFullAccess: ["readData", "manageTeam"],
-  ProjectsFullAccess: ["readData", "manageProjects"],
+  ProjectsFullAccess: [
+    "readData",
+    "manageProjects",
+    "createProjects",
+    "deleteProjects",
+  ],
+  ProjectAdminAccess: ["readData", "manageProjects"],
   TagsFullAccess: ["readData", "manageTags"],
   APIKeysFullAccess: ["readData", "manageApiKeys"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
@@ -208,6 +211,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "CustomRolesFullAccess",
       "CustomFieldsFullAccess",
       "ProjectsFullAccess",
+      "ProjectAdminAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
       "IntegrationsFullAccess",
@@ -339,7 +343,6 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Saved Groups Bypass Size Limit",
     description: "Bypass org-defined size limits for saved groups",
   },
-
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
     description: "Edit organization general settings",
@@ -356,7 +359,17 @@ export const POLICY_METADATA_MAP: Record<
   },
   ProjectsFullAccess: {
     displayName: "Projects Full Access",
-    description: "Create, edit, and delete projects",
+    description:
+      "Create, edit, and delete projects and change project roles for other members. Can be applied at the global or project level.",
+    warning:
+      "Can be used to create new project admins and adjust project roles for other members",
+  },
+  ProjectAdminAccess: {
+    displayName: "Project Admin Access",
+    description:
+      "Manage project settings and change project roles for other members.",
+    warning:
+      "Can be used to create new project admins and adjust project roles for other members",
   },
   TagsFullAccess: {
     displayName: "Tags Full Access",
@@ -425,17 +438,20 @@ export const POLICY_METADATA_MAP: Record<
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   noaccess: {
     id: "noaccess",
+    displayName: "No Access",
     description:
       "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
     policies: [],
   },
   readonly: {
     id: "readonly",
+    displayName: "Read Only",
     description: "View all features and experiment results",
     policies: ["ReadData"],
   },
   collaborator: {
     id: "collaborator",
+    displayName: "Collaborator",
     description: "Add comments and contribute ideas",
     policies: [
       "ReadData",
@@ -446,11 +462,13 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   visualEditor: {
     id: "visualEditor",
+    displayName: "Visual Editor",
     description: "Make visual changes for an experiment",
     policies: ["ReadData", "VisualEditorFullAccess"],
   },
   engineer: {
     id: "engineer",
+    displayName: "Engineer",
     description: "Manage features",
     policies: [
       "ReadData",
@@ -471,6 +489,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   analyst: {
     id: "analyst",
+    displayName: "Analyst",
     description: "Analyze experiments",
     policies: [
       "ReadData",
@@ -496,6 +515,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   experimenter: {
     id: "experimenter",
+    displayName: "Experimenter",
     description: "Manage features AND Analyze experiments",
     policies: [
       "ReadData",
@@ -527,8 +547,44 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "GeneralDashboardsFullAccess",
     ],
   },
+  gbDefault_projectAdmin: {
+    id: "gbDefault_projectAdmin",
+    displayName: "Project Admin",
+    description: "Manage project settings and project member's project role.",
+    policies: [
+      "ReadData",
+      "Comments",
+      "FeaturesFullAccess",
+      "ExperimentsFullAccess",
+      "VisualEditorFullAccess",
+      "ArchetypesFullAccess",
+      "RunQueries",
+      "SqlExplorerFullAccess",
+      "MetricsFullAccess",
+      "FactTablesFullAccess",
+      "FactMetricsFullAccess",
+      "DimensionsFullAccess",
+      "SegmentsFullAccess",
+      "IdeasFullAccess",
+      "PresentationsFullAccess",
+      "SDKPayloadPublish",
+      "SDKConnectionsFullAccess",
+      "AttributesFullAccess",
+      "EnvironmentsFullAccess",
+      "NamespacesFullAccess",
+      "SavedGroupsFullAccess",
+      "TagsFullAccess",
+      "DataSourceConfiguration",
+      "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
+      "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
+      "ProjectAdminAccess",
+    ],
+  },
   admin: {
     id: "admin",
+    displayName: "Admin",
     description:
       "All access + invite teammates and configure organization settings",
     policies: [...POLICIES],
@@ -561,6 +617,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageFeatures",
   "manageArchetype",
   "manageProjects",
+  "createProjects",
+  "deleteProjects",
   "createAnalyses",
   "createSegments",
   "createIdeas",

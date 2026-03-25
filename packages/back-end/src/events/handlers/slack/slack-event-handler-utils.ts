@@ -3,28 +3,35 @@ import formatNumber from "number-format.js";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import isEqual from "lodash/isEqual";
-import { logger } from "back-end/src/util/logger";
-import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   NotificationEvent,
   LegacyNotificationEvent,
-} from "back-end/types/events/notification-events";
-import { EventInterface } from "back-end/types/events/event";
-import { getEvent } from "back-end/src/models/EventModel";
-import { SlackIntegrationInterface } from "back-end/types/slack-integration";
-import { APP_ORIGIN } from "back-end/src/util/secrets";
+} from "shared/types/events/notification-events";
+import { EventInterface } from "shared/types/events/event";
+import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import {
+  ExperimentWarningNotificationPayload,
+  ExperimentInfoSignificancePayload,
+  ExperimentDecisionNotificationPayload,
+  SafeRolloutDecisionNotificationPayload,
+  SafeRolloutUnhealthyNotificationPayload,
+} from "shared/validators";
+import {
+  DiffResult,
+  HierarchicalValue,
+  HierarchicalModification,
+  SimpleModification,
+  ItemFieldChange,
+  type ModificationItem,
+} from "shared/types/events/diff";
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
 } from "back-end/src/events/handlers/utils";
-import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
-import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
-import { ExperimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
-import {
-  SafeRolloutDecisionNotificationPayload,
-  SafeRolloutUnhealthyNotificationPayload,
-} from "back-end/src/validators/safe-rollout-notifications";
-import { DiffResult } from "back-end/types/events/diff";
+import { APP_ORIGIN } from "back-end/src/util/secrets";
+import { getEvent } from "back-end/src/models/EventModel";
+import { cancellableFetch } from "back-end/src/util/http.util";
+import { logger } from "back-end/src/util/logger";
 
 // region Filtering
 
@@ -999,76 +1006,6 @@ export interface FormatOptions {
   fieldFormatters?: Record<string, (value: unknown) => string>;
 }
 
-interface ItemFieldChange {
-  field: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
-interface HierarchicalValue {
-  key: string;
-  changes?: {
-    added?: Record<string, unknown>[];
-    removed?: Record<string, unknown>[];
-    modified?: Array<{
-      id: string;
-      oldValue?: unknown;
-      newValue: unknown;
-      fieldChanges?: ItemFieldChange[];
-      oldIndex?: number;
-      newIndex?: number;
-      steps?: number;
-    }>;
-    orderSummaries?: Array<
-      | {
-          type: "insertShift";
-          insertIndex: number;
-          direction: "down" | "up";
-          affectedCount: number;
-        }
-      | {
-          type: "reorderShift";
-          movedId: string;
-          fromIndex: number;
-          toIndex: number;
-          direction: "down" | "up";
-          affectedCount: number;
-        }
-      | {
-          type: "deleteShift";
-          deleteIndex: number;
-          direction: "up" | "down";
-          affectedCount: number;
-        }
-    >;
-  };
-  added?: Record<string, unknown>;
-  removed?: Record<string, unknown>;
-  modified?: Array<{
-    key: string;
-    oldValue?: unknown;
-    newValue?: unknown;
-    values?: HierarchicalValue[];
-  }>;
-  values?: HierarchicalValue[];
-}
-
-interface SimpleModification {
-  key: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
-interface HierarchicalModification {
-  key: string;
-  values: HierarchicalValue[];
-  added: Record<string, unknown>;
-  removed: Record<string, unknown>;
-  modified: Array<SimpleModification | HierarchicalModification>;
-}
-
-type ModificationItem = SimpleModification | HierarchicalModification;
-
 const isSimpleModification = (
   mod: ModificationItem,
 ): mod is SimpleModification => {
@@ -1588,7 +1525,7 @@ export function formatDiffForSlack(
           }
 
           if (value.modified && value.modified.length > 0) {
-            value.modified.forEach((change: ModificationItem) => {
+            value.modified.forEach((change) => {
               if (isSimpleModification(change)) {
                 sections.push(
                   `\t⊳ *modified ${change.key}:* ${getItemLabel(change.oldValue)} → ${getItemLabel(change.newValue)}`,

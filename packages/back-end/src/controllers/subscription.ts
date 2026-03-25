@@ -5,8 +5,9 @@ import {
   StripeAddress,
   TaxIdType,
 } from "shared/types/subscriptions";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
+import { LicenseServerError } from "back-end/src/util/errors";
 import {
-  LicenseServerError,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -26,7 +27,6 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { formatBrandName } from "back-end/src/services/stripe";
-import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {

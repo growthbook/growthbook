@@ -1,23 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission, roleToPermissionMap } from "shared/permissions";
+import { EventUserApiKey } from "shared/types/events/event-types";
+import { OrganizationInterface, Permission } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
-import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import { getOrganizationById } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
-import { EventUserApiKey } from "back-end/types/events/event-types";
-import { isApiKeyForUserInOrganization } from "back-end/src/util/api-key.util";
-import { OrganizationInterface, Permission } from "back-end/types/organization";
+import {
+  isApiKeyForUserInOrganization,
+  dangerousLookupOrganizationByApiKey,
+} from "back-end/src/util/api-key.util";
 import { getUserPermissions } from "back-end/src/util/organization.util";
-import { ApiKeyInterface } from "back-end/types/apikey";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
-import { TeamInterface } from "back-end/types/team";
 import { getUserById } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
+import { TeamModel } from "back-end/src/models/TeamModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -54,7 +56,7 @@ export default function authenticateApiRequestMiddleware(
       : value.trim();
 
   // Lookup organization by secret key and store in req
-  lookupOrganizationByApiKey(secretKey)
+  dangerousLookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
       const { organization, secret, id, userId, role } = apiKeyPartial;
       if (!organization) {
@@ -111,7 +113,7 @@ export default function authenticateApiRequestMiddleware(
         throw new Error("Could not find user attached to this API key");
       }
 
-      const teams = await getTeamsForOrganization(org.id);
+      const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
 
       const eventAudit: EventUserApiKey = {
         type: "api_key",

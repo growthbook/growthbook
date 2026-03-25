@@ -4,7 +4,7 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { FormatDialect } from "shared/types/sql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -16,15 +16,15 @@ import {
   MaxTimestampMetricSourceQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
-} from "../services/bigquery";
+} from "back-end/src/services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -82,6 +82,9 @@ export default class BigQuery extends SqlIntegration {
       labels: { integration: "growthbook" },
       query: sql,
       useLegacySql: false,
+      ...(this.params.reservation
+        ? { reservation: this.params.reservation }
+        : {}),
     });
 
     if (setExternalId && job.id) {
@@ -155,8 +158,8 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  dateTrunc(col: string) {
-    return `date_trunc(${col}, DAY)`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    return `date_trunc(${col}, ${granularity.toUpperCase()})`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff(${endCol}, ${startCol}, DAY)`;
@@ -177,6 +180,9 @@ export default class BigQuery extends SqlIntegration {
     return `CAST(${column} as DATETIME)`;
   }
   hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  supportsLimitZeroColumnValidation(): boolean {
     return true;
   }
   hllAggregate(col: string): string {

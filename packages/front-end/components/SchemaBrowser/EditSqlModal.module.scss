@@ -1,8 +1,3 @@
-// Hack to increase specificity and override .modal .modal-header
-.modal-header-backgroundless.modal-header-backgroundless {
-  background-color: transparent;
-}
-
 .sql-editor-wrapper {
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;

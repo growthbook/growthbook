@@ -3,11 +3,11 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-} from "back-end/types/feature";
-import React, { ReactElement, useState } from "react";
+} from "shared/types/feature";
+import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Box } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -34,6 +34,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
+import Callout from "@/ui/Callout";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -158,13 +159,12 @@ export default function FeatureModal({
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
+  const allCustomFields = useCustomFields();
+  const initialCustomFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
     "feature",
     project,
   );
-
-  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -172,7 +172,7 @@ export default function FeatureModal({
     featureToDuplicate,
     project,
     customFields: hasCommercialFeature("custom-metadata")
-      ? customFields
+      ? initialCustomFields
       : undefined,
   });
 
@@ -184,14 +184,15 @@ export default function FeatureModal({
       permissionsUtil.canManageFeatureDrafts({ project }),
     project ? [project] : [],
   );
+  const canCreateWithoutProject =
+    !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
-  const { projectId: demoProjectId } = useDemoDataSourceProject();
-
-  const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
-  const [showDescription, setShowDescription] = useState(
-    !!featureToDuplicate?.description?.length,
+  const customFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
+    "feature",
+    selectedProject,
   );
-
+  const { projectId: demoProjectId } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
@@ -206,12 +207,14 @@ export default function FeatureModal({
 
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: featureToDuplicate?.project ?? project,
+      project: featureToDuplicate?.project ?? selectedProject,
     })
   ) {
     ctaEnabled = false;
     disabledMessage =
-      "You don't have permission to create feature flag drafts.";
+      !selectedProject && projectOptions.length > 0
+        ? "Select a project to continue."
+        : "You don't have permission to create feature flag drafts.";
   }
 
   // We want to show a warning when someone tries to create a feature under the demo project
@@ -282,108 +285,51 @@ export default function FeatureModal({
     >
       <FormProvider {...form}>
         {currentProjectIsDemo && (
-          <div className="alert alert-warning">
+          <Callout status="warning" mb="3">
             You are creating a feature under the demo datasource project.
-          </div>
+          </Callout>
         )}
 
         <FeatureKeyField keyField={form.register("id")} />
 
-        {showTags ? (
-          <TagsField
-            value={form.watch("tags") || []}
-            onChange={(tags) => form.setValue("tags", tags)}
-          />
-        ) : (
-          <a
-            href="#"
-            className="badge badge-light badge-pill mr-3 mb-3"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowTags(true);
-            }}
-          >
-            + tags
-          </a>
-        )}
-
-        {showDescription ? (
-          <div className="form-group">
-            <label>Description</label>
-            <MarkdownInput
-              value={form.watch("description") || ""}
-              setValue={(value) => form.setValue("description", value)}
-              autofocus={!featureToDuplicate?.description?.length}
-            />
-          </div>
-        ) : (
-          <a
-            href="#"
-            className="badge badge-light badge-pill mb-3"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowDescription(true);
-            }}
-          >
-            + description
-          </a>
-        )}
-
         {projectOptions.length > 0 && (
           <>
             {selectedProject === demoProjectId && (
-              <div className="alert alert-warning">
+              <Callout status="warning" mb="3">
                 You are creating a feature under the demo datasource project.
-              </div>
+              </Callout>
             )}
             <SelectField
               label={
                 <>
-                  {" "}
                   Project{" "}
-                  <Tooltip
-                    body={
-                      "The dropdown below has been filtered to only include projects where you have permission to update Features"
-                    }
-                  />{" "}
+                  <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
                 </>
               }
               value={selectedProject || ""}
               onChange={(v) => {
                 form.setValue("project", v);
               }}
-              initialOption={requireProjectForFeatures ? undefined : "None"}
+              initialOption={canCreateWithoutProject ? "None" : undefined}
               options={projectOptions}
               required={requireProjectForFeatures}
             />
           </>
         )}
 
-        {holdoutsEnabled && (
-          <HoldoutSelect
-            selectedProject={selectedProject}
-            selectedHoldoutId={form.watch("holdout")?.id}
-            setHoldout={(holdoutId) => {
-              form.setValue("holdout", { id: holdoutId, value: "" });
-            }}
-            formType="feature"
-          />
-        )}
+        <TagsField
+          value={form.watch("tags") || []}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
 
-        {hasCommercialFeature("custom-metadata") &&
-          customFields &&
-          customFields?.length > 0 && (
-            <div>
-              <CustomFieldInput
-                customFields={customFields}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                currentCustomFields={form.watch("customFields") || {}}
-                section={"feature"}
-              />
-            </div>
-          )}
+        <HoldoutSelect
+          selectedProject={selectedProject}
+          selectedHoldoutId={form.watch("holdout")?.id}
+          setHoldout={(holdoutId) => {
+            form.setValue("holdout", { id: holdoutId, value: "" });
+          }}
+          formType="feature"
+        />
 
         {!featureToDuplicate && (
           <ValueTypeField
@@ -400,7 +346,7 @@ export default function FeatureModal({
           We hide rule configuration when duplicating a feature since the
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
-      */}
+        */}
         {!featureToDuplicate && valueType && (
           <FeatureValueField
             label={
@@ -437,6 +383,33 @@ export default function FeatureModal({
             form.setValue("environmentSettings", environmentSettings);
           }}
         />
+
+        <div className="mb-4">
+          <label>Description</label>
+          <Box mt="1">
+            <MarkdownInput
+              value={form.watch("description") || ""}
+              setValue={(value) => form.setValue("description", value)}
+              autofocus={!featureToDuplicate?.description?.length}
+            />
+          </Box>
+        </div>
+
+        {hasCommercialFeature("custom-metadata") &&
+          customFields &&
+          customFields?.length > 0 && (
+            <div>
+              <CustomFieldInput
+                customFields={customFields}
+                setCustomFields={(value) => {
+                  form.setValue("customFields", value);
+                }}
+                currentCustomFields={form.watch("customFields") || {}}
+                section={"feature"}
+                project={selectedProject}
+              />
+            </div>
+          )}
       </FormProvider>
     </Modal>
   );

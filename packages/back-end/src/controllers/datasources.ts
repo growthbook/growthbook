@@ -13,11 +13,10 @@ import { TemplateVariables } from "shared/types/sql";
 import { factTableColumnTypes } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
-import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   DataSourceParams,
   DataSourceType,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceInterface,
   ExposureQuery,
@@ -26,7 +25,12 @@ import {
   MaterializedColumn,
   MaterializedColumnType,
   GrowthbookClickhouseSettings,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
+import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { SQLExecutionError } from "back-end/src/util/errors";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getSourceIntegrationObject,
   getNonSensitiveParams,
@@ -34,6 +38,7 @@ import {
   encryptParams,
   testQuery,
   getIntegrationFromDatasourceId,
+  runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
@@ -51,7 +56,6 @@ import {
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { getMetricsByDatasource } from "back-end/src/models/MetricModel";
 import { deleteInformationSchemaById } from "back-end/src/models/InformationSchemaModel";
 import { deleteInformationSchemaTablesByInformationSchemaId } from "back-end/src/models/InformationSchemaTablesModel";
@@ -70,9 +74,8 @@ import {
   getReservedColumnNames,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
-import { FactTableColumnType } from "back-end/types/fact-table";
-import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
-import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
+import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -297,7 +300,7 @@ export async function postManagedWarehouse(
 
   // Start out with some default materialized columns
   // These can be changed by the user later
-  const identifiers = ["device_id", "user_id"];
+  const identifiers = ["device_id"];
   const dimensions = [
     "geo_country",
     "ua_browser",
@@ -533,7 +536,7 @@ export async function putDataSource(
 export async function postValidatePipelineSettings(
   req: AuthRequest<
     {
-      pipelineSettings: DataSourceSettings["pipelineSettings"];
+      pipelineSettings: DataSourcePipelineSettings;
     },
     { id: string }
   >,
@@ -771,9 +774,7 @@ export async function postGoogleOauthRedirect(
   const oauth2Client = getOauth2Client();
 
   const url = oauth2Client.generateAuthUrl({
-    // eslint-disable-next-line
     access_type: "offline",
-    // eslint-disable-next-line
     include_granted_scopes: true,
     prompt: "consent",
     scope: "https://www.googleapis.com/auth/analytics.readonly",
@@ -870,7 +871,7 @@ export async function runQuery(
     });
   }
 
-  const { results, sql, duration, error } = await runFreeFormQuery(
+  const { results, sql, duration, error, columns } = await runFreeFormQuery(
     context,
     datasource,
     query,
@@ -883,6 +884,7 @@ export async function runQuery(
     results,
     sql,
     error,
+    columns,
   });
 }
 
@@ -936,6 +938,46 @@ export async function runUserExperimentExposuresQuery(
     error,
     sql,
   });
+}
+
+export async function postFeatureEvalDiagnostics(
+  req: AuthRequest<{
+    feature: string;
+    datasourceId: string;
+  }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { feature, datasourceId } = req.body;
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  try {
+    const { rows, statistics, sql } = await runFeatureEvalDiagnosticsQuery(
+      context,
+      datasource,
+      feature,
+    );
+
+    res.status(200).json({
+      status: 200,
+      rows,
+      statistics,
+      sql,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      error: e.message,
+      sql: e instanceof SQLExecutionError ? e.query : undefined,
+    });
+  }
 }
 
 export async function getDataSourceMetrics(
@@ -1024,7 +1066,7 @@ export async function postDimensionSlices(
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
-    lookbackDays: Number(lookbackDays) ?? 30,
+    lookbackDays: Number(lookbackDays) || 30,
   });
   res.status(200).json({
     status: 200,
@@ -1559,22 +1601,13 @@ function generateManagedWarehouseExposureQueries(
     .map((c) => c.columnName);
 
   return identifiers.map((identifier) => {
-    const cols = [
-      identifier,
-      "timestamp",
-      "experiment_id",
-      "variation_id",
-      ...dimensions,
-    ];
-
     return {
       id: identifier,
       dimensions,
       name: identifier,
       userIdType: identifier,
       query: `
-SELECT 
-  ${cols.join(",\n  ")}
+SELECT *
 FROM experiment_views
 WHERE
   experiment_id LIKE '{{ experimentId }}'

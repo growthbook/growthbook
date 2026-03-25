@@ -10,13 +10,18 @@ import {
   dimensionAxisConfiguration,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
+import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import { getXAxisConfig } from "@/services/dataVizConfigUtilities";
 import { formatNumber } from "@/services/metrics";
-import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
-import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
-import BigValueChart from "../SqlExplorer/BigValueChart";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "@/components/ResizablePanels";
+import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 import PivotTable from "./PivotTable";
 
@@ -41,6 +46,14 @@ function parseYValue(
   }
   return undefined;
 }
+
+const CHART_ANIMATION_CONFIG = {
+  animation: true,
+  animationDuration: 300,
+  animationEasing: "linear" as const,
+  symbol: "circle",
+  symbolSize: 4,
+};
 
 function aggregate(
   values: (string | number)[],
@@ -136,10 +149,18 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
 export function DataVisualizationDisplay({
   rows,
   dataVizConfig,
+  chartId,
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;
+  chartId?: string;
 }) {
+  const anchorYAxisToZero =
+    "displaySettings" in dataVizConfig && dataVizConfig.displaySettings
+      ? (dataVizConfig.displaySettings.anchorYAxisToZero ?? true)
+      : true;
+  const chartsContext = useDashboardCharts();
+
   const isConfigValid = useMemo(() => {
     const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
@@ -312,6 +333,7 @@ export function DataVisualizationDisplay({
 
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
+  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
 
   // Helper: Generate all combinations of dimension values across all dimensions
   const generateAllDimensionCombinations = useCallback(
@@ -658,6 +680,7 @@ export function DataVisualizationDisplay({
       return [
         {
           name: xField,
+          ...CHART_ANIMATION_CONFIG,
           type:
             dataVizConfig.chartType === "area"
               ? "line"
@@ -683,6 +706,7 @@ export function DataVisualizationDisplay({
       const dimensionKey = combination.join(", ");
       return {
         name: dimensionKey,
+        ...CHART_ANIMATION_CONFIG,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
@@ -709,8 +733,10 @@ export function DataVisualizationDisplay({
         appendTo: "body",
         trigger: "axis",
         axisPointer: {
-          type: "shadow",
+          type: dataVizConfig?.chartType === "bar" ? "shadow" : "cross",
         },
+        textStyle: { color: textColor },
+        backgroundColor: tooltipBackgroundColor,
         valueFormatter: (value: number) => {
           if (!yConfig?.type) {
             return value;
@@ -757,7 +783,7 @@ export function DataVisualizationDisplay({
         axisLabel: {
           color: textColor,
         },
-        scale: true,
+        scale: !anchorYAxisToZero,
         type:
           xConfig?.type === "date"
             ? "time"
@@ -766,7 +792,7 @@ export function DataVisualizationDisplay({
               : "category",
       },
       yAxis: {
-        scale: true,
+        scale: !anchorYAxisToZero,
         name:
           yConfig?.aggregation && yConfig?.aggregation !== "none"
             ? `${yConfig.aggregation} (${yField})`
@@ -786,16 +812,19 @@ export function DataVisualizationDisplay({
     };
   }, [
     dataset,
-    series,
-    xField,
-    yField,
-    xConfig?.type,
-    xConfig?.dateAggregationUnit,
-    yConfig?.aggregation,
-    dimensionFields,
+    dataVizConfig?.chartType,
     dataVizConfig.title,
     textColor,
+    tooltipBackgroundColor,
+    dimensionFields.length,
+    xConfig?.type,
+    xConfig?.dateAggregationUnit,
+    xField,
+    anchorYAxisToZero,
+    yConfig?.aggregation,
     yConfig?.type,
+    yField,
+    series,
   ]);
 
   if (dataVizConfig.chartType === "big-value") {
@@ -849,6 +878,11 @@ export function DataVisualizationDisplay({
           key={JSON.stringify(option)}
           option={option}
           style={{ width: "100%", minHeight: "350px", height: "80%" }}
+          onChartReady={(chart) => {
+            if (chartId && chartsContext && chart) {
+              chartsContext.registerChart(chartId, chart);
+            }
+          }}
         />
       </Flex>
     );

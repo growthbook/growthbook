@@ -1,16 +1,20 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { UpdateMemberRoleResponse } from "back-end/types/openapi";
-import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateMemberRoleValidator } from "back-end/src/validators/openapi";
+import { UpdateMemberRoleResponse } from "shared/types/openapi";
+import { updateMemberRoleValidator } from "shared/validators";
+import { accountFeatures } from "shared/enterprise";
 import {
   Member,
   OrganizationInterface,
   ProjectMemberRole,
-} from "back-end/types/organization";
+} from "shared/types/organization";
+import {
+  orgHasPremiumFeature,
+  getLowestPlanPerFeature,
+} from "back-end/src/enterprise";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export function validateRoleAndEnvs(
   org: OrganizationInterface,
@@ -23,17 +27,31 @@ export function validateRoleAndEnvs(
       throw new Error(`${role}) is not a valid role`);
     }
 
+    const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
+
     if (role === "noaccess" && !orgHasPremiumFeature(org, "no-access-role")) {
+      const planName = lowestPlanMap["no-access-role"];
       throw new Error(
-        "Must have a commercial License Key to gain access to the no-access role.",
+        `Must have a ${planName} plan to gain access to the no-access role.`,
+      );
+    }
+
+    if (
+      role === "gbDefault_projectAdmin" &&
+      !orgHasPremiumFeature(org, "project-admin-role")
+    ) {
+      const planName = lowestPlanMap["project-admin-role"];
+      throw new Error(
+        `Must have a ${planName} plan to gain access to the project admin role.`,
       );
     }
 
     if (limitAccessByEnvironment) {
       if (environments?.length) {
         if (!orgHasPremiumFeature(org, "advanced-permissions")) {
+          const planName = lowestPlanMap["advanced-permissions"];
           throw new Error(
-            "Must have a commercial License Key to restrict permissions by environment.",
+            `Must have a ${planName} plan to restrict permissions by environment.`,
           );
         }
 

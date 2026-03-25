@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Flex } from "@radix-ui/themes";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";

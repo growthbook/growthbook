@@ -11,7 +11,8 @@ import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-} from "back-end/types/report";
+} from "shared/types/report";
+import { getAllVariations } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -106,7 +107,6 @@ export async function postReportFromSnapshot(
       "dateStarted",
       "dateEnded",
       "customMetricSlices",
-      "pinnedMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -141,7 +141,7 @@ export async function postReportFromSnapshot(
           "coverage",
         ]),
       ),
-      variations: experiment.variations.map((variation) =>
+      variations: getAllVariations(experiment).map((variation) =>
         omit(variation, ["description", "screenshots"]),
       ),
     },
@@ -269,7 +269,7 @@ export async function getReportPublic(
   const _experiment = report.experimentId
     ? (await getExperimentById(context, report.experimentId || "")) || undefined
     : undefined;
-  const experiment = pick(_experiment, ["id", "name", "type"]);
+  const experiment = pick(_experiment, ["id", "name", "type", "uid"]);
 
   const ssrData = await generateExperimentReportSSRData({
     context,
@@ -484,7 +484,6 @@ export async function putReport(
           "dateStarted",
           "dateEnded",
           "customMetricSlices",
-          "pinnedMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(
@@ -494,6 +493,16 @@ export async function putReport(
         updates.experimentAnalysisSettings.dateEnded = getValidDate(
           updates.experimentAnalysisSettings.dateEnded,
         );
+      }
+      if (
+        updates.experimentAnalysisSettings.lookbackOverride?.type === "date"
+      ) {
+        updates.experimentAnalysisSettings.lookbackOverride = {
+          type: "date",
+          value: getValidDate(
+            updates.experimentAnalysisSettings.lookbackOverride.value,
+          ),
+        };
       }
     }
 

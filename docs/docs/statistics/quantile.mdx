@@ -5,10 +5,14 @@ sidebar_label: Quantile Testing
 slug: quantile
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 # Quantile Testing
 
-:::note Quantile Testing is a GrowthBook Pro and Enterprise feature.
-It is incompatible with Mixpanel or MySQL integrations.
+<CommercialFeature feature="quantile-metrics" />
+
+:::note
+Quantile Testing is incompatible with Mixpanel or MySQL integrations.
 :::
 
 ## What is a quantile test?
@@ -66,7 +70,7 @@ Notice that for the Per-User quantiles, we sum at the user level first before pa
 
 ## How do I run a quantile test in GrowthBook?
 
-Running a quantile test is just as easy as running a mean test. Currently, quantile testing is available only for Pro and Enterprise customers.
+Running a quantile test is just as easy as running a mean test.
 
 1. Navigate to your [Fact Table](/app/metrics) and select "Add Metric".
 2. Select “Quantile” from “Type of Metric”.

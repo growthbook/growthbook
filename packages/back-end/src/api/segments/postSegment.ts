@@ -1,9 +1,9 @@
+import { postSegmentValidator } from "shared/validators";
+import { PostSegmentResponse } from "shared/types/openapi";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { postSegmentValidator } from "back-end/src/validators/openapi";
-import { PostSegmentResponse } from "back-end/types/openapi";
 
 export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   req,

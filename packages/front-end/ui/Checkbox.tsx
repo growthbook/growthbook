@@ -21,7 +21,7 @@ export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
 
 export type Props = {
   label?: string | ReactElement;
-  labelSize?: Responsive<"2" | "3">;
+  labelSize?: Responsive<"1" | "2" | "3">;
   id?: string;
   disabled?: boolean;
   disabledMessage?: string;
@@ -58,52 +58,56 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
 ) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
 
-  const TooltipWrapper = ({ children }) =>
-    disabledMessage ? (
-      <Tooltip
-        body={disabled ? disabledMessage : ""}
-        popperStyle={{ wordBreak: "normal" }}
-      >
-        {children}
-      </Tooltip>
-    ) : (
-      children
-    );
-
-  return (
-    <TooltipWrapper>
-      <Text
-        ref={ref}
-        as="label"
-        size={labelSize}
-        mb="0"
-        className={clsx(
-          "rt-CheckboxItem",
-          {
-            "rt-TextDisabled": disabled,
-            disabled: disabled,
-          },
-          containerClassName,
-        )}
-        {...containerProps}
-      >
-        <Flex gap="2">
-          <RadixCheckbox
-            checked={value}
-            onCheckedChange={(v) => setValue(!!v)}
-            disabled={disabled}
-            color={checkboxColor}
-            size={getRadixSize(size)}
-            id={id}
-            required={required}
-          />
-          <Flex direction="column" gap="1">
-            <Text weight={weight}>{label}</Text>
-            {description && <Text>{description}</Text>}
-            {error && <HelperText status={errorLevel}>{error}</HelperText>}
-          </Flex>
+  const labelEl = (
+    <Text
+      ref={ref}
+      as="label"
+      size={labelSize}
+      mb="0"
+      className={clsx(
+        "rt-CheckboxItem",
+        {
+          "rt-TextDisabled": disabled,
+          disabled: disabled,
+        },
+        containerClassName,
+      )}
+      {...containerProps}
+    >
+      <Flex gap="2">
+        <RadixCheckbox
+          checked={value}
+          onCheckedChange={(v) => setValue(!!v)}
+          disabled={disabled}
+          color={checkboxColor}
+          size={getRadixSize(size)}
+          id={id}
+          required={required}
+        />
+        <Flex direction="column" gap="1">
+          <Text weight={weight}>{label}</Text>
+          {description && (
+            <Text style={{ color: "var(--color-text-mid)" }}>
+              {description}
+            </Text>
+          )}
+          {error && <HelperText status={errorLevel}>{error}</HelperText>}
         </Flex>
-      </Text>
-    </TooltipWrapper>
+      </Flex>
+    </Text>
   );
+
+  if (disabled && disabledMessage) {
+    return (
+      <Tooltip
+        body={disabledMessage}
+        popperStyle={{ wordBreak: "normal" }}
+        tipMinWidth="140px"
+      >
+        {labelEl}
+      </Tooltip>
+    );
+  }
+
+  return labelEl;
 });

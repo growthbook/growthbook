@@ -3,7 +3,7 @@ import {
   InformationSchemaInterface,
   InformationSchemaInterfaceWithPaths,
 } from "shared/types/integrations";
-import { DataSourceInterface, DataSourceType } from "back-end/types/datasource";
+import { DataSourceInterface, DataSourceType } from "shared/types/datasource";
 import {
   createInformationSchema,
   updateInformationSchemaById,
@@ -14,7 +14,7 @@ import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/update
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
-import { usingFileConfig } from "../init/config";
+import { usingFileConfig } from "back-end/src/init/config";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
@@ -143,13 +143,18 @@ export async function mergeStaleInformationSchemaWithUpdate(
   return updatedInformationSchema;
 }
 
+export type InformationSchemaTableRow = {
+  column_name: string;
+  data_type: string;
+};
+
 export async function fetchTableData(
   context: ReqContext,
   datasource: DataSourceInterface,
   informationSchema: InformationSchemaInterface,
   tableId: string,
 ): Promise<{
-  tableData: null | unknown[];
+  tableData: null | InformationSchemaTableRow[];
   refreshMS: number;
   databaseName: string;
   tableSchema: string;
@@ -190,7 +195,7 @@ export async function fetchTableData(
   const queryEndTime = Date.now();
 
   return {
-    tableData,
+    tableData: tableData as InformationSchemaTableRow[] | null,
     refreshMS: queryEndTime - queryStartTime,
     databaseName,
     tableSchema,

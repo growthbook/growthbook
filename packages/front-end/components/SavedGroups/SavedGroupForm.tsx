@@ -1,16 +1,18 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
-} from "back-end/types/saved-group";
+  SavedGroupInterface,
+  SavedGroupType,
+} from "shared/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
-import { FaPlusCircle } from "react-icons/fa";
-import { SavedGroupInterface, SavedGroupType } from "shared/types/groups";
+import { PiPlus } from "react-icons/pi";
 import clsx from "clsx";
+import { Flex, Text } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -24,7 +26,10 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import SelectOwner from "../Owner/SelectOwner";
+import Link from "@/ui/Link";
+import SelectOwner from "@/components/Owner/SelectOwner";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -38,9 +43,10 @@ const SavedGroupForm: FC<{
 
   const attributeSchema = useAttributeSchema();
 
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, savedGroups } = useDefinitions();
 
-  const { projects, project } = useDefinitions();
+  const { project } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -66,10 +72,34 @@ const SavedGroupForm: FC<{
     },
   });
 
-  const projectsOptions = projects.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
+  const selectedProjects = form.watch("projects") || [];
+  const projectsOptions = useProjectOptions(
+    (p) =>
+      current.id
+        ? permissionsUtil.canUpdateSavedGroup(
+            { projects: current.projects || [] },
+            { projects: [p] },
+          )
+        : permissionsUtil.canCreateSavedGroup({ projects: [p] }),
+    selectedProjects,
+  );
+  const canCreateWithoutProject = current.id
+    ? permissionsUtil.canUpdateSavedGroup(
+        { projects: current.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateSavedGroup({ projects: [] });
+  const hasProjectPermission = current.id
+    ? permissionsUtil.canUpdateSavedGroup(
+        { projects: current.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateSavedGroup({ projects: selectedProjects });
+  const ctaDisabledMessage = !hasProjectPermission
+    ? !selectedProjects.length && projectsOptions.length > 0
+      ? "Select a project to continue."
+      : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
+    : undefined;
 
   const listAboveSizeLimit = savedGroupSizeLimit
     ? (form.watch("values") ?? []).length > savedGroupSizeLimit
@@ -80,6 +110,12 @@ const SavedGroupForm: FC<{
       ? !!form.watch("attributeKey") &&
         (!listAboveSizeLimit || adminBypassSizeLimit)
       : !!form.watch("condition"));
+
+  // Create a Map from saved groups for cycle detection
+  const groupMap = useMemo(
+    () => new Map(savedGroups.map((group) => [group.id, group])),
+    [savedGroups],
+  );
 
   return upgradeModal ? (
     <UpgradeModal
@@ -97,13 +133,19 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition Group" : "ID List"
       }`}
       cta={current.id ? "Save" : "Submit"}
-      ctaEnabled={isValid}
+      ctaEnabled={isValid && hasProjectPermission}
+      disabledMessage={ctaDisabledMessage}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
-          const conditionRes = validateAndFixCondition(value.condition, (c) => {
-            form.setValue("condition", c);
-            forceConditionRender();
-          });
+          const conditionRes = validateAndFixCondition(
+            value.condition,
+            (c) => {
+              form.setValue("condition", c);
+              forceConditionRender();
+            },
+            true,
+            groupMap,
+          );
           if (conditionRes.empty) {
             throw new Error("Condition cannot be empty");
           }
@@ -175,18 +217,26 @@ const SavedGroupForm: FC<{
           }}
         />
       ) : (
-        <p
-          className="cursor-pointer text-color-primary"
-          onClick={() => setShowDescription(true)}
+        <Link
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+          mb="5"
         >
-          <FaPlusCircle /> Add a description
-        </p>
+          <Flex align="center" gap="1">
+            <PiPlus />
+            <Text weight="medium">Add a description</Text>
+          </Flex>
+        </Link>
       )}
       <MultiSelectField
         label="Projects"
         labelClassName="font-weight-bold"
-        placeholder="All Projects"
-        value={form.watch("projects") || []}
+        placeholder={
+          canCreateWithoutProject ? "All Projects" : "Select projects..."
+        }
+        value={selectedProjects}
         onChange={(projects) => form.setValue("projects", projects)}
         options={projectsOptions}
         sort={false}
@@ -194,12 +244,12 @@ const SavedGroupForm: FC<{
       />
       {current.id && (
         <SelectOwner
-          resourceType="savedGroup"
           placeholder="Optional"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
       )}
+
       {type === "condition" ? (
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
@@ -209,6 +259,8 @@ const SavedGroupForm: FC<{
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require
+          allowNestedSavedGroups={true}
+          excludeSavedGroupId={current.id}
         />
       ) : (
         <>

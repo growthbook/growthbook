@@ -1,15 +1,15 @@
 import Agenda, { Job } from "agenda";
 import { InformationSchemaError } from "shared/types/integrations";
+import {
+  DataSourceNotSupportedError,
+  MissingDatasourceParamsError,
+} from "back-end/src/util/errors";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
   updateInformationSchemaById,
 } from "back-end/src/models/InformationSchemaModel";
 import { initializeDatasourceInformationSchema } from "back-end/src/services/informationSchema";
-import {
-  DataSourceNotSupportedError,
-  MissingDatasourceParamsError,
-} from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";

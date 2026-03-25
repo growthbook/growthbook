@@ -8,7 +8,6 @@ let agendaInstance: Agenda;
 export const getAgendaInstance = (): Agenda => {
   if (!agendaInstance) {
     const config: AgendaConfig = {
-      // @ts-expect-error - For some reason the Mongoose MongoDB instance does not match (missing 5 properties)
       mongo: mongoose.connection.db,
       defaultLockLimit: Number(process.env.GB_AGENDA_DEFAULT_LOCK_LIMIT) || 5,
       defaultLockLifetime: 10 * 60 * 1000, // 10 minutes
@@ -31,12 +30,9 @@ export const getAgendaInstance = (): Agenda => {
       originalDefine.call(
         this,
         name,
-        options,
-        trackJob(
-          name,
-          // @ts-expect-error Some weird typing going on with Agenda. T should extend JobAttributesData
-          addJobLifecycleChecks(processor),
-        ),
+        options as DefineOptions | Processor<unknown>,
+        // @ts-expect-error Agenda's Processor<T> is incompatible with Processor<JobAttributesData> - T may not extend JobAttributesData
+        trackJob(name, addJobLifecycleChecks(processor)),
       );
     };
   }

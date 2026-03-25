@@ -1,10 +1,10 @@
 import type { Response } from "express";
+import { EventUserForResponseLocals } from "shared/types/events/event-types";
+import { DataExportFileResponse } from "shared/types/data-exports";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { EventUserForResponseLocals } from "back-end/types/events/event-types";
 import { getLatestEventsForOrganization } from "back-end/src/models/EventModel";
-import { DataExportFileResponse } from "back-end/types/data-exports";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 
 /**

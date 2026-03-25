@@ -1,5 +1,5 @@
 import { Factory } from "fishery";
-import { FactTableInterface } from "../../types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 
 export const factTableFactory = Factory.define<FactTableInterface>(
   ({ sequence, params }) => ({

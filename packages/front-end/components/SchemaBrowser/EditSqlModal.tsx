@@ -66,7 +66,8 @@ export interface Props {
       | "Identity Join"
       | "Experiment Assignment Query"
       | "Metric"
-      | "Segment";
+      | "Segment"
+      | "Feature Usage Query";
     objectName?: string;
   };
 }

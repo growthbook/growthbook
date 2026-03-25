@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ProjectMemberRole } from "back-end/types/organization";
+import { ProjectMemberRole } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -71,6 +71,7 @@ export default function ProjectRolesSelector({
             }
             disabled={!hasFeature}
             includeAdminRole={false}
+            includeProjectAdminRole={true}
           />
         </div>
       ))}

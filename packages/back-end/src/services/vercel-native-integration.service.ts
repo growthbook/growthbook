@@ -1,19 +1,11 @@
 import { Promise as BluebirdPromise } from "bluebird";
-import { OrganizationInterface } from "back-end/types/organization";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterface } from "back-end/types/experiment";
-import {
-  VercelIntallationNotFound,
-  findVercelInstallationByOrganization,
-} from "back-end/src/models/VercelNativeIntegrationModel";
+import { OrganizationInterface } from "shared/types/organization";
+import { FeatureInterface } from "shared/types/feature";
+import { ExperimentInterface } from "shared/types/experiment";
+import { VercelInstallationNotFound } from "back-end/src/util/errors";
+import { findVercelInstallationByOrganization } from "back-end/src/models/VercelNativeIntegrationModel";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import {
-  createSdkWebhook,
-  findAllSdkWebhooksByConnection,
-  findAllSdkWebhooksByPayloadFormat,
-  deleteSdkWebhookById,
-} from "back-end/src/models/WebhookModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findSDKConnectionsById } from "back-end/src/models/SdkConnectionModel";
@@ -159,7 +151,7 @@ const createVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error creating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    if (!(err instanceof VercelIntallationNotFound))
+    if (!(err instanceof VercelInstallationNotFound))
       logger.error(err, `Error while creating vercel experimentation item`);
   }
 };
@@ -224,7 +216,7 @@ const updateVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error updating vercel resource: ${await ret.text()}`);
   } catch (err) {
-    if (!(err instanceof VercelIntallationNotFound))
+    if (!(err instanceof VercelInstallationNotFound))
       logger.error(err, "Error while creating vercel experimentation item");
   }
 };
@@ -290,7 +282,7 @@ const deleteVercelExperimentationItem = async ({
     if (!ret.ok)
       throw new Error(`Error deleting vercel resource: ${await ret.text()}`);
   } catch (err) {
-    if (!(err instanceof VercelIntallationNotFound))
+    if (!(err instanceof VercelInstallationNotFound))
       logger.error(err, `Error while deleting vercel experimentation item`);
   }
 };
@@ -326,17 +318,17 @@ export const deleteVercelExperimentationItemFromExperiment = ({
     : undefined;
 
 export const deleteVercelSdkWebhook = async (context: ReqContextClass) => {
-  const webhooks = await findAllSdkWebhooksByPayloadFormat(
-    context,
-    "vercelNativeIntegration",
-  );
+  const webhooks =
+    await context.models.sdkWebhooks.findAllSdkWebhooksByPayloadFormat(
+      "vercelNativeIntegration",
+    );
 
   await BluebirdPromise.each(webhooks, async (webhook) => {
     await context.models.webhookSecrets.deleteByKey(
       VERCEL_WEBHOOK_TOKEN_SECRET_NAME(webhook.sdks[0]),
     );
 
-    await deleteSdkWebhookById(context, webhook.id);
+    await context.models.sdkWebhooks.deleteById(webhook.id);
   });
 };
 
@@ -364,10 +356,10 @@ export const syncVercelSdkConnection = async (organization: string) => {
     if (!sdkConnection)
       throw new Error("Internal error: no sdk connection found");
 
-    const webhooks = await findAllSdkWebhooksByConnection(
-      context,
-      sdkConnection.id,
-    );
+    const webhooks =
+      await context.models.sdkWebhooks.findAllSdkWebhooksByConnection(
+        sdkConnection.id,
+      );
 
     const webhook = webhooks.find(
       (w) =>
@@ -377,7 +369,7 @@ export const syncVercelSdkConnection = async (organization: string) => {
 
     if (!resource.protocolSettings?.experimentation?.edgeConfigId) {
       if (webhook) {
-        await deleteSdkWebhookById(context, webhook.id);
+        await context.models.sdkWebhooks.deleteById(webhook.id);
         await context.models.webhookSecrets.deleteByKey(
           VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id),
         );
@@ -388,26 +380,23 @@ export const syncVercelSdkConnection = async (organization: string) => {
           VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id),
         );
 
-        const createdWebhook = await createSdkWebhook(
-          context,
-          sdkConnection.id,
-          {
-            name: "Sync vercel integration edge config",
-            endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
-            payloadFormat: "vercelNativeIntegration",
-            payloadKey: sdkConnection.key,
-            httpMethod: "PUT",
-            managedBy: {
-              type: "vercel",
-              resourceId: resource.id,
-            },
-            headers: JSON.stringify({
-              Authorization: `Bearer {{${VERCEL_WEBHOOK_TOKEN_SECRET_NAME(
-                sdkConnection.id,
-              )}}}`,
-            }),
+        const createdWebhook = await context.models.sdkWebhooks.create({
+          ...context.models.sdkWebhooks.getDefaultCreateProps(sdkConnection.id),
+          name: "Sync vercel integration edge config",
+          endpoint: `${VERCEL_URL}/v1/installations/${nativeIntegration.installationId}/resources/${resource.id}/experimentation/edge-config`,
+          payloadFormat: "vercelNativeIntegration",
+          payloadKey: sdkConnection.key,
+          httpMethod: "PUT",
+          managedBy: {
+            type: "vercel",
+            resourceId: resource.id,
           },
-        );
+          headers: JSON.stringify({
+            Authorization: `Bearer {{${VERCEL_WEBHOOK_TOKEN_SECRET_NAME(
+              sdkConnection.id,
+            )}}}`,
+          }),
+        });
 
         await context.models.webhookSecrets.create({
           key: VERCEL_WEBHOOK_TOKEN_SECRET_NAME(sdkConnection.id),

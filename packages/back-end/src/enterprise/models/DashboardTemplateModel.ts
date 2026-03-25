@@ -4,7 +4,7 @@ import { UpdateProps } from "shared/types/base-model";
 import {
   dashboardTemplateInterface,
   DashboardTemplateInterface,
-} from "back-end/src/enterprise/validators/dashboard-template";
+} from "shared/enterprise";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   ToInterface,
@@ -23,7 +23,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "dashboardTemplate.update",
     deleteEvent: "dashboardTemplate.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
 });
 
 export const toInterface: ToInterface<DashboardTemplateInterface> = (doc) => {

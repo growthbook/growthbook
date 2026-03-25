@@ -1,4 +1,4 @@
-import { MetricDefaults } from "back-end/types/organization";
+import { MetricDefaults } from "shared/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";

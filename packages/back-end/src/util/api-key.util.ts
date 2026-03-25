@@ -1,5 +1,18 @@
-import { OrganizationInterface } from "back-end/types/organization";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { webcrypto } from "node:crypto";
+import crypto from "crypto";
+import { OrganizationInterface } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
+import {
+  IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
+} from "back-end/src/util/secrets";
+import {
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
+import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
+import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
 
 /**
  * Verifies if the provided API key is for a user in the organization.
@@ -33,3 +46,59 @@ export const roleForApiKey = (
   // At this stage, we assume it's a secret key with full organizational access, like the initial secret API keys
   return "admin";
 };
+
+export async function generateEncryptionKey(): Promise<string> {
+  const key = await webcrypto.subtle.generateKey(
+    {
+      name: "AES-CBC",
+      length: 128,
+    },
+    true,
+    ["encrypt", "decrypt"],
+  );
+  return Buffer.from(await webcrypto.subtle.exportKey("raw", key)).toString(
+    "base64",
+  );
+}
+
+export function generateSigningKey(prefix: string = "", bytes = 32): string {
+  return (
+    prefix + crypto.randomBytes(bytes).toString("base64").replace(/[=/+]/g, "")
+  );
+}
+
+export function migrateApiKey(legacyDoc: unknown) {
+  const obj = legacyDoc as ApiKeyInterface;
+  return {
+    ...obj,
+    role: roleForApiKey(obj) || undefined,
+    dateUpdated: obj.dateUpdated ?? obj.dateCreated,
+  };
+}
+
+// Cross-organization DB operation, lives outside of ApiKeyModel due to a circular dependency with auth middleware
+export async function dangerousLookupOrganizationByApiKey(
+  key: string,
+): Promise<Partial<ApiKeyInterface>> {
+  // If self-hosting on a single org and using a hardcoded secret key
+  if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
+    const { organizations: orgs } = await findAllOrganizations(1, "");
+    if (orgs.length === 1) {
+      return {
+        id: "SECRET_API_KEY",
+        key: SECRET_API_KEY,
+        secret: true,
+        organization: orgs[0].id,
+        role: SECRET_API_KEY_ROLE,
+      };
+    }
+  }
+
+  const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
+    key,
+  });
+
+  if (!doc || !doc.organization) return {};
+
+  return migrateApiKey(removeMongooseFields(doc));
+}

@@ -1,4 +1,4 @@
-import { safeRolloutSnapshotMetricObject } from "back-end/src/validators/safe-rollout-snapshot";
+import { safeRolloutSnapshotMetricObject } from "shared/validators";
 
 describe("safe-rollout-snapshot validators", () => {
   const baseMetric = {

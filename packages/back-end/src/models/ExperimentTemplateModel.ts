@@ -1,7 +1,12 @@
+import { z } from "zod";
 import {
+  ApiExperimentTemplateInterface,
+  apiListExperimentTemplatesValidator,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
-} from "back-end/src/routers/experiment-template/template.validators";
+} from "shared/validators";
+import { ApiRequest } from "back-end/src/util/handler";
+import { experimentTemplateApiSpec } from "back-end/src/api/specs/experiment-template.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -14,7 +19,16 @@ const BaseClass = MakeModelClass({
     updateEvent: "experimentTemplate.update",
     deleteEvent: "experimentTemplate.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
+  defaultValues: {
+    targeting: {
+      condition: "{}",
+    },
+  },
+  apiConfig: {
+    modelKey: "experimentTemplates",
+    openApiSpec: experimentTemplateApiSpec,
+  },
 });
 
 export class ExperimentTemplatesModel extends BaseClass {
@@ -38,11 +52,20 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
-  // TODO: Implement this for OpenAPI
-  //   public toApiInterface(project: ProjectInterface): ApiProject {
-  //     return {
-  //       id: project.id,
-  //       name: project.name,
-  //     };
-  //   }
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("templates");
+  }
+
+  public async handleApiList(
+    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  ): Promise<ApiExperimentTemplateInterface[]> {
+    // Typecast due to the method signature using ZodTypeAnys since a narrower type breaks ApiModel
+    const { projectId } = req.query as z.infer<
+      (typeof apiListExperimentTemplatesValidator)["querySchema"]
+    >;
+    const docs = await (projectId
+      ? this._find({ project: projectId })
+      : this.getAll());
+    return docs.map(this.toApiInterface.bind(this));
+  }
 }

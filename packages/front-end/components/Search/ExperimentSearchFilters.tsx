@@ -1,6 +1,6 @@
 import React, { FC, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
   BaseSearchFiltersProps,
@@ -34,7 +34,7 @@ const ExperimentSearchFilters: FC<
     syntaxFilters,
     setSearchValue,
   });
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const allMetrics = useCombinedMetrics({});
   // const [createdOperator, setCreatedOperator] = useState("<");
   // const [createdDate, setCreatedDate] = useState<Date | undefined>();
@@ -93,11 +93,11 @@ const ExperimentSearchFilters: FC<
     const owners = new Set<string>();
     experiments.forEach((e) => {
       if (e.owner) {
-        owners.add(getUserDisplay(e.owner) || e.owner);
+        owners.add(getOwnerDisplay(e.owner));
       }
     });
     return Array.from(owners);
-  }, [experiments, getUserDisplay]);
+  }, [experiments, getOwnerDisplay]);
 
   const availableExperimentTypes = useMemo(() => {
     const experimentTypes = new Set<string>();

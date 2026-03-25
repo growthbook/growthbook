@@ -6,6 +6,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TARGET_MDE,
+  DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
 } from "shared/constants";
 import {
   isFactMetric,
@@ -18,33 +19,48 @@ import {
   expandAllSliceMetricsInMap,
   parseSliceMetricId,
   SliceLevelsData,
+  getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
+import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
-import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   LegacyExperimentReportArgs,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
   ExperimentReportSSRData,
-} from "back-end/types/report";
+} from "shared/types/report";
 import {
   ExperimentDecisionFrameworkSettings,
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
-import { OrganizationSettings } from "back-end/types/organization";
+} from "shared/types/experiment-snapshot";
+import { OrganizationSettings } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+  MetricWindowSettings,
+  FactTableInterface,
+  ColumnInterface,
+} from "shared/types/fact-table";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
+import { ProjectInterface } from "shared/types/project";
+import { accountFeatures, CommercialFeature } from "shared/enterprise";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -64,27 +80,18 @@ import {
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
-import { MetricInterface } from "back-end/types/metric";
-import {
-  ConversionWindowUnit,
-  MetricPriorSettings,
-  MetricWindowSettings,
-  FactTableInterface,
-  ColumnInterface,
-} from "back-end/types/fact-table";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
-import { ProjectInterface } from "back-end/types/project";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
   phase: ExperimentPhase,
 ): ExperimentReportVariation[] {
-  return experiment.variations.map((v, i) => {
+  return getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phase?.variationWeights?.[i] || 0,
     };
@@ -219,6 +226,14 @@ export function getSnapshotSettingsFromReportArgs(
           settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
           metricOverrides: args.metricOverrides,
           decisionFrameworkSettings: args.decisionFrameworkSettings,
+          ...(experiment?.type === "multi-armed-bandit"
+            ? {
+                banditConversionWindowValue:
+                  experiment.banditConversionWindowValue ?? undefined,
+                banditConversionWindowUnit:
+                  experiment.banditConversionWindowUnit ?? undefined,
+              }
+            : {}),
         }),
       )
       .filter(isDefined),
@@ -229,7 +244,6 @@ export function getSnapshotSettingsFromReportArgs(
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
-    manual: false,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -270,7 +284,18 @@ function generateWindowSettings(
   metric: ExperimentMetricInterface,
   overrides?: MetricOverride,
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit },
+  banditConversionWindowValue?: number,
+  banditConversionWindowUnit?: "hours" | "days",
 ): MetricWindowSettings {
+  if (banditConversionWindowValue && banditConversionWindowUnit) {
+    return {
+      type: "conversion",
+      delayValue: 0,
+      delayUnit: "hours",
+      windowValue: banditConversionWindowValue,
+      windowUnit: banditConversionWindowUnit,
+    };
+  }
   if (phaseLookbackWindow) {
     // Convert metric window value to hours if it's a lookback window. Ignore if it's a conversion window.
     const metricWindowValueInHours =
@@ -336,6 +361,8 @@ export function getMetricForSnapshot({
   metricOverrides,
   decisionFrameworkSettings,
   phaseLookbackWindow,
+  banditConversionWindowValue,
+  banditConversionWindowUnit,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -343,15 +370,12 @@ export function getMetricForSnapshot({
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
   phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit };
+  banditConversionWindowValue?: number;
+  banditConversionWindowUnit?: "hours" | "days";
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
-
-  // TODO: Is this the right place to ignore conversion window metrics for holdouts?
-  if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
-    return null;
-  }
 
   // For slice metrics, use the base metric ID for lookups
   const { baseMetricId } = parseSliceMetricId(id);
@@ -381,6 +405,8 @@ export function getMetricForSnapshot({
         metric,
         overrides,
         phaseLookbackWindow,
+        banditConversionWindowValue,
+        banditConversionWindowUnit,
       ),
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
@@ -461,6 +487,9 @@ export async function createReportSnapshot({
   });
   const statsEngine =
     report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
+  const postStratificationEnabled =
+    report.experimentAnalysisSettings.postStratificationEnabled ??
+    settings.postStratificationEnabled.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
 
@@ -500,13 +529,14 @@ export async function createReportSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
-  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings({
     statsEngine,
-    report.experimentAnalysisSettings,
+    experiment: report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
-    report.experimentAnalysisSettings.dimension,
-  );
+    postStratificationEnabled,
+    dimension: report.experimentAnalysisSettings.dimension,
+  });
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     ...defaultAnalysisSettings,
@@ -663,6 +693,30 @@ export function getReportSnapshotSettings({
     }),
   );
 
+  const endDate = report.experimentAnalysisSettings.dateEnded || new Date();
+  const lookbackOverride = getEffectiveLookbackOverride(
+    report.experimentAnalysisSettings.attributionModel,
+    report.experimentAnalysisSettings.lookbackOverride,
+  );
+  const phaseLookbackWindow =
+    lookbackOverride?.type === "window"
+      ? {
+          value: lookbackOverride.value,
+          unit: (lookbackOverride.valueUnit ??
+            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT) as ConversionWindowUnit,
+        }
+      : lookbackOverride?.type === "date"
+        ? {
+            value: Math.max(
+              0,
+              differenceInMinutes(endDate, lookbackOverride.value, {
+                roundingMethod: "ceil",
+              }),
+            ),
+            unit: "minutes" as ConversionWindowUnit,
+          }
+        : undefined;
+
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: report.experimentAnalysisSettings,
     expandedMetricMap: metricMap,
@@ -677,17 +731,26 @@ export function getReportSnapshotSettings({
         metricOverrides: report.experimentAnalysisSettings.metricOverrides,
         decisionFrameworkSettings:
           report.experimentAnalysisSettings.decisionFrameworkSettings,
+        ...(experiment?.type === "multi-armed-bandit"
+          ? {
+              banditConversionWindowValue:
+                experiment.banditConversionWindowValue ?? undefined,
+              banditConversionWindowUnit:
+                experiment.banditConversionWindowUnit ?? undefined,
+            }
+          : {}),
+        phaseLookbackWindow,
       }),
     )
     .filter(isDefined);
 
   const phase = report.experimentMetadata.phases?.[phaseIndex];
   return {
-    manual: false,
     activationMetric:
       report.experimentAnalysisSettings.activationMetric || null,
     attributionModel:
       report.experimentAnalysisSettings.attributionModel || "firstExposure",
+    lookbackOverride: lookbackOverride,
     skipPartialData: !!report.experimentAnalysisSettings.skipPartialData,
     segment: report.experimentAnalysisSettings.segment || "",
     queryFilter: report.experimentAnalysisSettings.queryFilter || "",
@@ -919,6 +982,14 @@ export async function generateExperimentReportSSRData({
     }
   }
 
+  // Ensure we show slices if the org has access
+  // For public pages, we need to check against the org and not the user
+  const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
+  const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
+  const commercialFeatures = publicRelevantFeatures.filter((f) =>
+    allFeatures.has(f),
+  );
+
   return {
     metrics: metricMap,
     metricGroups,
@@ -927,5 +998,6 @@ export async function generateExperimentReportSSRData({
     settings: orgSettings,
     projects: projectMap,
     dimensions,
+    commercialFeatures,
   };
 }

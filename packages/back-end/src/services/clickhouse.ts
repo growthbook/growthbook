@@ -2,7 +2,15 @@ import * as crypto from "crypto";
 import { createClient as createClickhouseClient } from "@clickhouse/client";
 import generator from "generate-password";
 import { AIPromptType } from "shared/ai";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import {
+  GrowthbookClickhouseDataSource,
+  DataSourceParams,
+  MaterializedColumn,
+} from "shared/types/datasource";
+import { DailyUsage } from "shared/types/organization";
+import { FactTableColumnType } from "shared/types/fact-table";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -14,18 +22,11 @@ import {
   CLICKHOUSE_DEV_PREFIX,
   CLICKHOUSE_OVERAGE_TABLE,
 } from "back-end/src/util/secrets";
-import {
-  GrowthbookClickhouseDataSource,
-  DataSourceParams,
-  MaterializedColumn,
-} from "back-end/types/datasource";
-import { DailyUsage } from "back-end/types/organization";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { FactTableColumnType } from "back-end/types/fact-table";
 import {
   getFactTablesForDatasource,
-  updateFactTable,
+  updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
 import {
   lockDataSource,
@@ -541,8 +542,8 @@ export async function logCloudAIUsage({
 }: {
   organization: string;
   model: string;
-  numPromptTokensUsed: number;
-  numCompletionTokensUsed: number;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
   type: AIPromptType;
   temperature?: number;
   usedDefaultPrompt: boolean;
@@ -776,7 +777,9 @@ export async function updateMaterializedColumns({
 
     // Update the main events fact table with the new columns
     const factTables = await getFactTablesForDatasource(context, datasource.id);
-    const ft = factTables.find((ft) => ft.id === "ch_events");
+    const ft = factTables.find(
+      (ft) => ft.id === MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+    );
     if (ft) {
       const newColumns = [...ft.columns];
       newColumns.forEach((col) => {
@@ -786,7 +789,8 @@ export async function updateMaterializedColumns({
       });
 
       columnsToAdd.forEach((col) => {
-        if (!newColumns.find((c) => c.column === col.columnName)) {
+        const existingCol = newColumns.find((c) => c.column === col.columnName);
+        if (!existingCol) {
           newColumns.push({
             column: col.columnName,
             name: col.columnName,
@@ -797,14 +801,24 @@ export async function updateMaterializedColumns({
             description: "",
             numberFormat: "",
           });
+        } else {
+          // If the column already exists but was previously removed, restore it.
+          existingCol.deleted = false;
+          existingCol.dateUpdated = new Date();
         }
       });
       columnsToRename.forEach(({ from, to }) => {
         const col = newColumns.find((c) => c.column === from);
         if (col) {
+          const existingDestinationCol = newColumns.find(
+            (c) => c.column === to,
+          );
           // Destination already exists
-          if (newColumns.find((c) => c.column === to)) {
-            // Just mark the old column as deleted
+          if (existingDestinationCol) {
+            // Restore destination if it had been previously removed.
+            existingDestinationCol.deleted = false;
+            existingDestinationCol.dateUpdated = new Date();
+            // Mark the old column as deleted.
             col.deleted = true;
             col.dateUpdated = new Date();
           } else {
@@ -823,7 +837,15 @@ export async function updateMaterializedColumns({
         }
       });
 
-      await updateFactTable(context, ft, { columns: newColumns });
+      const newIdentifierTypes = finalColumns
+        .filter((col) => col.type === "identifier")
+        .map((col) => col.columnName);
+
+      await updateFactTableColumns(
+        ft,
+        { columns: newColumns, userIdTypes: newIdentifierTypes },
+        context,
+      );
     }
   } finally {
     await unlockDataSource(context, datasource);

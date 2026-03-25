@@ -1,4 +1,4 @@
-import { NotificationEventName } from "back-end/types/events/base-types";
+import { NotificationEventName } from "shared/types/events/base-types";
 
 export type SlackIntegrationEditParams = {
   name: string;

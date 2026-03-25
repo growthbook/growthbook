@@ -3,7 +3,11 @@ import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
 import { BaseLogger, Level } from "pino";
-import { parseProcessLogBase, stringToBoolean } from "shared/util";
+import {
+  ErrorWrapper,
+  parseProcessLogBase,
+  stringToBoolean,
+} from "shared/util";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
@@ -34,18 +38,6 @@ if (!IS_CLOUD) {
     'req.headers["cache-control"]',
     "res.headers.etag",
   );
-}
-
-class ErrorWrapper extends Error {
-  constructor(
-    customMessage: string,
-    { message, stack }: { message: string; stack?: string },
-  ) {
-    super(customMessage);
-    this.name = customMessage;
-    this.message = message;
-    this.stack = stack;
-  }
 }
 
 // Request logging
@@ -98,29 +90,29 @@ export const httpLogger = pinoHttp({
  * Wrapper for our logger
  */
 export const logger: BaseLogger = {
-  debug(...args: Parameters<BaseLogger["debug"]>) {
-    httpLogger.logger.debug(...args);
+  debug: (...args: unknown[]) => {
+    httpLogger.logger.debug(...(args as Parameters<BaseLogger["debug"]>));
   },
-  error(...args: Parameters<BaseLogger["error"]>) {
-    httpLogger.logger.error(...args);
-    logToSentry(...args);
+  error: (...args: unknown[]) => {
+    httpLogger.logger.error(...(args as Parameters<BaseLogger["error"]>));
+    logToSentry(...(args as Parameters<BaseLogger["error"]>));
   },
-  fatal(...args: Parameters<BaseLogger["fatal"]>) {
-    httpLogger.logger.fatal(...args);
-    logToSentry(...args);
+  fatal: (...args: unknown[]) => {
+    httpLogger.logger.fatal(...(args as Parameters<BaseLogger["fatal"]>));
+    logToSentry(...(args as Parameters<BaseLogger["fatal"]>));
   },
-  info(...args: Parameters<BaseLogger["info"]>) {
-    httpLogger.logger.info(...args);
+  info: (...args: unknown[]) => {
+    httpLogger.logger.info(...(args as Parameters<BaseLogger["info"]>));
   },
   level: httpLogger.logger.level,
-  silent(...args: Parameters<BaseLogger["silent"]>) {
-    httpLogger.logger.silent(...args);
+  silent: (...args: unknown[]) => {
+    httpLogger.logger.silent(...(args as Parameters<BaseLogger["silent"]>));
   },
-  trace(...args: Parameters<BaseLogger["trace"]>) {
-    httpLogger.logger.trace(...args);
+  trace: (...args: unknown[]) => {
+    httpLogger.logger.trace(...(args as Parameters<BaseLogger["trace"]>));
   },
-  warn(...args: Parameters<BaseLogger["warn"]>) {
-    httpLogger.logger.warn(...args);
+  warn: (...args: unknown[]) => {
+    httpLogger.logger.warn(...(args as Parameters<BaseLogger["warn"]>));
   },
 };
 

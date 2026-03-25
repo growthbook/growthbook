@@ -1,16 +1,16 @@
-import { OrganizationSettings } from "back-end/types/organization";
+import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { load, dump } from "js-yaml";
 import { createPatch } from "diff";
 import { html } from "diff2html";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import {
   MetricCappingSettings,
   MetricWindowSettings,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
@@ -54,7 +54,7 @@ export default function RestoreConfigYamlButton({
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [parsed, setParsed] = useState(null);
+  const [parsed, setParsed] = useState<object | null>(null);
   const [diffHTML, setDiffHTML] = useState("");
 
   const { apiCall } = useAuth();
@@ -272,8 +272,6 @@ export default function RestoreConfigYamlButton({
               if (!json || typeof json !== "object") {
                 throw new Error("Could not parsed yaml file into JSON object");
               }
-
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'object' is not assignable to par... Remove this comment to see the full error message
               setParsed(json);
               parseConfig(json);
             }}

@@ -2,7 +2,7 @@ import React, { FC, Fragment, ReactElement, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { SegmentInterface } from "shared/types/segment";
 import { IdeaInterface } from "shared/types/idea";
-import { MetricInterface } from "back-end/types/metric";
+import { MetricInterface } from "shared/types/metric";
 import Link from "next/link";
 import clsx from "clsx";
 import { ago } from "shared/dates";
@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { useUser } from "@/services/UserContext";
 
 const SegmentPage: FC = () => {
   const {
@@ -32,6 +33,7 @@ const SegmentPage: FC = () => {
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const { getOwnerDisplay } = useUser();
 
   const hasCreatePermission = permissionsUtil.canCreateSegment({
     projects: [project],
@@ -271,7 +273,7 @@ const SegmentPage: FC = () => {
                           ) : null}
                         </>
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{getOwnerDisplay(s.owner)}</td>
                       <td className="col-2">
                         {s && (s.projects || []).length > 0 ? (
                           <ProjectBadges

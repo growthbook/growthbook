@@ -10,14 +10,16 @@ const imageCache = {};
 interface MarkdownProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   isPublic?: boolean;
-  experimentUid?: string;
+  shareUid?: string;
+  shareType?: "experiment" | "report";
 }
 
 const Markdown: FC<MarkdownProps> = ({
   children,
   className,
   isPublic = false,
-  experimentUid,
+  shareUid,
+  shareType = "experiment",
   ...props
 }) => {
   if (typeof children !== "string") {
@@ -41,12 +43,13 @@ const Markdown: FC<MarkdownProps> = ({
         <AuthorizedImage
           imageCache={imageCache}
           isPublic={isPublic}
-          experimentUid={experimentUid}
+          shareUid={shareUid}
+          shareType={shareType}
           {...props}
         />
       ),
     }),
-    [isPublic, experimentUid],
+    [isPublic, shareUid, shareType],
   );
 
   return (

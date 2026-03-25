@@ -310,7 +310,6 @@ const TopNav: FC<{
                   try {
                     localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
                   } catch (e) {
-                    // eslint-disable-next-line no-console
                     console.warn("Unable to save last org in localStorage");
                   }
                 }

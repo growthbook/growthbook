@@ -7,26 +7,24 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
-import {
   blockHasFieldOfType,
   getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
   snapshotSatisfiesBlock,
+  DashboardInterface,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { Queries, QueryStatus } from "back-end/types/query";
-import { SavedQuery } from "shared/validators";
+import { Queries, QueryStatus } from "shared/types/query";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { getValidDate } from "shared/dates";
 import { isEqual } from "lodash";
 import useApi from "@/hooks/useApi";
@@ -100,6 +98,7 @@ export default function DashboardSnapshotProvider({
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
+    explorations: ProductAnalyticsExploration[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
     shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
   });
@@ -118,6 +117,7 @@ export default function DashboardSnapshotProvider({
     const allSnapshots = allSnapshotsData?.snapshots || [];
     const allSavedQueries = allSnapshotsData?.savedQueries || [];
     const allMetricAnalyses = allSnapshotsData?.metricAnalyses || [];
+    const allExplorations = allSnapshotsData?.explorations || [];
     const savedQueriesMap = new Map(
       allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery]),
     );
@@ -142,10 +142,17 @@ export default function DashboardSnapshotProvider({
         allMetricAnalyses.flatMap(
           (metricAnalysis) => metricAnalysis.queries || [],
         ),
+      )
+      .concat(
+        allExplorations.flatMap((exploration) => exploration.queries || []),
       );
-    const snapshotError = allSnapshots.find(
-      (snapshot) => snapshot.error,
-    )?.error;
+    const snapshotError: string | undefined =
+      (allSnapshots.find((snapshot) => snapshot.error)?.error ||
+        allMetricAnalyses.find((metricAnalysis) => metricAnalysis.error)
+          ?.error ||
+        allExplorations.find((exploration) => exploration.error)?.error ||
+        allSavedQueries.find((q) => q.results?.error)?.results?.error) ??
+      undefined;
     const { status } = getQueryStatus(allQueries, snapshotError);
 
     return {
@@ -280,14 +287,24 @@ export function useDashboardSnapshot(
     useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
   const [fetchingSnapshotFailed, setFetchingSnapshotFailed] = useState(false);
+  // Store fetched snapshots locally for new/unsaved dashboards where snapshotsMap is empty
+  const [localSnapshotsMap, setLocalSnapshotsMap] = useState<
+    Map<string, ExperimentSnapshotInterface>
+  >(new Map());
+
+  // Store setBlock in a ref so we can access the latest version without it being a dependency
+  const setBlockRef = useRef(setBlock);
+  useEffect(() => {
+    setBlockRef.current = setBlock;
+  }, [setBlock]);
 
   const blockSnapshotId = block?.snapshotId;
-  const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
+  const blockSnapshot =
+    snapshotsMap.get(blockSnapshotId ?? "") ||
+    localSnapshotsMap.get(blockSnapshotId ?? "");
 
   const snapshot =
-    isDefined(blockSnapshotId) && blockSnapshotId.length > 0
-      ? blockSnapshot
-      : defaultSnapshot;
+    blockSnapshotId && blockSnapshot ? blockSnapshot : defaultSnapshot;
   const mutateSnapshot = isDefined(blockSnapshotId)
     ? mutateSnapshotsMap
     : mutateDefault;
@@ -312,7 +329,7 @@ export function useDashboardSnapshot(
   useEffect(() => {
     if (
       !block ||
-      !setBlock ||
+      !setBlockRef.current ||
       !experiment ||
       !snapshot ||
       snapshotSettingsMatch ||
@@ -333,7 +350,14 @@ export function useDashboardSnapshot(
       if (!res.snapshot) {
         setFetchingSnapshotFailed(true);
       } else {
-        setBlock({ ...block, snapshotId: res.snapshot.id });
+        const fetchedSnapshot = res.snapshot;
+        // Store the snapshot locally so it can be found even on unsaved dashboards
+        setLocalSnapshotsMap((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(fetchedSnapshot.id, fetchedSnapshot);
+          return newMap;
+        });
+        setBlockRef.current?.({ ...block, snapshotId: fetchedSnapshot.id });
       }
       setFetchingSnapshot(false);
     };
@@ -346,7 +370,6 @@ export function useDashboardSnapshot(
     fetchingSnapshotFailed,
     apiCall,
     block,
-    setBlock,
   ]);
 
   // If unable to get the necessary analysis on the current snapshot, post the updated settings

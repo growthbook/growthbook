@@ -1,10 +1,11 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex } from "@radix-ui/themes";
@@ -85,7 +86,9 @@ const UrlRedirectModal: FC<{
     form.watch("originUrl")
       ? form.watch("destinationUrls").map((u) => !!u)
       : () => {
-          const initialArray = Array(experiment.variations.length).fill(true);
+          const initialArray = Array(
+            getLatestPhaseVariations(experiment).length,
+          ).fill(true);
           initialArray[0] = false;
           return initialArray;
         },
@@ -94,7 +97,7 @@ const UrlRedirectModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     const payload = {
       urlPattern: value.originUrl,
-      destinationURLs: experiment.variations.map((v, i) => {
+      destinationURLs: getLatestPhaseVariations(experiment).map((v, i) => {
         return {
           variation: v.id,
           url: value.destinationUrls[i],
@@ -156,8 +159,8 @@ const UrlRedirectModal: FC<{
           <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
             <Box as="span" pr="1">
               {hasSDKWithRedirects
-                ? "Some of your SDK Connections in this Project may not support URL Redirects."
-                : "None of your SDK Connections in this Project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
+                ? "Some of your SDK Connections in this project may not support URL Redirects."
+                : "None of your SDK Connections in this project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
               <Link
                 href={"/sdks"}
                 weight="bold"
@@ -206,7 +209,7 @@ const UrlRedirectModal: FC<{
         <hr className="mt-4 mb-3" />
         <div className="mt-3">
           <h4>Destination URLs</h4>
-          {experiment.variations.map((v, i) => {
+          {getLatestPhaseVariations(experiment).map((v, i) => {
             let warning: string | JSX.Element | undefined;
             const destinationMatchesOrigin =
               !!form.watch("originUrl") &&
@@ -250,7 +253,7 @@ const UrlRedirectModal: FC<{
 
             return (
               <div
-                className={`mb-4 variation with-variation-label variation${i}`}
+                className={`mb-4 variation with-variation-label variation${v.index}`}
                 key={v.key}
               >
                 <div className="d-flex align-items-baseline">

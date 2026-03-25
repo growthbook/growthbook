@@ -1,15 +1,16 @@
 import { z } from "zod";
+import { UpdateFactMetricResponse } from "shared/types/openapi";
+import { updateFactMetricValidator } from "shared/validators";
 import {
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
   UpdateFactMetricProps,
-} from "back-end/types/fact-table";
-import { UpdateFactMetricResponse } from "back-end/types/openapi";
+} from "shared/types/fact-table";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateFactMetricValidator } from "back-end/src/validators/openapi";
 import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 function expectsDenominator(metricType: FactMetricType) {
   switch (metricType) {
@@ -47,15 +48,13 @@ export async function getUpdateFactMetricPropsFromBody(
 
   const metricType = updates.metricType;
   if (numerator) {
-    updates.numerator = {
-      filters: [],
-      inlineFilters: {},
+    updates.numerator = FactMetricModel.migrateColumnRef({
       ...numerator,
       column:
         metricType === "proportion" || metricType === "retention"
           ? "$$distinctUsers"
           : numerator.column || "$$distinctUsers",
-    };
+    });
     const factTable = await getFactTable(updates.numerator.factTableId);
     if (!factTable) {
       throw new Error("Could not find numerator fact table");
@@ -76,12 +75,10 @@ export async function getUpdateFactMetricPropsFromBody(
     updates.denominator = undefined;
   }
   if (denominator) {
-    updates.denominator = {
-      filters: [],
-      inlineFilters: {},
+    updates.denominator = FactMetricModel.migrateColumnRef({
       ...denominator,
       column: denominator.column || "$$distinctUsers",
-    };
+    });
     const factTable = await getFactTable(updates.denominator.factTableId);
     if (!factTable) {
       throw new Error("Could not find denominator fact table");

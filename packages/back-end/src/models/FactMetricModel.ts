@@ -1,5 +1,8 @@
 import { omit } from "lodash";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
@@ -11,12 +14,19 @@ import {
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
+  LegacyColumnRef,
   LegacyFactMetricInterface,
-} from "back-end/types/fact-table";
-import { ApiFactMetric } from "back-end/types/openapi";
+} from "shared/types/fact-table";
+import { ApiFactMetric } from "shared/types/openapi";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "back-end/src/util/secrets";
-import { promiseAllChunks } from "../util/promise";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  getNetNewSqlExprRowFilters,
+  validateFactMetricRowFilterSql,
+} from "back-end/src/services/factMetricRowFilterValidation";
 import { MakeModelClass } from "./BaseModel";
+import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
 
 const BaseClass = MakeModelClass({
@@ -29,8 +39,12 @@ const BaseClass = MakeModelClass({
     updateEvent: "metric.update",
     deleteEvent: "metric.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: ["datasource"],
+  defaultValues: {
+    owner: "",
+    tags: [],
+  },
 });
 
 // extra checks on user filter
@@ -83,6 +97,42 @@ function validateUserFilter({
       column: numerator.aggregateFilterColumn,
       ignoreInvalid: false,
     });
+  }
+}
+
+function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
+  switch (metricType) {
+    case "mean":
+    case "dailyParticipation":
+    case "quantile":
+    case "retention":
+    case "proportion":
+      return false;
+    case "ratio":
+      return true;
+  }
+}
+
+function validateSavedFilterIds({
+  columnRef,
+  factTable,
+  filterType,
+}: {
+  columnRef: ColumnRef;
+  factTable: FactTableInterface;
+  filterType: "numerator" | "denominator";
+}): void {
+  if (!columnRef.rowFilters?.length) return;
+
+  for (const filter of columnRef.rowFilters) {
+    const filterId = filter.values?.[0];
+    if (
+      filter.operator === "saved_filter" &&
+      filterId &&
+      !factTable.filters.some((f) => f.id === filterId)
+    ) {
+      throw new Error(`Invalid ${filterType} filter id: ${filterId}`);
+    }
   }
 }
 
@@ -142,7 +192,55 @@ export class FactMetricModel extends BaseClass {
       };
     }
 
+    if (newDoc.numerator) {
+      newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
+    }
+
+    // Clean up orphaned denominators that should not exist
+    if (!denominatorRequiredByMetricType(newDoc.metricType)) {
+      newDoc.denominator = null;
+    }
+
+    if (newDoc.denominator) {
+      newDoc.denominator = FactMetricModel.migrateColumnRef(newDoc.denominator);
+    }
+
     return newDoc as FactMetricInterface;
+  }
+
+  public static migrateColumnRef(columnRef: LegacyColumnRef): ColumnRef {
+    const { filters, inlineFilters, ...newColumnRef } = columnRef;
+
+    // If row filters are already defined, do nothing
+    if (newColumnRef.rowFilters !== undefined) {
+      return newColumnRef;
+    }
+
+    newColumnRef.rowFilters = [];
+
+    if (filters) {
+      for (const f of filters) {
+        newColumnRef.rowFilters.push({
+          operator: "saved_filter",
+          values: [f],
+        });
+      }
+    }
+
+    if (inlineFilters) {
+      for (const [column, values] of Object.entries(inlineFilters)) {
+        const filteredValues = values.filter((v) => !!v);
+        if (filteredValues.length === 0) continue;
+
+        newColumnRef.rowFilters.push({
+          operator: filteredValues.length > 1 ? "in" : "=",
+          column,
+          values: filteredValues,
+        });
+      }
+    }
+
+    return newColumnRef;
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
@@ -192,6 +290,10 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
+  protected async afterDelete(doc: FactMetricInterface) {
+    await this.context.models.metricGroups.removeMetricFromAllGroups(doc.id);
+  }
+
   // TODO: Once we migrate fact tables to new data model, we can use that instead
   private _factTableMap: Map<string, FactTableInterface> | null = null;
   private async getFactTableMap() {
@@ -201,7 +303,12 @@ export class FactMetricModel extends BaseClass {
     return this._factTableMap;
   }
 
-  protected async customValidation(data: FactMetricInterface): Promise<void> {
+  protected async customValidation(
+    data: FactMetricInterface,
+    previousData?: FactMetricInterface,
+  ): Promise<void> {
+    const existingMetric = previousData || null;
+
     const factTableMap = await this.getFactTableMap();
 
     const numeratorFactTable = factTableMap.get(data.numerator.factTableId);
@@ -209,13 +316,11 @@ export class FactMetricModel extends BaseClass {
       throw new Error("Could not find numerator fact table");
     }
 
-    if (data.numerator.filters?.length) {
-      for (const filter of data.numerator.filters) {
-        if (!numeratorFactTable.filters.some((f) => f.id === filter)) {
-          throw new Error(`Invalid numerator filter id: ${filter}`);
-        }
-      }
-    }
+    validateSavedFilterIds({
+      columnRef: data.numerator,
+      factTable: numeratorFactTable,
+      filterType: "numerator",
+    });
 
     // validate column
     const metricSupportsDistinctDates =
@@ -244,34 +349,85 @@ export class FactMetricModel extends BaseClass {
       });
     }
 
+    let denominatorFactTable: FactTableInterface | null = null;
     if (data.metricType === "ratio") {
       if (!data.denominator) {
         throw new Error("Denominator required for ratio metric");
       }
-      if (data.denominator.factTableId !== data.numerator.factTableId) {
-        const denominatorFactTable = factTableMap.get(
-          data.denominator.factTableId,
-        );
-        if (!denominatorFactTable) {
-          throw new Error("Could not find denominator fact table");
-        }
-        if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
-          throw new Error(
-            "Numerator and denominator must be in the same datasource",
-          );
-        }
+      denominatorFactTable =
+        data.denominator.factTableId === data.numerator.factTableId
+          ? numeratorFactTable
+          : factTableMap.get(data.denominator.factTableId) || null;
 
-        if (data.denominator.filters?.length) {
-          for (const filter of data.denominator.filters) {
-            if (!denominatorFactTable.filters.some((f) => f.id === filter)) {
-              throw new Error(`Invalid denominator filter id: ${filter}`);
-            }
-          }
-        }
+      if (!denominatorFactTable) {
+        throw new Error("Could not find denominator fact table");
       }
+      if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
+        throw new Error(
+          "Numerator and denominator must be in the same datasource",
+        );
+      }
+
+      validateSavedFilterIds({
+        columnRef: data.denominator,
+        factTable: denominatorFactTable,
+        filterType: "denominator",
+      });
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
+
+    const numeratorSqlExprFiltersToValidate = getNetNewSqlExprRowFilters({
+      rowFilters: data.numerator.rowFilters,
+      previousRowFilters: existingMetric?.numerator.rowFilters,
+      validateAll:
+        !existingMetric ||
+        existingMetric.numerator.factTableId !== data.numerator.factTableId,
+    });
+
+    const denominatorSqlExprFiltersToValidate =
+      denominatorFactTable && data.denominator
+        ? getNetNewSqlExprRowFilters({
+            rowFilters: data.denominator.rowFilters,
+            previousRowFilters: existingMetric?.denominator?.rowFilters,
+            validateAll:
+              !existingMetric ||
+              existingMetric.denominator?.factTableId !==
+                data.denominator.factTableId,
+          })
+        : [];
+
+    if (
+      numeratorSqlExprFiltersToValidate.length ||
+      denominatorSqlExprFiltersToValidate.length
+    ) {
+      const datasource = await getDataSourceById(this.context, data.datasource);
+      if (!datasource) {
+        throw new Error("Could not find datasource");
+      }
+      const integration = getSourceIntegrationObject(
+        this.context,
+        datasource,
+        true,
+      );
+
+      await validateFactMetricRowFilterSql({
+        integration,
+        factTable: numeratorFactTable,
+        rowFilters: numeratorSqlExprFiltersToValidate,
+        errorPrefix: "Invalid numerator row filter SQL: ",
+      });
+
+      if (denominatorFactTable && data.denominator) {
+        await validateFactMetricRowFilterSql({
+          integration,
+          factTable: denominatorFactTable,
+          rowFilters: denominatorSqlExprFiltersToValidate,
+          errorPrefix: "Invalid denominator row filter SQL: ",
+        });
+      }
+    }
+
     if (data.metricType === "quantile") {
       if (!this.context.hasPremiumFeature("quantile-metrics")) {
         throw new Error("Quantile metrics are a premium feature");
@@ -313,6 +469,32 @@ export class FactMetricModel extends BaseClass {
     );
   }
 
+  public static addLegacyFiltersToColumnRef(
+    columnRef: ColumnRef,
+  ): LegacyColumnRef {
+    const newColumnRef: LegacyColumnRef = {
+      ...columnRef,
+      filters: [],
+      inlineFilters: {},
+    };
+
+    newColumnRef.rowFilters?.forEach((rf) => {
+      if (rf.operator === "saved_filter") {
+        newColumnRef.filters?.push(rf.values?.[0] || "");
+      } else if (rf.operator === "=" || rf.operator === "in") {
+        newColumnRef.inlineFilters = newColumnRef.inlineFilters || {};
+        newColumnRef.inlineFilters[rf.column || ""] = rf.values || [];
+      } else if (rf.operator === "is_true" || rf.operator === "is_false") {
+        newColumnRef.inlineFilters = newColumnRef.inlineFilters || {};
+        newColumnRef.inlineFilters[rf.column || ""] = [
+          rf.operator === "is_true" ? "true" : "false",
+        ];
+      }
+    });
+
+    return newColumnRef;
+  }
+
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
       quantileSettings,
@@ -323,10 +505,12 @@ export class FactMetricModel extends BaseClass {
       regressionAdjustmentOverride,
       dateCreated,
       dateUpdated,
+      numerator,
       denominator,
       metricType,
       loseRisk,
       winRisk,
+      targetMDE,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
@@ -334,6 +518,7 @@ export class FactMetricModel extends BaseClass {
       ...otherFields,
       riskThresholdDanger: loseRisk,
       riskThresholdSuccess: winRisk,
+      targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {
@@ -345,7 +530,10 @@ export class FactMetricModel extends BaseClass {
         type: windowSettings.type || "none",
       },
       managedBy: factMetric.managedBy || "",
-      denominator: denominator || undefined,
+      numerator: FactMetricModel.addLegacyFiltersToColumnRef(numerator),
+      denominator: denominator
+        ? FactMetricModel.addLegacyFiltersToColumnRef(denominator)
+        : undefined,
       regressionAdjustmentSettings: {
         override: regressionAdjustmentOverride || false,
         ...(regressionAdjustmentOverride

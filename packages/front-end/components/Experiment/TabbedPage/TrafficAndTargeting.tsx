@@ -1,8 +1,9 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
@@ -105,13 +106,18 @@ export default function TrafficAndTargeting({
                     <GBInfo />
                   </Tooltip>
                 </div>
-                <div>
-                  {experiment.hashAttribute || "id"}
+                <div className="d-flex flex-wrap align-items-center gap-1">
+                  <AttributeBadge
+                    attributeId={experiment.hashAttribute || "id"}
+                  />
                   {experiment.fallbackAttribute ? (
-                    <>, {experiment.fallbackAttribute} </>
-                  ) : (
-                    " "
-                  )}
+                    <>
+                      ,{" "}
+                      <AttributeBadge
+                        attributeId={experiment.fallbackAttribute}
+                      />
+                    </>
+                  ) : null}
                   {!isHoldout ? (
                     <HashVersionTooltip>
                       <small className="text-muted ml-1">

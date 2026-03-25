@@ -1,4 +1,5 @@
-import { ExperimentTrafficBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
+import { ExperimentTrafficBlockInterface } from "shared/enterprise";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useMemo } from "react";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -33,8 +34,9 @@ export default function ExperimentTrafficBlock({
     return [totalUsers, variationUsers];
   }, [results]);
 
-  const variations = experiment.variations.map((v, i) => ({
-    id: v.key || i + "",
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
+    id: v.key || v.index + "",
+    index: v.index,
     name: v.name,
     weight: phaseObj?.variationWeights?.[i] || 0,
   }));

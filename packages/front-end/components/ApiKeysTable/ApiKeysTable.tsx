@@ -1,8 +1,10 @@
 import React, { FC } from "react";
-import { ApiKeyInterface } from "back-end/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
+import { getRoleDisplayName } from "shared/permissions";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useUser } from "@/services/UserContext";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -19,6 +21,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   canDeleteKeys,
   onReveal,
 }) => {
+  const { organization } = useUser();
   return (
     <table className="table mb-3 appbox gbtable">
       <thead>
@@ -43,7 +46,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 <em>hidden</em>
               )}
             </td>
-            <td>{key.role || "-"}</td>
+            <td>
+              {key.role ? getRoleDisplayName(key.role, organization) : "-"}
+            </td>
             {canDeleteKeys && (
               <td>
                 <MoreMenu>

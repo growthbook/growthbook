@@ -1,16 +1,20 @@
-import { ManagedBy } from "shared/validators";
-import { ApiProject } from "back-end/types/openapi";
+import { ApiProject } from "shared/types/openapi";
 import {
+  ManagedBy,
   ProjectInterface,
   ProjectSettings,
   projectValidator,
-} from "back-end/src/validators/projects";
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { refreshSDKPayloadCache } from "../services/features";
+import { queueSDKPayloadRefresh } from "../services/features";
 import { logger } from "../util/logger";
 import { getPayloadKeysForAllEnvs } from "./ExperimentModel";
 import { MakeModelClass } from "./BaseModel";
+
+type MigratedProject = Omit<ProjectInterface, "settings"> & {
+  settings: Partial<ProjectInterface["settings"]>;
+};
 
 const BaseClass = MakeModelClass({
   schema: projectValidator,
@@ -22,12 +26,15 @@ const BaseClass = MakeModelClass({
     updateEvent: "project.update",
     deleteEvent: "project.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
+  defaultValues: {
+    description: "",
+    settings: {},
+  },
 });
 
 interface CreateProjectProps {
   name: string;
-  publicId?: string;
   description?: string;
   id?: string;
   managedBy?: ManagedBy;
@@ -48,6 +55,14 @@ export class ProjectModel extends BaseClass {
 
   protected canDelete(doc: ProjectInterface) {
     return this.context.permissions.canDeleteProject(doc.id);
+  }
+
+  protected migrate(doc: MigratedProject) {
+    const settings = {
+      ...(doc.settings || {}),
+    };
+
+    return { ...doc, settings };
   }
 
   public create(project: CreateProjectProps) {
@@ -100,27 +115,6 @@ export class ProjectModel extends BaseClass {
     };
   }
 
-  protected async afterCreate(
-    doc: ProjectInterface,
-    writeOptions?: never,
-  ): Promise<void> {
-    await super.afterCreate(doc, writeOptions);
-    // Refresh SDK payload cache for all environments
-    const payloadKeys = getPayloadKeysForAllEnvs(
-      this.context as ReqContext | ApiReqContext,
-      [doc.id],
-    );
-    refreshSDKPayloadCache(
-      this.context as ReqContext | ApiReqContext,
-      payloadKeys,
-    ).catch((e) => {
-      logger.error(
-        e,
-        "Error refreshing SDK payload cache after project create",
-      );
-    });
-  }
-
   protected async afterUpdate(
     existing: ProjectInterface,
     updates: Partial<ProjectInterface>,
@@ -128,40 +122,22 @@ export class ProjectModel extends BaseClass {
     writeOptions?: never,
   ): Promise<void> {
     await super.afterUpdate(existing, updates, newDoc, writeOptions);
-    // Refresh SDK payload cache for all environments
-    const payloadKeys = getPayloadKeysForAllEnvs(
-      this.context as ReqContext | ApiReqContext,
-      [newDoc.id],
-    );
-    refreshSDKPayloadCache(
-      this.context as ReqContext | ApiReqContext,
-      payloadKeys,
-    ).catch((e) => {
-      logger.error(
-        e,
-        "Error refreshing SDK payload cache after project update",
+    
+    // Only refresh SDK payload cache if publicId changed
+    if (existing.publicId !== newDoc.publicId) {
+      const payloadKeys = getPayloadKeysForAllEnvs(
+        this.context as ReqContext | ApiReqContext,
+        [newDoc.id],
       );
-    });
-  }
-
-  protected async afterDelete(
-    doc: ProjectInterface,
-    writeOptions?: never,
-  ): Promise<void> {
-    await super.afterDelete(doc, writeOptions);
-    // Refresh SDK payload cache for all environments
-    const payloadKeys = getPayloadKeysForAllEnvs(
-      this.context as ReqContext | ApiReqContext,
-      [doc.id],
-    );
-    refreshSDKPayloadCache(
-      this.context as ReqContext | ApiReqContext,
-      payloadKeys,
-    ).catch((e) => {
-      logger.error(
-        e,
-        "Error refreshing SDK payload cache after project delete",
-      );
-    });
+      queueSDKPayloadRefresh({
+        context: this.context as ReqContext | ApiReqContext,
+        payloadKeys,
+        auditContext: {
+          event: "updated",
+          model: "project",
+          id: newDoc.id,
+        },
+      });
+    }
   }
 }

@@ -8,10 +8,11 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { ExperimentInterface, Variation } from "back-end/types/experiment";
-import { ApiVisualChangeset } from "back-end/types/openapi";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { ExperimentInterface, Variation } from "shared/types/experiment";
+import { ApiVisualChangeset } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -272,7 +273,8 @@ export const createVisualChangeset = async ({
       urlPatterns,
       editorUrl,
       visualChanges:
-        visualChanges || experiment.variations.map(genNewVisualChange),
+        visualChanges ||
+        getLatestPhaseVariations(experiment).map(genNewVisualChange),
     }),
   );
 
@@ -376,7 +378,15 @@ const onVisualChangesetCreate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      event: "created",
+      model: "visualchangeset",
+      id: visualChangeset.id,
+    },
+  });
 };
 
 const onVisualChangesetUpdate = async ({
@@ -404,7 +414,15 @@ const onVisualChangesetUpdate = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      event: "updated",
+      model: "visualchangeset",
+      id: newVisualChangeset.id,
+    },
+  });
 };
 
 const onVisualChangesetDelete = async ({
@@ -427,7 +445,15 @@ const onVisualChangesetDelete = async ({
 
   const payloadKeys = getPayloadKeys(context, experiment);
 
-  await refreshSDKPayloadCache(context, payloadKeys);
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      event: "deleted",
+      model: "visualchangeset",
+      id: visualChangeset.id,
+    },
+  });
 };
 
 // when an experiment adds/removes variations, we need to update the analogous

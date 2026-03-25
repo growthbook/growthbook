@@ -5,7 +5,7 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   FactTableInterface,
   FactMetricInterface,
-} from "back-end/types/fact-table";
+} from "shared/types/fact-table";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -68,7 +68,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, organization } = useUser();
+  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
 
   const {
     getFactTableById,
@@ -140,7 +140,6 @@ export default function FactTablePage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
-          resourceType="factTable"
           cancel={() => setEditOwnerModal(false)}
           owner={factTable.owner}
           save={async (owner) => {
@@ -370,7 +369,7 @@ export default function FactTablePage() {
         </div>
         {(factTable.owner || canEdit) && (
           <div className="col-auto">
-            Owner: {factTable.owner}
+            Owner: {getOwnerDisplay(factTable.owner) || "None"}
             {canEdit && (
               <a
                 className="ml-1 cursor-pointer"

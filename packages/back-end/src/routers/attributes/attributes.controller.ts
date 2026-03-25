@@ -1,9 +1,14 @@
 import type { Response } from "express";
+import { SDKAttribute } from "shared/types/organization";
+import { recursiveWalk } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { SDKAttribute } from "back-end/types/organization";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
+import { ReqContext } from "back-end/types/request";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -18,6 +23,7 @@ export const postAttribute = async (
     enum: enumValue,
     hashAttribute,
     disableEqualityConditions,
+    tags = [],
   } = req.body;
   const context = getContextFromReq(req);
 
@@ -29,7 +35,11 @@ export const postAttribute = async (
   const attributeSchema = org.settings?.attributeSchema || [];
 
   if (attributeSchema.some((a) => a.property === property)) {
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (tags.length > 0) {
+    await addTags(org.id, tags);
   }
 
   const newAttribute: SDKAttribute = {
@@ -41,6 +51,7 @@ export const postAttribute = async (
     enum: enumValue,
     hashAttribute,
     disableEqualityConditions,
+    tags: tags.length > 0 ? tags : undefined,
   };
 
   await updateOrganization(org.id, {
@@ -85,6 +96,7 @@ export const putAttribute = async (
     archived,
     disableEqualityConditions,
     previousName,
+    tags,
   } = req.body;
   const context = getContextFromReq(req);
   const { org } = context;
@@ -97,7 +109,7 @@ export const putAttribute = async (
   );
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   const existing = attributeSchema[index];
@@ -111,7 +123,11 @@ export const putAttribute = async (
     attributeSchema.some((a) => a.property === property)
   ) {
     // If the name is being changed, check if the new name already exists
-    throw new Error("An attribute with that name already exists");
+    context.throwBadRequestError("An attribute with that name already exists");
+  }
+
+  if (tags !== undefined) {
+    await addTagsDiff(org.id, existing.tags || [], tags);
   }
 
   // Update the attribute
@@ -126,6 +142,7 @@ export const putAttribute = async (
     hashAttribute,
     archived,
     disableEqualityConditions,
+    ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
 
   await updateOrganization(org.id, {
@@ -168,7 +185,7 @@ export const deleteAttribute = async (
   const index = attributeSchema.findIndex((a) => a.property === id);
 
   if (index === -1) {
-    throw new Error("Attribute not found");
+    context.throwNotFoundError("Attribute not found");
   }
 
   // Check permissions on existing project list
@@ -204,3 +221,154 @@ export const deleteAttribute = async (
     status: 200,
   });
 };
+
+type AttributeRef = { id: string; name: string; project?: string };
+type AttributeRefExperiment = {
+  id: string;
+  name: string;
+  project?: string;
+  projects?: string[];
+};
+type AttributeRefGroup = { id: string; groupName: string; projects?: string[] };
+type AttributeReferencesMap = Record<
+  string,
+  {
+    features: AttributeRef[];
+    experiments: AttributeRefExperiment[];
+    savedGroups: AttributeRefGroup[];
+  }
+>;
+
+/**
+ * GET /attribute/references?ids=attr1,attr2
+ * Returns features, experiments, and condition groups that reference each requested attribute key.
+ * Walks rule/phase condition JSON and checks hashAttribute on experiments.
+ */
+export const getAttributeReferences = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<{ status: 200; references: AttributeReferencesMap }>,
+) => {
+  const context = getContextFromReq(req);
+  const attributeKeys = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : [];
+
+  if (!attributeKeys.length) {
+    return res.status(200).json({ status: 200, references: {} });
+  }
+
+  const keySet = new Set(attributeKeys);
+
+  const [allFeatures, allExperiments, allSavedGroups] = await Promise.all([
+    getAllFeatures(context, {}),
+    getAllExperiments(context, {}),
+    context.models.savedGroups.getAll(),
+  ]);
+
+  // { attributeKey -> { featureId -> { id, name, project } } }
+  const featureRefs = new Map<string, Map<string, AttributeRef>>();
+  const experimentRefs = new Map<string, Map<string, AttributeRefExperiment>>();
+  const savedGroupRefs = new Map<string, Map<string, AttributeRefGroup>>();
+
+  for (const key of attributeKeys) {
+    featureRefs.set(key, new Map());
+    experimentRefs.set(key, new Map());
+    savedGroupRefs.set(key, new Map());
+  }
+
+  for (const feature of allFeatures) {
+    for (const envId in feature.environmentSettings ?? {}) {
+      const env = feature.environmentSettings[envId];
+      for (const rule of env?.rules ?? []) {
+        try {
+          const parsed = JSON.parse(rule.condition ?? "{}");
+          recursiveWalk(parsed, ([nodeKey]) => {
+            if (keySet.has(nodeKey)) {
+              featureRefs.get(nodeKey)!.set(feature.id, {
+                id: feature.id,
+                name: feature.id,
+                project: feature.project,
+              });
+            }
+          });
+        } catch {
+          // ignore unparseable conditions
+        }
+      }
+    }
+  }
+
+  for (const experiment of allExperiments) {
+    const addExp = (key: string) => {
+      if (!keySet.has(key)) return;
+      experimentRefs.get(key)!.set(experiment.id, {
+        id: experiment.id,
+        name: experiment.name,
+        project: (experiment as { project?: string }).project,
+        projects: (experiment as { projects?: string[] }).projects,
+      });
+    };
+
+    addExp(experiment.hashAttribute);
+
+    const phase = experiment.phases?.slice(-1)?.[0];
+    try {
+      const parsed = JSON.parse(phase?.condition ?? "{}");
+      recursiveWalk(parsed, ([nodeKey]) => addExp(nodeKey));
+    } catch {
+      // ignore
+    }
+  }
+
+  for (const group of allSavedGroups) {
+    if (group.type !== "condition") continue;
+    try {
+      const parsed = JSON.parse(group.condition ?? "{}");
+      recursiveWalk(parsed, ([nodeKey]) => {
+        if (keySet.has(nodeKey)) {
+          savedGroupRefs.get(nodeKey)!.set(group.id, {
+            id: group.id,
+            groupName: group.groupName,
+            projects: group.projects,
+          });
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  const references: AttributeReferencesMap = {};
+  for (const key of attributeKeys) {
+    references[key] = {
+      features: Array.from(featureRefs.get(key)!.values()),
+      experiments: Array.from(experimentRefs.get(key)!.values()),
+      savedGroups: Array.from(savedGroupRefs.get(key)!.values()),
+    };
+  }
+
+  return res.status(200).json({ status: 200, references });
+};
+
+export async function removeTagInAttribute(
+  context: ReqContext,
+  tag: string,
+): Promise<void> {
+  const { org } = context;
+  const attributeSchema = org.settings?.attributeSchema || [];
+
+  const hasTag = attributeSchema.some((a) => (a.tags || []).includes(tag));
+  if (!hasTag) return;
+
+  const updatedAttributeSchema = attributeSchema.map((attr) => ({
+    ...attr,
+    tags: (attr.tags || []).filter((t) => t !== tag),
+  }));
+
+  await updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      attributeSchema: updatedAttributeSchema,
+    },
+  });
+}

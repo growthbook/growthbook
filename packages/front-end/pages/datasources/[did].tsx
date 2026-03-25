@@ -1,10 +1,9 @@
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -33,6 +32,9 @@ import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
+import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -86,9 +88,7 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  const pipelineEnabled =
-    useFeatureIsOn("datasource-pipeline-mode") &&
-    hasCommercialFeature("pipeline-mode");
+  const pipelineEnabled = hasCommercialFeature("pipeline-mode");
 
   /**
    * Update the data source provided.
@@ -167,7 +167,7 @@ const DataSourcePage: FC = () => {
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
-          <Heading as="h1" size="7" mb="0">
+          <Heading as="h1" size="2x-large" mb="0">
             {d.name}
           </Heading>
           <Badge
@@ -247,18 +247,13 @@ const DataSourcePage: FC = () => {
           )}
         </Box>
       </Flex>
-      {d.description && (
-        <Box mb="3">
-          <Text color="gray">{d.description}</Text>
-        </Box>
-      )}
-      <Flex align="center" gap="4" mt="3">
-        <Text color="gray">
+      <Flex align="center" gap="4" my="2">
+        <Text color="text-mid">
           <Text weight="medium">Type:</Text>{" "}
           {d.type === "growthbook_clickhouse" ? "managed" : d.type}
         </Text>
         <Box>
-          <Text color="gray" weight="medium">
+          <Text color="text-mid" weight="medium">
             Fact Tables:
           </Text>{" "}
           <Link href={`/fact-tables?${queryString}`}>
@@ -266,21 +261,23 @@ const DataSourcePage: FC = () => {
           </Link>
         </Box>
         <Box>
-          <Text color="gray" weight="medium">
+          <Text color="text-mid" weight="medium">
             Metrics:{" "}
           </Text>
           {metrics.length > 0 ? (
             <Link href={`/metrics?${queryString}`}>{metrics.length}</Link>
           ) : (
-            <Text color="gray">None</Text>
+            <Text color="text-mid">None</Text>
           )}
         </Box>
-        <Text color="gray">
+        <Text color="text-mid">
           <Text weight="medium">Last Updated:</Text>{" "}
           {datetime(d.dateUpdated ?? "")}
         </Text>
         <Box>
-          Projects:{" "}
+          <Text color="text-mid" weight="medium">
+            Projects:{" "}
+          </Text>
           {d?.projects?.length || 0 > 0 ? (
             <ProjectBadges resourceType="data source" projectIds={d.projects} />
           ) : (
@@ -288,6 +285,11 @@ const DataSourcePage: FC = () => {
           )}
         </Box>
       </Flex>
+      {d.description && (
+        <Box mb="3">
+          <Text color="text-mid">{d.description}</Text>
+        </Box>
+      )}
 
       {!d.properties?.hasSettings && (
         <Box mt="3">
@@ -310,7 +312,9 @@ const DataSourcePage: FC = () => {
 
             {d.type === "mixpanel" && (
               <div>
-                <h3>Mixpanel Tracking Instructions</h3>
+                <Heading size="small" as="h3" mb="1">
+                  Mixpanel Tracking Instructions
+                </Heading>
                 <p>
                   This example is for Javascript and uses the above settings.
                   Other languages should be similar.
@@ -356,7 +360,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
             {isManagedWarehouse ? (
               <>
                 <Frame>
-                  <Heading as="h3" size="4" mb="2">
+                  <Heading as="h3" size="medium" mb="2">
                     Sending Events
                   </Heading>
                   <Text>
@@ -416,6 +420,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     />
                   </Frame>
                 ) : null}
+
+                <Frame>
+                  <FeatureEvaluationQueries
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
 
                 {d.settings.notebookRunQuery && (
                   <Frame>

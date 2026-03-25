@@ -27,3 +27,10 @@ packages/back-end/uploads
 # Python notebooks and caches
 packages/stats/**/.pytest_cache
 packages/stats/**/__pycache__
+
+# Test directories
+packages/back-end/test
+packages/front-end/test
+
+# Unneeded dev requirements that get caught in security scans
+packages/stats/dev-requirements.txt

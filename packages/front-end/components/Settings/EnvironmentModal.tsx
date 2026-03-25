@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
@@ -13,7 +13,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
-import { DocLink } from "../DocLink";
+import { DocLink } from "@/components/DocLink";
 
 export default function EnvironmentModal({
   existing,

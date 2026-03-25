@@ -3,15 +3,13 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
-import {
-  FeaturePrerequisite,
-  SavedGroupTargeting,
-} from "back-end/types/feature";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import {
   BsCheckCircle,
   BsExclamationCircle,
@@ -215,16 +213,19 @@ export default function ReleaseChangesForm({
             <div className="alert alert-warning text-danger mt-2">
               <FaExclamationCircle className="mr-2" />
               This Bandit will restart. Variation weights will reset (
-              {experiment.variations
-                .map((_, i) =>
-                  i < 3
-                    ? formatPercent(1 / (experiment.variations.length ?? 2))
-                    : i === 3
-                      ? "..."
-                      : null,
-                )
-                .filter(Boolean)
-                .join(", ")}
+              {(() => {
+                const variations = getLatestPhaseVariations(experiment);
+                return variations
+                  .map((_, i) =>
+                    i < 3
+                      ? formatPercent(1 / (variations.length ?? 2))
+                      : i === 3
+                        ? "..."
+                        : null,
+                  )
+                  .filter(Boolean)
+                  .join(", ");
+              })()}
               ).
             </div>
           )}

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import { ExperimentReportVariation } from "shared/types/report";
 import {
   StatsEngine,
   PValueCorrection,
   DifferenceType,
-} from "back-end/types/stats";
+} from "shared/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 
 export function useAnalysisResultSummary({
@@ -17,7 +17,7 @@ export function useAnalysisResultSummary({
   pValueCorrection,
   noTooltip,
 }: {
-  orderedVariations: ExperimentReportVariationWithIndex[];
+  orderedVariations: ExperimentReportVariation[];
   rows: ExperimentTableRow[];
   rowsResults: (RowResults | "query error" | null)[][];
   dimension?: string;

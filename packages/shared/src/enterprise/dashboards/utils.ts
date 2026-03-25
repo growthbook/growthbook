@@ -4,27 +4,33 @@ import {
   DashboardBlockType,
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+  DashboardTemplateInterface,
+} from "shared/enterprise";
+import {
+  MetricExplorationConfig,
+  FactTableExplorationConfig,
+  DataSourceExplorationConfig,
+} from "shared/validators";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
+} from "shared/types/experiment-snapshot";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { getSnapshotAnalysis } from "../../util";
+import {
+  parseSliceQueryString,
+  generateSliceString,
+  expandMetricGroups,
+} from "../../experiments/experiments";
+import { DataVizConfig } from "../../../validators";
+import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
-export const metricSelectors = [
-  "experiment-goal",
-  "experiment-secondary",
-  "experiment-guardrail",
-  "custom",
-] as const;
 
 // BlockConfig item types for sql-explorer blocks
 export const BLOCK_CONFIG_ITEM_TYPES = {
@@ -55,15 +61,10 @@ export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
 }
 
 export function isDifferenceType(
-  value: string,
+  value: unknown,
 ): value is (typeof differenceTypes)[number] {
+  if (typeof value !== "string") return false;
   return (differenceTypes as readonly string[]).includes(value);
-}
-
-export function isMetricSelector(
-  value: string,
-): value is (typeof metricSelectors)[number] {
-  return (metricSelectors as readonly string[]).includes(value);
 }
 
 export function blockHasFieldOfType<Field extends string, T>(
@@ -181,14 +182,16 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "experiment-goal",
+    metricIds: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
-    pinSource: "experiment",
-    pinnedMetricSlices: [],
+    sliceTagsFilter: [],
+    metricTagFilter: [],
+    sortBy: null,
+    sortDirection: null,
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
@@ -196,7 +199,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "experiment-goal",
+    metricIds: [],
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -204,6 +207,9 @@ export const CREATE_BLOCK_TYPE: {
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
+    metricTagFilter: [],
+    sortBy: null,
+    sortDirection: null,
     ...(initialValues || {}),
   }),
   "experiment-time-series": ({ initialValues, experiment }) => ({
@@ -211,11 +217,14 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricSelector: "experiment-goal",
+    metricIds: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
-    pinSource: "experiment",
-    pinnedMetricSlices: [],
+    differenceType: "relative",
+    sliceTagsFilter: [],
+    metricTagFilter: [],
+    sortBy: null,
+    sortDirection: null,
     ...(initialValues || {}),
   }),
   "experiment-traffic": ({ initialValues, experiment }) => ({
@@ -255,6 +264,45 @@ export const CREATE_BLOCK_TYPE: {
     metricAnalysisId: "",
     ...(initialValues || {}),
   }),
+  "metric-exploration": ({ initialValues }) => ({
+    type: "metric-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "metric-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as MetricExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "fact-table-exploration": ({ initialValues }) => ({
+    type: "fact-table-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "fact-table-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as FactTableExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "data-source-exploration": ({ initialValues }) => ({
+    type: "data-source-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "data-source-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as DataSourceExplorationConfig),
+    ...(initialValues || {}),
+  }),
 };
 
 export function createDashboardBlocksFromTemplate(
@@ -265,6 +313,131 @@ export function createDashboardBlocksFromTemplate(
   metricGroups: MetricGroupInterface[],
 ): CreateDashboardBlockInterface[] {
   return blockInitialValues.map(({ type, ...initialValues }) =>
-    CREATE_BLOCK_TYPE[type]({ initialValues, experiment, metricGroups }),
+    // TypeScript can't correlate destructured discriminant with rest properties
+    (CREATE_BLOCK_TYPE[type] as CreateBlock<DashboardBlockInterface>)({
+      initialValues,
+      experiment,
+      metricGroups,
+    }),
   );
+}
+
+// Filters and groups experiment metrics based on selected metric IDs.
+// Optionally deduplicates metrics across groups when allowDuplicates is false.
+export function filterAndGroupExperimentMetrics({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricGroups,
+  selectedMetricIds,
+  allowDuplicates,
+}: {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  metricGroups: MetricGroupInterface[];
+  selectedMetricIds: string[];
+  allowDuplicates: boolean;
+}): {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+} {
+  const expandedGoalMetrics = expandMetricGroups(goalMetrics, metricGroups);
+  const expandedSecondaryMetrics = expandMetricGroups(
+    secondaryMetrics,
+    metricGroups,
+  );
+  const expandedGuardrailMetrics = expandMetricGroups(
+    guardrailMetrics,
+    metricGroups,
+  );
+
+  const filteredGoalMetrics = expandedGoalMetrics.filter((mId) =>
+    selectedMetricIds.includes(mId),
+  );
+
+  const filteredSecondaryMetrics = expandedSecondaryMetrics.filter(
+    (mId) =>
+      selectedMetricIds.includes(mId) &&
+      (allowDuplicates || !filteredGoalMetrics.includes(mId)),
+  );
+
+  const filteredGuardrailMetrics = expandedGuardrailMetrics.filter(
+    (mId) =>
+      selectedMetricIds.includes(mId) &&
+      (allowDuplicates ||
+        (!filteredGoalMetrics.includes(mId) &&
+          !filteredSecondaryMetrics.includes(mId))),
+  );
+
+  return {
+    goalMetrics: filteredGoalMetrics,
+    secondaryMetrics: filteredSecondaryMetrics,
+    guardrailMetrics: filteredGuardrailMetrics,
+  };
+}
+
+// Converts pinnedMetricSlices to sliceTagsFilter by extracting slice tags
+// from pinned slice keys and generating all possible slice tags (individual + combined).
+// Adds "overall" to include base metric results when migrating pinned slices.
+export function convertPinnedSlicesToSliceTags(
+  pinnedMetricSlices: string[],
+): string[] {
+  const sliceTags = new Set<string>();
+
+  for (const pinnedKey of pinnedMetricSlices) {
+    const questionMarkIndex = pinnedKey.indexOf("?");
+    if (questionMarkIndex === -1) continue;
+
+    const locationIndex = pinnedKey.indexOf("&location=");
+    if (locationIndex === -1) continue;
+
+    const sliceString = pinnedKey.substring(
+      questionMarkIndex + 1,
+      locationIndex,
+    );
+
+    const sliceLevels = parseSliceQueryString(sliceString);
+
+    if (sliceLevels.length === 0) continue;
+
+    sliceLevels.forEach((sliceLevel) => {
+      const value = sliceLevel.levels[0] || "";
+      const tag = generateSliceString({ [sliceLevel.column]: value });
+      sliceTags.add(tag);
+    });
+
+    if (sliceLevels.length > 1) {
+      const slices: Record<string, string> = {};
+      sliceLevels.forEach((sl) => {
+        slices[sl.column] = sl.levels[0] || "";
+      });
+      const comboTag = generateSliceString(slices);
+      sliceTags.add(comboTag);
+    }
+  }
+
+  if (pinnedMetricSlices.length > 0) {
+    sliceTags.add("overall");
+  }
+
+  return Array.from(sliceTags);
+}
+
+export function chartTypeSupportsAnchorYAxisToZero(
+  chartType: DataVizConfig["chartType"],
+): boolean {
+  return ["line", "scatter"].includes(chartType);
+}
+
+export function chartTypeHasDisplaySettings(
+  chartType: DataVizConfig["chartType"] | undefined,
+): boolean {
+  if (!chartType) {
+    return false;
+  }
+  // Check if the chart type supports any display settings
+  // As more display settings are added, add their checks here
+  return chartTypeSupportsAnchorYAxisToZero(chartType);
 }

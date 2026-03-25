@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -13,13 +13,15 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "shared/validators";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { computeAIUsageData } from "shared/ai";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -36,6 +38,8 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
 import { requiresXAxes, requiresXAxis } from "@/services/dataVizTypeGuards";
@@ -49,11 +53,12 @@ import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
 import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import { filterOptions } from "../DataViz/DataVizFilter";
+import { SqlExplorerDataVisualization } from "@/components/DataViz/SqlExplorerDataVisualization";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { filterOptions } from "@/components/DataViz/DataVizFilter";
+import Text from "@/ui/Text";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -183,6 +188,8 @@ export default function SqlExplorerModal({
   const [aiInput, setAiInput] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiAgreementModal, setAiAgreementModal] = useState<boolean>(false);
+  const gb = useGrowthBook<AppFeatures>();
+  const aiSuggestionRef = useRef<string | undefined>(undefined);
   const permissionsUtil = usePermissionsUtil();
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
@@ -261,6 +268,17 @@ export default function SqlExplorerModal({
     // Normalize dataVizConfig to ensure pivot tables have xAxis as arrays
     // and other charts have xAxis as single objects (for API compatibility)
     const normalizedDataVizConfig = dataVizConfig.map((config) => {
+      // If the chart type doesn't support displaySettings, remove the displaySettings property
+      // Only line and scatter charts support displaySettings
+      const chartType = config.chartType;
+      if (
+        chartType &&
+        !["line", "scatter"].includes(chartType) &&
+        "displaySettings" in config
+      ) {
+        const { displaySettings: _displaySettings, ...rest } = config;
+        return rest as DataVizConfig;
+      }
       if (!requiresXAxis(config) || !config.xAxis) {
         return config as DataVizConfig;
       }
@@ -450,6 +468,14 @@ export default function SqlExplorerModal({
             allVisualizationIds: visualizationIds,
           });
         }
+        if (aiSuggestionRef.current) {
+          track("sql-query-saved-after-ai-suggestion", {
+            aiUsageData: computeAIUsageData({
+              value: form.watch("sql"),
+              aiSuggestionText: aiSuggestionRef.current,
+            }),
+          });
+        }
         close();
       } catch (error) {
         setLoading(false);
@@ -509,6 +535,14 @@ export default function SqlExplorerModal({
           allVisualizationIds: allCurrentVizIds,
         });
       }
+      if (aiSuggestionRef.current) {
+        track("sql-query-saved-after-ai-suggestion", {
+          aiUsageData: computeAIUsageData({
+            value: form.watch("sql"),
+            aiSuggestionText: aiSuggestionRef.current,
+          }),
+        });
+      }
       close();
     } catch (error) {
       setLoading(false);
@@ -546,6 +580,15 @@ export default function SqlExplorerModal({
       });
     }
     setIsRunningQuery(false);
+
+    if (aiSuggestionRef.current) {
+      track("SQL Query Run", {
+        aiUsageData: computeAIUsageData({
+          value: form.watch("sql"),
+          aiSuggestionText: aiSuggestionRef.current,
+        }),
+      });
+    }
   }, [form, runQuery]);
 
   const handleFormatClick = () => {
@@ -566,6 +609,9 @@ export default function SqlExplorerModal({
       }, 0);
     } else {
       if (aiEnabled) {
+        const aiTemperature =
+          gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+        track("ai-suggestion", { source: "sql-explorer", type: "suggest" });
         setAiError(null);
         setLoading(true);
         apiCall(
@@ -575,6 +621,7 @@ export default function SqlExplorerModal({
             body: JSON.stringify({
               input: aiInput,
               datasourceId: form.watch("datasourceId"),
+              temperature: aiTemperature,
             }),
           },
           (responseData) => {
@@ -585,6 +632,11 @@ export default function SqlExplorerModal({
               setAiError(
                 `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
+            } else if (responseData.message) {
+              setAiError(
+                "Error getting AI suggestion: " + responseData.message,
+              );
+              throw new Error(responseData.message);
             } else {
               setAiError("Error getting AI suggestion");
             }
@@ -593,6 +645,7 @@ export default function SqlExplorerModal({
         )
           .then((res: { data: { sql: string; errors: string[] } }) => {
             form.setValue("sql", res.data.sql);
+            aiSuggestionRef.current = res.data.sql;
             if (res.data.errors && res.data.errors.length > 0) {
               setAiError(res.data.errors.join(", "));
             }
@@ -712,6 +765,7 @@ export default function SqlExplorerModal({
       <Modal
         bodyClassName="p-0"
         borderlessHeader={true}
+        backgroundlessHeader={true}
         close={close}
         loading={loading}
         closeCta="Close"
@@ -728,7 +782,6 @@ export default function SqlExplorerModal({
                 : undefined
         }
         header={header || `${id ? "Update" : "Create"} SQL Query`}
-        headerClassName={styles["modal-header-backgroundless"]}
         open={showModal}
         showHeaderCloseButton={true}
         size="max"
@@ -990,10 +1043,7 @@ export default function SqlExplorerModal({
                           <Flex align="center" justify="between">
                             <Flex gap="4" align="center">
                               <Box>
-                                <Text
-                                  weight="bold"
-                                  style={{ color: "var(--color-text-mid)" }}
-                                >
+                                <Text weight="semibold" color="text-mid">
                                   SQL
                                 </Text>
                               </Box>
@@ -1051,10 +1101,9 @@ export default function SqlExplorerModal({
                                       disabled={true}
                                     />
                                     <Text
-                                      size="1"
-                                      weight="medium"
-                                      style={{ color: "var(--gray-8)" }}
-                                      className="cursor-pointer"
+                                      size="small"
+                                      weight="regular"
+                                      color="text-low"
                                     >
                                       Limit to {SQL_ROW_LIMIT} rows
                                     </Text>
@@ -1222,10 +1271,7 @@ export default function SqlExplorerModal({
                       <AreaWithHeader
                         header={
                           <Flex align="center" gap="1">
-                            <Text
-                              weight="bold"
-                              style={{ color: "var(--color-text-mid)" }}
-                            >
+                            <Text weight="semibold" color="text-mid">
                               Data Sources
                             </Text>
                           </Flex>

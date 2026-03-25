@@ -1,10 +1,10 @@
 import { cloneDeep } from "lodash";
 import { SegmentInterface } from "shared/types/segment";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { FactMetricInterface } from "shared/types/fact-table";
 import {
   MetricAnalysisSettings,
   MetricAnalysisSource,
-} from "back-end/types/metric-analysis";
+} from "shared/types/metric-analysis";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { Context } from "back-end/src/models/BaseModel";
@@ -28,15 +28,21 @@ export function getMetricWithFiltersApplied(
 
   const metricWithFilters = cloneDeep(metric);
   if (settings.additionalNumeratorFilters) {
-    metricWithFilters.numerator.filters = [
-      ...(metricWithFilters.numerator.filters || []),
-      ...settings.additionalNumeratorFilters,
+    metricWithFilters.numerator.rowFilters = [
+      ...(metricWithFilters.numerator.rowFilters || []),
+      ...settings.additionalNumeratorFilters.map((f) => ({
+        operator: "saved_filter" as const,
+        values: [f],
+      })),
     ];
   }
   if (settings.additionalDenominatorFilters && metricWithFilters.denominator) {
-    metricWithFilters.denominator.filters = [
-      ...(metricWithFilters.denominator.filters || []),
-      ...settings.additionalDenominatorFilters,
+    metricWithFilters.denominator.rowFilters = [
+      ...(metricWithFilters.denominator.rowFilters || []),
+      ...settings.additionalDenominatorFilters.map((f) => ({
+        operator: "saved_filter" as const,
+        values: [f],
+      })),
     ];
   }
   return metricWithFilters;

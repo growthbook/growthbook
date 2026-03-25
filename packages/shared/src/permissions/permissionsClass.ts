@@ -1,5 +1,6 @@
-import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+import { DashboardInterface } from "shared/enterprise";
+import { FeatureInterface } from "shared/types/feature";
+import { MetricInterface } from "shared/types/metric";
 import {
   EnvScopedPermission,
   Environment,
@@ -8,36 +9,29 @@ import {
   ProjectScopedPermission,
   SDKAttribute,
   UserPermissions,
-} from "back-end/types/organization";
+} from "shared/types/organization";
 import {
   FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
-} from "back-end/types/fact-table";
-import { ExecReportInterface } from "back-end/types/exec-report";
+} from "shared/types/fact-table";
+import { ExecReportInterface } from "shared/types/exec-report";
 import {
   ExperimentInterface,
   ExperimentTemplateInterface,
   UpdateTemplateProps,
-} from "back-end/types/experiment";
-import { DataSourceInterface } from "back-end/types/datasource";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { CustomHookInterface } from "shared/validators";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+} from "shared/types/experiment";
+import { DataSourceInterface } from "shared/types/datasource";
 import { UpdateProps } from "shared/types/base-model";
 import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
-import { SavedGroupInterface } from "shared/types/groups";
+import { SavedGroupInterface } from "shared/types/saved-group";
+import { CustomHookInterface } from "../validators/custom-hooks";
+import { HoldoutInterface } from "../validators/holdout";
+import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
-class PermissionError extends Error {
-  status = 403;
-  constructor(message: string) {
-    super(message);
-    this.name = "PermissionError";
-  }
-}
 
 type NotificationEvent = {
   containsSecrets: boolean;
@@ -268,8 +262,18 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewAttributeModal = (project?: string): boolean => {
+  // Frontend helper to gate "Add Attribute" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewAttributeModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateAttribute({ projects: [p.id] }),
+      );
+    }
     return this.canCreateAttribute({ projects: project ? [project] : [] });
   };
 
@@ -302,12 +306,23 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewFeatureModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Feature" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewFeatureModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "manageFeatures",
+        ),
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
+      { projects: project ? [project] : [] },
       "manageFeatures",
     );
   };
@@ -345,12 +360,23 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewExperimentModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Experiment" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewExperimentModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
+      { projects: project ? [project] : [] },
       "createAnalyses",
     );
   };
@@ -386,14 +412,19 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewHoldoutModal = (projects?: string[]): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: projects || [],
-      },
-      "createAnalyses",
-    );
+  // Frontend helper to gate "Create Holdout" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewHoldoutModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateHoldout({ projects: [p.id] }),
+      );
+    }
+    return this.canCreateHoldout({ projects: project ? [project] : [] });
   };
 
   public canCreateHoldout = (
@@ -425,12 +456,23 @@ export class Permissions {
     );
   };
 
-  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewExperimentTemplateModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Experiment Template" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewExperimentTemplateModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "manageTemplates",
+        ),
+      );
+    }
     return this.checkProjectFilterPermission(
-      {
-        projects: project ? [project] : [],
-      },
+      { projects: project ? [project] : [] },
       "manageTemplates",
     );
   };
@@ -541,7 +583,16 @@ export class Permissions {
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewIdeaModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Idea" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewIdeaModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) => this.canCreateIdea({ project: p.id }));
+    }
     return this.canCreateIdea({ project });
   };
 
@@ -602,7 +653,18 @@ export class Permissions {
   };
 
   // Helper methods for the front-end
-  public canViewCreateFactTableModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Fact Table" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewCreateFactTableModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateFactTable({ projects: [p.id] }),
+      );
+    }
     return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
 
@@ -799,7 +861,7 @@ export class Permissions {
   public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects",
+      "createProjects",
     );
   };
 
@@ -829,11 +891,22 @@ export class Permissions {
   public canDeleteProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects",
+      "deleteProjects",
     );
   };
 
-  public canViewCreateDataSourceModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Data Source" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewCreateDataSourceModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateDataSource({ projects: [p.id], type: undefined }),
+      );
+    }
     return this.canCreateDataSource({
       projects: project ? [project] : [],
       type: undefined,
@@ -938,6 +1011,12 @@ export class Permissions {
   };
 
   public canRunPipelineValidationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunFeatureDiagnosticsQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
@@ -1098,7 +1177,18 @@ export class Permissions {
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
-  public canViewSavedGroupModal = (project?: string): boolean => {
+  // Frontend helper to gate "Create Saved Group" UI.
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project or global-only access.
+  public canViewSavedGroupModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.canCreateSavedGroup({ projects: [p.id] }),
+      );
+    }
     return this.canCreateSavedGroup({ projects: project ? [project] : [] });
   };
 
@@ -1228,9 +1318,9 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  public throwPermissionError(): void {
+  public throwPermissionError(message?: string): void {
     throw new PermissionError(
-      "You do not have permission to perform this action",
+      message ?? "You do not have permission to perform this action",
     );
   }
 
@@ -1238,6 +1328,20 @@ export class Permissions {
     project: string | undefined,
   ): boolean => {
     return this.hasPermission("readData", project || "");
+  };
+
+  // Project IDs where the user has the given permission
+  // Return value:
+  //   string[] = specific projects
+  //   [] = no projects
+  //   null = global (all projects)
+  public getProjectsWithPermission = (
+    permission: Permission,
+  ): string[] | null => {
+    if (this.hasPermission(permission, "")) return null;
+    return Object.keys(this.userPermissions.projects).filter((p) =>
+      this.hasPermission(permission, p),
+    );
   };
 
   public canReadMultiProjectResource = (

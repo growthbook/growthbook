@@ -1,4 +1,4 @@
-import { FactTableInterface } from "back-end/types/fact-table";
+import { FactTableInterface } from "shared/types/fact-table";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";

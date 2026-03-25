@@ -1,7 +1,8 @@
 import React, { FC, useState, ReactElement } from "react";
-import { Invite, MemberRoleInfo } from "back-end/types/organization";
+import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { getRoleDisplayName } from "shared/permissions";
 import ConfirmModal from "@/components/ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -172,7 +173,7 @@ const InviteList: FC<{
                 <tr key={key}>
                   <td>{email}</td>
                   <td>{datetime(dateCreated)}</td>
-                  <td>{roleInfo.role}</td>
+                  <td>{getRoleDisplayName(roleInfo.role, organization)}</td>
                   {!project && (
                     <td className="col-3">
                       {member.projectRoles?.map((pr) => {
@@ -184,7 +185,7 @@ const InviteList: FC<{
                                 resourceType="member"
                                 projectIds={[p.id]}
                               />{" "}
-                              — {pr.role}
+                              — {getRoleDisplayName(pr.role, organization)}
                             </div>
                           );
                         }

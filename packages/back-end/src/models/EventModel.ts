@@ -11,21 +11,18 @@ import {
   NotificationEventPayloadDataType,
   NotificationEventPayloadExtraAttributes,
   NotificationEventPayload,
-} from "back-end/types/events/base-types";
+} from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
   zodNotificationEventResources,
   eventData,
-} from "back-end/src/validators/events";
-import {
-  EventInterface,
-  BaseEventInterface,
-} from "back-end/types/events/event";
+} from "shared/validators";
+import { EventInterface, BaseEventInterface } from "shared/types/events/event";
+import { DiffResult } from "shared/types/events/diff";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
-import { DiffResult } from "back-end/types/events/diff";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;

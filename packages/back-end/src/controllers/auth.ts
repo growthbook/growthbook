@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
+<<<<<<< HEAD
 import { generateProjectPublicIdFromName } from "shared/util";
+=======
+import { UserInterface } from "shared/types/user";
+>>>>>>> origin/main
 import {
   createForgotPasswordToken,
   deleteForgotPasswordToken,
@@ -28,7 +32,6 @@ import {
 import { updatePassword, verifyPassword } from "back-end/src/services/users";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { _dangerousGetSSOConnectionByEmailDomain } from "back-end/src/models/SSOConnectionModel";
-import { UserInterface } from "back-end/types/user";
 import {
   resetMinTokenDate,
   getEmailFromUserId,

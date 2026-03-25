@@ -1,5 +1,5 @@
 import { ChangeEventHandler, FC, useState } from "react";
-import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -194,6 +194,19 @@ const BigQueryForm: FC<{
           value={params.defaultProject || ""}
           onChange={onParamChange}
           placeholder=""
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>
+          Reservation (optional){" "}
+          <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
+        </label>
+        <Field
+          type="text"
+          className="form-control"
+          name="reservation"
+          value={params.reservation || ""}
+          onChange={onParamChange}
         />
       </div>
       <div className="form-group col-md-12">

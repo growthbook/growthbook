@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,7 +36,7 @@ export const HoldoutSelect = ({
 
       const experiment = experimentsMap.get(h.experimentId);
 
-      // If the holdout is in draft or is in the analysis period, don't show it
+      // If the holdout is in draft or is in the analysis phase, don't show it
       if (!!h.analysisStartDate || experiment?.status === "draft") {
         return false;
       }

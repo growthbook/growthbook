@@ -59,7 +59,7 @@ const safeRollout = createSafeRolloutValidator.extend({
 
   // Managed fields
   status: z.enum(safeRolloutStatusArray),
-  autoSnapshots: z.boolean().default(true),
+  autoSnapshots: z.boolean(),
   startedAt: z.date().optional(),
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),

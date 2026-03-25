@@ -129,6 +129,9 @@ export const DEFAULT_CONVERSION_WINDOW_HOURS =
 export const METRIC_REFRESH_FREQUENCY =
   parseInt(process.env.METRIC_REFRESH_FREQUENCY || "") || 24;
 
+export const AUTO_SLICE_UPDATE_FREQUENCY_HOURS =
+  parseInt(process.env.AUTO_SLICE_UPDATE_FREQUENCY_HOURS || "") || 168; // Default: 7 days
+
 export const QUERY_CACHE_TTL_MINS =
   parseInt(process.env.QUERY_CACHE_TTL_MINS || "") || 60;
 
@@ -167,6 +170,10 @@ export const ALLOW_CREATE_METRICS = stringToBoolean(
 // If set to false AND using a config file, don't allow creating dimension via the UI
 export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
   process.env.ALLOW_CREATE_DIMENSIONS,
+);
+
+export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
+  process.env.API_ALLOW_SKIP_PAGINATION,
 );
 
 // Defines the User-Agent header for all requests made by the API

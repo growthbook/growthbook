@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
-import { ExperimentReportSSRData } from "back-end/types/report";
+import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { FactTableInterface } from "back-end/types/fact-table";
-import { DimensionInterface } from "back-end/types/dimension";
-import { ProjectInterface } from "back-end/types/project";
+import { CommercialFeature } from "shared/enterprise";
+import { MetricGroupInterface } from "shared/types/metric-groups";
+import { FactTableInterface } from "shared/types/fact-table";
+import { DimensionInterface } from "shared/types/dimension";
+import { ProjectInterface } from "shared/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -30,6 +31,7 @@ export interface SSRPolyfills {
   useOrganizationMetricDefaults: typeof useOrganizationMetricDefaults;
   dimensions: DimensionInterface[];
   getDimensionById: (id: string) => null | DimensionInterface;
+  hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
 
 export default function useSSRPolyfills(
@@ -121,6 +123,15 @@ export default function useSSRPolyfills(
     [getDimensionById, dimensionsSSR],
   );
 
+  const ssrCommercialFeatures = useMemo(
+    () => new Set(ssrData?.commercialFeatures ?? []),
+    [ssrData?.commercialFeatures],
+  );
+  const hasCommercialFeatureSSR = useCallback(
+    (feature: CommercialFeature) => ssrCommercialFeatures.has(feature),
+    [ssrCommercialFeatures],
+  );
+
   return {
     getExperimentMetricById: getExperimentMetricByIdSSR,
     metricGroups: metricGroupsSSR,
@@ -134,5 +145,6 @@ export default function useSSRPolyfills(
     useOrganizationMetricDefaults: useOrganizationMetricDefaultsSSR,
     dimensions: dimensionsSSR,
     getDimensionById: getDimensionByIdSSR,
+    hasCommercialFeature: hasCommercialFeatureSSR,
   };
 }

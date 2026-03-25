@@ -51,11 +51,8 @@ info:
 servers:
   - url: "https://api.growthbook.io/api/v1"
     description: GrowthBook Cloud
-  - url: "{domain}/api/v1"
+  - url: "https://{domain}/api/v1"
     description: Self-hosted GrowthBook
-    variables:
-      domain:
-        default: http://localhost:3100
 tags:
   - name: projects
     x-displayName: Projects
@@ -120,12 +117,12 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
-  - name: custom-fields
-    x-displayName: Custom Fields
-    description: Custom fields for the organization.
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: usage
+    x-displayName: Usage
+    description: Usage information for metrics in experiments.
 paths:
   /features:
     get:
@@ -146,6 +143,9 @@ paths:
   /features/{id}/revisions:
     get:
       $ref: "./paths/getFeatureRevisions.yaml"
+  /stale-features:
+    get:
+      $ref: "./paths/getFeatureStale.yaml"
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
@@ -219,6 +219,11 @@ paths:
       $ref: "./paths/updateExperiment.yaml"
   /experiments/{id}/snapshot:
     $ref: "./paths/postExperimentSnapshot.yaml"
+  /experiments/{id}/variation/{variationId}/screenshot/upload:
+    $ref: "./paths/postVariationImageUpload.yaml"
+  /experiments/{id}/variation/{variationId}/screenshot:
+    delete:
+      $ref: "./paths/deleteVariationScreenshot.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
   /experiments/{id}/visual-changesets:
@@ -237,6 +242,9 @@ paths:
       $ref: "./paths/putMetric.yaml"
     delete:
       $ref: "./paths/deleteMetric.yaml"
+  /usage/metrics:
+    get:
+      $ref: "./paths/getMetricUsage.yaml"
   /visual-changesets/{id}:
     get:
       $ref: "./paths/getVisualChangeset.yaml"
@@ -362,9 +370,6 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
-  /custom-fields:
-    get:
-      $ref: "./paths/getCustomFields.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

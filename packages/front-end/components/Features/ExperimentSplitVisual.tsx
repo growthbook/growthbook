@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import React, { CSSProperties } from "react";
-import { ExperimentValue, FeatureValueType } from "back-end/types/feature";
+import { ExperimentValue, FeatureValueType } from "shared/types/feature";
 import {
   getVariationColor,
   getVariationDefaultName,
@@ -58,7 +58,7 @@ export default function ExperimentSplitVisual({
               style={{ backgroundColor: "#e0e0e0" }}
             />{" "}
             {unallocated}{" "}
-            <strong>
+            <strong className="nowrap">
               ({parseFloat(((1 - coverage) * 100).toPrecision(5)) + "%"})
             </strong>
           </div>
@@ -109,16 +109,16 @@ export default function ExperimentSplitVisual({
                     <></>
                   </Tooltip>
                   {showPercentages && (
-                    <div className={`${styles.percentMarker}`}>
-                      <span>
+                    <div className={styles.percentMarker}>
+                      <span className="nowrap">
                         {parseFloat(percentVal.toPrecision(4)) + "%"}
-                        {showValues && (
-                          <>
-                            {" "}
-                            - <strong>{valueDisplay}</strong>
-                          </>
-                        )}
                       </span>
+                      {showValues && (
+                        <>
+                          {" "}
+                          - <strong>{valueDisplay}</strong>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -144,8 +144,10 @@ export default function ExperimentSplitVisual({
                 {showPercentages && (
                   <div className={`${styles.percentMarker}`}>
                     <span>
-                      {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
-                        "%"}
+                      <span className="nowrap">
+                        {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
+                          "%"}
+                      </span>
                       {showValues && (
                         <>
                           {" "}

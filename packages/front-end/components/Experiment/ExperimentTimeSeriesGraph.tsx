@@ -10,7 +10,7 @@ import { AreaClosed, LinePath } from "@visx/shape";
 import { curveLinear, curveMonotoneX } from "@visx/curve";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { datetime, getValidDate } from "shared/dates";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";
@@ -46,9 +46,11 @@ export interface ExperimentTimeSeriesGraphDataPoint {
   helperText?: string;
 }
 
+import { GraphVariation } from "./ExperimentDateGraph";
+
 export interface ExperimentTimeSeriesGraphProps {
   yaxis: AxisType;
-  variationNames: string[];
+  variations: GraphVariation[];
   label: string;
   datapoints: ExperimentTimeSeriesGraphDataPoint[];
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
@@ -79,7 +81,7 @@ const margin = [15, 30, 30, 80];
 // Render the contents of a tooltip
 const getTooltipContents = (
   data: TooltipData,
-  variationNames: string[],
+  variations: GraphVariation[],
   showVariations: boolean[],
   statsEngine: StatsEngine,
   usesPValueAdjustment: boolean,
@@ -134,15 +136,15 @@ const getTooltipContents = (
         </TableHeader>
 
         <TableBody style={{ fontSize: "12px" }}>
-          {variationNames.map((v, i) => {
+          {variations.map((v, i) => {
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
             const variation = d.variations[i];
             if (!variation) return null;
-            const variationColor = getVariationColor(i, true);
+            const variationColor = getVariationColor(v.index, true);
             return (
               <TableRow
-                key={`tooltip_row_${i}`}
+                key={`tooltip_row_${v.index}`}
                 style={{
                   color: "var(--color-text-high)",
                   fontWeight: 500,
@@ -167,9 +169,9 @@ const getTooltipContents = (
                         flexShrink: 0,
                       }}
                     >
-                      {i}
+                      {v.index}
                     </span>
-                    <Text weight="bold">{v}</Text>
+                    <Text weight="bold">{v.name}</Text>
                   </Flex>
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
@@ -295,7 +297,7 @@ const getYVal = (variation?: DataPointVariation, yaxis?: AxisType) => {
 const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   yaxis,
   datapoints: _datapoints,
-  variationNames,
+  variations,
   label,
   formatter,
   formatterOptions,
@@ -487,10 +489,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
   // If any point or variation has a valid CI we should render it
   const variationsWithCI = useMemo(() => {
-    return variationNames.map((_, i) =>
+    return variations.map((_, i) =>
       sortedDatesWithData.some((d) => d.variations?.[i]?.ci !== undefined),
     );
-  }, [sortedDatesWithData, variationNames]);
+  }, [sortedDatesWithData, variations]);
 
   const hasDataForDay = useMemo(() => {
     const firstDateWithData =
@@ -584,7 +586,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   <div className={timeSeriesStyles.tooltipContent}>
                     {getTooltipContents(
                       tooltipData,
-                      variationNames,
+                      variations,
                       showVariations,
                       statsEngine,
                       usesPValueAdjustment,
@@ -610,22 +612,21 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             >
               {tooltipOpen && (
                 <>
-                  {variationNames.map((variationName, i) => {
+                  {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return null;
                     }
                     if (!tooltipData?.d.variations?.[i]) return null;
-                    // Render a dot at the current x location for each variation
                     return (
                       <div
-                        key={`tooltip_dot_open_${i}`}
+                        key={`tooltip_dot_open_${v.index}`}
                         className={styles.positionIndicator}
                         style={{
                           transform: `translate(${tooltipLeft}px, ${
                             tooltipData?.y?.[i] ?? 0
                           }px)`,
-                          background: getVariationColor(i, true),
+                          background: getVariationColor(v.index, true),
                         }}
                       />
                     );
@@ -637,7 +638,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                 // Render a dot at the current x location for each variation
                 return (
                   <React.Fragment key={`date_${d.d.getTime()}`}>
-                    {variationNames.map((_, i) => {
+                    {variations.map((v, i) => {
                       if (yaxis === "effect" && i === 0) {
                         return null;
                       }
@@ -646,13 +647,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       if (!variation) return null;
                       return (
                         <div
-                          key={`${d.d.getTime()}_${i}`}
+                          key={`${d.d.getTime()}_${v.index}`}
                           className={timeSeriesStyles.positionWithData}
                           style={{
                             transform: `translate(${xScale(d.d)}px, ${
                               yScale(getYVal(variation, yaxis) ?? 0) ?? 0
                             }px)`,
-                            background: getVariationColor(i, true),
+                            background: getVariationColor(v.index, true),
                           }}
                         />
                       );
@@ -688,11 +689,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                 />
 
                 <Group clipPath="url(#experiment-date-graph-clip)">
-                  {variationNames.map((_, i) => {
+                  {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return (
-                        <React.Fragment key={`empty_${i}`}></React.Fragment>
+                        <React.Fragment
+                          key={`empty_${v.index}`}
+                        ></React.Fragment>
                       );
                     }
 
@@ -711,7 +714,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     return (
                       variationsWithCI[i] && (
                         <AreaClosed
-                          key={`ci_${i}`}
+                          key={`ci_${v.index}`}
                           yScale={yScale}
                           data={sortedDataForVariation}
                           x={(d) => xScale(d.d) ?? 0}
@@ -721,7 +724,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           y1={(d) => {
                             return yScale(d?.variation?.ci?.[1] ?? 0) ?? 0;
                           }}
-                          fill={getVariationColor(i, true)}
+                          fill={getVariationColor(v.index, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
                         />
@@ -729,14 +732,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     );
                   })}
 
-                  {variationNames.map((_, i) => {
+                  {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return null;
                     }
 
-                    // NB: We include the last index in both arrays as we need
-                    // to draw the dashed line to it, and the solid line from it onwards
                     const sortedDataForVariation = sortedDatesWithData
                       .map((d) => ({
                         d: d.d,
@@ -759,10 +760,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       );
 
                     return (
-                      <React.Fragment key={`linepaths_${i}`}>
-                        {/* Render a dotted line for the previous settings data points */}
+                      <React.Fragment key={`linepaths_${v.index}`}>
                         <LinePath
-                          key={`linepath_dashed_${i}`}
+                          key={`linepath_dashed_${v.index}`}
                           data={previousSettingsDataPoints}
                           x={(d) => xScale(d.d)}
                           y={(d) => {
@@ -770,15 +770,14 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                               getYVal(d.variation ?? undefined, yaxis) ?? 0,
                             );
                           }}
-                          stroke={getVariationColor(i, true)}
+                          stroke={getVariationColor(v.index, true)}
                           strokeWidth={2}
                           strokeDasharray={3}
                           strokeLinecap="butt"
                           curve={curveLinear}
                         />
-                        {/* Render a solid line for the current settings data points */}
                         <LinePath
-                          key={`linepath_solid_${i}`}
+                          key={`linepath_solid_${v.index}`}
                           data={currentSettingsDataPoints}
                           x={(d) => xScale(d.d)}
                           y={(d) => {
@@ -786,7 +785,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                               getYVal(d.variation ?? undefined, yaxis) ?? 0,
                             );
                           }}
-                          stroke={getVariationColor(i, true)}
+                          stroke={getVariationColor(v.index, true)}
                           strokeWidth={2}
                           curve={curveLinear}
                         />

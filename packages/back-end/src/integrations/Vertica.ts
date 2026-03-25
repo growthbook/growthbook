@@ -5,8 +5,8 @@ import {
   QueryResponse,
   RawInformationSchema,
 } from "shared/types/integrations";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";

@@ -6,6 +6,9 @@ slug: /official-resources
 ---
 
 import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="manage-official-resources" />
 
 Official Resources are protected resources that **can only be modified by users with appropriate permissions**. These resources have a checkmark badge in the app to indicate their protected status. This feature is useful for resources that are externally managed or need to remain consistent across teams.
 
@@ -42,12 +45,6 @@ When creating resources via the REST API, use the optional `managedBy` property:
 
 - **`managedBy: "api"`**: The resource is not editable in the app but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
 - **`managedBy: "admin"`**: The resource can be modified in the app or via the REST API, but only by users with the `ManageOfficialResources` policy.
-
-:::note Official Resources only available on Enterprise plans
-
-Create Official Resources via the UI (or via the REST API while setting `managedBy: "admin"`) is only available to Enterprise organizations.
-
-:::
 
 ###3. config.yml
 

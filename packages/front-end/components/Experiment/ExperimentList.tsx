@@ -4,7 +4,7 @@ import {
   ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";

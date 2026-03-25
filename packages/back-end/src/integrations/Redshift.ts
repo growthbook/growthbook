@@ -1,6 +1,6 @@
 import { FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
-import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runPostgresQuery } from "back-end/src/services/postgres";
 import SqlIntegration from "./SqlIntegration";
@@ -57,6 +57,31 @@ export default class Redshift extends SqlIntegration {
   approxQuantile(value: string, quantile: string | number): string {
     // approx behaves differently in redshift
     return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
+  }
+  percentileCapSelectClause(
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+      ignoreZeros: boolean;
+      sourceIndex: number;
+    }[],
+    metricTable: string,
+    where: string = "",
+  ): string {
+    // Redshift doesn't support multiple PERCENTILE_CONT functions with different
+    // ORDER BY clauses in the same SELECT statement. Use scalar subqueries instead.
+    return `
+      SELECT
+        ${values
+          .map(({ valueCol, outputCol, percentile, ignoreZeros }) => {
+            const value = ignoreZeros
+              ? this.ifElse(`${valueCol} = 0`, "NULL", valueCol)
+              : valueCol;
+            return `(SELECT ${this.approxQuantile(value, percentile)} FROM ${metricTable} ${where}) AS ${outputCol}`;
+          })
+          .join(",\n        ")}
+      `;
   }
   getInformationSchemaTable(): string {
     return "SVV_COLUMNS";

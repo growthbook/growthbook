@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { factTableColumnTypeValidator } from "./fact-table";
 
 const dateAggregationEnum = z.enum([
   "none",
@@ -186,7 +187,12 @@ const barChartValidator = baseChartConfig
 const lineChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("line") }))
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorYAxisToZero: z.boolean(),
+    }),
+  });
 
 const areaChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("area") }))
@@ -196,7 +202,12 @@ const areaChartValidator = baseChartConfig
 const scatterChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("scatter") }))
   .merge(withXAxis)
-  .merge(withBaseDimensions);
+  .merge(withBaseDimensions)
+  .extend({
+    displaySettings: z.object({
+      anchorYAxisToZero: z.boolean(),
+    }),
+  });
 
 const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
@@ -228,11 +239,23 @@ export type PivotTable = z.infer<typeof pivotTableValidator>;
 
 export const testQueryRowSchema = z.record(z.string(), z.any());
 
+export const jsonFieldsColumnDataValidator = z.object({
+  name: z.string(),
+  dataType: factTableColumnTypeValidator.optional(),
+});
+
+export const queryResponseColumnDataValidator = z.object({
+  name: z.string(),
+  dataType: factTableColumnTypeValidator.optional(),
+  fields: z.array(jsonFieldsColumnDataValidator).optional(),
+});
+
 export const queryExecutionResultValidator = z.object({
   results: z.array(testQueryRowSchema),
   error: z.string().nullable().optional(),
   duration: z.number().optional(),
   sql: z.string().optional(),
+  columns: z.array(queryResponseColumnDataValidator).optional(),
 });
 
 export const savedQueryValidator = z

@@ -5,8 +5,8 @@ import {
   MetricValueQueryResponseRows,
   MetricValueResult,
 } from "shared/types/integrations";
-import { LegacyMetricAnalysis, MetricInterface } from "back-end/types/metric";
-import { Queries, QueryStatus } from "back-end/types/query";
+import { LegacyMetricAnalysis, MetricInterface } from "shared/types/metric";
+import { Queries, QueryStatus } from "shared/types/query";
 import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 

@@ -1,13 +1,14 @@
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import React, { ReactElement, useEffect, useMemo, useState } from "react";
+import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
+import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import track from "@/services/track";
@@ -17,7 +18,6 @@ import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -42,7 +42,6 @@ export function getChecklistItems({
   openSetupTab,
   setAnalysisModal,
   setShowSdkForm,
-  usingStickyBucketing,
   checklist,
   checkLinkedChanges,
 }: {
@@ -55,7 +54,6 @@ export function getChecklistItems({
   className?: string;
   setAnalysisModal?: (value: boolean) => void;
   setShowSdkForm?: (value: boolean) => void;
-  usingStickyBucketing?: boolean;
   checklist?: ExperimentLaunchChecklistInterface;
   checkLinkedChanges: boolean;
 }) {
@@ -73,7 +71,9 @@ export function getChecklistItems({
         case "hypothesis":
           return !!experiment.hypothesis;
         case "screenshots":
-          return experiment.variations.every((v) => !!v.screenshots.length);
+          return getLatestPhaseVariations(experiment).every(
+            (v) => !!v.screenshots.length,
+          );
         case "description":
           return !!experiment.description;
         case "project":
@@ -274,20 +274,6 @@ export function getChecklistItems({
         ? "An SDK Connection exists, but it has not been verified to be working yet"
         : undefined,
   });
-
-  if (isBandit) {
-    items.push({
-      type: "auto",
-      status: usingStickyBucketing ? "complete" : "incomplete",
-      display: (
-        <>
-          <Link href="/settings">Enable Sticky Bucketing</Link> for your
-          organization and verify it is implemented properly in your codebase.
-        </>
-      ),
-      required: true,
-    });
-  }
 
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
@@ -611,11 +597,6 @@ export function PreLaunchChecklist({
 
   const [showSdkForm, setShowSdkForm] = useState(false);
 
-  const settings = useOrgSettings();
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-  const usingStickyBucketing =
-    orgStickyBucketing && !experiment.disableStickyBucketing;
-
   const [analysisModal, setAnalysisModal] = useState(false);
 
   //Merge the GB checklist items with org's custom checklist items
@@ -624,7 +605,6 @@ export function PreLaunchChecklist({
       experiment,
       linkedFeatures,
       visualChangesets,
-      usingStickyBucketing,
       checklist: data?.checklist,
       setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
       editTargeting,
@@ -640,7 +620,6 @@ export function PreLaunchChecklist({
     linkedFeatures,
     openSetupTab,
     visualChangesets,
-    usingStickyBucketing,
     canEditExperiment,
     connections,
   ]);

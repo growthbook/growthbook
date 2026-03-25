@@ -5,6 +5,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import { generateProjectPublicIdFromName } from "shared/util";
 import { ManagedBy } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   findVercelInstallationByInstallationId,
   VercelNativeIntegrationModel,
@@ -22,7 +23,6 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
-import { OrganizationInterface } from "back-end/types/organization";
 import { ReqContext } from "back-end/types/request";
 import {
   getVercelSSOToken,
@@ -138,7 +138,7 @@ const checkAuth = async <T extends string | "user">({
   type: T;
 }): Promise<CheckedAuth<T> | { status: "error"; message: string }> => {
   try {
-    const payload = await jwtVerify(token, await vercelJKWSKey);
+    const payload = await jwtVerify(token, vercelJKWSKey);
 
     if (type === "user")
       return {
@@ -267,11 +267,9 @@ const authContext = async (req: Request, res: Response) => {
 
   if (checkedAuth.status === "error") return failed(401, checkedAuth.message);
 
-  const {
-    authentication: {
-      payload: { installation_id: installationId },
-    },
-  } = checkedAuth;
+  const installationId = checkedAuth.authentication.payload.installation_id;
+
+  if (!installationId) return failed(401, "Missing installation context");
 
   if (
     req.params.installation_id &&
@@ -504,7 +502,7 @@ export async function provisionResource(req: Request, res: Response) {
     managedBy,
   });
 
-  const sdkConnection = await createSDKConnection({
+  const sdkConnection = await createSDKConnection(context, {
     organization: org.id,
     name: payload.name,
     languages: ["nextjs"],
@@ -624,30 +622,46 @@ export async function deleteResource(req: Request, res: Response) {
 }
 
 export async function getProducts(req: Request, res: Response) {
-  const { integration } = await authContext(req, res);
+  const token = getBearerToken(req);
+  if (!token) return res.status(401).send("Invalid credentials");
 
-  const slug = req.params.slug;
-
-  if (!slug) return res.status(400).send("Invalid request!");
-
-  const existingBillingPlan = allBillingPlans.find(
-    ({ id }) => id === integration.billingPlanId,
-  );
-
-  if (!existingBillingPlan) {
-    return res.json({
-      plans: availableBillingPlans,
-    });
+  let installationId: string | undefined;
+  try {
+    const { payload } = await jwtVerify(token, vercelJKWSKey);
+    installationId =
+      typeof payload["installation_id"] === "string"
+        ? payload["installation_id"]
+        : undefined;
+  } catch {
+    return res.status(401).send("Invalid credentials");
   }
 
-  const additionalProjectBillingPlan: BillingPlan = {
-    ...existingBillingPlan,
-    name: "Add GrowthBook Project to your existing plan",
-    description: "",
-    cost: "",
-  };
+  const slug = req.params.slug;
+  if (!slug) return res.status(400).send("Invalid request!");
 
-  return res.json({ plans: [additionalProjectBillingPlan] });
+  if (!installationId) {
+    return res.json({ plans: availableBillingPlans });
+  }
+
+  try {
+    const integration =
+      await findVercelInstallationByInstallationId(installationId);
+    const existingBillingPlan = allBillingPlans.find(
+      ({ id }) => id === integration.billingPlanId,
+    );
+    if (!existingBillingPlan) {
+      return res.json({ plans: availableBillingPlans });
+    }
+    const additionalProjectBillingPlan: BillingPlan = {
+      ...existingBillingPlan,
+      name: "Add GrowthBook Project to your existing plan",
+      description: "",
+      cost: "",
+    };
+    return res.json({ plans: [additionalProjectBillingPlan] });
+  } catch {
+    return res.json({ plans: availableBillingPlans });
+  }
 }
 
 export async function postVercelIntegrationSSO(req: Request, res: Response) {

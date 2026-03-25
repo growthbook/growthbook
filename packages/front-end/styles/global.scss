@@ -328,45 +328,16 @@ pre {
 .experiment-row-tooltip {
   position: absolute;
   display: inline-block;
-  background-color: var(--surface-background-color-alt);
+  background-color: var(--color-panel-solid);
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   padding: 3px 8px;
-  border: 1px solid var(--border-color-300);
   box-sizing: border-box;
   border-radius: 2px;
   font-size: 12px;
   color: var(--text-color-table);
   pointer-events: all;
-  transition: 250ms all;
-
-  .arrow {
-    position: absolute;
-    width: 60px;
-    margin-left: -30px;
-    height: 30px;
-    overflow: hidden;
-    transform: scaleX(0.75);
-    pointer-events: none;
-    &::after {
-      left: 20px;
-      content: "";
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      border-radius: 2px;
-      background-color: var(--surface-background-color-alt);
-      border: 1px solid var(--border-color-300);
-      box-sizing: border-box;
-      transform: rotate(45deg);
-      box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
-    }
-    &.top::after {
-      top: 27px;
-    }
-    &.bottom::after {
-      bottom: 27px;
-    }
-  }
+  transition: 150ms all;
+  box-shadow: var(--shadow-5);
 
   .results-overview {
     background-color: #66666610;
@@ -633,6 +604,25 @@ pre {
     .header-tabs .tab-wrapper {
       overflow: hidden;
     }
+    .rt-BaseTabList {
+      box-shadow: none !important;
+    }
+  }
+}
+.feature-tabs {
+  background-color: var(--color-background);
+  // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
+  top: 55px;
+  height: 40px;
+  transition: 150ms all;
+
+  &.pinned {
+    position: sticky;
+    z-index: 930;
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
     .rt-BaseTabList {
       box-shadow: none !important;
     }
@@ -1038,6 +1028,12 @@ main.main {
   td {
     vertical-align: middle;
   }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
+  }
 
   .dark-theme &.decision-criteria-table {
     tbody {
@@ -1061,6 +1057,12 @@ main.main {
   }
   td {
     vertical-align: middle;
+  }
+  &.table-valign-top {
+    td,
+    th {
+      vertical-align: top;
+    }
   }
 }
 
@@ -1406,9 +1408,6 @@ main.main {
 .flex-1 {
   flex: 1;
 }
-.diff-wrapper td {
-  padding: 0 10px !important;
-}
 .expandable-container {
   overflow: hidden;
   max-height: 120px;
@@ -1437,13 +1436,34 @@ main.main {
     transition: transform 0.1s;
     transform: rotate(0deg);
   }
+  .chevron-right {
+    transition: transform 0.1s;
+    transform: rotate(0deg);
+  }
   &.is-open {
     .chevron {
       transform: rotate(90deg);
     }
+    .chevron-right {
+      transform: rotate(90deg);
+    }
+    .draft-selector-collapsible-trigger {
+      border-radius: var(--radius-4) var(--radius-4) 0 0;
+    }
   }
 }
 
+.draft-selector-collapsible-trigger {
+  background-color: var(--violet-a3);
+  border-radius: var(--radius-4);
+  &:hover {
+    background-color: var(--violet-a4);
+  }
+}
+
+.draft-selector-collapsible-content {
+  border: 0px !important;
+}
 .code-holder {
   margin: 0.5em 0;
 
@@ -2626,6 +2646,11 @@ li.metrics a span img {
 
 html {
   scroll-behavior: smooth;
+  body[data-scroll-locked] {
+    // fixes Radix <Select> layout shift
+    overflow: visible !important;
+    margin-right: 0 !important;
+  }
 }
 
 .variationWrap {
@@ -2739,16 +2764,16 @@ html {
       .gb-select__input-container {
         margin: 0 !important;
         padding: 0 !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
         .gb-select__input {
-          max-width: 220px !important;
+          max-width: 250px !important;
         }
       }
       .gb-select__single-value {
         margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
         color: var(--text-dark) !important;
-        max-width: 220px !important;
+        max-width: 250px !important;
       }
     }
     .gb-select__indicators {
@@ -2823,13 +2848,9 @@ html {
   position: relative;
   .gb-multi-select__menu-portal {
     position: absolute !important;
-    top: -8px;
-    left: 290px;
-    @media (max-width: 520px) {
-      top: auto;
-      bottom: 0;
-      left: 0;
-    }
+    top: auto;
+    bottom: 0;
+    left: 0;
   }
 }
 
@@ -2954,6 +2975,10 @@ html {
 }
 
 .new-share {
+  .scrolly {
+    max-height: 40vh;
+    overflow-y: auto;
+  }
   .selected-area {
     background-color: rgba(27, 103, 235, 0.036);
   }
@@ -3033,18 +3058,112 @@ html {
     margin: 0;
     font-weight: 400;
   }
-  .variation-result {
+  .variation-result,
+  .result-winner,
+  .result-lost,
+  .result-dnf,
+  .result-inconclusive {
     font-weight: bold;
+    font-size: 1.5rem;
+  }
+  .presentation-appear {
+    animation: presentation-appear-fade 0.4s ease forwards;
+  }
+}
+@keyframes presentation-appear-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 .presentation-preview {
   width: 100%;
   height: 350px;
+  overflow: hidden;
   > div {
     width: 200%;
     height: 700px;
     transform-origin: top left;
     transform: scale(0.5);
+  }
+}
+
+// Custom presentation deck (replaces Spectacle)
+.presentation-deck {
+  &.presentation-deck-preview {
+    max-height: 700px;
+    .presentation-deck-footer {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.85rem;
+    }
+    .presentation-slide-dots button {
+      width: 6px !important;
+      height: 6px !important;
+      min-width: 6px;
+      &[style*="width: 20px"] {
+        width: 12px !important;
+      }
+    }
+  }
+
+  &.presentation-deck-print {
+    .presentation-print-slide:last-child {
+      page-break-after: auto;
+    }
+  }
+}
+
+@media print {
+  .presentation-deck-print .presentation-print-slide {
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+}
+
+.presentation-transition-fade {
+  .presentation-slide-content {
+    animation: presentation-fade-in 0.6s ease;
+  }
+}
+@keyframes presentation-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.presentation-transition-slide-next {
+  .presentation-slide-content {
+    animation: presentation-slide-in-from-right 0.6s ease;
+  }
+}
+.presentation-transition-slide-prev {
+  .presentation-slide-content {
+    animation: presentation-slide-in-from-left 0.6s ease;
+  }
+}
+@keyframes presentation-slide-in-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes presentation-slide-in-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -3539,6 +3658,15 @@ input:disabled {
 .ace_editor.ace_autocomplete {
   width: 500px !important;
   background-color: var(--color-surface-solid) !important;
+}
+
+// Ace autocomplete is appended to body (outside .radix-themes), so it doesn't
+// see theme variables. Set explicit backgrounds by theme so the list is readable.
+.light-theme .ace_editor.ace_autocomplete {
+  background-color: #ffffff !important;
+}
+.dark-theme .ace_editor.ace_autocomplete {
+  background-color: #0c1122 !important;
 }
 
 /* Radix-style pagination for ReactPaginate */

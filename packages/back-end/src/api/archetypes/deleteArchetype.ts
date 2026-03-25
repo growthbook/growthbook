@@ -1,6 +1,6 @@
-import { DeleteArchetypeResponse } from "back-end/types/openapi";
+import { DeleteArchetypeResponse } from "shared/types/openapi";
+import { deleteArchetypeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteArchetypeValidator } from "back-end/src/validators/openapi";
 import {
   deleteArchetypeById,
   getArchetypeById,

@@ -1,13 +1,14 @@
 import { keyBy } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   DestinationURL,
   URLRedirectInterface,
-} from "back-end/types/url-redirect";
-import { refreshSDKPayloadCache } from "back-end/src/services/features";
-import { urlRedirectValidator } from "back-end/src/routers/url-redirects/url-redirects.validators";
+} from "shared/types/url-redirect";
+import { urlRedirectValidator } from "shared/validators";
+import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -31,7 +32,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "urlRedirect.update",
     deleteEvent: "urlRedirect.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: ["experiment"],
 });
 
@@ -74,7 +75,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
-    const variationIds = experiment.variations.map((v) => v.id);
+    const variationIds = getLatestPhaseVariations(experiment).map((v) => v.id);
     const reqVariationIds = doc.destinationURLs.map((r) => r.variation);
 
     const areValidVariations = variationIds.every((v) =>
@@ -87,6 +88,7 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
   protected async customValidation(
     doc: URLRedirectInterface,
+    previousDoc?: URLRedirectInterface,
     writeOptions?: WriteOptions,
   ) {
     if (!doc.urlPattern) {
@@ -122,7 +124,15 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
     if (!writeOptions?.skipSDKRefresh) {
       const payloadKeys = getPayloadKeys(this.context, experiment);
-      await refreshSDKPayloadCache(this.context, payloadKeys);
+      queueSDKPayloadRefresh({
+        context: this.context,
+        payloadKeys,
+        auditContext: {
+          event: "created/updated",
+          model: "urlredirect",
+          id: doc.id,
+        },
+      });
     }
   }
 
@@ -145,7 +155,15 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     // Important: pass the old `experiment` object before doing the update
     // The updated experiment has `hasURLRedirects: false`, which may stop the SDK from updating
     const payloadKeys = getPayloadKeys(this.context, experiment);
-    await refreshSDKPayloadCache(this.context, payloadKeys);
+    queueSDKPayloadRefresh({
+      context: this.context,
+      payloadKeys,
+      auditContext: {
+        event: "deleted",
+        model: "urlredirect",
+        id: doc.id,
+      },
+    });
   }
 
   // When an experiment adds/removes variations, we need to update

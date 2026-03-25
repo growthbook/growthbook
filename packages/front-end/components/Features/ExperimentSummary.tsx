@@ -1,6 +1,6 @@
-import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
+import { ExperimentRule, FeatureInterface } from "shared/types/feature";
 import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
@@ -8,6 +8,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import LinkButton from "@/ui/LinkButton";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -40,14 +41,7 @@ export default function ExperimentSummary({
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SPLIT</Text>
         by
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>
-              {hashAttribute || ""}
-            </Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute || "id"} />
         {hasNamespace && (
           <>
             in the namespace

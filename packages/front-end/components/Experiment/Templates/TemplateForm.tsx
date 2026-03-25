@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import React, { FC, useEffect, useState } from "react";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { isEmpty, kebabCase } from "lodash";
@@ -115,7 +115,6 @@ const TemplateForm: FC<Props> = ({
         condition: initialValue.targeting?.condition || "",
       },
       customMetricSlices: initialValue?.customMetricSlices || [],
-      pinnedMetricSlices: initialValue?.pinnedMetricSlices || [],
     },
   });
 
@@ -128,6 +127,8 @@ const TemplateForm: FC<Props> = ({
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
+
+  const selectedProject = form.watch("project");
 
   const { apiCall } = useAuth();
 
@@ -191,7 +192,7 @@ const TemplateForm: FC<Props> = ({
     if (onCreate) {
       onCreate(res.template.id);
     } else if (isEmpty(initialValue) || isNewTemplate) {
-      router.push(`/experiments#templates`);
+      router.push(`/experiments/templates`);
     }
   });
 
@@ -202,6 +203,9 @@ const TemplateForm: FC<Props> = ({
     .map((p) => ({ value: p.id, label: p.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
+  const hasProjectPermission = selectedProject
+    ? permissionsUtils.canViewExperimentModal(selectedProject)
+    : allowAllProjects;
 
   const exposureQueryId = form.getValues("exposureQueryId");
 
@@ -236,7 +240,14 @@ const TemplateForm: FC<Props> = ({
         close={onClose}
         submit={onSubmit}
         cta={"Save"}
-        ctaEnabled={canSubmit}
+        ctaEnabled={canSubmit && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProject && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create experiment templates."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -327,7 +338,7 @@ const TemplateForm: FC<Props> = ({
                     }}
                     currentCustomFields={form.watch("customFields") || {}}
                     section={"experiment"}
-                    project={form.watch("project")}
+                    project={selectedProject}
                   />
                 </div>
               )}

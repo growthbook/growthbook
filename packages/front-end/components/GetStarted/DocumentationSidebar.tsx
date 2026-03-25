@@ -18,7 +18,6 @@ const DocumentationSidebar = ({
   const { accountPlan, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-
   const canUpgrade =
     accountPlan !== "enterprise" &&
     permissionsUtil.canManageBilling() &&

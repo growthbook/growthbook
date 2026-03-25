@@ -1,9 +1,10 @@
 import { useFormContext } from "react-hook-form";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import Link from "next/link";
 import { Box } from "@radix-ui/themes";
+import { getLatestPhaseVariations } from "shared/experiments";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -66,7 +67,7 @@ export default function BanditRefFields({
               form.setValue("experimentId", experimentId);
               form.setValue(
                 "variations",
-                exp.variations.map((v, i) => ({
+                getLatestPhaseVariations(exp).map((v, i) => ({
                   variationId: v.id,
                   value: i ? variationValue : controlValue,
                 })),
@@ -133,7 +134,7 @@ export default function BanditRefFields({
       {selectedExperiment && (
         <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
           <label className="mb-3">Variation Values</label>
-          {selectedExperiment.variations.map((v, i) => (
+          {getLatestPhaseVariations(selectedExperiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
               label={v.name}

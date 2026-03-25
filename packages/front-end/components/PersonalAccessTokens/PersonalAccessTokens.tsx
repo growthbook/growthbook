@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
 import Link from "next/link";
-import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
@@ -29,7 +29,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         <ApiKeysModal
           close={() => setOpen(false)}
           onCreate={onCreate}
-          type="user"
+          personalAccessToken
         />
       )}
 
@@ -62,7 +62,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
 
       <div className="mb-5">
         <div className="alert alert-info">
-          Administrators can also create read-only keys for an organization on
+          Administrators can also create userless keys for an organization on
           the <Link href="/settings/keys">API Keys</Link> page.
         </div>
       </div>

@@ -2,9 +2,20 @@ import { AES, enc } from "crypto-js";
 import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
+  FeatureEvalDiagnosticsQueryResponseRows,
+  QueryResponseColumnData,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
+import {
+  DataSourceInterface,
+  DataSourceParams,
+  ExposureQuery,
+} from "shared/types/datasource";
+import { FactTableColumnType } from "shared/types/fact-table";
+import { QueryStatistics } from "shared/types/query";
+import { SQLExecutionError } from "back-end/src/util/errors";
+import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -18,17 +29,11 @@ import BigQuery from "back-end/src/integrations/BigQuery";
 import ClickHouse from "back-end/src/integrations/ClickHouse";
 import Mixpanel from "back-end/src/integrations/Mixpanel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import {
-  DataSourceInterface,
-  DataSourceParams,
-  ExposureQuery,
-} from "back-end/types/datasource";
 import Mysql from "back-end/src/integrations/Mysql";
 import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { QueryStatistics } from "back-end/types/query";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -55,7 +60,7 @@ export function mergeParams(
   newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
-  Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
+  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
     // If a secret value is left empty, keep the original value
     if (secretKeys.includes(k) && !newParams[k]) return;
     integration.params[k] = newParams[k];
@@ -154,6 +159,7 @@ export async function runFreeFormQuery(
   error?: string;
   sql?: string;
   limit?: number;
+  columns?: QueryResponseColumnData[];
 }> {
   if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
     throw new Error("Permission denied");
@@ -172,13 +178,34 @@ export async function runFreeFormQuery(
 
   const sql = integration.getFreeFormQuery(query, limit);
   try {
-    const { results, duration } = await integration.runTestQuery(sql, [
+    const { results, duration, columns } = await integration.runTestQuery(sql, [
       "timestamp",
     ]);
+
+    // Build a type map from SQL engine metadata
+    const typeMap = new Map<string, FactTableColumnType>();
+    columns?.forEach((col) => {
+      if (col.dataType !== undefined && col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    });
+
+    // Enhance with inferred types from actual data
+    const detectedColumns = determineColumnTypes(results, typeMap);
+    detectedColumns.forEach((col) => {
+      typeMap.set(col.column, col.datatype);
+    });
+
+    // Build final columns array
+    const finalColumns: QueryResponseColumnData[] = Array.from(
+      typeMap.entries(),
+    ).map(([name, dataType]) => ({ name, dataType }));
+
     return {
       results,
       duration,
       sql,
+      columns: finalColumns,
     };
   } catch (e) {
     return {
@@ -233,6 +260,48 @@ export async function runUserExposureQuery(
       error: e.message,
       sql,
     };
+  }
+}
+
+export async function runFeatureEvalDiagnosticsQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  feature: string,
+): Promise<{
+  rows?: FeatureEvalDiagnosticsQueryResponseRows;
+  statistics?: QueryStatistics;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunFeatureDiagnosticsQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support feature usage queries
+  if (
+    !integration.getFeatureEvalDiagnosticsQuery ||
+    !integration.runFeatureEvalDiagnosticsQuery
+  ) {
+    throw new Error(
+      "Datasource does not support feature evaluation diagnostics queries.",
+    );
+  }
+
+  const sql = integration.getFeatureEvalDiagnosticsQuery({
+    feature,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runFeatureEvalDiagnosticsQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    throw new SQLExecutionError(e.message, sql);
   }
 }
 
@@ -305,10 +374,23 @@ export async function testQueryValidity(
   const sql = integration.getTestValidityQuery(query.query, testDays);
   try {
     const results = await integration.runTestQuery(sql);
-    if (results.results.length === 0) {
-      return "No rows returned";
+
+    let columns: Set<string>;
+
+    // For datasources where the result includes columns, use column metadata
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
+      if (columnNames.length === 0) {
+        return "Unable to determine columns from query";
+      }
+      columns = new Set(columnNames);
+    } else {
+      // For other datasources, extract from first row (requires LIMIT 1+)
+      if (results.results.length === 0) {
+        return "No rows returned";
+      }
+      columns = new Set(Object.keys(results.results[0]));
     }
-    const columns = new Set(Object.keys(results.results[0]));
 
     const missingColumns: string[] = [];
     for (const col of requiredColumns) {

@@ -1,10 +1,11 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { getSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
@@ -13,7 +14,6 @@ import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
-import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
 import Callout from "@/ui/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
@@ -78,7 +78,7 @@ export default function BanditSummaryResultsTab({
 
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
-  const users = experiment.variations.map(
+  const users = getLatestPhaseVariations(experiment).map(
     (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);
@@ -95,12 +95,6 @@ export default function BanditSummaryResultsTab({
     <>
       <div className="d-flex mt-2 mb-3 align-items-end">
         <h3 className="mb-0">Bandit Leaderboard</h3>
-        <div className="flex-1" />
-        {!isPublic && (
-          <div style={{ marginBottom: -5 }}>
-            <PhaseSelector phase={phase} setPhase={setPhase} isBandit={true} />
-          </div>
-        )}
       </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
@@ -146,6 +140,7 @@ export default function BanditSummaryResultsTab({
             <MultipleExposureWarning
               totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
+              experiment={experiment}
             />
           </Flex>
         )}
@@ -155,11 +150,7 @@ export default function BanditSummaryResultsTab({
             <div className="d-flex mx-3 align-items-center">
               <div className="h4 mb-0">
                 {metric
-                  ? getRenderLabelColumn({
-                      statsEngine: "bayesian",
-                      hideDetails: isPublic,
-                      className: "",
-                    })({
+                  ? getRenderLabelColumn({})({
                       label: metric.name,
                       metric,
                     })

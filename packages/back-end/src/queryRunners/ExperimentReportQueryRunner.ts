@@ -1,16 +1,16 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
 import {
   ExperimentQueryMetadata,
   Queries,
   QueryStatus,
-} from "back-end/types/query";
+} from "shared/types/query";
 import {
   ExperimentReportInterface,
   ExperimentReportResults,
-} from "back-end/types/report";
+} from "shared/types/report";
+import { MetricGroupInterface } from "shared/types/metric-groups";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";

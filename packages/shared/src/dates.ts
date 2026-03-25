@@ -7,6 +7,12 @@ import formatRelative from "date-fns/formatRelative";
 import previousMonday from "date-fns/previousMonday";
 import { formatInTimeZone } from "date-fns-tz";
 
+export function dateNoYear(date: string | Date): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const isCurrentYear = d.getFullYear() === new Date().getFullYear();
+  return format(d, isCurrentYear ? "MMM d" : "MMM d, yyyy");
+}
 export function date(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);
@@ -99,4 +105,14 @@ export function getValidDateOffsetByUTC(
 ): Date {
   const date = getValidDate(...params);
   return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+}
+
+// returns an abbreviated version of the "ago" string.
+// ex: "about 5 minutes ago" -> "5 min ago"
+export function abbreviateAgo(date: string | Date | null | undefined): string {
+  return ago(date ?? "")
+    .replace("about ", "")
+    .replace("less than a", "<1")
+    .replace(/second(s)?/g, "sec$1")
+    .replace(/minute(s)?/g, "min$1");
 }

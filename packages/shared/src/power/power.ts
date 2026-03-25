@@ -1,6 +1,6 @@
 import normal from "@stdlib/stats/base/dists/normal";
-import { OrganizationSettings } from "back-end/types/organization";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import { OrganizationSettings } from "shared/types/organization";
+import { MetricPriorSettings } from "shared/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants";
 
 export interface MetricParamsBase {
@@ -264,7 +264,12 @@ export const isValidPowerCalculationParams = (
         ...(params.type === "binomial" ? binomialParams : []),
         ...(params.type === "mean" ? meanParams : []),
       ] as const
-    ).every((k) => validEntry(k, params[k]));
+    ).every((k) =>
+      validEntry(
+        k,
+        (params as unknown as Record<string, number | boolean | undefined>)[k],
+      ),
+    );
   });
 
 export const ensureAndReturnPowerCalculationParams = (

@@ -1,4 +1,4 @@
-import { DataSourceType } from "back-end/types/datasource";
+import { DataSourceType } from "shared/types/datasource";
 import { format } from "shared/sql";
 import { FormatDialect } from "shared/types/sql";
 
@@ -14,11 +14,11 @@ function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
     bigquery: "bigquery",
     postgres: "postgresql",
     mssql: "tsql",
-    clickhouse: "",
-    growthbook_clickhouse: "",
+    clickhouse: "clickhouse",
+    growthbook_clickhouse: "clickhouse",
     athena: "trino",
     presto: "trino",
-    databricks: "sql",
+    databricks: "spark",
     vertica: "postgresql",
     mixpanel: "",
     google_analytics: "",

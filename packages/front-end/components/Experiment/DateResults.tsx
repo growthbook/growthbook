@@ -2,7 +2,7 @@ import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-} from "back-end/types/report";
+} from "shared/types/report";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
   expandMetricGroups,
@@ -12,7 +12,7 @@ import {
   quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
-import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -343,7 +343,7 @@ const DateResults: FC<{
         <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
-          variationNames={variations.map((v) => v.name)}
+          variations={variations}
           label="Units"
           datapoints={users}
           formatter={formatNumber}
@@ -391,7 +391,7 @@ const DateResults: FC<{
                     )
               }
               formatterOptions={metricFormatterOptions}
-              variationNames={variations.map((v) => v.name)}
+              variations={variations}
               statsEngine={statsEngine}
               hasStats={!cumulative}
             />

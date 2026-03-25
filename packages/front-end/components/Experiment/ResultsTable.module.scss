@@ -1,10 +1,26 @@
+.clickableRow {
+  cursor: pointer;
+  transition:
+    box-shadow 0.1s ease-in-out,
+    border-radius 0.1s ease-in-out;
+
+  &:hover {
+    box-shadow: var(--shadow-3);
+
+    // Removes a default border from the last row of the table when hovering
+    > :global(tr:last-of-type:not(.slice-expanded):not(.slice-expanded)) {
+      box-shadow: none;
+    }
+  }
+}
+
 .timeSeriesCell {
   padding: 0;
   padding-bottom: 0.75rem;
   box-shadow:
     rgba(102, 102, 102, 0.01) 0 1px inset,
     rgba(102, 102, 102, 0.01) 0 -1px inset,
-    0 6px 6px -6px var(--slate-a3) inset;
+    0 1px 1px -1px var(--slate-a3) inset;
 }
 
 .expandAnimation {

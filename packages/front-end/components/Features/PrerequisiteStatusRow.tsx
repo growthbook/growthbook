@@ -1,146 +1,230 @@
-import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
-import { FaExclamationCircle } from "react-icons/fa";
+import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
+import { FaExclamationCircle, FaQuestion } from "react-icons/fa";
+import { Environment } from "shared/types/organization";
+import React, { useMemo, useState, type ReactElement } from "react";
 import {
-  evaluatePrerequisiteState,
-  PrerequisiteStateResult,
-} from "shared/util";
-import { Environment } from "back-end/types/organization";
-import React, { useMemo } from "react";
-import {
+  FaCircleCheck,
+  FaCircleQuestion,
+  FaCircleXmark,
   FaRegCircleCheck,
   FaRegCircleQuestion,
   FaRegCircleXmark,
 } from "react-icons/fa6";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Modal from "@/components/Modal";
+import Text from "@/ui/Text";
+import {
+  PrerequisiteStateResult,
+  usePrerequisiteStates,
+} from "@/hooks/usePrerequisiteStates";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
+import { featureStatusColors } from "./FeaturesOverview";
 
 interface Props {
   i: number;
   prerequisite: FeaturePrerequisite;
   feature: FeatureInterface;
-  features: FeatureInterface[];
-  parentFeature?: FeatureInterface;
+  prereqDefaultValue?: string;
   environments: Environment[];
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
+  setVersion: (version: number) => void;
   setPrerequisiteModal: (prerequisite: { i: number }) => void;
+  revisionList: MinimalFeatureRevisionInterface[];
+  gatedEnvSet: Set<string> | "all" | "none";
+  isLocked?: boolean;
+  labelWidth?: number;
+  colWidth?: number;
 }
 
 export default function PrerequisiteStatusRow({
   i,
   prerequisite,
   feature,
-  features,
-  parentFeature,
+  prereqDefaultValue,
   environments,
   mutate,
+  setVersion,
   setPrerequisiteModal,
+  revisionList,
+  gatedEnvSet,
+  isLocked = false,
+  labelWidth = 200,
+  colWidth = 120,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
   const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
   const { apiCall } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const latestActiveDraft = useMemo(
+    () =>
+      revisionList
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [revisionList],
+  );
+  const [deleteMode, setDeleteMode] = useState<DraftMode>(
+    latestActiveDraft != null ? "existing" : "new",
+  );
+  const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<number | null>(
+    latestActiveDraft?.version ?? null,
+  );
 
   const envs = environments.map((e) => e.id);
-  const envsStr = JSON.stringify(envs);
 
-  const prereqStatesAndDefaults = useMemo(
-    () => {
-      if (!parentFeature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      const defaultValues: Record<string, string> = {};
-      const featuresMap = new Map(features.map((f) => [f.id, f]));
-      envs.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          parentFeature,
-          featuresMap,
-          env,
+  // Fetch prerequisite states from backend with JIT feature loading
+  // Note: We don't check !!parentFeature because the backend will JIT load cross-project prerequisites
+  const { states: prereqStates, loading: prereqStatesLoading } =
+    usePrerequisiteStates({
+      featureId: prerequisite.id,
+      environments: envs,
+      enabled: !!prerequisite.id,
+    });
+
+  const defaultValues: Record<string, string> | undefined =
+    prereqDefaultValue !== undefined
+      ? Object.fromEntries(envs.map((env) => [env, prereqDefaultValue]))
+      : undefined;
+
+  const deleteModal = showDeleteModal && (
+    <Modal
+      trackingEventModalType="delete-prerequisite"
+      header="Delete Prerequisite"
+      size="lg"
+      open={true}
+      close={() => setShowDeleteModal(false)}
+      cta="Delete"
+      submit={async () => {
+        setShowDeleteModal(false);
+        track("Delete Prerequisite", { prerequisiteIndex: i });
+        const draftBody =
+          deleteMode === "existing"
+            ? { targetDraftVersion: deleteSelectedDraft }
+            : { forceNewDraft: true };
+        const res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/prerequisite`,
+          {
+            method: "DELETE",
+            body: JSON.stringify({ i, ...draftBody }),
+          },
         );
-        defaultValues[env] = parentFeature.defaultValue;
-      });
-      return { states, defaultValues };
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentFeature, features, envsStr],
+        await mutate();
+        const resolvedVersion =
+          res?.version ??
+          (deleteMode === "existing" ? deleteSelectedDraft : null);
+        if (resolvedVersion != null) setVersion(resolvedVersion);
+      }}
+    >
+      <Box style={{ minHeight: 300 }}>
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={deleteMode}
+          setMode={setDeleteMode}
+          selectedDraft={deleteSelectedDraft}
+          setSelectedDraft={setDeleteSelectedDraft}
+          canAutoPublish={false}
+          gatedEnvSet={gatedEnvSet}
+        />
+        <p>Are you sure you want to delete this prerequisite?</p>
+      </Box>
+    </Modal>
+  );
+
+  const menu = canEdit && !isLocked && (
+    <DropdownMenu
+      trigger={
+        <IconButton
+          variant="ghost"
+          color="gray"
+          radius="full"
+          size="2"
+          highContrast
+          style={{ marginRight: 0 }}
+        >
+          <BsThreeDotsVertical size={18} />
+        </IconButton>
+      }
+      open={open}
+      onOpenChange={setOpen}
+      menuPlacement="end"
+      variant="soft"
+    >
+      <DropdownMenuGroup>
+        <DropdownMenuItem
+          onClick={() => {
+            setPrerequisiteModal({ i });
+            setOpen(false);
+          }}
+        >
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          color="red"
+          onClick={() => {
+            setOpen(false);
+            setShowDeleteModal(true);
+          }}
+        >
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+    </DropdownMenu>
   );
 
   return (
-    <tr>
-      <td className="align-middle pl-3 border-right">
-        <div className="d-flex">
-          <div className="d-flex flex-1 align-items-center mr-2">
-            {parentFeature?.id ? (
-              <>
-                <span className="uppercase-title text-muted mr-2">Prereq</span>
-                <a
-                  className="d-flex align-items-center"
-                  href={`/features/${parentFeature.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span
-                    className="d-inline-block text-ellipsis"
-                    style={{ maxWidth: 240 }}
-                  >
-                    {parentFeature.id}
-                  </span>
-                </a>
-              </>
-            ) : (
-              <>
-                Invalid parent feature (<code>{prerequisite.id}</code>)
-              </>
-            )}
-          </div>
-          <div>
-            {canEdit && (
-              <MoreMenu>
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPrerequisiteModal({ i });
-                  }}
-                >
-                  Edit
-                </a>
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="Rule"
-                  useIcon={false}
-                  text="Delete"
-                  onClick={async () => {
-                    track("Delete Prerequisite", {
-                      prerequisiteIndex: i,
-                    });
-                    await apiCall<{ version: number }>(
-                      `/feature/${feature.id}/prerequisite`,
-                      {
-                        method: "DELETE",
-                        body: JSON.stringify({ i }),
-                      },
-                    );
-                    mutate();
-                  }}
-                />
-              </MoreMenu>
-            )}
-          </div>
-        </div>
-      </td>
-      {envs.length > 0 && (
-        <PrerequisiteStatesCols
-          prereqStates={prereqStatesAndDefaults?.states}
-          defaultValues={prereqStatesAndDefaults?.defaultValues}
-          envs={envs}
-        />
-      )}
-      <td />
-    </tr>
+    <>
+      {deleteModal}
+      <Flex align="center" style={{ borderTop: "1px solid var(--gray-4)" }}>
+        <Box style={{ width: labelWidth, flexShrink: 0, minWidth: 0 }} py="2">
+          <Flex align="center" gap="1">
+            <a
+              href={`/features/${prerequisite.id}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {prerequisite.id}
+            </a>
+            <Box style={{ flexShrink: 0 }}>{menu}</Box>
+          </Flex>
+        </Box>
+        {envs.length > 0 && (
+          <PrerequisiteStatesCols
+            prereqStates={prereqStates ?? undefined}
+            defaultValues={defaultValues}
+            envs={envs}
+            loading={prereqStatesLoading}
+            colWidth={colWidth}
+          />
+        )}
+      </Flex>
+    </>
   );
 }
 
@@ -149,44 +233,73 @@ export function PrerequisiteStatesCols({
   defaultValues, // "true" | "false" defaultValues will override the UI for the "live" state
   envs,
   isSummaryRow = false,
+  loading = false,
+  tooltipBodyWrapper,
+  colWidth = 120,
 }: {
   prereqStates?: Record<string, PrerequisiteStateResult>;
   defaultValues?: Record<string, string>;
   envs: string[];
   isSummaryRow?: boolean;
+  loading?: boolean;
+  /** When set (e.g. from Features overview), appended after each tooltip body. */
+  tooltipBodyWrapper?: (body: ReactElement) => ReactElement;
+  colWidth?: number;
 }) {
   const featureLabel = isSummaryRow
     ? "The current feature"
     : "This prerequisite";
+
+  const wrapTooltipBody = tooltipBodyWrapper ?? ((body: ReactElement) => body);
+
   return (
     <>
-      {envs.map((env) => (
-        <td key={env} className="text-center">
-          {prereqStates?.[env]?.state === "deterministic" &&
-            prereqStates?.[env]?.value !== null && (
+      {envs.map((env) => {
+        const content = (
+          <>
+            {loading && (
               <Tooltip
-                className="cursor-pointer"
-                popperClassName="text-left"
+                flipTheme={false}
                 body={
-                  <>
-                    <div>
+                  <Text size="small" color="text-high">
+                    Loading prerequisite state...
+                  </Text>
+                }
+              >
+                <LoadingSpinner />
+              </Tooltip>
+            )}
+            {!loading &&
+              prereqStates?.[env]?.state === "deterministic" &&
+              prereqStates?.[env]?.value !== null && (
+                <Tooltip
+                  popperClassName="text-left"
+                  flipTheme={false}
+                  body={wrapTooltipBody(
+                    <Text as="div" size="small" color="text-high">
                       {defaultValues?.[env] === undefined && (
                         <>
                           {featureLabel} is{" "}
-                          <span className="text-success font-weight-bold">
+                          <strong style={{ color: featureStatusColors.on }}>
                             live
-                          </span>{" "}
+                          </strong>{" "}
                           in this environment.
                         </>
                       )}
                       {defaultValues?.[env] === "true" && (
                         <>
                           {featureLabel} is{" "}
-                          <span className="text-success font-weight-bold">
+                          <strong style={{ color: featureStatusColors.on }}>
                             live
-                          </span>{" "}
+                          </strong>{" "}
                           and currently serving{" "}
-                          <span className="rounded px-1 bg-light">
+                          <span
+                            style={{
+                              borderRadius: "var(--radius-2)",
+                              padding: "0 var(--space-1)",
+                              backgroundColor: "var(--gray-a3)",
+                            }}
+                          >
                             <ValueDisplay value={"true"} type="boolean" />
                           </span>{" "}
                           in this environment.
@@ -195,35 +308,58 @@ export function PrerequisiteStatesCols({
                       {defaultValues?.[env] === "false" && (
                         <>
                           {featureLabel} is currently serving{" "}
-                          <span className="rounded px-1 bg-light">
+                          <span
+                            style={{
+                              borderRadius: "var(--radius-2)",
+                              padding: "0 var(--space-1)",
+                              backgroundColor: "var(--gray-a3)",
+                            }}
+                          >
                             <ValueDisplay value={"false"} type="boolean" />
                           </span>{" "}
                           in this environment.
                         </>
                       )}
-                    </div>
-                  </>
-                }
-              >
-                {defaultValues?.[env] === "false" ? (
-                  <FaRegCircleXmark className="text-muted" size={20} />
-                ) : (
-                  <FaRegCircleCheck className="text-success" size={20} />
-                )}
-              </Tooltip>
-            )}
-          {prereqStates?.[env]?.state === "deterministic" &&
-            prereqStates?.[env]?.value === null && (
-              <Tooltip
-                className="cursor-pointer"
-                popperClassName="text-left"
-                body={
-                  <>
-                    <div>
+                    </Text>,
+                  )}
+                >
+                  {defaultValues?.[env] === "false" ? (
+                    isSummaryRow ? (
+                      <FaCircleXmark
+                        size={20}
+                        style={{ color: featureStatusColors.offMuted }}
+                      />
+                    ) : (
+                      <FaRegCircleXmark
+                        size={20}
+                        style={{ color: featureStatusColors.offMuted }}
+                      />
+                    )
+                  ) : isSummaryRow ? (
+                    <FaCircleCheck
+                      size={20}
+                      style={{ color: featureStatusColors.on }}
+                    />
+                  ) : (
+                    <FaRegCircleCheck
+                      size={20}
+                      style={{ color: featureStatusColors.on }}
+                    />
+                  )}
+                </Tooltip>
+              )}
+            {!loading &&
+              prereqStates?.[env]?.state === "deterministic" &&
+              prereqStates?.[env]?.value === null && (
+                <Tooltip
+                  popperClassName="text-left"
+                  flipTheme={false}
+                  body={wrapTooltipBody(
+                    <Text as="div" size="small" color="text-high">
                       {featureLabel} is{" "}
-                      <span className="text-gray font-weight-bold">
+                      <strong style={{ color: featureStatusColors.off }}>
                         not live
-                      </span>{" "}
+                      </strong>{" "}
                       in this environment.
                       {isSummaryRow && (
                         <>
@@ -231,54 +367,106 @@ export function PrerequisiteStatesCols({
                           It will evaluate to <code>null</code>.
                         </>
                       )}
-                    </div>
-                  </>
-                }
+                    </Text>,
+                  )}
+                >
+                  {isSummaryRow ? (
+                    <FaCircleXmark
+                      size={20}
+                      style={{ color: featureStatusColors.offMuted }}
+                    />
+                  ) : (
+                    <FaRegCircleXmark
+                      size={20}
+                      style={{ color: featureStatusColors.offMuted }}
+                    />
+                  )}
+                </Tooltip>
+              )}
+            {!loading && prereqStates?.[env]?.state === "conditional" && (
+              <Tooltip
+                popperClassName="text-left"
+                flipTheme={false}
+                body={wrapTooltipBody(
+                  isSummaryRow ? (
+                    <Text as="div" size="small" color="text-high">
+                      {featureLabel} is in a{" "}
+                      <strong style={{ color: featureStatusColors.warning }}>
+                        Schrödinger state
+                      </strong>{" "}
+                      in this environment. We can&apos;t know whether it is live
+                      or not until its prerequisites are evaluated at runtime in
+                      the SDK. It may evaluate to <code>null</code> at runtime.
+                    </Text>
+                  ) : (
+                    <Text as="div" size="small" color="text-high">
+                      {featureLabel} is in a{" "}
+                      <strong style={{ color: featureStatusColors.warning }}>
+                        Schrödinger state
+                      </strong>{" "}
+                      in this environment. We can&apos;t know its value until it
+                      is evaluated at runtime in the SDK.
+                    </Text>
+                  ),
+                )}
               >
-                <FaRegCircleXmark className="text-muted" size={20} />
+                {isSummaryRow ? (
+                  <FaCircleQuestion
+                    size={20}
+                    style={{ color: featureStatusColors.warning }}
+                  />
+                ) : (
+                  <FaRegCircleQuestion
+                    size={20}
+                    style={{ color: featureStatusColors.warning }}
+                  />
+                )}
               </Tooltip>
             )}
-          {prereqStates?.[env]?.state === "conditional" && (
-            <Tooltip
-              className="cursor-pointer"
-              popperClassName="text-left"
-              body={
-                isSummaryRow ? (
-                  <>
-                    {featureLabel} is in a{" "}
-                    <span className="text-warning-orange font-weight-bold">
-                      Schrödinger state
-                    </span>{" "}
-                    in this environment. We can&apos;t know whether it is live
-                    or not until its prerequisites are evaluated at runtime in
-                    the SDK. It may evaluate to <code>null</code> at runtime.
-                  </>
-                ) : (
-                  <>
-                    {featureLabel} is in a{" "}
-                    <span className="text-warning-orange font-weight-bold">
-                      Schrödinger state
-                    </span>{" "}
-                    in this environment. We can&apos;t know its value until it
-                    is evaluated at runtime in the SDK.
-                  </>
-                )
-              }
-            >
-              <FaRegCircleQuestion className="text-warning-orange" size={20} />
-            </Tooltip>
-          )}
-          {prereqStates?.[env]?.state === "cyclic" && (
-            <Tooltip
-              className="cursor-pointer"
-              popperClassName="text-left"
-              body={<div>Circular dependency detected. Please fix.</div>}
-            >
-              <FaExclamationCircle className="text-danger" size={20} />
-            </Tooltip>
-          )}
-        </td>
-      ))}
+            {!loading && prereqStates?.[env]?.state === "cyclic" && (
+              <Tooltip
+                popperClassName="text-left"
+                flipTheme={false}
+                body={wrapTooltipBody(
+                  <Text as="div" size="small" color="text-high">
+                    Circular dependency detected. Please fix.
+                  </Text>,
+                )}
+              >
+                <FaExclamationCircle
+                  size={20}
+                  style={{ color: featureStatusColors.danger }}
+                />
+              </Tooltip>
+            )}
+            {/* No state data is available */}
+            {!loading && !prereqStates?.[env] && (
+              <Tooltip
+                popperClassName="text-left"
+                flipTheme={false}
+                body={wrapTooltipBody(
+                  <Text as="div" size="small" color="text-high">
+                    Unable to determine prerequisite state.
+                  </Text>,
+                )}
+              >
+                <FaQuestion
+                  size={20}
+                  style={{ color: featureStatusColors.offMuted }}
+                />
+              </Tooltip>
+            )}
+          </>
+        );
+
+        return (
+          <Box key={env} style={{ width: colWidth, flexShrink: 0 }}>
+            <Flex justify="center" align="center" py="2">
+              {content}
+            </Flex>
+          </Box>
+        );
+      })}
     </>
   );
 }

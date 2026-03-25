@@ -1,6 +1,6 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
-import { HoldoutInterface } from "back-end/src/validators/holdout";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { isEqual } from "lodash";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -16,7 +16,7 @@ import { FocusSelector } from "./EditExperimentInfoModal";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout: HoldoutInterface;
+  holdout: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
   focusSelector?: FocusSelector;
@@ -74,7 +74,6 @@ export default function EditHoldoutInfoModal({
         required
       />
       <SelectOwner
-        resourceType="experiment"
         value={form.watch("owner")}
         onChange={(v) => form.setValue("owner", v)}
       />

@@ -1,16 +1,11 @@
-import {
-  AutoExperiment,
-  FeatureDefinition as SDKFeatureDefinition,
-  FeatureMetadata,
-  ExperimentMetadata,
-} from "@growthbook/growthbook";
 import { AuditInterfaceInput } from "shared/types/audit";
-import { EventUser } from "back-end/types/events/event-types";
+import { EventUser } from "shared/types/events/event-types";
+import { ExperimentStatus } from "shared/types/experiment";
+import { OrganizationInterface } from "shared/types/organization";
+import { FeatureDefinition } from "shared/types/sdk";
+import { UserInterface } from "shared/types/user";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
-import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface } from "./organization";
 import { ReqContext } from "./request";
-import { UserInterface } from "./user";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -21,25 +16,7 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export type { FeatureMetadata, ExperimentMetadata };
-
-// make defaultValue required for API contract
-export type FeatureDefinition = Omit<SDKFeatureDefinition, "defaultValue"> & {
-  // eslint-disable-next-line
-  defaultValue: any;
-};
-
-export type FeatureDefinitionWithProject = FeatureDefinition & {
-  project?: string;
-};
-
-export type FeatureDefinitionWithProjects = FeatureDefinition & {
-  projects?: string[];
-};
-
-export type AutoExperimentWithProject = AutoExperiment & {
-  project?: string;
-};
+export type { FeatureDefinition };
 
 export interface ExperimentOverridesResponse {
   status: 200;

@@ -10,6 +10,7 @@ import type {
   FeatureApiResponse,
   FeatureDefinition,
   FeatureResult,
+  FeatureUsageCallback,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
   RenderFunction,
@@ -892,7 +893,7 @@ export class GrowthBook<
    * @deprecated Use {@link evalFeature}
    * @param id
    */
-  // eslint-disable-next-line
+
   public feature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
@@ -950,6 +951,10 @@ export class GrowthBook<
   public setTrackingCallback(callback: TrackingCallback) {
     this._options.trackingCallback = callback;
     this.fireDeferredTrackingCalls();
+  }
+
+  public setFeatureUsageCallback(callback: FeatureUsageCallback) {
+    this._options.onFeatureUsage = callback;
   }
 
   public setEventLogger(logger: EventLogger) {

@@ -2,7 +2,7 @@ import { Flex, Box, Heading } from "@radix-ui/themes";
 import {
   GrowthbookClickhouseDataSourceWithParams,
   MaterializedColumn,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import { useMemo, useState } from "react";
 import { FaPlus } from "react-icons/fa";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -19,7 +19,7 @@ import Table, {
 } from "@/ui/Table";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import AddEditMaterializedColumnsModal from "./AddEditMaterializedColumnsModal";
 
 type ClickhouseMaterializedColumnsProps = Omit<

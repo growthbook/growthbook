@@ -2,7 +2,7 @@ import type {
   DataSourceType,
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
-} from "back-end/types/datasource";
+} from "shared/types/datasource";
 import type { PipelineIntegration } from "shared/types/integrations";
 
 export type PipelineValidationResult = {

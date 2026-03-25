@@ -1,38 +1,36 @@
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
   snapshotSatisfiesBlock,
+  DashboardInterface,
+  DashboardBlockInterface,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
+import {
+  createExperimentSnapshot,
+  createExperimentSnapshotFromPlan,
+  planExperimentSnapshot,
+} from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  deleteSnapshotById,
-  findSnapshotsByIds,
-} from "back-end/src/models/ExperimentSnapshotModel";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   updateDashboardMetricAnalyses,
+  updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
-import { ExperimentInterface } from "back-end/types/experiment";
-import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
 import {
   generateDashboardBlockIds,
   migrateBlock,
@@ -54,11 +52,9 @@ export async function getAllDashboards(
 ) {
   const context = getContextFromReq(req);
 
-  const dashboards = await context.models.dashboards.getAll(
-    stringToBoolean(req.query.includeExperimentDashboards)
-      ? {}
-      : { experimentId: null },
-  );
+  const dashboards = stringToBoolean(req.query.includeExperimentDashboards)
+    ? await context.models.dashboards.getAll()
+    : await context.models.dashboards.getAllNonExperimentDashboards();
   return res.status(200).json({ status: 200, dashboards });
 }
 
@@ -107,23 +103,11 @@ export async function createDashboard(
     userId,
   } = req.body;
 
-  if (experimentId) {
-    if (updateSchedule) {
-      throw new Error(
-        "Cannot specify an update schedule for experiment dashboards",
-      );
-    }
-  } else {
-    if (enableAutoUpdates && !updateSchedule) {
-      throw new Error("Must define an update schedule to enable auto updates");
-    }
-  }
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
   );
 
   const dashboard = await context.models.dashboards.create({
-    uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
     isDefault: false,
     isDeleted: false,
     userId: userId || context.userId,
@@ -201,7 +185,6 @@ export async function refreshDashboardData(
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new Error("Cannot find dashboard");
   if (dashboard.experimentId) {
-    // MKTODO: Validate this change doesn't have any unintended consequences
     const experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
@@ -209,19 +192,18 @@ export async function refreshDashboardData(
     const datasource = await getDataSourceById(context, experiment.datasource);
     if (!datasource) throw new Error("Failed to find connected datasource");
 
-    const { snapshot: mainSnapshot, queryRunner } =
-      await createExperimentSnapshot({
-        context,
-        experiment,
-        dimension: undefined,
-        datasource,
-        phase: experiment.phases.length - 1,
-        useCache: false,
-        triggeredBy: "manual-dashboard",
-        type: "standard",
-        preventStartingAnalysis: true,
-      });
+    const plannedExperimentMainSnapshot = await planExperimentSnapshot({
+      context,
+      experiment,
+      dimension: undefined,
+      datasource,
+      phase: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual-dashboard",
+      type: "standard",
+    });
 
+    const mainSnapshot = plannedExperimentMainSnapshot.snapshot;
     let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
@@ -232,21 +214,11 @@ export async function refreshDashboardData(
       return { ...block, snapshotId: mainSnapshot.id };
     });
     if (mainSnapshotUsed) {
-      await queryRunner.startAnalysis({
-        snapshotType: "standard",
-        snapshotSettings: mainSnapshot.settings,
-        variationNames: experiment.variations.map((v) => v.name),
-        metricMap: await getMetricMap(context),
-        queryParentId: mainSnapshot.id,
-        experimentId: experiment.id,
-        factTableMap: await getFactTableMap(context),
-        experimentQueryMetadata:
-          getAdditionalQueryMetadataForExperiment(experiment),
-        fullRefresh: false,
-        incrementalRefreshStartTime: new Date(),
+      await createExperimentSnapshotFromPlan({
+        plan: plannedExperimentMainSnapshot,
+        context,
+        experiment,
       });
-    } else {
-      await deleteSnapshotById(context.org.id, mainSnapshot.id);
     }
 
     const dimensionBlockPairs = dashboard.blocks
@@ -291,6 +263,7 @@ export async function refreshDashboardData(
 
     await updateDashboardMetricAnalyses(context, newBlocks);
     await updateDashboardSavedQueries(context, newBlocks);
+    await updateDashboardExplorations(context, newBlocks);
 
     // Bypassing permissions here to allow anyone to refresh the results of a dashboard
     await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
@@ -309,6 +282,7 @@ export async function getDashboardSnapshots(
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
+    explorations: ProductAnalyticsExploration[];
   }>,
 ) {
   const context = getContextFromReq(req);
@@ -362,7 +336,42 @@ export async function getDashboardSnapshots(
         .map((block) => block.metricAnalysisId),
     ),
   ]);
-  return res
-    .status(200)
-    .json({ status: 200, snapshots, savedQueries, metricAnalyses });
+
+  const explorerAnalysisIds = [
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block,
+          ): block is DashboardBlockInterface & {
+            explorerAnalysisId: string;
+          } =>
+            (block.type === "metric-exploration" ||
+              block.type === "fact-table-exploration" ||
+              block.type === "data-source-exploration") &&
+            "explorerAnalysisId" in block &&
+            typeof (block as { explorerAnalysisId?: string })
+              .explorerAnalysisId === "string" &&
+            (block as { explorerAnalysisId: string }).explorerAnalysisId
+              .length > 0,
+        )
+        .map((block) => block.explorerAnalysisId),
+    ),
+  ];
+  const explorations: ProductAnalyticsExploration[] =
+    explorerAnalysisIds.length > 0
+      ? (
+          await context.models.analyticsExplorations.getByIds(
+            explorerAnalysisIds,
+          )
+        ).filter((e): e is ProductAnalyticsExploration => e != null)
+      : [];
+
+  return res.status(200).json({
+    status: 200,
+    snapshots,
+    savedQueries,
+    metricAnalyses,
+    explorations,
+  });
 }

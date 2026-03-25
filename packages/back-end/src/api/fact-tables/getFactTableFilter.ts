@@ -1,10 +1,10 @@
-import { GetFactTableFilterResponse } from "back-end/types/openapi";
+import { GetFactTableFilterResponse } from "shared/types/openapi";
+import { getFactTableFilterValidator } from "shared/validators";
 import {
   getFactTable,
   toFactTableFilterApiInterface,
 } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFactTableFilterValidator } from "back-end/src/validators/openapi";
 
 export const getFactTableFilter = createApiRequestHandler(
   getFactTableFilterValidator,

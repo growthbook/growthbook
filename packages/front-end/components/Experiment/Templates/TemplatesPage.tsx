@@ -1,6 +1,6 @@
 import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
-import { ExperimentTemplateInterface } from "back-end/types/experiment";
+import { ExperimentTemplateInterface } from "shared/types/experiment";
 import React, { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";

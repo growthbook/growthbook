@@ -1,11 +1,11 @@
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+} from "shared/enterprise";
 import { Flex, Text } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { BLOCK_TYPE_INFO } from "..";
+import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 
 interface BlockErrorStateProps {
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;

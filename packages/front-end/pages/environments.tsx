@@ -1,22 +1,25 @@
 import { useState, FC, useMemo } from "react";
-import { Environment } from "back-end/types/organization";
+import { Environment } from "shared/types/organization";
 import { isProjectListValidForProject } from "shared/util";
-import { BsXCircle } from "react-icons/bs";
-import { BiHide, BiShow } from "react-icons/bi";
+import { BiShow } from "react-icons/bi";
 import { ImBlocked } from "react-icons/im";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import OldButton from "@/components/Button";
+import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
+import EnvironmentConnectionsList from "@/components/Settings/EnvironmentConnectionsList";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -38,7 +41,9 @@ const EnvironmentsPage: FC = () => {
     return map;
   }, [sdkConnectionData]);
 
-  const [showConnections, setShowConnections] = useState<number | null>(null);
+  const [showConnectionsModal, setShowConnectionsModal] = useState<
+    number | null
+  >(null);
 
   const { refreshOrganization } = useUser();
   // const permissions = usePermissions();
@@ -64,6 +69,30 @@ const EnvironmentsPage: FC = () => {
           }}
         />
       )}
+      {showConnectionsModal !== null &&
+        filteredEnvironments[showConnectionsModal] && (
+          <Modal
+            header={`'${filteredEnvironments[showConnectionsModal].id}' SDK Connections`}
+            trackingEventModalType="show-environment-connections"
+            close={() => setShowConnectionsModal(null)}
+            open={true}
+            useRadixButton={true}
+            closeCta="Close"
+          >
+            <Text as="p" mb="3">
+              The following SDK connections use this environment.
+            </Text>
+            <EnvironmentConnectionsList
+              connections={(sdkConnectionData?.connections ?? []).filter((c) =>
+                (
+                  sdkConnectionsMap?.[
+                    filteredEnvironments[showConnectionsModal].id
+                  ] || []
+                ).includes(c.id),
+              )}
+            />
+          </Modal>
+        )}
       <div className="row align-items-center mb-1">
         <div className="col-auto">
           <h1 className="mb-0">Environments</h1>
@@ -97,9 +126,6 @@ const EnvironmentsPage: FC = () => {
               const canEdit = permissionsUtil.canUpdateEnvironment(e, {});
               const canDelete = permissionsUtil.canDeleteEnvironment(e);
               const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
-              const sdkConnections = (
-                sdkConnectionData?.connections ?? []
-              ).filter((c) => sdkConnectionIds.includes(c.id));
               const numConnections = sdkConnectionIds.length;
               return (
                 <tr key={e.id}>
@@ -116,75 +142,26 @@ const EnvironmentsPage: FC = () => {
                     )}
                   </td>
                   <td>
-                    <Tooltip
-                      tipPosition="bottom"
-                      state={showConnections === i}
-                      popperStyle={{ marginLeft: 50 }}
-                      flipTheme={false}
-                      ignoreMouseEvents={true}
-                      body={
-                        <div
-                          className="pl-3 pr-0 py-2"
-                          style={{ minWidth: 250, maxWidth: 350 }}
-                        >
-                          <a
-                            role="button"
-                            style={{ top: 3, right: 5 }}
-                            className="position-absolute text-gray cursor-pointer"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setShowConnections(null);
-                            }}
-                          >
-                            <BsXCircle size={16} />
-                          </a>
-                          <div className="mt-1 text-muted font-weight-bold">
-                            SDK Connections using this environment
-                          </div>
-                          <div
-                            className="mt-2"
-                            style={{ maxHeight: 300, overflowY: "auto" }}
-                          >
-                            <ul className="pl-3 mb-0">
-                              {sdkConnections.map((c, i) => (
-                                <li
-                                  key={i}
-                                  className="my-1"
-                                  style={{ maxWidth: 320 }}
-                                >
-                                  <a href={`/sdks/${c.id}`}>{c.name}</a>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      }
-                    >
-                      <></>
-                    </Tooltip>
                     {numConnections > 0 ? (
-                      <>
-                        <a
-                          role="button"
-                          className="link-purple nowrap"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setShowConnections(
-                              showConnections !== i ? i : null,
-                            );
+                      <Link
+                        onClick={() => setShowConnectionsModal(i)}
+                        className="nowrap"
+                      >
+                        <BiShow /> {numConnections} connection
+                        {numConnections === 1 ? "" : "s"}
+                      </Link>
+                    ) : (
+                      <Tooltip body="No SDK connections use this environment.">
+                        <span
+                          className="nowrap"
+                          style={{
+                            color: "var(--gray-10)",
+                            cursor: "not-allowed",
                           }}
                         >
-                          {numConnections} connection
-                          {numConnections !== 1 && "s"}
-                          {showConnections === i ? (
-                            <BiHide className="ml-2" />
-                          ) : (
-                            <BiShow className="ml-2" />
-                          )}
-                        </a>
-                      </>
-                    ) : (
-                      <span className="font-italic text-muted">None</span>
+                          <BiShow /> 0 connections
+                        </span>
+                      </Tooltip>
                     )}
                   </td>
                   <td>{e.defaultState === false ? "off" : "on"}</td>

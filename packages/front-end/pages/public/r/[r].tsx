@@ -1,10 +1,10 @@
 import {
   ExperimentSnapshotReportInterface,
   ExperimentReportSSRData,
-} from "back-end/types/report";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+} from "shared/types/report";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import { date } from "shared/dates";
 import PageHead from "@/components/Layout/PageHead";
@@ -121,6 +121,7 @@ export default function ReportPage(props: ReportPageProps) {
             report={report}
             experiment={experiment ?? undefined}
             showPrivateLink={isOrgMember}
+            isPublic={true}
           />
           <ReportResults
             report={report}

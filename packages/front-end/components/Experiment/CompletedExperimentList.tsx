@@ -4,9 +4,9 @@ import { BsFlag } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
 import React, { useState } from "react";
-import { isFactMetricId } from "shared/experiments";
+import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import EmptyState from "@/components/EmptyState";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -42,7 +42,7 @@ const CompletedExperimentList = ({
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
-  const { getUserDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
 
   return (
@@ -75,18 +75,19 @@ const CompletedExperimentList = ({
             const winningVariationIndex =
               result === "lost" ? 0 : result === "won" ? (e.winner ?? 1) : null;
 
+            const variations = getAllVariations(e);
             const winningVariation =
               winningVariationIndex !== null
-                ? e.variations[winningVariationIndex]
+                ? variations[winningVariationIndex]
                 : null;
 
             const releasedVariationId = e.releasedVariationId || "";
-            const releasedVariationIndex = e.variations.findIndex(
+            const releasedVariationIndex = variations.findIndex(
               (v) => v.id === releasedVariationId,
             );
             const releasedVariation =
               releasedVariationIndex >= 0
-                ? e.variations[releasedVariationIndex]
+                ? variations[releasedVariationIndex]
                 : null;
 
             const variantImageToShow = winningVariation
@@ -212,7 +213,7 @@ const CompletedExperimentList = ({
                   >
                     <VariationBox
                       i={variantImageToShow || 0}
-                      v={e.variations[variantImageToShow || 0]}
+                      v={variations[variantImageToShow || 0]}
                       experiment={e}
                       showDescription={false}
                       showIds={false}
@@ -264,7 +265,7 @@ const CompletedExperimentList = ({
                           <Box>
                             <Text weight="medium">Owner:</Text>
                           </Box>
-                          <Box>{getUserDisplay(e.owner, false) || ""}</Box>
+                          <Box>{getOwnerDisplay(e.owner) || "None"}</Box>
                         </Flex>
                         <Flex gap="2" align="center">
                           <Box>

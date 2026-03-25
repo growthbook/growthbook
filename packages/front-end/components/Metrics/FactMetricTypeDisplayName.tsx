@@ -1,4 +1,4 @@
-import { FactMetricType } from "back-end/types/fact-table";
+import { FactMetricType } from "shared/types/fact-table";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function FactMetricTypeDisplayName({

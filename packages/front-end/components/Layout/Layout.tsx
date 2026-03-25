@@ -2,8 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { BsFlag, BsCodeSlash, BsHouse, BsSearch } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -17,7 +16,6 @@ import {
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { AppFeatures } from "@/types/app-features";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
@@ -58,13 +56,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/bandits",
         //Icon: GBBandit,
         path: /^bandit/,
-        filter: ({ gb }) => !!gb?.isOn("bandits"),
       },
       {
         name: "Holdouts",
         href: "/holdouts",
         path: /^holdouts/,
-        filter: ({ gb }) => !!gb?.isOn("holdouts_feature"),
       },
       {
         name: "Templates",
@@ -90,15 +86,27 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Product Analytics",
-    href: "/product-analytics/dashboards",
-    path: /^(product-analytics\/dashboards)/,
+    href: "/product-analytics/explore",
+    path: /^(product-analytics|sql-explorer)/,
     Icon: GBProductAnalytics,
-    filter: ({ gb }) => !!gb?.isOn("general-dashboards"),
+    subLinks: [
+      {
+        name: "Explore",
+        href: "/product-analytics/explore",
+        path: /^product-analytics\/explore(\/|$)/,
+        beta: true,
+      },
+      {
+        name: "Dashboards",
+        href: "/product-analytics/dashboards",
+        path: /^product-analytics\/dashboards/,
+      },
+    ],
   },
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
@@ -127,12 +135,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Data Sources",
         href: "/datasources",
         path: /^datasources/,
-      },
-      {
-        name: "SQL Explorer",
-        href: "/sql-explorer",
-        path: /^sql-explorer/,
-        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
   },
@@ -178,32 +180,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^presentation/,
       },
     ],
-    filter: ({ gb }) => !!gb?.isOn("insights"),
-  },
-  {
-    name: "Management",
-    href: "/dashboard",
-    Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "Dashboard",
-        href: "/dashboard",
-        path: /^dashboard/,
-      },
-      {
-        name: "Ideas",
-        href: "/ideas",
-        path: /^idea/,
-      },
-      {
-        name: "Presentations",
-        href: "/presentations",
-        path: /^presentation/,
-      },
-    ],
-    filter: ({ gb }) => !gb?.isOn("insights"),
   },
   {
     name: "SDK Configuration",
@@ -309,9 +285,8 @@ const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("slack-integration"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageIntegrations(),
       },
       {
         name: "GitHub",
@@ -325,23 +300,20 @@ const navlinks: SidebarLinkProps[] = [
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
-        filter: ({ permissionsUtils, gb }) =>
+        filter: ({ permissionsUtils }) =>
           permissionsUtils.canViewFeatureModal() &&
           permissionsUtils.canCreateEnvironment({
             projects: [],
             id: "",
           }) &&
-          permissionsUtils.canCreateProjects() &&
-          !!gb?.isOn("import-from-x"),
+          permissionsUtils.canCreateProjects(),
       },
       {
         name: "Usage",
         href: "/settings/usage",
         path: /^settings\/usage/,
-        filter: ({ permissionsUtils, isCloud, gb }) =>
-          permissionsUtils.canViewUsage() &&
-          isCloud &&
-          !!gb?.isOn("cdn-usage-data"),
+        filter: ({ permissionsUtils, isCloud }) =>
+          permissionsUtils.canViewUsage() && isCloud,
       },
       {
         name: "Custom Hooks",
@@ -424,11 +396,6 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  // holdout aa-test, dogfooding
-  growthbook?.isOn("aa-test-holdout");
-
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -578,6 +545,23 @@ const Layout = (): React.ReactElement => {
                       />
                     </svg>
                   </a>
+                </li>
+                <li>
+                  <button
+                    className={styles.searchTrigger}
+                    onClick={() => {
+                      document.dispatchEvent(new Event("open-command-palette"));
+                    }}
+                  >
+                    <BsSearch size={13} />
+                    <span className={styles.searchTriggerLabel}>Search</span>
+                    <span className={styles.searchTriggerKbd}>
+                      {typeof navigator !== "undefined" &&
+                      /Mac|iPhone|iPad/.test(navigator.userAgent)
+                        ? "\u2318 K"
+                        : "Ctrl+K"}
+                    </span>
+                  </button>
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v, i) => (

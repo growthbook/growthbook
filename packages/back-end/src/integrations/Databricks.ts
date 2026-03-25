@@ -1,7 +1,7 @@
 import { databricksCreateTableOptions } from "shared/enterprise";
 import { FormatDialect } from "shared/types/sql";
 import { QueryResponse, DataType } from "shared/types/integrations";
-import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import SqlIntegration from "./SqlIntegration";
@@ -29,8 +29,7 @@ export default class Databricks extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
-    return "sql";
+    return "spark";
   }
   getSensitiveParamKeys(): string[] {
     const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];

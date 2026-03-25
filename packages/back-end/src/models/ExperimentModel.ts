@@ -3,7 +3,10 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { generateTrackingKey } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
@@ -13,7 +16,10 @@ import {
   ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "back-end/types/experiment";
+} from "shared/types/experiment";
+import { FeatureInterface } from "shared/types/feature";
+import { DiffResult } from "shared/types/events/diff";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
 import {
   determineNextDate,
@@ -22,13 +28,12 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
-  refreshSDKPayloadCache,
+  queueSDKPayloadRefresh,
   URLRedirectExperiment,
   VisualExperiment,
   shouldRefreshForMetadataChanges,
 } from "back-end/src/services/features";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
@@ -45,8 +50,7 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
-import { DiffResult } from "back-end/types/events/diff";
+} from "back-end/src/enterprise/services/ai";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -140,6 +144,14 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
+  lookbackOverride: {
+    type: { type: String, enum: ["date", "window"] },
+    value: mongoose.Schema.Types.Mixed, // Date for "date" type, Number for "window" type
+    valueUnit: {
+      type: String,
+      enum: ["minutes", "hours", "days", "weeks"],
+    },
+  },
   decisionFrameworkSettings: {
     decisionCriteriaId: String,
     decisionFrameworkMetricOverrides: [
@@ -253,6 +265,7 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
+  postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
@@ -275,6 +288,8 @@ const experimentSchema = new mongoose.Schema({
   banditScheduleUnit: String,
   banditBurnInValue: Number,
   banditBurnInUnit: String,
+  banditConversionWindowValue: Number,
+  banditConversionWindowUnit: String,
   customFields: {},
   templateId: String,
   shareLevel: String,
@@ -314,7 +329,6 @@ const experimentSchema = new mongoose.Schema({
   dismissedWarnings: [String],
   holdoutId: String,
   defaultDashboardId: String,
-  pinnedMetricSlices: [String],
   customMetricSlices: [
     {
       _id: false,
@@ -557,6 +571,17 @@ export async function createExperiment({
   return experiment;
 }
 
+export function hasActualChanges(
+  experiment: ExperimentInterface,
+  changes: Partial<ExperimentInterface>,
+) {
+  const changeKeys = Object.keys(changes).filter(
+    (key) => key !== "dateUpdated",
+  ) as Array<keyof ExperimentInterface>;
+
+  return changeKeys.some((key) => !isEqual(experiment[key], changes[key]));
+}
+
 export async function updateExperiment({
   context,
   experiment,
@@ -568,12 +593,15 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
-  // TODO: are there some changes where we don't want to update the dateUpdated?
+  // If no actual changes, return the experiment as-is
+  if (!hasActualChanges(experiment, changes)) {
+    return experiment;
+  }
+
   const allChanges = {
     ...changes,
+    dateUpdated: new Date(),
   };
-  allChanges.dateUpdated = new Date();
-
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
@@ -589,7 +617,6 @@ export async function updateExperiment({
 
   const updated = { ...experiment, ...allChanges };
 
-  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -772,6 +799,71 @@ export async function getExperimentsUsingMetric({
     },
     // hard cap at 1000 to prevent too many results
     limit !== undefined ? limit : 1000,
+    { _id: -1 },
+  );
+
+  return experiments;
+}
+
+/**
+ * Batch version of getExperimentsUsingMetric that efficiently fetches experiments
+ * for multiple metrics in a single query.
+ *
+ * Returns a flat array of experiments that use any of the given metrics
+ * (directly or via a metric group). The caller is responsible for filtering
+ * the results to determine which experiments use which buific metrics.
+ */
+export async function getExperimentsUsingMetrics({
+  context,
+  metricIds,
+  metricToGroupIds,
+  limit,
+}: {
+  context: ReqContext | ApiReqContext;
+  metricIds: string[];
+  // Map from metric ID to group IDs to search for metric usage
+  // by including usage via metric groups. If passed in empty,
+  // this query will ignore metric usage via metric groups.
+  metricToGroupIds: Map<string, string[]>;
+  limit?: number;
+}): Promise<ExperimentInterface[]> {
+  if (metricIds.length === 0) {
+    return [];
+  }
+
+  // Build the search criteria: for each metric, include the metric itself
+  // and any metric groups that contain it
+  const allSearchIds: string[] = [];
+  for (const metricId of metricIds) {
+    const groupIds = metricToGroupIds.get(metricId) || [];
+    allSearchIds.push(metricId, ...groupIds);
+  }
+
+  // Deduplicate search IDs
+  const uniqueSearchIds = [...new Set(allSearchIds)];
+
+  // Build the query
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    $or: [
+      { metrics: { $in: uniqueSearchIds } },
+      { goalMetrics: { $in: uniqueSearchIds } },
+      { guardrails: { $in: uniqueSearchIds } },
+      { guardrailMetrics: { $in: uniqueSearchIds } },
+      { secondaryMetrics: { $in: uniqueSearchIds } },
+      { activationMetric: { $in: uniqueSearchIds } },
+    ],
+    archived: {
+      $ne: true,
+    },
+  };
+
+  // Query all experiments that use any of these metrics/groups in a single query
+  const experiments = await findExperiments(
+    context,
+    query,
+    // hard cap at 10000 to prevent too many results
+    limit !== undefined ? limit : 10000,
     { _id: -1 },
   );
 
@@ -1526,17 +1618,14 @@ export async function generateExperimentEmbeddings(
   for (let i = 0; i < experimentsToGenerateEmbeddings.length; i += batchSize) {
     const batch = experimentsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((exp) => getTextForEmbedding(exp));
-    const embeddings = await generateEmbeddings({
-      context,
-      input,
-    });
+    const embeddings = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const exp = batch[j];
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j],
         });
       } catch (error) {
         throw new Error("Error updating embeddings");
@@ -1656,7 +1745,7 @@ const getExperimentChanges = (
 
   return {
     ...pick(experiment, importantKeys),
-    variations: experiment.variations.map((v) =>
+    variations: getLatestPhaseVariations(experiment).map((v) =>
       pick(v, ["id", "name", "key"]),
     ),
   };
@@ -1752,8 +1841,14 @@ const onExperimentUpdate = async ({
       isEqual,
     );
 
-    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
-      logger.error(e, "Error refreshing SDK payload cache");
+    queueSDKPayloadRefresh({
+      context,
+      payloadKeys,
+      auditContext: {
+        event: "updated",
+        model: "experiment",
+        id: newExperiment.id,
+      },
     });
   }
 
@@ -1777,8 +1872,14 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
-    logger.error(e, "Error refreshing SDK payload cache");
+  queueSDKPayloadRefresh({
+    context,
+    payloadKeys,
+    auditContext: {
+      event: "deleted",
+      model: "experiment",
+      id: experiment.id,
+    },
   });
 
   if (context.org.isVercelIntegration)
@@ -1787,3 +1888,16 @@ const onExperimentDelete = async (
       organization: context.org,
     });
 };
+
+export async function hasNonDemoExperiment(
+  context: ReqContext | ApiReqContext,
+) {
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
+  const exp = await getCollection(COLLECTION).findOne({
+    organization: context.org.id,
+    project: { $ne: demoProjectId },
+  });
+  return !!exp;
+}
