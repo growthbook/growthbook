@@ -3825,7 +3825,7 @@ export default abstract class SqlIntegration
       case "activation":
         return {
           value: this.ifElse(
-            `first_activation_timestamp IS NULL OR first_activation_timestamp > first_exposure_timestamp`,
+            `first_activation_timestamp IS NULL`,
             "'Not Activated'",
             "'Activated'",
           ),
