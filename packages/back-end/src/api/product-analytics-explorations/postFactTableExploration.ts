@@ -1,4 +1,7 @@
-import { PostFactTableExplorationResponse } from "shared/types/openapi";
+import {
+  ApiProductAnalyticsFactTableExploration,
+  PostFactTableExplorationResponse,
+} from "shared/types/openapi";
 import {
   factTableExplorationConfigValidator,
   explorationCacheQuerySchema,
@@ -7,7 +10,6 @@ import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
-import { toFactTableExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -34,7 +36,10 @@ export const postFactTableExploration = createApiRequestHandler({
   const query = queryId ? await getQueryById(req.context, queryId) : null;
 
   return {
-    exploration: toFactTableExplorationApiInterface(exploration),
+    exploration:
+      req.context.models.analyticsExplorations.toExplorationApiInterface(
+        exploration,
+      ) as ApiProductAnalyticsFactTableExploration,
     query: query ? toQueryApiInterface(query) : null,
   };
 });

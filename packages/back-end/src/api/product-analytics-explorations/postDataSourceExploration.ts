@@ -1,4 +1,7 @@
-import { PostDataSourceExplorationResponse } from "shared/types/openapi";
+import {
+  ApiProductAnalyticsDataSourceExploration,
+  PostDataSourceExplorationResponse,
+} from "shared/types/openapi";
 import {
   dataSourceExplorationConfigValidator,
   explorationCacheQuerySchema,
@@ -7,7 +10,6 @@ import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
-import { toDataSourceExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -34,7 +36,10 @@ export const postDataSourceExploration = createApiRequestHandler({
   const query = queryId ? await getQueryById(req.context, queryId) : null;
 
   return {
-    exploration: toDataSourceExplorationApiInterface(exploration),
+    exploration:
+      req.context.models.analyticsExplorations.toExplorationApiInterface(
+        exploration,
+      ) as ApiProductAnalyticsDataSourceExploration,
     query: query ? toQueryApiInterface(query) : null,
   };
 });

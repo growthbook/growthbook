@@ -1,4 +1,7 @@
-import { PostMetricExplorationResponse } from "shared/types/openapi";
+import {
+  ApiProductAnalyticsMetricExploration,
+  PostMetricExplorationResponse,
+} from "shared/types/openapi";
 import {
   metricExplorationConfigValidator,
   explorationCacheQuerySchema,
@@ -7,7 +10,6 @@ import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
-import { toMetricExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -34,7 +36,10 @@ export const postMetricExploration = createApiRequestHandler({
   const query = queryId ? await getQueryById(req.context, queryId) : null;
 
   return {
-    exploration: toMetricExplorationApiInterface(exploration),
+    exploration:
+      req.context.models.analyticsExplorations.toExplorationApiInterface(
+        exploration,
+      ) as ApiProductAnalyticsMetricExploration,
     query: query ? toQueryApiInterface(query) : null,
   };
 });
