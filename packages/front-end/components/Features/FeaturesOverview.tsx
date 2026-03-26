@@ -477,7 +477,7 @@ export default function FeaturesOverview({
     }
 
     requireReviews = checkIfRevisionNeedsReview({
-      feature,
+      feature: baseFeature,
       baseRevision: effectiveBase,
       revision: effectiveRevision,
       allEnvironments: environments.map((e) => e.id),
