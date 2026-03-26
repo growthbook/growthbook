@@ -2,13 +2,16 @@ import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-  apiCustomFieldInterface,
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
   ApiCustomField,
 } from "shared/validators";
 import { ApiRequest } from "back-end/src/util/handler";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  customFieldApiSpec,
+  listCustomFieldsEndpoint,
+} from "back-end/src/api/specs/custom-field.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -24,28 +27,10 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: false,
   apiConfig: {
     modelKey: "customFields",
-    modelSingular: "customField",
-    modelPlural: "customFields",
-    apiInterface: apiCustomFieldInterface,
-    schemas: {
-      createBody: apiCreateCustomFieldBody,
-      updateBody: apiUpdateCustomFieldBody,
-    },
-    pathBase: "/custom-fields",
-    includeDefaultCrud: false,
-    crudActions: ["create", "delete", "get", "update"],
+    openApiSpec: customFieldApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "",
-        verb: "get",
-        operationId: "listCustomFields",
-        validator: {
-          bodySchema: z.never(),
-          querySchema: z.strictObject({ projectId: z.string().optional() }),
-          paramsSchema: z.never(),
-        },
-        zodReturnObject: z.array(apiCustomFieldInterface),
-        summary: "Get all custom fields",
+        ...listCustomFieldsEndpoint,
         reqHandler: async (req): Promise<ApiCustomField[]> => {
           const projectId = req.query.projectId;
           const fields = projectId
@@ -87,7 +72,8 @@ export class CustomFieldModel extends BaseClass {
 
   /**
    * JIT readonly migration: normalize projects so [""] from legacy data
-   * is never returned. Does not persist.
+   * is never returned, and default section to "feature" for legacy fields
+   * that predate the section field. Does not persist.
    */
   protected migrate(legacyDoc: unknown): z.infer<typeof customFieldsValidator> {
     const doc = legacyDoc as z.infer<typeof customFieldsValidator>;
@@ -95,6 +81,7 @@ export class CustomFieldModel extends BaseClass {
       ...doc,
       fields: doc.fields.map((f) => ({
         ...f,
+        section: f.section ?? "feature",
         projects: (f.projects ?? []).filter((p) => p !== ""),
       })),
     };

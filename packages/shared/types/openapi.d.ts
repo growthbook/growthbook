@@ -24,13 +24,28 @@ export interface paths {
   "/features/{id}": {
     /** Get a single feature */
     get: operations["getFeature"];
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["updateFeature"];
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["toggleFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -40,7 +55,12 @@ export interface paths {
     };
   };
   "/features/{id}/revert": {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["revertFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -402,6 +422,20 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/custom-fields": {
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
+    /** Create a single customField */
+    post: operations["createCustomField"];
+  };
+  "/custom-fields/{id}": {
+    /** Get a single customField */
+    get: operations["getCustomField"];
+    /** Update a single customField */
+    put: operations["updateCustomField"];
+    /** Delete a single customField */
+    delete: operations["deleteCustomField"];
+  };
   "/dashboards/{id}": {
     /** Get a single dashboard */
     get: operations["getDashboard"];
@@ -420,19 +454,9 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
-  "/custom-fields": {
-    /** Get all custom fields */
-    get: operations["listCustomFields"];
-    /** Create a single customField */
-    post: operations["createCustomField"];
-  };
-  "/custom-fields/{id}": {
-    /** Get a single customField */
-    get: operations["getCustomField"];
-    /** Update a single customField */
-    put: operations["updateCustomField"];
-    /** Delete a single customField */
-    delete: operations["deleteCustomField"];
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -470,16 +494,33 @@ export interface paths {
     /** Delete a single team */
     delete: operations["deleteTeam"];
   };
-  "/experiment-templates": {
-    /** Get all experimentTemplates */
-    get: operations["listExperimentTemplates"];
-  };
 }
 
 export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    CustomField: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      placeholder?: string;
+      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      /** @enum {string} */
+      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+      values?: string;
+      required: boolean;
+      index?: boolean;
+      creator?: string;
+      projects?: (string)[];
+      /** @enum {string} */
+      section: "feature" | "experiment";
+      active?: boolean;
+    };
     Dashboard: {
       id: string;
       uid: string;
@@ -873,70 +914,6 @@ export interface components {
           };
         }))[];
     };
-    CustomField: {
-      id: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      name: string;
-      description?: string;
-      placeholder?: string;
-      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-      /** @enum {string} */
-      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-      values?: string;
-      required: boolean;
-      index?: boolean;
-      creator?: string;
-      projects?: (string)[];
-      /** @enum {string} */
-      section: "feature" | "experiment";
-      active?: boolean;
-    };
-    MetricGroup: {
-      id: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      owner: string;
-      name: string;
-      description: string;
-      tags: (string)[];
-      projects: (string)[];
-      metrics: (string)[];
-      datasource: string;
-      archived: boolean;
-    };
-    Team: {
-      id: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      name: string;
-      createdBy: string;
-      description: string;
-      role: string;
-      limitAccessByEnvironment: boolean;
-      environments: (string)[];
-      projectRoles?: ({
-          role: string;
-          limitAccessByEnvironment: boolean;
-          environments: (string)[];
-          teams?: (string)[];
-          project: string;
-        })[];
-      members: readonly (string)[];
-      managedByIdp: boolean;
-      managedBy?: {
-        /** @constant */
-        type: "vercel";
-        resourceId: string;
-      };
-      defaultProject?: string;
-    };
     ExperimentTemplate: {
       id: string;
       /** Format: date-time */
@@ -989,6 +966,49 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+    };
+    MetricGroup: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      owner: string;
+      name: string;
+      description: string;
+      tags: (string)[];
+      projects: (string)[];
+      metrics: (string)[];
+      datasource: string;
+      archived: boolean;
+    };
+    Team: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      createdBy: string;
+      description: string;
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: (string)[];
+      projectRoles?: ({
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+          teams?: (string)[];
+          project: string;
+        })[];
+      members: readonly (string)[];
+      managedByIdp: boolean;
+      managedBy?: {
+        /** @constant */
+        type: "vercel";
+        resourceId: string;
+      };
+      defaultProject?: string;
     };
     PaginationFields: {
       limit: number;
@@ -1644,6 +1664,12 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     };
     FeatureWithRevisions: ({
       id: string;
@@ -2094,6 +2120,12 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -2104,6 +2136,8 @@ export interface components {
           status: string;
           createdBy?: string;
           publishedBy?: string;
+          /** @description The default value at the time this revision was created */
+          defaultValue?: string;
           rules: {
             [key: string]: ((({
                 description: string;
@@ -2312,6 +2346,47 @@ export interface components {
           };
           definitions?: {
             [key: string]: string | undefined;
+          };
+          /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+          environmentsEnabled?: {
+            [key: string]: boolean | undefined;
+          };
+          /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          envPrerequisites?: {
+            [key: string]: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[] | undefined;
+          };
+          /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+          metadata?: {
+            description?: string;
+            owner?: string;
+            project?: string;
+            tags?: (string)[];
+            neverStale?: boolean;
+            valueType?: string;
+            jsonSchema?: {
+              /** @enum {string} */
+              schemaType?: "schema" | "simple";
+              schema?: string;
+              simple?: {
+                [key: string]: unknown | undefined;
+              };
+              /** Format: date-time */
+              date?: string;
+              enabled?: boolean;
+            };
+            customFields?: {
+              [key: string]: unknown | undefined;
+            };
           };
         })[];
     });
@@ -3171,6 +3246,8 @@ export interface components {
       status: string;
       createdBy?: string;
       publishedBy?: string;
+      /** @description The default value at the time this revision was created */
+      defaultValue?: string;
       rules: {
         [key: string]: ((({
             description: string;
@@ -3380,6 +3457,47 @@ export interface components {
       definitions?: {
         [key: string]: string | undefined;
       };
+      /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+      environmentsEnabled?: {
+        [key: string]: boolean | undefined;
+      };
+      /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      envPrerequisites?: {
+        [key: string]: ({
+            /** @description Feature ID */
+            id: string;
+            condition: string;
+          })[] | undefined;
+      };
+      /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+      metadata?: {
+        description?: string;
+        owner?: string;
+        project?: string;
+        tags?: (string)[];
+        neverStale?: boolean;
+        valueType?: string;
+        jsonSchema?: {
+          /** @enum {string} */
+          schemaType?: "schema" | "simple";
+          schema?: string;
+          simple?: {
+            [key: string]: unknown | undefined;
+          };
+          /** Format: date-time */
+          date?: string;
+          enabled?: boolean;
+        };
+        customFields?: {
+          [key: string]: unknown | undefined;
+        };
+      };
     };
     SdkConnection: {
       id: string;
@@ -3579,6 +3697,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -3976,6 +4095,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -4471,12 +4591,17 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
+      /** @enum {string} */
+      featureKillSwitchBehavior?: "off" | "warn";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
+          featureRequireEnvironmentReview?: boolean;
+          featureRequireMetadataReview?: boolean;
         })[];
+      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -5044,6 +5169,12 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                holdout?: {
+                  /** @description Holdout ID */
+                  id: string;
+                  /** @description The feature value assigned to users in the holdout treatment group */
+                  value: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -5925,6 +6056,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -6396,6 +6533,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -6406,6 +6549,8 @@ export interface operations {
                   status: string;
                   createdBy?: string;
                   publishedBy?: string;
+                  /** @description The default value at the time this revision was created */
+                  defaultValue?: string;
                   rules: {
                     [key: string]: ((({
                         description: string;
@@ -6615,6 +6760,47 @@ export interface operations {
                   definitions?: {
                     [key: string]: string | undefined;
                   };
+                  /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                  environmentsEnabled?: {
+                    [key: string]: boolean | undefined;
+                  };
+                  /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  envPrerequisites?: {
+                    [key: string]: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[] | undefined;
+                  };
+                  /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                  metadata?: {
+                    description?: string;
+                    owner?: string;
+                    project?: string;
+                    tags?: (string)[];
+                    neverStale?: boolean;
+                    valueType?: string;
+                    jsonSchema?: {
+                      /** @enum {string} */
+                      schemaType?: "schema" | "simple";
+                      schema?: string;
+                      simple?: {
+                        [key: string]: unknown | undefined;
+                      };
+                      /** Format: date-time */
+                      date?: string;
+                      enabled?: boolean;
+                    };
+                    customFields?: {
+                      [key: string]: unknown | undefined;
+                    };
+                  };
                 })[];
             });
           };
@@ -6623,7 +6809,12 @@ export interface operations {
     };
   };
   updateFeature: {
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7030,6 +7221,13 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
+          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
+          holdout?: {
+            /** @description Holdout ID */
+            id: string;
+            /** @description The feature value assigned to users in the holdout treatment group */
+            value: string;
+          } | null;
         };
       };
     };
@@ -7486,6 +7684,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7493,7 +7697,12 @@ export interface operations {
     };
   };
   deleteFeature: {
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7515,7 +7724,12 @@ export interface operations {
     };
   };
   toggleFeature: {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -7979,6 +8193,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7986,7 +8206,12 @@ export interface operations {
     };
   };
   revertFeature: {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -8448,6 +8673,12 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -8481,6 +8712,8 @@ export interface operations {
                 status: string;
                 createdBy?: string;
                 publishedBy?: string;
+                /** @description The default value at the time this revision was created */
+                defaultValue?: string;
                 rules: {
                   [key: string]: ((({
                       description: string;
@@ -8689,6 +8922,47 @@ export interface operations {
                 };
                 definitions?: {
                   [key: string]: string | undefined;
+                };
+                /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                environmentsEnabled?: {
+                  [key: string]: boolean | undefined;
+                };
+                /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                envPrerequisites?: {
+                  [key: string]: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[] | undefined;
+                };
+                /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                metadata?: {
+                  description?: string;
+                  owner?: string;
+                  project?: string;
+                  tags?: (string)[];
+                  neverStale?: boolean;
+                  valueType?: string;
+                  jsonSchema?: {
+                    /** @enum {string} */
+                    schemaType?: "schema" | "simple";
+                    schema?: string;
+                    simple?: {
+                      [key: string]: unknown | undefined;
+                    };
+                    /** Format: date-time */
+                    date?: string;
+                    enabled?: boolean;
+                  };
+                  customFields?: {
+                    [key: string]: unknown | undefined;
+                  };
                 };
               })[];
           }) & {
@@ -9989,6 +10263,7 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                templateId?: string;
               })[];
           }) & {
             limit: number;
@@ -10007,10 +10282,10 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          /** @description ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided. */
           datasourceId?: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource */
-          assignmentQueryId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided. */
+          assignmentQueryId?: string;
           trackingKey: string;
           /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
           bypassDuplicateKeyCheck?: boolean;
@@ -10020,6 +10295,8 @@ export interface operations {
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields. */
+          templateId?: string;
           /** @description Hypothesis of the experiment */
           hypothesis?: string;
           /** @description Description of the experiment */
@@ -10319,6 +10596,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -10526,6 +10804,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -10871,6 +11150,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -12124,6 +12404,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -15164,12 +15445,17 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
+              /** @enum {string} */
+              featureKillSwitchBehavior?: "off" | "warn";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
+                  featureRequireEnvironmentReview?: boolean;
+                  featureRequireMetadataReview?: boolean;
                 })[];
+              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;
@@ -15183,6 +15469,216 @@ export interface operations {
               preferredEnvironment?: string | null;
               maxMetricSliceLevels?: number;
             };
+          };
+        };
+      };
+    };
+  };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            })[];
+        };
+      };
+    };
+  };
+  createCustomField: {
+    /** Create a single customField */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The unique key for the custom field */
+          id: string;
+          /** @description The display name of the custom field */
+          name: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getCustomField: {
+    /** Get a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateCustomField: {
+    /** Update a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the custom field */
+          name?: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required?: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section?: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteCustomField: {
+    /** Delete a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -17887,8 +18383,8 @@ export interface operations {
       };
     };
   };
-  listCustomFields: {
-    /** Get all custom fields */
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
     parameters: {
       query: {
         projectId?: string;
@@ -17897,201 +18393,60 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            })[];
-        };
-      };
-    };
-  };
-  createCustomField: {
-    /** Create a single customField */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The unique key for the custom field */
-          id: string;
-          /** @description The display name of the custom field */
-          name: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
           "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  getCustomField: {
-    /** Get a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  updateCustomField: {
-    /** Update a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The display name of the custom field */
-          name?: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required?: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section?: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  deleteCustomField: {
-    /** Delete a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
           };
         };
       };
@@ -18541,75 +18896,6 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
-          };
-        };
-      };
-    };
-  };
-  listExperimentTemplates: {
-    /** Get all experimentTemplates */
-    parameters: {
-      query: {
-        projectId?: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            experimentTemplates: ({
-                id: string;
-                /** Format: date-time */
-                dateCreated: string;
-                /** Format: date-time */
-                dateUpdated: string;
-                project?: string;
-                owner: string;
-                templateMetadata: {
-                  name: string;
-                  description?: string;
-                };
-                /** @enum {string} */
-                type: "standard";
-                hypothesis?: string;
-                description?: string;
-                tags?: (string)[];
-                customFields?: {
-                  [key: string]: string | undefined;
-                };
-                datasource: string;
-                exposureQueryId: string;
-                hashAttribute?: string;
-                fallbackAttribute?: string;
-                disableStickyBucketing?: boolean;
-                goalMetrics?: (string)[];
-                secondaryMetrics?: (string)[];
-                guardrailMetrics?: (string)[];
-                activationMetric?: string;
-                /** @enum {string} */
-                statsEngine: "bayesian" | "frequentist";
-                segment?: string;
-                skipPartialData?: boolean;
-                targeting: {
-                  coverage: number;
-                  savedGroups?: ({
-                      /** @enum {string} */
-                      match: "all" | "none" | "any";
-                      ids: (string)[];
-                    })[];
-                  prerequisites?: ({
-                      id: string;
-                      condition: string;
-                    })[];
-                  condition: string;
-                };
-                customMetricSlices?: ({
-                    slices: ({
-                        column: string;
-                        levels: (string)[];
-                      })[];
-                  })[];
-              })[];
           };
         };
       };
