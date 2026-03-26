@@ -3,101 +3,49 @@ import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
   PiPaperPlaneRight,
-  PiSparkle,
   PiCheckCircle,
   PiCircleNotch,
 } from "react-icons/pi";
-import {
-  ExplorationConfig,
-  ProductAnalyticsExploration,
-} from "shared/validators";
-import { useUser } from "@/services/UserContext";
-import { useAISettings } from "@/hooks/useOrgSettings";
+import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Markdown from "@/components/Markdown/Markdown";
+import { useUser } from "@/services/UserContext";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import {
   useAIChat,
+  type UseAIChatOptions,
   type ActiveTurnItem,
   type ChatMessage,
-  type SSEEvent,
 } from "@/enterprise/hooks/useAIChat";
-import { useExplorerContext } from "./ExplorerContext";
-import ExplorerChart from "./MainSection/ExplorerChart";
-import styles from "./ExplorerAIChat.module.scss";
+import styles from "./AIChat.module.scss";
 
 // ---------------------------------------------------------------------------
-// PA-specific types
+// Props
 // ---------------------------------------------------------------------------
 
-interface ChartData {
-  config: ExplorationConfig;
-  exploration: ProductAnalyticsExploration | null;
-}
-
-const TOOL_STATUS_LABELS: Record<string, string> = {
-  runExploration: "Running query...",
-  getSnapshot: "Inspecting data...",
-  searchMetrics: "Searching metrics...",
-  getCurrentConfig: "Reading current config...",
-  getConfigSchema: "Loading config schema...",
-};
-
-// ---------------------------------------------------------------------------
-// Chart render helper (shared between active items and finalized messages)
-// ---------------------------------------------------------------------------
-
-function renderChart(key: string, chartData: ChartData) {
-  return (
-    <Box key={key} className={styles.chartMessage}>
-      <Flex align="center" gap="2" mb="2">
-        <PiSparkle size={12} />
-        <Text size="small" weight="medium">
-          Generated chart
-        </Text>
-      </Flex>
-      <Box className={styles.chartMessageInner}>
-        <ExplorerChart
-          exploration={chartData.exploration}
-          error={null}
-          submittedExploreState={chartData.config}
-          loading={false}
-        />
-      </Box>
-    </Box>
-  );
+export interface AIChatProps extends UseAIChatOptions {
+  title?: string;
+  placeholder?: string;
+  emptyStateMessage?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export default function ExplorerAIChat() {
-  // Maps toolCallId → ChartData, populated from chart-result SSE events
-  const chartDataRef = useRef<Map<string, ChartData>>(new Map());
-
-  const { hasCommercialFeature } = useUser();
-  const { aiEnabled } = useAISettings();
-  const { draftExploreState } = useExplorerContext();
+export default function AIChat({
+  title = "AI Chat",
+  placeholder = "Ask a question...",
+  emptyStateMessage = "Ask a question and I'll help you find answers.",
+  ...hookOptions
+}: AIChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const { hasCommercialFeature } = useUser();
+  const { aiEnabled } = useAISettings();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
-
-  // Stash chart data keyed by toolCallId so the render helpers can find it
-  const handleSSEEvent = useCallback((event: SSEEvent) => {
-    if (event.type === "chart-result") {
-      const toolCallId = event.data.toolCallId;
-      if (typeof toolCallId === "string") {
-        chartDataRef.current.set(toolCallId, {
-          config: event.data.config as ExplorationConfig,
-          exploration:
-            (event.data.exploration as ProductAnalyticsExploration) ?? null,
-        });
-      }
-    }
-  }, []);
 
   const {
     messages,
@@ -110,23 +58,7 @@ export default function ExplorerAIChat() {
     error,
     input,
     setInput,
-  } = useAIChat({
-    endpoint: "/product-analytics/chat",
-    buildRequestBody: (message, cid) => ({
-      message,
-      conversationId: cid,
-      datasourceId: draftExploreState.datasource,
-    }),
-    toolStatusLabels: TOOL_STATUS_LABELS,
-    onSSEEvent: handleSSEEvent,
-    conversationStorageKey: `pa-chat-${draftExploreState.datasource ?? "default"}`,
-    getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
-  });
-
-  const handleNewChat = useCallback(() => {
-    chartDataRef.current = new Map();
-    newChat();
-  }, [newChat]);
+  } = useAIChat(hookOptions);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -146,10 +78,6 @@ export default function ExplorerAIChat() {
     [sendMessage],
   );
 
-  // ---------------------------------------------------------------------------
-  // Render helpers
-  // ---------------------------------------------------------------------------
-
   const renderActiveTurnItem = (item: ActiveTurnItem) => {
     if (item.kind === "text") {
       const displayedContent = displayedTextMap.get(item.id) ?? "";
@@ -160,13 +88,7 @@ export default function ExplorerAIChat() {
         </Box>
       );
     }
-
     if (item.kind === "tool-status") {
-      // If this tool produced a chart, render it instead of just a pill
-      const chartData = chartDataRef.current.get(item.toolCallId);
-      if (chartData && item.status === "done") {
-        return renderChart(item.toolCallId, chartData);
-      }
       return (
         <Box key={item.id} className={styles.assistantMessage}>
           <Flex align="center" gap="2">
@@ -184,7 +106,6 @@ export default function ExplorerAIChat() {
         </Box>
       );
     }
-
     if (item.kind === "thinking") {
       return (
         <Box key={item.id} className={styles.assistantMessage}>
@@ -199,29 +120,10 @@ export default function ExplorerAIChat() {
         </Box>
       );
     }
-
     return null;
   };
 
   const renderMessage = (msg: ChatMessage) => {
-    // If this tool-call produced a chart, render the chart
-    if (msg.kind === "tool-call" && msg.toolCallId) {
-      const chartData = chartDataRef.current.get(msg.toolCallId);
-      if (chartData) {
-        return renderChart(msg.toolCallId, chartData);
-      }
-      return (
-        <Box key={msg.id} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <PiCheckCircle size={12} color="var(--green-9)" />
-            <Text size="small" color="text-low">
-              {msg.toolLabel}
-            </Text>
-          </Flex>
-        </Box>
-      );
-    }
-
     if (msg.kind === "tool-call") {
       return (
         <Box key={msg.id} className={styles.assistantMessage}>
@@ -251,10 +153,6 @@ export default function ExplorerAIChat() {
     );
   };
 
-  // ---------------------------------------------------------------------------
-  // Gating
-  // ---------------------------------------------------------------------------
-
   if (!hasAISuggestions || !aiEnabled) {
     return (
       <Flex
@@ -277,10 +175,6 @@ export default function ExplorerAIChat() {
 
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-
   return (
     <Flex direction="column" className={styles.layout}>
       <Flex
@@ -293,10 +187,10 @@ export default function ExplorerAIChat() {
         <Flex align="center" gap="2">
           <BsStars size={14} />
           <Heading as="h2" size="small" weight="medium">
-            AI Chat
+            {title}
           </Heading>
         </Flex>
-        <Button variant="ghost" size="xs" onClick={handleNewChat}>
+        <Button variant="ghost" size="xs" onClick={newChat}>
           New chat
         </Button>
       </Flex>
@@ -318,8 +212,7 @@ export default function ExplorerAIChat() {
           >
             <BsStars size={24} color="var(--gray-a8)" />
             <Text size="small" color="text-low" align="center">
-              Ask about your data, and I&apos;ll answer with analysis plus
-              charts inline.
+              {emptyStateMessage}
             </Text>
           </Flex>
         )}
@@ -371,7 +264,7 @@ export default function ExplorerAIChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about your metrics..."
+          placeholder={placeholder}
           rows={2}
           disabled={loading}
         />

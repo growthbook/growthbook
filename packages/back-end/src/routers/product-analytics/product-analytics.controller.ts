@@ -9,30 +9,22 @@ import {
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import {
-  getContextFromReq,
-  getAISettingsForOrg,
-} from "back-end/src/services/organizations";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
-import {
-  streamingChatCompletion,
-  secondsUntilAICanBeUsedAgain,
-  aiTool,
-} from "back-end/src/enterprise/services/ai";
+import { aiTool } from "back-end/src/enterprise/services/ai";
 import {
   addSnapshot,
   getSnapshot,
   getSessionSnapshots,
 } from "back-end/src/enterprise/services/snapshot-store";
+import { getConversationStatus } from "back-end/src/enterprise/services/conversation-store";
 import {
-  getConversation,
-  appendMessages,
-} from "back-end/src/enterprise/services/conversation-store";
+  createAgentHandler,
+  type AgentConfig,
+} from "back-end/src/enterprise/services/agent-handler";
 
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
@@ -64,9 +56,9 @@ export const postProductAnalyticsRun = async (
   });
 };
 
-type FlushableResponse = Response & {
-  flush?: () => void;
-};
+// ---------------------------------------------------------------------------
+// Helper utilities (PA-specific, used in buildSystemPrompt and buildTools)
+// ---------------------------------------------------------------------------
 
 const METRICS_PREVIEW_COUNT = 5;
 
@@ -243,7 +235,6 @@ function buildResultCsv(
  * holds the full uncompacted messages.
  */
 function compactMessages(messages: ModelMessage[]): ModelMessage[] {
-  // Find the index of the last assistant message in the array
   let lastAssistantIdx = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === "assistant") {
@@ -253,14 +244,12 @@ function compactMessages(messages: ModelMessage[]): ModelMessage[] {
   }
 
   return messages.map((msg, idx) => {
-    // Leave the most recent assistant turn and everything after it untouched
     if (idx >= lastAssistantIdx) return msg;
 
     if (msg.role === "tool") {
       const compactedContent = msg.content.map((part) => {
         if (part.type !== "tool-result") return part;
 
-        // Extract snapshotId from runExploration results if available
         let snapshotHint = "";
         if (part.toolName === "runExploration") {
           try {
@@ -295,357 +284,272 @@ function compactMessages(messages: ModelMessage[]): ModelMessage[] {
   });
 }
 
-export const postChat = async (
-  req: AuthRequest<{
-    message: string;
-    sessionId: string;
-    datasourceId: string;
-  }>,
-  res: Response,
-) => {
-  const flushableRes = res as FlushableResponse;
-  const { message, sessionId, datasourceId } = req.body;
-  const context = getContextFromReq(req);
+// ---------------------------------------------------------------------------
+// Product analytics agent config
+// ---------------------------------------------------------------------------
 
-  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-    return res.status(403).json({
-      status: 403,
-      message: "Your plan does not support AI features.",
-    });
-  }
+interface PAParams {
+  datasourceId: string;
+}
 
-  const { aiEnabled } = getAISettingsForOrg(context);
-  if (!aiEnabled) {
-    return res.status(404).json({
-      status: 404,
-      message: "AI configuration not set or enabled",
-    });
-  }
+const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
+  promptType: "product-analytics-chat",
 
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-  if (secondsUntilReset > 0) {
-    return res.status(429).json({
-      status: 429,
-      message: "Over AI usage limits",
-      retryAfter: secondsUntilReset,
-    });
-  }
+  parseParams: (body) => ({
+    datasourceId: (body.datasourceId as string) ?? "",
+  }),
 
-  const allMetrics = await context.models.factMetrics.getAll();
-  const metrics = datasourceId
-    ? allMetrics.filter((m) => m.datasource === datasourceId)
-    : allMetrics;
+  buildSystemPrompt: async (ctx, { datasourceId }) => {
+    const allMetrics = await ctx.models.factMetrics.getAll();
+    const metrics = datasourceId
+      ? allMetrics.filter((m) => m.datasource === datasourceId)
+      : allMetrics;
+    const metricsPreview = buildMetricsPreview(metrics);
 
-  const metricsPreview = buildMetricsPreview(metrics);
+    return (
+      "You are an expert product analytics assistant for GrowthBook.\n" +
+      "You help users understand and work with their metrics and exploration configuration.\n\n" +
+      (datasourceId
+        ? `Datasource ID for this session: ${datasourceId}\n` +
+          "Always use this datasource ID in the config.datasource field when calling runExploration.\n\n"
+        : "") +
+      "Available metrics (sample):\n" +
+      metricsPreview +
+      "\n\n" +
+      buildConfigSchemaSummary() +
+      "\n\n" +
+      "Answer questions about metrics, the current configuration, and result data clearly and concisely.\n" +
+      "When discussing data, reference specific numbers from the results.\n" +
+      "When the user asks you to build or change a chart, use the runExploration tool with the full valid config.\n" +
+      "Chart mode vs time dimension: line, area, and timeseries-table charts are always timeseries — include a date dimension. " +
+      "Bar charts (bar, stackedBar, horizontalBar, stackedHorizontalBar), the plain table chart, and bigNumber are cumulative — do not use a date dimension. " +
+      "When switching between timeseries and cumulative chart types, add or remove the date dimension accordingly.\n" +
+      "When the user does not specify a chart style, default to chartType line for timeseries and chartType bar for cumulative.\n" +
+      "The runExploration tool will execute the query and automatically display the chart to the user — you do not need to embed config in your text response.\n" +
+      'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
+      "Use the getSnapshot tool whenever you need to analyze result data — including right after calling runExploration if the user wants insights or questions answered about the data.\n" +
+      "When selecting metrics, prefer using the searchMetrics tool instead of guessing metric IDs.\n" +
+      "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
+      "If asked about metrics that don't exist, let the user know.\n" +
+      "Keep responses brief and actionable."
+    );
+  },
 
-  // Load existing conversation history from the store
-  const history = getConversation(sessionId);
+  buildTools: (ctx, conversationId, { datasourceId }, emit) => {
+    let metricsCache: FactMetricInterface[] | null = null;
+    const getMetrics = async (): Promise<FactMetricInterface[]> => {
+      if (metricsCache) return metricsCache;
+      const all = await ctx.models.factMetrics.getAll();
+      metricsCache = datasourceId
+        ? all.filter((m) => m.datasource === datasourceId)
+        : all;
+      return metricsCache;
+    };
 
-  // Append the new user message
-  const userMessage: ModelMessage = {
-    role: "user",
-    content: message,
-  };
-  const fullMessages: ModelMessage[] = [...history, userMessage];
+    return {
+      searchMetrics: aiTool({
+        description:
+          "Search available metrics by name, description, owner, tags, or ID. " +
+          "Use this to discover the right metrics before editing config.",
+        inputSchema: z.object({
+          query: z
+            .string()
+            .min(1)
+            .describe("Search term, e.g. 'average order value'"),
+          limit: z.number().int().min(1).max(20).default(8),
+        }),
+        execute: async ({ query, limit }: { query: string; limit: number }) => {
+          const metrics = await getMetrics();
+          const q = query.trim().toLowerCase();
+          const scored = metrics
+            .map((m) => {
+              const haystack = [
+                m.id,
+                m.name,
+                m.description ?? "",
+                m.owner ?? "",
+                ...(m.tags ?? []),
+              ]
+                .join(" ")
+                .toLowerCase();
+              const exact =
+                m.name.toLowerCase() === q || m.id.toLowerCase() === q;
+              const includes = haystack.includes(q);
+              const score = exact ? 3 : includes ? 1 : 0;
+              return { metric: m, score };
+            })
+            .filter((x) => x.score > 0)
+            .sort(
+              (a, b) =>
+                b.score - a.score || a.metric.name.localeCompare(b.metric.name),
+            )
+            .slice(0, limit)
+            .map(({ metric }) => ({
+              id: metric.id,
+              name: metric.name,
+              type: metric.metricType,
+              description: metric.description ?? null,
+              owner: metric.owner ?? null,
+              tags: metric.tags ?? [],
+            }));
 
-  const { prompt: userAdditionalPrompt, overrideModel } =
-    await context.models.aiPrompts.getAIPrompt("product-analytics-chat");
-
-  const staticInstructions =
-    "You are an expert product analytics assistant for GrowthBook.\n" +
-    "You help users understand and work with their metrics and exploration configuration.\n\n" +
-    (datasourceId
-      ? `Datasource ID for this session: ${datasourceId}\n` +
-        "Always use this datasource ID in the config.datasource field when calling runExploration.\n\n"
-      : "") +
-    "Available metrics (sample):\n" +
-    metricsPreview +
-    "\n\n" +
-    buildConfigSchemaSummary() +
-    "\n\n" +
-    "Answer questions about metrics, the current configuration, and result data clearly and concisely.\n" +
-    "When discussing data, reference specific numbers from the results.\n" +
-    "When the user asks you to build or change a chart, use the runExploration tool with the full valid config.\n" +
-    "Chart mode vs time dimension: line, area, and timeseries-table charts are always timeseries — include a date dimension. " +
-    "Bar charts (bar, stackedBar, horizontalBar, stackedHorizontalBar), the plain table chart, and bigNumber are cumulative — do not use a date dimension. " +
-    "When switching between timeseries and cumulative chart types, add or remove the date dimension accordingly.\n" +
-    "When the user does not specify a chart style, default to chartType line for timeseries and chartType bar for cumulative.\n" +
-    "The runExploration tool will execute the query and automatically display the chart to the user — you do not need to embed config in your text response.\n" +
-    'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
-    "Use the getSnapshot tool whenever you need to analyze result data — including right after calling runExploration if the user wants insights or questions answered about the data.\n" +
-    "When selecting metrics, prefer using the searchMetrics tool instead of guessing metric IDs.\n" +
-    "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
-    "If asked about metrics that don't exist, let the user know.\n" +
-    "Keep responses brief and actionable.";
-
-  const system = userAdditionalPrompt
-    ? staticInstructions + "\n" + userAdditionalPrompt
-    : staticInstructions;
-
-  // Maps toolCallId → snapshotId for chart results generated during this request
-  const pendingChartSnapshots = new Map<string, string>();
-
-  // const sessionSnapshots = getSessionSnapshots(sessionId);
-
-  const baseTools = {
-    searchMetrics: aiTool({
-      description:
-        "Search available metrics by name, description, owner, tags, or ID. " +
-        "Use this to discover the right metrics before editing config.",
-      inputSchema: z.object({
-        query: z
-          .string()
-          .min(1)
-          .describe("Search term, e.g. 'average order value'"),
-        limit: z.number().int().min(1).max(20).default(8),
+          if (!scored.length) {
+            return `No metrics found for "${query}".`;
+          }
+          return JSON.stringify({ matches: scored }, null, 2);
+        },
       }),
-      execute: async ({ query, limit }: { query: string; limit: number }) => {
-        console.log("searchMetrics", query, limit);
-        const q = query.trim().toLowerCase();
-        const scored = metrics
-          .map((m) => {
-            const haystack = [
-              m.id,
-              m.name,
-              m.description ?? "",
-              m.owner ?? "",
-              ...(m.tags ?? []),
-            ]
-              .join(" ")
-              .toLowerCase();
-            const exact =
-              m.name.toLowerCase() === q || m.id.toLowerCase() === q;
-            const includes = haystack.includes(q);
-            const score = exact ? 3 : includes ? 1 : 0;
-            return { metric: m, score };
-          })
-          .filter((x) => x.score > 0)
-          .sort(
-            (a, b) =>
-              b.score - a.score || a.metric.name.localeCompare(b.metric.name),
-          )
-          .slice(0, limit)
-          .map(({ metric }) => ({
-            id: metric.id,
-            name: metric.name,
-            type: metric.metricType,
-            description: metric.description ?? null,
-            owner: metric.owner ?? null,
-            tags: metric.tags ?? [],
-          }));
 
-        if (!scored.length) {
-          return `No metrics found for "${query}".`;
-        }
-        return JSON.stringify({ matches: scored }, null, 2);
-      },
-    }),
-    getCurrentConfig: aiTool({
-      description:
-        "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const snaps = getSessionSnapshots(sessionId);
-        const latest = snaps.length > 0 ? snaps[snaps.length - 1] : null;
-        return latest?.config
-          ? JSON.stringify(latest.config, null, 2)
-          : "No current exploration config is available yet.";
-      },
-    }),
-    getConfigSchema: aiTool({
-      description:
-        "Get a concise schema reference for valid exploration config objects.",
-      inputSchema: z.object({}),
-      execute: async () => buildConfigSchemaSummary(),
-    }),
-    runExploration: aiTool({
-      description:
-        "Execute a product analytics exploration with the given config. " +
-        "Use this when the user asks to build, change, or rerun a chart. " +
-        "The chart will be automatically displayed to the user after execution. " +
-        "The result includes a snapshotId — call getSnapshot with that ID if you need to analyze the data or provide insights.",
-      inputSchema: z.object({
-        config: explorationConfigValidator,
+      getCurrentConfig: aiTool({
+        description:
+          "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const snaps = getSessionSnapshots(conversationId);
+          const latest = snaps.length > 0 ? snaps[snaps.length - 1] : null;
+          return latest?.config
+            ? JSON.stringify(latest.config, null, 2)
+            : "No current exploration config is available yet.";
+        },
       }),
-      execute: async (
-        { config }: { config: ExplorationConfig },
-        options: { toolCallId: string },
-      ) => {
-        try {
-          const exploration = await runProductAnalyticsExploration(
-            context,
-            config,
-            { cache: "preferred" },
-          );
 
-          const snaps = getSessionSnapshots(sessionId);
-          const prevConfig =
-            snaps.length > 0 ? snaps[snaps.length - 1].config : null;
-          const summary = buildSnapshotSummary(prevConfig, config);
-          const resultCsv = buildResultCsv(
-            exploration?.result?.rows ?? [],
-            config,
-          );
-
-          const snap = addSnapshot(sessionId, {
-            summary,
-            config,
-            exploration: exploration ?? null,
-            resultCsv,
-          });
-
-          pendingChartSnapshots.set(options.toolCallId, snap.id);
-
-          return JSON.stringify({
-            status: "success",
-            snapshotId: snap.id,
-            rowCount: exploration?.result?.rows?.length ?? 0,
-            summary,
-          });
-        } catch (err) {
-          return JSON.stringify({
-            status: "error",
-            message: err instanceof Error ? err.message : "Unknown error",
-          });
-        }
-      },
-    }),
-  };
-
-  const tools = {
-    ...baseTools,
-    getSnapshot: aiTool({
-      description:
-        "Retrieve the full configuration and result data for any snapshot, including one just created by runExploration. " +
-        "Use this whenever you need to analyze result data — e.g. to provide insights, answer questions about values, compare configurations, or explain why data changed. " +
-        "Pass the snapshotId returned by runExploration to access data from the most recent chart run.",
-      inputSchema: z.object({
-        snapshotId: z
-          .string()
-          .describe(
-            "The snapshot ID returned by runExploration, e.g. 'snap_abc123_1'",
-          ),
+      getConfigSchema: aiTool({
+        description:
+          "Get a concise schema reference for valid exploration config objects.",
+        inputSchema: z.object({}),
+        execute: async () => buildConfigSchemaSummary(),
       }),
-      execute: async ({ snapshotId }: { snapshotId: string }) => {
-        const snap = getSnapshot(sessionId, snapshotId);
-        if (!snap) return `Snapshot "${snapshotId}" not found.`;
-        return (
-          `Snapshot ${snap.id} (${snap.timestamp}):\n` +
-          `Summary: ${snap.summary}\n` +
-          `Config: ${JSON.stringify(snap.config, null, 2)}\n` +
-          (snap.resultCsv
-            ? `Result data (CSV):\n${snap.resultCsv}`
-            : "No result data.")
-        );
-      },
-    }),
-  };
 
-  // Compact older turns before sending to the LLM
-  const messagesForLLM = compactMessages(fullMessages);
+      runExploration: aiTool({
+        description:
+          "Execute a product analytics exploration with the given config. " +
+          "Use this when the user asks to build, change, or rerun a chart. " +
+          "The chart will be automatically displayed to the user after execution. " +
+          "The result includes a snapshotId — call getSnapshot with that ID if you need to analyze the data or provide insights.",
+        inputSchema: z.object({
+          config: explorationConfigValidator,
+        }),
+        execute: async (
+          { config }: { config: ExplorationConfig },
+          options: { toolCallId: string },
+        ) => {
+          try {
+            const exploration = await runProductAnalyticsExploration(
+              ctx,
+              config,
+              { cache: "preferred" },
+            );
 
-  const stream = await streamingChatCompletion({
-    context,
-    system,
-    messages: messagesForLLM,
-    temperature: 0.3,
-    type: "product-analytics-chat",
-    isDefaultPrompt: !userAdditionalPrompt,
-    overrideModel,
-    tools,
-    maxSteps: 10,
-  });
+            const snaps = getSessionSnapshots(conversationId);
+            const prevConfig =
+              snaps.length > 0 ? snaps[snaps.length - 1].config : null;
+            const summary = buildSnapshotSummary(prevConfig, config);
+            const resultCsv = buildResultCsv(
+              exploration?.result?.rows ?? [],
+              config,
+            );
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  flushableRes.flushHeaders?.();
+            const snap = addSnapshot(conversationId, {
+              summary,
+              config,
+              exploration: exploration ?? null,
+              resultCsv,
+            });
 
-  const sendSSE = (event: string, data: unknown) => {
-    flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    (flushableRes as FlushableResponse).flush?.();
-  };
+            emit("chart-result", {
+              toolCallId: options.toolCallId,
+              snapshotId: snap.id,
+              config: snap.config,
+              exploration: snap.exploration,
+            });
 
-  try {
-    for await (const part of stream.fullStream) {
-      // Log every raw stream part so we can see exactly what the AI SDK emits,
-      // including inter-step events (finish-step, start, etc.) that are not
-      // forwarded to the client. Useful for diagnosing latency between steps.
-      if (part.type !== "text-delta" && part.type !== "reasoning-delta") {
-        // Skip high-frequency deltas to keep logs readable; log everything else.
-        logger.debug(`[AI chat stream] part.type=${part.type}`, {
-          sessionId,
-          part: JSON.stringify(part),
-        });
-      }
-
-      switch (part.type) {
-        case "text-delta":
-          sendSSE("text-delta", { content: part.text });
-          break;
-        case "tool-input-start":
-          sendSSE("tool-call-start", {
-            toolName: part.toolName,
-            toolCallId: part.id,
-          });
-          break;
-        case "tool-result": {
-          if (part.toolName === "runExploration") {
-            const snapshotId = pendingChartSnapshots.get(part.toolCallId);
-            if (snapshotId) {
-              const snap = getSnapshot(sessionId, snapshotId);
-              if (snap) {
-                sendSSE("chart-result", {
-                  toolCallId: part.toolCallId,
-                  snapshotId: snap.id,
-                  config: snap.config,
-                  exploration: snap.exploration,
-                });
-              }
-              pendingChartSnapshots.delete(part.toolCallId);
-            }
-          } else {
-            sendSSE("tool-call-end", {
-              toolName: part.toolName,
-              toolCallId: part.toolCallId,
+            return JSON.stringify({
+              status: "success",
+              snapshotId: snap.id,
+              rowCount: exploration?.result?.rows?.length ?? 0,
+              summary,
+            });
+          } catch (err) {
+            return JSON.stringify({
+              status: "error",
+              message: err instanceof Error ? err.message : "Unknown error",
             });
           }
-          break;
-        }
-        case "reasoning-delta":
-          sendSSE("reasoning-delta", { text: part.text });
-          break;
-        case "error":
-          sendSSE("error", {
-            message:
-              part.error instanceof Error
-                ? part.error.message
-                : "An error occurred",
-          });
-          break;
-        default:
-          break;
-      }
-    }
-  } catch (err) {
-    sendSSE("error", {
-      message: err instanceof Error ? err.message : "An error occurred",
+        },
+      }),
+
+      getSnapshot: aiTool({
+        description:
+          "Retrieve the full configuration and result data for any snapshot, including one just created by runExploration. " +
+          "Use this whenever you need to analyze result data — e.g. to provide insights, answer questions about values, compare configurations, or explain why data changed. " +
+          "Pass the snapshotId returned by runExploration to access data from the most recent chart run.",
+        inputSchema: z.object({
+          snapshotId: z
+            .string()
+            .describe(
+              "The snapshot ID returned by runExploration, e.g. 'snap_abc123_1'",
+            ),
+        }),
+        execute: async ({ snapshotId }: { snapshotId: string }) => {
+          const snap = getSnapshot(conversationId, snapshotId);
+          if (!snap) return `Snapshot "${snapshotId}" not found.`;
+          return (
+            `Snapshot ${snap.id} (${snap.timestamp}):\n` +
+            `Summary: ${snap.summary}\n` +
+            `Config: ${JSON.stringify(snap.config, null, 2)}\n` +
+            (snap.resultCsv
+              ? `Result data (CSV):\n${snap.resultCsv}`
+              : "No result data.")
+          );
+        },
+      }),
+    };
+  },
+
+  temperature: 0.3,
+  maxSteps: 10,
+
+  preSubmit: compactMessages,
+};
+
+export const postChat = createAgentHandler(productAnalyticsAgentConfig);
+
+// ---------------------------------------------------------------------------
+// Load conversation (returns messages + streaming status for reconnect)
+// ---------------------------------------------------------------------------
+
+export const getChat = async (
+  req: AuthRequest<never, { conversationId: string }, never>,
+  res: Response<{
+    status: 200;
+    isStreaming: boolean;
+    lastStreamedAt: number;
+    messages: ModelMessage[];
+  }>,
+) => {
+  const { conversationId } = req.params;
+  const statusData = getConversationStatus(conversationId);
+
+  if (!statusData) {
+    return res.status(200).json({
+      status: 200,
+      isStreaming: false,
+      lastStreamedAt: 0,
+      messages: [],
     });
   }
 
-  // Save the user message and all LLM response messages (assistant + tool results)
-  // to the conversation store after the stream completes.
-  try {
-    const response = await stream.response;
-    appendMessages(sessionId, [userMessage, ...response.messages]);
-  } catch {
-    // Non-fatal: if we can't persist the messages, the next turn will just
-    // lose this turn's history.
-  }
-
-  sendSSE("done", {});
-  flushableRes.end();
+  return res.status(200).json({
+    status: 200,
+    isStreaming: statusData.isStreaming,
+    lastStreamedAt: statusData.lastStreamedAt,
+    messages: statusData.messages,
+  });
 };
+
+// ---------------------------------------------------------------------------
+// Exploration retrieval
+// ---------------------------------------------------------------------------
 
 export const getExplorationById = async (
   req: AuthRequest<never, { id: string }, never>,
