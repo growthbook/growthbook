@@ -494,6 +494,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               />
             </div>
             <EnvironmentSelect
+              project={project}
               environmentSettings={environmentSettings}
               environments={environments}
               setValue={(env, on) => {

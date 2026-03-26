@@ -1,37 +1,29 @@
-import { useForm } from "react-hook-form";
+import { FormProvider } from "react-hook-form";
 import {
   ExperimentRefRule,
-  ExperimentRefVariation,
-  FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
   getDefaultValue,
-  useEnvironments,
   getDefaultVariationValue,
+  useEnvironments,
   validateFeatureRule,
 } from "@/services/features";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
-import { useWatching } from "@/services/WatchProvider";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import FeatureKeyField from "./FeatureKeyField";
-import EnvironmentSelect from "./EnvironmentSelect";
-import TagsField from "./TagsField";
-import ValueTypeField from "./ValueTypeField";
+import { useFeatureForm } from "@/hooks/useFeatureForm";
+import FeatureFormFields from "./FeatureFormFields";
+import { FeatureFromExperimentFormValues } from "./FeatureFormTypes";
 
 export type Props = {
   close?: () => void;
@@ -43,50 +35,17 @@ export type Props = {
   source?: string;
 };
 
-const genEnvironmentSettings = ({
-  environments,
-  permissions,
-  project,
-}: {
-  environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissionsUtil>;
-  project: string;
-}): Record<string, FeatureEnvironment> => {
-  const envSettings: Record<string, FeatureEnvironment> = {};
-
-  environments.forEach((e) => {
-    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
-    const enabled = canPublish ? defaultEnabled : false;
-    const rules = [];
-    envSettings[e.id] = { enabled, rules };
-  });
-
-  return envSettings;
-};
-
 const genFormDefaultValues = ({
-  environments,
-  permissions,
   project,
   experiment,
+  environmentSettings,
+  customFields,
 }: {
-  environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissionsUtil>;
-  project: string;
+  project?: string;
   experiment: ExperimentInterfaceStringDates;
-}): Omit<
-  FeatureInterface,
-  "organization" | "dateCreated" | "dateUpdated" | "defaultValue"
-> & {
-  variations: ExperimentRefVariation[];
-  existing: string;
-} => {
-  const environmentSettings = genEnvironmentSettings({
-    environments,
-    permissions,
-    project,
-  });
+  environmentSettings: FeatureFromExperimentFormValues["environmentSettings"];
+  customFields: FeatureFromExperimentFormValues["customFields"];
+}): FeatureFromExperimentFormValues => {
   const type =
     getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
@@ -100,6 +59,7 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
+    customFields,
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -118,20 +78,30 @@ export default function FeatureFromExperimentModal({
   mutate,
   source,
 }: Props) {
-  const { project, refreshTags } = useDefinitions();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
     experiment,
   );
-  const permissionsUtil = usePermissionsUtil();
-  const { refreshWatching } = useWatching();
-
-  const defaultValues = genFormDefaultValues({
+  const initialProject = experiment.project || "";
+  const {
+    form,
+    currentProject,
+    permissionsUtil,
+    apiCall,
+    refreshTags,
+    refreshWatching,
+    serializeCustomFields,
+  } = useFeatureForm<FeatureFromExperimentFormValues>({
+    project: initialProject,
     environments,
-    permissions: permissionsUtil,
-    experiment,
-    project,
+    getDefaultValues: (base) =>
+      genFormDefaultValues({
+        experiment,
+        project: initialProject,
+        environmentSettings: base.environmentSettings,
+        customFields: base.customFields,
+      }),
   });
 
   // Scope features to the experiment's project (or all features if experiment has no project)
@@ -145,26 +115,14 @@ export default function FeatureFromExperimentModal({
     return true;
   });
 
-  const form = useForm({ defaultValues });
-
-  const [showTags, setShowTags] = useState(
-    experiment.tags && experiment.tags.length > 0,
-  );
-  const [showDescription, setShowDescription] = useState(
-    experiment.description && experiment.description.length > 0,
-  );
-
-  const { apiCall } = useAuth();
-
   const valueType = form.watch("valueType") as FeatureValueType;
-  const environmentSettings = form.watch("environmentSettings");
 
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: experiment.project ?? project,
+      project: experiment.project ?? currentProject,
     })
   ) {
     ctaEnabled = false;
@@ -238,6 +196,10 @@ export default function FeatureFromExperimentModal({
           ? existingFeature
           : {
               ...feature,
+              customFields: serializeCustomFields(
+                feature.project,
+                feature.customFields,
+              ),
               defaultValue: variations[0].value,
               holdout: experiment.holdoutId
                 ? {
@@ -332,118 +294,68 @@ export default function FeatureFromExperimentModal({
         await mutate();
       })}
     >
-      <SelectField
-        label="Create New or Use Existing?"
-        options={validFeatures.map((f) => ({
-          label: f.id + " (" + f.valueType + ")",
-          value: f.id,
-        }))}
-        initialOption="Create New Feature"
-        value={form.watch("existing")}
-        onChange={(value) => {
-          if (value) {
-            const newFeature = validFeatures.find((f) => f.id === value);
-            if (newFeature) {
-              updateValuesOnTypeChange(newFeature.valueType);
+      <FormProvider {...form}>
+        <SelectField
+          label="Create New or Use Existing?"
+          options={validFeatures.map((f) => ({
+            label: f.id + " (" + f.valueType + ")",
+            value: f.id,
+          }))}
+          initialOption="Create New Feature"
+          value={form.watch("existing")}
+          onChange={(value) => {
+            if (value) {
+              const newFeature = validFeatures.find((f) => f.id === value);
+              if (newFeature) {
+                updateValuesOnTypeChange(newFeature.valueType);
+              }
             }
-          }
 
-          form.setValue("existing", value);
-        }}
-      />
+            form.setValue("existing", value);
+          }}
+        />
 
-      {!existing && (
-        <>
-          <FeatureKeyField keyField={form.register("id")} />
-
-          {showTags ? (
-            <TagsField
-              value={form.watch("tags") || []}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mr-3 mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowTags(true);
-              }}
-            >
-              + tags
-            </a>
-          )}
-
-          {showDescription ? (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") || ""}
-                setValue={(value) => form.setValue("description", value)}
-                autofocus={true}
-              />
-            </div>
-          ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowDescription(true);
-              }}
-            >
-              + description
-            </a>
-          )}
-
-          <ValueTypeField
-            value={valueType}
-            onChange={(val) => {
-              updateValuesOnTypeChange(val);
-            }}
-          />
-
-          <EnvironmentSelect
-            environmentSettings={environmentSettings}
+        {!existing && (
+          <FeatureFormFields
+            initialShowTags={!!experiment.tags?.length}
+            initialShowDescription={!!experiment.description?.length}
+            descriptionAutofocus={true}
+            onValueTypeChange={updateValuesOnTypeChange}
             environments={environments}
-            setValue={(env, on) => {
-              environmentSettings[env.id].enabled = on;
-              form.setValue("environmentSettings", environmentSettings);
-            }}
           />
-        </>
-      )}
+        )}
 
-      {existing && (
-        <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
-          revision. For more control over placement, you can add Experiment
-          rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
-            Feature page
-            <FaExternalLinkAlt />
-          </Link>{" "}
-          instead.
-        </div>
-      )}
+        {existing && (
+          <div className="alert alert-info">
+            A rule will be added to the bottom of every environment in a new
+            draft revision. For more control over placement, you can add
+            Experiment rules directly from the{" "}
+            <Link href={`/features/${existing}`}>
+              Feature page
+              <FaExternalLinkAlt />
+            </Link>{" "}
+            instead.
+          </div>
+        )}
 
-      <div className="form-group">
-        <label>Variation Values</label>
-        <div className="mb-3 bg-light border p-3">
-          {getLatestPhaseVariations(experiment).map((v, i) => (
-            <FeatureValueField
-              key={v.id}
-              label={v.name}
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
-              useCodeInput={true}
-              showFullscreenButton={true}
-            />
-          ))}
+        <div className="form-group">
+          <label>Variation Values</label>
+          <div className="mb-3 bg-light border p-3">
+            {getLatestPhaseVariations(experiment).map((v, i) => (
+              <FeatureValueField
+                key={v.id}
+                label={v.name}
+                id={v.id}
+                value={form.watch(`variations.${i}.value`) || ""}
+                setValue={(v) => form.setValue(`variations.${i}.value`, v)}
+                valueType={form.watch("valueType")}
+                useCodeInput={true}
+                showFullscreenButton={true}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      </FormProvider>
     </Modal>
   );
 }

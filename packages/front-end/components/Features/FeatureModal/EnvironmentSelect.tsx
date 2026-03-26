@@ -1,19 +1,19 @@
 import { FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
-import { Box, Grid, Text } from "@radix-ui/themes";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { Box, Grid } from "@radix-ui/themes";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 
 const EnvironmentSelect: FC<{
   environmentSettings: Record<string, Pick<FeatureEnvironment, "enabled">>;
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
+  project: string;
   label?: string;
-}> = ({ environmentSettings, environments, setValue, label }) => {
+}> = ({ environmentSettings, environments, setValue, project, label }) => {
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
     return environments.filter((env) => {
       return permissionsUtil.canPublishFeature({ project }, [env.id]);
@@ -29,7 +29,7 @@ const EnvironmentSelect: FC<{
 
   return (
     <div className="form-group">
-      <Text as="label" weight="bold" mb="2">
+      <Text as="label" weight="semibold" mb="2">
         {label || "Enabled Environments"}
       </Text>
       <Box
@@ -70,7 +70,7 @@ const EnvironmentSelect: FC<{
                 !permissionsUtil.canPublishFeature({ project }, [env.id])
               }
               disabledMessage="You don't have permission to create features in this environment."
-              value={environmentSettings[env.id].enabled}
+              value={environmentSettings[env.id]?.enabled ?? false}
               setValue={(enabled) => setValue(env, enabled === true)}
               label={env.id}
               key={env.id}
