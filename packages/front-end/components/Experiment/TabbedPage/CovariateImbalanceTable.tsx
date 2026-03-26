@@ -230,15 +230,12 @@ function CovariateImbalanceTableSection({
                   {hasData ? (
                     <>
                       <Text as="span" weight="semibold">
-                        {row.baselineMean !== undefined
-                          ? meanFormatter.format(row.baselineMean)
-                          : "-"}
+                        {meanFormatter.format(row.baselineMean)}
                       </Text>
-                      {row.baselineStandardError
-                        ? ` (${standardErrorFormatter.format(
-                            row.baselineStandardError,
-                          )})`
-                        : "-"}
+                      {row.baselineStandardError !== undefined &&
+                        ` (${standardErrorFormatter.format(
+                          row.baselineStandardError,
+                        )})`}
                     </>
                   ) : (
                     <Text as="span" color="text-low">
@@ -253,15 +250,12 @@ function CovariateImbalanceTableSection({
                   {hasData ? (
                     <>
                       <Text as="span" weight="semibold">
-                        {row.variationMean
-                          ? meanFormatter.format(row.variationMean)
-                          : "-"}
+                        {meanFormatter.format(row.variationMean)}
                       </Text>
-                      {row.variationStandardError
-                        ? ` (${standardErrorFormatter.format(
-                            row.variationStandardError,
-                          )})`
-                        : "-"}
+                      {row.variationStandardError !== undefined &&
+                        ` (${standardErrorFormatter.format(
+                          row.variationStandardError,
+                        )})`}
                     </>
                   ) : (
                     <Text as="span" color="text-low">
@@ -274,8 +268,6 @@ function CovariateImbalanceTableSection({
                   justify="end"
                 >
                   {hasData ? (
-                    row.baselineMean &&
-                    row.variationMean &&
                     row.baselineMean !== 0 ? (
                       percentageFormatter.format(
                         (row.variationMean - row.baselineMean) /
