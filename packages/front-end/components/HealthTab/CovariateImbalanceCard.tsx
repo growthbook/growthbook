@@ -208,6 +208,22 @@ export default function CovariateImbalanceCard({
 
   const [isCollapsed, setIsCollapsed] = useState(isImbalanced ? false : true);
 
+  const metricIdsWithCupedEnabled = new Set(
+    snapshot.settings.metricSettings
+      .filter((m) => m.computedSettings?.regressionAdjustmentEnabled)
+      .map((m) => m.id),
+  );
+
+  const goalMetricIds = experiment.goalMetrics.filter((id) =>
+    metricIdsWithCupedEnabled.has(id),
+  );
+  const secondaryMetricIds = experiment.secondaryMetrics.filter((id) =>
+    metricIdsWithCupedEnabled.has(id),
+  );
+  const guardrailMetricIds = experiment.guardrailMetrics.filter((id) =>
+    metricIdsWithCupedEnabled.has(id),
+  );
+
   useEffect(() => {
     setIsCollapsed(!isImbalanced);
   }, [isImbalanced]);
@@ -327,9 +343,9 @@ export default function CovariateImbalanceCard({
           <CovariateImbalanceTable
             covariateImbalanceResult={covariateImbalanceResult}
             variations={variations}
-            goalMetricIds={experiment.goalMetrics}
-            secondaryMetricIds={experiment.secondaryMetrics}
-            guardrailMetricIds={experiment.guardrailMetrics}
+            goalMetricIds={goalMetricIds}
+            secondaryMetricIds={secondaryMetricIds}
+            guardrailMetricIds={guardrailMetricIds}
           />
         </Box>
       )}
