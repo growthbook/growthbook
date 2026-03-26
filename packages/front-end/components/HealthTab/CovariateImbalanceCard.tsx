@@ -208,20 +208,29 @@ export default function CovariateImbalanceCard({
 
   const [isCollapsed, setIsCollapsed] = useState(isImbalanced ? false : true);
 
-  const metricIdsWithCupedEnabled = new Set(
-    snapshot.settings.metricSettings
-      .filter((m) => m.computedSettings?.regressionAdjustmentEnabled)
-      .map((m) => m.id),
+  const metricSettingsById = new Map(
+    snapshot.settings.metricSettings.map((m) => [m.id, m]),
   );
 
-  const goalMetricIds = experiment.goalMetrics.filter((id) =>
-    metricIdsWithCupedEnabled.has(id),
+  const shouldIncludeMetricInCovariateImbalance = (metricId: string) => {
+    const metricForSnapshot = metricSettingsById.get(metricId);
+    // If the metric isn't in the snapshot (e.g. added after last run), keep it
+    // so the table can show "No data".
+    if (!metricForSnapshot) return true;
+    // If the snapshot doesn't have computed settings, keep it (backwards compat).
+    if (!metricForSnapshot.computedSettings) return true;
+    // Only hide metrics where the snapshot explicitly says CUPED is disabled.
+    return !!metricForSnapshot.computedSettings.regressionAdjustmentEnabled;
+  };
+
+  const goalMetricIds = experiment.goalMetrics.filter(
+    shouldIncludeMetricInCovariateImbalance,
   );
-  const secondaryMetricIds = experiment.secondaryMetrics.filter((id) =>
-    metricIdsWithCupedEnabled.has(id),
+  const secondaryMetricIds = experiment.secondaryMetrics.filter(
+    shouldIncludeMetricInCovariateImbalance,
   );
-  const guardrailMetricIds = experiment.guardrailMetrics.filter((id) =>
-    metricIdsWithCupedEnabled.has(id),
+  const guardrailMetricIds = experiment.guardrailMetrics.filter(
+    shouldIncludeMetricInCovariateImbalance,
   );
 
   useEffect(() => {
