@@ -10,6 +10,32 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import { RadixTheme } from "@/services/RadixTheme";
 
+vi.mock("shared/util", () => ({
+  getDefaultPrerequisiteCondition: vi.fn(() => "{}"),
+}));
+
+vi.mock("shared/sdk-versioning", () => ({
+  getConnectionsSDKCapabilities: vi.fn(() => []),
+}));
+
+vi.mock("@/services/features", () => ({
+  condToJson: vi.fn(() => "{}"),
+  jsonToConds: vi.fn(() => []),
+}));
+
+vi.mock("@/components/Marketing/PremiumTooltip", () => ({
+  __esModule: true,
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("@/components/Features/ConditionInput", () => ({
+  datatypeSupportsCaseInsensitive: vi.fn(() => false),
+  getDisplayOperator: vi.fn(() => ""),
+  isCaseInsensitiveOperator: vi.fn(() => false),
+  operatorSupportsCaseInsensitive: vi.fn(() => false),
+  withOperatorCaseInsensitivity: vi.fn((operator: string) => operator),
+}));
+
 vi.mock("@/hooks/useFeatureMetaInfo", () => ({
   useFeatureMetaInfo: vi.fn(),
 }));
@@ -28,6 +54,20 @@ vi.mock("@/hooks/useSDKConnections", () => ({
 
 vi.mock("@/hooks/usePrerequisiteStates", () => ({
   useBatchPrerequisiteStates: vi.fn(),
+}));
+
+vi.mock("@/components/Features/PrerequisiteFeatureSelector", () => ({
+  default: () => <div data-testid="prerequisite-feature-selector" />,
+}));
+
+vi.mock("@/components/Features/PrerequisiteStatesTable", () => ({
+  __esModule: true,
+  default: () => <div data-testid="prerequisite-states-table" />,
+}));
+
+vi.mock("@/components/Features/PrerequisiteAlerts", () => ({
+  __esModule: true,
+  default: () => <div data-testid="prerequisite-alerts" />,
 }));
 
 describe("PrerequisiteInput", () => {
@@ -76,8 +116,8 @@ describe("PrerequisiteInput", () => {
 
     const addAction = screen.getByText("Add prerequisite targeting");
     expect(addAction).toBeInTheDocument();
-    expect(addAction).toHaveAttribute("data-accent-color", "gray");
     expect(addAction.tagName).toBe("SPAN");
+    expect(addAction.parentElement?.querySelector("svg")).toBeTruthy();
 
     fireEvent.click(addAction);
 
