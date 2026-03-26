@@ -49,7 +49,10 @@ const ExperimentsPage = (): React.ReactElement => {
   const [urlTab, setTab] = useURLHash<ExperimentListTab>(
     EXPERIMENT_LIST_TABS as unknown as ExperimentListTab[],
   );
-  const tab = urlTab ?? "all";
+  const normalizedURLTab = urlTab ?? "";
+  const tab: ExperimentListTab = isExperimentListTab(normalizedURLTab)
+    ? normalizedURLTab
+    : "all";
   const [storedTab, setStoredTab] = useLocalStorage<ExperimentListTab>(
     "experiments-list-tab",
     "all",
