@@ -518,11 +518,6 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
                           <Icon className={styles.itemIcon} />
                           <div className={styles.itemContent}>
                             <div className={styles.itemName}>{item.name}</div>
-                            {item.description && (
-                              <div className={styles.itemDescription}>
-                                {item.description}
-                              </div>
-                            )}
                           </div>
                         </div>
                       );
