@@ -6,7 +6,9 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { expandMetricGroups } from "shared/experiments";
 import CovariateImbalanceTable from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -200,6 +202,7 @@ export default function CovariateImbalanceCard({
   snapshot,
   onNotify,
 }: Props) {
+  const { metricGroups } = useDefinitions();
   const covariateImbalanceResult = USE_COVARIATE_IMBALANCE_IMBALANCED_FIXTURE
     ? testCovariateImbalanceResult
     : snapshot?.health?.covariateImbalance;
@@ -223,14 +226,26 @@ export default function CovariateImbalanceCard({
     return !!metricForSnapshot.computedSettings.regressionAdjustmentEnabled;
   };
 
-  const goalMetricIds = experiment.goalMetrics.filter(
-    shouldIncludeMetricInCovariateImbalance,
+  const goalMetricIds = Array.from(
+    new Set(
+      expandMetricGroups(experiment.goalMetrics, metricGroups).filter(
+        shouldIncludeMetricInCovariateImbalance,
+      ),
+    ),
   );
-  const secondaryMetricIds = experiment.secondaryMetrics.filter(
-    shouldIncludeMetricInCovariateImbalance,
+  const secondaryMetricIds = Array.from(
+    new Set(
+      expandMetricGroups(experiment.secondaryMetrics, metricGroups).filter(
+        shouldIncludeMetricInCovariateImbalance,
+      ),
+    ),
   );
-  const guardrailMetricIds = experiment.guardrailMetrics.filter(
-    shouldIncludeMetricInCovariateImbalance,
+  const guardrailMetricIds = Array.from(
+    new Set(
+      expandMetricGroups(experiment.guardrailMetrics, metricGroups).filter(
+        shouldIncludeMetricInCovariateImbalance,
+      ),
+    ),
   );
 
   useEffect(() => {
