@@ -38,5 +38,4 @@ export const postApiKeyValidator = z.strictObject({
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
-  teams: z.array(z.string()).optional(),
 });

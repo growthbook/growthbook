@@ -21,8 +21,6 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
-    projectRoles: [],
-    teams: [],
   },
 });
 
@@ -81,26 +79,14 @@ export class ApiKeyModel extends BaseClass {
           "PATs do not support environment restrictions.",
         );
       }
-      if (doc.projectRoles.length > 0) {
+      if (doc.projectRoles) {
         this.context.throwBadRequestError(
           "PATs do not support project-scoped roles.",
         );
       }
-      if (doc.teams.length > 0) {
-        this.context.throwBadRequestError(
-          "PATs do not support team assignments.",
-        );
-      }
     } else {
-      // Org API keys — validate role, environments, project roles, teams, and commercial features
+      // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
-      this.validateEnvironments(doc.environments);
-      for (const pr of doc.projectRoles) {
-        this.validateRole(pr.role);
-        await this.validateProject(pr.project);
-      }
-      await this.validateTeams(doc.teams);
-
       if (
         doc.limitAccessByEnvironment &&
         !this.context.hasPremiumFeature("advanced-permissions")
@@ -109,13 +95,17 @@ export class ApiKeyModel extends BaseClass {
           "Your plan does not support restricting API key permissions by environment.",
         );
       }
-      if (
-        doc.projectRoles.length > 0 &&
-        !this.context.hasPremiumFeature("advanced-permissions")
-      ) {
-        this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support project-level permissions on API keys.",
-        );
+      this.validateEnvironments(doc.environments);
+      if (doc.projectRoles) {
+        if (!this.context.hasPremiumFeature("advanced-permissions")) {
+          this.context.throwPlanDoesNotAllowError(
+            "Your plan does not support project-level permissions on API keys.",
+          );
+        }
+        for (const pr of doc.projectRoles) {
+          this.validateRole(pr.role);
+          await this.validateProject(pr.project);
+        }
       }
     }
   }
@@ -149,31 +139,18 @@ export class ApiKeyModel extends BaseClass {
     }
   }
 
-  private async validateTeams(teamIds: string[]) {
-    if (!teamIds.length) return;
-    const orgTeams = await this.context.models.teams.getAll();
-    const orgTeamIds = new Set(orgTeams.map((t) => t.id));
-    for (const teamId of teamIds) {
-      if (!orgTeamIds.has(teamId)) {
-        this.context.throwBadRequestError(`Invalid team: ${teamId}`);
-      }
-    }
-  }
-
   public async createOrganizationApiKey({
     description,
     roleId,
     limitAccessByEnvironment,
     environments,
     projectRoles,
-    teams,
   }: {
     description: string;
     roleId: string;
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    teams?: string[];
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -185,7 +162,6 @@ export class ApiKeyModel extends BaseClass {
       limitAccessByEnvironment,
       environments,
       projectRoles,
-      teams,
     });
   }
 
@@ -316,7 +292,6 @@ export class ApiKeyModel extends BaseClass {
     limitAccessByEnvironment,
     environments,
     projectRoles,
-    teams,
   }: {
     environment: string;
     project: string;
@@ -328,7 +303,6 @@ export class ApiKeyModel extends BaseClass {
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    teams?: string[];
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -355,8 +329,7 @@ export class ApiKeyModel extends BaseClass {
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
       limitAccessByEnvironment: limitAccessByEnvironment ?? false,
       environments: environments ?? [],
-      projectRoles: projectRoles ?? [],
-      teams: teams ?? [],
+      projectRoles,
     });
   }
 }

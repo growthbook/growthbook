@@ -2,8 +2,6 @@ import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 const apiKeyDefaults = {
   limitAccessByEnvironment: false,
   environments: [],
-  projectRoles: [],
-  teams: [],
 };
 
 describe("secret API keys utils", () => {

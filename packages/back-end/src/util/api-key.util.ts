@@ -75,8 +75,6 @@ export function migrateApiKey(legacyDoc: unknown) {
     dateUpdated: obj.dateUpdated ?? obj.dateCreated,
     limitAccessByEnvironment: obj.limitAccessByEnvironment ?? false,
     environments: obj.environments ?? [],
-    projectRoles: obj.projectRoles ?? [],
-    teams: obj.teams ?? [],
   };
 }
 

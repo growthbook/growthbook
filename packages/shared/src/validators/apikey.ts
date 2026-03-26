@@ -41,13 +41,9 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     ),
   projectRoles: z
     .array(projectMemberRole)
+    .optional()
     .describe(
       "Org API keys only. Project-specific role overrides, same shape as member projectRoles",
-    ),
-  teams: z
-    .array(z.string())
-    .describe(
-      "Org API keys only. Team IDs whose permissions are merged into this key's access",
     ),
 });
 

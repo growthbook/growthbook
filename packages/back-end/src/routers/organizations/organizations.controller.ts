@@ -1715,7 +1715,6 @@ export async function postApiKey(
     limitAccessByEnvironment?: boolean;
     environments?: string[];
     projectRoles?: ProjectMemberRole[];
-    teams?: string[];
   }>,
   res: Response,
 ) {
@@ -1727,7 +1726,6 @@ export async function postApiKey(
     limitAccessByEnvironment,
     environments,
     projectRoles,
-    teams,
   } = req.body;
 
   // Handle user personal access tokens
@@ -1755,7 +1753,6 @@ export async function postApiKey(
       limitAccessByEnvironment,
       environments,
       projectRoles,
-      teams,
     });
 
     return res.status(200).json({
