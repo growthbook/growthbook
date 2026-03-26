@@ -38,6 +38,7 @@ type CreateBody = Pick<
   startCondition?: StartCondition;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
+  endEarlyWhenStepsComplete?: boolean;
   endCondition?: EndCondition;
 };
 
@@ -46,6 +47,7 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   startCondition?: StartCondition | null;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
+  endEarlyWhenStepsComplete?: boolean;
   endCondition?: EndCondition | null;
 };
 
@@ -156,6 +158,7 @@ export const postRampSchedule = async (
     },
     disableRuleBefore: disableBefore || undefined,
     disableRuleAfter: disableAfter || undefined,
+    endEarlyWhenStepsComplete: body.endEarlyWhenStepsComplete,
     endCondition,
     // Standalone ramps have no activating revision — they're immediately eligible to start.
     status: "ready",
@@ -226,6 +229,9 @@ export const putRampSchedule = async (
   }
   if (body.disableRuleAfter !== undefined) {
     updates.disableRuleAfter = body.disableRuleAfter;
+  }
+  if (body.endEarlyWhenStepsComplete !== undefined) {
+    updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;
@@ -394,33 +400,46 @@ export const postRampScheduleAction = async (
           )
         : now;
 
+      // If the ramp was paused while waiting at an approval gate, resuming
+      // must return to "pending-approval" — not "running". Advancing the
+      // Agenda index here would silently skip the approval step.
+      const currentStep = schedule.steps[schedule.currentStepIndex];
+      const pausedAtApproval =
+        currentStep?.trigger?.type === "approval" &&
+        schedule.pendingApprovalRevisionId;
+
       const resumeUpdates: Record<string, unknown> = {
-        status: "running",
+        status: pausedAtApproval ? "pending-approval" : "running",
         pausedAt: null,
         startedAt: newStartedAt,
         phaseStartedAt: newPhaseStartedAt,
+        // Approval steps have no timer — keep nextStepAt null so Agenda
+        // doesn't accidentally advance past the gate.
+        nextStepAt: pausedAtApproval ? null : schedule.nextStepAt,
       };
 
-      if (schedule.nextStepAt) {
-        // Shift the existing deadline forward by the pause duration.
-        resumeUpdates.nextStepAt = new Date(
-          schedule.nextStepAt.getTime() + pauseDurationMs,
-        );
-      } else {
-        // nextStepAt was null (after a reset/rollback). Recompute from the
-        // now-anchored phaseStartedAt so the agenda job picks this ramp up.
-        const nextStepIndex = schedule.currentStepIndex + 1;
-        if (nextStepIndex < schedule.steps.length) {
-          const tempSchedule = {
-            ...schedule,
-            startedAt: newStartedAt,
-            phaseStartedAt: newPhaseStartedAt,
-          };
-          resumeUpdates.nextStepAt = computeNextStepAt(
-            tempSchedule,
-            nextStepIndex,
-            now,
+      if (!pausedAtApproval) {
+        if (schedule.nextStepAt) {
+          // Shift the existing deadline forward by the pause duration.
+          resumeUpdates.nextStepAt = new Date(
+            schedule.nextStepAt.getTime() + pauseDurationMs,
           );
+        } else {
+          // nextStepAt was null (after a reset/rollback). Recompute from the
+          // now-anchored phaseStartedAt so the agenda job picks this ramp up.
+          const nextStepIndex = schedule.currentStepIndex + 1;
+          if (nextStepIndex < schedule.steps.length) {
+            const tempSchedule = {
+              ...schedule,
+              startedAt: newStartedAt,
+              phaseStartedAt: newPhaseStartedAt,
+            };
+            resumeUpdates.nextStepAt = computeNextStepAt(
+              tempSchedule,
+              nextStepIndex,
+              now,
+            );
+          }
         }
       }
 
@@ -435,9 +454,11 @@ export const postRampScheduleAction = async (
         schedule.id,
         resumeUpdates,
       );
-      // Advance immediately if step 0 is pending (fresh/restarted ramp) or
-      // if any steps became overdue during a long pause.
-      await advanceUntilBlocked(context, updated, now, attribution);
+      // Only advance for non-approval resumes — approval gates require
+      // explicit user action and must not be bypassed by the Agenda loop.
+      if (!pausedAtApproval) {
+        await advanceUntilBlocked(context, updated, now, attribution);
+      }
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
       await dispatchRampEvent(context, updated, "resumed", {
@@ -477,7 +498,7 @@ export const postRampScheduleAction = async (
     }
 
     case "complete":
-      if (["completed", "expired", "rolled-back"].includes(schedule.status)) {
+      if (["completed", "rolled-back"].includes(schedule.status)) {
         return res.status(400).json({
           status: 400,
           message: `Schedule is already in terminal status "${schedule.status}"`,
@@ -487,9 +508,7 @@ export const postRampScheduleAction = async (
       break;
 
     case "reset": {
-      const isTerminal = ["completed", "expired", "rolled-back"].includes(
-        schedule.status,
-      );
+      const isTerminal = ["completed", "rolled-back"].includes(schedule.status);
       // Revert all applied steps to the initial state.
       // For terminal states (restart): clear timing fields and set to "ready"
       // so the user starts the ramp fresh with an explicit Start action.
@@ -527,7 +546,7 @@ export const postRampScheduleAction = async (
     }
 
     case "jump": {
-      if (["completed", "expired", "rolled-back"].includes(schedule.status)) {
+      if (["completed", "rolled-back"].includes(schedule.status)) {
         return res.status(400).json({
           status: 400,
           message: `Cannot jump a schedule in terminal status "${schedule.status}"`,

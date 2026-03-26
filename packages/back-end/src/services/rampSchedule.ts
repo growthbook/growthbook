@@ -638,10 +638,15 @@ export async function rollbackToStep(
     triggeredBy: attribution,
   };
 
+  // Partial rollbacks (landing mid-schedule) pause so Agenda doesn't auto-advance.
+  // Full rollbacks to the very beginning (-1) use "rolled-back" as a terminal signal.
+  const newStatus = targetStepIndex === -1 ? "rolled-back" : "paused";
+
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: "rolled-back",
+    status: newStatus,
     currentStepIndex: targetStepIndex,
     nextStepAt: null,
+    pausedAt: newStatus === "paused" ? now : null,
     pendingRevisionIds: revisionIds,
     stepHistory: [...schedule.stepHistory, historyEntry],
   });
@@ -718,10 +723,7 @@ export async function completeRollout(
     schedule.steps.length > 0
       ? schedule.steps.length - 1
       : schedule.currentStepIndex;
-  const hasEndCondition = endConditionActions.length > 0;
-  const finalStatus: RampScheduleInterface["status"] = hasEndCondition
-    ? "expired"
-    : "completed";
+  const finalStatus: RampScheduleInterface["status"] = "completed";
 
   // Single history entry at the virtual "end" position covering the full force-completion.
   const historyEntry: StepHistoryEntry = {
@@ -741,23 +743,18 @@ export async function completeRollout(
     stepHistory: [...schedule.stepHistory, historyEntry],
   });
 
-  await dispatchRampEvent(
-    ctx,
-    updated,
-    hasEndCondition ? "expired" : "completed",
-    {
-      object: {
-        rampScheduleId: updated.id,
-        rampName: updated.name,
-        orgId: ctx.org.id,
-        currentStepIndex: updated.currentStepIndex,
-        status: updated.status,
-        userId: attribution.userId ?? undefined,
-        reason: attribution.reason ?? undefined,
-        source: attribution.source ?? undefined,
-      },
+  await dispatchRampEvent(ctx, updated, "completed", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      status: updated.status,
+      userId: attribution.userId ?? undefined,
+      reason: attribution.reason ?? undefined,
+      source: attribution.source ?? undefined,
     },
-  );
+  });
 
   return updated;
 }
@@ -769,11 +766,21 @@ export async function completeRollout(
 export type CriteriaResult = "pass" | "fail" | "inconclusive";
 
 /**
- * Called by SafeRolloutSnapshotModel.afterUpdate and experiment snapshot completion.
- * Finds running ramp schedules whose autoRollback.criteriaId is in criteriaIds
- * and triggers rollback if the criteria result is "fail".
+ * STUB — not yet called from anywhere.
  *
- * This is a direct function call (no event bus required).
+ * `autoRollback.criteriaId` was intended to reference a future `DecisionCriteria`
+ * entity: a reusable, named health-check config (guardrails, SRM, min days, etc.)
+ * that could be attached to ramp steps, end triggers, or auto-rollback — the
+ * generalised form of what `SafeRolloutInterface` inlines today.
+ *
+ * To wire this up once that entity exists:
+ *   1. Hook into `SafeRolloutSnapshotModel.afterUpdate` (which already calls
+ *      `checkAndRollbackSafeRollout`) and translate a `"rollback-now"` result
+ *      into a `CriteriaResult = "fail"` call here, passing the relevant criteria ID.
+ *   2. Do the same for experiment snapshot completion.
+ *
+ * TODO: instrument once `DecisionCriteria` is defined and safe-rollout health
+ * results are keyed by a stable criteria ID.
  */
 export async function evaluateAutoRollback(
   ctx: ReqContext | ApiReqContext,
@@ -940,8 +947,18 @@ async function onApprovalRevisionPublished(
       )
     : null;
 
+  // When all steps are done: if endEarlyWhenStepsComplete is false AND a future
+  // end date trigger exists, stay "running" so Agenda fires the end date later.
+  // Otherwise complete immediately (default behavior for ramp-ups).
+  const hasFutureEndDate =
+    !nextStepAt &&
+    schedule.endCondition?.trigger?.type === "scheduled" &&
+    schedule.endCondition.trigger.at > now;
+  const holdForEndDate =
+    hasFutureEndDate && schedule.endEarlyWhenStepsComplete === false;
+
   await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: nextStepAt ? "running" : "completed",
+    status: nextStepAt || holdForEndDate ? "running" : "completed",
     nextStepAt,
     stepHistory: updatedHistory,
     pendingRevisionIds: [],

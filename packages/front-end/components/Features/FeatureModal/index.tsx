@@ -378,6 +378,7 @@ export default function FeatureModal({
         <EnvironmentSelect
           environmentSettings={environmentSettings}
           environments={environments}
+          project={selectedProject}
           setValue={(env, on) => {
             environmentSettings[env.id].enabled = on;
             form.setValue("environmentSettings", environmentSettings);

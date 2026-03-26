@@ -54,8 +54,7 @@ import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
-import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
-import RolloutFields from "@/components/Features/RuleModal/RolloutFields";
+import StandardRuleFields from "@/components/Features/RuleModal/StandardRuleFields";
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
@@ -78,8 +77,10 @@ import {
   buildStartActions,
   buildEndScheduleActions,
   validateRampSectionState,
+  isRampSectionConfigured,
+  scrubRampStateForRuleType,
+  VALID_STEP_FIELDS,
 } from "@/components/Features/RuleModal/RampScheduleSection";
-
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
@@ -340,6 +341,19 @@ export default function RuleModal({
       newVal.savedGroups = existingSavedGroups;
     }
     form.reset(newVal);
+    // Preserve the pre-generated rule ID so ramp patches stay in sync with
+    // the rule after a type switch. getDefaultRuleValue returns id:"" which
+    // would cause the backend to assign a new ID that doesn't match the patches.
+    if (mode === "create" && !rule) {
+      form.setValue("id", pregenRuleId);
+    }
+  }
+
+  function scrubAndChangeRuleType(v: string) {
+    if (v === "force" || v === "rollout") {
+      setRampSectionState((prev) => scrubRampStateForRuleType(prev, v));
+    }
+    changeRuleType(v);
   }
 
   const submitOverview = () => {
@@ -705,6 +719,15 @@ export default function RuleModal({
       if (rampValidationError) {
         throw new Error(rampValidationError);
       }
+      if (
+        (values.type === "rollout" || values.type === "force") &&
+        rampSectionState.mode !== "off" &&
+        !isRampSectionConfigured(rampSectionState)
+      ) {
+        throw new Error(
+          "Please choose a ramp preset or add at least one step before saving.",
+        );
+      }
 
       track("Save Feature Rule", {
         source: ruleAction,
@@ -738,50 +761,57 @@ export default function RuleModal({
           let rampScheduleInline:
             | PutFeatureRuleBody["rampSchedule"]
             | undefined;
-          if (values.type === "rollout" && rule?.id) {
+          if (
+            (values.type === "rollout" || values.type === "force") &&
+            rule?.id
+          ) {
             const ruleId = rule.id;
-            if (
-              rampSectionState.mode === "create" &&
-              rampSectionState.name.trim()
-            ) {
+            // Defensively scrub patches to only include fields valid for this rule type
+            const rampState =
+              values.type === "force" || values.type === "rollout"
+                ? scrubRampStateForRuleType(
+                    rampSectionState,
+                    values.type as keyof typeof VALID_STEP_FIELDS,
+                  )
+                : rampSectionState;
+            if (rampState.mode === "create" && rampState.name.trim()) {
               const startActions = buildStartActions(
-                rampSectionState.startPatch,
+                rampState.startPatch,
                 "t1",
                 ruleId,
               );
               const endActions = buildEndScheduleActions(
-                rampSectionState.endSchedulePatch,
+                rampState.endSchedulePatch,
                 "t1",
                 ruleId,
               );
               const startTrigger =
-                rampSectionState.startMode === "manual"
+                rampState.startMode === "manual"
                   ? ({ type: "manual" } as const)
-                  : rampSectionState.startMode === "specific-time" &&
-                      rampSectionState.startTime
+                  : rampState.startMode === "specific-time" &&
+                      rampState.startTime
                     ? ({
                         type: "scheduled",
-                        at: rampSectionState.startTime,
+                        at: rampState.startTime,
                       } as const)
                     : ({ type: "immediately" } as const);
               rampScheduleInline = {
                 mode: "create",
-                name: rampSectionState.name.trim(),
+                name: rampState.name.trim(),
                 environment,
-                steps: buildRampSteps(rampSectionState.steps, "t1", ruleId),
+                steps: buildRampSteps(rampState.steps, "t1", ruleId),
                 startCondition: {
                   trigger: startTrigger,
                   actions: startActions.length ? startActions : undefined,
                 },
-                disableRuleBefore:
-                  rampSectionState.disableRuleBefore || undefined,
-                disableRuleAfter:
-                  rampSectionState.disableRuleAfter || undefined,
-                endCondition: rampSectionState.endScheduleAt
+                disableRuleBefore: rampState.disableRuleBefore || undefined,
+                disableRuleAfter: rampState.disableRuleAfter || undefined,
+                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
+                endCondition: rampState.endScheduleAt
                   ? {
                       trigger: {
                         type: "scheduled",
-                        at: rampSectionState.endScheduleAt,
+                        at: rampState.endScheduleAt,
                       },
                       actions: endActions.length ? endActions : undefined,
                     }
@@ -789,66 +819,61 @@ export default function RuleModal({
                     ? { actions: endActions }
                     : undefined,
               };
-            } else if (
-              rampSectionState.mode === "detach" &&
-              ruleRampSchedule?.id
-            ) {
+            } else if (rampState.mode === "detach" && ruleRampSchedule?.id) {
               rampScheduleInline = {
                 mode: "detach",
                 rampScheduleId: ruleRampSchedule.id,
               };
-            } else if (
-              rampSectionState.mode === "link" &&
-              rampSectionState.linkedRampId
-            ) {
+            } else if (rampState.mode === "link" && rampState.linkedRampId) {
               rampScheduleInline = {
                 mode: "link",
-                rampScheduleId: rampSectionState.linkedRampId,
+                rampScheduleId: rampState.linkedRampId,
                 environment,
               };
             } else if (
-              rampSectionState.mode === "edit" &&
+              rampState.mode === "edit" &&
               ruleRampSchedule?.id &&
-              ["pending", "paused"].includes(ruleRampSchedule.status)
+              !["running", "ready", "pending-approval", "conflict"].includes(
+                ruleRampSchedule.status,
+              )
             ) {
               const startActions = buildStartActions(
-                rampSectionState.startPatch,
+                rampState.startPatch,
                 "t1",
                 ruleId,
               );
               const endActions = buildEndScheduleActions(
-                rampSectionState.endSchedulePatch,
+                rampState.endSchedulePatch,
                 "t1",
                 ruleId,
               );
               const startTrigger =
-                rampSectionState.startMode === "manual"
+                rampState.startMode === "manual"
                   ? ({ type: "manual" } as const)
-                  : rampSectionState.startMode === "specific-time" &&
-                      rampSectionState.startTime
+                  : rampState.startMode === "specific-time" &&
+                      rampState.startTime
                     ? ({
                         type: "scheduled",
-                        at: rampSectionState.startTime,
+                        at: rampState.startTime,
                       } as const)
                     : ({ type: "immediately" } as const);
               rampScheduleInline = {
                 mode: "update",
                 rampScheduleId: ruleRampSchedule.id,
-                name: rampSectionState.name.trim() || undefined,
-                steps: buildRampSteps(rampSectionState.steps, "t1", ruleId),
+                name: rampState.name.trim() || undefined,
+                steps: buildRampSteps(rampState.steps, "t1", ruleId),
                 startCondition: {
                   trigger: startTrigger,
                   actions: startActions.length ? startActions : undefined,
                 },
-                disableRuleBefore:
-                  rampSectionState.disableRuleBefore || undefined,
-                disableRuleAfter:
-                  rampSectionState.disableRuleAfter || undefined,
-                endCondition: rampSectionState.endScheduleAt
+                disableRuleBefore: rampState.disableRuleBefore || undefined,
+                disableRuleAfter: rampState.disableRuleAfter || undefined,
+                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
+                endCondition: rampState.endScheduleAt
                   ? {
                       trigger: {
                         type: "scheduled",
-                        at: rampSectionState.endScheduleAt,
+                        at: rampState.endScheduleAt,
                       },
                       actions: endActions.length ? endActions : undefined,
                     }
@@ -878,56 +903,56 @@ export default function RuleModal({
         // Build optional inline ramp payload for atomic rule+ramp creation
         let rampScheduleInline: PostFeatureRuleBody["rampSchedule"] | undefined;
         if (
-          values.type === "rollout" &&
+          (values.type === "rollout" || values.type === "force") &&
           mode !== "duplicate" &&
           rampSectionState.mode !== "off"
         ) {
           const effectiveRuleId = pregenRuleId;
-          if (
-            rampSectionState.mode === "create" &&
-            rampSectionState.name.trim()
-          ) {
+          // Defensively scrub patches to only include fields valid for this rule type
+          const rampState =
+            values.type === "force" || values.type === "rollout"
+              ? scrubRampStateForRuleType(
+                  rampSectionState,
+                  values.type as keyof typeof VALID_STEP_FIELDS,
+                )
+              : rampSectionState;
+          if (rampState.mode === "create" && rampState.name.trim()) {
             const startActions = buildStartActions(
-              rampSectionState.startPatch,
+              rampState.startPatch,
               "t1",
               effectiveRuleId,
             );
             const endActions = buildEndScheduleActions(
-              rampSectionState.endSchedulePatch,
+              rampState.endSchedulePatch,
               "t1",
               effectiveRuleId,
             );
             const startTrigger =
-              rampSectionState.startMode === "manual"
+              rampState.startMode === "manual"
                 ? ({ type: "manual" } as const)
-                : rampSectionState.startMode === "specific-time" &&
-                    rampSectionState.startTime
+                : rampState.startMode === "specific-time" && rampState.startTime
                   ? ({
                       type: "scheduled",
-                      at: rampSectionState.startTime,
+                      at: rampState.startTime,
                     } as const)
                   : ({ type: "immediately" } as const);
             rampScheduleInline = {
               mode: "create",
-              name: rampSectionState.name.trim(),
+              name: rampState.name.trim(),
               environment,
-              steps: buildRampSteps(
-                rampSectionState.steps,
-                "t1",
-                effectiveRuleId,
-              ),
+              steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               startCondition: {
                 trigger: startTrigger,
                 actions: startActions.length ? startActions : undefined,
               },
-              disableRuleBefore:
-                rampSectionState.disableRuleBefore || undefined,
-              disableRuleAfter: rampSectionState.disableRuleAfter || undefined,
-              endCondition: rampSectionState.endScheduleAt
+              disableRuleBefore: rampState.disableRuleBefore || undefined,
+              disableRuleAfter: rampState.disableRuleAfter || undefined,
+              endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
+              endCondition: rampState.endScheduleAt
                 ? {
                     trigger: {
                       type: "scheduled",
-                      at: rampSectionState.endScheduleAt,
+                      at: rampState.endScheduleAt,
                     },
                     actions: endActions.length ? endActions : undefined,
                   }
@@ -935,13 +960,10 @@ export default function RuleModal({
                   ? { actions: endActions }
                   : undefined,
             };
-          } else if (
-            rampSectionState.mode === "link" &&
-            rampSectionState.linkedRampId
-          ) {
+          } else if (rampState.mode === "link" && rampState.linkedRampId) {
             rampScheduleInline = {
               mode: "link",
-              rampScheduleId: rampSectionState.linkedRampId,
+              rampScheduleId: rampState.linkedRampId,
               environment,
             };
           }
@@ -1173,6 +1195,7 @@ export default function RuleModal({
         {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
           <EnvironmentSelect
             environments={environments}
+            project={feature.project}
             environmentSettings={Object.fromEntries(
               environments.map((env) => [
                 env.id,
@@ -1264,24 +1287,9 @@ export default function RuleModal({
           />
         }
       >
-        {ruleType === "force" && (
-          <ForceValueFields
-            feature={feature}
-            environments={selectedEnvironments}
-            defaultValues={defaultValues}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            isCyclic={isCyclic}
-            cyclicFeatureId={cyclicFeatureId}
-            conditionKey={conditionKey}
-            scheduleToggleEnabled={scheduleToggleEnabled}
-            setScheduleToggleEnabled={setScheduleToggleEnabled}
-          />
-        )}
-
-        {ruleType === "rollout" && (
-          <RolloutFields
+        {(ruleType === "force" || ruleType === "rollout") && (
+          <StandardRuleFields
+            ruleType={ruleType}
             feature={feature}
             environments={selectedEnvironments}
             defaultValues={defaultValues}
@@ -1299,6 +1307,7 @@ export default function RuleModal({
             }
             rampSectionState={rampSectionState}
             setRampSectionState={setRampSectionState}
+            onChangeRuleType={scrubAndChangeRuleType}
           />
         )}
 

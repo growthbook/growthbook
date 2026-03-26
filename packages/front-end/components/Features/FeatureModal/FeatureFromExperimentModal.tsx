@@ -406,6 +406,7 @@ export default function FeatureFromExperimentModal({
           <EnvironmentSelect
             environmentSettings={environmentSettings}
             environments={environments}
+            project={experiment.project}
             setValue={(env, on) => {
               environmentSettings[env.id].enabled = on;
               form.setValue("environmentSettings", environmentSettings);

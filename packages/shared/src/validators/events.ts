@@ -21,7 +21,6 @@ import {
   rampScheduleConflictPayload,
   rampScheduleErrorPayload,
   rampScheduleCompletedPayload,
-  rampScheduleExpiredPayload,
   rampScheduleRolledBackPayload,
   rampScheduleAutoRollbackPayload,
   rampScheduleCreatedPayload,
@@ -210,11 +209,6 @@ export const notificationEvents = {
     completed: {
       schema: rampScheduleCompletedPayload,
       description: "Triggered when a ramp schedule completes all steps",
-    },
-    expired: {
-      schema: rampScheduleExpiredPayload,
-      description:
-        "Triggered when a ramp schedule's endCondition deadline fires (hard deadline teardown)",
     },
     rolledBack: {
       schema: rampScheduleRolledBackPayload,

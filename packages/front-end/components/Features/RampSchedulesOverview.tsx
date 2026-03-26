@@ -56,9 +56,7 @@ export default function RampSchedulesOverview({
   return (
     <>
       {rampSchedules.map((rs) => {
-        const isTerminal = ["completed", "expired", "rolled-back"].includes(
-          rs.status,
-        );
+        const isTerminal = ["completed", "rolled-back"].includes(rs.status);
         const activeTargets = rs.targets.filter(
           (t) => t.status === "active" && t.ruleId && t.environment,
         );
@@ -104,6 +102,21 @@ export default function RampSchedulesOverview({
 
               {/* Inline CTAs */}
               <Flex gap="3" align="center" style={{ flexShrink: 0 }}>
+                {rs.status === "ready" && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<PiPlayFill />}
+                    onClick={async () => {
+                      await apiCall(`/ramp-schedule/${rs.id}/actions/start`, {
+                        method: "POST",
+                      });
+                      await mutate();
+                    }}
+                  >
+                    Start
+                  </Button>
+                )}
                 {rs.status === "paused" && (
                   <Button
                     size="sm"
@@ -174,7 +187,9 @@ export default function RampSchedulesOverview({
                   variant="soft"
                 >
                   {/* Edit ramp schedule */}
-                  {rs.status === "running" ? (
+                  {["running", "pending-approval", "conflict"].includes(
+                    rs.status,
+                  ) ? (
                     <Tooltip
                       content="Pause the ramp to edit the schedule"
                       side="left"
@@ -387,9 +402,7 @@ export default function RampSchedulesOverview({
                   )}
 
                   {/* Restart — terminal states */}
-                  {["completed", "expired", "rolled-back"].includes(
-                    rs.status,
-                  ) && (
+                  {["completed", "rolled-back"].includes(rs.status) && (
                     <DropdownMenuItem
                       onClick={async () => {
                         await apiCall(`/ramp-schedule/${rs.id}/actions/reset`, {
@@ -434,8 +447,10 @@ export default function RampSchedulesOverview({
             {rs.status === "pending-approval" &&
               rs.currentStepIndex >= 0 &&
               rs.steps[rs.currentStepIndex]?.approvalNotes && (
-                <Callout status="info" mb="2">
-                  <Text weight="medium">Before approving: </Text>
+                <Callout status="info" mb="3" color="orange">
+                  <Text weight="medium">
+                    <strong>Notes:</strong>
+                  </Text>{" "}
                   <Text>{rs.steps[rs.currentStepIndex].approvalNotes}</Text>
                 </Callout>
               )}

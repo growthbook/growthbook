@@ -128,7 +128,6 @@ export const rampScheduleStatusArray = [
   "pending-approval",
   "conflict",
   "completed",
-  "expired",
   "rolled-back",
 ] as const;
 export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
@@ -161,6 +160,11 @@ export const rampScheduleValidator = baseSchema
     // When true, the rule is hidden from SDK payload after the schedule ends.
     // Backend auto-injects enabled:false into endCondition.actions.
     disableRuleAfter: z.boolean().optional(),
+    // When true (default for ramp-ups), the schedule completes as soon as all steps
+    // are done even if endCondition.trigger.at is still in the future.
+    // When false (default for scheduled rules), the schedule holds in "running" state
+    // after all steps and only applies endCondition.actions when the date trigger fires.
+    endEarlyWhenStepsComplete: z.boolean().optional(),
     // Optional teardown condition — mirrors the shape of a step.
     // trigger: optional hard deadline (scheduled datetime). When reached, Agenda discards
     //   pending steps and fires endCondition.actions regardless of current progress.

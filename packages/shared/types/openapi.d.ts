@@ -1097,7 +1097,7 @@ export interface components {
           })[];
       };
       /** @enum {string} */
-      status: "pending" | "running" | "paused" | "pending-approval" | "conflict" | "completed" | "expired" | "rolled-back";
+      status: "pending" | "running" | "paused" | "pending-approval" | "conflict" | "completed" | "rolled-back";
       /** @description Index of the current step; -1 means not yet started */
       currentStepIndex: number;
       /** Format: date-time */

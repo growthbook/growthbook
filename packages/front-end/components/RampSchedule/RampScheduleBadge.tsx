@@ -34,6 +34,13 @@ export default function RampScheduleBadge({
     </div>
   );
 
+  const completedAt =
+    rs.status === "completed" && rs.dateUpdated
+      ? new Date(rs.dateUpdated)
+      : null;
+  const pausedAt =
+    rs.status === "paused" && rs.pausedAt ? new Date(rs.pausedAt) : null;
+
   let timingLabel: string | null = null;
   let timingTooltip: ReactNode = null;
   if (futureStart && futureEnd) {
@@ -65,17 +72,40 @@ export default function RampScheduleBadge({
     />
   );
 
-  const tooltipContent = (
-    <>
-      {featureRuleContext && (
-        <p>
-          This feature rule is controlled by a Ramp Schedule (
-          <strong>{rs.name}</strong>)
-        </p>
-      )}
-      {timingTooltip && <div>{timingTooltip}</div>}
-    </>
+  const contextLine = featureRuleContext && rs.status !== "completed" && (
+    <p>
+      This feature rule is controlled by a Ramp Schedule (
+      <strong>{rs.name}</strong>)
+    </p>
   );
+  const statusLine =
+    rs.status === "completed" ? (
+      <p>
+        {completedAt
+          ? dateRow("Completed", completedAt)
+          : "Schedule completed."}
+        {featureRuleContext && (
+          <> The ramp schedule may be safely removed from this rule.</>
+        )}
+      </p>
+    ) : pausedAt ? (
+      dateRow("Paused", pausedAt)
+    ) : null;
 
-  return <Tooltip body={tooltipContent}>{badge}</Tooltip>;
+  const hasTooltip = !!(contextLine || statusLine || timingTooltip);
+  if (!hasTooltip) return badge;
+
+  return (
+    <Tooltip
+      body={
+        <>
+          {contextLine}
+          {statusLine}
+          {timingTooltip && <div>{timingTooltip}</div>}
+        </>
+      }
+    >
+      {badge}
+    </Tooltip>
+  );
 }

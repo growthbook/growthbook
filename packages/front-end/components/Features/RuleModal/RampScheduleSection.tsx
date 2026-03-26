@@ -1,15 +1,14 @@
 // Inline ramp schedule editor inside RuleModal.
 // The "Changes" dropdown controls which fields appear on every step row; no per-row add/remove.
 
-import { useMemo, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   PiPlusBold,
   PiXBold,
   PiHourglassMediumFill,
   PiCaretRightFill,
-  PiEye,
-  PiEyeSlash,
+  PiPencilSimpleFill,
 } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import type {
@@ -38,6 +37,7 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/ui/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -89,7 +89,8 @@ export type UIStep = {
   triggerType: "interval" | "approval";
   intervalValue: number;
   intervalUnit: IntervalUnit;
-  approvalNotes: string; // only shown when triggerType === "approval"
+  approvalNotes: string;
+  notesOpen: boolean; // UI-only: whether the notes field is expanded
 };
 
 export type RampMode = "off" | "create" | "edit" | "link" | "detach";
@@ -103,6 +104,10 @@ export interface RampSectionState {
   startPatch: UIStepPatch; // patch applied when the ramp starts (e.g. coverage: 0)
   disableRuleBefore: boolean;
   disableRuleAfter: boolean;
+  // When true (default for ramp-ups): complete as soon as all steps are done
+  // even if a future end date is set. When false (default for scheduled rules):
+  // hold "running" after all steps until the end date fires.
+  endEarlyWhenStepsComplete: boolean;
   steps: UIStep[];
   endScheduleAt: string; // "" = automatic end; non-empty = specific time
   endSchedulePatch: UIStepPatch;
@@ -114,6 +119,39 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
   hours: 3600,
   days: 86400,
 };
+
+// Fields valid per rule type. coverage only makes sense for rollout;
+// force (feature value) only makes sense for force rules.
+export const VALID_STEP_FIELDS: Record<"force" | "rollout", StepField[]> = {
+  force: ["force", "condition", "savedGroups", "prerequisites"],
+  rollout: ["coverage", "condition", "savedGroups", "prerequisites"],
+};
+
+export function scrubRampStateForRuleType(
+  state: RampSectionState,
+  ruleType: "force" | "rollout",
+): RampSectionState {
+  const valid = new Set(VALID_STEP_FIELDS[ruleType]);
+  const scrub = (p: UIStepPatch): UIStepPatch =>
+    Object.fromEntries(
+      Object.entries(p).filter(([k]) => valid.has(k as StepField)),
+    ) as UIStepPatch;
+  return {
+    ...state,
+    startPatch: scrub(state.startPatch),
+    endSchedulePatch: scrub(state.endSchedulePatch),
+    steps: state.steps.map((s) => ({ ...s, patch: scrub(s.patch) })),
+  };
+}
+
+export function isRampSectionConfigured(state: RampSectionState): boolean {
+  return (
+    state.mode === "off" ||
+    state.mode === "link" ||
+    state.mode === "edit" ||
+    state.steps.length > 0
+  );
+}
 
 // ─── Grid column widths ──────────────────────────────────────────────────────
 
@@ -358,7 +396,7 @@ function buildPresetSteps(
 ): UIStep[] {
   const totalSeconds = totalDurationValue * UNIT_MULT[totalDurationUnit];
   const intervalCount = triggerType === "interval" ? coverages.length : 1;
-  const perStepSeconds = Math.max(1, Math.round(totalSeconds / intervalCount));
+  const perStepSeconds = Math.max(1, Math.ceil(totalSeconds / intervalCount));
   const intervalUnit: IntervalUnit =
     perStepSeconds % 86400 === 0 && perStepSeconds >= 86400
       ? "days"
@@ -370,7 +408,7 @@ function buildPresetSteps(
       ? perStepSeconds / 86400
       : intervalUnit === "hours"
         ? perStepSeconds / 3600
-        : Math.round(perStepSeconds / 60);
+        : Math.ceil(perStepSeconds / 60);
 
   return coverages.map((coverage) => {
     const patch: UIStepPatch = {};
@@ -388,6 +426,7 @@ function buildPresetSteps(
       intervalValue,
       intervalUnit,
       approvalNotes: "",
+      notesOpen: false,
     };
   });
 }
@@ -403,7 +442,7 @@ function applyTotalDuration(
   const totalSeconds = totalDurationValue * UNIT_MULT[totalDurationUnit];
   const perStepSeconds = Math.max(
     1,
-    Math.round(totalSeconds / intervalSteps.length),
+    Math.ceil(totalSeconds / intervalSteps.length),
   );
   const intervalUnit: IntervalUnit =
     perStepSeconds % 86400 === 0 && perStepSeconds >= 86400
@@ -416,13 +455,11 @@ function applyTotalDuration(
       ? perStepSeconds / 86400
       : intervalUnit === "hours"
         ? perStepSeconds / 3600
-        : Math.round(perStepSeconds / 60);
+        : Math.ceil(perStepSeconds / 60);
   return steps.map((s) =>
     s.triggerType === "interval" ? { ...s, intervalValue, intervalUnit } : s,
   );
 }
-
-const DEFAULT_STEPS: UIStep[] = [];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -437,6 +474,11 @@ interface Props {
   onSetRuleCoverage?: (coverage: number) => void;
   // Live rule values used as defaults when a new field is first added to the schedule.
   ruleBaseline?: UIStepPatch;
+  // The rule type this schedule is attached to. Used to hide unsupported fields
+  // (e.g. coverage on force rules) and auto-convert when a coverage preset is chosen.
+  ruleType?: "force" | "rollout";
+  // Called when a coverage-based preset is selected while ruleType === "force".
+  onConvertToRollout?: () => void;
 }
 
 export default function RampScheduleSection({
@@ -449,12 +491,31 @@ export default function RampScheduleSection({
   environments,
   onSetRuleCoverage,
   ruleBaseline = {},
+  ruleType,
+  onConvertToRollout,
 }: Props) {
   const [open, setOpen] = useState(hideOuterToggle || state.mode !== "off");
+  const [editingName, setEditingName] = useState(false);
+  const [nameStash, setNameStash] = useState(state.name);
+  const [moreOptionsOpen, setMoreOptionsOpen] = useState(() => {
+    if (state.disableRuleBefore || state.disableRuleAfter) return true;
+    // Open if any field beyond coverage is controlled
+    const fields = new Set<StepField>();
+    state.steps.forEach((s) =>
+      (Object.keys(s.patch) as StepField[]).forEach((k) => fields.add(k)),
+    );
+    (Object.keys(state.startPatch) as StepField[]).forEach((k) =>
+      fields.add(k),
+    );
+    (Object.keys(state.endSchedulePatch) as StepField[]).forEach((k) =>
+      fields.add(k),
+    );
+    return fields.size > 1 || (fields.size === 1 && !fields.has("coverage"));
+  });
   const [durationValue, setDurationValue] = useState(10);
   const [durationUnit, setDurationUnit] = useState<IntervalUnit>("minutes");
   const [durationDirty, setDurationDirty] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState("custom");
+  const [selectedPreset, setSelectedPreset] = useState("");
   const { settings } = useUser();
   const pollIntervalMinutes = isCloud()
     ? 10
@@ -466,6 +527,19 @@ export default function RampScheduleSection({
         ),
       );
   const pollIntervalSeconds = pollIntervalMinutes * 60;
+
+  // When switching to link mode or changing the linked ramp, populate state
+  // from the linked ramp so the user sees its schedule in the editor.
+  useEffect(() => {
+    if (state.mode !== "link" || !state.linkedRampId) return;
+    const linked = featureRampSchedules.find(
+      (r) => r.id === state.linkedRampId,
+    );
+    if (!linked) return;
+    const cloned = rampScheduleToSectionState(linked);
+    setState({ ...cloned, mode: "link", linkedRampId: state.linkedRampId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.mode, state.linkedRampId]);
 
   function patchState(partial: Partial<RampSectionState>) {
     setState({ ...state, ...partial });
@@ -514,6 +588,9 @@ export default function RampScheduleSection({
       return p;
     };
 
+    if (newSet.size > 1 || (newSet.size === 1 && !newSet.has("coverage"))) {
+      setMoreOptionsOpen(true);
+    }
     patchState({
       startPatch: rebuildPatch(state.startPatch),
       // Pre-seed coverage: 100 so newly-activated coverage on the end patch defaults to
@@ -579,6 +656,7 @@ export default function RampScheduleSection({
           intervalValue: last?.intervalValue ?? 10,
           intervalUnit: last?.intervalUnit ?? "minutes",
           approvalNotes: "",
+          notesOpen: false,
         },
       ],
     });
@@ -598,7 +676,7 @@ export default function RampScheduleSection({
   }
 
   const linkableRamps = featureRampSchedules.filter(
-    (rs) => !["completed", "expired", "rolled-back"].includes(rs.status),
+    (rs) => !["completed", "rolled-back"].includes(rs.status),
   );
   const otherRamps = featureRampSchedules.filter(
     (rs) => rs.id !== ruleRampSchedule?.id,
@@ -607,7 +685,11 @@ export default function RampScheduleSection({
   // ── Step grid ─────────────────────────────────────────────────────────────
 
   function renderStepGrid() {
-    const endTriggerType = state.endScheduleAt ? "specific-time" : "automatic";
+    const endTriggerType = state.endScheduleAt
+      ? state.endEarlyWhenStepsComplete
+        ? "on-or-before"
+        : "on"
+      : "automatic";
     const hasTargeting = (
       ["condition", "savedGroups", "prerequisites"] as StepField[]
     ).some((f) => activeFields.has(f));
@@ -731,8 +813,8 @@ export default function RampScheduleSection({
       },
       {
         value: "specific-time",
-        label: "Specific date",
-        tooltip: "Starts at a scheduled time once the draft is published",
+        label: "On",
+        tooltip: "Starts at a specific time after draft is published",
       },
     ];
 
@@ -829,31 +911,6 @@ export default function RampScheduleSection({
               </Box>
             )}
           </Flex>
-          <Tooltip
-            content={
-              state.disableRuleBefore
-                ? "Rule hidden before schedule starts (click to show)"
-                : "Rule visible before schedule starts (click to hide)"
-            }
-            side="top"
-          >
-            <IconButton
-              variant="ghost"
-              color={state.disableRuleBefore ? undefined : "gray"}
-              size="2"
-              style={{ flexShrink: 0 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                patchState({ disableRuleBefore: !state.disableRuleBefore });
-              }}
-            >
-              {state.disableRuleBefore ? (
-                <PiEyeSlash size={15} />
-              ) : (
-                <PiEye size={15} />
-              )}
-            </IconButton>
-          </Tooltip>
         </Flex>
         {renderPatchSubRows(
           state.startPatch,
@@ -912,23 +969,32 @@ export default function RampScheduleSection({
                   {
                     value: "automatic",
                     label: "Automatic",
-                    tooltip: "Ends after all steps have completed",
+                    tooltip: "Ends after all steps complete",
                   },
                   {
-                    value: "specific-time",
-                    label: "Specific time",
+                    value: "on",
+                    label: "On",
+                    tooltip: "Ends at a specific time",
+                  },
+                  {
+                    value: "on-or-before",
+                    label: "On or before",
                     tooltip:
-                      "Ends at a specific time irrespective of ramp step",
+                      "Ends either when all steps finish or at a specific time",
                   },
                 ]}
                 onChange={(v) => {
                   if (v === "automatic") {
-                    patchState({ endScheduleAt: "" });
+                    patchState({
+                      endScheduleAt: "",
+                      endEarlyWhenStepsComplete: false,
+                    });
                   } else {
                     const d = new Date();
                     d.setSeconds(0, 0);
                     patchState({
                       endScheduleAt: d.toISOString().slice(0, 16),
+                      endEarlyWhenStepsComplete: v === "on-or-before",
                     });
                   }
                 }}
@@ -956,7 +1022,7 @@ export default function RampScheduleSection({
                 }}
               />
             </Box>
-            {endTriggerType === "specific-time" && (
+            {(endTriggerType === "on" || endTriggerType === "on-or-before") && (
               <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                 <DatePicker
                   date={state.endScheduleAt || undefined}
@@ -969,31 +1035,11 @@ export default function RampScheduleSection({
               </Box>
             )}
           </Flex>
-          <Tooltip
-            content={
-              state.disableRuleAfter
-                ? "Rule hidden after schedule ends (click to show)"
-                : "Rule visible after schedule ends (click to hide)"
-            }
-            side="top"
-          >
-            <IconButton
-              variant="ghost"
-              color={state.disableRuleAfter ? undefined : "gray"}
-              size="2"
-              style={{ flexShrink: 0 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                patchState({ disableRuleAfter: !state.disableRuleAfter });
-              }}
-            >
-              {state.disableRuleAfter ? (
-                <PiEyeSlash size={15} />
-              ) : (
-                <PiEye size={15} />
-              )}
-            </IconButton>
-          </Tooltip>
+          <Box flexGrow="1" />
+          <Link size="2" onClick={addStep}>
+            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+            Add step
+          </Link>
         </Flex>
         {renderPatchSubRows(
           state.endSchedulePatch,
@@ -1008,26 +1054,6 @@ export default function RampScheduleSection({
 
     return (
       <Box>
-        {/* Schedule controls — MultiSelectField */}
-        <MultiSelectField
-          label="Controlled by ramp schedule"
-          value={[...activeFields]}
-          options={ALL_STEP_FIELDS.map((f) => ({
-            value: f,
-            label: STEP_FIELD_LABELS[f],
-          }))}
-          onChange={(newValues) => {
-            const next = (
-              newValues.length === 0 ? ["coverage"] : newValues
-            ) as StepField[];
-            setActiveFields(next);
-          }}
-          sort={false}
-          showCopyButton={false}
-          closeMenuOnSelect={false}
-          containerClassName="mb-3"
-        />
-
         {/* Header row — no label for details column (datetime / interval / text) */}
         <Flex
           align="center"
@@ -1099,7 +1125,11 @@ export default function RampScheduleSection({
                 <Flex
                   align="center"
                   gap="2"
-                  style={{ width: COL.trigger + COL.duration, flexShrink: 0 }}
+                  style={
+                    step.triggerType === "approval"
+                      ? { flex: 1, minWidth: COL.trigger }
+                      : { width: COL.trigger + COL.duration, flexShrink: 0 }
+                  }
                 >
                   <Box style={{ width: COL.trigger, flexShrink: 0 }}>
                     <SelectField
@@ -1191,16 +1221,23 @@ export default function RampScheduleSection({
                       gap="2"
                       style={{ flex: 1, minWidth: 0 }}
                     >
-                      {!step.approvalNotes ? (
+                      {!step.notesOpen ? (
                         <Link
                           size="1"
+                          ml="1"
+                          color="gray"
                           style={{ flexShrink: 0 }}
-                          onClick={() => updateStep(i, { approvalNotes: " " })}
+                          onClick={() =>
+                            updateStep(i, {
+                              notesOpen: true,
+                              approvalNotes: "",
+                            })
+                          }
                         >
                           <PiPlusBold
                             style={{ marginRight: 3, verticalAlign: "middle" }}
                           />
-                          Add prompt notes
+                          Add approval notes
                         </Link>
                       ) : (
                         <Box style={{ flex: 1, minWidth: 0 }}>
@@ -1220,7 +1257,8 @@ export default function RampScheduleSection({
                   )}
                 </Flex>
 
-                {/* Remove button — inline at end of row */}
+                {step.triggerType !== "approval" && <Box flexGrow="1" />}
+                {/* Remove button — pushed to far right */}
                 <Tooltip content="Remove step">
                   <IconButton
                     type="button"
@@ -1245,15 +1283,76 @@ export default function RampScheduleSection({
           );
         })}
 
-        {/* Add step — between steps and end row */}
-        <Flex align="center" justify="start" py="1">
-          <Link size="1" onClick={addStep}>
-            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-            Add step
-          </Link>
-        </Flex>
-
         {endRow}
+
+        <Box mt="4" mb="2">
+          <Collapsible
+            open={moreOptionsOpen}
+            transitionTime={100}
+            trigger={
+              <Link
+                size="2"
+                onClick={() => setMoreOptionsOpen((o) => !o)}
+                style={{ userSelect: "none" }}
+              >
+                <Text weight="medium">More options</Text>
+                <PiCaretRightFill
+                  style={{
+                    marginLeft: 4,
+                    verticalAlign: "middle",
+                    transition: "transform 150ms",
+                    transform: moreOptionsOpen
+                      ? "rotate(90deg)"
+                      : "rotate(0deg)",
+                  }}
+                />
+              </Link>
+            }
+          >
+            <Box mt="3">
+              <MultiSelectField
+                label="Controlled by ramp schedule"
+                value={[...activeFields]}
+                options={ALL_STEP_FIELDS.map((f) => ({
+                  value: f,
+                  label: STEP_FIELD_LABELS[f],
+                }))}
+                onChange={(newValues) => {
+                  setActiveFields(newValues as StepField[]);
+                }}
+                sort={false}
+                showCopyButton={false}
+                closeMenuOnSelect={false}
+                containerClassName="mb-1"
+              />
+              {activeFields.size === 0 &&
+                ruleBaseline.coverage !== undefined && (
+                  <Box mb="3">
+                    <Link
+                      size="1"
+                      onClick={() => setActiveFields(["coverage"])}
+                    >
+                      + Add coverage control
+                    </Link>
+                  </Box>
+                )}
+              <Box display="inline-block">
+                <Flex direction="column" gap="2">
+                  <Checkbox
+                    value={state.disableRuleBefore ?? false}
+                    setValue={(v) => patchState({ disableRuleBefore: v })}
+                    label="Hide rule before start"
+                  />
+                  <Checkbox
+                    value={state.disableRuleAfter ?? false}
+                    setValue={(v) => patchState({ disableRuleAfter: v })}
+                    label="Hide rule at end"
+                  />
+                </Flex>
+              </Box>
+            </Box>
+          </Collapsible>
+        </Box>
       </Box>
     );
   }
@@ -1269,6 +1368,7 @@ export default function RampScheduleSection({
           <SelectField
             label="Preset"
             value={selectedPreset}
+            placeholder="Choose a preset..."
             options={[
               {
                 label: "Ramp ups",
@@ -1297,6 +1397,9 @@ export default function RampScheduleSection({
 
               const ramp = RAMP_PRESETS.find((p) => p.label === v);
               if (ramp) {
+                if (ruleType === "force") {
+                  onConvertToRollout?.();
+                }
                 setSelectedPreset(v);
                 const effectiveDurationValue = durationDirty
                   ? durationValue
@@ -1321,31 +1424,41 @@ export default function RampScheduleSection({
                   endSchedulePatch: { coverage: 100 },
                   disableRuleBefore: false,
                   disableRuleAfter: false,
+                  endEarlyWhenStepsComplete: true,
                   ...(ramp.manualStart
                     ? { startMode: "manual" as const, startTime: "" }
                     : {}),
                 });
-                onSetRuleCoverage?.(0);
+                if ((state.startPatch.coverage ?? 0) === 0) {
+                  onSetRuleCoverage?.(0);
+                }
                 return;
               }
 
               const scheduled = SCHEDULED_PRESETS.find((p) => p.label === v);
               if (scheduled) {
                 setSelectedPreset(v);
-                // Use || instead of ?? so that 0% also falls back to 100%:
-                // a scheduled rule that enables/disables at 0% coverage makes no sense.
-                const defaultCoverage = ruleBaseline.coverage || 100;
+                const defaultEndAt = (() => {
+                  const d = new Date();
+                  d.setSeconds(0, 0);
+                  return d.toISOString().slice(0, 16);
+                })();
                 patchState({
                   steps: [],
                   name: scheduled.name,
                   startMode: scheduled.startMode,
                   startTime: "",
-                  startPatch: { coverage: defaultCoverage },
+                  // Scheduled rules control visibility via disableRuleBefore/After,
+                  // not coverage — start/end patches are intentionally empty.
+                  startPatch: {},
                   disableRuleBefore: scheduled.disableRuleBefore,
                   disableRuleAfter: scheduled.disableRuleAfter,
-                  endScheduleAt: "",
-                  endSchedulePatch: { coverage: defaultCoverage },
+                  // Scheduled rules hold until the end date fires, not on step completion.
+                  endEarlyWhenStepsComplete: false,
+                  endScheduleAt: scheduled.includeEnd ? defaultEndAt : "",
+                  endSchedulePatch: {},
                 });
+                setMoreOptionsOpen(true);
                 return;
               }
             }}
@@ -1367,6 +1480,12 @@ export default function RampScheduleSection({
                 setDurationValue(Math.max(1, parseInt(e.target.value) || 1));
                 setDurationDirty(true);
               }}
+              onBlur={(e) => {
+                const v = Math.max(1, parseInt(e.target.value) || 1);
+                patchState({
+                  steps: applyTotalDuration(state.steps, v, durationUnit),
+                });
+              }}
               containerStyle={{ width: 75, flexShrink: 0 }}
               containerClassName="mb-0"
               style={{ minHeight: 38 }}
@@ -1379,37 +1498,19 @@ export default function RampScheduleSection({
                 { value: "days", label: "days" },
               ]}
               onChange={(v) => {
-                setDurationUnit(v as IntervalUnit);
+                const unit = v as IntervalUnit;
+                setDurationUnit(unit);
                 setDurationDirty(true);
+                patchState({
+                  steps: applyTotalDuration(state.steps, durationValue, unit),
+                });
               }}
               containerClassName="mb-0"
               containerStyle={{ width: 100, minHeight: 38 }}
             />
-            <Link
-              size="1"
-              onClick={() => {
-                patchState({
-                  steps: applyTotalDuration(
-                    state.steps,
-                    durationValue,
-                    durationUnit,
-                  ),
-                });
-              }}
-            >
-              Apply to schedule
-            </Link>
           </Flex>
         </Box>
       </Flex>
-
-      <Field
-        label="Ramp schedule name"
-        required={state.mode === "create"}
-        value={state.name}
-        onChange={(e) => patchState({ name: e.target.value })}
-        placeholder="e.g. ramp up"
-      />
 
       {/* Granularity warning — shown when any interval step is shorter than the agenda poll interval */}
       {state.steps.some(
@@ -1418,9 +1519,9 @@ export default function RampScheduleSection({
           s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
       ) && (
         <Callout status="warning" mb="3">
-          One or more steps are shorter than the {pollIntervalMinutes}-minute
-          agenda poll interval. Steps may advance in batches rather than at
-          exact times.
+          One or more steps are shorter than the minimum check interval (
+          {pollIntervalMinutes} min). Short steps may be applied together rather
+          than at their exact scheduled times.
         </Callout>
       )}
 
@@ -1430,12 +1531,14 @@ export default function RampScheduleSection({
 
   // ── Full content (all modes) ───────────────────────────────────────────────
 
-  // "pending" = awaiting draft publish (can still edit); "paused" = between steps (can edit).
-  // "ready" = draft published, ramp not yet started — treat as non-editable (the rule change
-  //  is already live; editing the ramp schedule requires a new revision cycle).
+  // "running" = blocked: Agenda is actively watching, edits would race with progression.
+  // "ready" is not yet running, so edits are safe (like paused).
+  // All other statuses (pending, ready, paused, completed, rolled-back) are safe to edit freely.
   const canEdit =
     !ruleRampSchedule ||
-    ["pending", "paused"].includes(ruleRampSchedule.status);
+    !["running", "pending-approval", "conflict"].includes(
+      ruleRampSchedule.status,
+    );
 
   const content = (
     <>
@@ -1444,9 +1547,56 @@ export default function RampScheduleSection({
         <Box mb="3">
           <Flex align="center" gap="2" mb="2" wrap="nowrap">
             <PiHourglassMediumFill size={16} />
-            <Text size="medium" weight="medium">
-              {ruleRampSchedule.name}
-            </Text>
+            {canEdit && editingName ? (
+              <Field
+                autoFocus
+                value={state.name}
+                placeholder={ruleRampSchedule.name}
+                onChange={(e) => patchState({ name: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setEditingName(false);
+                  } else if (e.key === "Escape") {
+                    patchState({ name: nameStash });
+                    setEditingName(false);
+                  }
+                }}
+                onBlur={() => setEditingName(false)}
+                containerStyle={{ marginBottom: 0 }}
+                style={{
+                  border: "none",
+                  borderBottom: "1px solid var(--violet-9)",
+                  borderRadius: 0,
+                  outline: "none",
+                  background: "transparent",
+                  boxShadow: "none",
+                  padding: "0 2px",
+                  height: "auto",
+                }}
+              />
+            ) : (
+              <Text size="medium" weight="medium">
+                {state.name || ruleRampSchedule.name}
+              </Text>
+            )}
+            {canEdit && !editingName && (
+              <IconButton
+                variant="ghost"
+                color="violet"
+                size="2"
+                radius="full"
+                onClick={() => {
+                  setNameStash(state.name || ruleRampSchedule.name);
+                  patchState({ name: state.name || ruleRampSchedule.name });
+                  setEditingName(true);
+                }}
+                type="button"
+                mx="1"
+              >
+                <PiPencilSimpleFill />
+              </IconButton>
+            )}
             <Badge
               label={getRampStatusLabel(ruleRampSchedule)}
               color={getRampBadgeColor(ruleRampSchedule.status)}
@@ -1462,13 +1612,9 @@ export default function RampScheduleSection({
             )}
             <Box flexGrow="1" />
             {/* Detach only allowed when ramp is in a non-active state */}
-            {[
-              "pending",
-              "paused",
-              "completed",
-              "expired",
-              "rolled-back",
-            ].includes(ruleRampSchedule.status) && (
+            {["pending", "paused", "completed", "rolled-back"].includes(
+              ruleRampSchedule.status,
+            ) && (
               <Tooltip content="Detach this rule from the ramp schedule">
                 <Link
                   color="ruby"
@@ -1543,7 +1689,66 @@ export default function RampScheduleSection({
         />
       )}
 
-      {(state.mode === "create" || (state.mode === "edit" && canEdit)) &&
+      {state.mode === "create" && (
+        <Flex align="center" gap="1" mb="3">
+          <PiHourglassMediumFill size={16} />
+          {editingName ? (
+            <Field
+              autoFocus
+              value={state.name}
+              placeholder="e.g. ramp up"
+              onChange={(e) => patchState({ name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setEditingName(false);
+                } else if (e.key === "Escape") {
+                  patchState({ name: nameStash });
+                  setEditingName(false);
+                }
+              }}
+              onBlur={() => setEditingName(false)}
+              containerStyle={{ marginBottom: 0 }}
+              style={{
+                border: "none",
+                borderBottom: "1px solid var(--violet-9)",
+                borderRadius: 0,
+                outline: "none",
+                background: "transparent",
+                boxShadow: "none",
+                padding: "0 2px",
+                height: "auto",
+              }}
+            />
+          ) : (
+            <Text weight="medium">
+              {state.name || (
+                <span style={{ color: "var(--color-text-low)" }}>ramp up</span>
+              )}
+            </Text>
+          )}
+          {!editingName && (
+            <IconButton
+              variant="ghost"
+              color="violet"
+              size="2"
+              radius="full"
+              type="button"
+              onClick={() => {
+                setNameStash(state.name);
+                setEditingName(true);
+              }}
+              mx="1"
+            >
+              <PiPencilSimpleFill />
+            </IconButton>
+          )}
+        </Flex>
+      )}
+
+      {(state.mode === "create" ||
+        state.mode === "link" ||
+        (state.mode === "edit" && canEdit)) &&
         createContent}
     </>
   );
@@ -1600,12 +1805,14 @@ export function reconstructUIPatch(
 export function reconstructUIStep(step: RampStep): UIStep {
   const patch = reconstructUIPatch(step.actions[0]?.patch);
   if (step.trigger.type === "approval" || step.trigger.type === "scheduled") {
+    const approvalNotes = step.approvalNotes ?? "";
     return {
       patch,
       triggerType: "approval",
       intervalValue: 10,
       intervalUnit: "minutes",
-      approvalNotes: step.approvalNotes ?? "",
+      approvalNotes,
+      notesOpen: approvalNotes.trim().length > 0,
     };
   }
   const seconds = step.trigger.seconds;
@@ -1626,6 +1833,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
           ? seconds / 3600
           : seconds / 60,
     approvalNotes: "",
+    notesOpen: false,
   };
 }
 
@@ -1648,6 +1856,7 @@ export function rampScheduleToSectionState(
     startPatch: reconstructUIPatch(rs.startCondition?.actions?.[0]?.patch),
     disableRuleBefore: rs.disableRuleBefore ?? false,
     disableRuleAfter: rs.disableRuleAfter ?? false,
+    endEarlyWhenStepsComplete: rs.endEarlyWhenStepsComplete ?? true,
     steps: rs.steps.map(reconstructUIStep),
     endScheduleAt:
       rs.endCondition?.trigger?.type === "scheduled"
@@ -1672,7 +1881,8 @@ export function defaultRampSectionState(
     startPatch: { coverage: 0 },
     disableRuleBefore: false,
     disableRuleAfter: false,
-    steps: DEFAULT_STEPS.map((s) => ({ ...s, patch: { ...s.patch } })),
+    endEarlyWhenStepsComplete: true,
+    steps: [],
     endScheduleAt: "",
     endSchedulePatch: { coverage: 100 },
     linkedRampId: "",

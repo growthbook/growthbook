@@ -37,6 +37,7 @@ const putRampScheduleValidator = {
       .nullable(),
     disableRuleBefore: z.boolean().optional(),
     disableRuleAfter: z.boolean().optional(),
+    endEarlyWhenStepsComplete: z.boolean().optional(),
     endCondition: z
       .object({
         trigger: z
@@ -90,6 +91,9 @@ export const putRampSchedule = createApiRequestHandler(
   }
   if (body.disableRuleAfter !== undefined) {
     updates.disableRuleAfter = body.disableRuleAfter;
+  }
+  if (body.endEarlyWhenStepsComplete !== undefined) {
+    updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;

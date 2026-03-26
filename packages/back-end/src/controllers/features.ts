@@ -1868,6 +1868,8 @@ export async function postFeatureRule(
         },
         disableRuleBefore: disableBefore || undefined,
         disableRuleAfter: disableAfter || undefined,
+        endEarlyWhenStepsComplete:
+          rampSchedulePayload.endEarlyWhenStepsComplete,
         endCondition,
         // Ramp stays "pending" until the activating revision is published
         status: "pending",
@@ -2732,6 +2734,8 @@ export async function putFeatureRule(
         },
         disableRuleBefore: disableBefore2 || undefined,
         disableRuleAfter: disableAfter2 || undefined,
+        endEarlyWhenStepsComplete:
+          rampSchedulePayload.endEarlyWhenStepsComplete,
         endCondition,
         status: "pending",
         currentStepIndex: -1,
@@ -2773,6 +2777,9 @@ export async function putFeatureRule(
         if (rampSchedulePayload.disableRuleAfter !== undefined)
           updates.disableRuleAfter =
             rampSchedulePayload.disableRuleAfter ?? undefined;
+        if (rampSchedulePayload.endEarlyWhenStepsComplete !== undefined)
+          updates.endEarlyWhenStepsComplete =
+            rampSchedulePayload.endEarlyWhenStepsComplete;
         if (rampSchedulePayload.endCondition !== undefined) {
           const ec = rampSchedulePayload.endCondition;
           if (!ec) {
@@ -2788,6 +2795,9 @@ export async function putFeatureRule(
             };
           }
         }
+        if (rampSchedulePayload.endEarlyWhenStepsComplete !== undefined)
+          updates.endEarlyWhenStepsComplete =
+            rampSchedulePayload.endEarlyWhenStepsComplete;
         await context.models.rampSchedules.updateById(existing.id, updates);
       }
     } else if (rampSchedulePayload.mode === "link") {

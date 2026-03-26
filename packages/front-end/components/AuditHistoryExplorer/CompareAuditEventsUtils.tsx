@@ -64,7 +64,6 @@ export const RAMP_EVENT_LABELS: Record<string, string> = {
   paused: "Paused",
   resumed: "Resumed",
   completed: "Completed",
-  expired: "Expired",
   rolledBack: "Rolled back",
   autoRollback: "Auto-rolled back",
   reset: "Restart from beginning",

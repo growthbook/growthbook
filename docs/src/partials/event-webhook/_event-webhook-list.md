@@ -26,7 +26,6 @@
 | **[rampSchedule.conflict](#rampScheduleconflict)** | Triggered when a ramp revision conflict is detected during an approval window |
 | **[rampSchedule.error](#rampScheduleerror)** | Triggered when an unexpected error occurs during ramp step execution |
 | **[rampSchedule.completed](#rampSchedulecompleted)** | Triggered when a ramp schedule completes all steps |
-| **[rampSchedule.expired](#rampScheduleexpired)** | Triggered when a ramp schedule's endSchedule fires (hard deadline teardown) |
 | **[rampSchedule.rolledBack](#rampSchedulerolledBack)** | Triggered when a ramp schedule is manually rolled back |
 | **[rampSchedule.autoRollback](#rampScheduleautoRollback)** | Triggered when a ramp schedule is automatically rolled back by a criteria/metric evaluation |
 | **[rampSchedule.created](#rampSchedulecreated)** | Triggered when a ramp schedule is created |
@@ -329,6 +328,8 @@ Triggered when a feature is created
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -908,6 +909,8 @@ Triggered when a feature is updated
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1212,6 +1215,8 @@ Triggered when a feature is deleted
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1251,6 +1256,8 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1290,6 +1297,8 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1330,6 +1339,8 @@ Triggered when a safe rollout is failing a health check and may not be working a
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1507,6 +1518,8 @@ Triggered when an experiment is created
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1832,6 +1845,8 @@ Triggered when an experiment is updated
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2009,6 +2024,8 @@ Triggered when an experiment is deleted
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2060,6 +2077,8 @@ Triggered when a warning condition is detected on an experiment
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2105,6 +2124,8 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2144,6 +2165,8 @@ Triggered when an experiment is ready to ship a variation.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2183,6 +2206,8 @@ Triggered when an experiment should be rolled back to the control.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2222,6 +2247,8 @@ Triggered when an experiment has reached the desired power point, but the result
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2265,6 +2292,8 @@ Triggered when a user logs in
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2309,6 +2338,8 @@ Triggered when a ramp schedule starts
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2353,6 +2384,8 @@ Triggered when a ramp schedule advances to the next step
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2398,6 +2431,8 @@ Triggered when an approval-gated ramp step is waiting for review
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2443,6 +2478,8 @@ Triggered when an approval gate is cleared and the ramp step proceeds
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2487,6 +2524,8 @@ Triggered when a ramp schedule is paused
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2531,6 +2570,8 @@ Triggered when a paused ramp schedule is resumed
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2576,6 +2617,8 @@ Triggered when a ramp revision conflict is detected during an approval window
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2621,6 +2664,8 @@ Triggered when an unexpected error occurs during ramp step execution
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2665,50 +2710,8 @@ Triggered when a ramp schedule completes all steps
         apiKey: string;
     } | {
         type: "system";
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.expired
-
-Triggered when a ramp schedule's endSchedule fires (hard deadline teardown)
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.expired";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2754,6 +2757,8 @@ Triggered when a ramp schedule is manually rolled back
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2799,6 +2804,8 @@ Triggered when a ramp schedule is automatically rolled back by a criteria/metric
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2841,6 +2848,8 @@ Triggered when a ramp schedule is created
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2881,6 +2890,8 @@ Triggered when a ramp schedule is deleted
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2925,6 +2936,8 @@ Triggered when a ramp schedule is reset to its initial state
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2970,6 +2983,8 @@ Triggered when a ramp schedule is jumped to a specific step
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];

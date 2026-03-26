@@ -341,9 +341,7 @@ export default function RampScheduleDisplay({
             const hasExplicitEnd = !!rs.endCondition;
             const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
             const terminal =
-              rs.status === "completed" ||
-              rs.status === "expired" ||
-              rs.status === "rolled-back";
+              rs.status === "completed" || rs.status === "rolled-back";
             return (
               <Row
                 label="end"

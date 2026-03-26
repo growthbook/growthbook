@@ -56,8 +56,7 @@ function formatScheduledDate(d: Date | string): ReactNode {
 }
 
 function completedNodeCount(rs: RampScheduleInterface): number {
-  if (rs.status === "completed" || rs.status === "expired")
-    return rs.steps.length + 2;
+  if (rs.status === "completed") return rs.steps.length + 2;
   if (rs.status === "pending" || rs.status === "ready") return 0;
   // currentStepIndex is the step currently active/in-progress (0-indexed).
   // Nodes before it (start + prior steps) are completed; it is active.
@@ -262,7 +261,6 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     "pending-approval": "needs approval",
     conflict: "conflict",
     completed: "complete",
-    expired: "expired",
     "rolled-back": "rolled back",
   };
   return labels[rs.status] ?? rs.status;
@@ -282,7 +280,6 @@ export function getRampBadgeColor(
     "pending-approval": "orange",
     conflict: "orange",
     completed: "gray",
-    expired: "gray",
     "rolled-back": "gray",
   };
   return colors[status] ?? "gray";
@@ -315,12 +312,7 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
       if (startTrigger?.type === "scheduled" && i === 0) return "active";
       return "future";
     }
-    if (
-      i === doneCount &&
-      status !== "completed" &&
-      status !== "expired" &&
-      status !== "rolled-back"
-    )
+    if (i === doneCount && status !== "completed" && status !== "rolled-back")
       return "active";
     return "future";
   }
@@ -371,9 +363,7 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
               {rs.name}
             </Text>
             {steps.length > 0 &&
-              (status === "completed" ||
-              status === "expired" ||
-              status === "rolled-back" ? (
+              (status === "completed" || status === "rolled-back" ? (
                 <Text size="small" color="text-low">
                   ramp complete
                 </Text>

@@ -178,7 +178,7 @@ export const completeRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  if (["completed", "expired", "rolled-back"].includes(schedule.status)) {
+  if (["completed", "rolled-back"].includes(schedule.status)) {
     throw new Error(
       `Ramp schedule is already in terminal status "${schedule.status}"`,
     );

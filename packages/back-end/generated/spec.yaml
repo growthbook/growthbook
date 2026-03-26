@@ -20107,7 +20107,6 @@ components:
             - pending-approval
             - conflict
             - completed
-            - expired
             - rolled-back
         currentStepIndex:
           type: integer

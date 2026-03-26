@@ -31,6 +31,8 @@ export type InlineRampScheduleCreate = {
   disableRuleBefore?: boolean;
   /** When true, rule is hidden from SDK payload after the schedule ends. */
   disableRuleAfter?: boolean;
+  /** When true (default for ramp-ups), complete immediately when all steps finish even if endCondition date is future. When false, hold until the end date fires. */
+  endEarlyWhenStepsComplete?: boolean;
   /** End trigger + teardown actions. trigger is optional (no deadline = fires on natural completion). */
   endCondition?: {
     trigger?: RampEndTrigger;
@@ -64,6 +66,7 @@ export type InlineRampScheduleUpdate = {
   } | null;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
+  endEarlyWhenStepsComplete?: boolean;
   /** null clears the end condition entirely. */
   endCondition?: {
     trigger?: RampEndTrigger;
