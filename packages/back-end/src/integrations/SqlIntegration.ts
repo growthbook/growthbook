@@ -1595,33 +1595,43 @@ export default abstract class SqlIntegration
     timestampCols?: string[],
     queryType?: QueryType,
   ): Promise<TestQueryResult> {
+    // Snapshot and restore query metadata to avoid leaking between queries
+    // This is unlikely to happen in practice, but might as well be safe.
+    const queryDocMetadataSnapshot = this.queryDocMetadata
+      ? { ...this.queryDocMetadata }
+      : undefined;
+
     // Set queryDocMetadata so wrapRunQuery includes queryType in metadata
     if (queryType) {
-      this.queryDocMetadata = { queryType };
+      this.queryDocMetadata = {
+        ...this.queryDocMetadata,
+        queryType,
+      };
     }
 
-    // Calculate the run time of the query
-    const queryStartTime = Date.now();
-    const results = await this.runQuery(sql);
-    const queryEndTime = Date.now();
-    const duration = queryEndTime - queryStartTime;
+    try {
+      // Calculate the run time of the query
+      const queryStartTime = Date.now();
+      const results = await this.runQuery(sql);
+      const queryEndTime = Date.now();
+      const duration = queryEndTime - queryStartTime;
 
-    // Clear queryDocMetadata after the query completes
-    if (queryType) {
-      this.queryDocMetadata = undefined;
-    }
-
-    if (timestampCols) {
-      results.rows.forEach((row) => {
-        timestampCols.forEach((col) => {
-          if (row[col]) {
-            row[col] = getValidDate(row[col]);
-          }
+      if (timestampCols) {
+        results.rows.forEach((row) => {
+          timestampCols.forEach((col) => {
+            if (row[col]) {
+              row[col] = getValidDate(row[col]);
+            }
+          });
         });
-      });
-    }
+      }
 
-    return { results: results.rows, columns: results.columns, duration };
+      return { results: results.rows, columns: results.columns, duration };
+    } finally {
+      if (queryType) {
+        this.queryDocMetadata = queryDocMetadataSnapshot;
+      }
+    }
   }
 
   getDropUnitsTableQuery(params: DropTableQueryParams): string {
