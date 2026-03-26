@@ -85,7 +85,6 @@ export default function FeatureModal({
     currentProject,
     permissionsUtil,
     apiCall,
-    hasCommercialFeature,
     refreshTags,
     refreshWatching,
     serializeCustomFields,
@@ -113,7 +112,6 @@ export default function FeatureModal({
   const selectedProject = form.watch("project");
   const { projectId: demoProjectId, currentProjectIsDemo } =
     useDemoDataSourceProject();
-  const holdoutsEnabled = hasCommercialFeature("holdouts");
 
   const valueType = form.watch("valueType") as FeatureValueType;
 
@@ -210,8 +208,8 @@ export default function FeatureModal({
         )}
 
         <FeatureFormFields
-          initialShowTags={!!featureToDuplicate?.tags?.length}
-          initialShowDescription={!!featureToDuplicate?.description?.length}
+          initialShowTags={true}
+          initialShowDescription={true}
           descriptionAutofocus={!featureToDuplicate?.description?.length}
           afterDescription={
             <>
@@ -237,16 +235,14 @@ export default function FeatureModal({
                   required={requireProjectForFeatures}
                 />
               )}
-              {holdoutsEnabled && (
-                <HoldoutSelect
-                  selectedProject={selectedProject}
-                  selectedHoldoutId={form.watch("holdout")?.id}
-                  setHoldout={(holdoutId) => {
-                    form.setValue("holdout", { id: holdoutId, value: "" });
-                  }}
-                  formType="feature"
-                />
-              )}
+              <HoldoutSelect
+                selectedProject={selectedProject}
+                selectedHoldoutId={form.watch("holdout")?.id}
+                setHoldout={(holdoutId) => {
+                  form.setValue("holdout", { id: holdoutId, value: "" });
+                }}
+                formType="feature"
+              />
             </>
           }
           showValueType={!featureToDuplicate}

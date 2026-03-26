@@ -20,13 +20,7 @@ type FeatureFormBaseValues = {
   project?: string;
 };
 
-type FeatureFormSharedValues = {
-  environmentSettings: Record<string, FeatureEnvironment>;
-  customFields: Record<string, string>;
-  project?: string;
-};
-
-type UseFeatureFormOptions<T extends FeatureFormSharedValues> = {
+type UseFeatureFormOptions<T extends FeatureFormBaseValues> = {
   project?: string;
   environments?: Environment[];
   existingEnvironmentSettings?: Record<string, FeatureEnvironment>;
@@ -96,7 +90,7 @@ function serializeCustomFieldValues(
   ) as Record<string, string>;
 }
 
-export function useFeatureForm<T extends FeatureFormSharedValues>({
+export function useFeatureForm<T extends FeatureFormBaseValues>({
   project,
   environments,
   existingEnvironmentSettings,
