@@ -213,9 +213,13 @@ export default function CovariateImbalanceCard({
     }
   }, [isImbalanced, onNotify, covariateImbalanceResult]);
 
-  const numMetricsTested =
+  const goalAndGuardrailMetricsTested =
     (covariateImbalanceResult?.numGoalMetrics ?? 0) +
     (covariateImbalanceResult?.numGuardrailMetrics ?? 0);
+
+  const totalNumMetricsTested =
+    goalAndGuardrailMetricsTested +
+    (covariateImbalanceResult?.numSecondaryMetrics ?? 0);
 
   const pValueThreshold =
     covariateImbalanceResult?.pValueThreshold ??
@@ -263,7 +267,7 @@ export default function CovariateImbalanceCard({
                 <i>Only available with CUPED enabled.</i>
               </Text>
             </Box>
-          ) : numMetricsTested === 0 ? (
+          ) : totalNumMetricsTested === 0 ? (
             <Box mt="2">
               <Text color="text-low">
                 <i>No metrics have been added.</i>
@@ -272,9 +276,10 @@ export default function CovariateImbalanceCard({
           ) : !isImbalanced ? (
             <Callout status="success">
               <Text weight="semibold">
-                {numMetricsTested} metric{numMetricsTested > 1 ? "s" : ""} show
-                {numMetricsTested > 1 ? "" : "s"} no covariate imbalance.{" "}
-                {/* TODO: Replace with actual doc link */}
+                {goalAndGuardrailMetricsTested} metric
+                {goalAndGuardrailMetricsTested > 1 ? "s" : ""} show
+                {goalAndGuardrailMetricsTested > 1 ? "" : "s"} no covariate
+                imbalance. {/* TODO: Replace with actual doc link */}
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
                   target="_blank"
@@ -289,11 +294,11 @@ export default function CovariateImbalanceCard({
           ) : (
             <Callout status="warning">
               <Text weight="semibold">
-                {numMetricsTested} goal or guardrail metric
-                {numMetricsTested > 1 ? "s" : ""}
+                {goalAndGuardrailMetricsTested} goal or guardrail metric
+                {goalAndGuardrailMetricsTested > 1 ? "s" : ""}
               </Text>{" "}
-              show{numMetricsTested > 1 ? "" : "s"} pre-exposure imbalance
-              (significance level {pValueThreshold}).{" "}
+              show{goalAndGuardrailMetricsTested > 1 ? "" : "s"} pre-exposure
+              imbalance (significance level {pValueThreshold}).{" "}
               {/* TODO: Replace with actual doc link */}
               <Text weight="semibold">
                 <Link
