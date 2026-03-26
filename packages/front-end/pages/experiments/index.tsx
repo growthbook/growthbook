@@ -46,9 +46,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const initialHash = globalThis?.window ? window.location.hash.slice(1) : "";
   const hasInitialValidHash = isExperimentListTab(initialHash);
-  const [tab, setTab] = useURLHash<ExperimentListTab>(
+  const [urlTab, setTab] = useURLHash<ExperimentListTab>(
     EXPERIMENT_LIST_TABS as unknown as ExperimentListTab[],
   );
+  const tab = urlTab ?? "all";
   const [storedTab, setStoredTab] = useLocalStorage<ExperimentListTab>(
     "experiments-list-tab",
     "all",
