@@ -5,6 +5,7 @@ import { CovariateImbalanceResult } from "shared/health";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CovariateImbalanceTable from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -15,6 +16,7 @@ import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
+  experiment: ExperimentInterfaceStringDates;
   variations: ExperimentReportVariation[];
   snapshot: ExperimentSnapshotInterface;
   onNotify?: (issue: IssueValue) => void;
@@ -193,6 +195,7 @@ const testCovariateImbalanceResult: CovariateImbalanceResult = {
 };
 
 export default function CovariateImbalanceCard({
+  experiment,
   variations,
   snapshot,
   onNotify,
@@ -275,7 +278,7 @@ export default function CovariateImbalanceCard({
                 {goalAndGuardrailMetricsTested} metric
                 {goalAndGuardrailMetricsTested > 1 ? "s" : ""} show
                 {goalAndGuardrailMetricsTested > 1 ? "" : "s"} no covariate
-                imbalance.
+                imbalance.{" "}
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
                   target="_blank"
@@ -315,9 +318,9 @@ export default function CovariateImbalanceCard({
           <CovariateImbalanceTable
             covariateImbalanceResult={covariateImbalanceResult}
             variations={variations}
-            goalMetricIds={snapshot.settings.goalMetrics}
-            secondaryMetricIds={snapshot.settings.secondaryMetrics}
-            guardrailMetricIds={snapshot.settings.guardrailMetrics}
+            goalMetricIds={experiment.goalMetrics}
+            secondaryMetricIds={experiment.secondaryMetrics}
+            guardrailMetricIds={experiment.guardrailMetrics}
           />
         </Box>
       )}

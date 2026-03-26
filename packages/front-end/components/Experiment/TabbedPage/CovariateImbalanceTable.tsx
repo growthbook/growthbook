@@ -26,6 +26,13 @@ export interface Props {
   srm?: number;
 }
 
+type CovariateImbalanceDisplayRow =
+  | MetricVariationCovariateImbalanceResult
+  | {
+      metricId: string;
+      noData: true;
+    };
+
 const meanFormatter = Intl.NumberFormat(undefined, {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -67,6 +74,25 @@ function sortCovariateRowsImbalancedFirst(
   });
 }
 
+function buildRowsForMetricIds(
+  allRows: MetricVariationCovariateImbalanceResult[],
+  metricIds: string[],
+): CovariateImbalanceDisplayRow[] {
+  const metricIdSet = new Set(metricIds);
+  const matchingRows = sortCovariateRowsImbalancedFirst(
+    allRows.filter((row) => metricIdSet.has(row.metricId)),
+  );
+  const renderedMetricIds = new Set(matchingRows.map((row) => row.metricId));
+  const missingRows = metricIds
+    .filter((metricId) => !renderedMetricIds.has(metricId))
+    .map((metricId) => ({
+      metricId,
+      noData: true as const,
+    }));
+
+  return [...matchingRows, ...missingRows];
+}
+
 function splitRowsByMetricType(
   covariateImbalanceResult: CovariateImbalanceResult | null,
   goalMetricIds: string[],
@@ -75,26 +101,16 @@ function splitRowsByMetricType(
 ) {
   const rows =
     covariateImbalanceResult?.metricVariationCovariateImbalanceResults ?? [];
-  const goalSet = new Set(goalMetricIds);
-  const secondarySet = new Set(secondaryMetricIds);
-  const guardrailSet = new Set(guardrailMetricIds);
-
-  const goalRows = sortCovariateRowsImbalancedFirst(
-    rows.filter((row) => goalSet.has(row.metricId)),
-  );
-  const secondaryRows = sortCovariateRowsImbalancedFirst(
-    rows.filter((row) => secondarySet.has(row.metricId)),
-  );
-  const guardrailRows = sortCovariateRowsImbalancedFirst(
-    rows.filter((row) => guardrailSet.has(row.metricId)),
-  );
+  const goalRows = buildRowsForMetricIds(rows, goalMetricIds);
+  const secondaryRows = buildRowsForMetricIds(rows, secondaryMetricIds);
+  const guardrailRows = buildRowsForMetricIds(rows, guardrailMetricIds);
 
   return { goalRows, guardrailRows, secondaryRows };
 }
 
 interface CovariateImbalanceTableProps {
   type: "Goal" | "Secondary" | "Guardrail";
-  rows: MetricVariationCovariateImbalanceResult[];
+  rows: CovariateImbalanceDisplayRow[];
   variations: ExperimentReportVariation[];
 }
 
@@ -150,85 +166,129 @@ function CovariateImbalanceTableSection({
         </TableHeader>
         <TableBody>
           {visibleRows.map((row) => {
-            const variation = variations[row.variation];
+            const hasData = !("noData" in row);
+            const variation = hasData ? variations[row.variation] : undefined;
             const metric = getExperimentMetricById(row.metricId);
 
             return (
-              <TableRow key={`${row.metricId}-${row.variation}`}>
+              <TableRow
+                key={
+                  hasData ? `${row.metricId}-${row.variation}` : row.metricId
+                }
+              >
                 <TableCell width={covariateImbalanceColumnWidths.metric}>
                   <b>{metric?.name ?? row.metricId}</b>
                 </TableCell>
                 <TableCell
                   width={covariateImbalanceColumnWidths.variation}
-                  className={`variation with-variation-label variation${row.variation}`}
+                  className={
+                    hasData
+                      ? `variation with-variation-label variation${row.variation}`
+                      : undefined
+                  }
                 >
-                  <Flex align="center" gap="2">
-                    <Box
-                      as="span"
-                      className="label"
-                      style={{
-                        width: 20,
-                        height: 20,
-                      }}
-                    >
-                      {row.variation}
-                    </Box>{" "}
-                    {variation?.name ?? ""}
-                  </Flex>
+                  {hasData ? (
+                    <Flex align="center" gap="2">
+                      <Box
+                        as="span"
+                        className="label"
+                        style={{
+                          width: 20,
+                          height: 20,
+                        }}
+                      >
+                        {row.variation}
+                      </Box>{" "}
+                      {variation?.name ?? ""}
+                    </Flex>
+                  ) : (
+                    <Text as="span" color="text-low">
+                      <i>No data</i>
+                    </Text>
+                  )}
                 </TableCell>
                 <TableCell
                   width={covariateImbalanceColumnWidths.pValue}
                   justify="end"
                   style={{
-                    backgroundColor: row.isImbalanced
-                      ? "var(--red-a3)"
-                      : undefined,
+                    backgroundColor:
+                      hasData && row.isImbalanced ? "var(--red-a3)" : undefined,
                   }}
                 >
-                  {pValueFormatter(row.pValue)}
+                  {hasData ? (
+                    pValueFormatter(row.pValue)
+                  ) : (
+                    <Text as="span" color="text-low">
+                      <i>No data</i>
+                    </Text>
+                  )}
                 </TableCell>
                 <TableCell
                   width={covariateImbalanceColumnWidths.baselineMean}
                   justify="end"
                 >
-                  <Text as="span" weight="semibold">
-                    {row.baselineMean !== undefined
-                      ? meanFormatter.format(row.baselineMean)
-                      : "-"}
-                  </Text>
-                  {row.baselineStandardError
-                    ? ` (${standardErrorFormatter.format(
-                        row.baselineStandardError,
-                      )})`
-                    : "-"}
+                  {hasData ? (
+                    <>
+                      <Text as="span" weight="semibold">
+                        {row.baselineMean !== undefined
+                          ? meanFormatter.format(row.baselineMean)
+                          : "-"}
+                      </Text>
+                      {row.baselineStandardError
+                        ? ` (${standardErrorFormatter.format(
+                            row.baselineStandardError,
+                          )})`
+                        : "-"}
+                    </>
+                  ) : (
+                    <Text as="span" color="text-low">
+                      <i>No data</i>
+                    </Text>
+                  )}
                 </TableCell>
                 <TableCell
                   width={covariateImbalanceColumnWidths.variationMean}
                   justify="end"
                 >
-                  <Text as="span" weight="semibold">
-                    {row.variationMean
-                      ? meanFormatter.format(row.variationMean)
-                      : "-"}
-                  </Text>
-                  {row.variationStandardError
-                    ? ` (${standardErrorFormatter.format(
-                        row.variationStandardError,
-                      )})`
-                    : "-"}
+                  {hasData ? (
+                    <>
+                      <Text as="span" weight="semibold">
+                        {row.variationMean
+                          ? meanFormatter.format(row.variationMean)
+                          : "-"}
+                      </Text>
+                      {row.variationStandardError
+                        ? ` (${standardErrorFormatter.format(
+                            row.variationStandardError,
+                          )})`
+                        : "-"}
+                    </>
+                  ) : (
+                    <Text as="span" color="text-low">
+                      <i>No data</i>
+                    </Text>
+                  )}
                 </TableCell>
                 <TableCell
                   width={covariateImbalanceColumnWidths.pctChange}
                   justify="end"
                 >
-                  {row.baselineMean &&
-                  row.variationMean &&
-                  row.baselineMean !== 0
-                    ? percentageFormatter.format(
+                  {hasData ? (
+                    row.baselineMean &&
+                    row.variationMean &&
+                    row.baselineMean !== 0 ? (
+                      percentageFormatter.format(
                         (row.variationMean - row.baselineMean) /
                           row.baselineMean,
                       )
-                    : "-"}
+                    ) : (
+                      "-"
+                    )
+                  ) : (
+                    <Text as="span" color="text-low">
+                      <i>No data</i>
+                    </Text>
+                  )}
                 </TableCell>
               </TableRow>
             );

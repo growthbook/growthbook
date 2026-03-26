@@ -303,6 +303,7 @@ export default function HealthTab({
       <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit && (
           <CovariateImbalanceCard
+            experiment={experiment}
             variations={variations}
             snapshot={snapshot}
             onNotify={handleHealthNotification}
