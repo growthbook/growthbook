@@ -9,6 +9,7 @@ import {
   BsDiagram3,
   BsChevronDown,
   BsBoxArrowUpRight,
+  BsCodeSlash,
 } from "react-icons/bs";
 import { PiFolderDuotone, PiFlask, PiUsersThree } from "react-icons/pi";
 import { getMetricLink } from "shared/experiments";
@@ -24,6 +25,7 @@ import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
 import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
 import { getDocSectionsForCommandPalette } from "@/components/DocLink";
 import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
+import { getApiReferencePaletteRows } from "./apiReferencePalette";
 import styles from "./CommandPalette.module.scss";
 
 type CommandPaletteItemType =
@@ -33,7 +35,8 @@ type CommandPaletteItemType =
   | "metric"
   | "dashboard"
   | "savedGroup"
-  | "documentation";
+  | "documentation"
+  | "apiReference";
 
 interface CommandPaletteItem {
   id: string;
@@ -56,6 +59,7 @@ const SECTION_ORDER: CommandPaletteItemType[] = [
   "savedGroup",
   "dashboard",
   "documentation",
+  "apiReference",
 ];
 
 const SECTION_LABELS: Record<CommandPaletteItemType, string> = {
@@ -66,6 +70,7 @@ const SECTION_LABELS: Record<CommandPaletteItemType, string> = {
   savedGroup: "Saved Groups",
   dashboard: "Dashboards",
   documentation: "Documentation",
+  apiReference: "REST API",
 };
 
 const SECTION_ICONS: Record<
@@ -79,6 +84,7 @@ const SECTION_ICONS: Record<
   savedGroup: PiUsersThree,
   dashboard: BsBarChartLine,
   documentation: BsBoxArrowUpRight,
+  apiReference: BsCodeSlash,
 };
 
 /** Max matches kept per section from search; "Show more" reveals up to this many. */
@@ -182,6 +188,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const { dashboards } = useDashboards(false);
 
   const docPaletteRows = useMemo(() => getDocSectionsForCommandPalette(), []);
+  const apiReferenceRows = useMemo(() => getApiReferencePaletteRows(), []);
 
   // Build unified item list
   const items = useMemo<CommandPaletteItem[]>(() => {
@@ -300,6 +307,17 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       });
     }
 
+    for (const row of apiReferenceRows) {
+      result.push({
+        id: row.id,
+        type: "apiReference",
+        name: row.title,
+        description: "",
+        url: row.url,
+        tags: row.tags,
+      });
+    }
+
     return result;
   }, [
     permissionsUtils,
@@ -316,6 +334,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     savedGroups,
     dashboards,
     docPaletteRows,
+    apiReferenceRows,
   ]);
 
   // MiniSearch index
@@ -334,6 +353,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       savedGroup: [],
       dashboard: [],
       documentation: [],
+      apiReference: [],
     };
 
     for (const item of ordered) {
@@ -469,7 +489,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
               className={styles.input}
               type="text"
               autoFocus
-              placeholder="Search pages, features, experiments, metrics, docs..."
+              placeholder="Search pages, features, experiments, metrics, docs, API…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
