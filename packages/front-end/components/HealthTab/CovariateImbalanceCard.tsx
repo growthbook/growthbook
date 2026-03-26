@@ -225,12 +225,8 @@ export default function CovariateImbalanceCard({
     covariateImbalanceResult?.pValueThreshold ??
     DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
 
-  // Check if CUPED is enabled for the experiment or any of the metrics
-  const cupedEnabled =
-    snapshot.settings.regressionAdjustmentEnabled ||
-    snapshot.settings.metricSettings.some(
-      (m) => m.computedSettings?.regressionAdjustmentEnabled,
-    );
+  // Check if CUPED is enabled for the experiment
+  const cupedEnabled = snapshot.settings.regressionAdjustmentEnabled;
 
   return (
     <Box className="appbox" p="4" my="4">
