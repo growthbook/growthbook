@@ -1,5 +1,5 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
-import { FaDatabase, FaFilter, FaRedo } from "react-icons/fa";
+import { FaDatabase, FaRedo } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -15,9 +15,7 @@ export default function SchemaBrowserWrapper({
   setFetching,
   setError,
   fetching,
-  showTableFilter,
   tableFilter,
-  onToggleTableFilter,
   onTableFilterChange,
 }: {
   children: React.ReactNode;
@@ -28,9 +26,7 @@ export default function SchemaBrowserWrapper({
   setFetching: (fetching: boolean) => void;
   canRunQueries: boolean;
   fetching: boolean;
-  showTableFilter: boolean;
   tableFilter: string;
-  onToggleTableFilter: () => void;
   onTableFilterChange: (value: string) => void;
 }) {
   const { apiCall } = useAuth();
@@ -47,24 +43,6 @@ export default function SchemaBrowserWrapper({
             </label>
             {informationSchema && !informationSchema.error && (
               <div className="d-flex align-items-center pl-5">
-                <Tooltip
-                  body="Filter databases, schemas, and tables"
-                  tipPosition="top"
-                >
-                  <button
-                    className={`btn btn-link p-0 ${
-                      showTableFilter ? "text-primary" : "text-secondary"
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onToggleTableFilter();
-                    }}
-                    aria-label="Toggle filter"
-                    title="Add filter..."
-                  >
-                    <FaFilter />
-                  </button>
-                </Tooltip>
                 <label className="ml-3 mb-0">
                   <Tooltip
                     body={
@@ -113,23 +91,21 @@ export default function SchemaBrowserWrapper({
               </div>
             )}
           </div>
-          {showTableFilter && (
-            <div className="px-2 pb-2 d-flex align-items-center">
-              <Field
-                type="search"
-                value={tableFilter}
-                onChange={(e) => onTableFilterChange(e.target.value)}
-                placeholder="Search..."
-                containerClassName="mb-0 flex-grow-1"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                  }
-                }}
-              />
-            </div>
-          )}
+          <div className="px-2 pb-2 d-flex align-items-center">
+            <Field
+              type="search"
+              value={tableFilter}
+              onChange={(e) => onTableFilterChange(e.target.value)}
+              placeholder="Search..."
+              containerClassName="mb-0 flex-grow-1"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                }
+              }}
+            />
+          </div>
         </>
       }
     >

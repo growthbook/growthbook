@@ -1,7 +1,7 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
 import React, { useEffect, useMemo, useState } from "react";
-import { FaFilter, FaRedo, FaTable } from "react-icons/fa";
+import { FaRedo, FaTable } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -32,7 +32,6 @@ export default function DatasourceSchema({
   const [fetching, setFetching] = useState(false);
   const [retryCount, setRetryCount] = useState(1);
   const [dateLastUpdated, setDateLastUpdated] = useState<Date | null>(null);
-  const [showColumnFilter, setShowColumnFilter] = useState(false);
   const [columnFilter, setColumnFilter] = useState("");
   const { apiCall } = useAuth();
 
@@ -76,7 +75,6 @@ export default function DatasourceSchema({
 
   useEffect(() => {
     setFetching(false);
-    setShowColumnFilter(false);
     setColumnFilter("");
   }, [tableId]);
 
@@ -121,24 +119,6 @@ export default function DatasourceSchema({
             </label>
             {table && (
               <div className="d-flex align-items-center pl-5">
-                <Tooltip
-                  body="Toggle to filter table columns by name or type"
-                  tipPosition="top"
-                >
-                  <button
-                    className={`btn btn-link p-0 ${
-                      showColumnFilter ? "text-primary" : "text-secondary"
-                    }`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowColumnFilter((show) => !show);
-                    }}
-                    aria-label="Toggle column filter"
-                    title="Filter columns"
-                  >
-                    <FaFilter />
-                  </button>
-                </Tooltip>
                 <label className="ml-3 mb-0">
                   <Tooltip
                     body={
@@ -188,18 +168,16 @@ export default function DatasourceSchema({
               </div>
             )}
           </div>
-          {showColumnFilter && (
-            <div className="px-2 pb-2 d-flex align-items-center">
-              <Field
-                type="search"
-                value={columnFilter}
-                onChange={(e) => setColumnFilter(e.target.value)}
-                placeholder="Filter columns..."
-                containerClassName="mb-0 flex-grow-1"
-                autoFocus
-              />
-            </div>
-          )}
+          <div className="px-2 pb-2 d-flex align-items-center">
+            <Field
+              type="search"
+              value={columnFilter}
+              onChange={(e) => setColumnFilter(e.target.value)}
+              placeholder="Filter columns..."
+              containerClassName="mb-0 flex-grow-1"
+              autoFocus
+            />
+          </div>
         </>
       }
     >

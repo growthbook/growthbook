@@ -1,6 +1,6 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import React, {
+import {
   Fragment,
   useCallback,
   useEffect,
@@ -51,7 +51,6 @@ export default function SchemaBrowser({
   const [currentTable, setCurrentTable] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState<boolean>(false);
-  const [showTableFilter, setShowTableFilter] = useState(false);
   const [tableFilter, setTableFilter] = useState("");
   const [schemaOpenState, setSchemaOpenState] = useState<
     Record<string, boolean>
@@ -232,7 +231,6 @@ export default function SchemaBrowser({
 
   useEffect(() => {
     setCurrentTable("");
-    setShowTableFilter(false);
     setTableFilter("");
     setSchemaOpenState({});
     hasQueuedStaleRefreshRef.current = false;
@@ -278,9 +276,7 @@ export default function SchemaBrowser({
             setFetching={setFetching}
             fetching={fetching}
             setError={setError}
-            showTableFilter={showTableFilter}
             tableFilter={tableFilter}
-            onToggleTableFilter={() => setShowTableFilter((show) => !show)}
             onTableFilterChange={setTableFilter}
           >
             {informationSchema?.databases.length &&
