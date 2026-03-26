@@ -225,6 +225,10 @@ export default function CovariateImbalanceCard({
     (covariateImbalanceResult?.numGoalMetrics ?? 0) +
     (covariateImbalanceResult?.numGuardrailMetrics ?? 0);
 
+  const goalAndGuardrailMetricsImbalanced =
+    (covariateImbalanceResult?.numGoalMetricsImbalanced ?? 0) +
+    (covariateImbalanceResult?.numGuardrailMetricsImbalanced ?? 0);
+
   const totalNumMetricsTested =
     goalAndGuardrailMetricsTested +
     (covariateImbalanceResult?.numSecondaryMetrics ?? 0);
@@ -298,11 +302,11 @@ export default function CovariateImbalanceCard({
           ) : (
             <Callout status="warning">
               <Text weight="semibold">
-                {goalAndGuardrailMetricsTested} goal or guardrail metric
-                {goalAndGuardrailMetricsTested > 1 ? "s" : ""}
+                {goalAndGuardrailMetricsImbalanced} goal or guardrail metric
+                {goalAndGuardrailMetricsImbalanced > 1 ? "s" : ""}
               </Text>{" "}
-              show{goalAndGuardrailMetricsTested > 1 ? "" : "s"} pre-exposure
-              imbalance (significance level {pValueThreshold}).{" "}
+              show{goalAndGuardrailMetricsImbalanced > 1 ? "" : "s"}{" "}
+              pre-exposure imbalance (significance level {pValueThreshold}).{" "}
               <Text weight="semibold">
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
