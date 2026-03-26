@@ -7,7 +7,10 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
+import {
+  useBatchPrerequisiteStates,
+  type UseBatchPrerequisiteStatesReturn,
+} from "@/hooks/usePrerequisiteStates";
 import { RadixTheme } from "@/services/RadixTheme";
 
 vi.mock("shared/util", () => ({
@@ -93,9 +96,18 @@ describe("PrerequisiteInput", () => {
       data: {
         connections: [],
       },
+      error: undefined,
+      mutate: vi.fn(),
+      isValidating: false,
+      isLoading: false,
     });
 
-    vi.mocked(useBatchPrerequisiteStates).mockReturnValue([]);
+    vi.mocked(useBatchPrerequisiteStates).mockReturnValue({
+      results: null,
+      loading: false,
+      error: undefined,
+      mutate: vi.fn(),
+    } satisfies UseBatchPrerequisiteStatesReturn);
   });
 
   it("renders the empty-state add action with bold text and adds a prerequisite", () => {
