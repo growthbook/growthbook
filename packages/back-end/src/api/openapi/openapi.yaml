@@ -124,7 +124,7 @@ tags:
     x-displayName: Usage
     description: Usage information for metrics in experiments.
   - name: product-analytics
-    x-displayName: Product Analytic
+    x-displayName: Product Analytics
     description: Build product analytics charts, tables and other visualizations. Each endpoint corresponds to a specific resource in GrowthBook (Fact Metric, Fact Table, or Data Source). The endpoints allow you to pass in a visualization configuration and receive the results.
 paths:
   /features:

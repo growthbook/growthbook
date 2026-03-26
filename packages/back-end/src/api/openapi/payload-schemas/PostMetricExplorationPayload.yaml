@@ -5,7 +5,12 @@ required:
   - chartType
   - dateRange
   - dataset
+  - type
 properties:
+  type:
+    type: string
+    enum:
+      - metric
   datasource:
     type: string
     description: ID of the datasource to query

@@ -121,7 +121,7 @@ tags:
     x-displayName: Usage
     description: Usage information for metrics in experiments.
   - name: product-analytics
-    x-displayName: Product Analytic
+    x-displayName: Product Analytics
     description: 'Build product analytics charts, tables and other visualizations. Each endpoint corresponds to a specific resource in GrowthBook (Fact Metric, Fact Table, or Data Source). The endpoints allow you to pass in a visualization configuration and receive the results.'
   - name: Archetype_model
     x-displayName: Archetype
@@ -6300,7 +6300,7 @@ paths:
             - `never`: always run a new query, ignoring any cached results
             - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
-        - product-analytics-explorations
+        - product-analytics
       summary: Create a Metric based visualization
       operationId: postMetricExploration
       x-codeSamples:
@@ -6322,7 +6322,12 @@ paths:
                 - chartType
                 - dateRange
                 - dataset
+                - type
               properties:
+                type:
+                  type: string
+                  enum:
+                    - metric
                 datasource:
                   type: string
                   description: ID of the datasource to query
@@ -6545,7 +6550,7 @@ paths:
             - `never`: always run a new query, ignoring any cached results
             - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
-        - product-analytics-explorations
+        - product-analytics
       summary: Run a Fact Table based visualization
       operationId: postFactTableExploration
       x-codeSamples:
@@ -6562,12 +6567,17 @@ paths:
             schema:
               type: object
               required:
+                - type
                 - datasource
                 - dimensions
                 - chartType
                 - dateRange
                 - dataset
               properties:
+                type:
+                  type: string
+                  enum:
+                    - fact_table
                 datasource:
                   type: string
                   description: ID of the datasource to query
@@ -6799,7 +6809,7 @@ paths:
             - `never`: always run a new query, ignoring any cached results
             - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
-        - product-analytics-explorations
+        - product-analytics
       summary: Create a Data Source based visualization
       operationId: postDataSourceExploration
       x-codeSamples:
@@ -6816,12 +6826,17 @@ paths:
             schema:
               type: object
               required:
+                - type
                 - datasource
                 - dimensions
                 - chartType
                 - dateRange
                 - dataset
               properties:
+                type:
+                  type: string
+                  enum:
+                    - data_source
                 datasource:
                   type: string
                   description: ID of the datasource to query

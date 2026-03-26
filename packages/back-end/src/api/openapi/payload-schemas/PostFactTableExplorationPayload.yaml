@@ -1,11 +1,16 @@
 type: object
 required:
+  - type
   - datasource
   - dimensions
   - chartType
   - dateRange
   - dataset
 properties:
+  type:
+    type: string
+    enum:
+      - fact_table
   datasource:
     type: string
     description: ID of the datasource to query

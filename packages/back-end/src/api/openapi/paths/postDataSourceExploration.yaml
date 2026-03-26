@@ -14,7 +14,7 @@ parameters:
       - `never`: always run a new query, ignoring any cached results
       - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
 tags:
-  - product-analytics-explorations
+  - product-analytics
 summary: Create a Data Source based visualization
 operationId: postDataSourceExploration
 x-codeSamples:

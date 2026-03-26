@@ -15774,6 +15774,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @enum {string} */
+          type: "metric";
           /** @description ID of the datasource to query */
           datasource: string;
           /** @description Dimensions to group results by */
@@ -15962,6 +15964,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @enum {string} */
+          type: "fact_table";
           /** @description ID of the datasource to query */
           datasource: string;
           /** @description Dimensions to group results by */
@@ -16155,6 +16159,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @enum {string} */
+          type: "data_source";
           /** @description ID of the datasource to query */
           datasource: string;
           /** @description Dimensions to group results by */
