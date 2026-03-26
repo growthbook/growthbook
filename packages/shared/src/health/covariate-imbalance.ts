@@ -214,8 +214,10 @@ export function tabulateCovariateImbalance(
   }
 
   // Bonferroni: use threshold / nTests for significance (single p-value stored)
+  // Match Python stats engine formula: (num_variations - 1) * num_goal_metrics
   const pValueThreshold = DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
-  const nTests = Math.max(1, goalMetrics.length + guardrailMetrics.length);
+  const numVariations = overallResult.variations.length;
+  const nTests = Math.max(1, (numVariations - 1) * goalMetrics.length);
   const adjustedThreshold = pValueThreshold / nTests;
 
   const tabulatedMetricVariationByKey = new Map<

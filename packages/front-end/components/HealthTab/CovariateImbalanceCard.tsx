@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { CovariateImbalanceResult } from "shared/health";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
+} from "shared/constants";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import CovariateImbalanceTable from "@/components/Experiment/TabbedPage/CovariateImbalanceTable";
 import Callout from "@/ui/Callout";
@@ -22,187 +24,13 @@ interface Props {
   onNotify?: (issue: IssueValue) => void;
 }
 
-/** Set to `true` locally to preview imbalanced covariate UI without snapshot data. */
-const USE_COVARIATE_IMBALANCE_IMBALANCED_FIXTURE = false;
-
-const testCovariateImbalanceResult: CovariateImbalanceResult = {
-  isImbalanced: true,
-  pValueThreshold: DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE,
-  numGoalMetrics: 3,
-  numGoalMetricsImbalanced: 2,
-  numGuardrailMetrics: 1,
-  numGuardrailMetricsImbalanced: 1,
-  numSecondaryMetrics: 3,
-  numSecondaryMetricsImbalanced: 1,
-  metricVariationCovariateImbalanceResults: [
-    {
-      metricId: "fact__367olmrmljuqf5d",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.12,
-      variationMean: 0.18,
-      baselineStandardError: 0.004,
-      variationStandardError: 0.0042,
-      pValue: 0.00005,
-    },
-    {
-      metricId: "fact__demo-d7-purchase-retention",
-      variation: 1,
-      isImbalanced: false,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf6l",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-    {
-      metricId: "fact__367olmrmljuqf5e",
-      variation: 1,
-      isImbalanced: true,
-      baselineSampleSize: 5000,
-      variationSampleSize: 4800,
-      baselineMean: 0.05,
-      variationMean: 0.09,
-      baselineStandardError: 0.003,
-      variationStandardError: 0.0031,
-      pValue: 0.0002,
-    },
-  ],
-};
-
 export default function CovariateImbalanceCard({
   experiment,
   variations,
   snapshot,
   onNotify,
 }: Props) {
-  const covariateImbalanceResult = USE_COVARIATE_IMBALANCE_IMBALANCED_FIXTURE
-    ? testCovariateImbalanceResult
-    : snapshot?.health?.covariateImbalance;
+  const covariateImbalanceResult = snapshot?.health?.covariateImbalance;
 
   const isImbalanced = covariateImbalanceResult?.isImbalanced ?? false;
 
@@ -224,6 +52,10 @@ export default function CovariateImbalanceCard({
   const goalAndGuardrailMetricsTested =
     (covariateImbalanceResult?.numGoalMetrics ?? 0) +
     (covariateImbalanceResult?.numGuardrailMetrics ?? 0);
+
+  const goalAndGuardrailMetricsImbalanced =
+    (covariateImbalanceResult?.numGoalMetricsImbalanced ?? 0) +
+    (covariateImbalanceResult?.numGuardrailMetricsImbalanced ?? 0);
 
   const totalNumMetricsTested =
     goalAndGuardrailMetricsTested +
@@ -298,10 +130,10 @@ export default function CovariateImbalanceCard({
           ) : (
             <Callout status="warning">
               <Text weight="semibold">
-                {goalAndGuardrailMetricsTested} goal or guardrail metric
-                {goalAndGuardrailMetricsTested > 1 ? "s" : ""}
+                {goalAndGuardrailMetricsImbalanced} goal or guardrail metric
+                {goalAndGuardrailMetricsImbalanced > 1 ? "s" : ""}
               </Text>{" "}
-              show{goalAndGuardrailMetricsTested > 1 ? "" : "s"} pre-exposure
+              show{goalAndGuardrailMetricsImbalanced > 1 ? "" : "s"} pre-exposure
               imbalance (significance level {pValueThreshold}).{" "}
               <Text weight="semibold">
                 <Link

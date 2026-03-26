@@ -253,7 +253,7 @@ function CovariateImbalanceTableSection({
                   {hasData ? (
                     <>
                       <Text as="span" weight="semibold">
-                        {row.variationMean
+                        {row.variationMean !== undefined
                           ? meanFormatter.format(row.variationMean)
                           : "-"}
                       </Text>
@@ -274,8 +274,8 @@ function CovariateImbalanceTableSection({
                   justify="end"
                 >
                   {hasData ? (
-                    row.baselineMean &&
-                    row.variationMean &&
+                    row.baselineMean !== undefined &&
+                    row.variationMean !== undefined &&
                     row.baselineMean !== 0 ? (
                       percentageFormatter.format(
                         (row.variationMean - row.baselineMean) /
