@@ -102,6 +102,7 @@ describe("useFeatureForm", () => {
       }),
     );
 
+    expect(result.current.form.getValues("project")).toBe("proj_a");
     expect(result.current.form.getValues("environmentSettings")).toEqual({
       dev: { enabled: true, rules: [] },
       prod: { enabled: false, rules: [] },
@@ -110,6 +111,22 @@ describe("useFeatureForm", () => {
     expect(result.current.getEnvironmentSettingsForProject("proj_b")).toEqual({
       dev: { enabled: false, rules: [] },
       prod: { enabled: true, rules: [] },
+    });
+  });
+
+  it("treats an explicitly provided undefined project as all projects", () => {
+    const { result } = renderHook(() =>
+      useFeatureForm<TestValues>({
+        initialValues: {
+          project: undefined,
+        },
+      }),
+    );
+
+    expect(result.current.form.getValues("project")).toBe("");
+    expect(result.current.form.getValues("environmentSettings")).toEqual({
+      dev: { enabled: false, rules: [] },
+      prod: { enabled: false, rules: [] },
     });
   });
 

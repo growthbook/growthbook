@@ -7,14 +7,12 @@ import {
 
 export type FeatureFormValueType = FeatureValueType | "";
 
-export type FeatureFormCustomFields = Record<string, string>;
-
 export type FeatureFormFieldsValues = {
   id: string;
   description: string;
   project?: string;
   tags: string[];
-  customFields: FeatureFormCustomFields;
+  customFields: Record<string, string>;
   valueType: FeatureFormValueType;
   environmentSettings: Record<string, FeatureEnvironment>;
 };
@@ -33,7 +31,7 @@ export type FeatureFromExperimentFormValues = Omit<
   | "defaultValue"
   | "customFields"
 > & {
-  customFields: FeatureFormCustomFields;
+  customFields: Record<string, string>;
   variations: ExperimentRefVariation[];
   existing: string;
 };

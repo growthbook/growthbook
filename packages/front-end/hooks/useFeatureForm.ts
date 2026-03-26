@@ -124,8 +124,10 @@ function serializeCustomFieldValues(
   if (!customFields || !currentValues) return undefined;
   const allowedIds = new Set(customFields.map((f) => f.id));
   return Object.fromEntries(
-    Object.entries(currentValues).filter(([key]) => allowedIds.has(key)),
-  ) as Record<string, string>;
+    Object.entries(currentValues)
+      .filter(([key]) => allowedIds.has(key))
+      .map(([key, value]) => [key, String(value ?? "")]),
+  );
 }
 
 export function useFeatureForm<T extends FeatureFormDefaultValues>({
@@ -141,7 +143,10 @@ export function useFeatureForm<T extends FeatureFormDefaultValues>({
   const { apiCall } = useAuth();
   const allCustomFields = useCustomFields();
 
-  const resolvedProject = initialValues.project ?? currentProject;
+  const hasInitialProject = Object.hasOwn(initialValues, "project");
+  const resolvedProject = hasInitialProject
+    ? (initialValues.project ?? "")
+    : currentProject;
   const resolvedEnvironments = environments ?? allEnvironments;
 
   const availableCustomFields = useMemo(() => {
@@ -209,12 +214,10 @@ export function useFeatureForm<T extends FeatureFormDefaultValues>({
   return {
     form,
     environments: resolvedEnvironments,
-    allEnvironments,
     currentProject,
     permissionsUtil,
     apiCall,
     hasCommercialFeature,
-    allCustomFields,
     refreshTags,
     refreshWatching,
     serializeCustomFields,
