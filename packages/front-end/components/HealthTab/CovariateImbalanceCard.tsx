@@ -207,6 +207,11 @@ export default function CovariateImbalanceCard({
   const isImbalanced = covariateImbalanceResult?.isImbalanced ?? false;
 
   const [isCollapsed, setIsCollapsed] = useState(isImbalanced ? false : true);
+
+  useEffect(() => {
+    setIsCollapsed(!isImbalanced);
+  }, [isImbalanced]);
+
   useEffect(() => {
     if (isImbalanced && onNotify) {
       onNotify({

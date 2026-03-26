@@ -102,8 +102,11 @@ export default function HealthTab({
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
       setHealthIssues((prev) => {
-        const issueSet: Set<IssueValue> = new Set([...prev, issue]);
-        return [...issueSet];
+        const issuesByValue = new Map(
+          prev.map((existing) => [existing.value, existing]),
+        );
+        issuesByValue.set(issue.value, issue);
+        return [...issuesByValue.values()];
       });
       onHealthNotify();
     },
