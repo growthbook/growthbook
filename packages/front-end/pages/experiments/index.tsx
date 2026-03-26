@@ -305,17 +305,19 @@ const ExperimentsPage = (): React.ReactElement => {
                   {["running", "drafts", "stopped", "archived"].map(
                     (tabValue) => {
                       if (tabValue === "archived" && !hasArchived) return null;
-                    return (
-                      <TabsContent value={tabValue} key={tabValue}>
-                        <ExperimentsListTable
-                          tab={tabValue}
-                          SortableTH={SortableTH}
-                          filtered={filtered.filter((e) => e.tab === tabValue)}
-                          isFiltered={isFiltered}
-                          project={project}
-                        />
-                      </TabsContent>
-                    );
+                      return (
+                        <TabsContent value={tabValue} key={tabValue}>
+                          <ExperimentsListTable
+                            tab={tabValue}
+                            SortableTH={SortableTH}
+                            filtered={filtered.filter(
+                              (e) => e.tab === tabValue,
+                            )}
+                            isFiltered={isFiltered}
+                            project={project}
+                          />
+                        </TabsContent>
+                      );
                     },
                   )}
                 </Tabs>
