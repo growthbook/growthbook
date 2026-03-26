@@ -55,7 +55,7 @@ const genInitialValues = ({
     description: experiment.description || "",
     id: "",
     owner: "",
-    project: experiment.project,
+    project: experiment.project ?? "",
     tags: experiment.tags || [],
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {

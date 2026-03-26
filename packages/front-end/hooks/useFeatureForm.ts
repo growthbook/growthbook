@@ -143,10 +143,10 @@ export function useFeatureForm<T extends FeatureFormDefaultValues>({
   const { apiCall } = useAuth();
   const allCustomFields = useCustomFields();
 
-  const hasInitialProject = Object.hasOwn(initialValues, "project");
-  const resolvedProject = hasInitialProject
-    ? (initialValues.project ?? "")
-    : currentProject;
+  const resolvedProject =
+    initialValues.project === ""
+      ? ""
+      : (initialValues.project ?? currentProject);
   const resolvedEnvironments = environments ?? allEnvironments;
 
   const availableCustomFields = useMemo(() => {
@@ -155,12 +155,12 @@ export function useFeatureForm<T extends FeatureFormDefaultValues>({
       : undefined;
   }, [allCustomFields, hasCommercialFeature, resolvedProject]);
 
-  const {
-    customFields: initialCustomFields,
-    ...initialValuesWithoutCustomFields
-  } = initialValues;
-
   const defaultValues = useMemo((): MergedFeatureFormDefaults<T> => {
+    const {
+      customFields: initialCustomFields,
+      ...initialValuesWithoutCustomFields
+    } = initialValues;
+
     return {
       ...initialValuesWithoutCustomFields,
       environmentSettings: getEnvironmentSettings({
@@ -178,8 +178,7 @@ export function useFeatureForm<T extends FeatureFormDefaultValues>({
   }, [
     availableCustomFields,
     baseEnvironmentSettings,
-    initialCustomFields,
-    initialValuesWithoutCustomFields,
+    initialValues,
     permissionsUtil,
     resolvedEnvironments,
     resolvedProject,

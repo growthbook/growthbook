@@ -114,11 +114,25 @@ describe("useFeatureForm", () => {
     });
   });
 
-  it("treats an explicitly provided undefined project as all projects", () => {
+  it("falls back to the current project when project is omitted", () => {
+    const { result } = renderHook(() =>
+      useFeatureForm<TestValues>({
+        initialValues: {},
+      }),
+    );
+
+    expect(result.current.form.getValues("project")).toBe("proj_a");
+    expect(result.current.form.getValues("environmentSettings")).toEqual({
+      dev: { enabled: true, rules: [] },
+      prod: { enabled: false, rules: [] },
+    });
+  });
+
+  it("treats an explicitly empty project as all projects", () => {
     const { result } = renderHook(() =>
       useFeatureForm<TestValues>({
         initialValues: {
-          project: undefined,
+          project: "",
         },
       }),
     );

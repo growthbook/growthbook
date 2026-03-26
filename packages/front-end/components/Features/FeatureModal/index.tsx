@@ -45,7 +45,7 @@ const genInitialValues = ({
         defaultValue: featureToDuplicate.defaultValue,
         description: featureToDuplicate.description ?? "",
         id: genDuplicatedKey(featureToDuplicate),
-        project: featureToDuplicate.project,
+        project: featureToDuplicate.project ?? "",
         tags: featureToDuplicate.tags ?? [],
         customFields: featureToDuplicate.customFields,
         holdout: featureToDuplicate.holdout?.id
@@ -98,8 +98,7 @@ export default function FeatureModal({
   const canCreateWithoutProject =
     !requireProjectForFeatures && permissionsUtil.canViewFeatureModal();
   const selectedProject = form.watch("project");
-  const { projectId: demoProjectId, currentProjectIsDemo } =
-    useDemoDataSourceProject();
+  const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const valueType = form.watch("valueType") as FeatureValueType;
 
@@ -189,12 +188,6 @@ export default function FeatureModal({
       })}
     >
       <FormProvider {...form}>
-        {currentProjectIsDemo && (
-          <Callout status="warning" mb="3">
-            You are creating a feature under the demo datasource project.
-          </Callout>
-        )}
-
         <FeatureFormFields
           initialShowTags={true}
           initialShowDescription={true}
