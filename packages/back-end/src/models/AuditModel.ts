@@ -43,7 +43,7 @@ type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
-const toInterface: ToInterface<AuditInterface> = (doc: AuditDocument) => {
+const toInterface: ToInterface<AuditInterface> = (doc) => {
   return removeMongooseFields(doc);
 };
 

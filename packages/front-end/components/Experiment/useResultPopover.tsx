@@ -29,6 +29,7 @@ interface ResultPopoverData {
   minPercentChange: number;
   currentMetricTotal: number;
   timeRemainingMs?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 interface UseResultPopoverOptions {
@@ -124,6 +125,7 @@ export function useResultPopover({
           minPercentChange={data.minPercentChange}
           currentMetricTotal={data.currentMetricTotal}
           timeRemainingMs={data.timeRemainingMs}
+          pValueAdjustmentEnabled={data.pValueAdjustmentEnabled}
         />
       </PopoverContent>,
     );
