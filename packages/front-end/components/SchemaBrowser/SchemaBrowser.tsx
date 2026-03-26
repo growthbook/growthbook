@@ -257,8 +257,6 @@ export default function SchemaBrowser({
 
   if (!data) return <LoadingSpinner />;
 
-  console.log("filteredDatabases", filteredDatabases);
-
   return (
     <div className="d-flex flex-column h-100">
       <PanelGroup direction="vertical">
@@ -398,9 +396,7 @@ export default function SchemaBrowser({
                     );
                   })
                 ) : (
-                  <div className="text-muted p-2">
-                    No tables match your filter.
-                  </div>
+                  <div className="text-muted p-2">No tables found.</div>
                 )}
               </div>
             ) : (

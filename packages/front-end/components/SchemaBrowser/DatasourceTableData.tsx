@@ -1,7 +1,8 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -35,15 +36,16 @@ export default function DatasourceSchema({
   const [columnFilter, setColumnFilter] = useState("");
   const { apiCall } = useAuth();
 
-  const normalizedFilter = columnFilter.trim().toLowerCase();
   const filteredColumns = useMemo(() => {
     if (!table?.columns) return [];
-    if (!normalizedFilter) return table.columns;
+    if (!columnFilter) return table.columns;
 
     return table.columns.filter((column) => {
-      return column.columnName.toLowerCase().includes(normalizedFilter);
+      return column.columnName
+        .toLowerCase()
+        .includes(columnFilter.trim().toLowerCase());
     });
-  }, [normalizedFilter, table?.columns]);
+  }, [columnFilter, table?.columns]);
 
   useEffect(() => {
     if (fetching) {
@@ -168,32 +170,37 @@ export default function DatasourceSchema({
               </div>
             )}
           </div>
-          <div className="px-2 pb-2 d-flex align-items-center">
+          <Box mt="1">
             <Field
               type="search"
               value={columnFilter}
               onChange={(e) => setColumnFilter(e.target.value)}
               placeholder="Filter columns..."
-              containerClassName="mb-0 flex-grow-1"
               autoFocus
             />
-          </div>
+          </Box>
         </>
       }
     >
       <div style={{ overflow: "auto", height: "100%" }}>
         <table className="table table-sm">
           <tbody>
-            {filteredColumns?.map((column) => {
-              return (
-                <tr key={`${table.tableName}:${column.columnName}`}>
-                  <td className="pl-3">{column.columnName}</td>
-                  <td className="pr-3 text-right text-muted">
-                    {column.dataType}
-                  </td>
-                </tr>
-              );
-            })}
+            {filteredColumns.length > 0 ? (
+              <>
+                {filteredColumns?.map((column) => {
+                  return (
+                    <tr key={`${table.tableName}:${column.columnName}`}>
+                      <td className="pl-3">{column.columnName}</td>
+                      <td className="pr-3 text-right text-muted">
+                        {column.dataType}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </>
+            ) : (
+              <div className="text-muted p-2">No columns found.</div>
+            )}
           </tbody>
         </table>
       </div>

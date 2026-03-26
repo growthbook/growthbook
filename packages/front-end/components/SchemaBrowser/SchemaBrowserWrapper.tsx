@@ -1,5 +1,6 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
 import { FaDatabase, FaRedo } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -91,21 +92,22 @@ export default function SchemaBrowserWrapper({
               </div>
             )}
           </div>
-          <div className="px-2 pb-2 d-flex align-items-center">
-            <Field
-              type="search"
-              value={tableFilter}
-              onChange={(e) => onTableFilterChange(e.target.value)}
-              placeholder="Search..."
-              containerClassName="mb-0 flex-grow-1"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                }
-              }}
-            />
-          </div>
+          {informationSchema && !informationSchema.error && (
+            <Box mt="1">
+              <Field
+                type="search"
+                value={tableFilter}
+                onChange={(e) => onTableFilterChange(e.target.value)}
+                placeholder="Search..."
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                  }
+                }}
+              />
+            </Box>
+          )}
         </>
       }
     >
