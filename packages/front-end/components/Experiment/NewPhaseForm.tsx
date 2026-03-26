@@ -6,6 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import {
   getNamespaceRanges,
+  isMultiRangeNamespaceFormat,
   NamespaceValue,
   validateAndFixCondition,
 } from "shared/util";
@@ -49,14 +50,26 @@ const NewPhaseForm: FC<{
       condition: prevPhase.condition || "",
       savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
-      namespace: {
-        enabled: prevPhase.namespace?.enabled || false,
-        name: prevPhase.namespace?.name || "",
-        // Handle both old (single range) and new (multiple ranges) formats
-        ranges: prevPhase.namespace
-          ? getNamespaceRanges(prevPhase.namespace as NamespaceValue)
-          : ([[0, 0.5]] as [number, number][]),
-      },
+      namespace: (() => {
+        const prevNs = prevPhase.namespace
+          ? (prevPhase.namespace as NamespaceValue)
+          : undefined;
+        return {
+          enabled: prevNs?.enabled || false,
+          name: prevNs?.name || "",
+          // Handle both old (single range) and new (multiple ranges) formats
+          ranges: prevNs
+            ? getNamespaceRanges(prevNs)
+            : ([[0, 0.5]] as [number, number][]),
+          // Preserve format and hashAttribute so submit is correct even if the
+          // user never re-interacts with the NamespaceSelector dropdown.
+          format: prevNs?.format,
+          hashAttribute:
+            prevNs && isMultiRangeNamespaceFormat(prevNs)
+              ? prevNs.hashAttribute
+              : undefined,
+        };
+      })(),
     },
   });
 
