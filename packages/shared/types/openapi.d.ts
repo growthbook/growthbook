@@ -15765,7 +15765,7 @@ export interface operations {
          * @description Controls cache behavior for this exploration:
          * - `preferred` (default): return a cached result if one exists, otherwise run a new query
          * - `never`: always run a new query, ignoring any cached results
-         * - `required`: only return a cached result; if none exists, returns a 404
+         * - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
          */
       query: {
         cache?: "preferred" | "required" | "never";
@@ -15845,7 +15845,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            exploration: ({
+            exploration: (({
               id: string;
               organization: string;
               /** Format: date-time */
@@ -15923,7 +15923,7 @@ export interface operations {
                     })[];
                 };
               };
-            });
+            })) | null;
             query?: ({
               id: string;
               organization: string;
@@ -15939,14 +15939,8 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
-          };
-        };
-      };
-      /** @description No cached exploration found. Only returned when `cache` is `required`. */
-      404: {
-        content: {
-          "application/json": {
-            message: string;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
+            message?: string;
           };
         };
       };
@@ -15959,7 +15953,7 @@ export interface operations {
          * @description Controls cache behavior for this exploration:
          * - `preferred` (default): return a cached result if one exists, otherwise run a new query
          * - `never`: always run a new query, ignoring any cached results
-         * - `required`: only return a cached result; if none exists, returns a 404
+         * - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
          */
       query: {
         cache?: "preferred" | "required" | "never";
@@ -16042,7 +16036,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            exploration: ({
+            exploration: (({
               id: string;
               organization: string;
               /** Format: date-time */
@@ -16122,7 +16116,7 @@ export interface operations {
                     })[];
                 };
               };
-            });
+            })) | null;
             query?: ({
               id: string;
               organization: string;
@@ -16138,14 +16132,8 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
-          };
-        };
-      };
-      /** @description No cached exploration found. Only returned when `cache` is `required`. */
-      404: {
-        content: {
-          "application/json": {
-            message: string;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
+            message?: string;
           };
         };
       };
@@ -16158,7 +16146,7 @@ export interface operations {
          * @description Controls cache behavior for this exploration:
          * - `preferred` (default): return a cached result if one exists, otherwise run a new query
          * - `never`: always run a new query, ignoring any cached results
-         * - `required`: only return a cached result; if none exists, returns a 404
+         * - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
          */
       query: {
         cache?: "preferred" | "required" | "never";
@@ -16249,7 +16237,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            exploration: ({
+            exploration: (({
               id: string;
               organization: string;
               /** Format: date-time */
@@ -16334,7 +16322,7 @@ export interface operations {
                     })[];
                 };
               };
-            });
+            })) | null;
             query?: ({
               id: string;
               organization: string;
@@ -16350,14 +16338,8 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
-          };
-        };
-      };
-      /** @description No cached exploration found. Only returned when `cache` is `required`. */
-      404: {
-        content: {
-          "application/json": {
-            message: string;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
+            message?: string;
           };
         };
       };

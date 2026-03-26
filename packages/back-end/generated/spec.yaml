@@ -6298,7 +6298,7 @@ paths:
             Controls cache behavior for this exploration:
             - `preferred` (default): return a cached result if one exists, otherwise run a new query
             - `never`: always run a new query, ignoring any cached results
-            - `required`: only return a cached result; if none exists, returns a 404
+            - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
         - product-analytics-explorations
       summary: Run a metric exploration
@@ -6517,22 +6517,16 @@ paths:
                   - exploration
                 properties:
                   exploration:
-                    $ref: '#/components/schemas/ProductAnalyticsMetricExploration'
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/ProductAnalyticsMetricExploration'
                   query:
                     nullable: true
                     allOf:
                       - $ref: '#/components/schemas/Query'
-        '404':
-          description: No cached exploration found. Only returned when `cache` is `required`.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - message
-                properties:
                   message:
                     type: string
+                    description: 'Present when `exploration` is null, explaining why no result was returned.'
   /product-analytics-explorations/fact-table:
     post:
       parameters:
@@ -6549,7 +6543,7 @@ paths:
             Controls cache behavior for this exploration:
             - `preferred` (default): return a cached result if one exists, otherwise run a new query
             - `never`: always run a new query, ignoring any cached results
-            - `required`: only return a cached result; if none exists, returns a 404
+            - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
         - product-analytics-explorations
       summary: Run a fact table exploration
@@ -6777,22 +6771,16 @@ paths:
                   - exploration
                 properties:
                   exploration:
-                    $ref: '#/components/schemas/ProductAnalyticsFactTableExploration'
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/ProductAnalyticsFactTableExploration'
                   query:
                     nullable: true
                     allOf:
                       - $ref: '#/components/schemas/Query'
-        '404':
-          description: No cached exploration found. Only returned when `cache` is `required`.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - message
-                properties:
                   message:
                     type: string
+                    description: 'Present when `exploration` is null, explaining why no result was returned.'
   /product-analytics-explorations/data-source:
     post:
       parameters:
@@ -6809,7 +6797,7 @@ paths:
             Controls cache behavior for this exploration:
             - `preferred` (default): return a cached result if one exists, otherwise run a new query
             - `never`: always run a new query, ignoring any cached results
-            - `required`: only return a cached result; if none exists, returns a 404
+            - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
         - product-analytics-explorations
       summary: Run a raw data source exploration
@@ -7056,22 +7044,16 @@ paths:
                   - exploration
                 properties:
                   exploration:
-                    $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration'
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration'
                   query:
                     nullable: true
                     allOf:
                       - $ref: '#/components/schemas/Query'
-        '404':
-          description: No cached exploration found. Only returned when `cache` is `required`.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - message
-                properties:
                   message:
                     type: string
+                    description: 'Present when `exploration` is null, explaining why no result was returned.'
   /custom-fields:
     post:
       $skipValidatorGeneration: true

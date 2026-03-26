@@ -12,7 +12,7 @@ parameters:
       Controls cache behavior for this exploration:
       - `preferred` (default): return a cached result if one exists, otherwise run a new query
       - `never`: always run a new query, ignoring any cached results
-      - `required`: only return a cached result; if none exists, returns a 404
+      - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
 tags:
   - product-analytics-explorations
 summary: Run a raw data source exploration
@@ -40,19 +40,13 @@ responses:
             - exploration
           properties:
             exploration:
-              $ref: "../schemas/ProductAnalyticsDataSourceExploration.yaml"
+              nullable: true
+              allOf:
+                - $ref: "../schemas/ProductAnalyticsDataSourceExploration.yaml"
             query:
               nullable: true
               allOf:
                 - $ref: "../schemas/Query.yaml"
-  "404":
-    description: No cached exploration found. Only returned when `cache` is `required`.
-    content:
-      application/json:
-        schema:
-          type: object
-          required:
-            - message
-          properties:
             message:
               type: string
+              description: Present when `exploration` is null, explaining why no result was returned.

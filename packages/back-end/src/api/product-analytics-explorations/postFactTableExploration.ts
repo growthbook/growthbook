@@ -10,7 +10,6 @@ import {
 import { toFactTableExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { NotFoundError } from "back-end/src/util/errors";
 
 export const postFactTableExploration = createApiRequestHandler({
   bodySchema: factTableExplorationConfigValidator,
@@ -23,9 +22,12 @@ export const postFactTableExploration = createApiRequestHandler({
   );
 
   if (!exploration) {
-    throw new NotFoundError(
-      'No cached result found for this config. Try again shortly or use cache: "preferred".',
-    );
+    return {
+      exploration: null,
+      query: null,
+      message:
+        'No cached result found for this config. Try again shortly or use cache: "preferred".',
+    };
   }
 
   const queryId = exploration.queries?.[0]?.query;
