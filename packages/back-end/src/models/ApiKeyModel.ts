@@ -105,6 +105,7 @@ export class ApiKeyModel extends BaseClass {
         for (const pr of doc.projectRoles) {
           this.validateRole(pr.role);
           await this.validateProject(pr.project);
+          this.validateEnvironments(pr.environments);
         }
       }
     }
