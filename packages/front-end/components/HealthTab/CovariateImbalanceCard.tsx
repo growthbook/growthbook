@@ -279,7 +279,7 @@ export default function CovariateImbalanceCard({
                 {goalAndGuardrailMetricsTested} metric
                 {goalAndGuardrailMetricsTested > 1 ? "s" : ""} show
                 {goalAndGuardrailMetricsTested > 1 ? "" : "s"} no covariate
-                imbalance. {/* TODO: Replace with actual doc link */}
+                imbalance.
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
                   target="_blank"
@@ -299,7 +299,6 @@ export default function CovariateImbalanceCard({
               </Text>{" "}
               show{goalAndGuardrailMetricsTested > 1 ? "" : "s"} pre-exposure
               imbalance (significance level {pValueThreshold}).{" "}
-              {/* TODO: Replace with actual doc link */}
               <Text weight="semibold">
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
