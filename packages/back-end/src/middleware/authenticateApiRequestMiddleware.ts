@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
 import { EventUserApiKey } from "shared/types/events/event-types";
 import { OrganizationInterface, Permission } from "shared/types/organization";
-import { ApiKeyInterface } from "shared/types/apikey";
+import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -255,7 +255,7 @@ export function verifyApiKeyPermission({
     }
   } else if (apiKey.secret && apiKey.role) {
     const apiKeyPermissions = getRolePermissions(
-      apiKey as ApiKeyInterface & { role: string },
+      apiKey as ApiKeyWithRole,
       organization,
       teams,
     );
