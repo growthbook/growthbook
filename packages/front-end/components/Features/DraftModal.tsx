@@ -209,7 +209,8 @@ export default function DraftModal({
         startCondition: ramp.startCondition,
         steps: ramp.steps,
         endCondition: ramp.endCondition,
-        disableOutsideSchedule: ramp.disableOutsideSchedule,
+        disableRuleBefore: ramp.disableRuleBefore,
+        disableRuleAfter: ramp.disableRuleAfter,
       };
       const startTriggerType = ramp.startCondition?.trigger.type;
       const startDescription =

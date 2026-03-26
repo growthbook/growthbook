@@ -35,7 +35,8 @@ const putRampScheduleValidator = {
       })
       .optional()
       .nullable(),
-    disableOutsideSchedule: z.boolean().optional().nullable(),
+    disableRuleBefore: z.boolean().optional(),
+    disableRuleAfter: z.boolean().optional(),
     endCondition: z
       .object({
         trigger: z
@@ -80,12 +81,15 @@ export const putRampSchedule = createApiRequestHandler(
       const trigger =
         rawTrigger?.type === "scheduled"
           ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-          : rawTrigger ?? { type: "immediately" as const };
+          : (rawTrigger ?? { type: "immediately" as const });
       updates.startCondition = { trigger, actions: sc.actions ?? undefined };
     }
   }
-  if (body.disableOutsideSchedule !== undefined) {
-    updates.disableOutsideSchedule = body.disableOutsideSchedule ?? undefined;
+  if (body.disableRuleBefore !== undefined) {
+    updates.disableRuleBefore = body.disableRuleBefore;
+  }
+  if (body.disableRuleAfter !== undefined) {
+    updates.disableRuleAfter = body.disableRuleAfter;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;

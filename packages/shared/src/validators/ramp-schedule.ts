@@ -87,6 +87,8 @@ export const rampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(rampStepAction).min(1),
   notifyOnEntry: z.boolean().nullish(),
+  // Optional prompt shown to approvers on the ramp overview when this step is pending approval
+  approvalNotes: z.string().nullish(),
 });
 export type RampStep = z.infer<typeof rampStep>;
 
@@ -153,10 +155,12 @@ export const rampScheduleValidator = baseSchema
       trigger: rampStartTrigger,
       actions: z.array(rampStepAction).nullish(),
     }),
-    // When true, the rule is disabled (hidden from SDK payload) while the ramp is pending,
-    // and again after the ramp completes/expires. The backend auto-injects enabled:true into
-    // startCondition.actions and enabled:false into endCondition.actions.
-    disableOutsideSchedule: z.boolean().nullish(),
+    // When true, the rule is hidden from SDK payload before the schedule starts.
+    // Backend auto-injects enabled:true into startCondition.actions.
+    disableRuleBefore: z.boolean().optional(),
+    // When true, the rule is hidden from SDK payload after the schedule ends.
+    // Backend auto-injects enabled:false into endCondition.actions.
+    disableRuleAfter: z.boolean().optional(),
     // Optional teardown condition — mirrors the shape of a step.
     // trigger: optional hard deadline (scheduled datetime). When reached, Agenda discards
     //   pending steps and fires endCondition.actions regardless of current progress.

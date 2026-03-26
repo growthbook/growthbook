@@ -8,7 +8,7 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
-import { PiArrowBendRightDown, PiHourglassMediumFill } from "react-icons/pi";
+import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
@@ -16,11 +16,8 @@ import {
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import { useAuth } from "@/services/auth";
-import {
-  getRampStatusLabel,
-  getRampBadgeColor,
-} from "@/components/RampSchedule/RampTimeline";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 import {
@@ -350,24 +347,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             const y =
                               el.getBoundingClientRect().top +
                               window.scrollY -
-                              160; // padding due to sticky header
+                              160;
                             window.scrollTo({ top: y, behavior: "smooth" });
                           }
                         }}
                       >
-                        <Badge
-                          label={
-                            <>
-                              <PiHourglassMediumFill
-                                size={14}
-                                style={{ verticalAlign: -3 }}
-                              />{" "}
-                              {getRampStatusLabel(rampSchedule)}
-                            </>
-                          }
-                          color={getRampBadgeColor(rampSchedule.status)}
-                          variant="soft"
-                          radius="full"
+                        <RampScheduleBadge
+                          rs={rampSchedule}
+                          withIcon
+                          featureRuleContext
                         />
                       </span>
                     )}

@@ -44,7 +44,7 @@ function EffectRow({
 // ─── Patch display ────────────────────────────────────────────────────────────
 
 // syntheticEnabled: inject an enabled/disabled effect that isn't stored in actions
-// (happens when disableOutsideSchedule auto-injects at start/end but no endCondition trigger).
+// (happens when disableRuleAfter auto-injects at end but no endCondition trigger).
 function PatchDisplay({
   actions,
   syntheticEnabled,
@@ -70,9 +70,7 @@ function PatchDisplay({
 
     if (p.force !== undefined && p.force !== null) {
       const forceStr =
-        typeof p.force === "string"
-          ? p.force
-          : stringify(p.force as object);
+        typeof p.force === "string" ? p.force : stringify(p.force as object);
       items.push(
         <EffectRow key={k("force")} label="Feature value">
           <InlineCode language="json" code={forceStr} />
@@ -121,7 +119,7 @@ function PatchDisplay({
     }
   });
 
-  // Synthetic enabled/disabled from disableOutsideSchedule (not stored explicitly in actions)
+  // Synthetic enabled/disabled from disableRuleBefore/disableRuleAfter (not stored explicitly in actions)
   if (syntheticEnabled === false) {
     items.push(
       <EffectRow key="syn-enabled" label="Rule">
@@ -175,7 +173,6 @@ function Row({
   syntheticEnabled,
   dimmed,
   isActive,
-  isComplete,
 }: {
   label: ReactNode;
   trigger: ReactNode;
@@ -211,10 +208,7 @@ function Row({
         </Text>
       </Box>
       <Box style={{ minWidth: 0, flex: 1 }}>
-        <PatchDisplay
-          actions={actions}
-          syntheticEnabled={syntheticEnabled}
-        />
+        <PatchDisplay actions={actions} syntheticEnabled={syntheticEnabled} />
       </Box>
     </Flex>
   );
@@ -251,7 +245,10 @@ export default function RampScheduleDisplay({
   const stepCount = rs.steps.length;
   const current = rs.currentStepIndex;
 
-  const startActions = filterActions(rs.startCondition?.actions ?? [], targetId);
+  const startActions = filterActions(
+    rs.startCondition?.actions ?? [],
+    targetId,
+  );
   const endActions = filterActions(rs.endCondition?.actions ?? [], targetId);
 
   return (
@@ -314,7 +311,7 @@ export default function RampScheduleDisplay({
             </Box>
           </Flex>
 
-          {/* Start — when disableOutsideSchedule and no explicit start action stored,
+          {/* Start — when disableRuleBefore and no explicit start action stored,
                the enabled:true is auto-injected by the backend into startCondition.actions
                so it should already appear in the data. Only synthesize if absent. */}
           <Row
@@ -337,13 +334,12 @@ export default function RampScheduleDisplay({
           ))}
 
           {/* End — always shown.
-               When endCondition is absent but disableOutsideSchedule is set, synthesize
+               When endCondition is absent but disableRuleAfter is set, synthesize
                Rule: disabled since the backend applies it at completion without storing
                it in an endCondition (no explicit trigger was provided). */}
           {(() => {
             const hasExplicitEnd = !!rs.endCondition;
-            const implicitDisable =
-              !hasExplicitEnd && !!rs.disableOutsideSchedule;
+            const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
             const terminal =
               rs.status === "completed" ||
               rs.status === "expired" ||
@@ -372,4 +368,3 @@ export default function RampScheduleDisplay({
     </Box>
   );
 }
-

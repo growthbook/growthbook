@@ -36,14 +36,16 @@ type CreateBody = Pick<
 > & {
   autoRollback?: RampScheduleInterface["autoRollback"];
   startCondition?: StartCondition;
-  disableOutsideSchedule?: boolean;
+  disableRuleBefore?: boolean;
+  disableRuleAfter?: boolean;
   endCondition?: EndCondition;
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   autoRollback?: RampScheduleInterface["autoRollback"];
   startCondition?: StartCondition | null;
-  disableOutsideSchedule?: boolean | null;
+  disableRuleBefore?: boolean;
+  disableRuleAfter?: boolean;
   endCondition?: EndCondition | null;
 };
 
@@ -98,10 +100,8 @@ export const postRampSchedule = async (
   const context = getContextFromReq(req);
   const body = req.body;
 
-  const disable = !!body.disableOutsideSchedule;
-  // Mirror the disableOutsideSchedule injection done in the atomic features controller:
-  // auto-prepend enabled:true to startCondition.actions and auto-append enabled:false
-  // to endCondition.actions when disableOutsideSchedule is set.
+  const disableBefore = !!body.disableRuleBefore;
+  const disableAfter = !!body.disableRuleAfter;
   const firstTarget = body.targets[0];
   const enabledPatch = firstTarget
     ? { ruleId: firstTarget.ruleId ?? "", enabled: true }
@@ -120,13 +120,16 @@ export const postRampSchedule = async (
 
   const baseStartActions = body.startCondition?.actions ?? [];
   const startConditionActions =
-    disable && enabledPatch
-      ? [{ targetId: firstTarget!.id, patch: enabledPatch }, ...baseStartActions]
+    disableBefore && enabledPatch
+      ? [
+          { targetId: firstTarget!.id, patch: enabledPatch },
+          ...baseStartActions,
+        ]
       : baseStartActions;
 
   const baseEndActions = body.endCondition?.actions ?? [];
   const endConditionActions =
-    disable && disabledPatch
+    disableAfter && disabledPatch
       ? [...baseEndActions, { targetId: firstTarget!.id, patch: disabledPatch }]
       : baseEndActions;
 
@@ -151,7 +154,8 @@ export const postRampSchedule = async (
       trigger: resolvedStartTrigger,
       actions: startConditionActions.length ? startConditionActions : undefined,
     },
-    disableOutsideSchedule: disable || undefined,
+    disableRuleBefore: disableBefore || undefined,
+    disableRuleAfter: disableAfter || undefined,
     endCondition,
     // Standalone ramps have no activating revision — they're immediately eligible to start.
     status: "ready",
@@ -210,15 +214,18 @@ export const putRampSchedule = async (
       const trigger =
         rawTrigger?.type === "scheduled"
           ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-          : rawTrigger ?? { type: "immediately" as const };
+          : (rawTrigger ?? { type: "immediately" as const });
       updates.startCondition = {
         trigger,
         actions: sc.actions ?? undefined,
       };
     }
   }
-  if (body.disableOutsideSchedule !== undefined) {
-    updates.disableOutsideSchedule = body.disableOutsideSchedule ?? undefined;
+  if (body.disableRuleBefore !== undefined) {
+    updates.disableRuleBefore = body.disableRuleBefore;
+  }
+  if (body.disableRuleAfter !== undefined) {
+    updates.disableRuleAfter = body.disableRuleAfter;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;
@@ -298,19 +305,28 @@ export const postRampScheduleAction = async (
   let updated: RampScheduleInterface;
 
   switch (req.params.action) {
-    case "start":
+    case "start": {
       if (schedule.status !== "ready") {
         return res.status(400).json({
           status: 400,
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
+      // Hold-first: compute step 0's fire time so advanceUntilBlocked can pick it up.
+      const initialNextStepAt =
+        schedule.steps.length > 0
+          ? computeNextStepAt(
+              { ...schedule, phaseStartedAt: now, startedAt: now },
+              0,
+              now,
+            )
+          : null;
       updated = await context.models.rampSchedules.updateById(schedule.id, {
         status: "running",
         startedAt: now,
         phaseStartedAt: now,
+        nextStepAt: initialNextStepAt,
       });
-      // Advance step 0 immediately (and any subsequent overdue steps) inline.
       await advanceUntilBlocked(context, updated, now, attribution);
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
@@ -327,6 +343,7 @@ export const postRampScheduleAction = async (
         },
       });
       break;
+    }
 
     case "pause":
       if (!["running", "pending-approval"].includes(schedule.status)) {

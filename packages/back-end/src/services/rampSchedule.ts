@@ -247,12 +247,16 @@ function getEntityHandler(entityType: string): EntityHandler {
 // ---------------------------------------------------------------------------
 
 /**
- * Compute the time at which the next step should fire.
+ * Compute the time at which step `nextStepIndex` should fire.
  *
- * nextStepAt = phaseStartedAt + sum(seconds[0..nextStepIndex])
+ * "Hold-first" semantics: a step's interval is the wait *before* that step
+ * fires (not after). The fire time is therefore:
  *
- * phaseStartedAt resets after each approval gate so subsequent interval steps
- * remain on their relative schedule regardless of approval window duration.
+ *   nextStepAt = phaseStartedAt + sum(seconds[0..nextStepIndex])  (inclusive)
+ *
+ * After an approval gate, phaseStartedAt is adjusted via
+ * computePhaseStartAfterApproval so the next interval step fires exactly
+ * steps[nextStepIndex].seconds after the approval time.
  */
 export function computeNextStepAt(
   schedule: RampScheduleInterface,
@@ -263,20 +267,42 @@ export function computeNextStepAt(
   if (!step) return null;
 
   const trigger = step.trigger;
-  // Approval steps have no time-based delay — fire as soon as the previous step completes.
+  // Approval steps fire as soon as the previous step completes — the "wait"
+  // is the human approval itself, not a time-based delay.
   if (trigger.type === "approval") return now;
   if (trigger.type === "scheduled") return trigger.at;
 
   const phaseStart = schedule.phaseStartedAt ?? schedule.startedAt ?? now;
 
-  // Sum the intervals of all steps *before* nextStepIndex — each step's interval
-  // is the hold time after that step fires before the next one advances.
+  // Sum intervals of steps 0..nextStepIndex (inclusive): step N's interval is
+  // how long to wait *before* step N applies its effects.
+  let total = 0;
+  for (let i = 0; i <= nextStepIndex; i++) {
+    const t = schedule.steps[i]?.trigger;
+    if (t?.type === "interval") total += t.seconds;
+  }
+  return new Date(phaseStart.getTime() + total * 1000);
+}
+
+/**
+ * Compute a phaseStartedAt value to use after an approval gate at `stepIndex`
+ * fires, such that computeNextStepAt returns `now + steps[nextStepIndex].seconds`
+ * for the immediately following interval step.
+ *
+ * With hold-first semantics and the inclusive sum above:
+ *   phaseStart = now - sum(steps[0..nextStepIndex-1].interval, interval-only)
+ */
+export function computePhaseStartAfterApproval(
+  now: Date,
+  schedule: RampScheduleInterface,
+  nextStepIndex: number,
+): Date {
   let total = 0;
   for (let i = 0; i < nextStepIndex; i++) {
     const t = schedule.steps[i]?.trigger;
     if (t?.type === "interval") total += t.seconds;
   }
-  return new Date(phaseStart.getTime() + total * 1000);
+  return new Date(now.getTime() - total * 1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -803,14 +829,27 @@ async function onActivatingRevisionPublished(
 ): Promise<void> {
   if (schedule.status !== "pending") return;
 
-  const trigger = schedule.startCondition?.trigger ?? { type: "immediately" as const };
+  const trigger = schedule.startCondition?.trigger ?? {
+    type: "immediately" as const,
+  };
 
   if (trigger.type === "immediately") {
     const now = new Date();
+    // Compute step 0's fire time upfront (hold-first: step 0 waits its own interval).
+    const initialNextStepAt =
+      schedule.steps.length > 0
+        ? computeNextStepAt(
+            { ...schedule, phaseStartedAt: now, startedAt: now },
+            0,
+            now,
+          )
+        : null;
+
     let current = await ctx.models.rampSchedules.updateById(schedule.id, {
       status: "running",
       startedAt: now,
       phaseStartedAt: now,
+      nextStepAt: initialNextStepAt,
     });
 
     const startAttribution = makeAttribution(
@@ -818,7 +857,7 @@ async function onActivatingRevisionPublished(
       "auto-started on activating revision publish",
       "system",
     );
-    // Advance the first step (and any immediately-due subsequent steps) inline.
+    // Advance step 0 if its timer has already elapsed (interval = 0) and any subsequent steps.
     if (current.steps.length > 0) {
       await advanceUntilBlocked(ctx, current, now, startAttribution);
       current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
@@ -889,12 +928,13 @@ async function onApprovalRevisionPublished(
   );
 
   const nextStepIndex = stepIndex + 1;
+  const newPhaseStart = wasApprovalGate
+    ? computePhaseStartAfterApproval(now, schedule, nextStepIndex)
+    : schedule.phaseStartedAt;
+
   const nextStepAt = schedule.steps[nextStepIndex]
     ? computeNextStepAt(
-        {
-          ...schedule,
-          phaseStartedAt: wasApprovalGate ? now : schedule.phaseStartedAt,
-        },
+        { ...schedule, phaseStartedAt: newPhaseStart },
         nextStepIndex,
         now,
       )
@@ -906,7 +946,7 @@ async function onApprovalRevisionPublished(
     stepHistory: updatedHistory,
     pendingRevisionIds: [],
     pendingApprovalRevisionId: undefined,
-    ...(wasApprovalGate ? { phaseStartedAt: now } : {}),
+    ...(wasApprovalGate ? { phaseStartedAt: newPhaseStart } : {}),
   });
 
   await dispatchRampEvent(ctx, schedule, "step.approved", {
@@ -1112,11 +1152,9 @@ export async function advanceUntilBlocked(
 
     if (current.status !== "running") return;
 
-    // Step 0 always fires immediately — the interval is time *between* steps,
-    // not a delay before the first one. For all subsequent steps, respect nextStepAt.
-    const isFirstStep = current.currentStepIndex === -1;
-    if (!isFirstStep && (!current.nextStepAt || current.nextStepAt > now))
-      return;
+    // Hold-first semantics: every step (including step 0) must wait its own
+    // interval before firing. nextStepAt is set when transitioning to "running".
+    if (!current.nextStepAt || current.nextStepAt > now) return;
 
     current = await advanceStep(ctx, current, attribution);
   }

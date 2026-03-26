@@ -1813,11 +1813,12 @@ export async function postFeatureRule(
       const targetId = "t1";
       const enabledPatch = { ruleId: rule.id, enabled: true };
       const disabledPatch = { ruleId: rule.id, enabled: false };
-      const disable = !!rampSchedulePayload.disableOutsideSchedule;
+      const disableBefore = !!rampSchedulePayload.disableRuleBefore;
+      const disableAfter = !!rampSchedulePayload.disableRuleAfter;
 
-      // Auto-inject enabled:true into startCondition.actions when disableOutsideSchedule
-      const baseStartActions = rampSchedulePayload.startCondition?.actions ?? [];
-      const startConditionActions = disable
+      const baseStartActions =
+        rampSchedulePayload.startCondition?.actions ?? [];
+      const startConditionActions = disableBefore
         ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
         : baseStartActions;
 
@@ -1825,11 +1826,10 @@ export async function postFeatureRule(
       const startTrigger =
         rawStartTrigger?.type === "scheduled"
           ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
-          : rawStartTrigger ?? { type: "immediately" as const };
+          : (rawStartTrigger ?? { type: "immediately" as const });
 
-      // Auto-append enabled:false into endCondition.actions when disableOutsideSchedule
       const baseEndActions = rampSchedulePayload.endCondition?.actions ?? [];
-      const endConditionActions = disable
+      const endConditionActions = disableAfter
         ? [...baseEndActions, { targetId, patch: disabledPatch }]
         : baseEndActions;
 
@@ -1862,9 +1862,12 @@ export async function postFeatureRule(
         steps: rampSchedulePayload.steps,
         startCondition: {
           trigger: startTrigger,
-          actions: startConditionActions.length ? startConditionActions : undefined,
+          actions: startConditionActions.length
+            ? startConditionActions
+            : undefined,
         },
-        disableOutsideSchedule: disable || undefined,
+        disableRuleBefore: disableBefore || undefined,
+        disableRuleAfter: disableAfter || undefined,
         endCondition,
         // Ramp stays "pending" until the activating revision is published
         status: "pending",
@@ -2674,12 +2677,14 @@ export async function putFeatureRule(
 
     if (rampSchedulePayload.mode === "create") {
       const targetId = "t1";
-      const disable = !!rampSchedulePayload.disableOutsideSchedule;
+      const disableBefore2 = !!rampSchedulePayload.disableRuleBefore;
+      const disableAfter2 = !!rampSchedulePayload.disableRuleAfter;
       const enabledPatch = { ruleId, enabled: true };
       const disabledPatch = { ruleId, enabled: false };
 
-      const baseStartActions = rampSchedulePayload.startCondition?.actions ?? [];
-      const startConditionActions = disable
+      const baseStartActions =
+        rampSchedulePayload.startCondition?.actions ?? [];
+      const startConditionActions = disableBefore2
         ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
         : baseStartActions;
 
@@ -2687,10 +2692,10 @@ export async function putFeatureRule(
       const startTrigger =
         rawStartTrigger?.type === "scheduled"
           ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
-          : rawStartTrigger ?? { type: "immediately" as const };
+          : (rawStartTrigger ?? { type: "immediately" as const });
 
       const baseEndActions = rampSchedulePayload.endCondition?.actions ?? [];
-      const endConditionActions = disable
+      const endConditionActions = disableAfter2
         ? [...baseEndActions, { targetId, patch: disabledPatch }]
         : baseEndActions;
 
@@ -2721,9 +2726,12 @@ export async function putFeatureRule(
         steps: rampSchedulePayload.steps,
         startCondition: {
           trigger: startTrigger,
-          actions: startConditionActions.length ? startConditionActions : undefined,
+          actions: startConditionActions.length
+            ? startConditionActions
+            : undefined,
         },
-        disableOutsideSchedule: disable || undefined,
+        disableRuleBefore: disableBefore2 || undefined,
+        disableRuleAfter: disableAfter2 || undefined,
         endCondition,
         status: "pending",
         currentStepIndex: -1,
@@ -2752,13 +2760,19 @@ export async function putFeatureRule(
             const trigger =
               rawTrigger?.type === "scheduled"
                 ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-                : rawTrigger ?? { type: "immediately" as const };
-            updates.startCondition = { trigger, actions: sc.actions ?? undefined };
+                : (rawTrigger ?? { type: "immediately" as const });
+            updates.startCondition = {
+              trigger,
+              actions: sc.actions ?? undefined,
+            };
           }
         }
-        if (rampSchedulePayload.disableOutsideSchedule !== undefined)
-          updates.disableOutsideSchedule =
-            rampSchedulePayload.disableOutsideSchedule ?? undefined;
+        if (rampSchedulePayload.disableRuleBefore !== undefined)
+          updates.disableRuleBefore =
+            rampSchedulePayload.disableRuleBefore ?? undefined;
+        if (rampSchedulePayload.disableRuleAfter !== undefined)
+          updates.disableRuleAfter =
+            rampSchedulePayload.disableRuleAfter ?? undefined;
         if (rampSchedulePayload.endCondition !== undefined) {
           const ec = rampSchedulePayload.endCondition;
           if (!ec) {
@@ -2768,7 +2782,10 @@ export async function putFeatureRule(
             const trigger = rawTrigger
               ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
               : undefined;
-            updates.endCondition = { trigger, actions: ec.actions ?? undefined };
+            updates.endCondition = {
+              trigger,
+              actions: ec.actions ?? undefined,
+            };
           }
         }
         await context.models.rampSchedules.updateById(existing.id, updates);

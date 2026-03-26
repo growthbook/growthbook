@@ -2,9 +2,9 @@ import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
-  advanceStep,
   advanceUntilBlocked,
   completeRollout,
+  computeNextStepAt,
   makeAttribution,
 } from "back-end/src/services/rampSchedule";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -93,9 +93,10 @@ export default async function addRampScheduleJob(
               "startCondition.trigger.type": "scheduled",
               "startCondition.trigger.at": { $lte: now },
             },
-            // Running/paused/pending-approval schedules with a hard deadline due
+            // Running/pending-approval schedules with a hard deadline due.
+            // Paused schedules are excluded — the deadline is deferred until resumed.
             {
-              status: { $in: ["running", "paused", "pending-approval"] },
+              status: { $in: ["running", "pending-approval"] },
               "endCondition.trigger.at": { $lte: now },
             },
           ],
@@ -161,11 +162,11 @@ export const advanceSingleRampSchedule = async (
   );
 
   try {
-    // Hard deadline — trumps everything else
+    // Hard deadline — trumps everything else, but deferred while paused.
     if (
       schedule.endCondition?.trigger?.type === "scheduled" &&
       schedule.endCondition.trigger.at <= now &&
-      ["running", "paused", "pending-approval"].includes(schedule.status)
+      ["running", "pending-approval"].includes(schedule.status)
     ) {
       await completeRollout(
         context,
@@ -184,20 +185,21 @@ export const advanceSingleRampSchedule = async (
       current.startCondition?.trigger.type === "scheduled" &&
       current.startCondition.trigger.at <= now
     ) {
+      // Hold-first: compute step 0's fire time before advancing.
+      const initialNextStepAt =
+        current.steps.length > 0
+          ? computeNextStepAt(
+              { ...current, phaseStartedAt: now, startedAt: now },
+              0,
+              now,
+            )
+          : null;
       current = await context.models.rampSchedules.updateById(current.id, {
         status: "running",
         startedAt: now,
         phaseStartedAt: now,
+        nextStepAt: initialNextStepAt,
       });
-      current = await advanceStep(
-        context,
-        current,
-        makeAttribution(
-          undefined,
-          "auto-started by scheduled startCondition trigger",
-          "system",
-        ),
-      );
     }
 
     // Advance through all interval steps that have elapsed since the last poll.

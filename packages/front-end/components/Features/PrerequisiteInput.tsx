@@ -335,20 +335,19 @@ export default function PrerequisiteInput({
           commercialFeature="prerequisite-targeting"
           premiumText="Prerequisite targeting is available for Enterprise customers"
         >
-          <label
-            style={
-              slimMode
-                ? {
-                    fontSize: "var(--font-size-1)",
-                    color: "var(--text-mid)",
-                    marginBottom: 0,
-                    fontWeight: "normal",
-                  }
-                : undefined
-            }
-          >
-            Target by Prerequisite Features
-          </label>
+          {slimMode ? (
+            <Text
+              as="div"
+              size="1"
+              weight="medium"
+              my="1"
+              style={{ color: "var(--color-text-low)" }}
+            >
+              Target by Prerequisite Features
+            </Text>
+          ) : (
+            <label>Target by Prerequisite Features</label>
+          )}
         </PremiumTooltip>
       </Flex>
       {value.length > 0 ? (

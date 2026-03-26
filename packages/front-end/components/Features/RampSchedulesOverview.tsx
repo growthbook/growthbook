@@ -18,16 +18,14 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
 import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import RampTimeline, {
-  getRampBadgeColor,
-  getRampStatusLabel,
   getRampStepsCompleted,
 } from "@/components/RampSchedule/RampTimeline";
+import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import { useAuth } from "@/services/auth";
 
 interface Props {
@@ -85,11 +83,7 @@ export default function RampSchedulesOverview({
                   <Text weight="medium">{rs.name}</Text>
                 </span>
               </Flex>
-              <Badge
-                label={getRampStatusLabel(rs)}
-                color={getRampBadgeColor(rs.status)}
-                radius="full"
-              />
+              <RampScheduleBadge rs={rs} />
 
               {/* Step counter — only for active ramps */}
               {rs.steps.length > 0 && !isTerminal && (
@@ -186,7 +180,9 @@ export default function RampSchedulesOverview({
                       side="left"
                     >
                       <div style={{ cursor: "not-allowed" }}>
-                        <DropdownMenuItem disabled>Edit ramp schedule</DropdownMenuItem>
+                        <DropdownMenuItem disabled>
+                          Edit ramp schedule
+                        </DropdownMenuItem>
                       </div>
                     </Tooltip>
                   ) : (
@@ -433,6 +429,16 @@ export default function RampSchedulesOverview({
                 </DropdownMenu>
               </Flex>
             </Flex>
+
+            {/* Approval prompt notes — shown when pending-approval and current step has notes */}
+            {rs.status === "pending-approval" &&
+              rs.currentStepIndex >= 0 &&
+              rs.steps[rs.currentStepIndex]?.approvalNotes && (
+                <Callout status="info" mb="2">
+                  <Text weight="medium">Before approving: </Text>
+                  <Text>{rs.steps[rs.currentStepIndex].approvalNotes}</Text>
+                </Callout>
+              )}
 
             {/* Error callout for approve-step failures */}
             {approveErrors[rs.id] && (

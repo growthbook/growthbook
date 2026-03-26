@@ -19,21 +19,21 @@ export function formatTrigger(trigger: RampTrigger): ReactNode {
   if (trigger.type === "approval") return <Text size="small">approval</Text>;
   if (trigger.type === "scheduled") return formatScheduledDate(trigger.at);
   const s = trigger.seconds;
-  let label: string;
-  if (s < 60) label = `${s}s`;
+  let duration: string;
+  if (s < 60) duration = `${s}s`;
   else {
     const m = s / 60;
-    if (m < 60) label = Number.isInteger(m) ? `${m}m` : `${m.toFixed(1)}m`;
+    if (m < 60) duration = Number.isInteger(m) ? `${m}m` : `${m.toFixed(1)}m`;
     else {
       const h = s / 3600;
-      if (h < 24) label = Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
+      if (h < 24) duration = Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
       else {
         const d = s / 86400;
-        label = Number.isInteger(d) ? `${d}d` : `${d.toFixed(1)}d`;
+        duration = Number.isInteger(d) ? `${d}d` : `${d.toFixed(1)}d`;
       }
     }
   }
-  return <Text size="small">{label}</Text>;
+  return <Text size="small">{duration}</Text>;
 }
 
 // Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
@@ -251,7 +251,9 @@ function targetLabel(target: RampTarget, index: number): string {
 
 export function getRampStatusLabel(rs: RampScheduleInterface): string {
   if (rs.status === "ready") {
-    return rs.startCondition?.trigger.type === "manual" ? "ready to start" : "scheduled";
+    return rs.startCondition?.trigger.type === "manual"
+      ? "ready to start"
+      : "scheduled";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
     pending: "pending",
@@ -434,7 +436,8 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
         <Flex align="start" style={{ width: "fit-content" }}>
           {/* Pre-timeline indicator node for states where the ramp hasn't started yet */}
           {(status === "pending" ||
-            (status === "ready" && startCondition?.trigger.type === "manual")) && (
+            (status === "ready" &&
+              startCondition?.trigger.type === "manual")) && (
             <>
               <Node
                 node={{

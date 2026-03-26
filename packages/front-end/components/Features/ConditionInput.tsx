@@ -235,23 +235,19 @@ export default function ConditionInput(props: Props) {
       <Box mb={props.slimMode ? "2" : "6"}>
         <Flex gap="2" mb={props.slimMode ? "0" : "1"}>
           <Box flexGrow="1">
-            <label
-              className={clsx(
-                props.labelClassName,
-                props.slimMode && "font-weight-normal",
-              )}
-              style={
-                props.slimMode
-                  ? {
-                      fontSize: "var(--font-size-1)",
-                      color: "var(--text-mid)",
-                      marginBottom: 0,
-                    }
-                  : undefined
-              }
-            >
-              {title}
-            </label>
+            {props.slimMode ? (
+              <Text
+                as="div"
+                size="1"
+                weight="medium"
+                my="1"
+                style={{ color: "var(--color-text-low)" }}
+              >
+                {title}
+              </Text>
+            ) : (
+              <label className={props.labelClassName}>{title}</label>
+            )}
           </Box>
           {simpleAllowed && attributes.size > 0 && (
             <Box mr={props.slimMode ? "5" : undefined}>
@@ -307,23 +303,19 @@ export default function ConditionInput(props: Props) {
   if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
       <Box my={props.slimMode ? "1" : "4"}>
-        <label
-          className={clsx(
-            props.labelClassName,
-            props.slimMode && "font-weight-normal",
-          )}
-          style={
-            props.slimMode
-              ? {
-                  fontSize: "var(--font-size-1)",
-                  color: "var(--text-mid)",
-                  marginBottom: 0,
-                }
-              : undefined
-          }
-        >
-          {title}
-        </label>
+        {props.slimMode ? (
+          <Text
+            as="div"
+            size="1"
+            weight="medium"
+            my="1"
+            style={{ color: "var(--color-text-low)" }}
+          >
+            {title}
+          </Text>
+        ) : (
+          <label className={props.labelClassName}>{title}</label>
+        )}
         <Box>
           {!props.slimMode && (
             <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
@@ -366,23 +358,19 @@ export default function ConditionInput(props: Props) {
   return (
     <Box mb={props.slimMode ? "2" : "6"}>
       <Flex justify="between" align="center" mb={props.slimMode ? "0" : "1"}>
-        <label
-          className={clsx(
-            props.labelClassName,
-            props.slimMode && "font-weight-normal",
-          )}
-          style={
-            props.slimMode
-              ? {
-                  fontSize: "var(--font-size-1)",
-                  color: "var(--text-mid)",
-                  marginBottom: 0,
-                }
-              : undefined
-          }
-        >
-          {title}
-        </label>
+        {props.slimMode ? (
+          <Text
+            as="div"
+            size="1"
+            weight="medium"
+            my="1"
+            style={{ color: "var(--color-text-low)" }}
+          >
+            {title}
+          </Text>
+        ) : (
+          <label className={props.labelClassName}>{title}</label>
+        )}
         {attributes.size > 0 && (
           <Box mr={props.slimMode ? "5" : undefined}>
             <Switch

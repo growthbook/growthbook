@@ -27,12 +27,10 @@ export type InlineRampScheduleCreate = {
     trigger: RampStartTrigger;
     actions?: RampStepAction[];
   };
-  /**
-   * When true, the rule is hidden from the SDK payload while the ramp is pending and again
-   * after it completes. The backend auto-injects enabled:true into startCondition.actions and
-   * enabled:false into endCondition.actions.
-   */
-  disableOutsideSchedule?: boolean;
+  /** When true, rule is hidden from SDK payload before the schedule starts. */
+  disableRuleBefore?: boolean;
+  /** When true, rule is hidden from SDK payload after the schedule ends. */
+  disableRuleAfter?: boolean;
   /** End trigger + teardown actions. trigger is optional (no deadline = fires on natural completion). */
   endCondition?: {
     trigger?: RampEndTrigger;
@@ -60,10 +58,17 @@ export type InlineRampScheduleUpdate = {
   name?: string;
   steps: RampStep[];
   /** null resets start condition to { trigger: "immediately" }. */
-  startCondition?: { trigger?: RampStartTrigger; actions?: RampStepAction[] } | null;
-  disableOutsideSchedule?: boolean | null;
+  startCondition?: {
+    trigger?: RampStartTrigger;
+    actions?: RampStepAction[];
+  } | null;
+  disableRuleBefore?: boolean;
+  disableRuleAfter?: boolean;
   /** null clears the end condition entirely. */
-  endCondition?: { trigger?: RampEndTrigger; actions?: RampStepAction[] } | null;
+  endCondition?: {
+    trigger?: RampEndTrigger;
+    actions?: RampStepAction[];
+  } | null;
 };
 
 export type PostFeatureRuleBody = {

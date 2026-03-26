@@ -77,6 +77,7 @@ import {
   buildRampSteps,
   buildStartActions,
   buildEndScheduleActions,
+  validateRampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 
 export interface Props {
@@ -700,6 +701,11 @@ export default function RuleModal({
         );
       }
 
+      const rampValidationError = validateRampSectionState(rampSectionState);
+      if (rampValidationError) {
+        throw new Error(rampValidationError);
+      }
+
       track("Save Feature Rule", {
         source: ruleAction,
         ruleIndex: i,
@@ -767,8 +773,10 @@ export default function RuleModal({
                   trigger: startTrigger,
                   actions: startActions.length ? startActions : undefined,
                 },
-                disableOutsideSchedule:
-                  rampSectionState.disableOutsideSchedule || undefined,
+                disableRuleBefore:
+                  rampSectionState.disableRuleBefore || undefined,
+                disableRuleAfter:
+                  rampSectionState.disableRuleAfter || undefined,
                 endCondition: rampSectionState.endScheduleAt
                   ? {
                       trigger: {
@@ -832,8 +840,10 @@ export default function RuleModal({
                   trigger: startTrigger,
                   actions: startActions.length ? startActions : undefined,
                 },
-                disableOutsideSchedule:
-                  rampSectionState.disableOutsideSchedule || null,
+                disableRuleBefore:
+                  rampSectionState.disableRuleBefore || undefined,
+                disableRuleAfter:
+                  rampSectionState.disableRuleAfter || undefined,
                 endCondition: rampSectionState.endScheduleAt
                   ? {
                       trigger: {
@@ -910,8 +920,9 @@ export default function RuleModal({
                 trigger: startTrigger,
                 actions: startActions.length ? startActions : undefined,
               },
-              disableOutsideSchedule:
-                rampSectionState.disableOutsideSchedule || undefined,
+              disableRuleBefore:
+                rampSectionState.disableRuleBefore || undefined,
+              disableRuleAfter: rampSectionState.disableRuleAfter || undefined,
               endCondition: rampSectionState.endScheduleAt
                 ? {
                     trigger: {

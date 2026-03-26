@@ -37,19 +37,24 @@ export default function SavedGroupTargetingField({
   const { unsupportedConnections, hasLargeSavedGroupFeature } =
     useLargeSavedGroupSupport(project);
 
-  const slimLabelStyle: React.CSSProperties | undefined = slimMode
-    ? {
-        fontSize: "var(--font-size-1)",
-        color: "var(--text-mid)",
-        marginBottom: 0,
-        fontWeight: "normal",
-      }
-    : undefined;
+  const savedGroupsLabel = slimMode ? (
+    <Text
+      as="div"
+      size="1"
+      weight="medium"
+      my="1"
+      style={{ color: "var(--color-text-low)" }}
+    >
+      Target by Saved Groups
+    </Text>
+  ) : (
+    <label>Target by Saved Groups</label>
+  );
 
   if (!savedGroups.length)
     return (
       <Box>
-        <label style={slimLabelStyle}>Target by Saved Groups</label>
+        {savedGroupsLabel}
         <Box>
           <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
             You do not have any saved groups.
@@ -74,7 +79,7 @@ export default function SavedGroupTargetingField({
   if (value.length === 0) {
     return (
       <Box>
-        <label style={slimLabelStyle}>Target by Saved Groups</label>
+        {savedGroupsLabel}
         <Box>
           {!slimMode && (
             <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
@@ -110,7 +115,7 @@ export default function SavedGroupTargetingField({
   return (
     <Box mb={slimMode ? "2" : "6"}>
       <Box mb={slimMode ? "0" : undefined}>
-        <label style={slimLabelStyle}>Target by Saved Groups</label>
+        {savedGroupsLabel}
         <LargeSavedGroupPerformanceWarning
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           unsupportedConnections={unsupportedConnections}
