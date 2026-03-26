@@ -15,12 +15,12 @@ parameters:
       - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
 tags:
   - product-analytics-explorations
-summary: Run a fact table exploration
+summary: Run a Fact Table based visualization
 operationId: postFactTableExploration
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/fact-table \
+      curl -X POST https://api.growthbook.io/api/v1/product-analytics/fact-table-exploration \
         -H 'Content-Type: application/json' \
         -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"fact_table","factTableId":"ft_abc123","values":[{"type":"fact_table","name":"My Value","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
         -u secret_abc123DEF456:

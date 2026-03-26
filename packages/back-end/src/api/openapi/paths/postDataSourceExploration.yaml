@@ -15,12 +15,12 @@ parameters:
       - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
 tags:
   - product-analytics-explorations
-summary: Run a raw data source exploration
+summary: Create a Data Source based visualization
 operationId: postDataSourceExploration
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/data-source \
+      curl -X POST https://api.growthbook.io/api/v1/product-analytics/data-source-exploration \
         -H 'Content-Type: application/json' \
         -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"created_at","dateGranularity":"day"}],"dataset":{"type":"data_source","table":"orders","path":"public.orders","timestampColumn":"created_at","columnTypes":{"user_id":"string","amount":"number","created_at":"date"},"values":[{"type":"data_source","name":"Orders","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
         -u secret_abc123DEF456:

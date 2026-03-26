@@ -120,9 +120,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
-  - name: product-analytics-explorations
-    x-displayName: Product Analytics Explorations
-    description: 'Run product analytics queries and retrieve results. Each endpoint corresponds to a specific exploration type (metric, fact table, or raw data source).'
+  - name: product-analytics
+    x-displayName: Product Analytic
+    description: 'Build product analytics charts, tables and other visualizations. Each endpoint corresponds to a specific resource in GrowthBook (Fact Metric, Fact Table, or Data Source). The endpoints allow you to pass in a visualization configuration and receive the results.'
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -6282,7 +6282,7 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
-  /product-analytics-explorations/metric:
+  /product-analytics/metric-exploration:
     post:
       parameters:
         - in: query
@@ -6301,12 +6301,12 @@ paths:
             - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
         - product-analytics-explorations
-      summary: Run a metric exploration
+      summary: Create a Metric based visualization
       operationId: postMetricExploration
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/metric \
+            curl -X POST https://api.growthbook.io/api/v1/product-analytics/metric-exploration \
               -H 'Content-Type: application/json' \
               -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"metric","values":[{"type":"metric","name":"My Metric","rowFilters":[],"metricId":"fact__abc123","unit":null,"denominatorUnit":null}]}}' \
               -u secret_abc123DEF456:
@@ -6327,11 +6327,11 @@ paths:
                   type: string
                   description: ID of the datasource to query
                 dimensions:
-                  $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
+                  $ref: '#/paths/~1product-analytics~1metric-exploration/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
                 chartType:
-                  $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/ChartType'
+                  $ref: '#/paths/~1product-analytics~1metric-exploration/post/requestBody/content/application~1json/schema/%24defs/ChartType'
                 dateRange:
-                  $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/DateRange'
+                  $ref: '#/paths/~1product-analytics~1metric-exploration/post/requestBody/content/application~1json/schema/%24defs/DateRange'
                 dataset:
                   type: object
                   required:
@@ -6362,7 +6362,7 @@ paths:
                           name:
                             type: string
                           rowFilters:
-                            $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                            $ref: '#/paths/~1product-analytics~1metric-exploration/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
                           metricId:
                             type: string
                           unit:
@@ -6506,7 +6506,7 @@ paths:
                             name:
                               type: string
                             filters:
-                              $ref: '#/paths/~1product-analytics-explorations~1metric/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                              $ref: '#/paths/~1product-analytics~1metric-exploration/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
       responses:
         '200':
           content:
@@ -6527,7 +6527,7 @@ paths:
                   message:
                     type: string
                     description: 'Present when `exploration` is null, explaining why no result was returned.'
-  /product-analytics-explorations/fact-table:
+  /product-analytics/fact-table-exploration:
     post:
       parameters:
         - in: query
@@ -6546,12 +6546,12 @@ paths:
             - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
         - product-analytics-explorations
-      summary: Run a fact table exploration
+      summary: Run a Fact Table based visualization
       operationId: postFactTableExploration
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/fact-table \
+            curl -X POST https://api.growthbook.io/api/v1/product-analytics/fact-table-exploration \
               -H 'Content-Type: application/json' \
               -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"fact_table","factTableId":"ft_abc123","values":[{"type":"fact_table","name":"My Value","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
               -u secret_abc123DEF456:
@@ -6572,11 +6572,11 @@ paths:
                   type: string
                   description: ID of the datasource to query
                 dimensions:
-                  $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
+                  $ref: '#/paths/~1product-analytics~1fact-table-exploration/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
                 chartType:
-                  $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/ChartType'
+                  $ref: '#/paths/~1product-analytics~1fact-table-exploration/post/requestBody/content/application~1json/schema/%24defs/ChartType'
                 dateRange:
-                  $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/DateRange'
+                  $ref: '#/paths/~1product-analytics~1fact-table-exploration/post/requestBody/content/application~1json/schema/%24defs/DateRange'
                 dataset:
                   type: object
                   required:
@@ -6612,7 +6612,7 @@ paths:
                           name:
                             type: string
                           rowFilters:
-                            $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                            $ref: '#/paths/~1product-analytics~1fact-table-exploration/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
                           valueType:
                             type: string
                             enum:
@@ -6760,7 +6760,7 @@ paths:
                             name:
                               type: string
                             filters:
-                              $ref: '#/paths/~1product-analytics-explorations~1fact-table/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                              $ref: '#/paths/~1product-analytics~1fact-table-exploration/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
       responses:
         '200':
           content:
@@ -6781,7 +6781,7 @@ paths:
                   message:
                     type: string
                     description: 'Present when `exploration` is null, explaining why no result was returned.'
-  /product-analytics-explorations/data-source:
+  /product-analytics/data-source-exploration:
     post:
       parameters:
         - in: query
@@ -6800,12 +6800,12 @@ paths:
             - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
       tags:
         - product-analytics-explorations
-      summary: Run a raw data source exploration
+      summary: Create a Data Source based visualization
       operationId: postDataSourceExploration
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/data-source \
+            curl -X POST https://api.growthbook.io/api/v1/product-analytics/data-source-exploration \
               -H 'Content-Type: application/json' \
               -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"created_at","dateGranularity":"day"}],"dataset":{"type":"data_source","table":"orders","path":"public.orders","timestampColumn":"created_at","columnTypes":{"user_id":"string","amount":"number","created_at":"date"},"values":[{"type":"data_source","name":"Orders","rowFilters":[],"valueType":"unit_count","valueColumn":null,"unit":null}]}}' \
               -u secret_abc123DEF456:
@@ -6826,11 +6826,11 @@ paths:
                   type: string
                   description: ID of the datasource to query
                 dimensions:
-                  $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
+                  $ref: '#/paths/~1product-analytics~1data-source-exploration/post/requestBody/content/application~1json/schema/%24defs/Dimensions'
                 chartType:
-                  $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/ChartType'
+                  $ref: '#/paths/~1product-analytics~1data-source-exploration/post/requestBody/content/application~1json/schema/%24defs/ChartType'
                 dateRange:
-                  $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/DateRange'
+                  $ref: '#/paths/~1product-analytics~1data-source-exploration/post/requestBody/content/application~1json/schema/%24defs/DateRange'
                 dataset:
                   type: object
                   required:
@@ -6885,7 +6885,7 @@ paths:
                           name:
                             type: string
                           rowFilters:
-                            $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                            $ref: '#/paths/~1product-analytics~1data-source-exploration/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
                           valueType:
                             type: string
                             enum:
@@ -7033,7 +7033,7 @@ paths:
                             name:
                               type: string
                             filters:
-                              $ref: '#/paths/~1product-analytics-explorations~1data-source/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
+                              $ref: '#/paths/~1product-analytics~1data-source-exploration/post/requestBody/content/application~1json/schema/%24defs/RowFilters'
       responses:
         '200':
           content:
@@ -24385,7 +24385,7 @@ x-tagGroups:
       - settings
       - attributes
       - usage
-      - product-analytics-explorations
+      - product-analytics
       - CustomFields
       - Dashboards
       - ExperimentTemplates

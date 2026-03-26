@@ -422,16 +422,16 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
-  "/product-analytics-explorations/metric": {
-    /** Run a metric exploration */
+  "/product-analytics/metric-exploration": {
+    /** Create a Metric based visualization */
     post: operations["postMetricExploration"];
   };
-  "/product-analytics-explorations/fact-table": {
-    /** Run a fact table exploration */
+  "/product-analytics/fact-table-exploration": {
+    /** Run a Fact Table based visualization */
     post: operations["postFactTableExploration"];
   };
-  "/product-analytics-explorations/data-source": {
-    /** Run a raw data source exploration */
+  "/product-analytics/data-source-exploration": {
+    /** Create a Data Source based visualization */
     post: operations["postDataSourceExploration"];
   };
   "/custom-fields": {
@@ -15759,7 +15759,7 @@ export interface operations {
     };
   };
   postMetricExploration: {
-    /** Run a metric exploration */
+    /** Create a Metric based visualization */
     parameters: {
         /**
          * @description Controls cache behavior for this exploration:
@@ -15947,7 +15947,7 @@ export interface operations {
     };
   };
   postFactTableExploration: {
-    /** Run a fact table exploration */
+    /** Run a Fact Table based visualization */
     parameters: {
         /**
          * @description Controls cache behavior for this exploration:
@@ -16140,7 +16140,7 @@ export interface operations {
     };
   };
   postDataSourceExploration: {
-    /** Run a raw data source exploration */
+    /** Create a Data Source based visualization */
     parameters: {
         /**
          * @description Controls cache behavior for this exploration:

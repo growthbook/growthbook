@@ -15,12 +15,12 @@ parameters:
       - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
 tags:
   - product-analytics-explorations
-summary: Run a metric exploration
+summary: Create a Metric based visualization
 operationId: postMetricExploration
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/product-analytics-explorations/metric \
+      curl -X POST https://api.growthbook.io/api/v1/product-analytics/metric-exploration \
         -H 'Content-Type: application/json' \
         -d '{"datasource":"ds_abc123","chartType":"line","dateRange":{"predefined":"last30Days","lookbackValue":null,"lookbackUnit":null,"startDate":null,"endDate":null},"dimensions":[{"dimensionType":"date","column":"date","dateGranularity":"day"}],"dataset":{"type":"metric","values":[{"type":"metric","name":"My Metric","rowFilters":[],"metricId":"fact__abc123","unit":null,"denominatorUnit":null}]}}' \
         -u secret_abc123DEF456:

@@ -123,9 +123,9 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
-  - name: product-analytics-explorations
-    x-displayName: Product Analytics Explorations
-    description: Run product analytics queries and retrieve results. Each endpoint corresponds to a specific exploration type (metric, fact table, or raw data source).
+  - name: product-analytics
+    x-displayName: Product Analytic
+    description: Build product analytics charts, tables and other visualizations. Each endpoint corresponds to a specific resource in GrowthBook (Fact Metric, Fact Table, or Data Source). The endpoints allow you to pass in a visualization configuration and receive the results.
 paths:
   /features:
     get:
@@ -373,13 +373,13 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
-  /product-analytics-explorations/metric:
+  /product-analytics/metric-exploration:
     post:
       $ref: "./paths/postMetricExploration.yaml"
-  /product-analytics-explorations/fact-table:
+  /product-analytics/fact-table-exploration:
     post:
       $ref: "./paths/postFactTableExploration.yaml"
-  /product-analytics-explorations/data-source:
+  /product-analytics/data-source-exploration:
     post:
       $ref: "./paths/postDataSourceExploration.yaml"
   # PLOP_INSERT_PATHS_HERE
