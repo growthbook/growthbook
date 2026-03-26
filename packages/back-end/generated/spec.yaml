@@ -225,9 +225,18 @@ tags:
   - name: PaginationFields_model
     x-displayName: PaginationFields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
-  - name: ProductAnalyticsExploration_model
-    x-displayName: ProductAnalyticsExploration
-    description: <SchemaDefinition schemaRef="#/components/schemas/ProductAnalyticsExploration" />
+  - name: ProductAnalyticsDataSourceExploration_model
+    x-displayName: ProductAnalyticsDataSourceExploration
+    description: <SchemaDefinition schemaRef="#/components/schemas/ProductAnalyticsDataSourceExploration" />
+  - name: ProductAnalyticsExplorationBase_model
+    x-displayName: ProductAnalyticsExplorationBase
+    description: <SchemaDefinition schemaRef="#/components/schemas/ProductAnalyticsExplorationBase" />
+  - name: ProductAnalyticsFactTableExploration_model
+    x-displayName: ProductAnalyticsFactTableExploration
+    description: <SchemaDefinition schemaRef="#/components/schemas/ProductAnalyticsFactTableExploration" />
+  - name: ProductAnalyticsMetricExploration_model
+    x-displayName: ProductAnalyticsMetricExploration
+    description: <SchemaDefinition schemaRef="#/components/schemas/ProductAnalyticsMetricExploration" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -6491,12 +6500,14 @@ paths:
               schema:
                 type: object
                 required:
-                  - productAnalyticsExploration
+                  - exploration
                 properties:
-                  productAnalyticsExploration:
-                    $ref: '#/components/schemas/ProductAnalyticsExploration'
+                  exploration:
+                    $ref: '#/components/schemas/ProductAnalyticsMetricExploration'
                   query:
-                    $ref: '#/components/schemas/Query'
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/Query'
   /product-analytics-explorations/fact-table:
     post:
       parameters: []
@@ -6724,12 +6735,14 @@ paths:
               schema:
                 type: object
                 required:
-                  - productAnalyticsExploration
+                  - exploration
                 properties:
-                  productAnalyticsExploration:
-                    $ref: '#/components/schemas/ProductAnalyticsExploration'
+                  exploration:
+                    $ref: '#/components/schemas/ProductAnalyticsFactTableExploration'
                   query:
-                    $ref: '#/components/schemas/Query'
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/Query'
   /product-analytics-explorations/data-source:
     post:
       parameters: []
@@ -6976,12 +6989,14 @@ paths:
               schema:
                 type: object
                 required:
-                  - productAnalyticsExploration
+                  - exploration
                 properties:
-                  productAnalyticsExploration:
-                    $ref: '#/components/schemas/ProductAnalyticsExploration'
+                  exploration:
+                    $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration'
                   query:
-                    $ref: '#/components/schemas/Query'
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/Query'
   /custom-fields:
     post:
       $skipValidatorGeneration: true
@@ -23570,10 +23585,11 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
-    ProductAnalyticsExploration:
+    ProductAnalyticsExplorationBase:
       type: object
       required:
         - id
+        - organization
         - dateCreated
         - dateUpdated
         - datasource
@@ -23582,6 +23598,8 @@ components:
         - dateEnd
       properties:
         id:
+          type: string
+        organization:
           type: string
         dateCreated:
           type: string
@@ -23641,6 +23659,617 @@ components:
                         denominator:
                           type: number
                           nullable: true
+    ProductAnalyticsMetricExploration:
+      allOf:
+        - $ref: '#/components/schemas/ProductAnalyticsExplorationBase'
+        - type: object
+          required:
+            - config
+          properties:
+            config:
+              type: object
+              required:
+                - type
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - dataset
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - metric
+                datasource:
+                  type: string
+                dimensions:
+                  $ref: '#/components/schemas/ProductAnalyticsMetricExploration/%24defs/Dimensions'
+                chartType:
+                  $ref: '#/components/schemas/ProductAnalyticsMetricExploration/%24defs/ChartType'
+                dateRange:
+                  $ref: '#/components/schemas/ProductAnalyticsMetricExploration/%24defs/DateRange'
+                dataset:
+                  type: object
+                  required:
+                    - type
+                    - values
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - metric
+                    values:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - type
+                          - name
+                          - rowFilters
+                          - metricId
+                          - unit
+                          - denominatorUnit
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - metric
+                          name:
+                            type: string
+                          rowFilters:
+                            $ref: '#/components/schemas/ProductAnalyticsMetricExploration/%24defs/RowFilters'
+                          metricId:
+                            type: string
+                          unit:
+                            type: string
+                            nullable: true
+                          denominatorUnit:
+                            type: string
+                            nullable: true
+      $defs:
+        ChartType:
+          type: string
+          enum:
+            - line
+            - area
+            - timeseries-table
+            - table
+            - bar
+            - stackedBar
+            - horizontalBar
+            - stackedHorizontalBar
+            - bigNumber
+        DateRange:
+          type: object
+          required:
+            - predefined
+            - lookbackValue
+            - lookbackUnit
+            - startDate
+            - endDate
+          properties:
+            predefined:
+              type: string
+              enum:
+                - today
+                - last7Days
+                - last30Days
+                - last90Days
+                - customLookback
+                - customDateRange
+            lookbackValue:
+              type: number
+              nullable: true
+            lookbackUnit:
+              type: string
+              nullable: true
+              enum:
+                - hour
+                - day
+                - week
+                - month
+            startDate:
+              type: string
+              nullable: true
+            endDate:
+              type: string
+              nullable: true
+        RowFilters:
+          type: array
+          items:
+            type: object
+            required:
+              - operator
+            properties:
+              operator:
+                type: string
+                enum:
+                  - '='
+                  - '!='
+                  - <
+                  - <=
+                  - '>'
+                  - '>='
+                  - in
+                  - not_in
+                  - contains
+                  - not_contains
+                  - starts_with
+                  - ends_with
+                  - is_null
+                  - not_null
+                  - is_true
+                  - is_false
+                  - sql_expr
+                  - saved_filter
+              column:
+                type: string
+              values:
+                type: array
+                items:
+                  type: string
+        Dimensions:
+          type: array
+          items:
+            type: object
+            required:
+              - dimensionType
+            properties:
+              dimensionType:
+                type: string
+                enum:
+                  - date
+                  - dynamic
+                  - static
+                  - slice
+              column:
+                type: string
+                nullable: true
+              dateGranularity:
+                type: string
+                enum:
+                  - auto
+                  - hour
+                  - day
+                  - week
+                  - month
+                  - year
+              maxValues:
+                type: number
+              values:
+                type: array
+                items:
+                  type: string
+              slices:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - filters
+                  properties:
+                    name:
+                      type: string
+                    filters:
+                      $ref: '#/components/schemas/ProductAnalyticsMetricExploration/%24defs/RowFilters'
+    ProductAnalyticsFactTableExploration:
+      allOf:
+        - $ref: '#/components/schemas/ProductAnalyticsExplorationBase'
+        - type: object
+          required:
+            - config
+          properties:
+            config:
+              type: object
+              required:
+                - type
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - dataset
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - fact_table
+                datasource:
+                  type: string
+                dimensions:
+                  $ref: '#/components/schemas/ProductAnalyticsFactTableExploration/%24defs/Dimensions'
+                chartType:
+                  $ref: '#/components/schemas/ProductAnalyticsFactTableExploration/%24defs/ChartType'
+                dateRange:
+                  $ref: '#/components/schemas/ProductAnalyticsFactTableExploration/%24defs/DateRange'
+                dataset:
+                  type: object
+                  required:
+                    - type
+                    - factTableId
+                    - values
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - fact_table
+                    factTableId:
+                      type: string
+                      nullable: true
+                    values:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - type
+                          - name
+                          - rowFilters
+                          - valueType
+                          - valueColumn
+                          - unit
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - fact_table
+                          name:
+                            type: string
+                          rowFilters:
+                            $ref: '#/components/schemas/ProductAnalyticsFactTableExploration/%24defs/RowFilters'
+                          valueType:
+                            type: string
+                            enum:
+                              - unit_count
+                              - count
+                              - sum
+                          valueColumn:
+                            type: string
+                            nullable: true
+                          unit:
+                            type: string
+                            nullable: true
+      $defs:
+        ChartType:
+          type: string
+          enum:
+            - line
+            - area
+            - timeseries-table
+            - table
+            - bar
+            - stackedBar
+            - horizontalBar
+            - stackedHorizontalBar
+            - bigNumber
+        DateRange:
+          type: object
+          required:
+            - predefined
+            - lookbackValue
+            - lookbackUnit
+            - startDate
+            - endDate
+          properties:
+            predefined:
+              type: string
+              enum:
+                - today
+                - last7Days
+                - last30Days
+                - last90Days
+                - customLookback
+                - customDateRange
+            lookbackValue:
+              type: number
+              nullable: true
+            lookbackUnit:
+              type: string
+              nullable: true
+              enum:
+                - hour
+                - day
+                - week
+                - month
+            startDate:
+              type: string
+              nullable: true
+            endDate:
+              type: string
+              nullable: true
+        RowFilters:
+          type: array
+          items:
+            type: object
+            required:
+              - operator
+            properties:
+              operator:
+                type: string
+                enum:
+                  - '='
+                  - '!='
+                  - <
+                  - <=
+                  - '>'
+                  - '>='
+                  - in
+                  - not_in
+                  - contains
+                  - not_contains
+                  - starts_with
+                  - ends_with
+                  - is_null
+                  - not_null
+                  - is_true
+                  - is_false
+                  - sql_expr
+                  - saved_filter
+              column:
+                type: string
+              values:
+                type: array
+                items:
+                  type: string
+        Dimensions:
+          type: array
+          items:
+            type: object
+            required:
+              - dimensionType
+            properties:
+              dimensionType:
+                type: string
+                enum:
+                  - date
+                  - dynamic
+                  - static
+                  - slice
+              column:
+                type: string
+                nullable: true
+              dateGranularity:
+                type: string
+                enum:
+                  - auto
+                  - hour
+                  - day
+                  - week
+                  - month
+                  - year
+              maxValues:
+                type: number
+              values:
+                type: array
+                items:
+                  type: string
+              slices:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - filters
+                  properties:
+                    name:
+                      type: string
+                    filters:
+                      $ref: '#/components/schemas/ProductAnalyticsFactTableExploration/%24defs/RowFilters'
+    ProductAnalyticsDataSourceExploration:
+      allOf:
+        - $ref: '#/components/schemas/ProductAnalyticsExplorationBase'
+        - type: object
+          required:
+            - config
+          properties:
+            config:
+              type: object
+              required:
+                - type
+                - datasource
+                - dimensions
+                - chartType
+                - dateRange
+                - dataset
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - data_source
+                datasource:
+                  type: string
+                dimensions:
+                  $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration/%24defs/Dimensions'
+                chartType:
+                  $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration/%24defs/ChartType'
+                dateRange:
+                  $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration/%24defs/DateRange'
+                dataset:
+                  type: object
+                  required:
+                    - type
+                    - table
+                    - path
+                    - timestampColumn
+                    - columnTypes
+                    - values
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - data_source
+                    table:
+                      type: string
+                    path:
+                      type: string
+                    timestampColumn:
+                      type: string
+                    columnTypes:
+                      type: object
+                      additionalProperties:
+                        type: string
+                        enum:
+                          - string
+                          - number
+                          - date
+                          - boolean
+                          - other
+                    values:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - type
+                          - name
+                          - rowFilters
+                          - valueType
+                          - valueColumn
+                          - unit
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - data_source
+                          name:
+                            type: string
+                          rowFilters:
+                            $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration/%24defs/RowFilters'
+                          valueType:
+                            type: string
+                            enum:
+                              - unit_count
+                              - count
+                              - sum
+                          valueColumn:
+                            type: string
+                            nullable: true
+                          unit:
+                            type: string
+                            nullable: true
+      $defs:
+        ChartType:
+          type: string
+          enum:
+            - line
+            - area
+            - timeseries-table
+            - table
+            - bar
+            - stackedBar
+            - horizontalBar
+            - stackedHorizontalBar
+            - bigNumber
+        DateRange:
+          type: object
+          required:
+            - predefined
+            - lookbackValue
+            - lookbackUnit
+            - startDate
+            - endDate
+          properties:
+            predefined:
+              type: string
+              enum:
+                - today
+                - last7Days
+                - last30Days
+                - last90Days
+                - customLookback
+                - customDateRange
+            lookbackValue:
+              type: number
+              nullable: true
+            lookbackUnit:
+              type: string
+              nullable: true
+              enum:
+                - hour
+                - day
+                - week
+                - month
+            startDate:
+              type: string
+              nullable: true
+            endDate:
+              type: string
+              nullable: true
+        RowFilters:
+          type: array
+          items:
+            type: object
+            required:
+              - operator
+            properties:
+              operator:
+                type: string
+                enum:
+                  - '='
+                  - '!='
+                  - <
+                  - <=
+                  - '>'
+                  - '>='
+                  - in
+                  - not_in
+                  - contains
+                  - not_contains
+                  - starts_with
+                  - ends_with
+                  - is_null
+                  - not_null
+                  - is_true
+                  - is_false
+                  - sql_expr
+                  - saved_filter
+              column:
+                type: string
+              values:
+                type: array
+                items:
+                  type: string
+        Dimensions:
+          type: array
+          items:
+            type: object
+            required:
+              - dimensionType
+            properties:
+              dimensionType:
+                type: string
+                enum:
+                  - date
+                  - dynamic
+                  - static
+                  - slice
+              column:
+                type: string
+                nullable: true
+              dateGranularity:
+                type: string
+                enum:
+                  - auto
+                  - hour
+                  - day
+                  - week
+                  - month
+                  - year
+              maxValues:
+                type: number
+              values:
+                type: array
+                items:
+                  type: string
+              slices:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - filters
+                  properties:
+                    name:
+                      type: string
+                    filters:
+                      $ref: '#/components/schemas/ProductAnalyticsDataSourceExploration/%24defs/RowFilters'
   securitySchemes:
     bearerAuth:
       type: http
@@ -23741,7 +24370,10 @@ x-tagGroups:
       - MetricUsage_model
       - Organization_model
       - PaginationFields_model
-      - ProductAnalyticsExploration_model
+      - ProductAnalyticsDataSourceExploration_model
+      - ProductAnalyticsExplorationBase_model
+      - ProductAnalyticsFactTableExploration_model
+      - ProductAnalyticsMetricExploration_model
       - Project_model
       - Query_model
       - SavedGroup_model

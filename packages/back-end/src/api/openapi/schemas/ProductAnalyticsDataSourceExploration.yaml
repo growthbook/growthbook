@@ -1,0 +1,216 @@
+allOf:
+  - $ref: "./ProductAnalyticsExplorationBase.yaml"
+  - type: object
+    required:
+      - config
+    properties:
+      config:
+        type: object
+        required:
+          - type
+          - datasource
+          - dimensions
+          - chartType
+          - dateRange
+          - dataset
+        properties:
+          type:
+            type: string
+            enum:
+              - data_source
+          datasource:
+            type: string
+          dimensions:
+            $ref: "#/$defs/Dimensions"
+          chartType:
+            $ref: "#/$defs/ChartType"
+          dateRange:
+            $ref: "#/$defs/DateRange"
+          dataset:
+            type: object
+            required:
+              - type
+              - table
+              - path
+              - timestampColumn
+              - columnTypes
+              - values
+            properties:
+              type:
+                type: string
+                enum:
+                  - data_source
+              table:
+                type: string
+              path:
+                type: string
+              timestampColumn:
+                type: string
+              columnTypes:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - string
+                    - number
+                    - date
+                    - boolean
+                    - other
+              values:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - type
+                    - name
+                    - rowFilters
+                    - valueType
+                    - valueColumn
+                    - unit
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - data_source
+                    name:
+                      type: string
+                    rowFilters:
+                      $ref: "#/$defs/RowFilters"
+                    valueType:
+                      type: string
+                      enum:
+                        - unit_count
+                        - count
+                        - sum
+                    valueColumn:
+                      type: string
+                      nullable: true
+                    unit:
+                      type: string
+                      nullable: true
+$defs:
+  ChartType:
+    type: string
+    enum:
+      - line
+      - area
+      - timeseries-table
+      - table
+      - bar
+      - stackedBar
+      - horizontalBar
+      - stackedHorizontalBar
+      - bigNumber
+  DateRange:
+    type: object
+    required:
+      - predefined
+      - lookbackValue
+      - lookbackUnit
+      - startDate
+      - endDate
+    properties:
+      predefined:
+        type: string
+        enum:
+          - today
+          - last7Days
+          - last30Days
+          - last90Days
+          - customLookback
+          - customDateRange
+      lookbackValue:
+        type: number
+        nullable: true
+      lookbackUnit:
+        type: string
+        nullable: true
+        enum:
+          - hour
+          - day
+          - week
+          - month
+      startDate:
+        type: string
+        nullable: true
+      endDate:
+        type: string
+        nullable: true
+  RowFilters:
+    type: array
+    items:
+      type: object
+      required:
+        - operator
+      properties:
+        operator:
+          type: string
+          enum:
+            - "="
+            - "!="
+            - "<"
+            - "<="
+            - ">"
+            - ">="
+            - "in"
+            - "not_in"
+            - "contains"
+            - "not_contains"
+            - "starts_with"
+            - "ends_with"
+            - "is_null"
+            - "not_null"
+            - "is_true"
+            - "is_false"
+            - "sql_expr"
+            - "saved_filter"
+        column:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+  Dimensions:
+    type: array
+    items:
+      type: object
+      required:
+        - dimensionType
+      properties:
+        dimensionType:
+          type: string
+          enum:
+            - date
+            - dynamic
+            - static
+            - slice
+        column:
+          type: string
+          nullable: true
+        dateGranularity:
+          type: string
+          enum:
+            - auto
+            - hour
+            - day
+            - week
+            - month
+            - year
+        maxValues:
+          type: number
+        values:
+          type: array
+          items:
+            type: string
+        slices:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - filters
+            properties:
+              name:
+                type: string
+              filters:
+                $ref: "#/$defs/RowFilters"

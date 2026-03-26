@@ -84,5 +84,11 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
-ProductAnalyticsExploration:
-  $ref: "./ProductAnalyticsExploration.yaml"
+ProductAnalyticsExplorationBase:
+  $ref: "./ProductAnalyticsExplorationBase.yaml"
+ProductAnalyticsMetricExploration:
+  $ref: "./ProductAnalyticsMetricExploration.yaml"
+ProductAnalyticsFactTableExploration:
+  $ref: "./ProductAnalyticsFactTableExploration.yaml"
+ProductAnalyticsDataSourceExploration:
+  $ref: "./ProductAnalyticsDataSourceExploration.yaml"

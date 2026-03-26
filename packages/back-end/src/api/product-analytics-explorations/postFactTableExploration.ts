@@ -1,22 +1,16 @@
-import {
-  PostFactTableExplorationResponse,
-  ApiQuery,
-} from "shared/types/openapi";
+import { PostFactTableExplorationResponse } from "shared/types/openapi";
 import { factTableExplorationConfigValidator } from "shared/validators";
 import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
+import { toFactTableExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-type Response = PostFactTableExplorationResponse & {
-  query: ApiQuery | null;
-};
-
 export const postFactTableExploration = createApiRequestHandler({
   bodySchema: factTableExplorationConfigValidator,
-})(async (req): Promise<Response> => {
+})(async (req): Promise<PostFactTableExplorationResponse> => {
   const exploration = await runProductAnalyticsExploration(
     req.context,
     req.body,
@@ -31,17 +25,7 @@ export const postFactTableExploration = createApiRequestHandler({
   const query = queryId ? await getQueryById(req.context, queryId) : null;
 
   return {
-    productAnalyticsExploration: {
-      id: exploration.id,
-      dateCreated: exploration.dateCreated.toISOString(),
-      dateUpdated: exploration.dateUpdated.toISOString(),
-      datasource: exploration.datasource,
-      status: exploration.status,
-      dateStart: exploration.dateStart,
-      dateEnd: exploration.dateEnd,
-      error: exploration.error ?? null,
-      result: exploration.result,
-    },
+    exploration: toFactTableExplorationApiInterface(exploration),
     query: query ? toQueryApiInterface(query) : null,
   };
 });

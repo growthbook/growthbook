@@ -23,9 +23,11 @@ responses:
         schema:
           type: object
           required:
-            - productAnalyticsExploration
+            - exploration
           properties:
-            productAnalyticsExploration:
-              $ref: "../schemas/ProductAnalyticsExploration.yaml"
+            exploration:
+              $ref: "../schemas/ProductAnalyticsMetricExploration.yaml"
             query:
-              $ref: "../schemas/Query.yaml"
+              nullable: true
+              allOf:
+                - $ref: "../schemas/Query.yaml"

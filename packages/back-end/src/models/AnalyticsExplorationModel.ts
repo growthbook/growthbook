@@ -9,6 +9,11 @@ import {
   getDateGranularity,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
+import {
+  ApiProductAnalyticsDataSourceExploration,
+  ApiProductAnalyticsFactTableExploration,
+  ApiProductAnalyticsMetricExploration,
+} from "shared/types/openapi";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "analyticsexploration";
@@ -166,4 +171,44 @@ export class AnalyticsExplorationModel extends BaseClass {
     doc.configHash = configHashes.generalSettingsHash;
     doc.valueHashes = configHashes.valueHashes;
   }
+}
+
+function buildExplorationApiBase(exploration: ProductAnalyticsExploration) {
+  return {
+    id: exploration.id,
+    organization: exploration.organization,
+    dateCreated: exploration.dateCreated.toISOString(),
+    dateUpdated: exploration.dateUpdated.toISOString(),
+    datasource: exploration.datasource,
+    status: exploration.status,
+    dateStart: exploration.dateStart,
+    dateEnd: exploration.dateEnd,
+    error: exploration.error ?? null,
+    result: exploration.result,
+    config: exploration.config,
+  };
+}
+
+export function toMetricExplorationApiInterface(
+  exploration: ProductAnalyticsExploration,
+): ApiProductAnalyticsMetricExploration {
+  return buildExplorationApiBase(
+    exploration,
+  ) as ApiProductAnalyticsMetricExploration;
+}
+
+export function toFactTableExplorationApiInterface(
+  exploration: ProductAnalyticsExploration,
+): ApiProductAnalyticsFactTableExploration {
+  return buildExplorationApiBase(
+    exploration,
+  ) as ApiProductAnalyticsFactTableExploration;
+}
+
+export function toDataSourceExplorationApiInterface(
+  exploration: ProductAnalyticsExploration,
+): ApiProductAnalyticsDataSourceExploration {
+  return buildExplorationApiBase(
+    exploration,
+  ) as ApiProductAnalyticsDataSourceExploration;
 }

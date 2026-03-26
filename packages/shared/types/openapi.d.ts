@@ -4657,8 +4657,9 @@ export interface components {
           flagKey: string;
         })[];
     };
-    ProductAnalyticsExploration: {
+    ProductAnalyticsExplorationBase: {
       id: string;
+      organization: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -4682,6 +4683,252 @@ export interface components {
           })[];
       };
     };
+    ProductAnalyticsMetricExploration: ({
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      datasource: string;
+      /** @enum {string} */
+      status: "running" | "success" | "error";
+      /** Format: date-time */
+      dateStart: string;
+      /** Format: date-time */
+      dateEnd: string;
+      error?: string | null;
+      result?: {
+        rows: ({
+            dimensions: (string | null)[];
+            values: ({
+                metricId: string;
+                numerator: number | null;
+                denominator: number | null;
+              })[];
+          })[];
+      };
+    }) & ({
+      config: {
+        /** @enum {string} */
+        type: "metric";
+        datasource: string;
+        dimensions: ({
+            /** @enum {string} */
+            dimensionType: "date" | "dynamic" | "static" | "slice";
+            column?: string | null;
+            /** @enum {string} */
+            dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+            maxValues?: number;
+            values?: (string)[];
+            slices?: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          })[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          /** @enum {string|null} */
+          lookbackUnit: "hour" | "day" | "week" | "month" | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        dataset: {
+          /** @enum {string} */
+          type: "metric";
+          values: ({
+              /** @enum {string} */
+              type: "metric";
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              metricId: string;
+              unit: string | null;
+              denominatorUnit: string | null;
+            })[];
+        };
+      };
+    });
+    ProductAnalyticsFactTableExploration: ({
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      datasource: string;
+      /** @enum {string} */
+      status: "running" | "success" | "error";
+      /** Format: date-time */
+      dateStart: string;
+      /** Format: date-time */
+      dateEnd: string;
+      error?: string | null;
+      result?: {
+        rows: ({
+            dimensions: (string | null)[];
+            values: ({
+                metricId: string;
+                numerator: number | null;
+                denominator: number | null;
+              })[];
+          })[];
+      };
+    }) & ({
+      config: {
+        /** @enum {string} */
+        type: "fact_table";
+        datasource: string;
+        dimensions: ({
+            /** @enum {string} */
+            dimensionType: "date" | "dynamic" | "static" | "slice";
+            column?: string | null;
+            /** @enum {string} */
+            dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+            maxValues?: number;
+            values?: (string)[];
+            slices?: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          })[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          /** @enum {string|null} */
+          lookbackUnit: "hour" | "day" | "week" | "month" | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        dataset: {
+          /** @enum {string} */
+          type: "fact_table";
+          factTableId: string | null;
+          values: ({
+              /** @enum {string} */
+              type: "fact_table";
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @enum {string} */
+              valueType: "unit_count" | "count" | "sum";
+              valueColumn: string | null;
+              unit: string | null;
+            })[];
+        };
+      };
+    });
+    ProductAnalyticsDataSourceExploration: ({
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      datasource: string;
+      /** @enum {string} */
+      status: "running" | "success" | "error";
+      /** Format: date-time */
+      dateStart: string;
+      /** Format: date-time */
+      dateEnd: string;
+      error?: string | null;
+      result?: {
+        rows: ({
+            dimensions: (string | null)[];
+            values: ({
+                metricId: string;
+                numerator: number | null;
+                denominator: number | null;
+              })[];
+          })[];
+      };
+    }) & ({
+      config: {
+        /** @enum {string} */
+        type: "data_source";
+        datasource: string;
+        dimensions: ({
+            /** @enum {string} */
+            dimensionType: "date" | "dynamic" | "static" | "slice";
+            column?: string | null;
+            /** @enum {string} */
+            dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+            maxValues?: number;
+            values?: (string)[];
+            slices?: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          })[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          /** @enum {string|null} */
+          lookbackUnit: "hour" | "day" | "week" | "month" | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        dataset: {
+          /** @enum {string} */
+          type: "data_source";
+          table: string;
+          path: string;
+          timestampColumn: string;
+          columnTypes: {
+            [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+          };
+          values: ({
+              /** @enum {string} */
+              type: "data_source";
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @enum {string} */
+              valueType: "unit_count" | "count" | "sum";
+              valueColumn: string | null;
+              unit: string | null;
+            })[];
+        };
+      };
+    });
   };
   responses: {
     Error: never;
@@ -15587,8 +15834,9 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            productAnalyticsExploration: {
+            exploration: ({
               id: string;
+              organization: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -15611,8 +15859,61 @@ export interface operations {
                       })[];
                   })[];
               };
-            };
-            query?: {
+            }) & ({
+              config: {
+                /** @enum {string} */
+                type: "metric";
+                datasource: string;
+                dimensions: ({
+                    /** @enum {string} */
+                    dimensionType: "date" | "dynamic" | "static" | "slice";
+                    column?: string | null;
+                    /** @enum {string} */
+                    dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+                    maxValues?: number;
+                    values?: (string)[];
+                    slices?: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  })[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  /** @enum {string|null} */
+                  lookbackUnit: "hour" | "day" | "week" | "month" | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                dataset: {
+                  /** @enum {string} */
+                  type: "metric";
+                  values: ({
+                      /** @enum {string} */
+                      type: "metric";
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      metricId: string;
+                      unit: string | null;
+                      denominatorUnit: string | null;
+                    })[];
+                };
+              };
+            });
+            query?: ({
               id: string;
               organization: string;
               datasource: string;
@@ -15626,7 +15927,7 @@ export interface operations {
               externalId: string;
               dependencies: (string)[];
               runAtEnd: boolean;
-            };
+            }) | null;
           };
         };
       };
@@ -15711,8 +16012,9 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            productAnalyticsExploration: {
+            exploration: ({
               id: string;
+              organization: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -15735,8 +16037,63 @@ export interface operations {
                       })[];
                   })[];
               };
-            };
-            query?: {
+            }) & ({
+              config: {
+                /** @enum {string} */
+                type: "fact_table";
+                datasource: string;
+                dimensions: ({
+                    /** @enum {string} */
+                    dimensionType: "date" | "dynamic" | "static" | "slice";
+                    column?: string | null;
+                    /** @enum {string} */
+                    dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+                    maxValues?: number;
+                    values?: (string)[];
+                    slices?: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  })[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  /** @enum {string|null} */
+                  lookbackUnit: "hour" | "day" | "week" | "month" | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                dataset: {
+                  /** @enum {string} */
+                  type: "fact_table";
+                  factTableId: string | null;
+                  values: ({
+                      /** @enum {string} */
+                      type: "fact_table";
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            });
+            query?: ({
               id: string;
               organization: string;
               datasource: string;
@@ -15750,7 +16107,7 @@ export interface operations {
               externalId: string;
               dependencies: (string)[];
               runAtEnd: boolean;
-            };
+            }) | null;
           };
         };
       };
@@ -15843,8 +16200,9 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            productAnalyticsExploration: {
+            exploration: ({
               id: string;
+              organization: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -15867,8 +16225,68 @@ export interface operations {
                       })[];
                   })[];
               };
-            };
-            query?: {
+            }) & ({
+              config: {
+                /** @enum {string} */
+                type: "data_source";
+                datasource: string;
+                dimensions: ({
+                    /** @enum {string} */
+                    dimensionType: "date" | "dynamic" | "static" | "slice";
+                    column?: string | null;
+                    /** @enum {string} */
+                    dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
+                    maxValues?: number;
+                    values?: (string)[];
+                    slices?: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  })[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  /** @enum {string|null} */
+                  lookbackUnit: "hour" | "day" | "week" | "month" | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                dataset: {
+                  /** @enum {string} */
+                  type: "data_source";
+                  table: string;
+                  path: string;
+                  timestampColumn: string;
+                  columnTypes: {
+                    [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                  };
+                  values: ({
+                      /** @enum {string} */
+                      type: "data_source";
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            });
+            query?: ({
               id: string;
               organization: string;
               datasource: string;
@@ -15882,7 +16300,7 @@ export interface operations {
               externalId: string;
               dependencies: (string)[];
               runAtEnd: boolean;
-            };
+            }) | null;
           };
         };
       };
@@ -19363,7 +19781,10 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
-export type ApiProductAnalyticsExploration = z.infer<typeof openApiValidators.apiProductAnalyticsExplorationValidator>;
+export type ApiProductAnalyticsExplorationBase = z.infer<typeof openApiValidators.apiProductAnalyticsExplorationBaseValidator>;
+export type ApiProductAnalyticsMetricExploration = z.infer<typeof openApiValidators.apiProductAnalyticsMetricExplorationValidator>;
+export type ApiProductAnalyticsFactTableExploration = z.infer<typeof openApiValidators.apiProductAnalyticsFactTableExplorationValidator>;
+export type ApiProductAnalyticsDataSourceExploration = z.infer<typeof openApiValidators.apiProductAnalyticsDataSourceExplorationValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];

@@ -1,22 +1,16 @@
-import {
-  PostDataSourceExplorationResponse,
-  ApiQuery,
-} from "shared/types/openapi";
+import { PostDataSourceExplorationResponse } from "shared/types/openapi";
 import { dataSourceExplorationConfigValidator } from "shared/validators";
 import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
+import { toDataSourceExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-type Response = PostDataSourceExplorationResponse & {
-  query: ApiQuery | null;
-};
-
 export const postDataSourceExploration = createApiRequestHandler({
   bodySchema: dataSourceExplorationConfigValidator,
-})(async (req): Promise<Response> => {
+})(async (req): Promise<PostDataSourceExplorationResponse> => {
   const exploration = await runProductAnalyticsExploration(
     req.context,
     req.body,
@@ -31,17 +25,7 @@ export const postDataSourceExploration = createApiRequestHandler({
   const query = queryId ? await getQueryById(req.context, queryId) : null;
 
   return {
-    productAnalyticsExploration: {
-      id: exploration.id,
-      dateCreated: exploration.dateCreated.toISOString(),
-      dateUpdated: exploration.dateUpdated.toISOString(),
-      datasource: exploration.datasource,
-      status: exploration.status,
-      dateStart: exploration.dateStart,
-      dateEnd: exploration.dateEnd,
-      error: exploration.error ?? null,
-      result: exploration.result,
-    },
+    exploration: toDataSourceExplorationApiInterface(exploration),
     query: query ? toQueryApiInterface(query) : null,
   };
 });

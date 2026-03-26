@@ -1,19 +1,16 @@
-import { PostMetricExplorationResponse, ApiQuery } from "shared/types/openapi";
+import { PostMetricExplorationResponse } from "shared/types/openapi";
 import { metricExplorationConfigValidator } from "shared/validators";
 import {
   getQueryById,
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
+import { toMetricExplorationApiInterface } from "back-end/src/models/AnalyticsExplorationModel";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-type Response = PostMetricExplorationResponse & {
-  query: ApiQuery | null;
-};
-
 export const postMetricExploration = createApiRequestHandler({
   bodySchema: metricExplorationConfigValidator,
-})(async (req): Promise<Response> => {
+})(async (req): Promise<PostMetricExplorationResponse> => {
   const exploration = await runProductAnalyticsExploration(
     req.context,
     req.body,
@@ -28,17 +25,7 @@ export const postMetricExploration = createApiRequestHandler({
   const query = queryId ? await getQueryById(req.context, queryId) : null;
 
   return {
-    productAnalyticsExploration: {
-      id: exploration.id,
-      dateCreated: exploration.dateCreated.toISOString(),
-      dateUpdated: exploration.dateUpdated.toISOString(),
-      datasource: exploration.datasource,
-      status: exploration.status,
-      dateStart: exploration.dateStart,
-      dateEnd: exploration.dateEnd,
-      error: exploration.error ?? null,
-      result: exploration.result,
-    },
+    exploration: toMetricExplorationApiInterface(exploration),
     query: query ? toQueryApiInterface(query) : null,
   };
 });
