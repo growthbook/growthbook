@@ -35,17 +35,16 @@ export type Props = {
   source?: string;
 };
 
-const genFormDefaultValues = ({
-  project,
+const genInitialValues = ({
   experiment,
-  environmentSettings,
-  customFields,
 }: {
-  project?: string;
   experiment: ExperimentInterfaceStringDates;
-  environmentSettings: FeatureFromExperimentFormValues["environmentSettings"];
-  customFields: FeatureFromExperimentFormValues["customFields"];
-}): FeatureFromExperimentFormValues => {
+}): Omit<
+  FeatureFromExperimentFormValues,
+  "environmentSettings" | "customFields"
+> & {
+  customFields?: Record<string, unknown>;
+} => {
   const type =
     getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
@@ -56,10 +55,8 @@ const genFormDefaultValues = ({
     description: experiment.description || "",
     id: "",
     owner: "",
-    project,
+    project: experiment.project,
     tags: experiment.tags || [],
-    environmentSettings,
-    customFields,
     variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
@@ -83,25 +80,19 @@ export default function FeatureFromExperimentModal({
     allEnvironments,
     experiment,
   );
-  const initialProject = experiment.project || "";
+
   const {
     form,
-    currentProject,
     permissionsUtil,
     apiCall,
     refreshTags,
     refreshWatching,
     serializeCustomFields,
   } = useFeatureForm<FeatureFromExperimentFormValues>({
-    project: initialProject,
     environments,
-    getDefaultValues: (base) =>
-      genFormDefaultValues({
-        experiment,
-        project: initialProject,
-        environmentSettings: base.environmentSettings,
-        customFields: base.customFields,
-      }),
+    initialValues: genInitialValues({
+      experiment,
+    }),
   });
 
   // Scope features to the experiment's project (or all features if experiment has no project)
@@ -116,15 +107,12 @@ export default function FeatureFromExperimentModal({
   });
 
   const valueType = form.watch("valueType") as FeatureValueType;
+  const selectedProject = form.watch("project");
 
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
-  if (
-    !permissionsUtil.canManageFeatureDrafts({
-      project: experiment.project ?? currentProject,
-    })
-  ) {
+  if (!permissionsUtil.canManageFeatureDrafts({ project: selectedProject })) {
     ctaEnabled = false;
     disabledMessage =
       "You don't have permission to create feature flag drafts.";

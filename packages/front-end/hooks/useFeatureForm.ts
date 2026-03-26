@@ -14,18 +14,33 @@ import {
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 
-type FeatureFormBaseValues = {
+type FeatureFormDefaultValues = {
   environmentSettings: Record<string, FeatureEnvironment>;
   customFields: Record<string, string>;
   project?: string;
 };
 
-type UseFeatureFormOptions<T extends FeatureFormBaseValues> = {
-  project?: string;
+type FeatureFormInitialValues<T extends FeatureFormDefaultValues> = Omit<
+  T,
+  "environmentSettings" | "customFields"
+> & {
+  customFields?: Record<string, unknown>;
+};
+
+type UseFeatureFormOptions<T extends FeatureFormDefaultValues> = {
+  initialValues: FeatureFormInitialValues<T>;
   environments?: Environment[];
-  existingEnvironmentSettings?: Record<string, FeatureEnvironment>;
-  existingCustomFieldValues?: Record<string, unknown>;
-  getDefaultValues: (base: FeatureFormBaseValues) => T;
+  baseEnvironmentSettings?: Record<string, FeatureEnvironment>;
+};
+
+/** Shape of `defaultValues` after spreading `initialValues` and adding env/custom-field defaults. */
+type MergedFeatureFormDefaults<T extends FeatureFormDefaultValues> = Omit<
+  FeatureFormInitialValues<T>,
+  "customFields"
+> & {
+  environmentSettings: Record<string, FeatureEnvironment>;
+  customFields: Record<string, string>;
+  project?: string;
 };
 
 function getFeatureCustomFields(
@@ -43,12 +58,12 @@ function getEnvironmentSettings({
   environments,
   canPublishFeature,
   project,
-  existingEnvironmentSettings,
+  baseEnvironmentSettings,
 }: {
   environments: Environment[];
   canPublishFeature: ReturnType<typeof usePermissionsUtil>["canPublishFeature"];
   project: string | undefined;
-  existingEnvironmentSettings?: Record<string, FeatureEnvironment>;
+  baseEnvironmentSettings?: Record<string, FeatureEnvironment>;
 }): Record<string, FeatureEnvironment> {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
@@ -56,9 +71,9 @@ function getEnvironmentSettings({
     const canPublish = canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish
-      ? (existingEnvironmentSettings?.[e.id]?.enabled ?? defaultEnabled)
+      ? (baseEnvironmentSettings?.[e.id]?.enabled ?? defaultEnabled)
       : false;
-    const rules = existingEnvironmentSettings?.[e.id]?.rules ?? [];
+    const rules = baseEnvironmentSettings?.[e.id]?.rules ?? [];
 
     envSettings[e.id] = { enabled, rules };
   });
@@ -74,9 +89,32 @@ function getCustomFieldValues(
   return Object.fromEntries(
     customFields.map((field) => [
       field.id,
-      (existingValues?.[field.id] as string) ?? field.defaultValue ?? "",
+      getCustomFieldFormValue(
+        field,
+        existingValues?.[field.id] ?? field.defaultValue,
+      ),
     ]),
   );
+}
+
+function getCustomFieldFormValue(field: CustomField, value: unknown): string {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (field.type === "multiselect") {
+    return Array.isArray(value) ? JSON.stringify(value) : String(value);
+  }
+
+  if (field.type === "boolean") {
+    return typeof value === "string"
+      ? String(value).trim().toLowerCase() === "true"
+        ? "true"
+        : "false"
+      : String(Boolean(value));
+  }
+
+  return String(value);
 }
 
 function serializeCustomFieldValues(
@@ -90,12 +128,10 @@ function serializeCustomFieldValues(
   ) as Record<string, string>;
 }
 
-export function useFeatureForm<T extends FeatureFormBaseValues>({
-  project,
+export function useFeatureForm<T extends FeatureFormDefaultValues>({
+  initialValues,
   environments,
-  existingEnvironmentSettings,
-  existingCustomFieldValues,
-  getDefaultValues,
+  baseEnvironmentSettings,
 }: UseFeatureFormOptions<T>) {
   const { project: currentProject, refreshTags } = useDefinitions();
   const allEnvironments = useEnvironments();
@@ -105,41 +141,57 @@ export function useFeatureForm<T extends FeatureFormBaseValues>({
   const { apiCall } = useAuth();
   const allCustomFields = useCustomFields();
 
-  const resolvedProject = project ?? currentProject;
+  const resolvedProject = initialValues.project ?? currentProject;
   const resolvedEnvironments = environments ?? allEnvironments;
 
-  const customFields = useMemo(() => {
+  const availableCustomFields = useMemo(() => {
     return hasCommercialFeature("custom-metadata")
       ? getFeatureCustomFields(allCustomFields, resolvedProject)
       : undefined;
   }, [allCustomFields, hasCommercialFeature, resolvedProject]);
 
-  const baseDefaults = useMemo<FeatureFormBaseValues>(() => {
+  const {
+    customFields: initialCustomFields,
+    ...initialValuesWithoutCustomFields
+  } = initialValues;
+
+  const defaultValues = useMemo((): MergedFeatureFormDefaults<T> => {
     return {
+      ...initialValuesWithoutCustomFields,
       environmentSettings: getEnvironmentSettings({
         environments: resolvedEnvironments,
         canPublishFeature: permissionsUtil.canPublishFeature,
         project: resolvedProject,
-        existingEnvironmentSettings,
+        baseEnvironmentSettings,
       }),
       customFields: getCustomFieldValues(
-        customFields,
-        existingCustomFieldValues,
+        availableCustomFields,
+        initialCustomFields,
       ),
       project: resolvedProject,
     };
   }, [
-    customFields,
-    existingCustomFieldValues,
-    existingEnvironmentSettings,
+    availableCustomFields,
+    baseEnvironmentSettings,
+    initialCustomFields,
+    initialValuesWithoutCustomFields,
     permissionsUtil,
     resolvedEnvironments,
     resolvedProject,
   ]);
 
   const form = useForm<T>({
-    defaultValues: getDefaultValues(baseDefaults) as DefaultValues<T>,
+    defaultValues: defaultValues as DefaultValues<T>,
   });
+
+  const getEnvironmentSettingsForProject = (project?: string) => {
+    return getEnvironmentSettings({
+      environments: resolvedEnvironments,
+      canPublishFeature: permissionsUtil.canPublishFeature,
+      project,
+      baseEnvironmentSettings,
+    });
+  };
 
   const serializeCustomFields = (
     fieldProject: string | undefined,
@@ -167,5 +219,6 @@ export function useFeatureForm<T extends FeatureFormBaseValues>({
     refreshWatching,
     serializeCustomFields,
     canManageDrafts,
+    getEnvironmentSettingsForProject,
   };
 }

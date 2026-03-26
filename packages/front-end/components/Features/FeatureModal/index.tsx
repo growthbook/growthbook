@@ -32,27 +32,22 @@ export type Props = {
   features?: FeatureInterface[];
 };
 
-const genFormDefaultValues = ({
+const genInitialValues = ({
   featureToDuplicate,
-  project,
-  environmentSettings,
-  customFields,
 }: {
-  environmentSettings: CreateFeatureFormValues["environmentSettings"];
   featureToDuplicate?: FeatureInterface;
-  project: string;
-  customFields: CreateFeatureFormValues["customFields"];
-}): CreateFeatureFormValues => {
+}): Omit<CreateFeatureFormValues, "environmentSettings" | "customFields"> & {
+  customFields?: Record<string, unknown>;
+} => {
   return featureToDuplicate
     ? {
         valueType: featureToDuplicate.valueType,
         defaultValue: featureToDuplicate.defaultValue,
         description: featureToDuplicate.description ?? "",
         id: genDuplicatedKey(featureToDuplicate),
-        project: featureToDuplicate.project ?? project,
+        project: featureToDuplicate.project,
         tags: featureToDuplicate.tags ?? [],
-        environmentSettings,
-        customFields,
+        customFields: featureToDuplicate.customFields,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
           : undefined,
@@ -62,10 +57,7 @@ const genFormDefaultValues = ({
         defaultValue: getDefaultValue("boolean"),
         description: "",
         id: "",
-        project,
         tags: [],
-        environmentSettings,
-        customFields,
         holdout: undefined,
       };
 };
@@ -89,16 +81,12 @@ export default function FeatureModal({
     refreshWatching,
     serializeCustomFields,
     canManageDrafts,
+    getEnvironmentSettingsForProject,
   } = useFeatureForm<CreateFeatureFormValues>({
-    existingEnvironmentSettings: featureToDuplicate?.environmentSettings,
-    existingCustomFieldValues: featureToDuplicate?.customFields,
-    getDefaultValues: (base) =>
-      genFormDefaultValues({
-        featureToDuplicate,
-        project: base.project ?? "",
-        environmentSettings: base.environmentSettings,
-        customFields: base.customFields,
-      }),
+    initialValues: genInitialValues({
+      featureToDuplicate,
+    }),
+    baseEnvironmentSettings: featureToDuplicate?.environmentSettings,
   });
 
   const projectOptions = useProjectOptions(
@@ -229,6 +217,10 @@ export default function FeatureModal({
                   value={selectedProject || ""}
                   onChange={(v) => {
                     form.setValue("project", v);
+                    form.setValue(
+                      "environmentSettings",
+                      getEnvironmentSettingsForProject(v),
+                    );
                   }}
                   initialOption={canCreateWithoutProject ? "None" : undefined}
                   options={projectOptions}
