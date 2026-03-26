@@ -1,4 +1,18 @@
-parameters: []
+parameters:
+  - in: query
+    name: cache
+    required: false
+    schema:
+      type: string
+      enum:
+        - preferred
+        - required
+        - never
+    description: |
+      Controls cache behavior for this exploration:
+      - `preferred` (default): return a cached result if one exists, otherwise run a new query
+      - `never`: always run a new query, ignoring any cached results
+      - `required`: only return a cached result; if none exists, returns a 404
 tags:
   - product-analytics-explorations
 summary: Run a metric exploration
@@ -31,3 +45,14 @@ responses:
               nullable: true
               allOf:
                 - $ref: "../schemas/Query.yaml"
+  "404":
+    description: No cached exploration found. Only returned when `cache` is `required`.
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - message
+          properties:
+            message:
+              type: string

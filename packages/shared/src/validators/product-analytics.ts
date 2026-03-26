@@ -226,6 +226,12 @@ export const productAnalyticsExplorationValidator = z.object({
   queries: z.array(queryPointerValidator),
 });
 
+export const explorationCacheQuerySchema = z.object({
+  cache: z.enum(["preferred", "required", "never"]).optional(),
+});
+
+export type ExplorationCacheQuery = z.infer<typeof explorationCacheQuerySchema>;
+
 export type BaseExplorationConfig = z.infer<
   typeof baseExplorationConfigValidator
 >;

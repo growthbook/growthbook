@@ -15760,6 +15760,17 @@ export interface operations {
   };
   postMetricExploration: {
     /** Run a metric exploration */
+    parameters: {
+        /**
+         * @description Controls cache behavior for this exploration:
+         * - `preferred` (default): return a cached result if one exists, otherwise run a new query
+         * - `never`: always run a new query, ignoring any cached results
+         * - `required`: only return a cached result; if none exists, returns a 404
+         */
+      query: {
+        cache?: "preferred" | "required" | "never";
+      };
+    };
     requestBody: {
       content: {
         "application/json": {
@@ -15931,10 +15942,29 @@ export interface operations {
           };
         };
       };
+      /** @description No cached exploration found. Only returned when `cache` is `required`. */
+      404: {
+        content: {
+          "application/json": {
+            message: string;
+          };
+        };
+      };
     };
   };
   postFactTableExploration: {
     /** Run a fact table exploration */
+    parameters: {
+        /**
+         * @description Controls cache behavior for this exploration:
+         * - `preferred` (default): return a cached result if one exists, otherwise run a new query
+         * - `never`: always run a new query, ignoring any cached results
+         * - `required`: only return a cached result; if none exists, returns a 404
+         */
+      query: {
+        cache?: "preferred" | "required" | "never";
+      };
+    };
     requestBody: {
       content: {
         "application/json": {
@@ -16111,10 +16141,29 @@ export interface operations {
           };
         };
       };
+      /** @description No cached exploration found. Only returned when `cache` is `required`. */
+      404: {
+        content: {
+          "application/json": {
+            message: string;
+          };
+        };
+      };
     };
   };
   postDataSourceExploration: {
     /** Run a raw data source exploration */
+    parameters: {
+        /**
+         * @description Controls cache behavior for this exploration:
+         * - `preferred` (default): return a cached result if one exists, otherwise run a new query
+         * - `never`: always run a new query, ignoring any cached results
+         * - `required`: only return a cached result; if none exists, returns a 404
+         */
+      query: {
+        cache?: "preferred" | "required" | "never";
+      };
+    };
     requestBody: {
       content: {
         "application/json": {
@@ -16301,6 +16350,14 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+          };
+        };
+      };
+      /** @description No cached exploration found. Only returned when `cache` is `required`. */
+      404: {
+        content: {
+          "application/json": {
+            message: string;
           };
         };
       };
