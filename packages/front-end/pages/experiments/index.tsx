@@ -29,19 +29,49 @@ import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useURLHash from "@/hooks/useURLHash";
 
+const EXPERIMENT_LIST_TABS = [
+  "all",
+  "running",
+  "drafts",
+  "stopped",
+  "archived",
+] as const;
+type ExperimentListTab = (typeof EXPERIMENT_LIST_TABS)[number];
+const isExperimentListTab = (value: string): value is ExperimentListTab => {
+  return EXPERIMENT_LIST_TABS.includes(value as ExperimentListTab);
+};
+
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
-  const [urlHash, setUrlHash] = useURLHash();
-  const [tab, setTab] = useLocalStorage<string>("experiments-list-tab", "all");
+  const initialHash = globalThis?.window ? window.location.hash.slice(1) : "";
+  const hasInitialValidHash = isExperimentListTab(initialHash);
+  const [tab, setTab] = useURLHash<ExperimentListTab>(
+    EXPERIMENT_LIST_TABS as unknown as ExperimentListTab[],
+  );
+  const [storedTab, setStoredTab] = useLocalStorage<ExperimentListTab>(
+    "experiments-list-tab",
+    "all",
+  );
+  const [didInitializeTab, setDidInitializeTab] = useState(false);
+
   useEffect(() => {
-    if (urlHash) {
-      setTab(urlHash);
+    if (didInitializeTab) return;
+
+    // If no valid hash is provided, initialize from localStorage once.
+    if (!hasInitialValidHash && storedTab !== tab) {
+      setTab(storedTab);
     }
-  }, [urlHash, setTab]);
+
+    setDidInitializeTab(true);
+  }, [didInitializeTab, hasInitialValidHash, setTab, storedTab, tab]);
+
   useEffect(() => {
-    setUrlHash(tab);
-  }, [tab, setUrlHash]);
+    if (!didInitializeTab) return;
+    if (storedTab !== tab) {
+      setStoredTab(tab);
+    }
+  }, [didInitializeTab, setStoredTab, storedTab, tab]);
 
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
 
@@ -203,24 +233,32 @@ const ExperimentsPage = (): React.ReactElement => {
           ) : (
             hasExperiments && (
               <>
-                <Tabs value={tab} onValueChange={(v) => setTab(v)}>
+                <Tabs
+                  value={tab}
+                  onValueChange={(value) => {
+                    if (isExperimentListTab(value)) {
+                      setTab(value);
+                    }
+                  }}
+                >
                   <div className="row align-items-center mb-3">
                     <div className="col-auto d-flex">
                       <TabsList>
                         <TabsTrigger value="all">All Experiments</TabsTrigger>
                         {["running", "drafts", "stopped", "archived"].map(
-                          (tab, i) => {
-                            if (tab === "archived" && !hasArchived) return null;
+                          (tabValue, i) => {
+                            if (tabValue === "archived" && !hasArchived)
+                              return null;
 
                             return (
-                              <TabsTrigger value={tab} key={tab + i}>
+                              <TabsTrigger value={tabValue} key={tabValue + i}>
                                 <span className="mr-1 ml-2">
-                                  {tab.slice(0, 1).toUpperCase()}
-                                  {tab.slice(1)}
+                                  {tabValue.slice(0, 1).toUpperCase()}
+                                  {tabValue.slice(1)}
                                 </span>
-                                {tab !== "archived" && (
+                                {tabValue !== "archived" && (
                                   <span className="badge bg-white border text-dark mr-2 mb-0">
-                                    {tabCounts[tab] || 0}
+                                    {tabCounts[tabValue] || 0}
                                   </span>
                                 )}
                               </TabsTrigger>
@@ -260,20 +298,22 @@ const ExperimentsPage = (): React.ReactElement => {
                       project={project}
                     />
                   </TabsContent>
-                  {["running", "drafts", "stopped", "archived"].map((tab) => {
-                    if (tab === "archived" && !hasArchived) return null;
+                  {["running", "drafts", "stopped", "archived"].map(
+                    (tabValue) => {
+                      if (tabValue === "archived" && !hasArchived) return null;
                     return (
-                      <TabsContent value={tab} key={tab}>
+                      <TabsContent value={tabValue} key={tabValue}>
                         <ExperimentsListTable
-                          tab={tab}
+                          tab={tabValue}
                           SortableTH={SortableTH}
-                          filtered={filtered.filter((e) => e.tab === tab)}
+                          filtered={filtered.filter((e) => e.tab === tabValue)}
                           isFiltered={isFiltered}
                           project={project}
                         />
                       </TabsContent>
                     );
-                  })}
+                    },
+                  )}
                 </Tabs>
               </>
             )
