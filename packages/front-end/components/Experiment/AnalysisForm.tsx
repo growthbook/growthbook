@@ -15,6 +15,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -147,7 +148,7 @@ const AnalysisForm: FC<{
       dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
         .toISOString()
         .substr(0, 16),
-      variations: experiment.variations || [],
+      variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
@@ -909,26 +910,27 @@ const AnalysisForm: FC<{
                   lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                    {datasourceProperties?.experimentSegments && (
-                      <div className="form-group mb-2">
-                        <SelectField
-                          label="Segment"
-                          labelClassName="font-weight-bold"
-                          value={form.watch("segment")}
-                          onChange={(value) =>
-                            form.setValue("segment", value || "")
-                          }
-                          initialOption="None (All Users)"
-                          options={filteredSegments.map((s) => {
-                            return {
-                              label: s.name,
-                              value: s.id,
-                            };
-                          })}
-                          helpText="Only users in this segment will be included"
-                        />
-                      </div>
-                    )}
+                    {datasourceProperties?.experimentSegments &&
+                      filteredSegments.length > 0 && (
+                        <div className="form-group mb-2">
+                          <SelectField
+                            label="Segment"
+                            labelClassName="font-weight-bold"
+                            value={form.watch("segment")}
+                            onChange={(value) =>
+                              form.setValue("segment", value || "")
+                            }
+                            initialOption="None (All Users)"
+                            options={filteredSegments.map((s) => {
+                              return {
+                                label: s.name,
+                                value: s.id,
+                              };
+                            })}
+                            helpText="Only users in this segment will be included"
+                          />
+                        </div>
+                      )}
                     {datasourceProperties?.separateExperimentResultQueries && (
                       <div className="form-group mb-2">
                         <Tooltip

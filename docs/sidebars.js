@@ -539,19 +539,16 @@ export default {
           type: "doc",
           id: "integrations/mcp",
           label: "MCP Server",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/vercel",
           label: "Vercel",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/framer",
           label: "Framer",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -592,19 +589,16 @@ export default {
           type: "doc",
           id: "integrations/clarity",
           label: "Microsoft Clarity (Heatmaps)",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/jira",
           label: "Jira",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/ai",
           label: "AI",
-          className: "pill-new",
         },
       ],
     },
@@ -1022,6 +1016,7 @@ export default {
         },
       ],
     },
+    { type: "doc", id: "lib/open-feature", label: "OpenFeature Providers" },
     { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
   ],
 };

@@ -53,7 +53,7 @@
     "test": "jest",
     "clean": "rimraf node_modules",
     "type-safe-tests": "node scripts/type-safe-tests.js",
-    "type-check": "tsc --pretty --noEmit",
+    "type-check": "tsgo --pretty --noEmit",
     "size": "gzip-size ./dist/bundles/index.min.js --include-original",
     "bump-version": "node scripts/bump-version.js"
   },
@@ -62,6 +62,7 @@
     "dom-mutator": "^0.6.0"
   },
   "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260309.1",
     "@babel/cli": "^7.28.3",
     "@babel/core": "^7.28.5",
     "@babel/preset-env": "^7.28.5",

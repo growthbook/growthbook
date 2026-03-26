@@ -15,6 +15,7 @@ import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -32,7 +33,7 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (req.body.project) {
     await req.context.models.projects.ensureProjectsExist([req.body.project]);
   }
@@ -83,7 +84,8 @@ export const updateExperiment = createApiRequestHandler(
   // check if tracking key is unique
   if (
     req.body.trackingKey != null &&
-    req.body.trackingKey !== experiment.trackingKey
+    req.body.trackingKey !== experiment.trackingKey &&
+    !req.body.bypassDuplicateKeyCheck
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
@@ -216,6 +218,16 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
+
+  await req.audit({
+    event: "experiment.update",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsUpdate(experiment, updatedExperiment),
+  });
+
   const apiExperiment = await toExperimentApiInterface(
     req.context,
     updatedExperiment as ExperimentInterfaceExcludingHoldouts,

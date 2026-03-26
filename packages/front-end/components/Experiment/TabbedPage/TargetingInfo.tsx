@@ -11,6 +11,7 @@ import {
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
@@ -153,13 +154,18 @@ export default function TargetingInfo({
                       <GBInfo />
                     </Tooltip>
                   </div>
-                  <div>
-                    {experiment.hashAttribute || "id"}
+                  <div className="d-flex flex-wrap align-items-center gap-1">
+                    <AttributeBadge
+                      attributeId={experiment.hashAttribute || "id"}
+                    />
                     {experiment.fallbackAttribute ? (
-                      <>, {experiment.fallbackAttribute} </>
-                    ) : (
-                      " "
-                    )}
+                      <>
+                        ,{" "}
+                        <AttributeBadge
+                          attributeId={experiment.fallbackAttribute}
+                        />
+                      </>
+                    ) : null}
                     {
                       <HashVersionTooltip>
                         <small className="text-muted ml-1">

@@ -93,7 +93,6 @@ const DimensionForm: FC<{
       >
         <Field label="Name" required {...form.register("name")} />
         <SelectOwner
-          resourceType="dimension"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />

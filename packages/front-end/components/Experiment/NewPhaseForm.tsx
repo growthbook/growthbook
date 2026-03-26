@@ -9,7 +9,7 @@ import {
   NamespaceValue,
   validateAndFixCondition,
 } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
@@ -43,7 +43,7 @@ const NewPhaseForm: FC<{
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(experiment.variations.length),
+        getEqualWeights(getLatestPhaseVariations(experiment).length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
@@ -167,7 +167,7 @@ const NewPhaseForm: FC<{
         }
         valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          getLatestPhaseVariations(experiment).map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

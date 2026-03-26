@@ -86,44 +86,114 @@ src/api/
 
 ### API Model Pattern
 
-- Use the `ApiModel` pattern for CRUD operations
-- Automatically generates standard REST endpoints (GET, POST, PUT, DELETE)
-- Define models in `packages/back-end/src/api/*/models.ts`
-- Uses `createApiRequestHandler` for consistent request handling
+Models that use `BaseModel` can expose external REST API endpoints via the `apiConfig` option in `MakeModelClass`. This auto-generates standard CRUD endpoints and OpenAPI documentation.
 
-**Example:**
+The configuration is split into two parts:
+
+1. **OpenAPI spec** (`src/api/specs/*.spec.ts`) — Zod schemas and metadata for doc generation. No runtime handler code.
+2. **API config** (`apiConfig` in the model's `MakeModelClass` call) — References the spec and adds runtime handlers.
+
+#### Step 1: Create the OpenAPI spec
+
+Create a spec file in `src/api/specs/` with the model's API metadata:
 
 ```typescript
-// In api/myresource/models.ts
-export const MyResourceApiModel = {
-  modelKey: "myResource",
-  crudActions: ["list", "get", "create", "update", "delete"],
-  // ... configuration
+// In src/api/specs/my-resource.spec.ts
+import {
+  apiMyResourceValidator,
+  apiCreateMyResourceBody,
+  apiUpdateMyResourceBody,
+} from "shared/validators";
+import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+
+export const myResourceApiSpec = {
+  modelSingular: "myResource",
+  modelPlural: "myResources",
+  pathBase: "/my-resources",
+  apiInterface: apiMyResourceValidator,
+  schemas: {
+    createBody: apiCreateMyResourceBody,
+    updateBody: apiUpdateMyResourceBody,
+  },
+  includeDefaultCrud: true, // Generates get, create, list, update, delete
+  // OR pick specific actions:
+  // crudActions: ["get", "list", "create"],
+} satisfies OpenApiModelSpec;
+export default myResourceApiSpec;
+```
+
+**Important:**
+
+- Use `satisfies OpenApiModelSpec` (not `: OpenApiModelSpec`) so TypeScript preserves the narrow types for proper inference in the model.
+- Include `export default` for the OpenApiModelSpec object — the generate script dynamically discovers spec files and requires a default export.
+
+#### Step 2: Wire up the API config in the model
+
+```typescript
+// In src/models/MyResourceModel.ts
+import { myResourceApiSpec } from "back-end/src/api/specs/my-resource.spec";
+
+const BaseClass = MakeModelClass({
+  // ... schema, collectionName, etc.
+  apiConfig: {
+    modelKey: "myResources",
+    openApiSpec: myResourceApiSpec,
+  },
+});
+```
+
+This auto-generates routes like:
+
+- `GET /api/v1/my-resources` — list
+- `GET /api/v1/my-resources/:id` — get
+- `POST /api/v1/my-resources` — create
+- `PUT /api/v1/my-resources/:id` — update
+- `DELETE /api/v1/my-resources/:id` — delete
+
+#### Step 3: Register the model for routing
+
+Add the model class to the `API_MODELS` array in `src/api/api.router.ts`.
+
+#### Custom endpoints
+
+For endpoints beyond standard CRUD, define endpoint specs in the spec file and handlers in the model:
+
+```typescript
+// In src/api/specs/my-resource.spec.ts
+export const myCustomEndpoint = {
+  pathFragment: "/:id/archive",
+  verb: "post" as const,
+  operationId: "archiveMyResource",
+  validator: myArchiveValidator,
+  zodReturnObject: myArchiveReturn,
+  summary: "Archive a resource",
 };
 
-// Router automatically generated with:
-// GET /api/v1/myresources
-// GET /api/v1/myresources/:id
-// POST /api/v1/myresources
-// PUT /api/v1/myresources/:id
-// DELETE /api/v1/myresources/:id
-```
+export const myResourceApiSpec = {
+  // ... base config
+  customEndpoints: [myCustomEndpoint],
+} satisfies OpenApiModelSpec;
 
-### Custom Handlers (External API)
-
-For endpoints that don't fit CRUD patterns, define custom handlers:
-
-```typescript
-// In api/myresource/myresource.router.ts
-import { createApiRequestHandler } from "../utils";
-
-const myCustomHandler = createApiRequestHandler(validator)(async (req) => {
-  // Custom logic here
-  return { data: result };
+// In src/models/MyResourceModel.ts
+const BaseClass = MakeModelClass({
+  // ...
+  apiConfig: {
+    modelKey: "myResources",
+    openApiSpec: myResourceApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...myCustomEndpoint,
+        reqHandler: async (req) => {
+          // Runtime handler logic here
+          return { status: 200 };
+        },
+      }),
+    ],
+  },
 });
-
-router.post("/my-custom-endpoint", myCustomHandler);
 ```
+
+Note how the endpoint spec (metadata for docs) is spread into `defineCustomApiHandler` which adds the runtime `reqHandler`. This keeps doc-generation concerns separate from runtime code.
 
 ### Authentication (External API)
 

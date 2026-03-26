@@ -101,11 +101,13 @@ export const SAFE_ROLLOUT_VARIATIONS = [
     id: "0",
     name: "Control",
     weight: 0.5,
+    index: 0,
   },
   {
     id: "1",
     name: "Rollout Value",
     weight: 0.5,
+    index: 1,
   },
 ];
 
@@ -228,3 +230,5 @@ export const entityEvents = {
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
+
+export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;

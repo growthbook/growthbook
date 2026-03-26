@@ -222,6 +222,20 @@ export abstract class QueryRunner<
     const queries = await this.startQueries(params);
     this.model.queries = queries;
 
+    if (queries.length === 0) {
+      const noQueriesError = "No queries were generated for this analysis";
+      logger.debug(this.model.id + " runner: " + noQueriesError);
+      const newModel = await this.updateModel({
+        status: "failed",
+        queries: [],
+        runStarted: new Date(),
+        error: noQueriesError,
+      });
+      this.model = newModel;
+      this.setStatus("finished", noQueriesError);
+      return newModel;
+    }
+
     // If already finished (queries were cached)
     let error = "";
     let result: Result | undefined = undefined;
@@ -756,19 +770,22 @@ export abstract class QueryRunner<
 
     const defaultOnFailure = () => {};
     const onFailure = specifiedOnFailureCallback ?? defaultOnFailure;
+    const runCallbacksEntry = {
+      run,
+      process: process as ((rows: RowsType) => ProcessedRowsType) | undefined,
+      onFailure,
+      onSuccess: onSuccess as
+        | ((rows: RowsType) => void | Promise<void>)
+        | undefined,
+    };
     if (readyToRun) {
       this.executeQuery(doc, { run, process, onFailure, onSuccess });
     } else if (dependenciesComplete && !runAtEnd) {
-      this.runCallbacks[doc.id] = {
-        run,
-        process,
-        onFailure,
-        onSuccess,
-      };
+      this.runCallbacks[doc.id] = runCallbacksEntry;
       this.queueQueryExecution(doc);
     } else {
       // save callback methods for execution later
-      this.runCallbacks[doc.id] = { run, process, onFailure, onSuccess };
+      this.runCallbacks[doc.id] = runCallbacksEntry;
     }
 
     return {

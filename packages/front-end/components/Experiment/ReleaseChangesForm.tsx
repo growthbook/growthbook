@@ -4,6 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
@@ -217,16 +218,19 @@ export default function ReleaseChangesForm({
             <div className="alert alert-warning text-danger mt-2">
               <FaExclamationCircle className="mr-2" />
               This Bandit will restart. Variation weights will reset (
-              {experiment.variations
-                .map((_, i) =>
-                  i < 3
-                    ? formatPercent(1 / (experiment.variations.length ?? 2))
-                    : i === 3
-                      ? "..."
-                      : null,
-                )
-                .filter(Boolean)
-                .join(", ")}
+              {(() => {
+                const variations = getLatestPhaseVariations(experiment);
+                return variations
+                  .map((_, i) =>
+                    i < 3
+                      ? formatPercent(1 / (variations.length ?? 2))
+                      : i === 3
+                        ? "..."
+                        : null,
+                  )
+                  .filter(Boolean)
+                  .join(", ");
+              })()}
               ).
             </div>
           )}

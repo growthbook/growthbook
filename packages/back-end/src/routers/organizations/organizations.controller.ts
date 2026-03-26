@@ -30,7 +30,6 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
-import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -101,15 +100,6 @@ import {
 import { ConfigFile } from "back-end/src/init/config";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
-import {
-  createOrganizationApiKey,
-  createUserPersonalAccessApiKey,
-  deleteApiKeyById,
-  deleteApiKeyByKey,
-  getAllApiKeysByOrganization,
-  getApiKeyByIdOrKey,
-  getUnredactedSecretKey,
-} from "back-end/src/models/ApiKeyModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   deleteUser,
@@ -228,9 +218,9 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { userId } = context;
   try {
-    const docs = await getRecentWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(context, userId);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -906,7 +896,7 @@ export async function getOrganization(
     : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(context);
+  const apiKeys = await context.models.apiKeys.getAll();
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -934,7 +924,7 @@ export async function getOrganization(
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await getWatchedByUser(org.id, userId);
+  const watch = await context.models.watch.getWatchedByUser(userId);
 
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
 
@@ -1021,8 +1011,9 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.namespace &&
             r.namespace.enabled,
         )
-        .forEach((r: ExperimentRule) => {
-          const ns = r.namespace as NamespaceValue;
+        .forEach((r) => {
+          const expRule = r as ExperimentRule;
+          const ns = expRule.namespace as NamespaceValue;
           namespaces[ns.name] = namespaces[ns.name] || [];
 
           getNamespaceRanges(ns).forEach((range) => {
@@ -1030,7 +1021,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
               link: `/features/${f.id}`,
               name: f.id,
               id: f.id,
-              trackingKey: r.trackingKey || f.id,
+              trackingKey: expRule.trackingKey || f.id,
               start: range[0],
               end: range[1],
               environment: env,
@@ -1580,7 +1571,7 @@ export async function putOrganization(
     }
   }
   if (settings) {
-    Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
+    (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
       if (k === "environments") {
         throw new Error(
           "Not supported: Updating organization environments not supported via this route.",
@@ -1765,7 +1756,7 @@ export const autoAddGroupsAttribute = async (
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const keys = await getAllApiKeysByOrganization(context);
+  const keys = await context.models.apiKeys.getAll();
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1782,7 +1773,7 @@ export async function postApiKey(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { userId } = context;
   const { description = "", type } = req.body;
 
   // Handle user personal access tokens
@@ -1792,10 +1783,9 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID",
       );
     }
-    const key = await createUserPersonalAccessApiKey({
+    const key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
-      organizationId: org.id,
     });
 
     return res.status(200).json({
@@ -1805,18 +1795,9 @@ export async function postApiKey(
   }
   // Handle organization secret tokens
   else {
-    if (!context.permissions.canCreateApiKey()) {
-      context.permissions.throwPermissionError();
-    }
-
-    if (type && !["readonly", "admin"].includes(type)) {
-      throw new Error("can only assign readonly or admin roles");
-    }
-
-    const key = await createOrganizationApiKey({
-      organizationId: org.id,
+    const key = await context.models.apiKeys.createOrganizationApiKey({
       description,
-      role: type as "readonly" | "admin",
+      roleId: type,
     });
 
     return res.status(200).json({
@@ -1831,48 +1812,16 @@ export async function deleteApiKey(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { userId, org } = context;
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  const keyObj = await getApiKeyByIdOrKey(
-    context,
+  await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
-  if (!keyObj) {
-    throw new Error("Could not find API key to delete");
-  }
-
-  if (keyObj.secret) {
-    if (!keyObj.userId) {
-      // If there is no userId, this is an API Key, so we check permissions.
-      if (!context.permissions.canDeleteApiKey()) {
-        context.permissions.throwPermissionError();
-      }
-      // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
-    } else if (keyObj.userId !== userId) {
-      throw new Error("You do not have permission to delete this.");
-    }
-  } else {
-    if (
-      !context.permissions.canDeleteSDKConnection({
-        projects: [keyObj.project || ""],
-        environment: keyObj.environment || "",
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
-
-  if (id) {
-    await deleteApiKeyById(org.id, id);
-  } else if (key) {
-    await deleteApiKeyByKey(org.id, key);
-  }
 
   res.status(200).json({
     status: 200,
@@ -1884,10 +1833,9 @@ export async function postApiKeyReveal(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.body;
 
-  const key = await getUnredactedSecretKey(org.id, id);
+  const key = await context.models.apiKeys.getUnredactedSecretKey(id);
   if (!key) {
     return res.status(403).json({
       status: 403,
@@ -1978,10 +1926,18 @@ export async function putSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const updatedWebhook = await context.models.sdkWebhooks.update(
-    webhook,
-    updateSdkWebhookValidator.parse(req.body),
-  );
+  const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+
+  // Reset failure state when endpoint changes
+  const resetFields =
+    parsedUpdates.endpoint && parsedUpdates.endpoint !== webhook.endpoint
+      ? { consecutiveFailures: 0, disabled: false }
+      : {};
+
+  const updatedWebhook = await context.models.sdkWebhooks.update(webhook, {
+    ...parsedUpdates,
+    ...resetFields,
+  });
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {
@@ -2502,7 +2458,7 @@ export async function deleteCustomRole(
     context.permissions.throwPermissionError();
   }
 
-  await removeCustomRole(context.org, context.teams, id);
+  await removeCustomRole(context, id);
 
   res.status(200).json({
     status: 200,
