@@ -1379,10 +1379,11 @@ describe("SDK Payloads", () => {
         groupMap: new Map(),
         experimentMap,
         namespaces,
+        includeRuleIds: true,
+        includeExperimentNames: true,
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
           id: "abc",
@@ -1494,10 +1495,11 @@ describe("SDK Payloads", () => {
         groupMap: new Map(),
         experimentMap,
         namespaces,
+        includeRuleIds: true,
+        includeExperimentNames: true,
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
           id: "abc",
