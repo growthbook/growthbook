@@ -8,6 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
+import { useRouter } from "next/router";
 import { ColumnInterface } from "shared/types/fact-table";
 import {
   ExplorationConfig,
@@ -22,6 +23,7 @@ import {
   compareConfig,
   createEmptyDataset,
   createEmptyValue,
+  encodeExplorationConfig,
   generateUniqueValueName,
   getCommonColumns,
   isSubmittableConfig,
@@ -64,6 +66,7 @@ interface ExplorerProviderProps {
   initialConfig: ExplorationConfig;
   hasExistingResults?: boolean;
   onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
+  syncUrl?: boolean;
 }
 
 export function ExplorerProvider({
@@ -71,7 +74,9 @@ export function ExplorerProvider({
   initialConfig,
   hasExistingResults = false,
   onRunComplete,
+  syncUrl = false,
 }: ExplorerProviderProps) {
+  const router = useRouter();
   const { loading, fetchData } = useExploreData();
 
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
@@ -93,6 +98,18 @@ export function ExplorerProvider({
   const hasEverFetchedRef = useRef(false);
 
   const draftExploreState: ExplorationConfig = explorerState.draftState;
+
+  /** Sync draft config to the URL query param when syncUrl is enabled */
+  useEffect(() => {
+    if (!syncUrl) return;
+    const encoded = encodeExplorationConfig(draftExploreState);
+    const timer = setTimeout(() => {
+      void router.replace({ query: { config: encoded } }, undefined, {
+        shallow: true,
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [syncUrl, draftExploreState, router]);
 
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {

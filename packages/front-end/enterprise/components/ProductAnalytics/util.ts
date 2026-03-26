@@ -15,7 +15,7 @@ import type {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import { isEqual } from "lodash";
-import { dateGranularity } from "shared/validators";
+import { dateGranularity, explorationConfigValidator } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
@@ -540,6 +540,21 @@ export function computeGroupTotals(
     totals[key] = (totals[key] ?? 0) + getRowTotal(row);
   }
   return totals;
+}
+
+export function encodeExplorationConfig(config: ExplorationConfig): string {
+  return btoa(encodeURIComponent(JSON.stringify(config)));
+}
+
+export function decodeExplorationConfig(
+  encoded: string,
+): ExplorationConfig | null {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    return explorationConfigValidator.parse(parsed);
+  } catch {
+    return null;
+  }
 }
 
 /**

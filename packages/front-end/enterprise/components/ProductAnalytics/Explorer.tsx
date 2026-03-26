@@ -1,4 +1,5 @@
 import React from "react";
+import { useRouter } from "next/router";
 import { Flex, Box } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
@@ -9,7 +10,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import { ExplorerProvider } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
-import { createEmptyDataset, createEmptyValue } from "./util";
+import {
+  createEmptyDataset,
+  createEmptyValue,
+  decodeExplorationConfig,
+} from "./util";
 
 function ExplorerContent() {
   return (
@@ -62,7 +67,11 @@ function ExplorerContent() {
 }
 
 export default function Explorer({ type }: { type: DatasetType }) {
+  const router = useRouter();
   const { datasources } = useDefinitions();
+
+  if (!router.isReady) return null;
+
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
@@ -71,8 +80,15 @@ export default function Explorer({ type }: { type: DatasetType }) {
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
   } as ExplorationConfig;
 
+  const configParam = router.query.config;
+  const configFromUrl =
+    typeof configParam === "string"
+      ? decodeExplorationConfig(configParam)
+      : null;
+  const initialConfig = configFromUrl ?? defaultDraftState;
+
   return (
-    <ExplorerProvider initialConfig={defaultDraftState}>
+    <ExplorerProvider initialConfig={initialConfig} syncUrl>
       <ExplorerContent />
     </ExplorerProvider>
   );
