@@ -300,9 +300,9 @@ export default function CovariateImbalanceCard({
           ) : !isImbalanced ? (
             <Callout status="success">
               <Text weight="semibold">
-                {goalAndGuardrailMetricsTested} metric
+                {goalAndGuardrailMetricsTested} goal and guardrail metric
                 {goalAndGuardrailMetricsTested > 1 ? "s" : ""} show
-                {goalAndGuardrailMetricsTested > 1 ? "" : "s"} no covariate
+                {goalAndGuardrailMetricsTested > 1 ? "" : "s"} no pre-exposure
                 imbalance.{" "}
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
