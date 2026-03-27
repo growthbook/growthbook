@@ -1,5 +1,7 @@
+import { z } from "zod";
 import {
   ExplorationConfig,
+  ApiAnalyticsExploration,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
 } from "shared/validators";
@@ -9,7 +11,71 @@ import {
   getDateGranularity,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
+import {
+  getQueryById,
+  toQueryApiInterface,
+} from "back-end/src/models/QueryModel";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import analyticsExplorationApiSpec, {
+  type makeExplorationEndpoint,
+  postMetricExplorationEndpoint,
+  postFactTableExplorationEndpoint,
+  postDataSourceExplorationEndpoint,
+} from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
+
+function toApiInterface(
+  exploration: ProductAnalyticsExploration,
+): ApiAnalyticsExploration {
+  return {
+    id: exploration.id,
+    dateCreated: exploration.dateCreated.toISOString(),
+    dateUpdated: exploration.dateUpdated.toISOString(),
+    datasource: exploration.datasource,
+    status: exploration.status,
+    dateStart: exploration.dateStart,
+    dateEnd: exploration.dateEnd,
+    error: exploration.error ?? null,
+    result: exploration.result,
+    config: exploration.config,
+  };
+}
+
+function makeExplorationHandler<
+  Exp extends z.ZodType<ApiAnalyticsExploration>,
+  Body extends z.ZodType<ExplorationConfig>,
+>(endpoint: ReturnType<typeof makeExplorationEndpoint<Exp, Body>>) {
+  return defineCustomApiHandler({
+    ...endpoint,
+    reqHandler: async (req) => {
+      const exploration = await runProductAnalyticsExploration(
+        req.context,
+        req.body,
+        { cache: req.query.cache },
+      );
+
+      if (!exploration) {
+        return {
+          exploration: null,
+          query: null,
+          message:
+            'No cached result found for this config. Try again shortly or use cache: "preferred".',
+        };
+      }
+
+      const queryId = exploration.queries?.[0]?.query;
+      const queryDoc = queryId
+        ? await getQueryById(req.context, queryId)
+        : null;
+
+      return {
+        exploration: toApiInterface(exploration),
+        query: queryDoc ? toQueryApiInterface(queryDoc) : null,
+      };
+    },
+  });
+}
 
 const COLLECTION_NAME = "analyticsexploration";
 const BaseClass = MakeModelClass({
@@ -18,6 +84,15 @@ const BaseClass = MakeModelClass({
   idPrefix: "ae_",
   globallyUniquePrimaryKeys: false,
   additionalIndexes: [],
+  apiConfig: {
+    modelKey: "analyticsExplorations",
+    openApiSpec: analyticsExplorationApiSpec,
+    customHandlers: [
+      makeExplorationHandler(postMetricExplorationEndpoint),
+      makeExplorationHandler(postFactTableExplorationEndpoint),
+      makeExplorationHandler(postDataSourceExplorationEndpoint),
+    ],
+  },
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
@@ -167,19 +242,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     doc.valueHashes = configHashes.valueHashes;
   }
 
-  public toExplorationApiInterface(exploration: ProductAnalyticsExploration) {
-    return {
-      id: exploration.id,
-      organization: exploration.organization,
-      dateCreated: exploration.dateCreated.toISOString(),
-      dateUpdated: exploration.dateUpdated.toISOString(),
-      datasource: exploration.datasource,
-      status: exploration.status,
-      dateStart: exploration.dateStart,
-      dateEnd: exploration.dateEnd,
-      error: exploration.error ?? null,
-      result: exploration.result,
-      config: exploration.config,
-    };
+  public toApiInterface(exploration: ProductAnalyticsExploration) {
+    return toApiInterface(exploration);
   }
 }

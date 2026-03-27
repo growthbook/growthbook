@@ -10,6 +10,7 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -43,7 +44,6 @@ import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
-import productAnalyticsExplorationsRouter from "./product-analytics-explorations/product-analytics-explorations.router";
 import { defineRouterForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
@@ -52,6 +52,7 @@ const API_MODELS: ModelClass[] = [
   MetricGroupModel,
   TeamModel,
   ExperimentTemplatesModel,
+  AnalyticsExplorationModel,
 ];
 
 const router = Router();
@@ -150,7 +151,6 @@ router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
-router.use("/product-analytics", productAnalyticsExplorationsRouter);
 router.post("/transform-copy", postCopyTransform);
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
