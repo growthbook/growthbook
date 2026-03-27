@@ -1798,6 +1798,19 @@ export async function toExperimentApiInterface(
 
   let project: ProjectInterface | null = null;
   const organization = context.org;
+
+  // Fetch holdout information if experiment has a holdoutId
+  let holdoutInfo: { id: string; name: string } | null = null;
+  if (experiment.holdoutId) {
+    const holdout = await context.models.holdout.getById(experiment.holdoutId);
+    if (holdout) {
+      holdoutInfo = {
+        id: holdout.id,
+        name: holdout.name,
+      };
+    }
+  }
+
   if (experiment.project) {
     // Use pre-loaded project from map if available, otherwise fetch individually
     project =
@@ -1955,6 +1968,7 @@ export async function toExperimentApiInterface(
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
     templateId: experiment.templateId || undefined,
+    holdout: holdoutInfo,
   };
 }
 
