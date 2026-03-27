@@ -145,7 +145,7 @@ export default function FeaturesDraftTable() {
           >
             <tr>
               <SortableTH field="featureKey">Feature Key</SortableTH>
-              <th>Comment</th>
+              <th>Notes</th>
               <th>Project</th>
               <th> Creator</th>
               <SortableTH field="dateUpdated">Last Updated</SortableTH>

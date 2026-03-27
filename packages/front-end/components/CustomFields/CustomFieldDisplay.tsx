@@ -1,9 +1,11 @@
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -16,7 +18,19 @@ import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import CustomFieldInput from "./CustomFieldInput";
+
+/** Optional draft-mode context for feature metadata approval flows. */
+export interface CustomFieldDraftInfo {
+  feature: FeatureInterface;
+  revisionList: MinimalFeatureRevisionInterface[];
+  gatedEnvSet: Set<string> | "all" | "none";
+  /** Called with the new/updated draft version after save so the UI can switch to it. */
+  onDraftCreated: (version: number) => void;
+}
 
 const CustomFieldDisplay: FC<{
   label?: string;
@@ -25,6 +39,9 @@ const CustomFieldDisplay: FC<{
   className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
+  mt?: "1" | "2" | "3" | "4" | "5" | "6";
+  /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
+  draftInfo?: CustomFieldDraftInfo;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
@@ -32,8 +49,29 @@ const CustomFieldDisplay: FC<{
   className = "",
   section,
   target,
+  mt,
+  draftInfo,
 }) => {
   const [editModal, setEditModal] = useState(false);
+
+  const canAutoPublish = !draftInfo || draftInfo.gatedEnvSet === "none";
+
+  const latestActiveDraft = useMemo(
+    () =>
+      (draftInfo?.revisionList ?? [])
+        .filter((r) =>
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+        )
+        .sort((a, b) => b.version - a.version)[0] ?? null,
+    [draftInfo],
+  );
+
+  const [mode, setMode] = useState<DraftMode>(
+    canAutoPublish ? "publish" : "new",
+  );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    latestActiveDraft?.version ?? null,
+  );
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
@@ -71,15 +109,31 @@ const CustomFieldDisplay: FC<{
         body: JSON.stringify({ ...value }),
       });
     } else if (section === "feature") {
-      await apiCall(`/feature/${target.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ ...value }),
-      });
+      const body: Record<string, unknown> = { ...value };
+      if (draftInfo) {
+        if (mode === "publish") {
+          body.autoPublish = true;
+        } else if (mode === "existing") {
+          body.targetDraftVersion = selectedDraft;
+        } else {
+          body.forceNewDraft = true;
+        }
+      }
+      const res = await apiCall<{ draftVersion?: number }>(
+        `/feature/${target.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(body),
+        },
+      );
+      if (res?.draftVersion !== undefined && draftInfo) {
+        draftInfo.onDraftCreated(res.draftVersion);
+      }
     }
     if (mutate) mutate();
   };
   if (!customFields || customFields?.length === 0) {
-    return <></>;
+    return null;
   }
 
   const displayFieldsObj: DataListItem[] = [];
@@ -127,7 +181,7 @@ const CustomFieldDisplay: FC<{
   if (!hasCustomFieldAccess) return null;
 
   return (
-    <Box>
+    <>
       {editModal && (
         <Modal
           trackingEventModalType="edit-custom-fields"
@@ -140,15 +194,35 @@ const CustomFieldDisplay: FC<{
           submit={form.handleSubmit(async (value) => {
             await submitForm(value);
           })}
-          cta="Save"
+          cta={
+            draftInfo
+              ? mode === "publish"
+                ? "Publish"
+                : "Save to Draft"
+              : "Save"
+          }
+          ctaEnabled={form.formState.isDirty}
+          useRadixButton={!!draftInfo}
         >
+          {draftInfo && (
+            <DraftSelectorForChanges
+              feature={draftInfo.feature}
+              revisionList={draftInfo.revisionList}
+              mode={mode}
+              setMode={setMode}
+              selectedDraft={selectedDraft}
+              setSelectedDraft={setSelectedDraft}
+              canAutoPublish={canAutoPublish}
+              gatedEnvSet={draftInfo.gatedEnvSet}
+            />
+          )}
           {hasCustomFieldAccess ? (
             <CustomFieldInput
               customFields={customFields}
               section={section}
               project={target.project}
               setCustomFields={(value) => {
-                form.setValue("customFields", value);
+                form.setValue("customFields", value, { shouldDirty: true });
               }}
               currentCustomFields={form.watch("customFields") || {}}
             />
@@ -161,34 +235,43 @@ const CustomFieldDisplay: FC<{
           )}
         </Modal>
       )}
-      {displayFieldsObj && (
-        <Frame className={className} my="3">
-          <Box>
-            <Flex justify="between" align="center">
-              <Heading as="h4" size="3">
-                {label ? label : ""}
-              </Heading>
+      {displayFieldsObj &&
+        (section === "feature" ? (
+          <>
+            <Flex justify="between" align="center" mt={mt}>
+              <Flex align="center" gap="1">
+                <Heading as="h4" size="3" mb="0">
+                  {label ? label : ""}
+                </Heading>
+              </Flex>
               <div className="flex-1" />
-              {canEdit && hasCustomFieldAccess ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setEditModal(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                </>
-              ) : (
-                <></>
+              {canEdit && hasCustomFieldAccess && (
+                <Button variant="ghost" onClick={() => setEditModal(true)}>
+                  Edit
+                </Button>
               )}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
-          </Box>
-        </Frame>
-      )}
-    </Box>
+          </>
+        ) : (
+          <Frame className={className} my="3">
+            <Box>
+              <Flex justify="between" align="center">
+                <Heading as="h4" size="3">
+                  {label ? label : ""}
+                </Heading>
+                <div className="flex-1" />
+                {canEdit && hasCustomFieldAccess && (
+                  <Button variant="ghost" onClick={() => setEditModal(true)}>
+                    Edit
+                  </Button>
+                )}
+              </Flex>
+              <DataList data={displayFieldsObj} maxColumns={3} />
+            </Box>
+          </Frame>
+        ))}
+    </>
   );
 };
 

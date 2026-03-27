@@ -1,7 +1,8 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import { Flex, Box } from "@radix-ui/themes";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -11,11 +12,19 @@ import {
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import Text from "@/ui/Text";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
+  /** Full list of all revisions — used to populate the target-version picker. */
+  allRevisions: FeatureRevisionInterface[];
   close: () => void;
   mutate: () => void;
   setVersion: (version: number) => void;
@@ -24,6 +33,7 @@ export interface Props {
 export default function RevertModal({
   feature,
   revision,
+  allRevisions,
   close,
   mutate,
   setVersion,
@@ -34,55 +44,134 @@ export default function RevertModal({
 
   const { apiCall } = useAuth();
 
-  const [comment, setComment] = useState(
-    revision.comment || `Revert from #${feature.version}`,
+  // Previously-published revisions the user can revert to, newest-published first.
+  const publishedRevisions = useMemo(
+    () =>
+      allRevisions
+        .filter(
+          (r) => r.status === "published" && r.version !== feature.version,
+        )
+        .sort((a, b) => {
+          const bt = b.datePublished ? new Date(b.datePublished).getTime() : 0;
+          const at = a.datePublished ? new Date(a.datePublished).getTime() : 0;
+          return bt - at;
+        }),
+    [allRevisions, feature.version],
   );
+
+  const settings = useOrgSettings();
+  const approvalsRequired = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (!raw) return false;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    return !!reviewSetting?.requireReviewOn;
+  }, [settings?.requireReviews, feature]);
+
+  const [targetVersion, setTargetVersion] = useState(() => {
+    const inList = publishedRevisions.some(
+      (r) => r.version === revision.version,
+    );
+    return inList
+      ? revision.version
+      : (publishedRevisions[0]?.version ?? revision.version);
+  });
+  const [comment, setComment] = useState(`Revert from #${feature.version}`);
+  const [mode, setMode] = useState<DraftMode>(() =>
+    approvalsRequired ? "new" : "publish",
+  );
+
+  const targetRevision =
+    allRevisions.find((r) => r.version === targetVersion) ?? revision;
 
   const diffs = useFeatureRevisionDiff({
     current: featureToFeatureRevisionDiffInput(feature),
-    draft: revision,
+    draft: targetRevision,
   });
 
-  const hasPermission = permissionsUtil.canPublishFeature(
+  const affectedEnvs = getAffectedRevisionEnvs(
     feature,
-    getAffectedRevisionEnvs(feature, revision, environments),
+    targetRevision,
+    environments,
   );
+
+  const canPublish = permissionsUtil.canPublishFeature(feature, affectedEnvs);
+  const canBypassApprovals = permissionsUtil.canBypassApprovalChecks(feature);
+  const canCreateDraft =
+    permissionsUtil.canUpdateFeature(feature, {}) &&
+    permissionsUtil.canManageFeatureDrafts(feature);
+
+  const canAutoPublish = approvalsRequired ? canBypassApprovals : canPublish;
+  const gatedEnvSet: "all" | "none" = approvalsRequired ? "all" : "none";
+
+  const canSubmit = mode === "new" ? canCreateDraft : canAutoPublish;
 
   return (
     <Modal
       trackingEventModalType=""
       open={true}
-      header={`Revert`}
+      header="Revert"
       submit={
-        hasPermission
+        canSubmit
           ? async () => {
-              const res = await apiCall<{ version: number }>(
-                `/feature/${feature.id}/${revision.version}/revert`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    comment,
-                  }),
-                },
-              );
-              await mutate();
-              res && res.version && setVersion(res.version);
+              if (mode === "new") {
+                const res = await apiCall<{ version: number }>(
+                  `/feature/${feature.id}/${targetRevision.version}/revert-draft`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ comment }),
+                  },
+                );
+                await mutate();
+                if (res?.version) setVersion(res.version);
+              } else {
+                const res = await apiCall<{ version: number }>(
+                  `/feature/${feature.id}/${targetRevision.version}/revert`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ comment }),
+                  },
+                );
+                await mutate();
+                if (res?.version) setVersion(res.version);
+              }
             }
           : undefined
       }
-      cta="Revert and Publish"
+      cta={mode === "publish" ? "Publish Now" : "Create Revert Draft"}
       close={close}
       closeCta="Cancel"
-      size="max"
+      size="lg"
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={allRevisions}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={null}
+        setSelectedDraft={() => undefined}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+        hideExisting={true}
+        triggerPrefix="Revert will be"
+        defaultExpanded
+      />
+
       <h3>Review Changes</h3>
-      <p>
-        Reverting to <strong>Revision {revision.version}</strong>.
-      </p>
-      <p>
-        The changes below will go live when you revert. Please review them
-        carefully.
-      </p>
+      <Flex align="center" gap="2" mb="3" wrap="wrap">
+        <Text weight="medium">Reverting to:</Text>
+        <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>
+          <RevisionDropdown
+            feature={feature}
+            revisions={publishedRevisions}
+            version={targetVersion}
+            setVersion={setTargetVersion}
+            publishedOnly={true}
+            menuPlacement="start"
+          />
+        </Box>
+      </Flex>
       <div className="list-group mb-4">
         {diffs
           .filter((d) => d.a !== d.b)
@@ -90,16 +179,15 @@ export default function RevertModal({
             <ExpandableDiff {...diff} key={diff.title} />
           ))}
       </div>
-      {hasPermission && (
-        <Field
-          label="Add a Comment (optional)"
-          textarea
-          value={comment}
-          onChange={(e) => {
-            setComment(e.target.value);
-          }}
-        />
-      )}
+
+      <Field
+        label="Add a Comment (optional)"
+        textarea
+        value={comment}
+        onChange={(e) => {
+          setComment(e.target.value);
+        }}
+      />
     </Modal>
   );
 }
