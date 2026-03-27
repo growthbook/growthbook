@@ -63,6 +63,7 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { DimensionInterface } from "shared/types/dimension";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface, MetricType } from "shared/types/metric";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 
 export type { MetricAnalysisParams };
@@ -155,6 +156,7 @@ export interface SourceIntegrationInterface {
     partitionSettings?: PartitionSettings;
     lastIngestedPartition: string | null;
     experimentStartDate: Date;
+    endDate?: Date | null;
   }): string | null;
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
@@ -162,6 +164,15 @@ export interface SourceIntegrationInterface {
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
   ): string;
+  getMetricSourceDateRange?(params: {
+    settings: ExperimentSnapshotSettings;
+    metrics: FactMetricInterface[];
+    activationMetric: ExperimentMetricInterface | null;
+    factTableMap: FactTableMap;
+  }): {
+    startDate: Date;
+    endDate: Date;
+  };
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string;

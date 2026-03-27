@@ -124,6 +124,10 @@ export function compileSqlTemplate(
     typeof customFields?.incrementalStartDay === "string"
       ? customFields.incrementalStartDay
       : undefined;
+  const customDatePartitionFilter =
+    typeof customFields?.datePartitionFilter === "string"
+      ? customFields.datePartitionFilter
+      : undefined;
 
   const replacements: Record<string, unknown> = {
     ...templateVariables,
@@ -139,6 +143,7 @@ export function compileSqlTemplate(
     incrementalStartYear: customIncrementalStartYear || startDateParts.year,
     incrementalStartMonth: customIncrementalStartMonth || startDateParts.month,
     incrementalStartDay: customIncrementalStartDay || startDateParts.day,
+    datePartitionFilter: customDatePartitionFilter || "1=1",
     endDateUnix: endDateParts.unix,
     endDateISO: endDateParts.iso,
     endDate: endDateParts.dateTime,

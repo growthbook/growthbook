@@ -105,7 +105,7 @@ describe("backend", () => {
           customFields: { foo: "bar" },
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, incrementalStartDate, incrementalStartYear, incrementalStartMonth, incrementalStartDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, incrementalStartDate, incrementalStartYear, incrementalStartMonth, incrementalStartDay, datePartitionFilter, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 
@@ -128,7 +128,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, incrementalStartDate, incrementalStartYear, incrementalStartMonth, incrementalStartDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
+        "Unknown variable: unknown. Available variables: customFields, phase, startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, incrementalStartDate, incrementalStartYear, incrementalStartMonth, incrementalStartDay, datePartitionFilter, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 

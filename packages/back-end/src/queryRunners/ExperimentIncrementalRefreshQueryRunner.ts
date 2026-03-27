@@ -361,38 +361,8 @@ const startExperimentIncrementalRefreshQueries = async (
       incrementalRefreshModel?.unitsLastIngestedPartition ?? null,
     partitionSettings,
   };
-  const unitsSourceIngestPartitionQuery =
-    useIngestPartitionMode && integration.getMaxIngestedPartitionSourceQuery
-      ? integration.getMaxIngestedPartitionSourceQuery({
-          sourceSql: exposureQuery.query,
-          partitionSettings,
-          lastIngestedPartition: unitQueryParams.lastIngestedPartition,
-          experimentStartDate: snapshotSettings.startDate,
-        })
-      : null;
 
   let latestUnitsMaxTimestamp: Date | null = null;
-  const upsertUnitsMetadata = async (
-    maxTimestamp: Date | null,
-    lastIngestedPartition: string | null,
-  ) => {
-    if (!maxTimestamp && !lastIngestedPartition) {
-      return;
-    }
-
-    await context.models.incrementalRefresh
-      .upsertByExperimentId(experimentId, {
-        unitsTableFullName: unitsTableFullName,
-        unitsMaxTimestamp: maxTimestamp,
-        unitsLastIngestedPartition: lastIngestedPartition ?? null,
-        experimentSettingsHash: getExperimentSettingsHashForIncrementalRefresh(
-          snapshotSettings,
-          partitionSettings,
-        ),
-        unitsDimensions: eligibleDimensions.map((d) => d.id),
-      })
-      .catch((e) => context.logger.error(e));
-  };
 
   let createUnitsTableQuery: QueryPointer | null = null;
   if (params.fullRefresh) {
@@ -468,15 +438,15 @@ const startExperimentIncrementalRefreshQueries = async (
     query: integration.getMaxTimestampIncrementalUnitsQuery({
       unitsTableFullName,
       lastMaxTimestamp: lastMaxTimestamp || null,
-      includeLastIngestedPartition:
-        useIngestPartitionMode && !unitsSourceIngestPartitionQuery,
+      includeLastIngestedPartition: useIngestPartitionMode,
     }),
     dependencies: [alterUnitsTableQuery.query],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     onSuccess: async (rows) => {
       latestUnitsMaxTimestamp =
-        parseOptionalTimestamp(rows[0]?.max_timestamp) ?? latestUnitsMaxTimestamp;
+        parseOptionalTimestamp(rows[0]?.max_timestamp) ??
+        latestUnitsMaxTimestamp;
       const resolvedPartition =
         parseOptionalPartition(rows[0]?.last_ingested_partition) ??
         unitQueryParams.lastIngestedPartition;
@@ -511,26 +481,6 @@ const startExperimentIncrementalRefreshQueries = async (
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
   });
   queries.push(maxTimestampUnitsTableQuery);
-
-  if (unitsSourceIngestPartitionQuery) {
-    const maxIngestedPartitionUnitsSourceQuery = await startQuery({
-      name: `max_ingested_partition_${queryParentId}`,
-      displayTitle: "Find Latest Experiment Source Partition",
-      query: unitsSourceIngestPartitionQuery,
-      dependencies: [maxTimestampUnitsTableQuery.query],
-      run: (query, setExternalId) =>
-        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-      onSuccess: async (rows) => {
-        await upsertUnitsMetadata(
-          latestUnitsMaxTimestamp,
-          parseOptionalPartition(rows[0]?.last_ingested_partition) ??
-            unitQueryParams.lastIngestedPartition,
-        );
-      },
-      queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
-    });
-    queries.push(maxIngestedPartitionUnitsSourceQuery);
-  }
 
   // Metric Queries
 
@@ -604,72 +554,8 @@ const startExperimentIncrementalRefreshQueries = async (
     // TODO(incremental-refresh): add metadata about source
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
-    const metricsSourceIngestPartitionQuery =
-      useIngestPartitionMode &&
-      factTable &&
-      integration.getMaxIngestedPartitionSourceQuery
-        ? integration.getMaxIngestedPartitionSourceQuery({
-            sourceSql: factTable.sql,
-            partitionSettings,
-            lastIngestedPartition:
-              existingSource?.lastIngestedPartition ?? null,
-            experimentStartDate: snapshotSettings.startDate,
-          })
-        : null;
     let latestMetricSourceMaxTimestamp: Date | null =
       existingSource?.maxTimestamp ?? null;
-    const upsertMetricSource = async (
-      maxTimestamp: Date | null,
-      lastIngestedPartition: string | null,
-    ) => {
-      if (!maxTimestamp && !lastIngestedPartition) {
-        return;
-      }
-
-      const currentSource = runningSourceData.find(
-        (s) => s.groupId === group.groupId,
-      );
-
-      const updatedSource: IncrementalRefreshMetricSourceInterface =
-        currentSource
-          ? {
-              ...currentSource,
-              maxTimestamp,
-              lastIngestedPartition: lastIngestedPartition ?? null,
-            }
-          : {
-              groupId: group.groupId,
-              factTableId: group.factTableId,
-              maxTimestamp,
-              lastIngestedPartition: lastIngestedPartition ?? null,
-              metrics: group.metrics.map((m) => ({
-                id: m.id,
-                settingsHash: getMetricSettingsHashForIncrementalRefresh({
-                  factMetric: m,
-                  factTableMap: params.factTableMap,
-                  metricSettings: metricParams.settings.metricSettings.find(
-                    (ms) => ms.id === m.id,
-                  ),
-                }),
-              })),
-              tableFullName: metricSourceTableFullName,
-            };
-
-      if (!currentSource) {
-        runningSourceData = runningSourceData.concat(updatedSource);
-      } else {
-        runningSourceData = runningSourceData.map((s) =>
-          s.groupId === group.groupId ? updatedSource : s,
-        );
-      }
-
-      await context.models.incrementalRefresh.upsertByExperimentId(
-        experimentId,
-        {
-          metricSources: runningSourceData,
-        },
-      );
-    };
 
     let createMetricsSourceQuery: QueryPointer | null = null;
     if (!existingSource) {
@@ -844,8 +730,7 @@ const startExperimentIncrementalRefreshQueries = async (
       query: integration.getMaxTimestampMetricSourceQuery({
         metricSourceTableFullName,
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
-        includeLastIngestedPartition:
-          useIngestPartitionMode && !metricsSourceIngestPartitionQuery,
+        includeLastIngestedPartition: useIngestPartitionMode,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>
@@ -931,27 +816,6 @@ const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
-
-    if (metricsSourceIngestPartitionQuery) {
-      const maxIngestedPartitionMetricsSourceQuery = await startQuery({
-        name: `max_ingested_partition_metrics_source_${group.groupId}`,
-        displayTitle: `Find Latest Metrics Source Partition ${sourceName}`,
-        query: metricsSourceIngestPartitionQuery,
-        dependencies: [maxTimestampMetricsSourceQuery.query],
-        run: (query, setExternalId) =>
-          integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-        onSuccess: async (rows) => {
-          await upsertMetricSource(
-            latestMetricSourceMaxTimestamp,
-            parseOptionalPartition(rows[0]?.last_ingested_partition) ??
-              existingSource?.lastIngestedPartition ??
-              null,
-          );
-        },
-        queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
-      });
-      queries.push(maxIngestedPartitionMetricsSourceQuery);
-    }
 
     const dimensionsForPrecomputation = org.settings
       ?.disablePrecomputedDimensions

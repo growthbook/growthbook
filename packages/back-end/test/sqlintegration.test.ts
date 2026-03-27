@@ -814,7 +814,7 @@ describe("presto integration", () => {
     );
     expect(normalized).toContain("CASE WHEN experiment_id = 'exp_123'");
     expect(normalized).toContain(
-      "FROM __newExposures WHERE ( ( ( partition_year = '2024' AND partition_month = '01' AND partition_day > '10' )",
+      "FROM __newExposures WHERE ( ( ( CAST(partition_year AS INTEGER) = 2024 AND CAST(partition_month AS INTEGER) = 1 AND CAST(partition_day AS INTEGER) > 10 )",
     );
     expect(normalized).toContain(
       "MAX(last_ingested_partition) OVER () AS global_last_ingested_partition",
@@ -835,6 +835,7 @@ describe("presto integration", () => {
       },
       lastIngestedPartition: "2024-01-10",
       experimentStartDate: new Date("2024-01-01T00:00:00.000Z"),
+      endDate: new Date("2024-01-31T00:00:00.000Z"),
     });
 
     expect(sql).toBeTruthy();
@@ -846,9 +847,12 @@ describe("presto integration", () => {
     expect(normalized).toContain("CAST(p.partition_month AS INTEGER)");
     expect(normalized).toContain("CAST(p.partition_day AS INTEGER)");
     expect(normalized).toContain("AS last_ingested_partition");
-    expect(normalized).toContain("p.partition_year = '2024'");
-    expect(normalized).toContain("p.partition_month = '01'");
-    expect(normalized).toContain("p.partition_day > '10'");
+    expect(normalized).toContain(
+      "WHERE format( '%04d-%02d-%02d', CAST(p.partition_year AS INTEGER), CAST(p.partition_month AS INTEGER), CAST(p.partition_day AS INTEGER) ) > '2024-01-10'",
+    );
+    expect(normalized).toContain(
+      "AND format( '%04d-%02d-%02d', CAST(p.partition_year AS INTEGER), CAST(p.partition_month AS INTEGER), CAST(p.partition_day AS INTEGER) ) <= '2024-01-31'",
+    );
   });
 });
 

@@ -250,13 +250,26 @@ export default class Presto extends SqlIntegration {
     const partitionsTable =
       this.getTablePartitionsTableName(sourceTableFullName);
 
-    return this.getMaxIngestedPartitionTableQuery({
-      sourceTableFullName: partitionsTable,
-      partitionSettings: params.partitionSettings,
-      lastIngestedPartition: params.lastIngestedPartition,
-      experimentStartDate: params.experimentStartDate,
-      tableAlias: "p",
-    });
+    const ingestCursorExpression = this.getIngestCursorExpression(
+      params.partitionSettings,
+      "p",
+    );
+    const lowerBound =
+      params.lastIngestedPartition ??
+      params.experimentStartDate.toISOString().slice(0, 10);
+    const operator = params.lastIngestedPartition ? ">" : ">=";
+    const upperBound = params.endDate?.toISOString().slice(0, 10);
+
+    return format(
+      `
+      SELECT
+        MAX(${ingestCursorExpression}) AS last_ingested_partition
+      FROM ${partitionsTable} p
+      WHERE ${ingestCursorExpression} ${operator} '${lowerBound}'
+      ${upperBound ? `AND ${ingestCursorExpression} <= '${upperBound}'` : ""}
+      `,
+      this.getFormatDialect(),
+    );
   }
 
   getMaxTimestampIncrementalUnitsQuery(

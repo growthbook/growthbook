@@ -6967,6 +6967,30 @@ ORDER BY column_name, count DESC
     };
   }
 
+  getMetricSourceDateRange(params: {
+    settings: ExperimentSnapshotSettings;
+    metrics: FactMetricInterface[];
+    activationMetric: ExperimentMetricInterface | null;
+    factTableMap: FactTableMap;
+  }): {
+    startDate: Date;
+    endDate: Date;
+  } {
+    const { factTablesWithMetricData } = this.parseExperimentFactMetricsParams({
+      ...params,
+      lastMaxTimestamp: null,
+    });
+
+    if (factTablesWithMetricData.length !== 1) {
+      throw new Error("Expected exactly one fact table with metric data");
+    }
+
+    return {
+      startDate: factTablesWithMetricData[0].metricStart,
+      endDate: factTablesWithMetricData[0].metricEnd,
+    };
+  }
+
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
   ): string {
@@ -7069,23 +7093,17 @@ ORDER BY column_name, count DESC
     startDate,
     endDate,
     lastIngestedPartition,
-    experimentStartDate,
     tableAlias,
   }: {
     partitionSettings?: PartitionSettings;
     startDate: Date;
     endDate?: Date | null;
-    /** For `ingestYearMonthDay`: exclusive lower bound `yyyy-mm-dd`; null = first run. */
     lastIngestedPartition?: string | null;
-    /** For `ingestYearMonthDay`: used as inclusive lower bound on first run (when `lastIngestedPartition` is null). */
-    experimentStartDate?: Date;
     tableAlias?: string;
   }): string {
     if (!partitionSettings || partitionSettings.type === "timestamp") {
       return "";
     }
-
-    // TODO(adriel): We should not scan all partitions for covariate, only startDate to endDate
 
     // TODO(adriel): Do the same for the experiment + metric source if the experiment is stopped
     // DONT_DO_THIS: Instead make update harder so it does not get scanned
@@ -7094,8 +7112,9 @@ ORDER BY column_name, count DESC
     if (partitionSettings.type === "ingestYearMonthDay") {
       return this.getIngestYearMonthDayWhereClause({
         partitionSettings,
+        startDate,
         lastIngestedPartition: lastIngestedPartition ?? null,
-        experimentStartDate: experimentStartDate ?? startDate,
+        endDate,
         tableAlias,
       });
     }
@@ -7200,6 +7219,7 @@ ORDER BY column_name, count DESC
     partitionSettings,
     lastIngestedPartition,
     experimentStartDate,
+    endDate,
     tableAlias,
   }: {
     sourceTableFullName: string;
@@ -7209,13 +7229,14 @@ ORDER BY column_name, count DESC
     >;
     lastIngestedPartition: string | null;
     experimentStartDate: Date;
+    endDate?: Date | null;
     tableAlias?: string;
   }): string {
     const partitionWhereClause = this.getPartitionWhereClause({
       partitionSettings,
       startDate: experimentStartDate,
+      endDate,
       lastIngestedPartition,
-      experimentStartDate,
       tableAlias,
     });
 
@@ -7235,11 +7256,13 @@ ORDER BY column_name, count DESC
     partitionSettings,
     lastIngestedPartition,
     experimentStartDate,
+    endDate,
   }: {
     sourceSql: string;
     partitionSettings?: PartitionSettings;
     lastIngestedPartition: string | null;
     experimentStartDate: Date;
+    endDate?: Date | null;
   }): string | null {
     if (!isIngestYearMonthDayPartitionSettings(partitionSettings)) {
       return null;
@@ -7255,26 +7278,31 @@ ORDER BY column_name, count DESC
       partitionSettings,
       lastIngestedPartition,
       experimentStartDate,
+      endDate,
       tableAlias: "s",
     });
   }
 
   /**
-   * Ingest-time Y/M/D partition pruning for Trino/Hive: integer tuple compare (no zero-padding assumption).
-   * No upper bound on partitions. First run (null cursor): inclusive lower bound at experiment start calendar day.
+   * Ingest-time Y/M/D partition pruning for Trino/Hive: only partition-key predicates (no timestamps).
+   * Same tuple shape as `yearMonthDay` in {@link getPartitionWhereClause}.
+   * When `lastIngestedPartition` is null: inclusive lower bound at `startDate` calendar day.
+   * When set: partitions strictly after that cursor day. Optional `endDate` adds the same upper bound as `yearMonthDay`.
    */
   getIngestYearMonthDayWhereClause({
     partitionSettings,
+    startDate,
     lastIngestedPartition,
-    experimentStartDate,
+    endDate,
     tableAlias,
   }: {
     partitionSettings: Extract<
       PartitionSettings,
       { type: "ingestYearMonthDay" }
     >;
+    startDate: Date;
     lastIngestedPartition: string | null;
-    experimentStartDate: Date;
+    endDate?: Date | null;
     tableAlias?: string;
   }): string {
     if (this.getFormatDialect() !== "trino") {
@@ -7283,44 +7311,123 @@ ORDER BY column_name, count DESC
       );
     }
 
-    const yearColumn = this.qualifyPartitionColumn(
+    // Wrap each column in CAST(... AS INTEGER) so the comparison works
+    // regardless of whether the user's query outputs the partition columns as
+    // VARCHAR (e.g. via CAST/LPAD) or leaves them as native integers.
+    // CAST(integer AS INTEGER) is a no-op; CAST(varchar AS INTEGER) coerces
+    // correctly, including zero-padded strings like '08' → 8.
+    const yearColumn = `CAST(${this.qualifyPartitionColumn(
       partitionSettings.yearColumn,
       tableAlias,
-    );
-    const monthColumn = this.qualifyPartitionColumn(
+    )} AS INTEGER)`;
+    const monthColumn = `CAST(${this.qualifyPartitionColumn(
       partitionSettings.monthColumn,
       tableAlias,
-    );
-    const dayColumn = this.qualifyPartitionColumn(
+    )} AS INTEGER)`;
+    const dayColumn = `CAST(${this.qualifyPartitionColumn(
       partitionSettings.dayColumn,
       tableAlias,
-    );
-
-    // Use string comparison with zero-padded values (same strategy as
-    // yearMonthDay) so Trino can still perform static partition pruning.
-    const tupleGt = (year: string, month: string, day: string) => `(
-      (${yearColumn} = '${year}' AND ${monthColumn} = '${month}' AND ${dayColumn} > '${day}')
-      OR (${yearColumn} = '${year}' AND ${monthColumn} > '${month}')
-      OR (${yearColumn} > '${year}')
+    )} AS INTEGER)`;
+    const tupleGt = (year: number, month: number, day: number) => `(
+      (${yearColumn} = ${year} AND ${monthColumn} = ${month} AND ${dayColumn} > ${day})
+      OR (${yearColumn} = ${year} AND ${monthColumn} > ${month})
+      OR (${yearColumn} > ${year})
     )`;
 
-    const tupleGte = (year: string, month: string, day: string) => `(
-      (${yearColumn} = '${year}' AND ${monthColumn} = '${month}' AND ${dayColumn} >= '${day}')
-      OR (${yearColumn} = '${year}' AND ${monthColumn} > '${month}')
-      OR (${yearColumn} > '${year}')
+    const tupleGte = (year: number, month: number, day: number) => `(
+      (${yearColumn} = ${year} AND ${monthColumn} = ${month} AND ${dayColumn} >= ${day})
+      OR (${yearColumn} = ${year} AND ${monthColumn} > ${month})
+      OR (${yearColumn} > ${year})
     )`;
 
+    let lowerClause: string;
     if (lastIngestedPartition) {
       const p = this.parseYyyyMmDdIngestCursor(lastIngestedPartition);
-      return tupleGt(
-        p.y.toString().padStart(4, "0"),
-        p.m.toString().padStart(2, "0"),
-        p.d.toString().padStart(2, "0"),
+      lowerClause = tupleGt(p.y, p.m, p.d);
+    } else {
+      lowerClause = tupleGte(
+        startDate.getUTCFullYear(),
+        startDate.getUTCMonth() + 1,
+        startDate.getUTCDate(),
       );
     }
 
-    const s = this.getDatePartitionParts(experimentStartDate);
-    return tupleGte(s.year, s.month, s.day);
+    if (!endDate) {
+      return lowerClause;
+    }
+
+    const tupleLte = (year: number, month: number, day: number) => `(
+      (${yearColumn} = ${year} AND ${monthColumn} = ${month} AND ${dayColumn} <= ${day})
+      OR (${yearColumn} = ${year} AND ${monthColumn} < ${month})
+      OR (${yearColumn} < ${year})
+    )`;
+
+    const upperClause = tupleLte(
+      endDate.getUTCFullYear(),
+      endDate.getUTCMonth() + 1,
+      endDate.getUTCDate(),
+    );
+
+    return `${lowerClause} AND ${upperClause}`;
+  }
+
+  /**
+   * Generates a raw partition date filter suitable for injection directly into
+   * the user's source SQL via the `{{ datePartitionFilter }}` template variable.
+   *
+   * Unlike `getIngestYearMonthDayWhereClause`, this emits bare column names
+   * (no CAST, no table alias) so that Trino can push the predicates down to
+   * the Hive metastore for partition pruning.
+   */
+  getDatePartitionFilterTemplateValue({
+    partitionSettings,
+    startDate,
+    endDate,
+    lastIngestedPartition,
+  }: {
+    partitionSettings?: PartitionSettings;
+    startDate: Date;
+    endDate?: Date | null;
+    lastIngestedPartition?: string | null;
+  }): string {
+    if (!partitionSettings || partitionSettings.type !== "ingestYearMonthDay") {
+      return "1=1";
+    }
+
+    const { yearColumn, monthColumn, dayColumn } = partitionSettings;
+
+    const tupleGt = (year: number, month: number, day: number) =>
+      `(${yearColumn} = ${year} AND ${monthColumn} = ${month} AND ${dayColumn} > ${day}) OR (${yearColumn} = ${year} AND ${monthColumn} > ${month}) OR (${yearColumn} > ${year})`;
+
+    const tupleGte = (year: number, month: number, day: number) =>
+      `(${yearColumn} = ${year} AND ${monthColumn} = ${month} AND ${dayColumn} >= ${day}) OR (${yearColumn} = ${year} AND ${monthColumn} > ${month}) OR (${yearColumn} > ${year})`;
+
+    const tupleLte = (year: number, month: number, day: number) =>
+      `(${yearColumn} = ${year} AND ${monthColumn} = ${month} AND ${dayColumn} <= ${day}) OR (${yearColumn} = ${year} AND ${monthColumn} < ${month}) OR (${yearColumn} < ${year})`;
+
+    let lowerClause: string;
+    if (lastIngestedPartition) {
+      const p = this.parseYyyyMmDdIngestCursor(lastIngestedPartition);
+      lowerClause = `(${tupleGt(p.y, p.m, p.d)})`;
+    } else {
+      lowerClause = `(${tupleGte(
+        startDate.getUTCFullYear(),
+        startDate.getUTCMonth() + 1,
+        startDate.getUTCDate(),
+      )})`;
+    }
+
+    if (!endDate) {
+      return lowerClause;
+    }
+
+    const upperClause = `(${tupleLte(
+      endDate.getUTCFullYear(),
+      endDate.getUTCMonth() + 1,
+      endDate.getUTCDate(),
+    )})`;
+
+    return `${lowerClause} AND ${upperClause}`;
   }
 
   getUpdateExperimentIncrementalUnitsQuery(
@@ -7381,7 +7488,6 @@ ORDER BY column_name, count DESC
       startDate: incrementalStartDate,
       endDate,
       lastIngestedPartition: params.lastIngestedPartition ?? null,
-      experimentStartDate: settings.startDate,
     });
 
     // Segment and SQL filter only check against new exposures
@@ -7438,6 +7544,12 @@ ORDER BY column_name, count DESC
               incrementalStartYear: incrementalStartDateIso.substring(0, 4),
               incrementalStartMonth: incrementalStartDateIso.substring(5, 7),
               incrementalStartDay: incrementalStartDateIso.substring(8, 10),
+              datePartitionFilter: this.getDatePartitionFilterTemplateValue({
+                partitionSettings,
+                startDate: settings.startDate,
+                endDate,
+                lastIngestedPartition: params.lastIngestedPartition ?? null,
+              }),
             },
           })}
         )
@@ -7817,20 +7929,14 @@ ORDER BY column_name, count DESC
     }
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
+    const covariateUseIngestPartitions = isIngestYearMonthDayPartitionSettings(
+      params.partitionSettings,
+    );
     const covariatePartitionWhereClause = this.getPartitionWhereClause({
       partitionSettings: params.partitionSettings,
       startDate: factTableWithMetricData.minCovariateStartDate,
       endDate: factTableWithMetricData.maxCovariateEndDate,
       lastIngestedPartition: params.lastIngestedPartition ?? null,
-      // For ingest partitions, use the covariate start date as the initial
-      // partition lower bound so the first run scans partitions containing
-      // covariate-window events. On subsequent runs the lastIngestedPartition
-      // watermark takes over (same as units/metrics).
-      experimentStartDate: isIngestYearMonthDayPartitionSettings(
-        params.partitionSettings,
-      )
-        ? factTableWithMetricData.minCovariateStartDate
-        : params.settings.startDate,
       tableAlias: "m",
     });
 
@@ -7875,7 +7981,18 @@ ORDER BY column_name, count DESC
             : undefined,
           // Need to do < the end date to exclude the end date itself
           exclusiveEndDateFilter: true,
+          // Ingest partition mode: Y/M/D partition predicates bound the scan; covariate
+          // window is still enforced via timestamp predicates in SELECT (ifElse below).
+          skipDateFilter: covariateUseIngestPartitions,
           castIdToString: true,
+          customFields: {
+            datePartitionFilter: this.getDatePartitionFilterTemplateValue({
+              partitionSettings: params.partitionSettings,
+              startDate: factTableWithMetricData.minCovariateStartDate,
+              endDate: factTableWithMetricData.maxCovariateEndDate,
+              lastIngestedPartition: params.lastIngestedPartition ?? null,
+            }),
+          },
         })})
           , __newCovariateValues AS (
           SELECT
@@ -8182,7 +8299,6 @@ ORDER BY column_name, count DESC
       startDate: factTableWithMetricData.metricStart,
       endDate: factTableWithMetricData.metricEnd,
       lastIngestedPartition: params.lastIngestedPartition ?? null,
-      experimentStartDate: params.settings.startDate,
       tableAlias: "m",
     });
 
@@ -8232,6 +8348,14 @@ ORDER BY column_name, count DESC
           // handle scan boundaries and we need the watermark computed over all
           // scanned partition rows, not just those passing the timestamp filter.
           skipDateFilter: useIngestPartitions,
+          customFields: {
+            datePartitionFilter: this.getDatePartitionFilterTemplateValue({
+              partitionSettings: params.partitionSettings,
+              startDate: factTableWithMetricData.metricStart,
+              endDate: factTableWithMetricData.metricEnd,
+              lastIngestedPartition: params.lastIngestedPartition ?? null,
+            }),
+          },
         })})
         , __newMetricRows AS (
           SELECT
