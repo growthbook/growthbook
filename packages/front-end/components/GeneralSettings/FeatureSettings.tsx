@@ -12,6 +12,7 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
+import Callout from "@/ui/Callout";
 
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
@@ -56,6 +57,12 @@ export default function FeatureSettings() {
         </Box>
 
         <Flex align="start" direction="column" flexGrow="1" pt="6">
+          <Box mb="5" width="100%">
+            <Callout status="info">
+              Approval flow settings have moved to the{" "}
+              <a href="#approval-flow">Approval Flows tab</a>.
+            </Callout>
+          </Box>
           <Box mb="4" width="100%">
             <Field
               label={
