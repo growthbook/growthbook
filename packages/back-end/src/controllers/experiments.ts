@@ -3936,6 +3936,10 @@ export async function postExperimentFeatureValues(
       variations: Variation[];
       variationWeights: number[];
       features: Record<string, ExperimentRefVariation[]>;
+      featureRevisionOptions: Record<
+        string,
+        { targetVersion: number; autoPublish?: boolean }
+      >;
     },
     { id: string }
   >,
@@ -3943,7 +3947,8 @@ export async function postExperimentFeatureValues(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { variations, variationWeights, features } = req.body;
+  const { variations, variationWeights, features, featureRevisionOptions } =
+    req.body;
   const { org } = context;
   const experiment = await getExperimentById(context, id);
 
@@ -4055,6 +4060,43 @@ export async function postExperimentFeatureValues(
     }
   }
 
+  // Preflight: ensure auto-publish permissions for all affected features/environments
+  // before applying any experiment or feature updates.
+  for (const feature of linkedFeatures) {
+    const { autoPublish } = featureRevisionOptions[feature.id];
+    if (!autoPublish) continue;
+
+    const matchingRules = getMatchingRules(
+      feature,
+      (r: FeatureRule) =>
+        r.type === "experiment-ref" && r.experimentId === experiment.id,
+      context.environments,
+    );
+
+    if (!matchingRules.length) continue;
+
+    const updatedVariationValues = features[feature.id];
+    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
+      if (m.rule.type !== "experiment-ref") return false;
+      return (
+        JSON.stringify(m.rule.variations) !==
+        JSON.stringify(updatedVariationValues)
+      );
+    });
+
+    if (!featureNeedsUpdate) continue;
+
+    const affectedEnvs = Array.from(
+      new Set(matchingRules.map((m: MatchingRule) => m.environmentId)),
+    );
+    if (
+      affectedEnvs.length > 0 &&
+      !context.permissions.canPublishFeature(feature, affectedEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
   // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
   let experimentForResponse = experiment;
   if (changes.variations || changes.phases) {
@@ -4070,6 +4112,7 @@ export async function postExperimentFeatureValues(
 
   // Go through features and create revisions
   for (const feature of linkedFeatures) {
+    const { targetVersion, autoPublish } = featureRevisionOptions[feature.id];
     const orgEnvIds = context.environments;
     // Get existing experiment-ref rules for this experiment across all environments
     const matchingRules = getMatchingRules(
@@ -4117,7 +4160,7 @@ export async function postExperimentFeatureValues(
       settings: org?.settings,
     });
 
-    const revision = await getDraftRevision(context, feature, feature.version);
+    const revision = await getDraftRevision(context, feature, targetVersion);
 
     const updatedRevision = await editFeatureRules(
       context,
@@ -4157,7 +4200,7 @@ export async function postExperimentFeatureValues(
       settings: org.settings,
     });
 
-    if (!requiresReview) {
+    if (!requiresReview && autoPublish) {
       const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
 
       if (!mergeResult.success) {
