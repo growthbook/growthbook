@@ -21360,6 +21360,20 @@ components:
           description: Custom slices that apply to ALL applicable metrics in the experiment
         templateId:
           type: string
+        holdout:
+          type: object
+          description: 'Information about the holdout this experiment is part of, if any'
+          nullable: true
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              description: The holdout ID
+            name:
+              type: string
+              description: The holdout name
     ExperimentSnapshot:
       type: object
       required:
