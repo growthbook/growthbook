@@ -21,7 +21,7 @@ import {
   isRevisionRequired,
   createOrUpdateSavedGroupRevision,
   buildSavedGroupSnapshot,
-} from "back-end/src/enterprise/revisions/util";
+} from "back-end/src/revisions/util";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 

@@ -12,8 +12,8 @@ import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { RevisionModel } from "back-end/src/enterprise/models/RevisionModel";
-import { getEntityModel } from "back-end/src/enterprise/revisions";
+import { RevisionModel } from "back-end/src/models/RevisionModel";
+import { getEntityModel } from "back-end/src/revisions";
 
 // region GET /revision
 

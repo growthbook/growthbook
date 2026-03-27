@@ -3,7 +3,7 @@ import {
   getRevisionKey,
   canUserReviewEntity,
   checkMergeConflicts,
-} from "../../../src/enterprise/revisions/helpers";
+} from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
   Revision,

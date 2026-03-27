@@ -8,7 +8,7 @@ import {
 import type { CreateProps } from "shared/types/base-model";
 import type { SavedGroupInterface } from "shared/types/saved-group";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
-import { buildSavedGroupSnapshot } from "back-end/src/enterprise/revisions/util";
+import { buildSavedGroupSnapshot } from "back-end/src/revisions/util";
 
 export const COLLECTION_NAME = "revisions";
 

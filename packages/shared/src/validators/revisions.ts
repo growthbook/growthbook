@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-  savedGroupValidator,
-  putSavedGroupBodyValidator,
-} from "../../validators/saved-group";
+import { savedGroupValidator, putSavedGroupBodyValidator } from "./saved-group";
 
 export const revisionStatus = [
   "draft",
