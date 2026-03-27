@@ -21,11 +21,13 @@ import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const [modalData, setModalData] = useState<QueryInterface | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const router = useRouter();
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
@@ -129,6 +131,11 @@ const DataSourceQueries = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
       </div>
+      {cancelError && (
+        <Callout status="error" mb="3">
+          {cancelError}
+        </Callout>
+      )}
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
@@ -239,14 +246,20 @@ const DataSourceQueries = (): React.ReactElement => {
                           radius="full"
                           onClick={async (e) => {
                             e.stopPropagation();
+                            setCancelError(null);
                             try {
                               await apiCall(
                                 `/datasource/${did}/query/${query.id}/cancel`,
                                 { method: "POST" },
                               );
+                            } catch (err: unknown) {
+                              const message =
+                                err instanceof Error
+                                  ? err.message
+                                  : "Failed to cancel query";
+                              setCancelError(message);
+                            } finally {
                               await mutate();
-                            } catch (err) {
-                              console.error(err);
                             }
                           }}
                         >

@@ -1060,16 +1060,20 @@ export async function cancelDataSourceQuery(
   if (integration.cancelQuery && query.externalId) {
     try {
       await integration.cancelQuery(query.externalId);
-    } catch (e) {
+    } catch (e: unknown) {
       // Log but continue - we'll still mark the query as failed
-      logger.debug(e, `Failed to cancel query on warehouse: ${e.message}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.debug(e, `Failed to cancel query on warehouse: ${msg}`);
     }
   }
+
+  const cancelledBy =
+    req.email || req.currentUser?.email || req.userId || "unknown";
 
   await updateQuery(context, query, {
     status: "failed",
     finishedAt: new Date(),
-    error: "Query cancelled by user",
+    error: `Query cancelled by user (${cancelledBy})`,
   });
 
   res.status(200).json({ status: 200 });
