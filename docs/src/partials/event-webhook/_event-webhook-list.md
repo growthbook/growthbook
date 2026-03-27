@@ -1479,8 +1479,11 @@ Triggered when an experiment is created
                 }[];
             }[] | undefined;
             templateId?: string | undefined;
+            /** Information about the holdout this experiment is part of, if any */
             holdout?: ({
+                /** The holdout ID */
                 id: string;
+                /** The holdout name */
                 name: string;
             } | null) | undefined;
         };
@@ -1660,8 +1663,11 @@ Triggered when an experiment is updated
                 }[];
             }[] | undefined;
             templateId?: string | undefined;
+            /** Information about the holdout this experiment is part of, if any */
             holdout?: ({
+                /** The holdout ID */
                 id: string;
+                /** The holdout name */
                 name: string;
             } | null) | undefined;
         };
@@ -1807,8 +1813,11 @@ Triggered when an experiment is updated
                 }[];
             }[] | undefined;
             templateId?: string | undefined;
+            /** Information about the holdout this experiment is part of, if any */
             holdout?: ({
+                /** The holdout ID */
                 id: string;
+                /** The holdout name */
                 name: string;
             } | null) | undefined;
         };
@@ -1993,8 +2002,11 @@ Triggered when an experiment is deleted
                 }[];
             }[] | undefined;
             templateId?: string | undefined;
+            /** Information about the holdout this experiment is part of, if any */
             holdout?: ({
+                /** The holdout ID */
                 id: string;
+                /** The holdout name */
                 name: string;
             } | null) | undefined;
         };
