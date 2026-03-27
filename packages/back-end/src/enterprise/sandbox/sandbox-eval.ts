@@ -15,10 +15,14 @@ const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32, {
   name: "CUSTOM_HOOK_MEMORY_MB",
 });
 // Max active CPU time (excluding fetch)
-const CPU_TIMEOUT_MS = parseEnvInt(process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS, 100, {
-  min: 1,
-  name: "CUSTOM_HOOK_CPU_TIMEOUT_MS",
-});
+const CPU_TIMEOUT_MS = parseEnvInt(
+  process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS,
+  100,
+  {
+    min: 1,
+    name: "CUSTOM_HOOK_CPU_TIMEOUT_MS",
+  },
+);
 // Max total run time (including fetch)
 const WALL_TIMEOUT_MS = parseEnvInt(
   process.env.CUSTOM_HOOK_WALL_TIMEOUT_MS,

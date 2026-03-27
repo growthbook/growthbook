@@ -157,10 +157,14 @@ export const QUERY_CACHE_TTL_MINS = parseEnvInt(
 );
 
 // When importing past experiments, limit to this number of days:
-export const IMPORT_LIMIT_DAYS = parseEnvInt(process.env.IMPORT_LIMIT_DAYS, 365, {
-  min: 1,
-  name: "IMPORT_LIMIT_DAYS",
-});
+export const IMPORT_LIMIT_DAYS = parseEnvInt(
+  process.env.IMPORT_LIMIT_DAYS,
+  365,
+  {
+    min: 1,
+    name: "IMPORT_LIMIT_DAYS",
+  },
+);
 
 // cache control currently feature only /api/features/*
 export const CACHE_CONTROL_MAX_AGE = parseEnvInt(

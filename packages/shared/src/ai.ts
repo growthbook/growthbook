@@ -206,7 +206,9 @@ function pluralUnit(n: number, singular: string, plural: string): string {
 }
 
 /** Human-readable AI rate-limit message from optional `Retry-After` seconds */
-export function formatAIRateLimitRetryMessage(retryAfterSeconds: unknown): string {
+export function formatAIRateLimitRetryMessage(
+  retryAfterSeconds: unknown,
+): string {
   const s = parseOptionalInt(retryAfterSeconds);
   if (s === undefined) return AI_RATE_LIMIT_GENERIC;
   if (s <= 0) return AI_RATE_LIMIT_GENERIC;
@@ -215,8 +217,7 @@ export function formatAIRateLimitRetryMessage(retryAfterSeconds: unknown): strin
   if (hours === 0 && minutes === 0) {
     return `You have reached the AI request limit. Try again in less than a minute.`;
   }
-  const hourPart =
-    hours > 0 ? pluralUnit(hours, "hour", "hours") : "";
+  const hourPart = hours > 0 ? pluralUnit(hours, "hour", "hours") : "";
   const minutePart =
     minutes > 0 ? pluralUnit(minutes, "minute", "minutes") : "";
   if (hourPart && minutePart) {

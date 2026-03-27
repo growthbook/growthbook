@@ -4,6 +4,7 @@ import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
+import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -44,7 +45,6 @@ import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
 import { defineRouterForApiConfig } from "./ApiModel";
-import { parseEnvInt } from "shared/util";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,

@@ -115,10 +115,7 @@ const ImportExperimentList: FC<{
         }
 
         const minVariations = parseOptionalInt(minVariationsFilter);
-        if (
-          minVariations !== undefined &&
-          e.numVariations < minVariations
-        ) {
+        if (minVariations !== undefined && e.numVariations < minVariations) {
           return false;
         }
 

@@ -155,11 +155,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
-    experimentRefreshFrequency: parseEnvInt(
-      EXPERIMENT_REFRESH_FREQUENCY,
-      6,
-      { min: 1, name: "EXPERIMENT_REFRESH_FREQUENCY" },
-    ),
+    experimentRefreshFrequency: parseEnvInt(EXPERIMENT_REFRESH_FREQUENCY, 6, {
+      min: 1,
+      name: "EXPERIMENT_REFRESH_FREQUENCY",
+    }),
     autoSliceUpdateFrequencyHours: parseEnvInt(
       AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
       168,
