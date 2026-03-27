@@ -223,6 +223,20 @@ export abstract class QueryRunner<
     const queries = await this.startQueries(params);
     this.model.queries = queries;
 
+    if (queries.length === 0) {
+      const noQueriesError = "No queries were generated for this analysis";
+      logger.debug(this.model.id + " runner: " + noQueriesError);
+      const newModel = await this.updateModel({
+        status: "failed",
+        queries: [],
+        runStarted: new Date(),
+        error: noQueriesError,
+      });
+      this.model = newModel;
+      this.setStatus("finished", noQueriesError);
+      return newModel;
+    }
+
     // If already finished (queries were cached)
     let error = "";
     let result: Result | undefined = undefined;
