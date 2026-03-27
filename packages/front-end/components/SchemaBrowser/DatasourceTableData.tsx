@@ -199,7 +199,11 @@ export default function DatasourceSchema({
                 })}
               </>
             ) : (
-              <div className="text-muted p-2">No columns found.</div>
+              <tr>
+                <td colSpan={2} className="text-muted p-2">
+                  No columns found.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
