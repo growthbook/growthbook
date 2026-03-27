@@ -45,6 +45,7 @@ export default function StandardRuleFields({
   ruleRampSchedule,
   rampSectionState,
   setRampSectionState,
+  pendingDetach,
   onChangeRuleType,
 }: {
   ruleType: "force" | "rollout";
@@ -61,6 +62,7 @@ export default function StandardRuleFields({
   ruleRampSchedule: RampScheduleInterface | undefined;
   rampSectionState: RampSectionState;
   setRampSectionState: (s: RampSectionState) => void;
+  pendingDetach?: boolean;
   onChangeRuleType?: (v: string) => void;
 }) {
   const form = useFormContext();
@@ -115,19 +117,6 @@ export default function StandardRuleFields({
 
   return (
     <>
-      {onChangeRuleType && (
-        <SelectField
-          label="Rule type"
-          value={ruleType}
-          options={[
-            { value: "force", label: "Force rule" },
-            { value: "rollout", label: "Rollout rule" },
-          ]}
-          onChange={onChangeRuleType}
-          containerClassName="mb-3"
-        />
-      )}
-
       <Field
         label="Description"
         textarea
@@ -138,9 +127,7 @@ export default function StandardRuleFields({
 
       <div className="mb-3 pb-1">
         <FeatureValueField
-          label={
-            ruleType === "rollout" ? "Value to roll out" : "Value to Force"
-          }
+          label="Value to roll out or force"
           id="value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
@@ -204,18 +191,13 @@ export default function StandardRuleFields({
                 ruleRampSchedule={ruleRampSchedule}
                 state={rampSectionState}
                 setState={setRampSectionState}
+                pendingDetach={pendingDetach}
                 hideOuterToggle={true}
                 feature={feature}
                 environments={environments}
-                onSetRuleCoverage={
-                  ruleType === "rollout"
-                    ? (v) => form.setValue("coverage", v)
-                    : undefined
-                }
+                onSetRuleCoverage={(v) => form.setValue("coverage", v)}
                 ruleBaseline={{
-                  ...(ruleType === "rollout"
-                    ? { coverage: form.watch("coverage") ?? 0 }
-                    : {}),
+                  coverage: form.watch("coverage") ?? 0,
                   condition: form.watch("condition") ?? "{}",
                   savedGroups: form.watch("savedGroups") ?? [],
                   prerequisites: form.watch("prerequisites") ?? [],
@@ -233,72 +215,70 @@ export default function StandardRuleFields({
         )}
       </div>
 
-      {/* Rollout-only: coverage % + bucketing attribute */}
-      {ruleType === "rollout" && (
-        <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-          <RolloutPercentInput
-            value={form.watch("coverage") || 0}
-            setValue={(coverage) => form.setValue("coverage", coverage)}
-            className="mb-3"
-          />
-          <SelectField
-            withRadixThemedPortal
-            label="Sample based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({
-                label: s.property,
-                value: s.property,
-                description: s.description,
-                tags: s.tags,
-                datatype: s.datatype,
-                hashAttribute: s.hashAttribute,
-              }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => form.setValue("hashAttribute", v)}
-            formatOptionLabel={(o, meta) => (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            )}
-          />
-          <div className="mb-2">
-            <span
-              className="ml-auto link-purple cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setadvancedOptionsOpen(!advancedOptionsOpen);
-              }}
+      {/* Coverage % + bucketing attribute — always shown for both force and rollout */}
+      <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
+        <RolloutPercentInput
+          value={form.watch("coverage") ?? 1}
+          setValue={(coverage) => form.setValue("coverage", coverage)}
+          className="mb-3"
+        />
+        <SelectField
+          withRadixThemedPortal
+          label="Sample based on attribute"
+          options={attributeSchema
+            .filter((s) => !hasHashAttributes || s.hashAttribute)
+            .map((s) => ({
+              label: s.property,
+              value: s.property,
+              description: s.description,
+              tags: s.tags,
+              datatype: s.datatype,
+              hashAttribute: s.hashAttribute,
+            }))}
+          value={form.watch("hashAttribute")}
+          onChange={(v) => form.setValue("hashAttribute", v)}
+          formatOptionLabel={(o, meta) => (
+            <AttributeOptionWithTooltip
+              option={o as AttributeOptionForTooltip}
+              context={meta.context}
             >
-              {!advancedOptionsOpen ? (
-                <PiCaretDownFill className="mr-1" />
-              ) : (
-                <PiCaretUpFill className="mr-1" />
-              )}
-              Advanced Options
-            </span>
-            {advancedOptionsOpen && (
-              <div className="mt-3">
-                <Field
-                  label="Seed"
-                  type="input"
-                  {...form.register("seed")}
-                  placeholder={feature.id}
-                  helpText={
-                    <>
-                      <strong className="text-danger">Warning:</strong> Changing
-                      this will re-randomize rollout traffic.
-                    </>
-                  }
-                />
-              </div>
+              {o.label}
+            </AttributeOptionWithTooltip>
+          )}
+        />
+        <div className="mb-2">
+          <span
+            className="ml-auto link-purple cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setadvancedOptionsOpen(!advancedOptionsOpen);
+            }}
+          >
+            {!advancedOptionsOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
             )}
-          </div>
+            Advanced Options
+          </span>
+          {advancedOptionsOpen && (
+            <div className="mt-3">
+              <Field
+                label="Seed"
+                type="input"
+                {...form.register("seed")}
+                placeholder={feature.id}
+                helpText={
+                  <>
+                    <strong className="text-danger">Warning:</strong> Changing
+                    this will re-randomize rollout traffic.
+                  </>
+                }
+              />
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <SavedGroupTargetingField
         value={form.watch("savedGroups") || []}

@@ -42,6 +42,7 @@ const featureRevisionSchema = new mongoose.Schema({
   archived: Boolean,
   metadata: {},
   holdout: {},
+  rampActions: [{}],
   status: String,
   requiresReview: Boolean,
   log: [
@@ -587,6 +588,7 @@ export async function updateRevision(
       | "archived"
       | "metadata"
       | "holdout"
+      | "rampActions"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,
@@ -602,6 +604,7 @@ export async function updateRevision(
     "archived",
     "metadata",
     "holdout",
+    "rampActions",
   ] as const;
 
   const hasMutableChange = MUTABLE_FIELDS.some((f) => f in changes);

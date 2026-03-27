@@ -644,6 +644,7 @@ export type RevisionFields = Pick<
   | "archived"
   | "metadata"
   | "holdout"
+  | "rampActions"
 >;
 
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
@@ -799,6 +800,8 @@ export function draftDiffersFromLive(
         return true;
     }
   }
+  // Pending ramp actions (create/detach) are meaningful changes even if no feature content changed
+  if ((draftRevision.rampActions ?? []).length > 0) return true;
   return false;
 }
 

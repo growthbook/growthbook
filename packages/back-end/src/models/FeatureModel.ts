@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -15,6 +16,9 @@ import {
   SafeRolloutInterface,
   SafeRolloutRule,
   simpleSchemaValidator,
+  RampScheduleInterface,
+  RevisionRampAction,
+  RampStepAction,
 } from "shared/validators";
 import {
   FeatureEnvironment,
@@ -1222,6 +1226,13 @@ export async function applyRevisionChanges(
   // there's nothing to write to the feature document — just return it as-is so
   // the caller can still mark the revision as published and trigger lifecycle hooks.
   if (!hasChanges) {
+    // However, if we have pending ramp actions to execute, we still need to update
+    // the feature version so the live pointer advances correctly
+    if (revision.rampActions && revision.rampActions.length > 0) {
+      changes.version = revision.version;
+      changes.dateUpdated = new Date();
+      return await updateFeature(context, feature, changes);
+    }
     return feature;
   }
 
@@ -1332,6 +1343,208 @@ export async function applyHoldoutSideEffects(
   }
 }
 
+/**
+ * Clean up orphaned ramp schedules after a publish.
+ * If a rule with a ramp was deleted and it was the only implementation of that ramp,
+ * delete the ramp schedule entirely.
+ */
+async function applyRevisionRampActions(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  actions: RevisionRampAction[],
+) {
+  for (const action of actions) {
+    try {
+      if (action.mode === "create") {
+        const targetId = uuidv4();
+        const enabledPatch = { ruleId: action.ruleId, enabled: true };
+        const disabledPatch = { ruleId: action.ruleId, enabled: false };
+        const disableBefore = !!action.disableRuleBefore;
+        const disableAfter = !!action.disableRuleAfter;
+
+        // The frontend always uses the placeholder "t1" as targetId when building
+        // step/condition action patches. Remap any "t1" references to the real UUID
+        // now that we know it, so the ramp service can resolve patches at execution time.
+        const remapTargetId = (a: RampStepAction): RampStepAction =>
+          a.targetId === "t1" ? { ...a, targetId } : a;
+
+        const baseStartActions = (action.startCondition?.actions ?? []).map(
+          remapTargetId,
+        );
+        const startConditionActions = disableBefore
+          ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
+          : baseStartActions;
+
+        const rawStartTrigger = action.startCondition?.trigger;
+        const startTrigger =
+          rawStartTrigger?.type === "scheduled"
+            ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
+            : (rawStartTrigger ?? { type: "immediately" as const });
+
+        const baseEndActions = (action.endCondition?.actions ?? []).map(
+          remapTargetId,
+        );
+        const endConditionActions = disableAfter
+          ? [...baseEndActions, { targetId, patch: disabledPatch }]
+          : baseEndActions;
+
+        const rawEndTrigger = action.endCondition?.trigger;
+        const endTrigger =
+          rawEndTrigger?.type === "scheduled"
+            ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
+            : undefined;
+        const endCondition =
+          endTrigger || endConditionActions.length
+            ? { trigger: endTrigger, actions: endConditionActions }
+            : undefined;
+
+        // Remap step action targetId references from "t1" to the real UUID
+        const steps = action.steps.map((step) => ({
+          ...step,
+          actions: step.actions.map(remapTargetId),
+        }));
+
+        await context.models.rampSchedules.create({
+          name: action.name,
+          entityType: "feature",
+          entityId: feature.id,
+          targets: [
+            {
+              id: targetId,
+              entityType: "feature",
+              entityId: feature.id,
+              ruleId: action.ruleId,
+              environment: action.environment,
+              status: "active",
+            },
+          ],
+          steps,
+          startCondition: {
+            trigger: startTrigger,
+            actions: startConditionActions.length
+              ? startConditionActions
+              : undefined,
+          },
+          disableRuleBefore: disableBefore || undefined,
+          disableRuleAfter: disableAfter || undefined,
+          endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
+          endCondition,
+          // Ramp is created on publish so it starts immediately rather than "pending"
+          status: startTrigger.type === "immediately" ? "running" : "pending",
+          currentStepIndex: -1,
+          // For immediately-starting ramps, compute nextStepAt so Agenda can pick them up
+          nextStepAt:
+            startTrigger.type === "immediately" && steps.length > 0
+              ? new Date()
+              : null,
+          startedAt: startTrigger.type === "immediately" ? new Date() : null,
+          phaseStartedAt:
+            startTrigger.type === "immediately" ? new Date() : null,
+          stepHistory: [],
+        });
+      } else if (action.mode === "detach") {
+        // Gracefully skip if the schedule no longer exists (e.g., deleted by a concurrent action)
+        const existing = await context.models.rampSchedules.getById(
+          action.rampScheduleId,
+        );
+        if (existing) {
+          const remainingTargets = existing.targets.filter(
+            (t) => t.ruleId !== action.ruleId,
+          );
+          if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+            await context.models.rampSchedules.deleteById(existing.id);
+          } else {
+            await context.models.rampSchedules.updateById(existing.id, {
+              targets: remainingTargets,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // Log but don't fail the publish — ramp action failures shouldn't block feature delivery.
+      logger.error(err, {
+        msg: "Failed to apply revision ramp action",
+        featureId: feature.id,
+        action,
+      });
+    }
+  }
+}
+
+async function cleanupOrphanedRampSchedules(
+  context: ReqContext | ApiReqContext,
+  oldFeature: FeatureInterface,
+  newFeature: FeatureInterface,
+) {
+  try {
+    // When publishing a change that modifies rules, clean up ramp schedules that
+    // become orphaned. This handles several scenarios:
+    // 1. Rules that target a ramp are deleted → ramp is cleaned up
+    // 2. Reverting to an older revision that predates a ramp's creation → ramp's
+    //    targets (from newer revisions) are removed, orphaning the ramp → cleanup deletes it
+    // 3. Reverting back to a newer revision with a ramp → the ramp is recreated via
+    //    the inline "create" action on the rule (natural behavior)
+    //
+    // Note: If a ramp schedule is deleted and then we revert to a future revision
+    // where it should exist, the "create" action will not fire again. The user must
+    // re-create the ramp. This is the safe, explicit behavior.
+
+    // Collect all rule IDs that existed in the old feature.
+    const oldRuleIds = new Set<string>();
+    Object.values(oldFeature.environmentSettings ?? {}).forEach((env) => {
+      (env?.rules ?? []).forEach((rule) => {
+        if (rule?.id) {
+          oldRuleIds.add(rule.id);
+        }
+      });
+    });
+
+    // Collect all rule IDs in the new feature.
+    const newRuleIds = new Set<string>();
+    Object.values(newFeature.environmentSettings ?? {}).forEach((env) => {
+      (env?.rules ?? []).forEach((rule) => {
+        if (rule?.id) {
+          newRuleIds.add(rule.id);
+        }
+      });
+    });
+
+    // Find rule IDs that were removed (existed in old but not in new).
+    const deletedRuleIds = Array.from(oldRuleIds).filter(
+      (id) => !newRuleIds.has(id),
+    );
+
+    // Query all ramp schedules for this feature and check if any targets
+    // reference the deleted rules.
+    const allRamps = await context.models?.rampSchedules?.getAllByFeatureId?.(
+      newFeature.id,
+    );
+
+    if (!allRamps) return;
+
+    for (const ramp of allRamps) {
+      const remainingTargets = (ramp?.targets ?? []).filter(
+        (target: RampScheduleInterface["targets"][0]) => {
+          // Keep targets that reference rules that still exist.
+          return target?.ruleId && !deletedRuleIds.includes(target.ruleId);
+        },
+      );
+
+      // If no implementations remain, delete the ramp.
+      if (
+        remainingTargets.length === 0 &&
+        (ramp?.targets ?? []).length > 0 &&
+        ramp?.id
+      ) {
+        await context.models?.rampSchedules?.deleteById?.(ramp.id);
+      }
+    }
+  } catch (error) {
+    // Log but don't throw — cleanup is a nice-to-have, not essential for publish to succeed.
+    logger.error("Error cleaning up orphaned ramp schedules", error);
+  }
+}
+
 export async function publishRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1363,6 +1576,21 @@ export async function publishRevision(
     context.auditUser,
     comment,
   );
+
+  // Execute deferred ramp actions (create/detach) stored on the revision.
+  // These are deferred to publish time to prevent orphaned ramp schedules from
+  // draft abandonment or revision reverts.
+  if (revision.rampActions?.length) {
+    await applyRevisionRampActions(
+      context,
+      updatedFeature,
+      revision.rampActions,
+    );
+  }
+
+  // Clean up orphaned ramp schedules: if a rule with a ramp was deleted and it was
+  // the only implementation of that ramp, delete the ramp as well.
+  await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
 
   return updatedFeature;
 }

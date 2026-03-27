@@ -1069,7 +1069,6 @@ export interface components {
                 force?: any;
               };
             })[];
-          notifyOnEntry?: boolean;
         })[];
       /** @description Criteria-driven auto-rollback configuration */
       autoRollback?: {

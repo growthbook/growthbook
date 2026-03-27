@@ -3,6 +3,7 @@ import {
   FeatureRule,
   RampStep,
   RampStepAction,
+  RampStepDefaultEffects,
 } from "shared/validators";
 
 /** Wire-format start trigger (dates as ISO strings). */
@@ -25,6 +26,7 @@ export type InlineRampScheduleCreate = {
   /** Start trigger + initial actions, mirrors step shape. Absent = immediately, no start actions. */
   startCondition?: {
     trigger: RampStartTrigger;
+    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   };
   /** When true, rule is hidden from SDK payload before the schedule starts. */
@@ -36,21 +38,34 @@ export type InlineRampScheduleCreate = {
   /** End trigger + teardown actions. trigger is optional (no deadline = fires on natural completion). */
   endCondition?: {
     trigger?: RampEndTrigger;
+    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   };
 };
 
-/** Link the new rule as an additional target on an existing ramp schedule. */
-export type InlineRampScheduleLink = {
-  mode: "link";
-  rampScheduleId: string;
-  environment: string;
-};
+/** Link the new rule as an additional target on an existing ramp schedule.
+ * TODO: Add linking to existing schedules if/when we implement multiple targets per rule.
+ */
+// export type InlineRampScheduleLink = {
+//   mode: "link";
+//   rampScheduleId: string;
+// };
 
 /** Detach a rule from a ramp schedule (removes it from the targets array). */
 export type InlineRampScheduleDetach = {
   mode: "detach";
   rampScheduleId: string;
+  /** If true, delete the ramp schedule if no implementations remain. */
+  deleteScheduleWhenEmpty?: boolean;
+};
+
+/**
+ * Cancel any pending ramp action (create or detach) for this rule in the draft.
+ * Sent when the user opens a rule that has a pending detach and saves it without
+ * configuring a new ramp schedule, effectively un-queuing the removal.
+ */
+export type InlineRampScheduleClear = {
+  mode: "clear";
 };
 
 /** Update an existing pending/paused ramp schedule. */
@@ -62,6 +77,7 @@ export type InlineRampScheduleUpdate = {
   /** null resets start condition to { trigger: "immediately" }. */
   startCondition?: {
     trigger?: RampStartTrigger;
+    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   } | null;
   disableRuleBefore?: boolean;
@@ -70,6 +86,7 @@ export type InlineRampScheduleUpdate = {
   /** null clears the end condition entirely. */
   endCondition?: {
     trigger?: RampEndTrigger;
+    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   } | null;
 };
@@ -78,21 +95,18 @@ export type PostFeatureRuleBody = {
   rule: FeatureRule;
   environments: string[];
   safeRolloutFields?: CreateSafeRolloutInterface;
-  /** Optional ramp schedule to create, link, or detach atomically with the rule. */
-  rampSchedule?:
-    | InlineRampScheduleCreate
-    | InlineRampScheduleLink
-    | InlineRampScheduleDetach;
+  /** Optional ramp schedule to create or detach atomically with the rule. */
+  rampSchedule?: InlineRampScheduleCreate | InlineRampScheduleDetach;
 };
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
   environment: string;
   i: number;
-  /** Optional ramp schedule to create, update, link, or detach atomically with the rule edit. */
+  /** Optional ramp schedule to create, update, detach, or clear atomically with the rule edit. */
   rampSchedule?:
     | InlineRampScheduleCreate
     | InlineRampScheduleUpdate
-    | InlineRampScheduleLink
-    | InlineRampScheduleDetach;
+    | InlineRampScheduleDetach
+    | InlineRampScheduleClear;
 };

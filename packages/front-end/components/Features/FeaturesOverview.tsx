@@ -80,9 +80,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Markdown from "@/components/Markdown/Markdown";
 import EditFeatureDescriptionModal from "@/components/Features/EditFeatureDescriptionModal";
-import RampScheduleBuilderModal from "@/components/RampSchedule/RampScheduleBuilderModal";
-import RampScheduleEditorModal from "@/components/RampSchedule/RampScheduleEditorModal";
-import RampSchedulesOverview from "@/components/Features/RampSchedulesOverview";
 import CustomFieldDisplay, {
   CustomFieldDraftInfo,
 } from "@/components/CustomFields/CustomFieldDisplay";
@@ -228,25 +225,11 @@ export default function FeaturesOverview({
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
-  const [rampBuilderState, setRampBuilderState] = useState<{
-    ruleId?: string;
-    environment?: string;
-  } | null>(null);
   const [draftModal, setDraftModal] = useState(false);
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
-  const [confirmDeleteRamp, setConfirmDeleteRamp] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [editScheduleRamp, setEditScheduleRamp] =
-    useState<RampScheduleInterface | null>(null);
-  const [pendingRuleEdit, setPendingRuleEdit] = useState<{
-    environment: string;
-    ruleId: string;
-  } | null>(null);
   // Always reflects the current live version — used in async callbacks to avoid
   // stale closure captures when ramp actions auto-publish new revisions.
   const liveVersionRef = useRef(feature.version);
@@ -450,7 +433,12 @@ export default function FeaturesOverview({
     const hasLinkedRamp = rampSchedules?.some((rs) =>
       rs.targets.some((t) => t.activatingRevisionVersion === revision.version),
     );
-    return !!hasLinkedRamp;
+    if (hasLinkedRamp) return true;
+
+    // Also check for pending ramp actions in the draft (create/detach)
+    const hasPendingRampActions =
+      revision.rampActions && revision.rampActions.length > 0;
+    return !!hasPendingRampActions;
   }, [revision, revisions, feature, baseFeature, environments, rampSchedules]);
 
   const bannerRef = useRef<HTMLDivElement>(null);
@@ -1621,51 +1609,6 @@ export default function FeaturesOverview({
             />
           )}
         </Frame>
-        {/* Ramp Schedules */}
-        <Frame mb="4" px="6" py="4">
-          <Flex mb="3" gap="2" align="center" justify="between">
-            <Flex gap="2" align="center">
-              <Heading size="small" as="h4" mb="0">
-                Ramp Schedules
-              </Heading>
-              {(rampSchedules?.length ?? 0) > 0 && (
-                <Badge label={String(rampSchedules!.length)} color="gray" />
-              )}
-            </Flex>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<PiPlus />}
-              onClick={() => setRampBuilderState({})}
-            >
-              New Ramp Schedule
-            </Button>
-          </Flex>
-          {(rampSchedules?.length ?? 0) > 0 ? (
-            <RampSchedulesOverview
-              rampSchedules={rampSchedules!}
-              mutate={async () => {
-                await mutate();
-                setVersion(liveVersionRef.current);
-              }}
-              onEditTarget={(environment, ruleId) =>
-                setPendingRuleEdit({ environment, ruleId })
-              }
-              onEditSchedule={(rs) => setEditScheduleRamp(rs)}
-              onReviewDraft={(v) => {
-                setVersion(v);
-                setReviewModal(true);
-              }}
-              onConfirmDelete={(id, name) => setConfirmDeleteRamp({ id, name })}
-            />
-          ) : (
-            <Text size="small" color="text-low">
-              No ramp schedules yet. Create one to gradually roll out this
-              feature.
-            </Text>
-          )}
-        </Frame>
-
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
@@ -1837,8 +1780,11 @@ export default function FeaturesOverview({
                       holdout={holdout}
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
-                      pendingRuleEdit={pendingRuleEdit}
-                      onPendingRuleEditHandled={() => setPendingRuleEdit(null)}
+                      draftRevision={revision}
+                      onRampReviewDraft={(v) => {
+                        setVersion(v);
+                        setReviewModal(true);
+                      }}
                     />
                   </>
                 ) : (
@@ -1873,17 +1819,6 @@ export default function FeaturesOverview({
             revisionList={revisionList || []}
             mutate={mutate}
             setVersion={setVersion}
-          />
-        )}
-
-        {rampBuilderState !== null && (
-          <RampScheduleBuilderModal
-            feature={feature}
-            environments={environments}
-            initialEnvironment={rampBuilderState.environment}
-            initialRuleId={rampBuilderState.ruleId}
-            onSave={mutate}
-            onCancel={() => setRampBuilderState(null)}
           />
         )}
 
@@ -1968,43 +1903,6 @@ export default function FeaturesOverview({
             close={() => setConflictModal(false)}
             mutate={mutate}
           />
-        )}
-        {editScheduleRamp && (
-          <RampScheduleEditorModal
-            rs={editScheduleRamp}
-            onClose={() => setEditScheduleRamp(null)}
-            onSaved={async () => {
-              await mutate();
-              setEditScheduleRamp(null);
-            }}
-          />
-        )}
-
-        {confirmDeleteRamp && (
-          <Modal
-            trackingEventModalType="delete-ramp-schedule"
-            open={true}
-            close={() => setConfirmDeleteRamp(null)}
-            header="Delete Ramp Schedule"
-            cta="Delete"
-            submitColor="danger"
-            closeCta="Cancel"
-            useRadixButton={true}
-            submit={async () => {
-              await apiCall(`/ramp-schedule/${confirmDeleteRamp.id}`, {
-                method: "DELETE",
-              });
-              await mutate();
-              setConfirmDeleteRamp(null);
-            }}
-          >
-            <p>
-              Are you sure you want to delete{" "}
-              <strong>{confirmDeleteRamp.name}</strong>? The feature rule will
-              remain at its current state but will no longer be automatically
-              advanced.
-            </p>
-          </Modal>
         )}
         {confirmDiscard && (
           <Modal

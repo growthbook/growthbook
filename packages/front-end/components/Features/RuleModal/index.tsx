@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -30,7 +30,10 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -73,9 +76,12 @@ import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSel
 import {
   type RampSectionState,
   defaultRampSectionState,
+  rampScheduleToSectionState,
+  createActionToSectionState,
   buildRampSteps,
   buildStartActions,
   buildEndScheduleActions,
+  buildConditionDefaultEffects,
   validateRampSectionState,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
@@ -93,6 +99,8 @@ export interface Props {
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
   revisionList?: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
+  detachRampOnSave?: boolean;
+  draftRevision?: FeatureRevisionInterface | null;
 }
 
 type RadioSelectorRuleType =
@@ -126,6 +134,8 @@ export default function RuleModal({
   safeRolloutsMap,
   revisionList = [],
   rampSchedules = [],
+  detachRampOnSave,
+  draftRevision,
 }: Props) {
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
@@ -148,8 +158,49 @@ export default function RuleModal({
     ? rampSchedules.find((rs) => rs.targets.some((t) => t.ruleId === rule.id))
     : undefined;
 
+  // Check if there's a pending detach action for this rule in the draft.
+  // When true, the ramp section should open as "off" so users don't think
+  // the schedule is still active. Re-enabling and saving will clear the detach.
+  const hasPendingDetach =
+    rule?.id != null &&
+    (draftRevision?.rampActions ?? []).some(
+      (a) => a.mode === "detach" && a.ruleId === rule.id,
+    );
+
+  // Find a pending create action for this rule, if any (used when no live schedule exists yet).
+  const pendingCreateAction =
+    !ruleRampSchedule && !hasPendingDetach && rule?.id
+      ? (draftRevision?.rampActions ?? []).find(
+          (a) => a.mode === "create" && a.ruleId === rule.id,
+        )
+      : undefined;
+  const pendingCreateActionTyped =
+    pendingCreateAction?.mode === "create" ? pendingCreateAction : undefined;
+
   const [rampSectionState, setRampSectionState] = useState<RampSectionState>(
-    () => defaultRampSectionState(ruleRampSchedule),
+    () => {
+      if (hasPendingDetach) {
+        // Start unchecked ("off"), but keep all the live schedule data so that
+        // toggling the checkbox reveals the real steps/settings instead of an empty template.
+        if (ruleRampSchedule) {
+          return {
+            ...rampScheduleToSectionState(ruleRampSchedule),
+            mode: "off",
+          };
+        }
+        return defaultRampSectionState(undefined);
+      }
+      // If a pending create action exists in the draft (not yet in DB), pre-populate from it
+      if (pendingCreateActionTyped) {
+        return createActionToSectionState(pendingCreateActionTyped);
+      }
+      const baseState = defaultRampSectionState(ruleRampSchedule);
+      // In duplicate mode, convert "edit" mode to "create" to clone the ramp
+      if (mode === "duplicate" && baseState.mode === "edit") {
+        return { ...baseState, mode: "create", linkedRampId: "" };
+      }
+      return baseState;
+    },
   );
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
@@ -213,6 +264,28 @@ export default function RuleModal({
     // Pre-set the ID for new rollout rules so ramp creation can reference it
     // without a second round-trip. Back-end preserves a truthy id from the client.
     ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
+    // Ensure coverage defaults to 1 (100%) for new force rules
+    ...(mode === "create" &&
+    !rule &&
+    defaultRuleValues &&
+    "type" in defaultRuleValues &&
+    defaultRuleValues.type === "force"
+      ? { coverage: 1 }
+      : {}),
+    // Populate hashAttribute and seed for new force rules so they're ready if converted to rollout
+    ...(mode === "create" &&
+    !rule &&
+    defaultRuleValues &&
+    "type" in defaultRuleValues &&
+    defaultRuleValues.type === "force"
+      ? {
+          hashAttribute:
+            attributeSchema?.find((a) => a.hashAttribute)?.property ||
+            attributeSchema?.[0]?.property ||
+            "id",
+          seed: "",
+        }
+      : {}),
   };
 
   // Overview Page
@@ -269,6 +342,50 @@ export default function RuleModal({
         ? "experiment"
         : null;
 
+  // Compute header text and tracking event type - must be before conditional returns
+  const headerText = useMemo(() => {
+    let text =
+      mode === "duplicate"
+        ? "Duplicate "
+        : mode === "create"
+          ? "Add "
+          : "Edit ";
+    text +=
+      ruleType === "force"
+        ? `${mode === "create" ? "new " : ""}Force Value Rule`
+        : ruleType === "rollout"
+          ? `${mode === "create" ? "new " : ""}Percentage Rollout Rule`
+          : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+                ruleType ?? "",
+              ) && experimentType === "bandit"
+            ? `${
+                ruleType === "experiment-ref-new" ? "new" : "existing"
+              } Bandit as Rule`
+            : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+                  ruleType ?? "",
+                ) && experimentType === "experiment"
+              ? `${
+                  ruleType === "experiment-ref-new" ? "new" : "existing"
+                } Experiment as Rule`
+              : ruleType === "safe-rollout"
+                ? "Safe Rollout Rule"
+                : "Rule";
+    text +=
+      ruleType === "safe-rollout"
+        ? ` in ${environment}`
+        : ` in ${selectedEnvironments[0]}${
+            selectedEnvironments.length > 1
+              ? ` + ${selectedEnvironments.length - 1} more`
+              : ""
+          }`;
+    return text;
+  }, [ruleType, experimentType, mode, environment, selectedEnvironments]);
+
+  const trackingEventModalType = useMemo(
+    () => kebabCase(headerText),
+    [headerText],
+  );
+
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
@@ -320,9 +437,63 @@ export default function RuleModal({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
+  // Watch the values we need to track
+  const currentType = form.watch("type");
+  const currentCoverage = form.watch("coverage");
+
+  // Auto-manage rule type and coverage based on ramp state and coverage value.
+  // Force rule → coverage 100%
+  // Coverage < 100% → rollout rule
+  // Coverage back to 100% → force rule (clean state)
+  // Has ramp affecting coverage → rollout rule
+  useEffect(() => {
+    const hasRampWithCoverage =
+      (rampSectionState.mode !== "off" &&
+        (rampSectionState.steps.some(
+          (step) => step.patch.coverage !== undefined,
+        ) ||
+          rampSectionState.startPatch.coverage !== undefined ||
+          rampSectionState.endSchedulePatch.coverage !== undefined)) ||
+      false;
+
+    // Determine target rule type and coverage based on current state
+    let targetType: "force" | "rollout" =
+      currentType === "rollout" ? "rollout" : "force";
+    let targetCoverage = currentCoverage ?? 1;
+
+    // If there's a ramp with coverage, must be rollout
+    if (hasRampWithCoverage) {
+      targetType = "rollout";
+    }
+    // If coverage < 100%, must be rollout
+    else if (currentCoverage !== undefined && currentCoverage < 1) {
+      targetType = "rollout";
+    }
+    // If coverage is 100% (or undefined), can be force
+    else if (currentCoverage === undefined || currentCoverage === 1) {
+      targetType = "force";
+      targetCoverage = 1; // Ensure force rules are always 100%
+    }
+
+    // Update type if it changed
+    if (
+      (currentType === "force" || currentType === "rollout") &&
+      currentType !== targetType
+    ) {
+      form.setValue("type", targetType);
+    }
+
+    // Update coverage if it changed
+    if (targetCoverage !== currentCoverage) {
+      form.setValue("coverage", targetCoverage);
+    }
+  }, [currentType, currentCoverage, rampSectionState, form]);
+
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
     const existingSavedGroups = form.watch("savedGroups");
+    const existingHashAttribute = form.watch("hashAttribute");
+    const existingSeed = form.watch("seed");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -340,6 +511,12 @@ export default function RuleModal({
     if (existingSavedGroups) {
       newVal.savedGroups = existingSavedGroups;
     }
+    if (existingHashAttribute) {
+      (newVal as Record<string, unknown>).hashAttribute = existingHashAttribute;
+    }
+    if (existingSeed) {
+      (newVal as Record<string, unknown>).seed = existingSeed;
+    }
     form.reset(newVal);
     // Preserve the pre-generated rule ID so ramp patches stay in sync with
     // the rule after a type switch. getDefaultRuleValue returns id:"" which
@@ -350,9 +527,6 @@ export default function RuleModal({
   }
 
   function scrubAndChangeRuleType(v: string) {
-    if (v === "force" || v === "rollout") {
-      setRampSectionState((prev) => scrubRampStateForRuleType(prev, v));
-    }
     changeRuleType(v);
   }
 
@@ -698,6 +872,13 @@ export default function RuleModal({
         if (safeRolloutFields?.maxDuration) {
           safeRolloutFields.maxDuration.unit = "days";
         }
+      } else if (values.type === "force") {
+        // Force rules don't support hashAttribute or seed; strip them from the form
+        // They're only in the form state to be ready if converted to rollout
+        // eslint-disable-next-line
+        delete (values as any).hashAttribute;
+        // eslint-disable-next-line
+        delete (values as any).seed;
       }
       if (
         values.scheduleRules &&
@@ -725,7 +906,7 @@ export default function RuleModal({
         !isRampSectionConfigured(rampSectionState)
       ) {
         throw new Error(
-          "Please choose a ramp preset or add at least one step before saving.",
+          "Ramp schedule requires either steps or scheduled start or end dates.",
         );
       }
 
@@ -766,121 +947,179 @@ export default function RuleModal({
             rule?.id
           ) {
             const ruleId = rule.id;
-            // Defensively scrub patches to only include fields valid for this rule type
-            const rampState =
-              values.type === "force" || values.type === "rollout"
-                ? scrubRampStateForRuleType(
-                    rampSectionState,
-                    values.type as keyof typeof VALID_STEP_FIELDS,
-                  )
-                : rampSectionState;
-            if (rampState.mode === "create" && rampState.name.trim()) {
-              const startActions = buildStartActions(
-                rampState.startPatch,
-                "t1",
-                ruleId,
-              );
-              const endActions = buildEndScheduleActions(
-                rampState.endSchedulePatch,
-                "t1",
-                ruleId,
-              );
-              const startTrigger =
-                rampState.startMode === "manual"
-                  ? ({ type: "manual" } as const)
-                  : rampState.startMode === "specific-time" &&
-                      rampState.startTime
-                    ? ({
-                        type: "scheduled",
-                        at: rampState.startTime,
-                      } as const)
-                    : ({ type: "immediately" } as const);
-              rampScheduleInline = {
-                mode: "create",
-                name: rampState.name.trim(),
-                environment,
-                steps: buildRampSteps(rampState.steps, "t1", ruleId),
-                startCondition: {
-                  trigger: startTrigger,
-                  actions: startActions.length ? startActions : undefined,
-                },
-                disableRuleBefore: rampState.disableRuleBefore || undefined,
-                disableRuleAfter: rampState.disableRuleAfter || undefined,
-                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
-                endCondition: rampState.endScheduleAt
-                  ? {
-                      trigger: {
-                        type: "scheduled",
-                        at: rampState.endScheduleAt,
-                      },
-                      actions: endActions.length ? endActions : undefined,
-                    }
-                  : endActions.length
-                    ? { actions: endActions }
-                    : undefined,
-              };
-            } else if (rampState.mode === "detach" && ruleRampSchedule?.id) {
+
+            // If detachRampOnSave flag is set, send a detach payload
+            if (detachRampOnSave && ruleRampSchedule?.id) {
               rampScheduleInline = {
                 mode: "detach",
                 rampScheduleId: ruleRampSchedule.id,
+                deleteScheduleWhenEmpty: true,
               };
-            } else if (rampState.mode === "link" && rampState.linkedRampId) {
-              rampScheduleInline = {
-                mode: "link",
-                rampScheduleId: rampState.linkedRampId,
-                environment,
-              };
-            } else if (
-              rampState.mode === "edit" &&
-              ruleRampSchedule?.id &&
-              !["running", "ready", "pending-approval", "conflict"].includes(
-                ruleRampSchedule.status,
-              )
-            ) {
-              const startActions = buildStartActions(
-                rampState.startPatch,
-                "t1",
-                ruleId,
-              );
-              const endActions = buildEndScheduleActions(
-                rampState.endSchedulePatch,
-                "t1",
-                ruleId,
-              );
-              const startTrigger =
-                rampState.startMode === "manual"
-                  ? ({ type: "manual" } as const)
-                  : rampState.startMode === "specific-time" &&
-                      rampState.startTime
-                    ? ({
-                        type: "scheduled",
-                        at: rampState.startTime,
-                      } as const)
-                    : ({ type: "immediately" } as const);
-              rampScheduleInline = {
-                mode: "update",
-                rampScheduleId: ruleRampSchedule.id,
-                name: rampState.name.trim() || undefined,
-                steps: buildRampSteps(rampState.steps, "t1", ruleId),
-                startCondition: {
-                  trigger: startTrigger,
-                  actions: startActions.length ? startActions : undefined,
-                },
-                disableRuleBefore: rampState.disableRuleBefore || undefined,
-                disableRuleAfter: rampState.disableRuleAfter || undefined,
-                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
-                endCondition: rampState.endScheduleAt
-                  ? {
-                      trigger: {
-                        type: "scheduled",
-                        at: rampState.endScheduleAt,
-                      },
-                      actions: endActions.length ? endActions : undefined,
-                    }
-                  : endActions.length
-                    ? { actions: endActions }
-                    : null,
-              };
+            } else if (hasPendingDetach && rampSectionState.mode !== "off") {
+              // User re-checked the ramp section to cancel a pending removal — clear the detach action
+              rampScheduleInline = { mode: "clear" };
+            } else {
+              // Otherwise, use normal ramp section state logic
+              // Defensively scrub patches to only include fields valid for this rule type
+              const rampState =
+                values.type === "force" || values.type === "rollout"
+                  ? scrubRampStateForRuleType(
+                      rampSectionState,
+                      values.type as keyof typeof VALID_STEP_FIELDS,
+                    )
+                  : rampSectionState;
+              if (rampState.mode === "create" && rampState.name.trim()) {
+                const startActions = buildStartActions(
+                  rampState.startPatch,
+                  "t1",
+                  ruleId,
+                );
+                const endActions = buildEndScheduleActions(
+                  rampState.endSchedulePatch,
+                  "t1",
+                  ruleId,
+                );
+                const startTrigger =
+                  rampState.startMode === "manual"
+                    ? ({ type: "manual" } as const)
+                    : rampState.startMode === "specific-time" &&
+                        rampState.startTime
+                      ? ({
+                          type: "scheduled",
+                          at: rampState.startTime,
+                        } as const)
+                      : ({ type: "immediately" } as const);
+                rampScheduleInline = {
+                  mode: "create",
+                  name: rampState.name.trim(),
+                  environment,
+                  // New ramps created from a rule always start as single-impl — sync defaultEffects.
+                  steps: buildRampSteps(rampState.steps, "t1", ruleId, true),
+                  startCondition: {
+                    trigger: startTrigger,
+                    defaultEffects: buildConditionDefaultEffects(
+                      rampState.startPatch,
+                    ),
+                    actions: startActions.length ? startActions : undefined,
+                  },
+                  disableRuleBefore: rampState.disableRuleBefore || undefined,
+                  disableRuleAfter: rampState.disableRuleAfter || undefined,
+                  endEarlyWhenStepsComplete:
+                    rampState.endEarlyWhenStepsComplete,
+                  endCondition: rampState.endScheduleAt
+                    ? {
+                        trigger: {
+                          type: "scheduled",
+                          at: rampState.endScheduleAt,
+                        },
+                        defaultEffects: buildConditionDefaultEffects(
+                          rampState.endSchedulePatch,
+                        ),
+                        actions: endActions.length ? endActions : undefined,
+                      }
+                    : endActions.length
+                      ? {
+                          defaultEffects: buildConditionDefaultEffects(
+                            rampState.endSchedulePatch,
+                          ),
+                          actions: endActions,
+                        }
+                      : undefined,
+                };
+              } else if (
+                rampState.mode === "edit" &&
+                ruleRampSchedule?.id &&
+                !["running", "ready", "pending-approval", "conflict"].includes(
+                  ruleRampSchedule.status,
+                )
+              ) {
+                const startActions = buildStartActions(
+                  rampState.startPatch,
+                  "t1",
+                  ruleId,
+                );
+                const endActions = buildEndScheduleActions(
+                  rampState.endSchedulePatch,
+                  "t1",
+                  ruleId,
+                );
+                const startTrigger =
+                  rampState.startMode === "manual"
+                    ? ({ type: "manual" } as const)
+                    : rampState.startMode === "specific-time" &&
+                        rampState.startTime
+                      ? ({
+                          type: "scheduled",
+                          at: rampState.startTime,
+                        } as const)
+                      : ({ type: "immediately" } as const);
+                const isSingleImpl =
+                  (ruleRampSchedule.targets.length ?? 0) <= 1;
+                rampScheduleInline = {
+                  mode: "update",
+                  rampScheduleId: ruleRampSchedule.id,
+                  name: rampState.name.trim() || undefined,
+                  steps: buildRampSteps(
+                    rampState.steps,
+                    "t1",
+                    ruleId,
+                    isSingleImpl,
+                  ),
+                  startCondition: {
+                    trigger: startTrigger,
+                    ...(isSingleImpl
+                      ? {
+                          defaultEffects: buildConditionDefaultEffects(
+                            rampState.startPatch,
+                          ),
+                        }
+                      : {}),
+                    actions: startActions.length ? startActions : undefined,
+                  },
+                  disableRuleBefore: rampState.disableRuleBefore || undefined,
+                  disableRuleAfter: rampState.disableRuleAfter || undefined,
+                  endEarlyWhenStepsComplete:
+                    rampState.endEarlyWhenStepsComplete,
+                  endCondition: rampState.endScheduleAt
+                    ? {
+                        trigger: {
+                          type: "scheduled",
+                          at: rampState.endScheduleAt,
+                        },
+                        ...(isSingleImpl
+                          ? {
+                              defaultEffects: buildConditionDefaultEffects(
+                                rampState.endSchedulePatch,
+                              ),
+                            }
+                          : {}),
+                        actions: endActions.length ? endActions : undefined,
+                      }
+                    : endActions.length
+                      ? {
+                          ...(isSingleImpl
+                            ? {
+                                defaultEffects: buildConditionDefaultEffects(
+                                  rampState.endSchedulePatch,
+                                ),
+                              }
+                            : {}),
+                          actions: endActions,
+                        }
+                      : null,
+                };
+              } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
+                // User unchecked the ramp schedule checkbox — detach this rule from the ramp
+                rampScheduleInline = {
+                  mode: "detach",
+                  rampScheduleId: ruleRampSchedule.id,
+                  deleteScheduleWhenEmpty: true,
+                };
+              } else if (rampState.mode === "off" && hasPendingDetach) {
+                // User saved without re-configuring a schedule while a pending detach exists —
+                // clear the detach action from the draft (cancel the pending removal)
+                rampScheduleInline = { mode: "clear" };
+              }
             }
           }
 
@@ -904,7 +1143,6 @@ export default function RuleModal({
         let rampScheduleInline: PostFeatureRuleBody["rampSchedule"] | undefined;
         if (
           (values.type === "rollout" || values.type === "force") &&
-          mode !== "duplicate" &&
           rampSectionState.mode !== "off"
         ) {
           const effectiveRuleId = pregenRuleId;
@@ -959,12 +1197,6 @@ export default function RuleModal({
                 : endActions.length
                   ? { actions: endActions }
                   : undefined,
-            };
-          } else if (rampState.mode === "link" && rampState.linkedRampId) {
-            rampScheduleInline = {
-              mode: "link",
-              rampScheduleId: rampState.linkedRampId,
-              environment,
             };
           }
         }
@@ -1038,7 +1270,6 @@ export default function RuleModal({
           <Text size="4" weight="bold" as="div" mb="4">
             Select Implementation
           </Text>
-          <Text>MANUAL</Text>
           <RadioCards
             mt="2"
             mb="5"
@@ -1046,15 +1277,9 @@ export default function RuleModal({
             options={[
               {
                 value: "force",
-                label: "Force value",
+                label: "Targeting Rule",
                 description:
-                  "Target groups of users and give them all the same value",
-              },
-              {
-                value: "rollout",
-                label: "Percentage rollout",
-                description:
-                  "Release to small percentage of users while monitoring logs",
+                  "Assign a specific feature value to groups of users or control the rollout percentage",
               },
             ]}
             value={overviewRadioSelectorRuleType}
@@ -1220,38 +1445,6 @@ export default function RuleModal({
     );
   }
 
-  let headerText =
-    mode === "duplicate" ? "Duplicate " : mode === "create" ? "Add " : "Edit ";
-  headerText +=
-    ruleType === "force"
-      ? `${mode === "create" ? "new " : ""}Force Value Rule`
-      : ruleType === "rollout"
-        ? `${mode === "create" ? "new " : ""}Percentage Rollout Rule`
-        : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-              ruleType ?? "",
-            ) && experimentType === "bandit"
-          ? `${
-              ruleType === "experiment-ref-new" ? "new" : "existing"
-            } Bandit as Rule`
-          : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-                ruleType ?? "",
-              ) && experimentType === "experiment"
-            ? `${
-                ruleType === "experiment-ref-new" ? "new" : "existing"
-              } Experiment as Rule`
-            : ruleType === "safe-rollout"
-              ? "Safe Rollout Rule"
-              : "Rule";
-  const trackingEventModalType = kebabCase(headerText);
-  headerText +=
-    ruleType === "safe-rollout"
-      ? ` in ${environment}`
-      : ` in ${selectedEnvironments[0]}${
-          selectedEnvironments.length > 1
-            ? ` + ${selectedEnvironments.length - 1} more`
-            : ""
-        }`;
-
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -1301,12 +1494,11 @@ export default function RuleModal({
             conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
-            featureRampSchedules={mode !== "duplicate" ? rampSchedules : []}
-            ruleRampSchedule={
-              mode !== "duplicate" ? ruleRampSchedule : undefined
-            }
+            featureRampSchedules={rampSchedules}
+            ruleRampSchedule={ruleRampSchedule}
             rampSectionState={rampSectionState}
             setRampSectionState={setRampSectionState}
+            pendingDetach={hasPendingDetach}
             onChangeRuleType={scrubAndChangeRuleType}
           />
         )}

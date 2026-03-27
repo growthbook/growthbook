@@ -112,8 +112,6 @@ properties:
                     type: string
                   force:
                     description: "Force value for force rules"
-        notifyOnEntry:
-          type: boolean
   autoRollback:
     type: object
     description: "Criteria-driven auto-rollback configuration"

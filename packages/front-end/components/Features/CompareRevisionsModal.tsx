@@ -444,7 +444,7 @@ function rampDiffsForRevision(
   featureId: string,
   rampSchedules: RampScheduleInterface[],
 ): FeatureRevisionDiff[] {
-  if (!newerRevision || !rampSchedules.length) return [];
+  if (!newerRevision) return [];
   const diffs: FeatureRevisionDiff[] = [];
 
   // Activating: any ramp whose activating revision matches newerRevision (any status)
@@ -526,6 +526,73 @@ function rampDiffsForRevision(
         },
       ],
     });
+  }
+
+  // Pending ramp actions: display "create" and "detach" actions queued in the draft
+  if (newerRevision.rampActions) {
+    for (const action of newerRevision.rampActions) {
+      if (action.mode === "create") {
+        diffs.push({
+          title: `Ramp Schedule – ${action.name} (pending creation)`,
+          a: "",
+          b: JSON.stringify(
+            {
+              name: action.name,
+              environment: action.environment,
+              ruleId: action.ruleId,
+              startCondition: action.startCondition,
+              steps: action.steps,
+              endCondition: action.endCondition,
+              disableRuleBefore: action.disableRuleBefore,
+              disableRuleAfter: action.disableRuleAfter,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0">
+              Creates new ramp schedule <strong>{action.name}</strong> for rule{" "}
+              <code>{action.ruleId}</code> — {action.steps.length} step
+              {action.steps.length !== 1 ? "s" : ""}.
+            </p>
+          ),
+          badges: [
+            {
+              label: `Create ramp: ${action.name}`,
+              action: "create ramp",
+            },
+          ],
+        });
+      } else if (action.mode === "detach") {
+        diffs.push({
+          title: `Remove from Ramp Schedule (pending)`,
+          a: "",
+          b: JSON.stringify(
+            {
+              rampScheduleId: action.rampScheduleId,
+              ruleId: action.ruleId,
+              deleteScheduleWhenEmpty: action.deleteScheduleWhenEmpty,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0">
+              This rule will be removed from its ramp schedule
+              {action.deleteScheduleWhenEmpty &&
+                " and the schedule will be deleted if empty"}
+              .
+            </p>
+          ),
+          badges: [
+            {
+              label: "Remove from ramp schedule",
+              action: "remove ramp",
+            },
+          ],
+        });
+      }
+    }
   }
 
   return diffs;

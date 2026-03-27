@@ -35,6 +35,8 @@ import {
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionRampCreateAction,
+  RevisionRampDetachAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -70,7 +72,6 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import {
-  addFeatureRule,
   addLinkedExperiment,
   copyFeatureEnvironmentRules,
   createFeature,
@@ -1788,13 +1789,92 @@ export async function postFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
-  await addFeatureRule(
+
+  // Assign rule ID if not present
+  if (!rule.id) {
+    rule.id = generateRuleId();
+  }
+
+  // Prepare ramp action if needed (will be combined with rule addition)
+  let rampActionsUpdate:
+    | RevisionRampCreateAction
+    | RevisionRampDetachAction
+    | undefined;
+  if (
+    rampSchedulePayload &&
+    (rule.type === "rollout" || rule.type === "force") &&
+    rule.id
+  ) {
+    if (rampSchedulePayload.mode === "create") {
+      const createAction: RevisionRampCreateAction = {
+        mode: "create",
+        name: rampSchedulePayload.name,
+        environment: rampSchedulePayload.environment,
+        steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
+        startCondition:
+          rampSchedulePayload.startCondition as RevisionRampCreateAction["startCondition"],
+        disableRuleBefore: rampSchedulePayload.disableRuleBefore,
+        disableRuleAfter: rampSchedulePayload.disableRuleAfter,
+        endEarlyWhenStepsComplete:
+          rampSchedulePayload.endEarlyWhenStepsComplete,
+        endCondition: (rampSchedulePayload.endCondition ??
+          undefined) as RevisionRampCreateAction["endCondition"],
+        ruleId: rule.id,
+      };
+      rampActionsUpdate = createAction;
+    } else if (rampSchedulePayload.mode === "detach") {
+      const existingActions = revision.rampActions ?? [];
+      const hasPendingCreate = existingActions.some(
+        (a) => a.mode === "create" && a.ruleId === rule.id,
+      );
+      if (!hasPendingCreate) {
+        const detachAction: RevisionRampDetachAction = {
+          mode: "detach",
+          rampScheduleId: rampSchedulePayload.rampScheduleId,
+          ruleId: rule.id,
+          deleteScheduleWhenEmpty: rampSchedulePayload.deleteScheduleWhenEmpty,
+        };
+        rampActionsUpdate = detachAction;
+      }
+    }
+  }
+
+  // Prepare rule addition changes (also includes ramp actions if needed)
+  const ruleAdditionChanges = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+    status: revision.status,
+  };
+  selectedEnvironments.forEach((env) => {
+    ruleAdditionChanges.rules[env] = ruleAdditionChanges.rules[env] || [];
+    ruleAdditionChanges.rules[env].push(rule);
+  });
+
+  // Combine rule addition and ramp changes into a single revision update
+  const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
+  if (rampActionsUpdate) {
+    const existingActions = revision.rampActions ?? [];
+    const filtered = existingActions.filter(
+      (a) =>
+        !(
+          (a.mode === "create" && a.ruleId === rampActionsUpdate!.ruleId) ||
+          (a.mode === "detach" && a.ruleId === rampActionsUpdate!.ruleId)
+        ),
+    );
+    combinedChanges.rampActions = [...filtered, rampActionsUpdate];
+  }
+
+  // Single updateRevision call combines both rule addition and ramp changes atomically
+  await updateRevision(
     context,
     feature,
     revision,
-    selectedEnvironments,
-    rule,
-    res.locals.eventAudit,
+    combinedChanges,
+    {
+      user: res.locals.eventAudit,
+      action: "add rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
+      subject: `to ${selectedEnvironments.join(", ")}`,
+      value: JSON.stringify(rule),
+    },
     resetReview,
   );
 
@@ -1805,110 +1885,6 @@ export async function postFeatureRule(
   ) {
     await addLinkedFeatureToExperiment(context, rule.experimentId, feature.id);
     await addLinkedExperiment(feature, rule.experimentId);
-  }
-
-  // Atomically create or link a ramp schedule if requested
-  if (rampSchedulePayload && rule.type === "rollout" && rule.id) {
-    if (rampSchedulePayload.mode === "create") {
-      const targetId = "t1";
-      const enabledPatch = { ruleId: rule.id, enabled: true };
-      const disabledPatch = { ruleId: rule.id, enabled: false };
-      const disableBefore = !!rampSchedulePayload.disableRuleBefore;
-      const disableAfter = !!rampSchedulePayload.disableRuleAfter;
-
-      const baseStartActions =
-        rampSchedulePayload.startCondition?.actions ?? [];
-      const startConditionActions = disableBefore
-        ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
-        : baseStartActions;
-
-      const rawStartTrigger = rampSchedulePayload.startCondition?.trigger;
-      const startTrigger =
-        rawStartTrigger?.type === "scheduled"
-          ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
-          : (rawStartTrigger ?? { type: "immediately" as const });
-
-      const baseEndActions = rampSchedulePayload.endCondition?.actions ?? [];
-      const endConditionActions = disableAfter
-        ? [...baseEndActions, { targetId, patch: disabledPatch }]
-        : baseEndActions;
-
-      const rawEndTrigger = rampSchedulePayload.endCondition?.trigger;
-      const endTrigger = rawEndTrigger
-        ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-        : undefined;
-      const endCondition =
-        endTrigger || endConditionActions.length
-          ? { trigger: endTrigger, actions: endConditionActions }
-          : undefined;
-
-      await context.models.rampSchedules.create({
-        name: rampSchedulePayload.name,
-        entityType: "feature",
-        entityId: feature.id,
-        targets: [
-          {
-            id: targetId,
-            entityType: "feature",
-            entityId: feature.id,
-            ruleId: rule.id,
-            environment: rampSchedulePayload.environment,
-            status: "active",
-            // Track which revision version activates this ramp so that onRevisionPublished
-            // can query ramps directly without relying on revision-side metadata.
-            activatingRevisionVersion: revision.version,
-          },
-        ],
-        steps: rampSchedulePayload.steps,
-        startCondition: {
-          trigger: startTrigger,
-          actions: startConditionActions.length
-            ? startConditionActions
-            : undefined,
-        },
-        disableRuleBefore: disableBefore || undefined,
-        disableRuleAfter: disableAfter || undefined,
-        endEarlyWhenStepsComplete:
-          rampSchedulePayload.endEarlyWhenStepsComplete,
-        endCondition,
-        // Ramp stays "pending" until the activating revision is published
-        status: "pending",
-        currentStepIndex: -1,
-        nextStepAt: null,
-        stepHistory: [],
-      });
-    } else if (rampSchedulePayload.mode === "link") {
-      const existing = await context.models.rampSchedules.getById(
-        rampSchedulePayload.rampScheduleId,
-      );
-      if (existing) {
-        await context.models.rampSchedules.updateById(existing.id, {
-          targets: [
-            ...existing.targets,
-            {
-              id: `t${existing.targets.length + 1}`,
-              entityType: "feature",
-              entityId: feature.id,
-              ruleId: rule.id,
-              environment: rampSchedulePayload.environment,
-              status: "active",
-            },
-          ],
-        });
-      }
-    } else if (rampSchedulePayload.mode === "detach") {
-      const existing = await context.models.rampSchedules.getById(
-        rampSchedulePayload.rampScheduleId,
-      );
-      if (existing) {
-        const remainingTargets = existing.targets.filter(
-          (t) => t.ruleId !== rule.id,
-        );
-        await context.models.rampSchedules.updateById(existing.id, {
-          targets: remainingTargets,
-        });
-      }
-    }
   }
 
   res.status(200).json({
@@ -2662,175 +2638,171 @@ export async function putFeatureRule(
   const existingRuleId: string | undefined =
     (revision.rules?.[environment]?.[i]?.id as string | undefined) ?? undefined;
 
-  await editFeatureRule(
+  // Prepare ramp action changes if needed (will be combined with rule changes)
+  let rampActionsUpdate:
+    | RevisionRampCreateAction
+    | RevisionRampDetachAction
+    | undefined;
+  if (rampSchedulePayload && existingRuleId) {
+    const ruleId = existingRuleId;
+    if (rampSchedulePayload.mode === "create") {
+      const createAction: RevisionRampCreateAction = {
+        mode: "create",
+        name: rampSchedulePayload.name,
+        environment: rampSchedulePayload.environment,
+        steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
+        startCondition:
+          rampSchedulePayload.startCondition as RevisionRampCreateAction["startCondition"],
+        disableRuleBefore: rampSchedulePayload.disableRuleBefore,
+        disableRuleAfter: rampSchedulePayload.disableRuleAfter,
+        endEarlyWhenStepsComplete:
+          rampSchedulePayload.endEarlyWhenStepsComplete,
+        endCondition: (rampSchedulePayload.endCondition ??
+          undefined) as RevisionRampCreateAction["endCondition"],
+        ruleId,
+      };
+      rampActionsUpdate = createAction;
+    } else if (rampSchedulePayload.mode === "detach") {
+      const hasPendingCreate = (revision.rampActions ?? []).some(
+        (a) => a.mode === "create" && a.ruleId === ruleId,
+      );
+      if (!hasPendingCreate) {
+        const detachAction: RevisionRampDetachAction = {
+          mode: "detach",
+          rampScheduleId: rampSchedulePayload.rampScheduleId,
+          ruleId,
+          deleteScheduleWhenEmpty: rampSchedulePayload.deleteScheduleWhenEmpty,
+        };
+        rampActionsUpdate = detachAction;
+      }
+    }
+    // "clear" removes any pending ramp action for this rule without adding a new one
+  }
+
+  // Prepare rule update changes
+  const ruleChanges = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+  };
+  if (!ruleChanges.rules[environment]) {
+    ruleChanges.rules[environment] = [];
+  }
+  if (!ruleChanges.rules[environment][i]) {
+    throw new Error("Unknown rule");
+  }
+  // Merge partial updates with existing rule
+  ruleChanges.rules[environment][i] = {
+    ...ruleChanges.rules[environment][i],
+    ...rule,
+  } as FeatureRule;
+
+  // Combine rule and ramp changes into a single revision update
+  const combinedChanges: Record<string, unknown> = ruleChanges;
+  if (rampSchedulePayload?.mode === "clear" && existingRuleId) {
+    // Strip any pending create/detach action for this rule
+    const existingActions = revision.rampActions ?? [];
+    combinedChanges.rampActions = existingActions.filter(
+      (a) =>
+        !(
+          (a.mode === "create" && a.ruleId === existingRuleId) ||
+          (a.mode === "detach" && a.ruleId === existingRuleId)
+        ),
+    );
+  } else if (rampActionsUpdate) {
+    const existingActions = revision.rampActions ?? [];
+    const filtered = existingActions.filter(
+      (a) =>
+        !(
+          (a.mode === "create" && a.ruleId === rampActionsUpdate!.ruleId) ||
+          (a.mode === "detach" && a.ruleId === rampActionsUpdate!.ruleId)
+        ),
+    );
+    combinedChanges.rampActions = [...filtered, rampActionsUpdate];
+  }
+
+  // Single updateRevision call combines both rule and ramp changes atomically
+  await updateRevision(
     context,
     feature,
     revision,
-    environment,
-    i,
-    rule,
-    res.locals.eventAudit,
+    combinedChanges,
+    {
+      user: res.locals.eventAudit,
+      action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
+      subject: `${environment} rule ${i}`,
+      value: JSON.stringify(rule),
+    },
     resetReview,
   );
 
-  // Atomically handle ramp schedule operations alongside the rule edit.
-  if (rampSchedulePayload && existingRuleId) {
-    const ruleId = existingRuleId;
-
-    if (rampSchedulePayload.mode === "create") {
-      const targetId = "t1";
-      const disableBefore2 = !!rampSchedulePayload.disableRuleBefore;
-      const disableAfter2 = !!rampSchedulePayload.disableRuleAfter;
-      const enabledPatch = { ruleId, enabled: true };
-      const disabledPatch = { ruleId, enabled: false };
-
-      const baseStartActions =
-        rampSchedulePayload.startCondition?.actions ?? [];
-      const startConditionActions = disableBefore2
-        ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
-        : baseStartActions;
-
-      const rawStartTrigger = rampSchedulePayload.startCondition?.trigger;
-      const startTrigger =
-        rawStartTrigger?.type === "scheduled"
-          ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
-          : (rawStartTrigger ?? { type: "immediately" as const });
-
-      const baseEndActions = rampSchedulePayload.endCondition?.actions ?? [];
-      const endConditionActions = disableAfter2
-        ? [...baseEndActions, { targetId, patch: disabledPatch }]
-        : baseEndActions;
-
-      const rawEndTrigger = rampSchedulePayload.endCondition?.trigger;
-      const endTrigger = rawEndTrigger
-        ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-        : undefined;
-      const endCondition =
-        endTrigger || endConditionActions.length
-          ? { trigger: endTrigger, actions: endConditionActions }
-          : undefined;
-
-      await context.models.rampSchedules.create({
-        name: rampSchedulePayload.name,
-        entityType: "feature",
-        entityId: feature.id,
-        targets: [
-          {
-            id: targetId,
-            entityType: "feature",
-            entityId: feature.id,
-            ruleId,
-            environment: rampSchedulePayload.environment,
-            status: "active",
-            activatingRevisionVersion: revision.version,
-          },
-        ],
-        steps: rampSchedulePayload.steps,
-        startCondition: {
-          trigger: startTrigger,
-          actions: startConditionActions.length
-            ? startConditionActions
-            : undefined,
-        },
-        disableRuleBefore: disableBefore2 || undefined,
-        disableRuleAfter: disableAfter2 || undefined,
-        endEarlyWhenStepsComplete:
-          rampSchedulePayload.endEarlyWhenStepsComplete,
-        endCondition,
-        status: "pending",
-        currentStepIndex: -1,
-        nextStepAt: null,
-        stepHistory: [],
-      });
-    } else if (rampSchedulePayload.mode === "update") {
-      const existing = await context.models.rampSchedules.getById(
-        rampSchedulePayload.rampScheduleId,
-      );
-      if (
-        existing &&
-        ["pending", "ready", "paused"].includes(existing.status)
-      ) {
-        const updates: Record<string, unknown> = {};
-        if (rampSchedulePayload.name !== undefined)
-          updates.name = rampSchedulePayload.name;
-        if (rampSchedulePayload.steps !== undefined)
-          updates.steps = rampSchedulePayload.steps;
-        if (rampSchedulePayload.startCondition !== undefined) {
-          const sc = rampSchedulePayload.startCondition;
-          if (!sc) {
-            updates.startCondition = { trigger: { type: "immediately" } };
-          } else {
-            const rawTrigger = sc.trigger;
-            const trigger =
-              rawTrigger?.type === "scheduled"
-                ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-                : (rawTrigger ?? { type: "immediately" as const });
-            updates.startCondition = {
-              trigger,
-              actions: sc.actions ?? undefined,
-            };
-          }
-        }
-        if (rampSchedulePayload.disableRuleBefore !== undefined)
-          updates.disableRuleBefore =
-            rampSchedulePayload.disableRuleBefore ?? undefined;
-        if (rampSchedulePayload.disableRuleAfter !== undefined)
-          updates.disableRuleAfter =
-            rampSchedulePayload.disableRuleAfter ?? undefined;
-        if (rampSchedulePayload.endEarlyWhenStepsComplete !== undefined)
-          updates.endEarlyWhenStepsComplete =
-            rampSchedulePayload.endEarlyWhenStepsComplete;
-        if (rampSchedulePayload.endCondition !== undefined) {
-          const ec = rampSchedulePayload.endCondition;
-          if (!ec) {
-            updates.endCondition = undefined;
-          } else {
-            const rawTrigger = ec.trigger;
-            const trigger = rawTrigger
+  // Handle real-time "update" mode separately (operates on live schedule, not revision-bound)
+  // Gracefully skip if the schedule no longer exists (e.g., was deleted or reverted away).
+  if (rampSchedulePayload && rampSchedulePayload.mode === "update") {
+    const existing = await context.models.rampSchedules.getById(
+      rampSchedulePayload.rampScheduleId,
+    );
+    if (existing && ["pending", "ready", "paused"].includes(existing.status)) {
+      const updates: Record<string, unknown> = {};
+      // Remap "t1" placeholder targetId references to the real target UUID.
+      // The frontend always uses "t1" when building step/condition actions; the
+      // actual UUID was assigned at schedule creation and must be preserved.
+      const primaryTargetId = existing.targets.find(
+        (t) => t.status === "active",
+      )?.id;
+      const remapT1 = <T extends { targetId: string }>(a: T): T =>
+        primaryTargetId && a.targetId === "t1"
+          ? { ...a, targetId: primaryTargetId }
+          : a;
+      if (rampSchedulePayload.name !== undefined)
+        updates.name = rampSchedulePayload.name;
+      if (rampSchedulePayload.steps !== undefined) {
+        updates.steps = rampSchedulePayload.steps.map((step) => ({
+          ...step,
+          actions: (step.actions ?? []).map(remapT1),
+        }));
+      }
+      if (rampSchedulePayload.startCondition !== undefined) {
+        const sc = rampSchedulePayload.startCondition;
+        if (!sc) {
+          updates.startCondition = { trigger: { type: "immediately" } };
+        } else {
+          const rawTrigger = sc.trigger;
+          const trigger =
+            rawTrigger?.type === "scheduled"
               ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-              : undefined;
-            updates.endCondition = {
-              trigger,
-              actions: ec.actions ?? undefined,
-            };
-          }
+              : (rawTrigger ?? { type: "immediately" as const });
+          const remappedActions = (sc.actions ?? []).map(remapT1);
+          updates.startCondition = {
+            trigger,
+            actions: remappedActions.length ? remappedActions : undefined,
+          };
         }
-        if (rampSchedulePayload.endEarlyWhenStepsComplete !== undefined)
-          updates.endEarlyWhenStepsComplete =
-            rampSchedulePayload.endEarlyWhenStepsComplete;
-        await context.models.rampSchedules.updateById(existing.id, updates);
       }
-    } else if (rampSchedulePayload.mode === "link") {
-      const existing = await context.models.rampSchedules.getById(
-        rampSchedulePayload.rampScheduleId,
-      );
-      if (existing) {
-        await context.models.rampSchedules.updateById(existing.id, {
-          targets: [
-            ...existing.targets,
-            {
-              id: `t${existing.targets.length + 1}`,
-              entityType: "feature",
-              entityId: feature.id,
-              ruleId,
-              environment: rampSchedulePayload.environment,
-              status: "active",
-            },
-          ],
-        });
+      if (rampSchedulePayload.disableRuleBefore !== undefined)
+        updates.disableRuleBefore =
+          rampSchedulePayload.disableRuleBefore ?? undefined;
+      if (rampSchedulePayload.disableRuleAfter !== undefined)
+        updates.disableRuleAfter =
+          rampSchedulePayload.disableRuleAfter ?? undefined;
+      if (rampSchedulePayload.endEarlyWhenStepsComplete !== undefined)
+        updates.endEarlyWhenStepsComplete =
+          rampSchedulePayload.endEarlyWhenStepsComplete;
+      if (rampSchedulePayload.endCondition !== undefined) {
+        const ec = rampSchedulePayload.endCondition;
+        if (!ec) {
+          updates.endCondition = undefined;
+        } else {
+          const rawTrigger = ec.trigger;
+          const trigger = rawTrigger
+            ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+            : undefined;
+          const remappedActions = (ec.actions ?? []).map(remapT1);
+          updates.endCondition = {
+            trigger,
+            actions: remappedActions.length ? remappedActions : undefined,
+          };
+        }
       }
-    } else if (rampSchedulePayload.mode === "detach") {
-      const existing = await context.models.rampSchedules.getById(
-        rampSchedulePayload.rampScheduleId,
-      );
-      if (existing) {
-        const remainingTargets = existing.targets.filter(
-          (t) => t.ruleId !== ruleId,
-        );
-        await context.models.rampSchedules.updateById(existing.id, {
-          targets: remainingTargets,
-        });
-      }
+      await context.models.rampSchedules.updateById(existing.id, updates);
     }
   }
 

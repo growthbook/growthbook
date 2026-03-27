@@ -263,6 +263,69 @@ export default function RequestReviewModal({
         ],
       } as FeatureRevisionDiff;
     }),
+    // Pending ramp actions: create/detach actions queued in the draft
+    ...(revision?.rampActions ?? [])
+      .map((action) => {
+        if (action.mode === "create") {
+          const rampConfig = {
+            name: action.name,
+            environment: action.environment,
+            ruleId: action.ruleId,
+            startCondition: action.startCondition,
+            steps: action.steps,
+            endCondition: action.endCondition,
+            disableRuleBefore: action.disableRuleBefore,
+            disableRuleAfter: action.disableRuleAfter,
+          };
+          return {
+            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
+                <code>{action.ruleId}</code> — {action.steps.length} step
+                {action.steps.length !== 1 ? "s" : ""}.
+              </p>
+            ),
+            badges: [
+              {
+                label: `Create ramp: ${action.name}`,
+                action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "detach") {
+          return {
+            title: `Remove from Ramp Schedule (pending)`,
+            a: "",
+            b: JSON.stringify(
+              {
+                rampScheduleId: action.rampScheduleId,
+                ruleId: action.ruleId,
+              },
+              null,
+              2,
+            ),
+            customRender: (
+              <p className="mb-0">
+                This rule will be removed from its ramp schedule
+                {action.deleteScheduleWhenEmpty &&
+                  " and the schedule will be deleted if empty"}
+                .
+              </p>
+            ),
+            badges: [
+              {
+                label: "Remove from ramp schedule",
+                action: "remove ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        }
+        return null as unknown as FeatureRevisionDiff;
+      })
+      .filter(Boolean),
   ];
 
   const linkedRamps = [

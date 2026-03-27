@@ -7,7 +7,10 @@ import {
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -45,8 +48,10 @@ export default function FeatureRules({
   baseFeature,
   revisionList,
   rampSchedules,
+  draftRevision,
   pendingRuleEdit,
   onPendingRuleEditHandled,
+  onRampReviewDraft,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -63,8 +68,10 @@ export default function FeatureRules({
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
+  draftRevision?: FeatureRevisionInterface | null;
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
+  onRampReviewDraft?: (version: number) => void;
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
@@ -87,6 +94,7 @@ export default function FeatureRules({
     environment: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    detachRampOnSave?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -265,6 +273,8 @@ export default function FeatureRules({
                     openHoldoutModal={() => setHoldoutModal(true)}
                     revisionList={revisionList}
                     rampSchedules={rampSchedules}
+                    draftRevision={draftRevision}
+                    onRampReviewDraft={onRampReviewDraft}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -341,6 +351,8 @@ export default function FeatureRules({
           mode={ruleModal.mode}
           revisionList={revisionList}
           rampSchedules={rampSchedules}
+          detachRampOnSave={ruleModal.detachRampOnSave}
+          draftRevision={draftRevision}
         />
       )}
       {copyRuleModal !== null && (

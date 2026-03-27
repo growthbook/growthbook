@@ -3,13 +3,7 @@
 
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
-import {
-  PiPlusBold,
-  PiXBold,
-  PiHourglassMediumFill,
-  PiCaretRightFill,
-  PiPencilSimpleFill,
-} from "react-icons/pi";
+import { PiPlusBold, PiXBold, PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import type {
   FeatureInterface,
@@ -22,6 +16,7 @@ import {
   type RampStep,
   type FeatureRulePatch,
 } from "shared/validators";
+import type { RevisionRampCreateAction } from "shared/src/validators/features";
 import {
   getRampBadgeColor,
   getRampStatusLabel,
@@ -33,7 +28,6 @@ import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Switch from "@/ui/Switch";
-import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/ui/Tooltip";
@@ -93,7 +87,7 @@ export type UIStep = {
   notesOpen: boolean; // UI-only: whether the notes field is expanded
 };
 
-export type RampMode = "off" | "create" | "edit" | "link" | "detach";
+export type RampMode = "off" | "create" | "edit" | "link";
 export type StartMode = "immediately" | "manual" | "specific-time";
 
 export interface RampSectionState {
@@ -145,12 +139,21 @@ export function scrubRampStateForRuleType(
 }
 
 export function isRampSectionConfigured(state: RampSectionState): boolean {
-  return (
-    state.mode === "off" ||
-    state.mode === "link" ||
-    state.mode === "edit" ||
-    state.steps.length > 0
-  );
+  // A ramp is configured if:
+  // - It's off/link/edit mode, OR
+  // - It has steps, OR
+  // - It's a 0-step ramp with a scheduled start or end condition
+  if (state.mode === "off" || state.mode === "link" || state.mode === "edit") {
+    return true;
+  }
+  if (state.steps.length > 0) {
+    return true;
+  }
+  // 0-step ramp is valid if it has scheduled start or an end condition
+  if (state.startMode === "specific-time" || state.endScheduleAt) {
+    return true;
+  }
+  return false;
 }
 
 // ─── Grid column widths ──────────────────────────────────────────────────────
@@ -164,7 +167,7 @@ const COL = {
 
 // ─── Build helpers ───────────────────────────────────────────────────────────
 
-function buildPatch(
+export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
 ): RampStepAction["patch"] {
@@ -188,21 +191,55 @@ export function buildRampSteps(
   steps: UIStep[],
   targetId: string,
   ruleId: string,
+  // When true, mirrors the step patch into defaultEffects so the shared ramp
+  // stays in sync with the single implementation editing it.
+  syncDefaultEffects = false,
 ) {
-  return steps.map((s, i) => ({
-    trigger:
-      s.triggerType === "interval"
+  return steps.map((s, _i) => {
+    const patch = buildPatch(s.patch, ruleId);
+    return {
+      trigger:
+        s.triggerType === "interval"
+          ? {
+              type: "interval" as const,
+              seconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
+            }
+          : { type: "approval" as const },
+      ...(syncDefaultEffects
         ? {
-            type: "interval" as const,
-            seconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
+            defaultEffects: {
+              ...(s.patch.coverage != null
+                ? { coverage: s.patch.coverage / 100 }
+                : {}),
+              ...(s.patch.condition != null
+                ? { condition: s.patch.condition }
+                : {}),
+              ...(s.patch.savedGroups != null
+                ? { savedGroups: s.patch.savedGroups }
+                : {}),
+              ...(s.patch.prerequisites != null
+                ? { prerequisites: s.patch.prerequisites }
+                : {}),
+              ...(s.patch.force != null
+                ? {
+                    force: (() => {
+                      try {
+                        return JSON.parse(s.patch.force);
+                      } catch {
+                        return s.patch.force;
+                      }
+                    })(),
+                  }
+                : {}),
+            },
           }
-        : { type: "approval" as const },
-    actions: [{ targetId, patch: buildPatch(s.patch, ruleId) }],
-    notifyOnEntry: i === 0,
-    ...(s.triggerType === "approval" && s.approvalNotes
-      ? { approvalNotes: s.approvalNotes }
-      : {}),
-  }));
+        : {}),
+      actions: [{ targetId, patch }],
+      ...(s.triggerType === "approval" && s.approvalNotes
+        ? { approvalNotes: s.approvalNotes }
+        : {}),
+    };
+  });
 }
 
 export function buildStartActions(
@@ -229,12 +266,33 @@ export function buildEndScheduleActions(
   ];
 }
 
+// Builds the defaultEffects bookmark for a start/end condition from a UIStepPatch.
+// Returns undefined when the patch has no values (avoids storing an empty object).
+export function buildConditionDefaultEffects(
+  patch: UIStepPatch,
+): RampStep["defaultEffects"] {
+  const hasAny = Object.values(patch).some((v) => v !== undefined);
+  if (!hasAny) return undefined;
+  const de: RampStep["defaultEffects"] = {};
+  if (patch.coverage != null) de.coverage = patch.coverage / 100;
+  if (patch.condition != null) de.condition = patch.condition;
+  if (patch.savedGroups != null) de.savedGroups = patch.savedGroups;
+  if (patch.prerequisites != null) de.prerequisites = patch.prerequisites;
+  if (patch.force != null) {
+    try {
+      de.force = JSON.parse(patch.force);
+    } catch {
+      de.force = patch.force;
+    }
+  }
+  return de;
+}
+
 // Returns a validation error message if any required date fields are missing, or null if valid.
 export function validateRampSectionState(
   state: RampSectionState,
 ): string | null {
-  if (state.mode === "off" || state.mode === "link" || state.mode === "detach")
-    return null;
+  if (state.mode === "off" || state.mode === "link") return null;
   if (state.startMode === "specific-time" && !state.startTime) {
     return "A start date is required.";
   }
@@ -297,7 +355,7 @@ const RAMP_PRESETS: {
 }[] = [
   {
     label: "Standard (1, 5, 10, 25, 50, 100)",
-    name: "standard rollout",
+    name: "standard ramp-up",
     defaultDurationValue: 1,
     defaultDurationUnit: "hours",
     coverages: [1, 5, 10, 25, 50, 100],
@@ -305,7 +363,7 @@ const RAMP_PRESETS: {
   },
   {
     label: "Safe (Standard, with approval steps)",
-    name: "safe standard rollout",
+    name: "safe standard ramp-up",
     defaultDurationValue: 1,
     defaultDurationUnit: "hours",
     coverages: [1, 5, 10, 25, 50, 100],
@@ -314,7 +372,7 @@ const RAMP_PRESETS: {
   },
   {
     label: "Quick (10, 50, 100)",
-    name: "quick rollout",
+    name: "quick ramp-up",
     defaultDurationValue: 10,
     defaultDurationUnit: "minutes",
     coverages: [10, 50, 100],
@@ -322,7 +380,7 @@ const RAMP_PRESETS: {
   },
   {
     label: "Quick safe (Quick, with approval steps)",
-    name: "quick safe rollout",
+    name: "quick safe ramp-up",
     defaultDurationValue: 10,
     defaultDurationUnit: "minutes",
     coverages: [10, 50, 100],
@@ -331,7 +389,7 @@ const RAMP_PRESETS: {
   },
   {
     label: "Linear (5 steps)",
-    name: "linear 5-step rollout",
+    name: "linear 5-step ramp-up",
     defaultDurationValue: 1,
     defaultDurationUnit: "hours",
     coverages: [20, 40, 60, 80, 100],
@@ -339,7 +397,7 @@ const RAMP_PRESETS: {
   },
   {
     label: "Linear (10 steps)",
-    name: "linear 10-step rollout",
+    name: "linear 10-step ramp-up",
     defaultDurationValue: 1,
     defaultDurationUnit: "hours",
     coverages: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
@@ -479,10 +537,19 @@ interface Props {
   ruleType?: "force" | "rollout";
   // Called when a coverage-based preset is selected while ruleType === "force".
   onConvertToRollout?: () => void;
+  // When true, wraps the step grid + more options in an appbox card,
+  // leaving the preset/duration controls outside. Used by the standalone modal.
+  boxStepGrid?: boolean;
+  // When true, hides the name field from the UI. Used in standalone modal to hide
+  // the naming concept from the editor. Name is still stored/managed but not editable.
+  hideNameField?: boolean;
+  // When true, a draft detach action is pending for this rule. Shows a "pending removal"
+  // badge in place of the normal status badge.
+  pendingDetach?: boolean;
 }
 
 export default function RampScheduleSection({
-  featureRampSchedules,
+  featureRampSchedules: _featureRampSchedules,
   ruleRampSchedule,
   state,
   setState,
@@ -493,10 +560,21 @@ export default function RampScheduleSection({
   ruleBaseline = {},
   ruleType,
   onConvertToRollout,
+  boxStepGrid = false,
+  hideNameField = false,
+  pendingDetach = false,
 }: Props) {
   const [open, setOpen] = useState(hideOuterToggle || state.mode !== "off");
-  const [editingName, setEditingName] = useState(false);
-  const [nameStash, setNameStash] = useState(state.name);
+
+  // Auto-switch to "create" mode when opening a ramp editor with no existing ramp
+  useEffect(() => {
+    if (!ruleRampSchedule && state.mode === "off") {
+      patchState({ mode: "create" });
+    }
+    // patchState is stable (wrapped in useCallback) — omitting it avoids an infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ruleRampSchedule, state.mode]);
+
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(() => {
     if (state.disableRuleBefore || state.disableRuleAfter) return true;
     // Open if any field beyond coverage is controlled
@@ -527,19 +605,6 @@ export default function RampScheduleSection({
         ),
       );
   const pollIntervalSeconds = pollIntervalMinutes * 60;
-
-  // When switching to link mode or changing the linked ramp, populate state
-  // from the linked ramp so the user sees its schedule in the editor.
-  useEffect(() => {
-    if (state.mode !== "link" || !state.linkedRampId) return;
-    const linked = featureRampSchedules.find(
-      (r) => r.id === state.linkedRampId,
-    );
-    if (!linked) return;
-    const cloned = rampScheduleToSectionState(linked);
-    setState({ ...cloned, mode: "link", linkedRampId: state.linkedRampId });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.mode, state.linkedRampId]);
 
   function patchState(partial: Partial<RampSectionState>) {
     setState({ ...state, ...partial });
@@ -674,13 +739,6 @@ export default function RampScheduleSection({
       patchState({ mode: "create" });
     }
   }
-
-  const linkableRamps = featureRampSchedules.filter(
-    (rs) => !["completed", "rolled-back"].includes(rs.status),
-  );
-  const otherRamps = featureRampSchedules.filter(
-    (rs) => rs.id !== ruleRampSchedule?.id,
-  );
 
   // ── Step grid ─────────────────────────────────────────────────────────────
 
@@ -1512,20 +1570,38 @@ export default function RampScheduleSection({
         </Box>
       </Flex>
 
-      {/* Granularity warning — shown when any interval step is shorter than the agenda poll interval */}
-      {state.steps.some(
-        (s) =>
-          s.triggerType === "interval" &&
-          s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
-      ) && (
-        <Callout status="warning" mb="3">
-          One or more steps are shorter than the minimum check interval (
-          {pollIntervalMinutes} min). Short steps may be applied together rather
-          than at their exact scheduled times.
-        </Callout>
+      {boxStepGrid ? (
+        <div className="appbox px-3 pt-3 pb-2 bg-light">
+          {state.steps.some(
+            (s) =>
+              s.triggerType === "interval" &&
+              s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
+          ) && (
+            <Callout status="warning" mb="3">
+              One or more steps are shorter than the minimum check interval (
+              {pollIntervalMinutes} min). Short steps may be applied together
+              rather than at their exact scheduled times.
+            </Callout>
+          )}
+          {renderStepGrid()}
+        </div>
+      ) : (
+        <>
+          {/* Granularity warning */}
+          {state.steps.some(
+            (s) =>
+              s.triggerType === "interval" &&
+              s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
+          ) && (
+            <Callout status="warning" mb="3">
+              One or more steps are shorter than the minimum check interval (
+              {pollIntervalMinutes} min). Short steps may be applied together
+              rather than at their exact scheduled times.
+            </Callout>
+          )}
+          {renderStepGrid()}
+        </>
       )}
-
-      {renderStepGrid()}
     </>
   );
 
@@ -1543,63 +1619,23 @@ export default function RampScheduleSection({
   const content = (
     <>
       {/* Linked ramp header row — shown whenever a ramp is attached */}
-      {ruleRampSchedule && state.mode !== "detach" && (
+      {ruleRampSchedule && !hideNameField && (
         <Box mb="3">
           <Flex align="center" gap="2" mb="2" wrap="nowrap">
-            <PiHourglassMediumFill size={16} />
-            {canEdit && editingName ? (
-              <Field
-                autoFocus
-                value={state.name}
-                placeholder={ruleRampSchedule.name}
-                onChange={(e) => patchState({ name: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    setEditingName(false);
-                  } else if (e.key === "Escape") {
-                    patchState({ name: nameStash });
-                    setEditingName(false);
-                  }
-                }}
-                onBlur={() => setEditingName(false)}
-                containerStyle={{ marginBottom: 0 }}
-                style={{
-                  border: "none",
-                  borderBottom: "1px solid var(--violet-9)",
-                  borderRadius: 0,
-                  outline: "none",
-                  background: "transparent",
-                  boxShadow: "none",
-                  padding: "0 2px",
-                  height: "auto",
-                }}
-              />
-            ) : (
-              <Text size="medium" weight="medium">
-                {state.name || ruleRampSchedule.name}
-              </Text>
-            )}
-            {canEdit && !editingName && (
-              <IconButton
-                variant="ghost"
-                color="violet"
-                size="2"
-                radius="full"
-                onClick={() => {
-                  setNameStash(state.name || ruleRampSchedule.name);
-                  patchState({ name: state.name || ruleRampSchedule.name });
-                  setEditingName(true);
-                }}
-                type="button"
-                mx="1"
-              >
-                <PiPencilSimpleFill />
-              </IconButton>
-            )}
+            <Text size="medium" weight="medium">
+              {state.name || ruleRampSchedule.name}
+            </Text>
             <Badge
-              label={getRampStatusLabel(ruleRampSchedule)}
-              color={getRampBadgeColor(ruleRampSchedule.status)}
+              label={
+                pendingDetach
+                  ? "pending removal – save to reinstate"
+                  : getRampStatusLabel(ruleRampSchedule)
+              }
+              color={
+                pendingDetach
+                  ? "red"
+                  : getRampBadgeColor(ruleRampSchedule.status)
+              }
               radius="full"
             />
             {ruleRampSchedule.steps.length > 0 && (
@@ -1611,19 +1647,6 @@ export default function RampScheduleSection({
               </span>
             )}
             <Box flexGrow="1" />
-            {/* Detach only allowed when ramp is in a non-active state */}
-            {["pending", "paused", "completed", "rolled-back"].includes(
-              ruleRampSchedule.status,
-            ) && (
-              <Tooltip content="Detach this rule from the ramp schedule">
-                <Link
-                  color="ruby"
-                  onClick={() => patchState({ mode: "detach" })}
-                >
-                  Detach
-                </Link>
-              </Tooltip>
-            )}
           </Flex>
           {state.mode !== "create" && !canEdit && (
             <RampScheduleDisplay
@@ -1636,113 +1659,13 @@ export default function RampScheduleSection({
         </Box>
       )}
 
-      {/* Detach confirmation row */}
-      {ruleRampSchedule && state.mode === "detach" && (
-        <Flex align="center" gap="2" mb="3">
-          <Text size="medium" color="text-low">
-            This rule will be detached from &ldquo;
-            <strong>{ruleRampSchedule.name}</strong>&rdquo; on save.
-          </Text>
-          <Link
-            onClick={() =>
-              patchState({ mode: "edit", linkedRampId: ruleRampSchedule.id })
-            }
-          >
-            Undo
-          </Link>
-        </Flex>
-      )}
-
-      {!ruleRampSchedule && linkableRamps.length > 0 && (
-        <Flex gap="2" mb="3">
-          <Button
-            variant={state.mode === "create" ? "solid" : "outline"}
-            size="sm"
-            onClick={() => patchState({ mode: "create" })}
-          >
-            Create new ramp
-          </Button>
-          <Button
-            variant={state.mode === "link" ? "solid" : "outline"}
-            size="sm"
-            onClick={() =>
-              patchState({
-                mode: "link",
-                linkedRampId: linkableRamps[0]?.id ?? "",
-              })
-            }
-          >
-            Add to existing ramp
-          </Button>
-        </Flex>
-      )}
-
-      {state.mode === "link" && !ruleRampSchedule && (
-        <SelectField
-          label="Existing ramp schedule"
-          value={state.linkedRampId}
-          options={otherRamps.map((rs) => ({
-            value: rs.id,
-            label: `${rs.name} (${rs.status})`,
-          }))}
-          onChange={(v) => patchState({ linkedRampId: v })}
-        />
-      )}
-
-      {state.mode === "create" && (
+      {!ruleRampSchedule && state.mode === "create" && !hideNameField && (
         <Flex align="center" gap="1" mb="3">
-          <PiHourglassMediumFill size={16} />
-          {editingName ? (
-            <Field
-              autoFocus
-              value={state.name}
-              placeholder="e.g. ramp up"
-              onChange={(e) => patchState({ name: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  setEditingName(false);
-                } else if (e.key === "Escape") {
-                  patchState({ name: nameStash });
-                  setEditingName(false);
-                }
-              }}
-              onBlur={() => setEditingName(false)}
-              containerStyle={{ marginBottom: 0 }}
-              style={{
-                border: "none",
-                borderBottom: "1px solid var(--violet-9)",
-                borderRadius: 0,
-                outline: "none",
-                background: "transparent",
-                boxShadow: "none",
-                padding: "0 2px",
-                height: "auto",
-              }}
-            />
-          ) : (
-            <Text weight="medium">
-              {state.name || (
-                <span style={{ color: "var(--color-text-low)" }}>ramp up</span>
-              )}
-            </Text>
-          )}
-          {!editingName && (
-            <IconButton
-              variant="ghost"
-              color="violet"
-              size="2"
-              radius="full"
-              type="button"
-              onClick={() => {
-                setNameStash(state.name);
-                setEditingName(true);
-              }}
-              mx="1"
-            >
-              <PiPencilSimpleFill />
-            </IconButton>
-          )}
+          <Text weight="medium">
+            {state.name || (
+              <span style={{ color: "var(--color-text-low)" }}>ramp up</span>
+            )}
+          </Text>
         </Flex>
       )}
 
@@ -1867,6 +1790,85 @@ export function rampScheduleToSectionState(
   };
 }
 
+// Same as rampScheduleToSectionState but reads step patches from defaultEffects
+// instead of actions[0].patch. Used by the standalone RampScheduleModal where
+// defaultEffects is the primary editing surface rather than a single-target action.
+export function rampScheduleToSectionStateFromDefaultEffects(
+  rs: RampScheduleInterface,
+): RampSectionState {
+  const trigger = rs.startCondition?.trigger;
+  return {
+    mode: "edit",
+    name: rs.name,
+    startMode:
+      trigger?.type === "scheduled"
+        ? "specific-time"
+        : trigger?.type === "manual"
+          ? "manual"
+          : "immediately",
+    startTime:
+      trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
+    // Prefer defaultEffects as the shared source of truth; fall back to the
+    // first target's action patch for ramps created before defaultEffects existed.
+    startPatch: reconstructUIPatch(
+      (rs.startCondition?.defaultEffects as FeatureRulePatch | null) ??
+        rs.startCondition?.actions?.[0]?.patch,
+    ),
+    disableRuleBefore: rs.disableRuleBefore ?? false,
+    disableRuleAfter: rs.disableRuleAfter ?? false,
+    endEarlyWhenStepsComplete: rs.endEarlyWhenStepsComplete ?? true,
+    steps: rs.steps.map((step) => {
+      const patch = reconstructUIPatch(
+        step.defaultEffects as FeatureRulePatch | null,
+      );
+      if (
+        step.trigger.type === "approval" ||
+        step.trigger.type === "scheduled"
+      ) {
+        const approvalNotes = step.approvalNotes ?? "";
+        return {
+          patch,
+          triggerType: "approval" as const,
+          intervalValue: 10,
+          intervalUnit: "minutes" as IntervalUnit,
+          approvalNotes,
+          notesOpen: approvalNotes.trim().length > 0,
+        };
+      }
+      const seconds = step.trigger.seconds;
+      const intervalUnit: IntervalUnit =
+        seconds % 86400 === 0 && seconds >= 86400
+          ? "days"
+          : seconds % 3600 === 0 && seconds >= 3600
+            ? "hours"
+            : "minutes";
+      return {
+        patch,
+        triggerType: "interval" as const,
+        intervalUnit,
+        intervalValue:
+          intervalUnit === "days"
+            ? seconds / 86400
+            : intervalUnit === "hours"
+              ? seconds / 3600
+              : seconds / 60,
+        approvalNotes: "",
+        notesOpen: false,
+      };
+    }),
+    endScheduleAt:
+      rs.endCondition?.trigger?.type === "scheduled"
+        ? new Date(rs.endCondition.trigger.at).toISOString()
+        : "",
+    // Same defaultEffects-first preference as startPatch.
+    endSchedulePatch: reconstructUIPatch(
+      (rs.endCondition?.defaultEffects as FeatureRulePatch | null) ??
+        rs.endCondition?.actions?.[0]?.patch,
+    ),
+    linkedRampId: rs.id,
+  };
+}
+
 export function defaultRampSectionState(
   ruleRampSchedule: RampScheduleInterface | undefined,
 ): RampSectionState {
@@ -1885,6 +1887,47 @@ export function defaultRampSectionState(
     steps: [],
     endScheduleAt: "",
     endSchedulePatch: { coverage: 100 },
+    linkedRampId: "",
+  };
+}
+
+/**
+ * Converts a draft `RevisionRampCreateAction` (stored in draftRevision.rampActions)
+ * into a RampSectionState so the rule modal can pre-populate when editing a rule that
+ * has a pending-create ramp schedule (not yet in the DB).
+ */
+export function createActionToSectionState(
+  action: RevisionRampCreateAction,
+): RampSectionState {
+  const trigger = action.startCondition?.trigger;
+  const startMode: StartMode =
+    trigger?.type === "scheduled"
+      ? "specific-time"
+      : trigger?.type === "manual"
+        ? "manual"
+        : "immediately";
+  return {
+    mode: "create",
+    name: action.name,
+    startMode,
+    startTime:
+      trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
+    startPatch: reconstructUIPatch(
+      (action.startCondition?.defaultEffects as FeatureRulePatch | null) ??
+        action.startCondition?.actions?.[0]?.patch,
+    ),
+    disableRuleBefore: action.disableRuleBefore ?? false,
+    disableRuleAfter: action.disableRuleAfter ?? false,
+    endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete ?? true,
+    steps: action.steps.map(reconstructUIStep),
+    endScheduleAt:
+      action.endCondition?.trigger?.type === "scheduled"
+        ? new Date(action.endCondition.trigger.at).toISOString()
+        : "",
+    endSchedulePatch: reconstructUIPatch(
+      (action.endCondition?.defaultEffects as FeatureRulePatch | null) ??
+        action.endCondition?.actions?.[0]?.patch,
+    ),
     linkedRampId: "",
   };
 }

@@ -10,7 +10,9 @@ export const featureRulePatch = z.object({
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
   prerequisites: z.array(featurePrerequisite).nullish(),
-  force: z.unknown().optional(),
+  // force can be any JSON-serializable value (string, number, boolean, object, array)
+
+  force: z.any().optional(),
   // Internal only — managed automatically by disableRuleBeforeStart / disableRuleAfterComplete.
   // Never user-authored or shown in the UI.
   enabled: z.boolean().nullish(),
@@ -83,10 +85,29 @@ export const rampTrigger = z.discriminatedUnion("type", [
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
+// Template effects authored at the ramp level — used only as a bookmark for
+// seeding new implementations and syncing changes to existing ones.
+// Never read or applied by the backend at step-execution time; target actions
+// must always carry explicit, fully-resolved patches.
+export const rampStepDefaultEffects = z.object({
+  coverage: z.number().min(0).max(1).nullish(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
+  // force can be any JSON-serializable value (string, number, boolean, object, array)
+
+  force: z.any().optional(),
+});
+export type RampStepDefaultEffects = z.infer<typeof rampStepDefaultEffects>;
+
 export const rampStep = z.object({
   trigger: rampTrigger,
-  actions: z.array(rampStepAction).min(1),
-  notifyOnEntry: z.boolean().nullish(),
+  // defaultEffects: shared template for this step's intended outcome.
+  // Used to seed new target actions and to offer sync to existing ones.
+  // Never applied at runtime — all targets must carry explicit patches.
+  defaultEffects: rampStepDefaultEffects.optional(),
+  // May be empty for template ramps with no implementations attached yet.
+  actions: z.array(rampStepAction),
   // Optional prompt shown to approvers on the ramp overview when this step is pending approval
   approvalNotes: z.string().nullish(),
 });
@@ -139,7 +160,8 @@ export const rampScheduleValidator = baseSchema
     // its approval settings determine whether approval-gated revisions require review.
     entityType: z.enum(["feature"]), // TODO v2: add "experiment"
     entityId: z.string(),
-    targets: z.array(rampTarget).min(1),
+    // May be empty for template ramps that have no implementations yet.
+    targets: z.array(rampTarget),
     // Steps may be empty when a start/end anchor pair alone defines the ramp
     // (e.g. a timed sale: auto-start Jan 15, auto-teardown Feb 1 with no intervening steps).
     steps: z.array(rampStep),
@@ -150,8 +172,10 @@ export const rampScheduleValidator = baseSchema
     // Combined start trigger + initial actions — mirrors the shape of a step.
     // trigger: when the ramp starts (immediately/manual/scheduled).
     // actions: applied when the ramp transitions to "running" (e.g. set coverage to 0).
+    // defaultEffects: same UI-bookmark semantics as rampStep.defaultEffects.
     startCondition: z.object({
       trigger: rampStartTrigger,
+      defaultEffects: rampStepDefaultEffects.optional(),
       actions: z.array(rampStepAction).nullish(),
     }),
     // When true, the rule is hidden from SDK payload before the schedule starts.
@@ -170,9 +194,11 @@ export const rampScheduleValidator = baseSchema
     //   pending steps and fires endCondition.actions regardless of current progress.
     //   Absent = no deadline; endCondition.actions still fire on natural/manual completion.
     // actions: applied whenever the ramp ends (deadline, manual complete, or last step done).
+    // defaultEffects: same UI-bookmark semantics as rampStep.defaultEffects.
     endCondition: z
       .object({
         trigger: rampEndTrigger.optional(),
+        defaultEffects: rampStepDefaultEffects.optional(),
         actions: z.array(rampStepAction).nullish(),
       })
       .nullish(),
@@ -219,3 +245,19 @@ export const rampScheduleValidator = baseSchema
   });
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
+
+/**
+ * Minimal interface for displaying pending/draft ramp schedules in the UI.
+ * Contains only fields needed for rendering; other fields are optional.
+ * Compatible with RampScheduleInterface for display purposes.
+ */
+export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {
+  id: string;
+  status: RampScheduleInterface["status"];
+  name: string;
+  targets: RampScheduleInterface["targets"];
+  steps: RampScheduleInterface["steps"];
+  startCondition: RampScheduleInterface["startCondition"];
+  dateCreated: Date;
+  dateUpdated: Date;
+};

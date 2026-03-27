@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { RampScheduleInterface } from "shared/validators";
 import { abbreviateAgo, datetime } from "shared/dates";
-import { PiHourglassMediumFill } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
@@ -10,13 +9,37 @@ import {
 } from "@/components/RampSchedule/RampTimeline";
 export default function RampScheduleBadge({
   rs,
-  withIcon = false,
+  withIcon: _withIcon = false,
   featureRuleContext = false,
+  pendingDetach = false,
 }: {
   rs: RampScheduleInterface;
   withIcon?: boolean;
   featureRuleContext?: boolean;
+  /** When true, the draft contains a pending removal for this schedule. */
+  pendingDetach?: boolean;
 }) {
+  // Pending detach overrides everything — show a dedicated red badge with tooltip.
+  if (pendingDetach) {
+    return (
+      <Tooltip
+        body={
+          <p>
+            This rule&apos;s ramp schedule (<strong>{rs.name}</strong>) is
+            queued to be removed. Publish the draft to complete the removal.
+          </p>
+        }
+        style={{ display: "inline-flex", alignItems: "center" }}
+      >
+        <Badge
+          label="ramp schedule will be removed"
+          color="red"
+          radius="full"
+        />
+      </Tooltip>
+    );
+  }
+
   const now = new Date();
   const startTrigger = rs.startCondition?.trigger;
   const endTrigger = rs.endCondition?.trigger;
@@ -59,14 +82,17 @@ export default function RampScheduleBadge({
     timingTooltip = dateRow("Ends", endAt);
   }
 
+  const baseLabel = getRampStatusLabel(rs);
+  // In a rule context the badge sits next to other rule-level statuses, so prefix
+  // with "schedule: " to make it clear which system owns the status.
+  // "schedule start is pending" already embeds "schedule" — trim it to avoid redundancy.
+  const displayLabel = featureRuleContext
+    ? `schedule: ${baseLabel.replace(/^schedule start is /, "").replace(/^schedule: /, "")}`
+    : baseLabel;
+
   const badge = (
     <Badge
-      label={
-        <>
-          {withIcon ? <PiHourglassMediumFill size={16} /> : null}
-          {getRampStatusLabel(rs) + (timingLabel ? ` · ${timingLabel}` : "")}
-        </>
-      }
+      label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
       color={getRampBadgeColor(rs.status)}
       radius="full"
     />
@@ -104,6 +130,7 @@ export default function RampScheduleBadge({
           {timingTooltip && <div>{timingTooltip}</div>}
         </>
       }
+      style={{ display: "inline-flex", alignItems: "center" }}
     >
       {badge}
     </Tooltip>

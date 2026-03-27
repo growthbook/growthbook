@@ -7,6 +7,11 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
+import {
+  rampStep,
+  rampStepAction,
+  rampStepDefaultEffects,
+} from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -264,6 +269,62 @@ const revisionMetadataSchema = z.object({
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 
+// Zod schemas for ramp schedule actions stored on a revision.
+// These are deferred and only executed when the revision is published.
+// Only create and detach are revision-bound; state changes (pause, resume, etc.)
+// are real-time and operate directly on the live ramp schedule.
+//
+// Triggers use ISO string dates (wire format from frontend) rather than Date objects —
+// conversion to Date happens in applyRevisionRampActions at publish time.
+const revisionRampStartTrigger = z.union([
+  z.object({ type: z.literal("immediately") }),
+  z.object({ type: z.literal("manual") }),
+  z.object({ type: z.literal("scheduled"), at: z.string() }),
+]);
+const revisionRampEndTrigger = z.object({
+  type: z.literal("scheduled"),
+  at: z.string(),
+});
+const revisionRampConditionSchema = z.object({
+  trigger: z
+    .union([revisionRampStartTrigger, revisionRampEndTrigger])
+    .optional(),
+  defaultEffects: rampStepDefaultEffects.optional(),
+  actions: z.array(rampStepAction).optional(),
+});
+
+export const revisionRampCreateAction = z.object({
+  mode: z.literal("create"),
+  name: z.string(),
+  environment: z.string(),
+  steps: z.array(rampStep),
+  startCondition: revisionRampConditionSchema.optional(),
+  disableRuleBefore: z.boolean().optional(),
+  disableRuleAfter: z.boolean().optional(),
+  endEarlyWhenStepsComplete: z.boolean().optional(),
+  endCondition: revisionRampConditionSchema.optional(),
+  /** Rule ID this ramp is being created for. Used at publish time to build the target. */
+  ruleId: z.string(),
+});
+
+export const revisionRampDetachAction = z.object({
+  mode: z.literal("detach"),
+  rampScheduleId: z.string(),
+  /** Rule ID being detached. Used at publish time to remove the right target. */
+  ruleId: z.string(),
+  /** Delete the ramp schedule entirely if no targets remain after detach. */
+  deleteScheduleWhenEmpty: z.boolean().optional(),
+});
+
+const revisionRampAction = z.discriminatedUnion("mode", [
+  revisionRampCreateAction,
+  revisionRampDetachAction,
+]);
+
+export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
+export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
+export type RevisionRampAction = z.infer<typeof revisionRampAction>;
+
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
     featureId: z.string(),
@@ -283,6 +344,11 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .object({ id: z.string(), value: z.string() })
       .nullable()
       .optional(),
+    // Ramp schedule actions (create/detach) to execute atomically when this revision
+    // is published. This ensures ramp schedules are never orphaned by draft abandonment
+    // or revision reverts. Real-time state changes (pause, resume, rollback, etc.)
+    // are NOT stored here — they operate directly on live ramp schedule documents.
+    rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();

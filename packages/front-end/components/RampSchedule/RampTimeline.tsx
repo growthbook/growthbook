@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCheckBold, PiCaretDownFill } from "react-icons/pi";
+import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
 import {
   RampScheduleInterface,
@@ -9,9 +9,6 @@ import {
   RampTrigger,
 } from "shared/src/validators/ramp-schedule";
 import Text from "@/ui/Text";
-import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -117,6 +114,8 @@ interface NodeMeta {
   label: string;
   sublabel: ReactNode;
   isApproval: boolean;
+  dotColorOverride?: string;
+  labelColorOverride?: string;
 }
 
 function Node({
@@ -128,9 +127,9 @@ function Node({
   state: NodeState;
   status: RampScheduleStatus;
 }) {
-  const color = dotColor(state, status);
+  const color = node.dotColorOverride ?? dotColor(state, status);
   const dotSize = DOT_SIZE;
-  const labelColor = nodeLabelColor(state, status);
+  const labelColor = node.labelColorOverride ?? nodeLabelColor(state, status);
 
   return (
     <Flex
@@ -239,11 +238,7 @@ interface Props {
   rs: RampScheduleInterface;
   onEditTarget?: (target: RampTarget) => void;
   hideHeader?: boolean;
-}
-
-function targetLabel(target: RampTarget, index: number): string {
-  const env = target.environment ?? "unknown";
-  return `${env} (target ${index + 1})`;
+  pendingDetach?: boolean;
 }
 
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
@@ -255,7 +250,7 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
       : "scheduled";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
-    pending: "pending",
+    pending: "schedule start is pending",
     running: "running",
     paused: "paused",
     "pending-approval": "needs approval",
@@ -293,7 +288,12 @@ export function getRampStepsCompleted(rs: RampScheduleInterface): number {
 
 // ─── RampTimeline ─────────────────────────────────────────────────────────────
 
-export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
+export default function RampTimeline({
+  rs,
+  onEditTarget: _onEditTarget,
+  hideHeader: _hideHeader,
+  pendingDetach,
+}: Props) {
   const { steps, status, startCondition, endCondition, targets } = rs;
   const startTrigger = startCondition?.trigger;
   // activatingRevisionVersion is now per-target; find the first target that has one
@@ -303,6 +303,8 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
   const doneCount = completedNodeCount(rs);
 
   function getState(i: number): NodeState {
+    // Pending detach is the authoritative state — all timeline nodes become future (gray).
+    if (pendingDetach) return "future";
     if (i < doneCount) return "completed";
     // "pending": a separate pre-node shows "pending"; all timeline nodes are future.
     // "ready" with "manual": a pre-node shows "ready to start"; timeline nodes are future.
@@ -350,112 +352,40 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
     },
   ];
 
-  const stepsCompleted = getRampStepsCompleted(rs);
-  const activeTargets = rs.targets.filter((t) => t.status === "active");
-
   return (
     <Box style={{ minWidth: 0, overflow: "hidden" }}>
-      {!hideHeader && (
-        <>
-          {/* Header */}
-          <Flex align="center" gap="3" mb="2" wrap="wrap">
-            <Text weight="medium" size="medium">
-              {rs.name}
-            </Text>
-            {steps.length > 0 &&
-              (status === "completed" || status === "rolled-back" ? (
-                <Text size="small" color="text-low">
-                  ramp complete
-                </Text>
-              ) : (
-                <Text size="small" color="text-low">
-                  Step {stepsCompleted} of {steps.length}
-                </Text>
-              ))}
-            <Badge
-              label={getRampStatusLabel(rs)}
-              color={getRampBadgeColor(status)}
-              radius="full"
-            />
-          </Flex>
-
-          {/* Implementation CTA */}
-          {onEditTarget && activeTargets.length === 1 && (
-            <Flex align="center" gap="1" mb="2">
-              <Text size="small" color="text-low">
-                Implementation:
-              </Text>
-              <Link size="1" onClick={() => onEditTarget(activeTargets[0])}>
-                {targetLabel(activeTargets[0], 0)}
-              </Link>
-            </Flex>
-          )}
-          {onEditTarget && activeTargets.length > 1 && (
-            <Flex align="center" gap="1" mb="2">
-              <Text size="small" color="text-low">
-                Implementations:
-              </Text>
-              <DropdownMenu
-                trigger={
-                  <Link
-                    size="1"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 3,
-                    }}
-                  >
-                    Select implementation ({activeTargets.length} total)
-                    <PiCaretDownFill size={10} />
-                  </Link>
-                }
-              >
-                {activeTargets.map((t, i) => (
-                  <DropdownMenuItem key={t.id} onClick={() => onEditTarget(t)}>
-                    {targetLabel(t, i)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenu>
-            </Flex>
-          )}
-        </>
-      )}
-
       {/* Single-row timeline */}
       <Box style={{ overflowX: "auto", padding: "6px 8px" }}>
         <Flex align="start" style={{ width: "fit-content" }}>
-          {/* Pre-timeline indicator node for states where the ramp hasn't started yet */}
-          {(status === "pending" ||
-            (status === "ready" &&
-              startCondition?.trigger.type === "manual")) && (
+          {/* Pre-timeline indicator: pending detach overrides all other pre-nodes */}
+          {pendingDetach ? (
             <>
               <Node
                 node={{
-                  key: "pre-indicator",
-                  label: status === "pending" ? "pending" : "ready",
-                  sublabel:
-                    status === "pending" ? (
-                      <>
+                  key: "pending-removal",
+                  label: "removal",
+                  sublabel: (
+                    <>
+                      <div style={{ lineHeight: 1.2 }}>
+                        <Text size="small">awaiting publish</Text>
+                      </div>
+                      {activatingRevisionVersion != null && (
                         <div style={{ lineHeight: 1.2 }}>
-                          <Text size="small">awaiting publish</Text>
+                          <Text size="small">
+                            Revision {activatingRevisionVersion}
+                          </Text>
                         </div>
-                        {activatingRevisionVersion != null && (
-                          <div style={{ lineHeight: 1.2 }}>
-                            <Text size="small">
-                              Revision {activatingRevisionVersion}
-                            </Text>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <Text size="small">awaiting start</Text>
-                    ),
+                      )}
+                    </>
+                  ),
                   isApproval: false,
+                  dotColorOverride: "var(--red-9)",
+                  labelColorOverride: "var(--red-11)",
                 }}
                 state="active"
                 status={status}
               />
-              {/* Same-width spacer as a connector but undrawn */}
+              {/* Spacer (no drawn connector) */}
               <Box
                 style={{
                   width: CONNECTOR_WIDTH,
@@ -465,6 +395,49 @@ export default function RampTimeline({ rs, onEditTarget, hideHeader }: Props) {
                 }}
               />
             </>
+          ) : (
+            /* Normal pre-timeline indicator node for states where the ramp hasn't started yet */
+            (status === "pending" ||
+              (status === "ready" &&
+                startCondition?.trigger.type === "manual")) && (
+              <>
+                <Node
+                  node={{
+                    key: "pre-indicator",
+                    label: status === "pending" ? "pending" : "ready",
+                    sublabel:
+                      status === "pending" ? (
+                        <>
+                          <div style={{ lineHeight: 1.2 }}>
+                            <Text size="small">awaiting publish</Text>
+                          </div>
+                          {activatingRevisionVersion != null && (
+                            <div style={{ lineHeight: 1.2 }}>
+                              <Text size="small">
+                                Revision {activatingRevisionVersion}
+                              </Text>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <Text size="small">awaiting start</Text>
+                      ),
+                    isApproval: false,
+                  }}
+                  state="active"
+                  status={status}
+                />
+                {/* Same-width spacer as a connector but undrawn */}
+                <Box
+                  style={{
+                    width: CONNECTOR_WIDTH,
+                    flexShrink: 0,
+                    marginTop: CONNECTOR_MARGIN_TOP,
+                    alignSelf: "flex-start",
+                  }}
+                />
+              </>
+            )
           )}
 
           {nodes.map((node, i) => (

@@ -50,29 +50,17 @@ export interface FastRampOptions extends BasePresetOptions {
 // Internal helper
 // ---------------------------------------------------------------------------
 
-function intervalStep(
-  seconds: number,
-  actions: RampStepAction[],
-  notifyOnEntry?: boolean,
-): RampStep {
+function intervalStep(seconds: number, actions: RampStepAction[]): RampStep {
   return {
-    trigger: {
-      type: "interval",
-      seconds,
-    },
+    trigger: { type: "interval", seconds },
     actions,
-    ...(notifyOnEntry ? { notifyOnEntry: true } : {}),
   };
 }
 
-function approvalStep(
-  actions: RampStepAction[],
-  notifyOnEntry?: boolean,
-): RampStep {
+function approvalStep(actions: RampStepAction[]): RampStep {
   return {
     trigger: { type: "approval" },
     actions,
-    ...(notifyOnEntry ? { notifyOnEntry: true } : {}),
   };
 }
 
@@ -98,7 +86,7 @@ export function generateLinearRampPreset(
   for (let i = 0; i < stepCount; i++) {
     // Cumulative total at this step = perStepSeconds * (i + 1)
     // With cumulative=true, nextStepAt = phaseStartedAt + perStepSeconds*(i+1)
-    steps.push(intervalStep(perStepSeconds * (i + 1), stepActions, i === 0));
+    steps.push(intervalStep(perStepSeconds * (i + 1), stepActions));
   }
 
   return steps;
@@ -118,7 +106,7 @@ export function generateFastRampPreset(
   } = options;
 
   return [
-    intervalStep(intervalBetweenStepsSeconds, stepActions, true),
+    intervalStep(intervalBetweenStepsSeconds, stepActions),
     intervalStep(intervalBetweenStepsSeconds * 2, stepActions),
     intervalStep(intervalBetweenStepsSeconds * 3, stepActions),
   ];
@@ -129,8 +117,8 @@ export function generateFastRampPreset(
  * Generates alternating interval → approval → interval → approval … sequences.
  *
  * Example: intervalDurationsSeconds=[600, 3600]
- *   Step 0: interval 10min (notifyOnEntry)
- *   Step 1: approval gate (notifyOnEntry — auto-requests review)
+ *   Step 0: interval 10min
+ *   Step 1: approval gate
  *   Step 2: interval 1hr
  *   Step 3: approval gate
  */
@@ -150,10 +138,10 @@ export function generateApprovalMilestonePreset(
   const steps: RampStep[] = [];
   let cumulativeSeconds = 0;
 
-  intervalDurationsSeconds.forEach((seconds, i) => {
+  intervalDurationsSeconds.forEach((seconds, _i) => {
     cumulativeSeconds += seconds;
-    steps.push(intervalStep(cumulativeSeconds, stepActions, i === 0));
-    steps.push(approvalStep(stepActions, true));
+    steps.push(intervalStep(cumulativeSeconds, stepActions));
+    steps.push(approvalStep(stepActions));
   });
 
   if (!finalApproval && steps[steps.length - 1]?.trigger.type === "approval") {
@@ -177,7 +165,7 @@ export function generateMinIntervalRampPreset(params: {
   const { intervalSeconds, stepCount, stepActions = [] } = params;
 
   return Array.from({ length: stepCount }, (_, i) =>
-    intervalStep(intervalSeconds * (i + 1), stepActions, i === 0),
+    intervalStep(intervalSeconds * (i + 1), stepActions),
   );
 }
 
