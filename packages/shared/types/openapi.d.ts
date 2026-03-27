@@ -535,6 +535,7 @@ export interface components {
           })[];
       };
       config: ({
+        /** @description ID of the datasource to query */
         datasource: string;
         dimensions: (({
             /** @constant */
@@ -596,6 +597,7 @@ export interface components {
             })[];
         };
       }) | ({
+        /** @description ID of the datasource to query */
         datasource: string;
         dimensions: (({
             /** @constant */
@@ -659,6 +661,7 @@ export interface components {
             })[];
         };
       }) | ({
+        /** @description ID of the datasource to query */
         datasource: string;
         dimensions: (({
             /** @constant */
@@ -926,6 +929,7 @@ export interface components {
           snapshotId?: string;
           explorerAnalysisId: string;
           config: {
+            /** @description ID of the datasource to query */
             datasource: string;
             dimensions: (({
                 /** @constant */
@@ -998,6 +1002,7 @@ export interface components {
           snapshotId?: string;
           explorerAnalysisId: string;
           config: {
+            /** @description ID of the datasource to query */
             datasource: string;
             dimensions: (({
                 /** @constant */
@@ -1072,6 +1077,7 @@ export interface components {
           snapshotId?: string;
           explorerAnalysisId: string;
           config: {
+            /** @description ID of the datasource to query */
             datasource: string;
             dimensions: (({
                 /** @constant */
@@ -15712,6 +15718,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description ID of the datasource to query */
           datasource: string;
           dimensions: (({
               /** @constant */
@@ -15802,6 +15809,7 @@ export interface operations {
                   })[];
               };
               config: {
+                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -15879,6 +15887,7 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
         };
@@ -15895,6 +15904,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description ID of the datasource to query */
           datasource: string;
           dimensions: (({
               /** @constant */
@@ -15987,6 +15997,7 @@ export interface operations {
                   })[];
               };
               config: {
+                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -16066,6 +16077,7 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
         };
@@ -16082,6 +16094,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description ID of the datasource to query */
           datasource: string;
           dimensions: (({
               /** @constant */
@@ -16179,6 +16192,7 @@ export interface operations {
                   })[];
               };
               config: {
+                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -16263,6 +16277,7 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
         };
@@ -16667,6 +16682,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -16739,6 +16755,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -16813,6 +16830,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17179,6 +17197,7 @@ export interface operations {
               snapshotId?: string;
               explorerAnalysisId: string;
               config: {
+                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -17251,6 +17270,7 @@ export interface operations {
               snapshotId?: string;
               explorerAnalysisId: string;
               config: {
+                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -17325,6 +17345,7 @@ export interface operations {
               snapshotId?: string;
               explorerAnalysisId: string;
               config: {
+                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -17578,6 +17599,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17650,6 +17672,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17724,6 +17747,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17999,6 +18023,7 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
+                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -18071,6 +18096,7 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
+                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -18145,6 +18171,7 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
+                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -18548,6 +18575,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18620,6 +18648,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18694,6 +18723,7 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
+                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18957,6 +18987,7 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
+                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -19029,6 +19060,7 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
+                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -19103,6 +19135,7 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
+                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */

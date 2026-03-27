@@ -149,7 +149,7 @@ export const dateRangePredefined = [
 export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
 export const baseExplorationConfigValidator = z.object({
-  datasource: z.string(),
+  datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
   dateRange: z.object({
@@ -228,7 +228,15 @@ export const productAnalyticsExplorationValidator = z.object({
 });
 
 export const explorationCacheQuerySchema = z.object({
-  cache: z.enum(["preferred", "required", "never"]).optional(),
+  cache: z
+    .enum(["preferred", "required", "never"])
+    .describe(
+      "Controls cache behavior for this exploration: " +
+        "`preferred` (default) returns a cached result if one exists, otherwise runs a new query; " +
+        "`never` always runs a new query, ignoring any cached results; " +
+        "`required` only returns a cached result, if none exists returns exploration: null with a message",
+    )
+    .optional(),
 });
 
 export type ExplorationCacheQuery = z.infer<typeof explorationCacheQuerySchema>;

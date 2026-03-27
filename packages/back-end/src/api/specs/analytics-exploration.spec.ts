@@ -35,7 +35,12 @@ export function makeExplorationEndpoint<
     zodReturnObject: z.object({
       exploration: explorationValidator.nullable(),
       query: apiQueryValidator.nullable(),
-      message: z.string().optional(),
+      message: z
+        .string()
+        .describe(
+          "Present when `exploration` is null, explaining why no result was returned.",
+        )
+        .optional(),
     }),
     summary: opts.summary,
   };

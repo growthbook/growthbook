@@ -6278,6 +6278,7 @@ paths:
           in: query
           required: false
           schema:
+            description: 'Controls cache behavior for this exploration: `preferred` (default) returns a cached result if one exists, otherwise runs a new query; `never` always runs a new query, ignoring any cached results; `required` only returns a cached result, if none exists returns exploration: null with a message'
             type: string
             enum:
               - preferred
@@ -6299,6 +6300,7 @@ paths:
               type: object
               properties:
                 datasource:
+                  description: ID of the datasource to query
                   type: string
                 dimensions:
                   type: array
@@ -6633,6 +6635,7 @@ paths:
                             type: object
                             properties:
                               datasource:
+                                description: ID of the datasource to query
                                 type: string
                               dimensions:
                                 type: array
@@ -6948,6 +6951,7 @@ paths:
                         additionalProperties: false
                       - type: 'null'
                   message:
+                    description: 'Present when `exploration` is null, explaining why no result was returned.'
                     type: string
                 required:
                   - exploration
@@ -6961,6 +6965,7 @@ paths:
           in: query
           required: false
           schema:
+            description: 'Controls cache behavior for this exploration: `preferred` (default) returns a cached result if one exists, otherwise runs a new query; `never` always runs a new query, ignoring any cached results; `required` only returns a cached result, if none exists returns exploration: null with a message'
             type: string
             enum:
               - preferred
@@ -6982,6 +6987,7 @@ paths:
               type: object
               properties:
                 datasource:
+                  description: ID of the datasource to query
                   type: string
                 dimensions:
                   type: array
@@ -7325,6 +7331,7 @@ paths:
                             type: object
                             properties:
                               datasource:
+                                description: ID of the datasource to query
                                 type: string
                               dimensions:
                                 type: array
@@ -7649,6 +7656,7 @@ paths:
                         additionalProperties: false
                       - type: 'null'
                   message:
+                    description: 'Present when `exploration` is null, explaining why no result was returned.'
                     type: string
                 required:
                   - exploration
@@ -7662,6 +7670,7 @@ paths:
           in: query
           required: false
           schema:
+            description: 'Controls cache behavior for this exploration: `preferred` (default) returns a cached result if one exists, otherwise runs a new query; `never` always runs a new query, ignoring any cached results; `required` only returns a cached result, if none exists returns exploration: null with a message'
             type: string
             enum:
               - preferred
@@ -7683,6 +7692,7 @@ paths:
               type: object
               properties:
                 datasource:
+                  description: ID of the datasource to query
                   type: string
                 dimensions:
                   type: array
@@ -8043,6 +8053,7 @@ paths:
                             type: object
                             properties:
                               datasource:
+                                description: ID of the datasource to query
                                 type: string
                               dimensions:
                                 type: array
@@ -8384,6 +8395,7 @@ paths:
                         additionalProperties: false
                       - type: 'null'
                   message:
+                    description: 'Present when `exploration` is null, explaining why no result was returned.'
                     type: string
                 required:
                   - exploration
@@ -9638,6 +9650,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -9922,6 +9935,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -10215,6 +10229,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -11529,6 +11544,7 @@ paths:
                                 type: object
                                 properties:
                                   datasource:
+                                    description: ID of the datasource to query
                                     type: string
                                   dimensions:
                                     type: array
@@ -11813,6 +11829,7 @@ paths:
                                 type: object
                                 properties:
                                   datasource:
+                                    description: ID of the datasource to query
                                     type: string
                                   dimensions:
                                     type: array
@@ -12106,6 +12123,7 @@ paths:
                                 type: object
                                 properties:
                                   datasource:
+                                    description: ID of the datasource to query
                                     type: string
                                   dimensions:
                                     type: array
@@ -12985,6 +13003,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -13269,6 +13288,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -13562,6 +13582,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -14943,6 +14964,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -15227,6 +15249,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -15520,6 +15543,7 @@ paths:
                                   type: object
                                   properties:
                                     datasource:
+                                      description: ID of the datasource to query
                                       type: string
                                     dimensions:
                                       type: array
@@ -16425,6 +16449,7 @@ paths:
                                     type: object
                                     properties:
                                       datasource:
+                                        description: ID of the datasource to query
                                         type: string
                                       dimensions:
                                         type: array
@@ -16709,6 +16734,7 @@ paths:
                                     type: object
                                     properties:
                                       datasource:
+                                        description: ID of the datasource to query
                                         type: string
                                       dimensions:
                                         type: array
@@ -17002,6 +17028,7 @@ paths:
                                     type: object
                                     properties:
                                       datasource:
+                                        description: ID of the datasource to query
                                         type: string
                                       dimensions:
                                         type: array
@@ -17911,6 +17938,7 @@ paths:
                                     type: object
                                     properties:
                                       datasource:
+                                        description: ID of the datasource to query
                                         type: string
                                       dimensions:
                                         type: array
@@ -18195,6 +18223,7 @@ paths:
                                     type: object
                                     properties:
                                       datasource:
+                                        description: ID of the datasource to query
                                         type: string
                                       dimensions:
                                         type: array
@@ -18488,6 +18517,7 @@ paths:
                                     type: object
                                     properties:
                                       datasource:
+                                        description: ID of the datasource to query
                                         type: string
                                       dimensions:
                                         type: array
@@ -20245,6 +20275,7 @@ components:
             - type: object
               properties:
                 datasource:
+                  description: ID of the datasource to query
                   type: string
                 dimensions:
                   type: array
@@ -20499,6 +20530,7 @@ components:
             - type: object
               properties:
                 datasource:
+                  description: ID of the datasource to query
                   type: string
                 dimensions:
                   type: array
@@ -20762,6 +20794,7 @@ components:
             - type: object
               properties:
                 datasource:
+                  description: ID of the datasource to query
                   type: string
                 dimensions:
                   type: array
@@ -21725,6 +21758,7 @@ components:
                     type: object
                     properties:
                       datasource:
+                        description: ID of the datasource to query
                         type: string
                       dimensions:
                         type: array
@@ -22009,6 +22043,7 @@ components:
                     type: object
                     properties:
                       datasource:
+                        description: ID of the datasource to query
                         type: string
                       dimensions:
                         type: array
@@ -22302,6 +22337,7 @@ components:
                     type: object
                     properties:
                       datasource:
+                        description: ID of the datasource to query
                         type: string
                       dimensions:
                         type: array
