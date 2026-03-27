@@ -325,13 +325,12 @@ export default function AISettings({
   useEffect(() => {
     if (data) {
       const prompts = getPrompts(data);
+      const values: Record<string, string> = {};
       prompts.forEach((prompt) => {
-        promptForm.setValue(prompt.promptType, prompt.promptValue);
-        promptForm.setValue(
-          `${prompt.promptType}-model`,
-          prompt.overrideModel || "",
-        );
+        values[prompt.promptType] = prompt.promptValue;
+        values[`${prompt.promptType}-model`] = prompt.overrideModel || "";
       });
+      promptForm.reset(values);
     }
   }, [data, promptForm]);
 
