@@ -1,20 +1,57 @@
-import React from "react";
-import { useRouter } from "next/router";
-import { Flex, Box } from "@radix-ui/themes";
+import React, { useEffect, useRef, useState } from "react";
+import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
 import { DatasetType, ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
+import { useQueryState } from "nuqs";
+import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/ui/Button";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
-import { ExplorerProvider } from "./ExplorerContext";
+import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
 import {
   createEmptyDataset,
   createEmptyValue,
   decodeExplorationConfig,
+  explorationConfigParser,
 } from "./util";
+
+const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
+  metric: "Metric",
+  fact_table: "Fact Table",
+  data_source: "Data Source",
+};
+
+const explorationQueryParser = explorationConfigParser.withOptions({
+  shallow: true,
+  throttleMs: 300,
+});
+
+function deriveConfigError(
+  urlConfig: ExplorationConfig | null,
+  rawParam: string | undefined,
+  type: DatasetType,
+): string | null {
+  if (!rawParam) return null;
+
+  if (!urlConfig) {
+    const result = decodeExplorationConfig(rawParam);
+    return result.error;
+  }
+
+  if (urlConfig.type !== type) {
+    return `This link was created from the ${
+      EXPLORER_TYPE_LABELS[urlConfig.type]
+    } explorer, but you're currently viewing the ${
+      EXPLORER_TYPE_LABELS[type]
+    } explorer.`;
+  }
+
+  return null;
+}
 
 function ExplorerContent() {
   return (
@@ -66,11 +103,51 @@ function ExplorerContent() {
   );
 }
 
+function ExplorerUrlSync({
+  setUrlConfig,
+}: {
+  setUrlConfig: (config: ExplorationConfig) => void;
+}) {
+  const { draftExploreState } = useExplorerContext();
+  const hasUserModified = useRef(false);
+
+  useEffect(() => {
+    if (!hasUserModified.current) {
+      hasUserModified.current = true;
+      return;
+    }
+    setUrlConfig(draftExploreState);
+  }, [draftExploreState, setUrlConfig]);
+
+  return null;
+}
+
 export default function Explorer({ type }: { type: DatasetType }) {
-  const router = useRouter();
+  return (
+    <NuqsAdapter>
+      <ExplorerInner type={type} />
+    </NuqsAdapter>
+  );
+}
+
+function ExplorerInner({ type }: { type: DatasetType }) {
   const { datasources } = useDefinitions();
 
-  if (!router.isReady) return null;
+  const [urlConfig, setUrlConfig] = useQueryState(
+    "config",
+    explorationQueryParser,
+  );
+
+  const rawParam =
+    typeof window !== "undefined"
+      ? (new URLSearchParams(window.location.search).get("config") ?? undefined)
+      : undefined;
+
+  const configError = deriveConfigError(urlConfig, rawParam, type);
+
+  const [configErrorModal, setConfigErrorModal] = useState<string | null>(
+    () => configError,
+  );
 
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
@@ -80,16 +157,33 @@ export default function Explorer({ type }: { type: DatasetType }) {
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
   } as ExplorationConfig;
 
-  const configParam = router.query.config;
-  const configFromUrl =
-    typeof configParam === "string"
-      ? decodeExplorationConfig(configParam)
-      : null;
-  const initialConfig = configFromUrl ?? defaultDraftState;
+  const initialConfig =
+    urlConfig && !configError ? urlConfig : defaultDraftState;
 
   return (
-    <ExplorerProvider initialConfig={initialConfig} syncUrl>
-      <ExplorerContent />
-    </ExplorerProvider>
+    <>
+      {configErrorModal && (
+        <AlertDialog.Root open>
+          <AlertDialog.Content maxWidth="480px">
+            <AlertDialog.Title>
+              Unable to restore configuration
+            </AlertDialog.Title>
+            <AlertDialog.Description>
+              {configErrorModal} The explorer has been loaded with default
+              settings.
+            </AlertDialog.Description>
+            <Flex justify="end" mt="4">
+              <Button color="violet" onClick={() => setConfigErrorModal(null)}>
+                Dismiss
+              </Button>
+            </Flex>
+          </AlertDialog.Content>
+        </AlertDialog.Root>
+      )}
+      <ExplorerProvider key={type} initialConfig={initialConfig}>
+        <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+        <ExplorerContent />
+      </ExplorerProvider>
+    </>
   );
 }

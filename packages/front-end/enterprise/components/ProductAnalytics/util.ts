@@ -15,6 +15,7 @@ import type {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import { isEqual } from "lodash";
+import { createParser } from "nuqs";
 import { dateGranularity, explorationConfigValidator } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
@@ -546,16 +547,30 @@ export function encodeExplorationConfig(config: ExplorationConfig): string {
   return btoa(encodeURIComponent(JSON.stringify(config)));
 }
 
-export function decodeExplorationConfig(
-  encoded: string,
-): ExplorationConfig | null {
+type DecodeConfigResult =
+  | { config: ExplorationConfig; error: null }
+  | { config: null; error: string };
+
+export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
   try {
     const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
-    return explorationConfigValidator.parse(parsed);
+    const config = explorationConfigValidator.parse(parsed);
+    return { config, error: null };
   } catch {
-    return null;
+    return {
+      config: null,
+      error: "The URL contains an invalid or outdated explorer configuration.",
+    };
   }
 }
+
+export const explorationConfigParser = createParser<ExplorationConfig>({
+  parse: (raw) => {
+    const result = decodeExplorationConfig(raw);
+    return result.config;
+  },
+  serialize: (config) => encodeExplorationConfig(config),
+});
 
 /**
  * Sort exploration result rows to match the visual ordering of the chart.
