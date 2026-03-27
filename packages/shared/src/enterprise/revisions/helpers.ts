@@ -1,5 +1,5 @@
 import isEqual from "lodash/isEqual";
-import type { RevisionConfigurations } from "shared/types/organization";
+import type { ApprovalFlowConfigurations } from "shared/types/organization";
 import type { TeamInterface } from "shared/types/team";
 import type {
   RevisionTargetType,
@@ -43,16 +43,16 @@ export const canUserReviewEntity = ({
   entityType: RevisionTargetType;
   revision: Revision;
   entity: RevisionEntity | Record<string, unknown>;
-  approvalFlowSettings: RevisionConfigurations | undefined;
+  approvalFlowSettings: ApprovalFlowConfigurations | undefined;
   userId: string;
   teams?: TeamInterface[];
   userPermissions?: Record<string, boolean>;
   canEditEntity?: boolean;
 }): boolean => {
-  // Can't review merged/closed revisions or own changes
+  // Can't review merged/discarded revisions or own changes
   if (
     revision.status === "merged" ||
-    revision.status === "closed" ||
+    revision.status === "discarded" ||
     revision.authorId === userId
   ) {
     return false;

@@ -32,9 +32,9 @@ const STATUS_BANNER_CONFIG: Record<
     status: "warning",
     text: "Changes have been requested on this proposal.",
   },
-  closed: {
+  discarded: {
     status: "error",
-    text: "This revision has been closed and is in read-only mode.",
+    text: "This revision has been discarded and is in read-only mode.",
   },
   merged: {
     status: "success",
@@ -141,7 +141,7 @@ export default function RevisionBanner({
           </span>
           <Flex gap="2" align="center">
             {canDiscard &&
-              revision.status !== "closed" &&
+              revision.status !== "discarded" &&
               revision.status !== "merged" && (
                 <Link onClick={() => setConfirmDiscard(true)}>
                   Discard draft
@@ -157,7 +157,7 @@ export default function RevisionBanner({
                 Publish Changes
               </Button>
             )}
-            {revision.status === "closed" && canReopen && onReopen && (
+            {revision.status === "discarded" && canReopen && onReopen && (
               <Button
                 variant="solid"
                 color="violet"

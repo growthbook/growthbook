@@ -198,6 +198,7 @@ type DropdownItemProps = {
   onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
+  tooltip?: string;
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: () => Promise<string | ReactElement | null>;
@@ -218,6 +219,7 @@ export function DropdownMenuItem({
   color,
   onClick,
   confirmation,
+  tooltip,
   ...props
 }: DropdownItemProps) {
   if (color === "default") {
@@ -255,6 +257,58 @@ export function DropdownMenuItem({
     closeDropdown?.();
   };
 
+  const menuItem = (
+    <RadixDropdownMenu.Item
+      disabled={disabled || !!error || !!loading}
+      onSelect={async (event) => {
+        event.preventDefault();
+        if (confirmation) {
+          if (!hideDropdown || !showDropdown) {
+            console.error(
+              "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",
+            );
+            return;
+          }
+          hideDropdown();
+          setConfirming(true);
+          return;
+        }
+        if (onClick) {
+          setError(null);
+          setLoading(true);
+          try {
+            await onClick(event);
+          } catch (e) {
+            setError(e.message);
+            console.error(e);
+          }
+          setLoading(false);
+        }
+      }}
+      color={color}
+      shortcut={shortcut}
+      {...props}
+    >
+      {loading || error ? (
+        <Flex as="div" justify="between" align="center">
+          <Box as="span" className={loading ? "font-italic" : ""}>
+            {children}
+          </Box>
+          <Box width="14px" className="ml-3">
+            {loading ? <LoadingSpinner /> : null}
+            {error ? (
+              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+                <PiWarningFill color={amber.amber11} />
+              </Tooltip>
+            ) : null}
+          </Box>
+        </Flex>
+      ) : (
+        children
+      )}
+    </RadixDropdownMenu.Item>
+  );
+
   return (
     <>
       {confirmation && confirming && (
@@ -275,56 +329,7 @@ export function DropdownMenuItem({
           {confirmationContent ?? "Are you sure? This action cannot be undone."}
         </Modal>
       )}
-      <RadixDropdownMenu.Item
-        disabled={disabled || !!error || !!loading}
-        onSelect={async (event) => {
-          event.preventDefault();
-          if (confirmation) {
-            if (!hideDropdown || !showDropdown) {
-              console.error(
-                "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",
-              );
-              return;
-            }
-            hideDropdown();
-            setConfirming(true);
-            return;
-          }
-          if (onClick) {
-            setError(null);
-            setLoading(true);
-            try {
-              await onClick(event);
-              // If this promise is resolved without an error, we need to close
-            } catch (e) {
-              setError(e.message);
-              console.error(e);
-            }
-            setLoading(false);
-          }
-        }}
-        color={color}
-        shortcut={shortcut}
-        {...props}
-      >
-        {loading || error ? (
-          <Flex as="div" justify="between" align="center">
-            <Box as="span" className={loading ? "font-italic" : ""}>
-              {children}
-            </Box>
-            <Box width="14px" className="ml-3">
-              {loading ? <LoadingSpinner /> : null}
-              {error ? (
-                <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-                  <PiWarningFill color={amber.amber11} />
-                </Tooltip>
-              ) : null}
-            </Box>
-          </Flex>
-        ) : (
-          children
-        )}
-      </RadixDropdownMenu.Item>
+      {tooltip ? <Tooltip body={tooltip}>{menuItem}</Tooltip> : menuItem}
     </>
   );
 }

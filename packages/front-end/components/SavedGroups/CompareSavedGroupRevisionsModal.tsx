@@ -57,18 +57,17 @@ export interface Props {
   requiresApproval?: boolean;
 }
 
-function RevisionLabel({ title }: { title?: string | null }) {
+function RevisionLabel({ title }: { title: string | undefined | null }) {
   return <span>{title || "Untitled"}</span>;
 }
 
-function revisionLabelText(title?: string | null): string {
+function revisionLabelText(title: string | undefined | null): string {
   return title || "Untitled";
 }
 
 function RevisionStatusBadge({
   revision,
   liveRevisionId,
-  requiresApproval = true,
 }: {
   revision: Revision | null;
   liveRevisionId: string | null;
@@ -86,20 +85,15 @@ function RevisionStatusBadge({
     case "draft":
       return <Badge color="indigo" variant="soft" label="Draft" />;
     case "pending-review":
-      // Show as "Draft" if approvals are not required
-      return requiresApproval ? (
-        <Badge color="yellow" variant="soft" label="Pending Review" />
-      ) : (
-        <Badge color="indigo" variant="soft" label="Draft" />
-      );
+      return <Badge color="blue" variant="soft" label="Pending review" />;
     case "approved":
-      return <Badge color="blue" variant="soft" label="Approved" />;
+      return <Badge color="gray" variant="soft" label="Approved" />;
     case "changes-requested":
-      return <Badge color="orange" variant="soft" label="Changes Requested" />;
+      return <Badge color="amber" variant="soft" label="Changes requested" />;
     case "merged":
-      return <Badge color="gray" variant="soft" label="Merged" />;
-    case "closed":
-      return <Badge color="gray" variant="soft" label="Closed" />;
+      return <Badge color="gray" variant="soft" label="Locked" />;
+    case "discarded":
+      return <Badge color="red" variant="soft" label="Discarded" />;
     default:
       return null;
   }
@@ -248,7 +242,7 @@ export default function CompareSavedGroupRevisionsModal({
       .filter((r) => {
         // Filter out all merged revisions since they're part of live history
         if (r.status === "merged") return false;
-        if (r.status === "closed" && !showDiscarded) return false;
+        if (r.status === "discarded" && !showDiscarded) return false;
         if (ACTIVE_DRAFT_STATUSES.includes(r.status) && !showDrafts)
           return false;
         return true;
@@ -531,7 +525,7 @@ export default function CompareSavedGroupRevisionsModal({
   };
 
   const hasDiscardedRevisions = useMemo(
-    () => allRevisions.some((r) => r.status === "closed"),
+    () => allRevisions.some((r) => r.status === "discarded"),
     [allRevisions],
   );
   const hasDraftRevisions = useMemo(

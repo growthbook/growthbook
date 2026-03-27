@@ -33,13 +33,13 @@ export function useSavedGroupRevision(
   const openRevisions = useMemo(
     () =>
       (data?.revisions ?? []).filter(
-        (f) => !["merged", "closed"].includes(f.status),
+        (f) => !["merged", "discarded"].includes(f.status),
       ),
     [data?.revisions],
   );
 
   // Derive selected revision from SWR data — single source of truth
-  // Look in ALL revisions (not just open ones) so closed/merged revisions can be selected
+  // Look in ALL revisions (not just open ones) so discarded/merged revisions can be selected
   const selectedRevision = useMemo(
     () =>
       selectedRevisionId

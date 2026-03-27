@@ -68,7 +68,7 @@ import {
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import FixConflictsModal from "@/components/Features/FixConflictsModal";
+import FeatureFixConflictsModal from "@/components/Features/FeatureFixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import RevisionLabel, {
@@ -1850,7 +1850,7 @@ export default function FeaturesOverview({
           />
         )}
         {conflictModal && revision && (
-          <FixConflictsModal
+          <FeatureFixConflictsModal
             feature={baseFeature}
             revisions={revisions}
             version={revision.version}

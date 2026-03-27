@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Revision } from "shared/enterprise";
 import { dateNoYear } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDownBold, PiLockSimple } from "react-icons/pi";
+import { PiCaretDownBold } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -21,13 +21,13 @@ export interface Props {
   selectedRevisionId: string | null;
   onSelectRevision: (revision: Revision | null) => void;
   requiresApproval?: boolean;
+  draftsOnly?: boolean;
 }
 
 function RevisionRow({
   revision,
   liveRevisionId,
   revisionNumber,
-  requiresApproval = true,
 }: {
   revision: Revision;
   liveRevisionId: string | null;
@@ -50,7 +50,7 @@ function RevisionRow({
               whiteSpace: "nowrap",
               maxWidth: 400,
             }}
-            title={revision.title || `Revision ${revisionNumber}`}
+            title={revision.title}
           >
             <span
               style={{
@@ -64,7 +64,7 @@ function RevisionRow({
                 {revisionNumber}.
               </Text>
             </span>
-            {revision.title || `Revision ${revisionNumber}`}
+            {revision.title}
           </span>
         </Text>
       </Box>
@@ -82,23 +82,15 @@ function RevisionRow({
         {isLive ? (
           <Badge label="Live" color="teal" radius="full" />
         ) : revision.status === "merged" ? (
-          <Flex align="center" gap="1">
-            <PiLockSimple size={14} />
-            <Badge label="Locked" color="gray" radius="full" />
-          </Flex>
-        ) : revision.status === "closed" ? (
-          <Badge label="Closed" color="gray" radius="full" />
+          <Badge label="Locked" color="gray" radius="full" />
+        ) : revision.status === "discarded" ? (
+          <Badge label="Discarded" color="red" radius="full" />
         ) : revision.status === "approved" ? (
-          <Badge label="Approved" color="blue" radius="full" />
+          <Badge label="Approved" color="gray" radius="full" />
         ) : revision.status === "changes-requested" ? (
-          <Badge label="Changes Requested" color="orange" radius="full" />
+          <Badge label="Changes requested" color="amber" radius="full" />
         ) : revision.status === "pending-review" ? (
-          // Show as "Draft" if approvals are not required
-          <Badge
-            label={requiresApproval ? "Pending Review" : "Draft"}
-            color={requiresApproval ? "yellow" : "indigo"}
-            radius="full"
-          />
+          <Badge label="Pending review" color="blue" radius="full" />
         ) : revision.status === "draft" ? (
           <Badge label="Draft" color="indigo" radius="full" />
         ) : null}
@@ -113,6 +105,7 @@ export default function SavedGroupRevisionDropdown({
   selectedRevisionId,
   onSelectRevision,
   requiresApproval = true,
+  draftsOnly = false,
 }: Props) {
   const initialPageSize = 5;
 
@@ -166,11 +159,22 @@ export default function SavedGroupRevisionDropdown({
       (revisionNumberById.get(b.id) ?? 0) - (revisionNumberById.get(a.id) ?? 0),
   );
 
+  // Filter for drafts only if specified
+  const filteredForDrafts = draftsOnly
+    ? allSorted.filter(
+        (r) =>
+          r.status === "draft" ||
+          r.status === "pending-review" ||
+          r.status === "changes-requested" ||
+          r.status === "approved",
+      )
+    : allSorted;
+
   // Show all revisions, optionally filtering discarded
   const displayList = showDiscarded
-    ? allSorted
-    : allSorted.filter(
-        (r) => r.status !== "closed" || r.id === selectedRevisionId,
+    ? filteredForDrafts
+    : filteredForDrafts.filter(
+        (r) => r.status !== "discarded" || r.id === selectedRevisionId,
       );
 
   // When viewing live (selectedRevisionId is null), find the live revision in the list
@@ -220,7 +224,9 @@ export default function SavedGroupRevisionDropdown({
     </DropdownMenuItem>
   ));
 
-  const discardedCount = allSorted.filter((r) => r.status === "closed").length;
+  const discardedCount = allSorted.filter(
+    (r) => r.status === "discarded",
+  ).length;
 
   const triggerWidth = 430;
   const selectedRevisionNumber = selectedRevision
@@ -245,9 +251,7 @@ export default function SavedGroupRevisionDropdown({
                 whiteSpace: "nowrap",
                 maxWidth: 400,
               }}
-              title={
-                selectedRevision.title || `Revision ${selectedRevisionNumber}`
-              }
+              title={selectedRevision.title}
             >
               <span
                 style={{
@@ -261,7 +265,7 @@ export default function SavedGroupRevisionDropdown({
                   {selectedRevisionNumber}.
                 </Text>
               </span>
-              {selectedRevision.title || `Revision ${selectedRevisionNumber}`}
+              {selectedRevision.title}
             </span>
           ) : (
             "Select revision"
@@ -273,16 +277,15 @@ export default function SavedGroupRevisionDropdown({
           selectedRevision.id === liveRevision?.id ? (
             <Badge label="Live" color="teal" radius="full" />
           ) : selectedRevision.status === "merged" ? (
-            <Flex align="center" gap="1">
-              <PiLockSimple size={14} />
-              <Badge label="Locked" color="gray" radius="full" />
-            </Flex>
-          ) : selectedRevision.status === "closed" ? (
-            <Badge label="Closed" color="gray" radius="full" />
+            <Badge label="Locked" color="gray" radius="full" />
+          ) : selectedRevision.status === "discarded" ? (
+            <Badge label="Discarded" color="red" radius="full" />
           ) : selectedRevision.status === "approved" ? (
-            <Badge label="Approved" color="blue" radius="full" />
+            <Badge label="Approved" color="gray" radius="full" />
           ) : selectedRevision.status === "changes-requested" ? (
-            <Badge label="Changes Requested" color="orange" radius="full" />
+            <Badge label="Changes requested" color="amber" radius="full" />
+          ) : selectedRevision.status === "pending-review" ? (
+            <Badge label="Pending review" color="blue" radius="full" />
           ) : (
             <Badge label="Draft" color="indigo" radius="full" />
           )

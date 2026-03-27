@@ -53,6 +53,28 @@ const BaseClass = MakeModelClass({
 
 export class RevisionModel extends BaseClass {
   /**
+   * Filter out invalid activityLog entries (for backward compatibility with old data).
+   */
+  private cleanActivityLog(
+    activityLog: Revision["activityLog"],
+  ): Revision["activityLog"] {
+    const validActions = [
+      "created",
+      "updated",
+      "reviewed",
+      "approved",
+      "requested-changes",
+      "commented",
+      "merged",
+      "discarded",
+      "reopened",
+    ];
+    return activityLog.filter(
+      (entry) => entry.action && validActions.includes(entry.action as string),
+    );
+  }
+
+  /**
    * Delegate read permission to the underlying target entity's read check.
    */
   protected canRead(doc: Revision): boolean {
@@ -137,7 +159,7 @@ export class RevisionModel extends BaseClass {
           | "requested-changes"
           | "commented"
           | "merged"
-          | "closed"
+          | "discarded"
           | "reopened";
         description?: string;
         dateCreated: Date;
@@ -203,7 +225,7 @@ export class RevisionModel extends BaseClass {
       "target.type": entityType,
       "target.id": entityId,
       authorId,
-      status: { $nin: ["merged", "closed"] },
+      status: { $nin: ["merged", "discarded"] },
     } as Record<string, unknown>);
   }
 
@@ -220,7 +242,7 @@ export class RevisionModel extends BaseClass {
     return this.update(existing, {
       status: "pending-review",
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
@@ -269,7 +291,7 @@ export class RevisionModel extends BaseClass {
       reviews: [...existing.reviews, review],
       status: newStatus,
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
@@ -306,7 +328,7 @@ export class RevisionModel extends BaseClass {
         proposedChanges,
       },
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
@@ -340,7 +362,7 @@ export class RevisionModel extends BaseClass {
         proposedChanges: newProposedChanges,
       },
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
@@ -358,8 +380,8 @@ export class RevisionModel extends BaseClass {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
-    if (existing.status === "merged" || existing.status === "closed") {
-      throw new Error("Cannot merge a closed or already-merged revision");
+    if (existing.status === "merged" || existing.status === "discarded") {
+      throw new Error("Cannot merge a discarded or already-merged revision");
     }
 
     const description = options?.bypass
@@ -374,7 +396,7 @@ export class RevisionModel extends BaseClass {
         dateCreated: new Date(),
       },
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
@@ -390,24 +412,24 @@ export class RevisionModel extends BaseClass {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
-    if (existing.status === "merged" || existing.status === "closed") {
-      throw new Error("Cannot close an already closed or merged revision");
+    if (existing.status === "merged" || existing.status === "discarded") {
+      throw new Error("Cannot discard an already discarded or merged revision");
     }
 
     return this.update(existing, {
-      status: "closed",
+      status: "discarded",
       resolution: {
-        action: "closed",
+        action: "discarded",
         userId,
         dateCreated: new Date(),
       },
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
-          action: "closed",
-          description: reason || "Closed revision",
+          action: "discarded",
+          description: reason || "Discarded revision",
           dateCreated: new Date(),
         },
       ],
@@ -422,7 +444,7 @@ export class RevisionModel extends BaseClass {
       status: "pending-review",
       resolution: undefined,
       activityLog: [
-        ...existing.activityLog,
+        ...this.cleanActivityLog(existing.activityLog),
         {
           id: uniqid("act_"),
           userId,
@@ -455,7 +477,7 @@ export class RevisionModel extends BaseClass {
     return this._dangerousGetCollection().distinct("target.id", {
       organization: this.context.org.id,
       "target.type": entityType,
-      status: { $nin: ["merged", "closed"] },
+      status: { $nin: ["merged", "discarded"] },
     });
   }
 

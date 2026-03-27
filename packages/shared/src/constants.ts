@@ -1,6 +1,6 @@
 import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
-import { RevisionConfigurations } from "shared/types/organization";
+import { ApprovalFlowConfigurations } from "shared/types/organization";
 
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
@@ -96,9 +96,10 @@ export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
 
-export const DEFAULT_REVISION_CONFIGURATION: RevisionConfigurations = {
+export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {
   savedGroups: {
     required: false,
+    requireMetadataReview: true,
   },
 };
 

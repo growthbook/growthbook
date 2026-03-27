@@ -203,7 +203,7 @@ export default function ConditionGroups({
                             {openRevisionTargetIds?.has(s.id) && (
                               <Badge
                                 label="Pending review"
-                                color="yellow"
+                                color="blue"
                                 variant="soft"
                               />
                             )}

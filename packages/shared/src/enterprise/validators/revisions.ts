@@ -10,7 +10,7 @@ export const revisionStatus = [
   "approved",
   "changes-requested",
   "merged",
-  "closed",
+  "discarded",
 ] as const;
 export type RevisionStatus = (typeof revisionStatus)[number];
 
@@ -42,7 +42,7 @@ export const activityLogEntryValidator = z.object({
     "requested-changes",
     "commented",
     "merged",
-    "closed",
+    "discarded",
     "reopened",
   ]),
   description: z.string().nullish(),
@@ -80,7 +80,7 @@ export const revisionValidator = z.object({
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({
-      action: z.enum(["merged", "closed"]),
+      action: z.enum(["merged", "discarded"]),
       userId: z.string(),
       dateCreated: z.date(),
     })

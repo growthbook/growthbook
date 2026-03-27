@@ -376,14 +376,14 @@ export const postReview = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Cannot review merged or closed revisions
+  // Cannot review merged or discarded revisions
   if (
     existingRevision.status === "merged" ||
-    existingRevision.status === "closed"
+    existingRevision.status === "discarded"
   ) {
     return res
       .status(400)
-      .json({ message: "Cannot review a closed or merged revision" });
+      .json({ message: "Cannot review a discarded or merged revision" });
   }
 
   // Prevent self-review (author cannot approve or request changes on own revision)
@@ -455,10 +455,11 @@ export const putProposedChanges = async (
   }
   if (
     existingRevision.status === "merged" ||
-    existingRevision.status === "closed"
+    existingRevision.status === "discarded"
   ) {
     return res.status(400).json({
-      message: "Cannot update proposed changes on a closed or merged revision",
+      message:
+        "Cannot update proposed changes on a discarded or merged revision",
     });
   }
   if (existingRevision.authorId !== userId) {
@@ -523,13 +524,13 @@ export const patchTitle = async (
     });
   }
 
-  // Cannot update title of merged/closed revisions
+  // Cannot update title of merged/discarded revisions
   if (
     existingRevision.status === "merged" ||
-    existingRevision.status === "closed"
+    existingRevision.status === "discarded"
   ) {
     return res.status(400).json({
-      message: "Cannot update title of a merged or closed revision",
+      message: "Cannot update title of a merged or discarded revision",
     });
   }
 
@@ -581,9 +582,9 @@ export const postRebase = async (
   if (!revision) {
     return res.status(404).json({ message: "Revision not found" });
   }
-  if (revision.status === "merged" || revision.status === "closed") {
+  if (revision.status === "merged" || revision.status === "discarded") {
     return res.status(400).json({
-      message: "Cannot rebase merged or closed revisions",
+      message: "Cannot rebase merged or discarded revisions",
     });
   }
   if (revision.authorId !== userId) {
@@ -706,9 +707,9 @@ export const postMerge = async (
   }
 
   // Terminal status guard — prevents re-merging already-completed revisions
-  if (revision.status === "merged" || revision.status === "closed") {
+  if (revision.status === "merged" || revision.status === "discarded") {
     return res.status(400).json({
-      message: "Cannot merge a closed or already-merged revision",
+      message: "Cannot merge a discarded or already-merged revision",
     });
   }
 
@@ -832,10 +833,10 @@ export const postClose = async (
 
   if (
     existingRevision.status === "merged" ||
-    existingRevision.status === "closed"
+    existingRevision.status === "discarded"
   ) {
     return res.status(400).json({
-      message: "Cannot close an already closed or merged revision",
+      message: "Cannot discard an already discarded or merged revision",
     });
   }
 
@@ -877,7 +878,7 @@ type PostReopenResponse = {
 
 /**
  * POST /revision/:id/reopen
- * Reopen a closed revision
+ * Reopen a discarded revision
  * @param req
  * @param res
  */
@@ -896,10 +897,10 @@ export const postReopen = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Only closed revisions can be reopened (not merged)
-  if (existingRevision.status !== "closed") {
+  // Only discarded revisions can be reopened (not merged)
+  if (existingRevision.status !== "discarded") {
     return res.status(400).json({
-      message: "Only closed revisions can be reopened",
+      message: "Only discarded revisions can be reopened",
     });
   }
 

@@ -37,7 +37,7 @@ function getEntityTypeLabel(entityType: string): string {
 
 function getEntityUrl(revision: Revision): string {
   if (revision.target.type === "saved-group") {
-    return `/saved-groups/${revision.target.id}`;
+    return `/saved-groups/${revision.target.id}?flow=${revision.id}`;
   }
   return "#";
 }
@@ -70,7 +70,7 @@ const ApprovalRequests: FC = () => {
       localStorageKey: "approvalRequestsList",
       defaultSortField: "dateCreated",
       defaultSortDir: -1,
-      searchFields: ["entityName", "authorId"],
+      searchFields: ["entityName", "authorId", "title"],
       searchTermFilters: {
         status: (item) => item.status,
         type: (item) => item.target.type,
@@ -114,7 +114,7 @@ const ApprovalRequests: FC = () => {
       searchValue: "changes-requested",
     },
     { name: "Published", id: "merged", searchValue: "merged" },
-    { name: "Closed", id: "closed", searchValue: "closed" },
+    { name: "Discarded", id: "discarded", searchValue: "discarded" },
   ];
 
   if (!hasFeature) {
@@ -194,6 +194,7 @@ const ApprovalRequests: FC = () => {
           <table className="table gbtable">
             <thead>
               <tr>
+                <SortableTH field="title">Revision</SortableTH>
                 <SortableTH field="entityName">Name</SortableTH>
                 <SortableTH field="entityType">Type</SortableTH>
                 <th>Requested by</th>
@@ -209,6 +210,11 @@ const ApprovalRequests: FC = () => {
                   style={{ cursor: "pointer" }}
                   className="hover-highlight"
                 >
+                  <td>
+                    {revision.title || (
+                      <span style={{ color: "var(--gray-9)" }}>Untitled</span>
+                    )}
+                  </td>
                   <td>{getEntityName(revision)}</td>
                   <td>{getEntityTypeLabel(revision.target.type)}</td>
                   <td>

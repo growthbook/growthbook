@@ -30,9 +30,15 @@ import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
+import SavedGroupArchiveModal from "@/components/SavedGroups/SavedGroupArchiveModal";
+import {
+  SavedGroupConflictModal,
+  useSavedGroupMergeResult,
+} from "@/components/SavedGroups/useSavedGroupConflictModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -62,7 +68,6 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupReferences from "@/components/SavedGroups/SavedGroupReferences";
 import SavedGroupReferencesList from "@/components/SavedGroups/SavedGroupReferencesList";
 import Checkbox from "@/ui/Checkbox";
-import SavedGroupDeleteModal from "@/components/SavedGroups/SavedGroupDeleteModal";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -95,11 +100,11 @@ export default function EditSavedGroupPage() {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const [showReferencesModal, setShowReferencesModal] =
     useState<boolean>(false);
-  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [showAuditModal, setShowAuditModal] = useState<boolean>(false);
   const [showChangesModal, setShowChangesModal] = useState<boolean>(false);
   const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
     useState<boolean>(false);
+  const [conflictModal, setConflictModal] = useState<boolean>(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState<boolean>(false);
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
@@ -148,6 +153,11 @@ export default function EditSavedGroupPage() {
   const approvalRequired =
     settings.approvalFlows?.savedGroups?.required ?? false;
 
+  // Check if metadata review is required
+  const metadataReviewRequired =
+    approvalRequired &&
+    (settings.approvalFlows?.savedGroups?.requireMetadataReview ?? true);
+
   const revisionState = useSavedGroupRevision(savedGroup?.id, mutate);
   const {
     selectedApprovalFlow: selectedRevision,
@@ -165,6 +175,27 @@ export default function EditSavedGroupPage() {
 
   // When the user already has an open revision, block edits to the live version
   const editBlocked = !!userOpenRevision;
+
+  // Revision state variables for UI logic
+  const isLive = !selectedRevision;
+  const isDraft =
+    selectedRevision &&
+    (selectedRevision.status === "draft" ||
+      selectedRevision.status === "pending-review" ||
+      selectedRevision.status === "changes-requested" ||
+      selectedRevision.status === "approved");
+  const isDiscarded =
+    selectedRevision && selectedRevision.status === "discarded";
+  const isMerged = selectedRevision && selectedRevision.status === "merged";
+  const hasRevisions = allRevisions.length > 0;
+
+  // Check for conflicts if there's a draft
+  const mergeResult = useSavedGroupMergeResult(
+    savedGroup,
+    selectedRevision,
+    allRevisions,
+    isDraft,
+  );
 
   // Close the changes modal when the selected revision is deselected (e.g. after publish/discard)
   useEffect(() => {
@@ -202,6 +233,9 @@ export default function EditSavedGroupPage() {
 
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
+  const [editConditionModal, setEditConditionModal] =
+    useState<null | Partial<SavedGroupInterface>>(null);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -285,18 +319,6 @@ export default function EditSavedGroupPage() {
           close={() => setUpgradeModal(false)}
           source="large-saved-groups"
           commercialFeature="large-saved-groups"
-        />
-      )}
-      {showDeleteModal && savedGroup && (
-        <SavedGroupDeleteModal
-          savedGroup={savedGroup}
-          close={() => setShowDeleteModal(false)}
-          onDelete={async () => {
-            await apiCall(`/saved-groups/${savedGroup.id}`, {
-              method: "DELETE",
-            });
-            router.push("/saved-groups");
-          }}
         />
       )}
       {showAuditModal && savedGroup && (
@@ -475,6 +497,7 @@ export default function EditSavedGroupPage() {
           current={savedGroupForm}
           type={savedGroup.type}
           approvalFlowRequired={approvalRequired}
+          metadataReviewRequired={metadataReviewRequired}
           hasExistingRevision={!!userOpenRevision}
           onRevisionCreated={onRevisionCreated}
           openRevisions={openRevisions}
@@ -483,6 +506,41 @@ export default function EditSavedGroupPage() {
           onSelectRevision={selectFlow}
           liveVersion={savedGroup}
           isCreatingNewRevision={isCreatingNewRevision}
+          editInfoOnly={true}
+          autoBypassApproval={!metadataReviewRequired}
+          mutate={mutate}
+        />
+      )}
+      {editConditionModal && (
+        <SavedGroupForm
+          close={() => {
+            setEditConditionModal(null);
+            mutate();
+          }}
+          current={editConditionModal}
+          type={savedGroup.type}
+          approvalFlowRequired={approvalRequired}
+          metadataReviewRequired={metadataReviewRequired}
+          hasExistingRevision={!!userOpenRevision}
+          onRevisionCreated={onRevisionCreated}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          onSelectRevision={selectFlow}
+          liveVersion={savedGroup}
+          editConditionOnly={true}
+          mutate={mutate}
+        />
+      )}
+      {showArchiveModal && displayedSavedGroup && (
+        <SavedGroupArchiveModal
+          savedGroup={displayedSavedGroup}
+          close={() => setShowArchiveModal(false)}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          mutate={mutate}
+          onRevisionCreated={onRevisionCreated}
+          selectFlow={selectFlow}
         />
       )}
       {showReferencesModal && (
@@ -508,23 +566,9 @@ export default function EditSavedGroupPage() {
       {showChangesModal &&
         selectedRevision &&
         (() => {
-          const modalRevisionNumber =
-            selectedRevision.version ??
-            [...allRevisions]
-              .sort(
-                (a, b) =>
-                  new Date(a.dateCreated).getTime() -
-                  new Date(b.dateCreated).getTime(),
-              )
-              .findIndex((f) => f.id === selectedRevision.id) + 1;
-
-          // All revisions now have a title (default: "Revision X")
-          const modalTitle =
-            selectedRevision.title || `Revision ${modalRevisionNumber}`;
-
           return (
             <Modal
-              header={modalTitle}
+              header={selectedRevision.title || `Revision ${revisionNumber}`}
               trackingEventModalType="saved-group-revision-changes"
               close={() => setShowChangesModal(false)}
               open={showChangesModal}
@@ -545,11 +589,9 @@ export default function EditSavedGroupPage() {
                 setCurrentRevision={(f) => selectFlow(f)}
                 onDiscard={async (revisionId) => {
                   await handleDiscard(revisionId);
-                  setShowChangesModal(false);
                 }}
                 onPublish={async (revisionId) => {
                   await handlePublish(revisionId);
-                  setShowChangesModal(false);
                 }}
                 onReopen={async (revisionId) => {
                   await handleReopen(revisionId);
@@ -609,16 +651,22 @@ export default function EditSavedGroupPage() {
               }
             });
 
-            // Get the revision number for the title
-            const sortedRevisions = [...allRevisions].sort(
-              (a, b) =>
-                new Date(a.dateCreated).getTime() -
-                new Date(b.dateCreated).getTime(),
-            );
-            const revisionNumber =
-              sortedRevisions.findIndex((r) => r.id === revisionToRevert.id) +
-              1;
-            const title = `Revert to Revision ${revisionNumber}`;
+            // Build the revert title using the source revision's title
+            const sourceTitle =
+              revisionToRevert.title ||
+              (() => {
+                const sortedRevisions = [...allRevisions].sort(
+                  (a, b) =>
+                    new Date(a.dateCreated).getTime() -
+                    new Date(b.dateCreated).getTime(),
+                );
+                const num =
+                  sortedRevisions.findIndex(
+                    (r) => r.id === revisionToRevert.id,
+                  ) + 1;
+                return `Revision ${num}`;
+              })();
+            const title = `Revert to "${sourceTitle}"`;
 
             // Create a new revision with the revert changes, title, and link back to original
             const res = await apiCall<{
@@ -652,40 +700,35 @@ export default function EditSavedGroupPage() {
           </Text>
         </Modal>
       )}
-      {compareRevisionsModalOpen &&
-        (() => {
-          const isDraftRevision =
-            selectedRevision &&
-            (selectedRevision.status === "draft" ||
-              selectedRevision.status === "pending-review" ||
-              selectedRevision.status === "changes-requested" ||
-              selectedRevision.status === "approved");
-          const isLiveRevision = !selectedRevision;
-
-          return (
-            <CompareSavedGroupRevisionsModal
-              savedGroup={savedGroup}
-              allRevisions={allRevisions}
-              currentRevisionId={selectedRevisionId}
-              onClose={() => setCompareRevisionsModalOpen(false)}
-              mutate={() => {
-                mutateRevisions();
-                mutate();
-              }}
-              initialPreviewDraft={
-                isDraftRevision && selectedRevisionId
-                  ? selectedRevisionId
-                  : undefined
-              }
-              initialMode={
-                isLiveRevision && !isDraftRevision
-                  ? "most-recent-live"
-                  : undefined
-              }
-              requiresApproval={approvalRequired}
-            />
-          );
-        })()}
+      {compareRevisionsModalOpen && (
+        <CompareSavedGroupRevisionsModal
+          savedGroup={savedGroup}
+          allRevisions={allRevisions}
+          currentRevisionId={selectedRevisionId}
+          onClose={() => setCompareRevisionsModalOpen(false)}
+          mutate={() => {
+            mutateRevisions();
+            mutate();
+          }}
+          initialPreviewDraft={
+            isDraft && selectedRevisionId ? selectedRevisionId : undefined
+          }
+          initialMode={isLive && !isDraft ? "most-recent-live" : undefined}
+          requiresApproval={approvalRequired}
+        />
+      )}
+      {conflictModal && selectedRevision && savedGroup && (
+        <SavedGroupConflictModal
+          savedGroup={savedGroup}
+          revisions={allRevisions}
+          selectedRevision={selectedRevision}
+          close={() => setConflictModal(false)}
+          mutate={() => {
+            mutateRevisions();
+            mutate();
+          }}
+        />
+      )}
       {confirmNewDraft && (
         <Modal
           trackingEventModalType="create-new-saved-group-draft"
@@ -750,18 +793,23 @@ export default function EditSavedGroupPage() {
                 }}
               >
                 <Text as="span" size="3" weight="bold">
-                  <OverflowText
-                    maxWidth={200}
-                    title={
-                      displayedSavedGroup?.groupName || savedGroup.groupName
-                    }
-                  >
-                    {displayedSavedGroup?.groupName || savedGroup.groupName}
-                  </OverflowText>
+                  {selectedRevision ? (
+                    <OverflowText
+                      maxWidth={200}
+                      title={
+                        selectedRevision.title
+                          ? `v${revisionNumber} - ${selectedRevision.title}`
+                          : `v${revisionNumber}`
+                      }
+                    >
+                      {selectedRevision.title
+                        ? `v${revisionNumber} - ${selectedRevision.title}`
+                        : `v${revisionNumber}`}
+                    </OverflowText>
+                  ) : (
+                    "live"
+                  )}
                 </Text>
-                <Badge color="green" size="1">
-                  Live
-                </Badge>
               </span>
             </Text>
             <Box my="3">
@@ -841,9 +889,14 @@ export default function EditSavedGroupPage() {
       />
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
-          <Heading size="7" as="h1">
-            {displayedSavedGroup?.groupName || savedGroup.groupName}
-          </Heading>
+          <Flex align="center" gap="3">
+            <Heading size="7" as="h1">
+              {displayedSavedGroup?.groupName || savedGroup.groupName}
+            </Heading>
+            {displayedSavedGroup?.archived && (
+              <Badge label="Archived" color="gray" />
+            )}
+          </Flex>
           <Flex gap="6" direction="row" align="center">
             <SavedGroupRevisionDropdown
               savedGroupId={savedGroup.id}
@@ -870,35 +923,31 @@ export default function EditSavedGroupPage() {
             >
               <DropdownMenuGroup>
                 <DropdownMenuItem
+                  disabled={metadataReviewRequired && (isMerged || isDiscarded)}
+                  tooltip={
+                    metadataReviewRequired && isMerged
+                      ? "You cannot edit a merged revision."
+                      : metadataReviewRequired && isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : undefined
+                  }
                   onClick={() => {
-                    if (!selectedRevision) {
-                      // If viewing live, create a new draft instead of editing directly
-                      if (userOpenRevision) {
-                        // Switch to the user's existing open revision
-                        selectFlow(userOpenRevision);
-                        setIsCreatingNewRevision(false);
-                        setSavedGroupForm({
-                          ...userOpenRevision.target.snapshot,
-                          ...userOpenRevision.target.proposedChanges,
-                        } as SavedGroupInterface);
-                      } else {
-                        // Create a new draft from live
-                        setIsCreatingNewRevision(true);
-                        setSavedGroupForm(savedGroup);
-                      }
-                    } else {
-                      // Editing an existing revision
-                      setIsCreatingNewRevision(false);
-                      setSavedGroupForm(displayedSavedGroup ?? savedGroup);
-                    }
                     setDropdownOpen(false);
+                    setSavedGroupForm(
+                      selectedRevision
+                        ? {
+                            ...savedGroup,
+                            ...((selectedRevision.target
+                              .snapshot as SavedGroupInterface) || {}),
+                            ...((selectedRevision.target
+                              .proposedChanges as Partial<SavedGroupInterface>) ||
+                              {}),
+                          }
+                        : savedGroup,
+                    );
                   }}
                 >
-                  {!selectedRevision
-                    ? userOpenRevision
-                      ? "Edit Draft"
-                      : "Create Draft"
-                    : `Edit Revision ${revisionNumber}`}
+                  Edit Information
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
@@ -911,15 +960,26 @@ export default function EditSavedGroupPage() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  color="red"
-                  onClick={() => {
-                    setShowDeleteModal(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Delete
-                </DropdownMenuItem>
+                {displayedSavedGroup?.archived ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setShowArchiveModal(true);
+                    }}
+                  >
+                    Unarchive
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setShowArchiveModal(true);
+                    }}
+                  >
+                    Archive
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
             </DropdownMenu>
           </Flex>
@@ -975,19 +1035,6 @@ export default function EditSavedGroupPage() {
           </Callout>
         )}
         {(() => {
-          const isLive = !selectedRevision;
-          const isDraft =
-            selectedRevision &&
-            (selectedRevision.status === "draft" ||
-              selectedRevision.status === "pending-review" ||
-              selectedRevision.status === "changes-requested" ||
-              selectedRevision.status === "approved");
-          const isDiscarded =
-            selectedRevision && selectedRevision.status === "closed";
-          const isMerged =
-            selectedRevision && selectedRevision.status === "merged";
-          const hasRevisions = allRevisions.length > 0;
-
           const bannerProps = isDraft
             ? {
                 icon: <PiPencil size={18} />,
@@ -1000,7 +1047,7 @@ export default function EditSavedGroupPage() {
                   </>
                 ),
               }
-            : isDiscarded
+            : metadataReviewRequired && isDiscarded
               ? {
                   icon: <PiProhibit size={18} />,
                   color: "var(--gray-11)",
@@ -1012,7 +1059,7 @@ export default function EditSavedGroupPage() {
                     </>
                   ),
                 }
-              : isMerged
+              : metadataReviewRequired && isMerged
                 ? {
                     icon: <PiLockSimple size={18} />,
                     color: "var(--gray-11)",
@@ -1082,39 +1129,12 @@ export default function EditSavedGroupPage() {
                 >
                   <Flex align="start" gap="4" style={{ marginTop: 6 }}>
                     <Flex direction="column" gap="1">
-                      <Flex align="center" gap="2">
-                        {hasRevisions ? (
-                          <>
-                            <Text weight="bold" size="4">
-                              {displayRevision?.title ||
-                                `Revision ${revisionNumber}`}
-                            </Text>
-                            {isLive && (
-                              <Badge color="green" size="1">
-                                Live
-                              </Badge>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <Text as="span" size="3" color="gray">
-                              {displayedSavedGroup?.groupName ||
-                                savedGroup.groupName}
-                            </Text>
-                            <Badge color="green" size="1">
-                              Live
-                            </Badge>
-                          </>
-                        )}
-                      </Flex>
-                      {hasRevisions &&
-                        displayRevision?.title &&
-                        displayRevision.title !==
-                          `Revision ${revisionNumber}` && (
-                          <Text as="span" size="2" color="gray">
-                            Revision {revisionNumber}
-                          </Text>
-                        )}
+                      {hasRevisions && (
+                        <Text as="span" size="2" color="gray">
+                          {selectedRevision?.title ||
+                            `Revision ${revisionNumber}`}
+                        </Text>
+                      )}
                     </Flex>
                     {hasRevisions && allRevisions.length >= 2 && (
                       <>
@@ -1178,20 +1198,42 @@ export default function EditSavedGroupPage() {
                       </Button>
                     )}
                     {hasRevisions && isDraft && (
-                      <Button
-                        onClick={() => {
-                          setShowChangesModal(true);
-                        }}
-                        size="sm"
-                      >
-                        {approvalRequired
-                          ? displayRevision?.status === "draft"
-                            ? "Request Approval to Publish"
-                            : displayRevision?.status === "pending-review"
-                              ? "View Approval Request"
-                              : "View Changes"
-                          : "Review & Publish"}
-                      </Button>
+                      <>
+                        {mergeResult && !mergeResult.success && (
+                          <Tooltip body="There have been conflicting changes published since this draft was created. Resolve them before publishing.">
+                            <Button
+                              variant="ghost"
+                              color="red"
+                              onClick={() => {
+                                setConflictModal(true);
+                              }}
+                              size="sm"
+                            >
+                              Fix conflicts
+                            </Button>
+                          </Tooltip>
+                        )}
+                        <Tooltip
+                          body={
+                            mergeResult && !mergeResult.success
+                              ? "This revision has conflicts — resolve them before publishing"
+                              : ""
+                          }
+                        >
+                          <Button
+                            onClick={() => setShowChangesModal(true)}
+                            size="sm"
+                          >
+                            {approvalRequired
+                              ? displayRevision?.status === "draft"
+                                ? "Request Approval to Publish"
+                                : displayRevision?.status === "pending-review"
+                                  ? "View Approval Request"
+                                  : "View Changes"
+                              : "Review & Publish"}
+                          </Button>
+                        </Tooltip>
+                      </>
                     )}
                   </Flex>
                 </Flex>
@@ -1252,9 +1294,47 @@ export default function EditSavedGroupPage() {
         )}
         {savedGroup.type === "condition" ? (
           <>
-            <Heading size="4" mb="3">
-              Condition
-            </Heading>
+            <Flex align="center" justify="between" mb="3">
+              <Heading size="4" mb="0">
+                Condition
+              </Heading>
+              <Tooltip
+                body={
+                  isMerged
+                    ? "You cannot edit a merged revision."
+                    : isDiscarded
+                      ? "You cannot edit a discarded revision."
+                      : !selectedRevision
+                        ? "Create a new draft first."
+                        : undefined
+                }
+              >
+                <Button
+                  variant="outline"
+                  disabled={!selectedRevision || isMerged || isDiscarded}
+                  onClick={() => {
+                    if (!selectedRevision && userOpenRevision) {
+                      selectFlow(userOpenRevision);
+                    }
+                    setEditConditionModal(
+                      selectedRevision
+                        ? {
+                            ...savedGroup,
+                            ...((selectedRevision.target
+                              .snapshot as SavedGroupInterface) || {}),
+                            ...((selectedRevision.target
+                              .proposedChanges as Partial<SavedGroupInterface>) ||
+                              {}),
+                          }
+                        : savedGroup,
+                    );
+                  }}
+                >
+                  <PiPencil className="mr-1" />
+                  Edit Condition
+                </Button>
+              </Tooltip>
+            </Flex>
             <Text as="p" mb="3">
               Include all users who match the following:
             </Text>
@@ -1319,36 +1399,62 @@ export default function EditSavedGroupPage() {
                     }`}
                   />
                 )}
-                <Button
-                  variant="ghost"
-                  color="red"
-                  onClick={() => {
-                    // When viewing live, switch to/create draft first
-                    if (!selectedRevision && userOpenRevision) {
-                      selectFlow(userOpenRevision);
-                    }
-                    setImportOperation("replace");
-                    setAddItems(true);
-                  }}
+                <Tooltip
+                  body={
+                    isMerged
+                      ? "You cannot edit a merged revision."
+                      : isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : !selectedRevision
+                          ? "Create a new draft first."
+                          : undefined
+                  }
                 >
-                  Overwrite list
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    // When viewing live, switch to/create draft first
-                    if (!selectedRevision && userOpenRevision) {
-                      selectFlow(userOpenRevision);
-                    }
-                    setImportOperation("append");
-                    setAddItems(true);
-                  }}
+                  <Button
+                    variant="ghost"
+                    color="red"
+                    disabled={!selectedRevision || isMerged || isDiscarded}
+                    onClick={() => {
+                      // When viewing live, switch to/create draft first
+                      if (!selectedRevision && userOpenRevision) {
+                        selectFlow(userOpenRevision);
+                      }
+                      setImportOperation("replace");
+                      setAddItems(true);
+                    }}
+                  >
+                    Overwrite list
+                  </Button>
+                </Tooltip>
+                <Tooltip
+                  body={
+                    isMerged
+                      ? "You cannot edit a merged revision."
+                      : isDiscarded
+                        ? "You cannot edit a discarded revision."
+                        : !selectedRevision
+                          ? "Create a new draft first."
+                          : undefined
+                  }
                 >
-                  <span className="mr-1 lh-full">
-                    <FaPlusCircle />
-                  </span>
-                  <span className="lh-full">Add items</span>
-                </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!selectedRevision || isMerged || isDiscarded}
+                    onClick={() => {
+                      // When viewing live, switch to/create draft first
+                      if (!selectedRevision && userOpenRevision) {
+                        selectFlow(userOpenRevision);
+                      }
+                      setImportOperation("append");
+                      setAddItems(true);
+                    }}
+                  >
+                    <span className="mr-1 lh-full">
+                      <FaPlusCircle />
+                    </span>
+                    <span className="lh-full">Add items</span>
+                  </Button>
+                </Tooltip>
               </Flex>
             </Flex>
 

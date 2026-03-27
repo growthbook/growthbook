@@ -41,10 +41,10 @@ export default function RevisionVersionSelector({
 
   // Separate revisions by status
   const openRevs = allRevisions.filter(
-    (r) => r.status !== "merged" && r.status !== "closed",
+    (r) => r.status !== "merged" && r.status !== "discarded",
   );
-  const closedMergedRevs = allRevisions.filter(
-    (r) => r.status === "merged" || r.status === "closed",
+  const discardedMergedRevs = allRevisions.filter(
+    (r) => r.status === "merged" || r.status === "discarded",
   );
 
   // Find the most recently merged revision to use for "Live" label
@@ -55,9 +55,7 @@ export default function RevisionVersionSelector({
         new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
     )[0];
 
-  const liveLabel = liveRevision
-    ? `Revision ${revisionNumberById.get(liveRevision.id) ?? 1} (Live)`
-    : "Live";
+  const liveLabel = liveRevision ? liveRevision.title : "Live";
 
   const options = [
     { label: liveLabel, value: "live" },
@@ -68,27 +66,23 @@ export default function RevisionVersionSelector({
           (revisionNumberById.get(a.id) ?? 0),
       )
       .map((revision) => ({
-        label:
-          revision.title ||
-          `Revision ${revisionNumberById.get(revision.id) ?? 1}`,
+        label: revision.title,
         value: revision.id,
       })),
     ...(onCreateNewRevision
       ? [{ label: "Add new revision", value: "__new__" }]
       : []),
-    ...(closedMergedRevs.length > 0
+    ...(discardedMergedRevs.length > 0
       ? [
           { label: "───────────", value: "__divider__", isDisabled: true },
-          ...[...closedMergedRevs]
+          ...[...discardedMergedRevs]
             .sort(
               (a, b) =>
                 (revisionNumberById.get(b.id) ?? 0) -
                 (revisionNumberById.get(a.id) ?? 0),
             )
             .map((revision) => ({
-              label:
-                revision.title ||
-                `Revision ${revisionNumberById.get(revision.id) ?? 1}`,
+              label: revision.title,
               value: revision.id,
             })),
         ]
@@ -178,24 +172,24 @@ export default function RevisionVersionSelector({
                   <Badge
                     label={
                       revision.status === "merged"
-                        ? "Merged"
-                        : revision.status === "closed"
-                          ? "Closed"
+                        ? "Locked"
+                        : revision.status === "discarded"
+                          ? "Discarded"
                           : revision.status === "approved"
                             ? "Approved"
                             : revision.status === "changes-requested"
-                              ? "Changes Requested"
+                              ? "Changes requested"
                               : "Draft"
                     }
                     color={
                       revision.status === "merged"
-                        ? "green"
-                        : revision.status === "closed"
-                          ? "gray"
+                        ? "gray"
+                        : revision.status === "discarded"
+                          ? "red"
                           : revision.status === "approved"
-                            ? "blue"
+                            ? "gray"
                             : revision.status === "changes-requested"
-                              ? "orange"
+                              ? "amber"
                               : "indigo"
                     }
                     radius="full"

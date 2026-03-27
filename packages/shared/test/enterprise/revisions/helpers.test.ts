@@ -1,4 +1,4 @@
-import type { RevisionConfigurations } from "../../../types/organization";
+import type { ApprovalFlowConfigurations } from "../../../types/organization";
 import {
   getRevisionKey,
   canUserReviewEntity,
@@ -100,15 +100,15 @@ describe("revisions helpers", () => {
       ).toBe(false);
     });
 
-    it("returns false when revision is closed", () => {
-      const closedFlow = createRevision({
+    it("returns false when revision is discarded", () => {
+      const discardedFlow = createRevision({
         authorId: "user-author",
-        status: "closed",
+        status: "discarded",
       });
       expect(
         canUserReviewEntity({
           entityType: "saved-group",
-          revision: closedFlow,
+          revision: discardedFlow,
           entity: {},
           approvalFlowSettings: { savedGroups: { required: true } },
           userId: "user-reviewer",
@@ -123,7 +123,8 @@ describe("revisions helpers", () => {
           entityType: "saved-group",
           revision: baseRevision,
           entity: {},
-          approvalFlowSettings: undefined as unknown as RevisionConfigurations,
+          approvalFlowSettings:
+            undefined as unknown as ApprovalFlowConfigurations,
           userId: "user-reviewer",
           canEditEntity: true,
         }),

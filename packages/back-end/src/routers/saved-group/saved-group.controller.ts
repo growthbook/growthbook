@@ -451,6 +451,7 @@ type PutSavedGroupRequest = AuthRequest<
   {
     skipCycleCheck?: string;
     bypassApproval?: string;
+    autoPublish?: string;
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
@@ -462,6 +463,7 @@ type PutSavedGroupResponse =
   | {
       status: 200;
       requiresApproval?: false;
+      revision?: Revision;
     }
   | {
       status: 202;
@@ -481,8 +483,15 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition, description, projects } =
-    req.body;
+  const {
+    groupName,
+    owner,
+    values,
+    condition,
+    description,
+    projects,
+    archived,
+  } = req.body;
   const skipCycleCheck = req.query.skipCycleCheck;
   const { id } = req.params;
 
@@ -604,22 +613,31 @@ export const putSavedGroup = async (
     }
     fieldsToUpdate.projects = projects;
   }
+  if (hasChanged(archived, comparisonBase.archived)) {
+    fieldsToUpdate.archived = archived;
+  }
 
   // Check if forcing creation of a new empty revision
   const forceCreateRevision = req.query.forceCreateRevision === "1";
+  const bypassApproval = req.query.bypassApproval === "1";
+  const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
   const revertedFrom = req.query.revertedFrom;
 
   // If there are no changes and not creating a new empty revision, return early
-  if (Object.keys(fieldsToUpdate).length === 0 && !forceCreateRevision) {
+  if (
+    Object.keys(fieldsToUpdate).length === 0 &&
+    !forceCreateRevision &&
+    !autoPublish
+  ) {
     return res.status(200).json({
       status: 200,
     });
   }
 
-  // Always create/update revision when explicitly requested via revisionId or forceCreateRevision
+  // Always create/update revision when explicitly requested via revisionId, forceCreateRevision, bypassApproval, or autoPublish
   // This allows revisions to be used independently of approval requirements
-  if (revisionId || forceCreateRevision) {
+  if (revisionId || forceCreateRevision || bypassApproval || autoPublish) {
     // Check if this is the first draft for this saved group
     const existingRevisions = await context.models.revisions.getByTarget(
       "saved-group",
@@ -649,16 +667,41 @@ export const putSavedGroup = async (
     }
 
     // When updating a revision, merge changes (don't replace) to preserve other fields
-    const revision = await createOrUpdateSavedGroupRevision(
+    let revision = await createOrUpdateSavedGroupRevision(
       context,
       savedGroup,
       fieldsToUpdate,
       false, // replaceChanges = false to merge with existing proposed changes
-      forceCreateRevision, // forceCreate = true when forceCreateRevision query param is set
+      forceCreateRevision || bypassApproval || autoPublish, // forceCreate = true when creating new revision
       title, // optional title for the revision
       revertedFrom, // optional ID of the revision this is reverting
-      revisionId, // optional specific revision ID to update
+      revisionId && !bypassApproval && !autoPublish ? revisionId : undefined, // optional specific revision ID to update
     );
+
+    // If bypassing approval or auto-publishing, immediately merge the revision
+    if (bypassApproval || autoPublish) {
+      const canBypass = context.permissions.canBypassApprovalChecks({
+        project: savedGroup.projects?.[0] || "",
+      });
+      const isBypass = approvalRequired && bypassApproval && !canBypass;
+
+      // Apply entity update
+      await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+
+      // Mark revision as merged
+      revision = await context.models.revisions.merge(
+        revision.id,
+        context.userId,
+        {
+          bypass: isBypass,
+        },
+      );
+
+      return res.status(200).json({
+        status: 200,
+        revision,
+      });
+    }
 
     return res.status(202).json({
       status: 202,

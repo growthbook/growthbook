@@ -43,6 +43,7 @@ const SavedGroupForm: FC<{
   current: Partial<SavedGroupInterface>;
   type: SavedGroupType;
   approvalFlowRequired?: boolean;
+  metadataReviewRequired?: boolean;
   hasExistingRevision?: boolean;
   onRevisionCreated?: (revision: Revision) => void;
   openRevisions?: Revision[];
@@ -51,11 +52,16 @@ const SavedGroupForm: FC<{
   onSelectRevision?: (revision: Revision | null) => void;
   liveVersion?: SavedGroupInterface;
   isCreatingNewRevision?: boolean;
+  editInfoOnly?: boolean;
+  editConditionOnly?: boolean;
+  autoBypassApproval?: boolean;
+  mutate?: () => void;
 }> = ({
   close,
   current,
   type,
   approvalFlowRequired,
+  metadataReviewRequired,
   hasExistingRevision,
   onRevisionCreated,
   openRevisions = [],
@@ -64,6 +70,10 @@ const SavedGroupForm: FC<{
   onSelectRevision,
   liveVersion,
   isCreatingNewRevision = false,
+  editInfoOnly = false,
+  editConditionOnly = false,
+  autoBypassApproval = false,
+  mutate,
 }) => {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
@@ -77,6 +87,12 @@ const SavedGroupForm: FC<{
     settings.approvalFlows?.savedGroups?.required ??
     false;
 
+  // Compute metadataReviewRequired from settings if not provided as prop
+  const isMetadataReviewRequired =
+    metadataReviewRequired ??
+    (isApprovalFlowRequired &&
+      (settings.approvalFlows?.savedGroups?.requireMetadataReview ?? true));
+
   const canAdminPublish =
     !!isApprovalFlowRequired &&
     !!current.id &&
@@ -87,7 +103,7 @@ const SavedGroupForm: FC<{
           )
         : permissionsUtil.canBypassApprovalChecks({ project: "" })));
 
-  const [bypassApproval, setBypassApproval] = useState(false);
+  const [bypassApproval, setBypassApproval] = useState(autoBypassApproval);
   const [conditionKey, forceConditionRender] = useIncrementer();
   const [internalSelectedRevision, _setInternalSelectedRevision] =
     useState<Revision | null>(selectedRevision ?? null);
@@ -101,15 +117,17 @@ const SavedGroupForm: FC<{
       : internalSelectedRevision;
 
   // Check if editing is blocked
-  // 1. Editing live version while there are open revisions (unless creating new)
-  // 2. Viewing a closed/merged revision (read-only)
+  // 1. Editing live version while there are open revisions (unless creating new or auto-publishing)
+  // 2. Viewing a discarded/merged revision (read-only) - only when metadata review is required
   const isEditBlocked =
     (!!current.id &&
       openRevisions.length > 0 &&
       !currentRevision &&
-      !isCreatingNewRevision) ||
-    currentRevision?.status === "closed" ||
-    currentRevision?.status === "merged";
+      !isCreatingNewRevision &&
+      !autoBypassApproval) ||
+    (isMetadataReviewRequired &&
+      (currentRevision?.status === "discarded" ||
+        currentRevision?.status === "merged"));
 
   const { mutateDefinitions, savedGroups, project } = useDefinitions();
 
@@ -204,34 +222,44 @@ const SavedGroupForm: FC<{
   const listAboveSizeLimit = savedGroupSizeLimit
     ? (form.watch("values") ?? []).length > savedGroupSizeLimit
     : false;
-  const isValid =
-    !!form.watch("groupName") &&
-    (type === "list"
-      ? !!form.watch("attributeKey") &&
-        (!listAboveSizeLimit || adminBypassSizeLimit)
-      : !!form.watch("condition"));
+  const isValid = editInfoOnly
+    ? !!form.watch("groupName")
+    : editConditionOnly
+      ? !!form.watch("condition")
+      : !!form.watch("groupName") &&
+        (type === "list"
+          ? !!form.watch("attributeKey") &&
+            (!listAboveSizeLimit || adminBypassSizeLimit)
+          : !!form.watch("condition"));
 
   const ctaDisabledMessage = isEditBlocked
-    ? currentRevision?.status === "closed" ||
-      currentRevision?.status === "merged"
-      ? "This revision is closed and cannot be edited."
+    ? isMetadataReviewRequired &&
+      (currentRevision?.status === "closed" ||
+        currentRevision?.status === "merged")
+      ? "This revision is discarded and cannot be edited."
       : "Cannot edit while there are open draft revisions."
-    : !hasProjectPermission
+    : !hasProjectPermission && !editConditionOnly
       ? !selectedProjects.length && projectsOptions.length > 0
         ? "Select a project to continue."
         : `You don't have permission to ${current.id ? "update" : "create"} saved groups.`
       : !isValid
-        ? !form.watch("groupName")
-          ? "Enter a name to continue."
-          : type === "list"
-            ? !form.watch("attributeKey")
-              ? "Select an attribute key to continue."
-              : listAboveSizeLimit && !adminBypassSizeLimit
-                ? "List size exceeds limit. Enable bypass or reduce size."
-                : undefined
-            : !form.watch("condition")
-              ? "Add a condition to continue."
-              : undefined
+        ? editConditionOnly
+          ? !form.watch("condition")
+            ? "Add a condition to continue."
+            : undefined
+          : !form.watch("groupName")
+            ? "Enter a name to continue."
+            : editInfoOnly
+              ? undefined
+              : type === "list"
+                ? !form.watch("attributeKey")
+                  ? "Select an attribute key to continue."
+                  : listAboveSizeLimit && !adminBypassSizeLimit
+                    ? "List size exceeds limit. Enable bypass or reduce size."
+                    : undefined
+                : !form.watch("condition")
+                  ? "Add a condition to continue."
+                  : undefined
         : undefined;
 
   // Create a Map from saved groups for cycle detection
@@ -253,14 +281,20 @@ const SavedGroupForm: FC<{
       open={true}
       useRadixButton={true}
       size="lg"
-      header={`${current.id ? "Edit" : "Add"} ${
-        type === "condition" ? "Condition Group" : "ID List"
-      }`}
+      header={
+        editInfoOnly
+          ? "Edit Information"
+          : editConditionOnly
+            ? "Edit Condition"
+            : `${current.id ? "Edit" : "Add"} ${
+                type === "condition" ? "Condition Group" : "ID List"
+              }`
+      }
       cta={
         <>
           {current.id
             ? isApprovalFlowRequired
-              ? bypassApproval
+              ? bypassApproval || autoBypassApproval
                 ? "Publish"
                 : currentRevision
                   ? "Update revision"
@@ -271,11 +305,13 @@ const SavedGroupForm: FC<{
             : "Submit"}
         </>
       }
-      ctaEnabled={isValid && hasProjectPermission && !isEditBlocked}
+      ctaEnabled={
+        isValid && (editConditionOnly || hasProjectPermission) && !isEditBlocked
+      }
       disabledMessage={ctaDisabledMessage}
       backCTA={
         <div className="mt-3 mb-2">
-          {current.id && (
+          {current.id && !autoBypassApproval && (
             <Checkbox
               label="Bypass approval requirement to publish (optional for Admins only)"
               value={bypassApproval}
@@ -287,7 +323,7 @@ const SavedGroupForm: FC<{
         </div>
       }
       submit={form.handleSubmit(async (value) => {
-        if (type === "condition") {
+        if (!editInfoOnly && type === "condition") {
           const conditionRes = validateAndFixCondition(
             value.condition,
             (c) => {
@@ -304,23 +340,39 @@ const SavedGroupForm: FC<{
 
         // Update existing saved group
         if (current.id) {
-          const payload: UpdateSavedGroupProps = {
-            condition: value.condition,
-            groupName: value.groupName,
-            owner: value.owner,
-            values: value.values,
-            description: value.description,
-            projects: value.projects,
-          };
+          const payload: UpdateSavedGroupProps = editInfoOnly
+            ? {
+                groupName: value.groupName,
+                owner: value.owner,
+                description: value.description,
+                projects: value.projects,
+              }
+            : editConditionOnly
+              ? {
+                  condition: value.condition,
+                }
+              : {
+                  condition: value.condition,
+                  groupName: value.groupName,
+                  owner: value.owner,
+                  values: value.values,
+                  description: value.description,
+                  projects: value.projects,
+                };
 
           // Build URL with query params
           const params = new URLSearchParams();
-          if (bypassApproval) {
+
+          // If auto-bypassing (metadata review is off), request auto-publish
+          if (autoBypassApproval) {
+            params.set("autoPublish", "1");
+          } else if (bypassApproval) {
             params.set("bypassApproval", "1");
           }
-          if (currentRevision?.id) {
+
+          if (currentRevision?.id && !autoBypassApproval) {
             params.set("revisionId", currentRevision.id);
-          } else {
+          } else if (!autoBypassApproval) {
             // Always create a revision when there's no current revision to update
             params.set("forceCreateRevision", "1");
           }
@@ -335,10 +387,18 @@ const SavedGroupForm: FC<{
             method: "PUT",
             body: JSON.stringify(payload),
           });
+
           // If a revision was created or updated, handle it
           if (res?.revision) {
             mutateDefinitions({});
-            onRevisionCreated?.(res.revision);
+            // Only call onRevisionCreated if the revision is still a draft
+            // (when auto-published, the revision is already merged)
+            if (res.revision.status !== "merged") {
+              onRevisionCreated?.(res.revision);
+            } else {
+              // When auto-published, refresh the saved group data
+              mutate?.();
+            }
             close();
             return;
           }
@@ -371,14 +431,16 @@ const SavedGroupForm: FC<{
       {isEditBlocked && (
         <Callout status="warning" mb="4">
           <Text size="2">
-            {currentRevision?.status === "closed" ||
-            currentRevision?.status === "merged"
+            {isMetadataReviewRequired &&
+            (currentRevision?.status === "closed" ||
+              currentRevision?.status === "merged")
               ? `This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`
               : "You cannot edit this saved group directly because there are open draft revisions. Please select a draft revision from the main page to edit, or wait for all drafts to be published or discarded."}
           </Text>
         </Callout>
       )}
-      {current.id &&
+      {!autoBypassApproval &&
+        current.id &&
         openRevisions.length > 0 &&
         currentRevision &&
         (() => {
@@ -424,138 +486,140 @@ const SavedGroupForm: FC<{
             </Callout>
           );
         })()}
-      {current.type === "condition" && (
+      {!editInfoOnly && !editConditionOnly && current.type === "condition" && (
         <div className="form-group">
           Updating this group will automatically update any associated Features
           and Experiments.
         </div>
       )}
-      <Field
-        label={`${type === "list" ? "List" : "Group"} Name`}
-        labelClassName="font-weight-bold"
-        required
-        {...form.register("groupName")}
-        placeholder="e.g. beta-users or internal-team-members"
-      />
-      {showDescription ? (
-        <Field
-          label="Description"
-          labelClassName="font-weight-bold"
-          required={false}
-          textarea
-          maxLength={100}
-          value={form.watch("description")}
-          onChange={(e) => {
-            form.setValue("description", e.target.value);
-          }}
-        />
-      ) : (
-        <Link
-          onClick={(e) => {
-            e.preventDefault();
-            setShowDescription(true);
-          }}
-          mb="5"
-        >
-          <Flex align="center" gap="1">
-            <PiPlus />
-            <Text weight="medium">Add a description</Text>
-          </Flex>
-        </Link>
-      )}
-      <MultiSelectField
-        label="Projects"
-        labelClassName="font-weight-bold"
-        placeholder={
-          canCreateWithoutProject ? "All Projects" : "Select projects..."
-        }
-        value={selectedProjects}
-        onChange={(projects) => form.setValue("projects", projects)}
-        options={projectsOptions}
-        sort={false}
-        closeMenuOnSelect={true}
-      />
-      {current.id && (
-        <SelectOwner
-          placeholder="Optional"
-          value={form.watch("owner")}
-          onChange={(v) => form.setValue("owner", v)}
-        />
-      )}
-
-      {type === "condition" ? (
-        <ConditionInput
-          defaultValue={form.watch("condition") || ""}
-          onChange={(v) => form.setValue("condition", v)}
-          key={conditionKey}
-          project={""}
-          emptyText="No conditions specified."
-          title="Include all users who match the following"
-          require
-          allowNestedSavedGroups={true}
-          excludeSavedGroupId={current.id}
-        />
-      ) : (
+      {!editConditionOnly && (
         <>
-          <SelectField
-            label="Attribute Key"
+          <Field
+            label={`${type === "list" ? "List" : "Group"} Name`}
             labelClassName="font-weight-bold"
             required
-            value={form.watch("attributeKey") || ""}
-            disabled={!!current.attributeKey}
-            onChange={(v) => form.setValue("attributeKey", v)}
-            placeholder="Choose one..."
-            options={attributeSchema.map((a) => ({
-              value: a.property,
-              label: a.property,
-            }))}
-            isOptionDisabled={({ label }) => {
-              const attr = attributeSchema.find(
-                (attr) => attr.property === label,
-              );
-              if (!attr) return false;
-              return !isIdListSupportedAttribute(attr);
-            }}
-            sort={false}
-            formatOptionLabel={({ label }) => {
-              const attr = attributeSchema.find(
-                (attr) => attr.property === label,
-              );
-              if (!attr) return label;
-              const unsupported = !isIdListSupportedAttribute(attr);
-              return (
-                <div className={clsx(unsupported ? "disabled" : "")}>
-                  {label}
-                  {unsupported && (
-                    <span className="float-right">
-                      <Tooltip
-                        body="The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
-                        tipPosition="top"
-                      >
-                        unsupported datatype
-                      </Tooltip>
-                    </span>
-                  )}
-                </div>
-              );
-            }}
-            helpText={current.attributeKey && "This field cannot be edited."}
+            {...form.register("groupName")}
+            placeholder="e.g. beta-users or internal-team-members"
           />
-          {!current.id && (
-            <IdListItemInput
-              values={form.watch("values") || []}
-              setValues={(newValues) => {
-                form.setValue("values", newValues);
+          {showDescription ? (
+            <Field
+              label="Description"
+              labelClassName="font-weight-bold"
+              required={false}
+              textarea
+              maxLength={100}
+              value={form.watch("description")}
+              onChange={(e) => {
+                form.setValue("description", e.target.value);
               }}
-              openUpgradeModal={() => setUpgradeModal(true)}
-              listAboveSizeLimit={listAboveSizeLimit}
-              bypassSizeLimit={adminBypassSizeLimit}
-              setBypassSizeLimit={setAdminBypassSizeLimit}
-              projects={form.watch("projects")}
+            />
+          ) : (
+            <Link
+              onClick={(e) => {
+                e.preventDefault();
+                setShowDescription(true);
+              }}
+              mb="5"
+            >
+              <Flex align="center" gap="1">
+                <PiPlus />
+                <Text weight="medium">Add a description</Text>
+              </Flex>
+            </Link>
+          )}
+          <MultiSelectField
+            label="Projects"
+            labelClassName="font-weight-bold"
+            placeholder={
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
+            }
+            value={selectedProjects}
+            onChange={(projects) => form.setValue("projects", projects)}
+            options={projectsOptions}
+            sort={false}
+            closeMenuOnSelect={true}
+          />
+          {current.id && (
+            <SelectOwner
+              placeholder="Optional"
+              value={form.watch("owner")}
+              onChange={(v) => form.setValue("owner", v)}
             />
           )}
         </>
       )}
+
+      {!editInfoOnly &&
+        (type === "condition" ? (
+          <ConditionInput
+            defaultValue={form.watch("condition") || ""}
+            onChange={(v) => {
+              form.setValue("condition", v);
+            }}
+            project={selectedProjects[0] || ""}
+            key={conditionKey}
+          />
+        ) : (
+          <>
+            <SelectField
+              label="Attribute Key"
+              labelClassName="font-weight-bold"
+              required
+              value={form.watch("attributeKey") || ""}
+              disabled={!!current.attributeKey}
+              onChange={(v) => form.setValue("attributeKey", v)}
+              placeholder="Choose one..."
+              options={attributeSchema.map((a) => ({
+                value: a.property,
+                label: a.property,
+              }))}
+              isOptionDisabled={({ label }) => {
+                const attr = attributeSchema.find(
+                  (attr) => attr.property === label,
+                );
+                if (!attr) return false;
+                return !isIdListSupportedAttribute(attr);
+              }}
+              sort={false}
+              formatOptionLabel={({ label }) => {
+                const attr = attributeSchema.find(
+                  (attr) => attr.property === label,
+                );
+                if (!attr) return label;
+                const unsupported = !isIdListSupportedAttribute(attr);
+                return (
+                  <div className={clsx(unsupported ? "disabled" : "")}>
+                    {label}
+                    {unsupported && (
+                      <span className="float-right">
+                        <Tooltip
+                          body="The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
+                          tipPosition="top"
+                        >
+                          unsupported datatype
+                        </Tooltip>
+                      </span>
+                    )}
+                  </div>
+                );
+              }}
+              helpText={current.attributeKey && "This field cannot be edited."}
+            />
+            {!current.id && (
+              <IdListItemInput
+                values={form.watch("values") || []}
+                setValues={(newValues) => {
+                  form.setValue("values", newValues);
+                }}
+                openUpgradeModal={() => setUpgradeModal(true)}
+                listAboveSizeLimit={listAboveSizeLimit}
+                bypassSizeLimit={adminBypassSizeLimit}
+                setBypassSizeLimit={setAdminBypassSizeLimit}
+                projects={form.watch("projects")}
+              />
+            )}
+          </>
+        ))}
     </Modal>
   );
 };

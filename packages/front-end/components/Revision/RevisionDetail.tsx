@@ -132,7 +132,8 @@ function RevisionDetail<T>({
     groupedActivity[dateKey].push(item);
   });
 
-  const isOpen = revision.status !== "merged" && revision.status !== "closed";
+  const isOpen =
+    revision.status !== "merged" && revision.status !== "discarded";
 
   const handleSaveTitle = async () => {
     if (!titleInput.trim() || titleInput === revision.title) {
@@ -352,8 +353,12 @@ function RevisionDetail<T>({
           junctionCopy: "by",
           color: "var(--violet-7)",
         };
-      case "closed":
-        return { label: "Closed", junctionCopy: "by", color: "var(--red-7)" };
+      case "discarded":
+        return {
+          label: "Discarded",
+          junctionCopy: "by",
+          color: "var(--red-7)",
+        };
       case "reopened":
         return {
           label: "Reopened",
@@ -485,10 +490,10 @@ function RevisionDetail<T>({
           </Flex>
         </Callout>
       )}
-      {revision.status === "closed" && (
+      {revision.status === "discarded" && (
         <Callout status="warning" mb="4">
           <Flex justify="between" align="center">
-            <Text size="medium">This revision has been closed.</Text>
+            <Text size="medium">This revision has been discarded.</Text>
             {onReopen && (
               <Button
                 variant="solid"
@@ -631,7 +636,7 @@ function RevisionDetail<T>({
                     variant="solid"
                     preventDefault={false}
                     disabled={
-                      revision.status === "closed" ||
+                      revision.status === "discarded" ||
                       revision.status === "merged"
                     }
                   >
@@ -823,7 +828,6 @@ function RevisionDetail<T>({
                             <Link
                               onClick={(e) => {
                                 e.preventDefault();
-                                // Use the revertedFrom ID to find and switch to that revision
                                 if (revision.revertedFrom) {
                                   const revertedRevision = (
                                     allRevisions || []
@@ -835,7 +839,10 @@ function RevisionDetail<T>({
                               }}
                               style={{ cursor: "pointer" }}
                             >
-                              {item.details?.match(/Revision (\d+)/)?.[0] ||
+                              {(allRevisions || []).find(
+                                (r) => r.id === revision.revertedFrom,
+                              )?.title ||
+                                item.details?.match(/Revision (\d+)/)?.[0] ||
                                 "that revision"}
                             </Link>
                           </>

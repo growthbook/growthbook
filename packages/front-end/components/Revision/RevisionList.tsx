@@ -94,13 +94,13 @@ const RevisionList: React.FC<RevisionListProps> = ({
       if (statusValues.length > 0) {
         // If status filter is active, check if this status is selected
         if (statusValues.includes("open")) {
-          return !["merged", "closed"].includes(f.status);
+          return !["merged", "discarded"].includes(f.status);
         }
         if (statusValues.includes("merged")) {
           return f.status === "merged";
         }
-        if (statusValues.includes("closed")) {
-          return f.status === "closed";
+        if (statusValues.includes("discarded")) {
+          return f.status === "discarded";
         }
         return statusValues.includes(f.status);
       }
@@ -218,6 +218,7 @@ const RevisionList: React.FC<RevisionListProps> = ({
               <thead>
                 <tr>
                   <SortableTH field="dateCreated">Date</SortableTH>
+                  <th>Revision</th>
                   <th>Comments</th>
                   <th>Requested by</th>
                   {showEntityType && (
@@ -235,6 +236,13 @@ const RevisionList: React.FC<RevisionListProps> = ({
                     className="hover-highlight"
                   >
                     <td>{datetime(revision.dateCreated)}</td>
+                    <td>
+                      {revision.title || (
+                        <Text color="text-low" size="small">
+                          Untitled
+                        </Text>
+                      )}
+                    </td>
                     <td>{revision.reviews.length}</td>
                     <td>
                       {revision.authorId ? (
@@ -288,8 +296,8 @@ const RevisionList: React.FC<RevisionListProps> = ({
                 <thead>
                   <tr>
                     <th>Date</th>
+                    <th>Revision</th>
                     <th>Comments</th>
-                    <th>Details</th>
                     <th>Changed by</th>
                   </tr>
                 </thead>
@@ -308,19 +316,16 @@ const RevisionList: React.FC<RevisionListProps> = ({
                         )}
                       </td>
                       <td>
+                        {revision.title || (
+                          <Text color="text-low" size="small">
+                            Untitled
+                          </Text>
+                        )}
+                      </td>
+                      <td>
                         {revision.reviews.length > 0
                           ? revision.reviews.length
                           : "--"}
-                      </td>
-                      <td>
-                        <span
-                          style={{
-                            cursor: "pointer",
-                            color: "var(--violet-9)",
-                          }}
-                        >
-                          Diff summary...
-                        </span>
                       </td>
                       <td>
                         {revision.resolution?.userId || revision.authorId ? (

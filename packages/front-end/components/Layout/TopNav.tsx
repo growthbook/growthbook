@@ -71,7 +71,7 @@ const TopNav: FC<{
   const { revisions } = useRevisions();
   const pendingReviewCount = useMemo(() => {
     if (!hasApprovalFlows) return 0;
-    return revisions.filter((f) => !["merged", "closed"].includes(f.status))
+    return revisions.filter((f) => !["merged", "discarded"].includes(f.status))
       .length;
   }, [hasApprovalFlows, revisions]);
 

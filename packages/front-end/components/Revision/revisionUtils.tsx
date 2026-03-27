@@ -5,13 +5,13 @@ import Tooltip from "@/ui/Tooltip";
 
 export const STATUS_CONFIG: Record<
   RevisionStatus,
-  { color: "gray" | "yellow" | "green" | "orange" | "purple"; label: string }
+  { color: "gray" | "blue" | "indigo" | "amber" | "red"; label: string }
 > = {
-  draft: { color: "gray", label: "Draft" },
-  "pending-review": { color: "yellow", label: "Pending review" },
-  approved: { color: "green", label: "Approved" },
-  "changes-requested": { color: "orange", label: "Changes requested" },
-  merged: { color: "purple", label: "Published" },
+  draft: { color: "indigo", label: "Draft" },
+  "pending-review": { color: "blue", label: "Pending review" },
+  approved: { color: "gray", label: "Approved" },
+  "changes-requested": { color: "amber", label: "Changes requested" },
+  merged: { color: "gray", label: "Locked" },
   closed: { color: "gray", label: "Closed" },
 };
 

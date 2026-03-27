@@ -184,7 +184,8 @@ export type ExperimentUpdateSchedule = {
 
 export type Environment = z.infer<typeof environment>;
 
-export type RevisionEntityConfiguration = {
+export type ApprovalFlowConfiguration = {
+  requireMetadataReview: boolean;
   required: boolean;
   // TODO: Should we add support for these additional settings?
   canBypassReview?: boolean;
@@ -192,8 +193,8 @@ export type RevisionEntityConfiguration = {
 };
 
 // TODO: Migrate Feature Approval Flows settings here too
-export type RevisionConfigurations = {
-  savedGroups: RevisionEntityConfiguration;
+export type ApprovalFlowConfigurations = {
+  savedGroups: ApprovalFlowConfiguration;
 };
 
 export interface OrganizationSettings {
@@ -275,7 +276,7 @@ export interface OrganizationSettings {
   /** @deprecated Use postStratificationEnabled instead */
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
-  approvalFlows?: RevisionConfigurations;
+  approvalFlows?: ApprovalFlowConfigurations;
 }
 
 export interface OrganizationConnections {
