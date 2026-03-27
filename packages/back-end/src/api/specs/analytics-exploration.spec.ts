@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  apiExplorationValidator,
+  apiAnalyticsExplorationValidator,
   apiMetricExplorationValidator,
   apiFactTableExplorationValidator,
   apiDataSourceExplorationValidator,
@@ -9,34 +9,18 @@ import {
   dataSourceExplorationConfigValidator,
   explorationCacheQuerySchema,
   apiBaseSchema,
+  apiQueryValidator,
+  type ApiAnalyticsExploration,
+  type ExplorationConfig,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
-// Lightweight query shape for the API response (avoids circular dep with generated openapi.ts)
-const apiQueryShape = z.object({
-  id: z.string(),
-  organization: z.string(),
-  datasource: z.string(),
-  language: z.string(),
-  query: z.string(),
-  queryType: z.string(),
-  createdAt: z.string(),
-  startedAt: z.string(),
-  status: z.enum([
-    "running",
-    "queued",
-    "failed",
-    "partially-succeeded",
-    "succeeded",
-  ]),
-  externalId: z.string(),
-  dependencies: z.array(z.string()),
-  runAtEnd: z.boolean(),
-});
-
-function makeExplorationEndpoint(
-  explorationValidator: z.ZodTypeAny,
-  bodyValidator: z.ZodTypeAny,
+export function makeExplorationEndpoint<
+  Exp extends z.ZodType<ApiAnalyticsExploration>,
+  Body extends z.ZodType<ExplorationConfig>,
+>(
+  explorationValidator: Exp,
+  bodyValidator: Body,
   opts: { pathFragment: string; operationId: string; summary: string },
 ) {
   return {
@@ -50,7 +34,7 @@ function makeExplorationEndpoint(
     },
     zodReturnObject: z.object({
       exploration: explorationValidator.nullable(),
-      query: apiQueryShape.nullable(),
+      query: apiQueryValidator.nullable(),
       message: z.string().optional(),
     }),
     summary: opts.summary,
@@ -91,7 +75,7 @@ export const analyticsExplorationApiSpec = {
   modelSingular: "analyticsExploration",
   modelPlural: "analyticsExplorations",
   pathBase: "/product-analytics",
-  apiInterface: apiExplorationValidator.extend({
+  apiInterface: apiAnalyticsExplorationValidator.extend({
     dateCreated: apiBaseSchema.shape.dateCreated,
     dateUpdated: apiBaseSchema.shape.dateUpdated,
   }),

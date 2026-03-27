@@ -514,7 +514,6 @@ export interface components {
   schemas: {
     AnalyticsExploration: {
       id: string;
-      organization: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -15782,8 +15781,9 @@ export interface operations {
           "application/json": {
             exploration: ({
               id: string;
-              organization: string;
+              /** Format: date-time */
               dateCreated: string;
+              /** Format: date-time */
               dateUpdated: string;
               datasource: string;
               /** @enum {string} */
@@ -15966,8 +15966,9 @@ export interface operations {
           "application/json": {
             exploration: ({
               id: string;
-              organization: string;
+              /** Format: date-time */
               dateCreated: string;
+              /** Format: date-time */
               dateUpdated: string;
               datasource: string;
               /** @enum {string} */
@@ -16157,8 +16158,9 @@ export interface operations {
           "application/json": {
             exploration: ({
               id: string;
-              organization: string;
+              /** Format: date-time */
               dateCreated: string;
+              /** Format: date-time */
               dateUpdated: string;
               datasource: string;
               /** @enum {string} */

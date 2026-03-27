@@ -1,8 +1,9 @@
+import { z } from "zod";
 import {
   ExplorationConfig,
+  ApiAnalyticsExploration,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
-  ExplorationCacheQuery,
 } from "shared/validators";
 import md5 from "md5";
 import {
@@ -16,18 +17,19 @@ import {
 } from "back-end/src/models/QueryModel";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
-import { OpenApiEndpointSpec } from "back-end/src/api/ApiModel";
 import analyticsExplorationApiSpec, {
+  type makeExplorationEndpoint,
   postMetricExplorationEndpoint,
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
 
-function toExplorationApiInterface(exploration: ProductAnalyticsExploration) {
+function toApiInterface(
+  exploration: ProductAnalyticsExploration,
+): ApiAnalyticsExploration {
   return {
     id: exploration.id,
-    organization: exploration.organization,
     dateCreated: exploration.dateCreated.toISOString(),
     dateUpdated: exploration.dateUpdated.toISOString(),
     datasource: exploration.datasource,
@@ -40,16 +42,17 @@ function toExplorationApiInterface(exploration: ProductAnalyticsExploration) {
   };
 }
 
-function makeExplorationHandler(endpoint: OpenApiEndpointSpec) {
+function makeExplorationHandler<
+  Exp extends z.ZodType<ApiAnalyticsExploration>,
+  Body extends z.ZodType<ExplorationConfig>,
+>(endpoint: ReturnType<typeof makeExplorationEndpoint<Exp, Body>>) {
   return defineCustomApiHandler({
     ...endpoint,
     reqHandler: async (req) => {
-      const body = req.body as ExplorationConfig;
-      const query = (req.query as ExplorationCacheQuery) ?? {};
       const exploration = await runProductAnalyticsExploration(
         req.context,
-        body,
-        { cache: query.cache },
+        req.body,
+        { cache: req.query.cache },
       );
 
       if (!exploration) {
@@ -67,7 +70,7 @@ function makeExplorationHandler(endpoint: OpenApiEndpointSpec) {
         : null;
 
       return {
-        exploration: toExplorationApiInterface(exploration),
+        exploration: toApiInterface(exploration),
         query: queryDoc ? toQueryApiInterface(queryDoc) : null,
       };
     },
@@ -239,7 +242,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     doc.valueHashes = configHashes.valueHashes;
   }
 
-  public toExplorationApiInterface(exploration: ProductAnalyticsExploration) {
-    return toExplorationApiInterface(exploration);
+  public toApiInterface(exploration: ProductAnalyticsExploration) {
+    return toApiInterface(exploration);
   }
 }
