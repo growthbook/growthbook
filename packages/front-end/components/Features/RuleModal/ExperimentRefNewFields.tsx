@@ -33,7 +33,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";

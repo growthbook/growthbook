@@ -241,6 +241,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const rampIsTerminal =
       rampSchedule !== undefined &&
       ["completed", "rolled-back"].includes(rampSchedule.status);
+    // Simple schedule = 0-step ramp (just start/end date triggers, no manual controls)
+    const isSimpleSchedule = !!rampSchedule && rampSchedule.steps.length === 0;
     // Check if there's a pending detach action for this ramp schedule
     const hasPendingDetach =
       isDraft &&
@@ -375,85 +377,89 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         <Flex gap="2">
                           <span>{title}</span>
                           <Box flexGrow="1" />
-                          {/* CTAs — suppressed when a detach is pending in the draft */}
-                          {!locked && !rampIsTerminal && !hasPendingDetach && (
-                            <Flex style={{ marginBottom: -10 }}>
-                              {rampSchedule.status === "ready" &&
-                                rampSchedule.targets.length > 0 && (
+                          {/* CTAs — suppressed for simple schedules and when a detach is pending */}
+                          {!locked &&
+                            !rampIsTerminal &&
+                            !hasPendingDetach &&
+                            !isSimpleSchedule && (
+                              <Flex style={{ marginBottom: -10 }}>
+                                {rampSchedule.status === "ready" &&
+                                  rampSchedule.targets.length > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="soft"
+                                      icon={<PiPlayFill />}
+                                      style={{ marginTop: -4 }}
+                                      ml="2"
+                                      onClick={async () => {
+                                        await apiCall(
+                                          `/ramp-schedule/${rampSchedule.id}/actions/start`,
+                                          { method: "POST" },
+                                        );
+                                        await mutate();
+                                      }}
+                                    >
+                                      Start
+                                    </Button>
+                                  )}
+                                {rampSchedule.status === "paused" &&
+                                  rampSchedule.targets.length > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="soft"
+                                      icon={<PiPlayFill />}
+                                      style={{ marginTop: -4 }}
+                                      ml="2"
+                                      onClick={async () => {
+                                        await apiCall(
+                                          `/ramp-schedule/${rampSchedule.id}/actions/resume`,
+                                          { method: "POST" },
+                                        );
+                                        await mutate();
+                                      }}
+                                    >
+                                      Resume
+                                    </Button>
+                                  )}
+                                {rampSchedule.status === "pending-approval" && (
                                   <Button
                                     size="sm"
                                     variant="soft"
                                     icon={<PiPlayFill />}
                                     style={{ marginTop: -4 }}
                                     ml="2"
+                                    loading={rampApproveLoading}
                                     onClick={async () => {
-                                      await apiCall(
-                                        `/ramp-schedule/${rampSchedule.id}/actions/start`,
-                                        { method: "POST" },
-                                      );
-                                      await mutate();
+                                      setRampApproveError("");
+                                      setRampApproveLoading(true);
+                                      try {
+                                        await apiCall(
+                                          `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
+                                          { method: "POST" },
+                                        );
+                                        await mutate();
+                                      } catch (e) {
+                                        setRampApproveError(
+                                          e instanceof Error
+                                            ? e.message
+                                            : String(e),
+                                        );
+                                      } finally {
+                                        setRampApproveLoading(false);
+                                      }
                                     }}
                                   >
-                                    Start
+                                    Approve and Continue
                                   </Button>
                                 )}
-                              {rampSchedule.status === "paused" &&
-                                rampSchedule.targets.length > 0 && (
-                                  <Button
-                                    size="sm"
-                                    variant="soft"
-                                    icon={<PiPlayFill />}
-                                    style={{ marginTop: -4 }}
-                                    ml="2"
-                                    onClick={async () => {
-                                      await apiCall(
-                                        `/ramp-schedule/${rampSchedule.id}/actions/resume`,
-                                        { method: "POST" },
-                                      );
-                                      await mutate();
-                                    }}
-                                  >
-                                    Resume
-                                  </Button>
-                                )}
-                              {rampSchedule.status === "pending-approval" && (
-                                <Button
-                                  size="sm"
-                                  variant="soft"
-                                  icon={<PiPlayFill />}
-                                  style={{ marginTop: -4 }}
-                                  ml="2"
-                                  loading={rampApproveLoading}
-                                  onClick={async () => {
-                                    setRampApproveError("");
-                                    setRampApproveLoading(true);
-                                    try {
-                                      await apiCall(
-                                        `/ramp-schedule/${rampSchedule.id}/actions/approve-step`,
-                                        { method: "POST" },
-                                      );
-                                      await mutate();
-                                    } catch (e) {
-                                      setRampApproveError(
-                                        e instanceof Error
-                                          ? e.message
-                                          : String(e),
-                                      );
-                                    } finally {
-                                      setRampApproveLoading(false);
-                                    }
-                                  }}
-                                >
-                                  Approve and Continue
-                                </Button>
-                              )}
-                            </Flex>
-                          )}
+                              </Flex>
+                            )}
                           <RampScheduleBadge
                             rs={rampSchedule}
                             withIcon
                             featureRuleContext
                             pendingDetach={!!hasPendingDetach}
+                            simpleSchedule={isSimpleSchedule}
                           />
                         </Flex>
                       ) : (
@@ -548,7 +554,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         >
                           {rule.enabled ? "Disable" : "Enable"}
                         </DropdownMenuItem>
-                        {rampSchedule && (
+                        {rampSchedule && !isSimpleSchedule && (
                           <>
                             <DropdownMenuSeparator />
                             {hasPendingDetach ? (

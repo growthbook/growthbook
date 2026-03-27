@@ -1429,14 +1429,22 @@ async function applyRevisionRampActions(
           disableRuleAfter: disableAfter || undefined,
           endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
           endCondition,
-          // Ramp is created on publish so it starts immediately rather than "pending"
-          status: startTrigger.type === "immediately" ? "running" : "pending",
+          // Determine initial status on publish:
+          //   "immediately" → start running now
+          //   "scheduled"   → ready, waiting for the trigger date
+          //   "manual"      → ready, waiting for user to click Start
+          status: startTrigger.type === "immediately" ? "running" : "ready",
           currentStepIndex: -1,
-          // For immediately-starting ramps, compute nextStepAt so Agenda can pick them up
+          // nextStepAt drives Agenda polling.
+          //   "immediately" → now (so the first step fires ASAP)
+          //   "scheduled"   → the trigger date (so Agenda wakes up at the right time)
+          //   "manual"      → null (Agenda never auto-starts these)
           nextStepAt:
             startTrigger.type === "immediately" && steps.length > 0
               ? new Date()
-              : null,
+              : startTrigger.type === "scheduled"
+                ? new Date(startTrigger.at)
+                : null,
           startedAt: startTrigger.type === "immediately" ? new Date() : null,
           phaseStartedAt:
             startTrigger.type === "immediately" ? new Date() : null,

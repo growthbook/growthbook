@@ -22,7 +22,7 @@ import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,

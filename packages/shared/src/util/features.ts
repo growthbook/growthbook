@@ -1636,6 +1636,18 @@ export function resetReviewOnChange({
 // Per-env changes (rules, environmentsEnabled) return specific env IDs.
 // Global changes (prerequisites, archived, holdout, defaultValue, metadata) return "all".
 // Used for both UI display and approval-gate determination.
+// Strip UI-only metadata fields from a rule before diffing for review/affected-env
+// purposes. These fields never affect SDK behaviour so they must not trigger a
+// review requirement or show as "changed" environments.
+function normalizeRuleForDiff(
+  rule: FeatureRule,
+): Omit<FeatureRule, "scheduleType"> {
+  const { scheduleType: _scheduleType, ...rest } = rule as FeatureRule & {
+    scheduleType?: unknown;
+  };
+  return rest as Omit<FeatureRule, "scheduleType">;
+}
+
 export function getDraftAffectedEnvironments(
   revision: RevisionFields,
   baseRevision: RevisionFields,
@@ -1646,7 +1658,9 @@ export function getDraftAffectedEnvironments(
   // Per-environment changes
   const envs = new Set<string>();
   for (const env of allEnvironments) {
-    if (!isEqual(revision.rules[env] || [], baseRevision.rules[env] || [])) {
+    const revRules = (revision.rules[env] || []).map(normalizeRuleForDiff);
+    const baseRules = (baseRevision.rules[env] || []).map(normalizeRuleForDiff);
+    if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
     const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
@@ -1705,10 +1719,13 @@ export function checkIfRevisionNeedsReview({
   // Environment-specific changes: split into rules/values vs kill switches.
   // Rules/values always require approval. Kill switches only require approval
   // when featureRequireEnvironmentReview is true (default: true when unset).
-  const envsWithRuleChanges = affected.filter(
-    (env) =>
-      !isEqual(revision.rules?.[env] || [], baseRevision.rules?.[env] || []),
-  );
+  const envsWithRuleChanges = affected.filter((env) => {
+    const revRules = (revision.rules?.[env] || []).map(normalizeRuleForDiff);
+    const baseRules = (baseRevision.rules?.[env] || []).map(
+      normalizeRuleForDiff,
+    );
+    return !isEqual(revRules, baseRules);
+  });
   const envKillSwitchChanges = affected.filter(
     (env) =>
       revision.environmentsEnabled?.[env] !== undefined &&

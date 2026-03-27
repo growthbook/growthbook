@@ -58,6 +58,7 @@ import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
 import StandardRuleFields from "@/components/Features/RuleModal/StandardRuleFields";
+import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs";
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
@@ -968,14 +969,38 @@ export default function RuleModal({
                       values.type as keyof typeof VALID_STEP_FIELDS,
                     )
                   : rampSectionState;
-              if (rampState.mode === "create" && rampState.name.trim()) {
+              // "schedule" mode = 0-step ramp (simple date window, no intermediate steps).
+              // Derived from ramp state rather than a persisted field so it never pollutes rule diffs.
+              const isScheduleMode = rampState.steps.length === 0;
+
+              // A "schedule" type with both start=immediately and end=never is a no-op —
+              // no schedule should be created or updated in this case.
+              const isNoOpSchedule =
+                isScheduleMode &&
+                rampState.startMode !== "specific-time" &&
+                !rampState.endScheduleAt;
+
+              // For simple schedules, patches are irrelevant — the schedule only
+              // controls enable/disable via disableRuleBefore/disableRuleAfter.
+              const effectiveStartPatch = isScheduleMode
+                ? {}
+                : rampState.startPatch;
+              const effectiveEndPatch = isScheduleMode
+                ? {}
+                : rampState.endSchedulePatch;
+
+              if (
+                rampState.mode === "create" &&
+                !isNoOpSchedule &&
+                rampState.name.trim()
+              ) {
                 const startActions = buildStartActions(
-                  rampState.startPatch,
+                  effectiveStartPatch,
                   "t1",
                   ruleId,
                 );
                 const endActions = buildEndScheduleActions(
-                  rampState.endSchedulePatch,
+                  effectiveEndPatch,
                   "t1",
                   ruleId,
                 );
@@ -991,15 +1016,16 @@ export default function RuleModal({
                       : ({ type: "immediately" } as const);
                 rampScheduleInline = {
                   mode: "create",
-                  name: rampState.name.trim(),
+                  name: isScheduleMode
+                    ? scheduleAutoName(rampState)
+                    : rampState.name.trim(),
                   environment,
                   // New ramps created from a rule always start as single-impl — sync defaultEffects.
                   steps: buildRampSteps(rampState.steps, "t1", ruleId, true),
                   startCondition: {
                     trigger: startTrigger,
-                    defaultEffects: buildConditionDefaultEffects(
-                      rampState.startPatch,
-                    ),
+                    defaultEffects:
+                      buildConditionDefaultEffects(effectiveStartPatch),
                     actions: startActions.length ? startActions : undefined,
                   },
                   disableRuleBefore: rampState.disableRuleBefore || undefined,
@@ -1012,21 +1038,20 @@ export default function RuleModal({
                           type: "scheduled",
                           at: rampState.endScheduleAt,
                         },
-                        defaultEffects: buildConditionDefaultEffects(
-                          rampState.endSchedulePatch,
-                        ),
+                        defaultEffects:
+                          buildConditionDefaultEffects(effectiveEndPatch),
                         actions: endActions.length ? endActions : undefined,
                       }
                     : endActions.length
                       ? {
-                          defaultEffects: buildConditionDefaultEffects(
-                            rampState.endSchedulePatch,
-                          ),
+                          defaultEffects:
+                            buildConditionDefaultEffects(effectiveEndPatch),
                           actions: endActions,
                         }
                       : undefined,
                 };
               } else if (
+                !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
                 !["running", "ready", "pending-approval", "conflict"].includes(
@@ -1034,12 +1059,12 @@ export default function RuleModal({
                 )
               ) {
                 const startActions = buildStartActions(
-                  rampState.startPatch,
+                  effectiveStartPatch,
                   "t1",
                   ruleId,
                 );
                 const endActions = buildEndScheduleActions(
-                  rampState.endSchedulePatch,
+                  effectiveEndPatch,
                   "t1",
                   ruleId,
                 );
@@ -1058,7 +1083,9 @@ export default function RuleModal({
                 rampScheduleInline = {
                   mode: "update",
                   rampScheduleId: ruleRampSchedule.id,
-                  name: rampState.name.trim() || undefined,
+                  name: isScheduleMode
+                    ? scheduleAutoName(rampState)
+                    : rampState.name.trim() || undefined,
                   steps: buildRampSteps(
                     rampState.steps,
                     "t1",
@@ -1069,9 +1096,8 @@ export default function RuleModal({
                     trigger: startTrigger,
                     ...(isSingleImpl
                       ? {
-                          defaultEffects: buildConditionDefaultEffects(
-                            rampState.startPatch,
-                          ),
+                          defaultEffects:
+                            buildConditionDefaultEffects(effectiveStartPatch),
                         }
                       : {}),
                     actions: startActions.length ? startActions : undefined,
@@ -1088,9 +1114,8 @@ export default function RuleModal({
                         },
                         ...(isSingleImpl
                           ? {
-                              defaultEffects: buildConditionDefaultEffects(
-                                rampState.endSchedulePatch,
-                              ),
+                              defaultEffects:
+                                buildConditionDefaultEffects(effectiveEndPatch),
                             }
                           : {}),
                         actions: endActions.length ? endActions : undefined,
@@ -1099,9 +1124,10 @@ export default function RuleModal({
                       ? {
                           ...(isSingleImpl
                             ? {
-                                defaultEffects: buildConditionDefaultEffects(
-                                  rampState.endSchedulePatch,
-                                ),
+                                defaultEffects:
+                                  buildConditionDefaultEffects(
+                                    effectiveEndPatch,
+                                  ),
                               }
                             : {}),
                           actions: endActions,
@@ -1115,6 +1141,10 @@ export default function RuleModal({
                   rampScheduleId: ruleRampSchedule.id,
                   deleteScheduleWhenEmpty: true,
                 };
+              } else if (rampState.mode === "off" && pendingCreateAction) {
+                // Pending-create schedule only exists in the draft (not yet published) —
+                // user removed the schedule, so clear the create action from the draft.
+                rampScheduleInline = { mode: "clear" };
               } else if (rampState.mode === "off" && hasPendingDetach) {
                 // User saved without re-configuring a schedule while a pending detach exists —
                 // clear the detach action from the draft (cancel the pending removal)

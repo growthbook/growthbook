@@ -56,6 +56,9 @@ export const baseRule = z
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    // UI hint: which scheduling mode the user chose. "schedule" = 0-step start/end
+    // date rule; "ramp" = multi-step ramp-up. Absent or "none" = no schedule.
+    scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
   })
   .strict();
 

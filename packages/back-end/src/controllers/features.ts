@@ -1089,10 +1089,32 @@ export async function postFeaturePublish(
   if (!base) {
     throw new Error("Could not lookup feature history");
   }
+  // Compute merge result first so the review check can diff the merged outcome
+  // against live — the same approach the frontend uses. This prevents spurious
+  // review requirements when the draft's raw rules differ from base only because
+  // an automated process (e.g. ramp step advancement) published changes in between.
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    environmentIds,
+    {},
+  );
+
+  // Build an effective revision from the merge result layered on top of live,
+  // mirroring the frontend's requireReviews calculation.
+  const filledLive = {
+    ...live,
+    ...liveRevisionFromFeature(live, feature),
+  };
+  const effectiveRevision = mergeResult.success
+    ? { ...filledLive, ...mergeResult.result }
+    : { ...revision, ...fillRevisionFromFeature(revision, feature) };
+
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
-    baseRevision: base,
-    revision,
+    baseRevision: filledLive,
+    revision: effectiveRevision,
     allEnvironments: environmentIds,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
@@ -1109,13 +1131,6 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
   }
-  const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
-    revision,
-    environmentIds,
-    {},
-  );
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",

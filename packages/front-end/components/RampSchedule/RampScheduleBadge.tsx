@@ -12,12 +12,15 @@ export default function RampScheduleBadge({
   withIcon: _withIcon = false,
   featureRuleContext = false,
   pendingDetach = false,
+  simpleSchedule = false,
 }: {
   rs: RampScheduleInterface;
   withIcon?: boolean;
   featureRuleContext?: boolean;
   /** When true, the draft contains a pending removal for this schedule. */
   pendingDetach?: boolean;
+  /** When true, show only timing information without status labels or tooltip. */
+  simpleSchedule?: boolean;
 }) {
   // Pending detach overrides everything — show a dedicated red badge with tooltip.
   if (pendingDetach) {
@@ -49,6 +52,23 @@ export default function RampScheduleBadge({
     endTrigger?.type === "scheduled" ? new Date(endTrigger.at) : null;
   const futureStart = startAt && startAt > now;
   const futureEnd = endAt && endAt > now;
+
+  // Simple schedule: show only timing, no status prefix, no tooltip.
+  if (simpleSchedule) {
+    let label: string;
+    if (futureStart && futureEnd) {
+      label = `schedule: Starts ${abbreviateAgo(startAt)} · ends ${abbreviateAgo(endAt)}`;
+    } else if (futureStart) {
+      label = `schedule: Starts ${abbreviateAgo(startAt)}`;
+    } else if (futureEnd) {
+      label = `schedule: Ends ${abbreviateAgo(endAt)}`;
+    } else {
+      label = "schedule: active";
+    }
+    return (
+      <Badge label={label} color={getRampBadgeColor(rs.status)} radius="full" />
+    );
+  }
 
   const dateRow = (label: string, d: Date) => (
     <div>
