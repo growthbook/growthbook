@@ -1,7 +1,10 @@
 import { MetricOverride } from "shared/types/experiment";
 import { MetricWindowSettings } from "shared/types/fact-table";
 import { SettingsResolver, Settings, ScopeDefinition } from "../types";
-import { getMetricWindowHours, getDelayWindowHours } from "../../experiments";
+import {
+  getMetricWindowHours,
+  getDelayWindowHours,
+} from "../../experiments/experiments";
 
 // skip RA and prior fields because they are handled by custom
 // resolvers that take into account whether the requisite override

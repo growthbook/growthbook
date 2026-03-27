@@ -24,13 +24,28 @@ export interface paths {
   "/features/{id}": {
     /** Get a single feature */
     get: operations["getFeature"];
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["updateFeature"];
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["toggleFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -40,7 +55,12 @@ export interface paths {
     };
   };
   "/features/{id}/revert": {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["revertFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -52,6 +72,10 @@ export interface paths {
   "/features/{id}/revisions": {
     /** Get all revisions for a feature */
     get: operations["getFeatureRevisions"];
+  };
+  "/stale-features": {
+    /** Get stale status for one or more features */
+    get: operations["getFeatureStale"];
   };
   "/feature-keys": {
     /** Get list of feature keys */
@@ -156,6 +180,22 @@ export interface paths {
         id: string;
       };
     };
+  };
+  "/experiments/{id}/variation/{variationId}/screenshot/upload": {
+    /** Upload a variation screenshot */
+    post: operations["postVariationImageUpload"];
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+  };
+  "/experiments/{id}/variation/{variationId}/screenshot": {
+    /** Delete a variation screenshot */
+    delete: operations["deleteVariationScreenshot"];
   };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
@@ -382,6 +422,20 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/custom-fields": {
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
+    /** Create a single customField */
+    post: operations["createCustomField"];
+  };
+  "/custom-fields/{id}": {
+    /** Get a single customField */
+    get: operations["getCustomField"];
+    /** Update a single customField */
+    put: operations["updateCustomField"];
+    /** Delete a single customField */
+    delete: operations["deleteCustomField"];
+  };
   "/dashboards/{id}": {
     /** Get a single dashboard */
     get: operations["getDashboard"];
@@ -400,19 +454,9 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
-  "/custom-fields": {
-    /** Get all custom fields */
-    get: operations["listCustomFields"];
-    /** Create a single customField */
-    post: operations["createCustomField"];
-  };
-  "/custom-fields/{id}": {
-    /** Get a single customField */
-    get: operations["getCustomField"];
-    /** Update a single customField */
-    put: operations["updateCustomField"];
-    /** Delete a single customField */
-    delete: operations["deleteCustomField"];
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -433,8 +477,6 @@ export interface paths {
     get: operations["getTeam"];
     /** Update a single team */
     put: operations["updateTeam"];
-    /** Delete a single team */
-    delete: operations["deleteTeam"];
   };
   "/teams": {
     /** Get all teams */
@@ -443,8 +485,14 @@ export interface paths {
     post: operations["createTeam"];
   };
   "/teams/{teamId}/members": {
+    /** Add members to team */
     post: operations["addTeamMembers"];
+    /** Remove members from team */
     delete: operations["removeTeamMember"];
+  };
+  "/teams/{teamId}/": {
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
   };
 }
 
@@ -452,6 +500,27 @@ export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    CustomField: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      placeholder?: string;
+      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      /** @enum {string} */
+      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+      values?: string;
+      required: boolean;
+      index?: boolean;
+      creator?: string;
+      projects?: (string)[];
+      /** @enum {string} */
+      section: "feature" | "experiment";
+      active?: boolean;
+    };
     Dashboard: {
       id: string;
       uid: string;
@@ -618,28 +687,285 @@ export interface components {
           savedQueryId: string;
           dataVizConfigIndex?: number;
           blockConfig: (string)[];
-        })[];
+        } | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "metric-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "metric";
+            dataset: {
+              /** @constant */
+              type: "metric";
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "metric";
+                  metricId: string;
+                  unit: string | null;
+                  denominatorUnit: string | null;
+                })[];
+            };
+          };
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "fact-table-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "fact_table";
+            dataset: {
+              /** @constant */
+              type: "fact_table";
+              factTableId: string | null;
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "fact_table";
+                  /** @enum {string} */
+                  valueType: "unit_count" | "count" | "sum";
+                  valueColumn: string | null;
+                  unit: string | null;
+                })[];
+            };
+          };
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "data-source-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "data_source";
+            dataset: {
+              /** @constant */
+              type: "data_source";
+              table: string;
+              path: string;
+              timestampColumn: string;
+              columnTypes: {
+                [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+              };
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "data_source";
+                  /** @enum {string} */
+                  valueType: "unit_count" | "count" | "sum";
+                  valueColumn: string | null;
+                  unit: string | null;
+                })[];
+            };
+          };
+        }))[];
     };
-    CustomField: {
+    ExperimentTemplate: {
       id: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
-      name: string;
+      project?: string;
+      owner: string;
+      templateMetadata: {
+        name: string;
+        description?: string;
+      };
+      /** @enum {string} */
+      type: "standard";
+      hypothesis?: string;
       description?: string;
-      placeholder?: string;
-      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      tags?: (string)[];
+      customFields?: {
+        [key: string]: string | undefined;
+      };
+      datasource: string;
+      exposureQueryId: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: boolean;
+      goalMetrics?: (string)[];
+      secondaryMetrics?: (string)[];
+      guardrailMetrics?: (string)[];
+      activationMetric?: string;
       /** @enum {string} */
-      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-      values?: string;
-      required: boolean;
-      index?: boolean;
-      creator?: string;
-      projects?: (string)[];
-      /** @enum {string} */
-      section: "feature" | "experiment";
-      active?: boolean;
+      statsEngine: "bayesian" | "frequentist";
+      segment?: string;
+      skipPartialData?: boolean;
+      targeting: {
+        coverage: number;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+        condition: string;
+      };
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     MetricGroup: {
       id: string;
@@ -1332,11 +1658,18 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
+        createdBy: string;
         publishedBy: string;
       };
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     };
     FeatureWithRevisions: ({
       id: string;
@@ -1781,11 +2114,18 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
+        createdBy: string;
         publishedBy: string;
       };
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -1794,7 +2134,10 @@ export interface components {
           /** Format: date-time */
           date: string;
           status: string;
+          createdBy?: string;
           publishedBy?: string;
+          /** @description The default value at the time this revision was created */
+          defaultValue?: string;
           rules: {
             [key: string]: ((({
                 description: string;
@@ -2003,6 +2346,47 @@ export interface components {
           };
           definitions?: {
             [key: string]: string | undefined;
+          };
+          /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+          environmentsEnabled?: {
+            [key: string]: boolean | undefined;
+          };
+          /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          envPrerequisites?: {
+            [key: string]: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[] | undefined;
+          };
+          /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+          metadata?: {
+            description?: string;
+            owner?: string;
+            project?: string;
+            tags?: (string)[];
+            neverStale?: boolean;
+            valueType?: string;
+            jsonSchema?: {
+              /** @enum {string} */
+              schemaType?: "schema" | "simple";
+              schema?: string;
+              simple?: {
+                [key: string]: unknown | undefined;
+              };
+              /** Format: date-time */
+              date?: string;
+              enabled?: boolean;
+            };
+            customFields?: {
+              [key: string]: unknown | undefined;
+            };
           };
         })[];
     });
@@ -2860,7 +3244,10 @@ export interface components {
       /** Format: date-time */
       date: string;
       status: string;
+      createdBy?: string;
       publishedBy?: string;
+      /** @description The default value at the time this revision was created */
+      defaultValue?: string;
       rules: {
         [key: string]: ((({
             description: string;
@@ -3070,6 +3457,47 @@ export interface components {
       definitions?: {
         [key: string]: string | undefined;
       };
+      /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+      environmentsEnabled?: {
+        [key: string]: boolean | undefined;
+      };
+      /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      envPrerequisites?: {
+        [key: string]: ({
+            /** @description Feature ID */
+            id: string;
+            condition: string;
+          })[] | undefined;
+      };
+      /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+      metadata?: {
+        description?: string;
+        owner?: string;
+        project?: string;
+        tags?: (string)[];
+        neverStale?: boolean;
+        valueType?: string;
+        jsonSchema?: {
+          /** @enum {string} */
+          schemaType?: "schema" | "simple";
+          schema?: string;
+          simple?: {
+            [key: string]: unknown | undefined;
+          };
+          /** Format: date-time */
+          date?: string;
+          enabled?: boolean;
+        };
+        customFields?: {
+          [key: string]: unknown | undefined;
+        };
+      };
     };
     SdkConnection: {
       id: string;
@@ -3168,10 +3596,25 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3238,6 +3681,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -3251,6 +3697,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -3277,10 +3724,25 @@ export interface components {
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
       /**
-       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
        * @enum {unknown}
        */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+      /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+      lookbackOverride?: {
+        /** @enum {unknown} */
+        type: "date" | "window";
+        /**
+         * Format: date-time 
+         * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+         */
+        value: OneOf<[number, string]>;
+        /**
+         * @description Used when type is "window". Defaults to "days". 
+         * @enum {unknown}
+         */
+        valueUnit?: "minutes" | "hours" | "days" | "weeks";
+      };
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
@@ -3331,6 +3793,21 @@ export interface components {
         };
       };
     };
+    /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+    LookbackOverride: {
+      /** @enum {unknown} */
+      type: "date" | "window";
+      /**
+       * Format: date-time 
+       * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+       */
+      value: OneOf<[number, string]>;
+      /**
+       * @description Used when type is "window". Defaults to "days". 
+       * @enum {unknown}
+       */
+      valueUnit?: "minutes" | "hours" | "days" | "weeks";
+    };
     ExperimentResults: {
       id: string;
       dateUpdated: string;
@@ -3351,10 +3828,25 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3502,10 +3994,25 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
@@ -3572,6 +4079,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -3585,6 +4095,7 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      templateId?: string;
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -4071,7 +4582,7 @@ export interface components {
       sequentialTestingEnabled: boolean;
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
       targetMDE: number;
       delayHours: number;
       windowType: string;
@@ -4080,12 +4591,17 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
+      /** @enum {string} */
+      featureKillSwitchBehavior?: "off" | "warn";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
+          featureRequireEnvironmentReview?: boolean;
+          featureRequireMetadataReview?: boolean;
         })[];
+      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -4647,11 +5163,18 @@ export interface operations {
                   comment: string;
                   /** Format: date-time */
                   date: string;
+                  createdBy: string;
                   publishedBy: string;
                 };
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                holdout?: {
+                  /** @description Holdout ID */
+                  id: string;
+                  /** @description The feature value assigned to users in the holdout treatment group */
+                  value: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -5527,11 +6050,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -5997,11 +6527,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -6010,7 +6547,10 @@ export interface operations {
                   /** Format: date-time */
                   date: string;
                   status: string;
+                  createdBy?: string;
                   publishedBy?: string;
+                  /** @description The default value at the time this revision was created */
+                  defaultValue?: string;
                   rules: {
                     [key: string]: ((({
                         description: string;
@@ -6220,6 +6760,47 @@ export interface operations {
                   definitions?: {
                     [key: string]: string | undefined;
                   };
+                  /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                  environmentsEnabled?: {
+                    [key: string]: boolean | undefined;
+                  };
+                  /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  envPrerequisites?: {
+                    [key: string]: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[] | undefined;
+                  };
+                  /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                  metadata?: {
+                    description?: string;
+                    owner?: string;
+                    project?: string;
+                    tags?: (string)[];
+                    neverStale?: boolean;
+                    valueType?: string;
+                    jsonSchema?: {
+                      /** @enum {string} */
+                      schemaType?: "schema" | "simple";
+                      schema?: string;
+                      simple?: {
+                        [key: string]: unknown | undefined;
+                      };
+                      /** Format: date-time */
+                      date?: string;
+                      enabled?: boolean;
+                    };
+                    customFields?: {
+                      [key: string]: unknown | undefined;
+                    };
+                  };
                 })[];
             });
           };
@@ -6228,7 +6809,12 @@ export interface operations {
     };
   };
   updateFeature: {
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -6635,6 +7221,13 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
+          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
+          holdout?: {
+            /** @description Holdout ID */
+            id: string;
+            /** @description The feature value assigned to users in the holdout treatment group */
+            value: string;
+          } | null;
         };
       };
     };
@@ -7085,11 +7678,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7097,7 +7697,12 @@ export interface operations {
     };
   };
   deleteFeature: {
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7119,7 +7724,12 @@ export interface operations {
     };
   };
   toggleFeature: {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -7577,11 +8187,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7589,7 +8206,12 @@ export interface operations {
     };
   };
   revertFeature: {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -8045,11 +8667,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -8081,7 +8710,10 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 status: string;
+                createdBy?: string;
                 publishedBy?: string;
+                /** @description The default value at the time this revision was created */
+                defaultValue?: string;
                 rules: {
                   [key: string]: ((({
                       description: string;
@@ -8291,6 +8923,47 @@ export interface operations {
                 definitions?: {
                   [key: string]: string | undefined;
                 };
+                /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                environmentsEnabled?: {
+                  [key: string]: boolean | undefined;
+                };
+                /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                envPrerequisites?: {
+                  [key: string]: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[] | undefined;
+                };
+                /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                metadata?: {
+                  description?: string;
+                  owner?: string;
+                  project?: string;
+                  tags?: (string)[];
+                  neverStale?: boolean;
+                  valueType?: string;
+                  jsonSchema?: {
+                    /** @enum {string} */
+                    schemaType?: "schema" | "simple";
+                    schema?: string;
+                    simple?: {
+                      [key: string]: unknown | undefined;
+                    };
+                    /** Format: date-time */
+                    date?: string;
+                    enabled?: boolean;
+                  };
+                  customFields?: {
+                    [key: string]: unknown | undefined;
+                  };
+                };
               })[];
           }) & {
             limit: number;
@@ -8299,6 +8972,54 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  getFeatureStale: {
+    /** Get stale status for one or more features */
+    parameters: {
+        /** @description Comma-separated list of feature IDs (URL-encoded if needed). Example: `my_feature,another_feature` */
+      query: {
+        ids: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description Map of feature ID to stale status. Only requested features that were found and readable are included. */
+            features: {
+              [key: string]: ({
+                /** @description The feature key */
+                featureId: string;
+                /** @description Whether the feature is considered stale overall (all enabled environments are stale). Always false when neverStale is true. */
+                isStale: boolean;
+                /**
+                 * @description Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).
+                 *  
+                 * @enum {string|null}
+                 */
+                staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | null;
+                /** @description When true the feature is permanently excluded from stale detection. */
+                neverStale: boolean;
+                /** @description Per-environment staleness breakdown, keyed by environment ID. Present when environments exist and neverStale is false. */
+                staleByEnv?: {
+                  [key: string]: ({
+                    /** @description Whether this environment is stale */
+                    isStale: boolean;
+                    /**
+                     * @description Reason for the stale status in this environment 
+                     * @enum {string|null}
+                     */
+                    reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | "recently-updated" | "active-draft" | "has-dependents" | null;
+                    /** @description The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off. */
+                    evaluatesTo?: string;
+                  }) | undefined;
+                };
+              }) | undefined;
+            };
           };
         };
       };
@@ -9441,10 +10162,25 @@ export interface operations {
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
                   /**
-                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                    * @enum {unknown}
                    */
-                  attributionModel: "firstExposure" | "experimentDuration";
+                  attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                  /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                  lookbackOverride?: {
+                    /** @enum {unknown} */
+                    type: "date" | "window";
+                    /**
+                     * Format: date-time 
+                     * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                     */
+                    value: OneOf<[number, string]>;
+                    /**
+                     * @description Used when type is "window". Defaults to "days". 
+                     * @enum {unknown}
+                     */
+                    valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                  };
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
@@ -9511,6 +10247,9 @@ export interface operations {
                 banditBurnInValue?: number;
                 /** @enum {string} */
                 banditBurnInUnit?: "days" | "hours";
+                banditConversionWindowValue?: number;
+                /** @enum {string} */
+                banditConversionWindowUnit?: "days" | "hours";
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
@@ -9524,6 +10263,7 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                templateId?: string;
               })[];
           }) & {
             limit: number;
@@ -9542,17 +10282,21 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          /** @description ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided. */
           datasourceId?: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource */
-          assignmentQueryId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided. */
+          assignmentQueryId?: string;
           trackingKey: string;
+          /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name: string;
           /** @enum {string} */
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields. */
+          templateId?: string;
           /** @description Hypothesis of the experiment */
           hypothesis?: string;
           /** @description Description of the experiment */
@@ -9585,10 +10329,25 @@ export interface operations {
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description Used when type is "window". Defaults to "days". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations: ({
@@ -9649,6 +10408,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -9733,10 +10495,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -9803,6 +10580,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -9816,6 +10596,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -9922,10 +10703,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -9992,6 +10788,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10005,6 +10804,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -10032,6 +10832,8 @@ export interface operations {
           datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
+          /** @description If true, allow updating the tracking key even if another experiment with the same tracking key already exists */
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name?: string;
           /** @enum {string} */
@@ -10065,15 +10867,41 @@ export interface operations {
           disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
+          /**
+           * @description The result status of the experiment. Maps to resultSummary.status in the GET response. 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response. */
+          analysis?: string;
+          /** @description The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response. */
           releasedVariationId?: string;
+          /** @description If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response. */
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description Used when type is "window". Defaults to "days". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations?: ({
@@ -10134,6 +10962,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -10218,10 +11049,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -10288,6 +11134,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10301,6 +11150,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -10330,6 +11180,65 @@ export interface operations {
               status: string;
             };
           };
+        };
+      };
+    };
+  };
+  postVariationImageUpload: {
+    /** Upload a variation screenshot */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Base64-encoded screenshot data */
+          screenshot: string;
+          /**
+           * @description MIME type of the screenshot 
+           * @enum {string}
+           */
+          contentType: "image/png" | "image/jpeg" | "image/gif";
+          /** @description Optional description for the screenshot */
+          description?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            screenshot: {
+              /** @description URL or path to the uploaded screenshot */
+              path: string;
+              /** @description Description of the screenshot */
+              description: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteVariationScreenshot: {
+    /** Delete a variation screenshot */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The screenshot path/URL to delete (from upload response) */
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Screenshot deleted successfully */
+      200: {
+        content: {
+          "application/json": any;
         };
       };
     };
@@ -10366,10 +11275,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -11379,10 +12303,25 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
@@ -11449,6 +12388,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -11462,6 +12404,7 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              templateId?: string;
             };
           };
         };
@@ -14493,7 +15436,7 @@ export interface operations {
               sequentialTestingEnabled: boolean;
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
-              attributionModel: "firstExposure" | "experimentDuration";
+              attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
               targetMDE: number;
               delayHours: number;
               windowType: string;
@@ -14502,12 +15445,17 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
+              /** @enum {string} */
+              featureKillSwitchBehavior?: "off" | "warn";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
+                  featureRequireEnvironmentReview?: boolean;
+                  featureRequireMetadataReview?: boolean;
                 })[];
+              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;
@@ -14521,6 +15469,216 @@ export interface operations {
               preferredEnvironment?: string | null;
               maxMetricSliceLevels?: number;
             };
+          };
+        };
+      };
+    };
+  };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            })[];
+        };
+      };
+    };
+  };
+  createCustomField: {
+    /** Create a single customField */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The unique key for the custom field */
+          id: string;
+          /** @description The display name of the custom field */
+          name: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getCustomField: {
+    /** Get a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateCustomField: {
+    /** Update a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the custom field */
+          name?: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required?: boolean;
+          index?: boolean;
+          projects?: (string)[];
+          /**
+           * @description What type of objects this custom field is applicable to 
+           * @enum {string}
+           */
+          section?: "feature" | "experiment";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              index?: boolean;
+              creator?: string;
+              projects?: (string)[];
+              /** @enum {string} */
+              section: "feature" | "experiment";
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteCustomField: {
+    /** Delete a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -14703,7 +15861,232 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -14990,7 +16373,232 @@ export interface operations {
               savedQueryId: string;
               dataVizConfigIndex?: number;
               blockConfig: (string)[];
-            }))[];
+            } | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "metric-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "metric";
+                dataset: {
+                  /** @constant */
+                  type: "metric";
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "metric";
+                      metricId: string;
+                      unit: string | null;
+                      denominatorUnit: string | null;
+                    })[];
+                };
+              };
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "fact-table-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "fact_table";
+                dataset: {
+                  /** @constant */
+                  type: "fact_table";
+                  factTableId: string | null;
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "fact_table";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "data-source-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "data_source";
+                dataset: {
+                  /** @constant */
+                  type: "data_source";
+                  table: string;
+                  path: string;
+                  timestampColumn: string;
+                  columnTypes: {
+                    [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                  };
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "data_source";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            })))[];
         };
       };
     };
@@ -15164,7 +16772,232 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -15360,7 +17193,232 @@ export interface operations {
                     savedQueryId: string;
                     dataVizConfigIndex?: number;
                     blockConfig: (string)[];
-                  })[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "metric";
+                      dataset: {
+                        /** @constant */
+                        type: "metric";
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "metric";
+                            metricId: string;
+                            unit: string | null;
+                            denominatorUnit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "fact-table-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "fact_table";
+                      dataset: {
+                        /** @constant */
+                        type: "fact_table";
+                        factTableId: string | null;
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "fact_table";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "data-source-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "data_source";
+                      dataset: {
+                        /** @constant */
+                        type: "data_source";
+                        table: string;
+                        path: string;
+                        timestampColumn: string;
+                        columnTypes: {
+                          [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                        };
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "data_source";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }))[];
               })[];
           };
         };
@@ -15684,7 +17742,232 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -15868,15 +18151,240 @@ export interface operations {
                     savedQueryId: string;
                     dataVizConfigIndex?: number;
                     blockConfig: (string)[];
-                  })[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "metric";
+                      dataset: {
+                        /** @constant */
+                        type: "metric";
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "metric";
+                            metricId: string;
+                            unit: string | null;
+                            denominatorUnit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "fact-table-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "fact_table";
+                      dataset: {
+                        /** @constant */
+                        type: "fact_table";
+                        factTableId: string | null;
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "fact_table";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "data-source-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "data_source";
+                      dataset: {
+                        /** @constant */
+                        type: "data_source";
+                        table: string;
+                        path: string;
+                        timestampColumn: string;
+                        columnTypes: {
+                          [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                        };
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "data_source";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }))[];
               })[];
           };
         };
       };
     };
   };
-  listCustomFields: {
-    /** Get all custom fields */
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
     parameters: {
       query: {
         projectId?: string;
@@ -15885,201 +18393,60 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            })[];
-        };
-      };
-    };
-  };
-  createCustomField: {
-    /** Create a single customField */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The unique key for the custom field */
-          id: string;
-          /** @description The display name of the custom field */
-          name: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
           "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  getCustomField: {
-    /** Get a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  updateCustomField: {
-    /** Update a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The display name of the custom field */
-          name?: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required?: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section?: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  deleteCustomField: {
-    /** Delete a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
           };
         };
       };
@@ -16361,23 +18728,6 @@ export interface operations {
       };
     };
   };
-  deleteTeam: {
-    /** Delete a single team */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
-          };
-        };
-      };
-    };
-  };
   listTeams: {
     /** Get all teams */
     responses: {
@@ -16484,6 +18834,7 @@ export interface operations {
     };
   };
   addTeamMembers: {
+    /** Add members to team */
     parameters: {
       path: {
         teamId: string;
@@ -16507,6 +18858,7 @@ export interface operations {
     };
   };
   removeTeamMember: {
+    /** Remove members from team */
     parameters: {
       path: {
         teamId: string;
@@ -16524,6 +18876,26 @@ export interface operations {
         content: {
           "application/json": {
             status: number;
+          };
+        };
+      };
+    };
+  };
+  deleteTeam: {
+    /** Delete a single team */
+    parameters: {
+      query: {
+        deleteMembers?: string;
+      };
+      path: {
+        teamId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -16558,6 +18930,7 @@ export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValida
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiLookbackOverride = z.infer<typeof openApiValidators.apiLookbackOverrideValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
 export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
@@ -16586,6 +18959,7 @@ export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureStaleResponse = operations["getFeatureStale"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
@@ -16616,6 +18990,8 @@ export type GetExperimentNamesResponse = operations["getExperimentNames"]["respo
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
+export type PostVariationImageUploadResponse = operations["postVariationImageUpload"]["responses"]["200"]["content"]["application/json"];
+export type DeleteVariationScreenshotResponse = operations["deleteVariationScreenshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];

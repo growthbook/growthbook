@@ -169,11 +169,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -195,11 +190,6 @@
     }
   },
   "packages/front-end/components/Experiment/SafeRolloutTimeSeriesGraph.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettings.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -314,11 +304,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeatureArchiveModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/FeatureDeleteModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -340,11 +325,6 @@
     }
   },
   "packages/front-end/components/Features/FeaturesHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
     "no-restricted-imports": {
       "count": 2
     }
@@ -376,7 +356,7 @@
   },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
@@ -397,11 +377,6 @@
   "packages/front-end/components/Features/RuleModal/index.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SDKConnections/SDKConnectionsList.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/SafeRollout/SafeRolloutStatusModal.tsx": {
@@ -432,11 +407,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
@@ -644,11 +614,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Owner/SelectOwner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Queries/QueriesLastRun.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -690,16 +655,6 @@
     }
   },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -864,11 +819,6 @@
       "count": 2
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -952,11 +902,6 @@
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/presentations.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {

@@ -218,6 +218,13 @@ properties:
     enum:
       - "days"
       - "hours"
+  banditConversionWindowValue:
+    type: number
+  banditConversionWindowUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
   linkedFeatures:
     type: array
     items:
@@ -251,3 +258,5 @@ properties:
       required:
         - slices
     description: "Custom slices that apply to ALL applicable metrics in the experiment"
+  templateId:
+    type: string

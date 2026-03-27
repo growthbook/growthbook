@@ -7,7 +7,12 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import {ExperimentInterfaceStringDates} from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import {
+  getEffectiveLookbackOverride, getLatestPhaseVariations,
+} from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -36,9 +41,10 @@ export default function PublicExperimentResults({
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -137,6 +143,10 @@ export default function PublicExperimentResults({
             reportDate={snapshot.dateCreated}
             isLatestPhase={phase === experiment.phases.length - 1}
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+            lookbackOverride={getEffectiveLookbackOverride(
+              snapshot?.settings?.attributionModel,
+              snapshot?.settings?.lookbackOverride,
+            )}
             differenceType={analysis?.settings?.differenceType || "relative"}
             ssrPolyfills={ssrPolyfills}
           >

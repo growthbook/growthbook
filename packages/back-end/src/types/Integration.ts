@@ -57,7 +57,7 @@ import {
   DataSourceProperties,
   SchemaFormat,
 } from "shared/types/datasource";
-import { AdditionalQueryMetadata } from "shared/types/query";
+import { AdditionalQueryMetadata, QueryDocMetadata } from "shared/types/query";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { DimensionInterface } from "shared/types/dimension";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -70,6 +70,7 @@ export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
   additionalQueryMetadata?: AdditionalQueryMetadata;
+  queryDocMetadata?: QueryDocMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;

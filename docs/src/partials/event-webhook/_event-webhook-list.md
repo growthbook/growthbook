@@ -291,9 +291,16 @@ Triggered when a feature is created
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -588,9 +595,16 @@ Triggered when a feature is updated
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -851,9 +865,16 @@ Triggered when a feature is updated
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             } | undefined;
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -1153,9 +1174,16 @@ Triggered when a feature is deleted
                 version: number;
                 comment: string;
                 date: string;
+                createdBy: string;
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1369,8 +1397,16 @@ Triggered when an experiment is created
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1429,6 +1465,8 @@ Triggered when an experiment is created
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1440,6 +1478,7 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
     };
     user: {
@@ -1535,8 +1574,16 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1595,6 +1642,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1606,6 +1655,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1667,8 +1717,16 @@ Triggered when an experiment is updated
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1727,6 +1785,8 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1738,6 +1798,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -1838,8 +1899,16 @@ Triggered when an experiment is deleted
                 segmentId: string;
                 queryFilter: string;
                 inProgressConversions: "include" | "exclude";
-                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. */
-                attributionModel: "firstExposure" | "experimentDuration";
+                /** Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. */
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                    type: "date" | "window";
+                    /** For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string. */
+                    value: number | string;
+                    /** Used when type is "window". Defaults to "days". */
+                    valueUnit?: ("minutes" | "hours" | "days" | "weeks") | undefined;
+                } | undefined;
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
@@ -1898,6 +1967,8 @@ Triggered when an experiment is deleted
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            banditConversionWindowValue?: number | undefined;
+            banditConversionWindowUnit?: ("days" | "hours") | undefined;
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
@@ -1909,6 +1980,7 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
     };
     user: {

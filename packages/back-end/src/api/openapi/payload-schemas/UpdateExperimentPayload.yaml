@@ -7,6 +7,9 @@ properties:
     type: string
   trackingKey:
     type: string
+  bypassDuplicateKeyCheck:
+    type: boolean
+    description: If true, allow updating the tracking key even if another experiment with the same tracking key already exists
   name:
     type: string
     description: Name of the experiment
@@ -75,10 +78,26 @@ properties:
     type: number
   minBucketVersion:
     type: number
+  results:
+    type: string
+    enum:
+      - dnf
+      - won
+      - lost
+      - inconclusive
+    description: The result status of the experiment. Maps to resultSummary.status in the GET response.
+  winner:
+    type: number
+    description: The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response.
+  analysis:
+    type: string
+    description: Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response.
   releasedVariationId:
     type: string
+    description: The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response.
   excludeFromPayload:
     type: boolean
+    description: If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response.
   inProgressConversions:
     type: string
     enum:
@@ -89,7 +108,10 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
-    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+      - lookbackOverride
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+  lookbackOverride:
+    $ref: "../schemas/LookbackOverride.yaml"
   statsEngine:
     type: string
     enum:
@@ -241,6 +263,13 @@ properties:
   banditBurnInValue:
     type: number
   banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditConversionWindowValue:
+    type: number
+  banditConversionWindowUnit:
     type: string
     enum:
       - "days"

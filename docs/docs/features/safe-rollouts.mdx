@@ -1,6 +1,8 @@
 ---
 title: Safe Rollouts
-description: Safe Rollouts in GrowthBook help you release new features to a subset of users while monitoring guardrail metrics for regressions. Detect issues early and reduce risk in production.
+description: Release features to a subset of users while monitoring guardrail metrics for regressions. Detect issues early and reduce risk in production.
+sidebar_label: Safe Rollouts
+slug: /features/safe-rollouts
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
@@ -12,14 +14,14 @@ Releasing a new feature always carries risk. Even small changes can introduce re
 
 ## Overview
 
-Safe Rollouts are a type of feature rule that lets you release a feature to a subset of users and automatically monitor guardrail metrics for regressions. Guardrails can be any metrics that matter to your team, such as error rates, latency, or conversions.
+Safe Rollouts are a type of feature [rule](/features/rules) that releases a feature to a subset of users and automatically monitors guardrail metrics for regressions. Guardrails can be any metrics that matter to your team, such as error rates, latency, or conversions.
 
 The rollout runs as a short-term A/B test:
 
 - The **Control** receives the existing value.
 - The **Rollout** receives the new value.
 
-GrowthBook analyzes the impact of the rollout on your selected guardrail metrics and provides status updates indicating whether it’s safe to ship, whether issues have been detected, or whether you should consider rolling back.
+GrowthBook analyzes the rollout's impact on your selected guardrail metrics and provides status updates: safe to ship, issues detected, or consider rolling back.
 
 ## How to Add a Safe Rollout
 
@@ -53,7 +55,7 @@ Safe Rollouts automatically manage traffic exposure to ensure safety. The rollou
 
 **10% → 25% → 50% → 75% → 100%**
 
-This ramp-up occurs over the first 25% of the monitoring duration. For example, if your duration is set to 4 days, the traffic will ramp from 10% to 100% during the first day. The remaining time is used to monitor the fully rolled-out feature for failing guardrail metrics.
+This ramp-up occurs over the first 25% of the monitoring duration. For example, if your duration is set to 4 days, traffic ramps from 10% to 100% during the first day. The remaining time monitors the fully rolled-out feature for failing guardrail metrics.
 
 ### 5. Monitor the Rollout
 
@@ -61,7 +63,7 @@ This ramp-up occurs over the first 25% of the monitoring duration. For example, 
 ![Safe rollout rollback now warning message](/images/features/safe-rollout-rollback-now.webp)
 </MaxWidthImage>
 
-Once the rollout is published, GrowthBook begins monitoring the guardrail metrics. The rollout status updates automatically based on results.
+Once published, GrowthBook begins monitoring the guardrail metrics. The rollout status updates automatically based on results.
 
 Status indicators:
 
@@ -85,11 +87,11 @@ At the end of the monitoring period (or sooner if issues arise), you can:
 - Revert the feature to the control value.
 - Continue to monitor.
 
-If **Auto Rollback** is enabled and a regression is detected, GrowthBook will automatically disable the rollout rule to protect your users.
+If **Auto Rollback** is enabled and a regression is detected, GrowthBook automatically disables the rollout rule to protect your users.
 
-## Understanding the Time series graph
+## Understanding the Time Series Graph
 
-The safe rollout monitoring interface includes a time series graph that shows how your guardrail metrics are performing over time. This graph displays two key values:
+The safe rollout monitoring interface includes a time series graph showing how your guardrail metrics perform over time. The graph displays two key values:
 
 ### Metric Boundary
 
@@ -97,35 +99,35 @@ The Metric Boundary is the statistical boundary for whether a safe rollout is fa
 
 ### Threshold
 
-This is the threshold for when a metric is considered to be failing. It is always set to zero so that as soon as there is statistical certainty that a metric is being harmed at all (even for very small values), we consider a safe rollout as failing.
+The threshold for when a metric is considered failing. It's always set to zero — as soon as there's statistical certainty that a metric is being harmed at all (even by very small amounts), the safe rollout is marked as failing.
 
 ## FAQs
 
-### How does the traffic ramp up work?
+### How Does the Traffic Ramp Up Work?
 
-Safe Rollouts use a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) that completes within the first 25% of your configured duration. This ensures you start with a small blast radius and quickly scale up if no immediate issues are found.
+Safe Rollouts use a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) that completes within the first 25% of your configured duration. This keeps the initial blast radius small and scales up quickly if no immediate issues appear.
 
-### What happens if a guardrail metric degrades?
+### What Happens if a Guardrail Metric Degrades?
 
-If a guardrail metric crosses a significance threshold indicating a regression, the rollout status will reflect the issue.
+If a guardrail metric crosses a significance threshold indicating a regression, the rollout status reflects the issue.
 
-- If Automatic Rollback is enabled, the feature will be automatically disabled to prevent further harm.
-- If Automatic Rollback is disabled, you retain control and can choose to manually stop or revert the rollout.
+- If **Automatic Rollback** is enabled, GrowthBook automatically disables the feature to prevent further harm.
+- If **Automatic Rollback** is disabled, you retain control and can manually stop or revert the rollout.
 
-### What should I use as my guardrail metrics?
+### What Should I Use as My Guardrail Metrics?
 
 Choose metrics that represent key system health or business outcomes. This might include error rates, latency, or conversion rates—whatever signals that the change is working as intended and not causing harm.
 
-Choosing too many guardrail metrics could increase the chance of false positives, so find a balance between a good mix of critical metrics without adding too many.
+Choosing too many guardrail metrics increases the chance of false positives. Aim for a focused set of critical metrics.
 
-### How is this different from an experiment?
+### How Is This Different From an Experiment?
 
 Safe Rollouts use the same analysis engine as GrowthBook experiments but are designed for operational decision-making, not learning. The primary goal is to ensure a safe release, not to measure long-term impact.
 
-### What happens if there isn’t enough data?
+### What Happens if There Isn't Enough Data?
 
-Safe Rollouts are built to help you ship confidently and reduce the chance of negative regressions. If any guardrail fails, we recommend rolling back your test.
+Safe Rollouts are built to help you ship confidently and reduce the chance of negative regressions. If any guardrail fails, roll back the change.
 
-If test results are still inconclusive after the set duration for your safe rollout, we recommend shipping, because there’s no clear evidence that the feature is harmful.
+If results are still inconclusive after the configured duration, ship — there's no clear evidence that the feature is harmful.
 
-Safe Rollouts therefore bias towards action. If you are more uncertain about a feature and want to learn generally about its impact, we recommend running a regular Experiment.
+Safe Rollouts bias towards action. If you're more uncertain about a feature and want to learn about its impact, run a regular [Experiment](/features/rules#experiment) instead.

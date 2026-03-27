@@ -31,14 +31,15 @@ Check us out on the [official MCP Registry](https://registry.modelcontextprotoco
 
 We cover how to connect the GrowthBook MCP server for the most popular tools below, but the installation steps are similar for most AI tools.
 
-Configuration includes 4 environment variables. Here's what they mean:
+Configuration uses the following environment variables:
 
-| Variable Name | Status   | Description                                                                                           |
-| ------------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| GB_API_KEY    | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
-| GB_EMAIL      | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
-| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
-| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+| Variable Name    | Status   | Description                                                                                           |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| GB_API_KEY       | Required | A GrowthBook API key or PAT. When using a PAT, you can only access tools that your permissions allow. |
+| GB_EMAIL         | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments.            |
+| GB_API_URL       | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                                     |
+| GB_APP_ORIGIN    | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                                      |
+| GB_HTTP_HEADER\* | Optional | Custom HTTP headers included in all API requests. See [Custom Headers](#custom-headers) below.        |
 
 <br />
 
@@ -48,7 +49,13 @@ You only need to configure `GB_API_KEY` and `GB_EMAIL`.
 
 ### Cursor
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=growthbook&config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9)
+<a href="https://cursor.com/en-US/install-mcp?name=growthbook&amp;config=eyJlbnYiOnsiR0JfQVBJX0tFWSI6IllPVVJfQVBJX0tFWSIsIkdCX0VNQUlMIjoiWU9VUl9FTUFJTCIsIkdCX0FQSV9VUkwiOiJZT1VSX0FQSV9VUkwiLCJHQl9BUFBfT1JJR0lOIjoiWU9VUl9BUFBfT1JJR0lOIn0sImNvbW1hbmQiOiJucHggLXkgQGdyb3d0aGJvb2svbWNwQGxhdGVzdCJ9">
+  <img 
+    src="https://cursor.com/deeplink/mcp-install-dark.svg" 
+    alt="Install MCP Server"
+    className="no-zoom"
+  />
+</a>
 
 1. Open **Cursor Settings** &rarr; **MCP**
 2. Click **Add new global MCP server**
@@ -276,13 +283,111 @@ We have an official extension in the Connectors Directory.
 Claude Desktop ships with its own version of Node, which means it's not required here
 :::
 
+## Custom Headers
+
+If your GrowthBook instance is behind a reverse proxy or requires additional authentication headers (e.g. Cloudflare Access), you can pass custom HTTP headers via environment variables using the `GB_HTTP_HEADER_*` prefix.
+
+Each environment variable following this pattern is automatically converted to a proper HTTP header and included in every API request the MCP server makes.
+
+### Naming Convention
+
+The variable name after the `GB_HTTP_HEADER_` prefix is converted from `UPPER_SNAKE_CASE` to `Title-Case-With-Dashes`:
+
+| Environment Variable             | HTTP Header Sent  |
+| -------------------------------- | ----------------- |
+| `GB_HTTP_HEADER_X_TENANT_ID`     | `X-Tenant-ID`     |
+| `GB_HTTP_HEADER_CF_ACCESS_TOKEN` | `Cf-Access-Token` |
+| `GB_HTTP_HEADER_X_CUSTOM_AUTH`   | `X-Custom-Auth`   |
+
+:::info Header precedence
+Custom headers cannot override the `Authorization` or `Content-Type` headers, which are always set by the MCP server.
+:::
+
+### Example: Cloudflare Access
+
+If your self-hosted GrowthBook is protected by [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/), add the service token headers:
+
+<Tabs groupId="operating-systems">
+<TabItem value="macos" label="macOS / Linux">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "npx",
+      "args": ["-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "https://growthbook.internal.example.com",
+        "GB_APP_ORIGIN": "https://growthbook.internal.example.com",
+        "GB_EMAIL": "YOUR_EMAIL",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```json
+{
+  "mcpServers": {
+    "growthbook": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@growthbook/mcp@latest"],
+      "env": {
+        "GB_API_KEY": "YOUR_API_KEY",
+        "GB_API_URL": "https://growthbook.internal.example.com",
+        "GB_APP_ORIGIN": "https://growthbook.internal.example.com",
+        "GB_EMAIL": "YOUR_EMAIL",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID": "YOUR_CF_CLIENT_ID",
+        "GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET": "YOUR_CF_CLIENT_SECRET"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+For Claude Code, append the custom headers as additional `--env` flags:
+
+```bash
+claude mcp add growthbook --transport stdio \
+  --env GB_API_KEY=YOUR_API_KEY \
+  --env GB_API_URL=https://growthbook.internal.example.com \
+  --env GB_APP_ORIGIN=https://growthbook.internal.example.com \
+  --env GB_EMAIL=YOUR_EMAIL \
+  --env GB_HTTP_HEADER_CF_ACCESS_CLIENT_ID=YOUR_CF_CLIENT_ID \
+  --env GB_HTTP_HEADER_CF_ACCESS_CLIENT_SECRET=YOUR_CF_CLIENT_SECRET \
+  -- npx -y @growthbook/mcp@latest
+```
+
+### Example: Multi-Tenant Proxy
+
+If your API gateway requires a tenant identifier:
+
+```json
+"env": {
+  "GB_API_KEY": "YOUR_API_KEY",
+  "GB_EMAIL": "YOUR_EMAIL",
+  "GB_HTTP_HEADER_X_TENANT_ID": "your-tenant-id"
+}
+```
+
+You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes a separate header on every request.
+
 ## Tools
 
 ### Feature Flags
 
 - `create_feature_flag`: Create, add, or wrap an element with a feature flag. Accepts key, type, default value, and other metadata.
 - `get_feature_flags`: List feature flags in your GrowthBook instance. Include a feature ID to retrieve a single flag.
-- `get_stale_safe_rollouts`: List safe rollout rules that have been rolled back or released. This tools is helpful for removing stale flags from your codebase.
+- `get_stale_feature_flags`: Given a list of feature flag IDs, checks whether each one is stale and returns cleanup guidance including replacement values and SDK search patterns.
 - `create_force_rule`: Add a targeting condition (e.g., `country = CA`) to an existing flag.
 - `generate_flag_types`: Generate TypeScript types for feature flags.
 
@@ -319,6 +424,30 @@ Claude Desktop ships with its own version of Node, which means it's not required
 ### Documentation Search
 
 - `search_growthbook_docs`: Search the GrowthBook documentation for information on how to use a feature, by keyword or question.
+
+## Example Prompts
+
+Here are some prompts to try with your AI assistant once the MCP server is connected:
+
+### Feature Flags
+
+- "Create a boolean feature flag called `new-checkout-flow` that defaults to `false`"
+- "Show me the details and rules for the `dark-mode` feature flag"
+- "Add a force rule to `new-checkout-flow` that enables it for users where `country` is `US`"
+- "Check if these flags are stale and can be cleaned up: `old-banner`, `beta-pricing`, `temp-fix`"
+- "Generate TypeScript types for all my feature flags"
+
+### Experiments
+
+- "Summarize the results of my last 5 experiments"
+- "Create an A/B test on the `new-checkout-flow` flag with a control (`false`) and treatment (`true`)"
+- "Show me the full results for experiment `exp_abc123`, including metric breakdowns"
+
+### General
+
+- "What SDK connections do I have set up?"
+- "Search the GrowthBook docs for how to set up a fact metric"
+- "List all my projects and environments"
 
 ## Video Tutorial
 

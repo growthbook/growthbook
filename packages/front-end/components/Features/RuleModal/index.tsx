@@ -5,18 +5,19 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
+  getReviewSetting,
 } from "shared/util";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
+import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
@@ -28,6 +29,7 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -47,7 +49,6 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import Modal from "@/components/Modal";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
@@ -61,6 +62,10 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
@@ -69,7 +74,6 @@ import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSel
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
-  version: number;
   setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
@@ -77,6 +81,7 @@ export interface Props {
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
+  revisionList?: MinimalFeatureRevisionInterface[];
 }
 
 type RadioSelectorRuleType =
@@ -105,12 +110,11 @@ export default function RuleModal({
   mutate,
   environment,
   defaultType = "",
-  version,
   setVersion,
   mode,
   safeRolloutsMap,
+  revisionList = [],
 }: Props) {
-  const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
@@ -130,20 +134,42 @@ export default function RuleModal({
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
 
-  const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
-  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback",
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [draftMode, setDraftMode] = useState<DraftMode>(
+    defaultDraft != null ? "existing" : "new",
   );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+
+  // Determines which draft/revision to target in the API call.
+  const targetVersion =
+    draftMode === "existing" && selectedDraft != null
+      ? selectedDraft
+      : feature.version;
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
 
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
     ruleType: defaultType,
     attributeSchema,
-    isSafeRolloutAutoRollbackEnabled,
+    isSafeRolloutAutoRollbackEnabled: true,
   });
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
@@ -195,7 +221,6 @@ export default function RuleModal({
     useState(defaultHasSchedule);
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
@@ -277,7 +302,7 @@ export default function RuleModal({
         attributeSchema,
         settings,
         datasources,
-        isSafeRolloutAutoRollbackEnabled,
+        isSafeRolloutAutoRollbackEnabled: true,
       }),
       description: form.watch("description"),
     };
@@ -408,6 +433,10 @@ export default function RuleModal({
           throw new Error("Prerequisite targeting issues must be resolved");
         }
 
+        const shouldIncludeConversionWindow =
+          values.experimentType === "multi-armed-bandit" &&
+          !disableBanditConversionWindow &&
+          (!settings.useStickyBucketing || values.disableStickyBucketing);
         if (values.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
@@ -418,6 +447,15 @@ export default function RuleModal({
           }
           if ((values.goalMetrics?.length ?? 0) !== 1) {
             throw new Error("You must select 1 decision metric");
+          }
+          if (
+            shouldIncludeConversionWindow &&
+            (!values.banditConversionWindowValue ||
+              !values.banditConversionWindowUnit)
+          ) {
+            throw new Error(
+              "Enter a conversion window override or disable the conversion window override",
+            );
           }
         }
 
@@ -516,6 +554,10 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
+            ...(shouldIncludeConversionWindow && {
+              banditConversionWindowValue: values.banditConversionWindowValue,
+              banditConversionWindowUnit: values.banditConversionWindowUnit,
+            }),
           });
         }
 
@@ -562,7 +604,7 @@ export default function RuleModal({
           enabled: values.enabled ?? true,
           variations: values.values.map((v, i) => ({
             value: v.value,
-            variationId: res.experiment.variations[i]?.id || "",
+            variationId: getAllVariations(res.experiment)[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
         };
@@ -578,7 +620,7 @@ export default function RuleModal({
           values.variations.map((v) => [v.variationId, v.value]),
         );
 
-        values.variations = exp.variations.map((v, i) => {
+        values.variations = getLatestPhaseVariations(exp).map((v, i) => {
           return {
             variationId: v.id,
             value: valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",
@@ -592,15 +634,12 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
-        // sanity check that the auto rollback and ramp up schedule are enabled
-        safeRolloutFields.autoRollback = isSafeRolloutAutoRollbackEnabled
-          ? safeRolloutFields.autoRollback
-          : false;
+        // Ensure we pass the ramp up schedule enabled flag to the backend (it builds the rest)
         const rampUpSchedule = safeRolloutFields["rampUpSchedule"] || {};
         // backend deals with the rest
         safeRolloutFields["rampUpSchedule"] = {};
         safeRolloutFields["rampUpSchedule"]["enabled"] =
-          rampUpSchedule["enabled"] ?? isSafeRolloutRampUpEnabled;
+          rampUpSchedule["enabled"] ?? true;
 
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
@@ -664,7 +703,7 @@ export default function RuleModal({
             safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
         ) {
           res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/rule`,
+            `/feature/${feature.id}/${targetVersion}/rule`,
             {
               method: "PUT",
               body: JSON.stringify({
@@ -677,7 +716,7 @@ export default function RuleModal({
         }
       } else {
         res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule`,
+          `/feature/${feature.id}/${targetVersion}/rule`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -693,9 +732,7 @@ export default function RuleModal({
       }
 
       await mutate();
-      if (res && res?.version) {
-        setVersion(res.version);
-      }
+      setVersion(res?.version ?? targetVersion);
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,
@@ -729,10 +766,19 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
         header={`New Rule`}
-        subHeader="You will have a chance to review new rules as a draft before publishing changes."
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={draftMode}
+          setMode={setDraftMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={false}
+          gatedEnvSet={gatedEnvSet}
+        />
         <div className="bg-highlight rounded p-3 mb-3">
           <Text size="4" weight="bold" as="div" mb="4">
             Select Implementation
@@ -810,39 +856,27 @@ export default function RuleModal({
                 description:
                   "Measure the impact of this feature on your key metrics",
               },
-              ...(growthbook.isOn("bandits")
-                ? [
-                    {
-                      value: "bandit",
-                      disabled:
-                        !hasMultiArmedBanditFeature ||
-                        !hasStickyBucketFeature ||
-                        !orgStickyBucketing,
-                      label: (
-                        <PremiumTooltip
-                          commercialFeature="multi-armed-bandits"
-                          usePortal={true}
-                        >
-                          Bandit
-                        </PremiumTooltip>
-                      ),
-                      description: (
-                        <>
-                          <div>
-                            Find a winner among many variations on one goal
-                            metric
-                          </div>
-                          {hasStickyBucketFeature && !orgStickyBucketing && (
-                            <HelperText status="info" size="sm" mt="2">
-                              Enable Sticky Bucketing in your organization
-                              settings to run a Bandit
-                            </HelperText>
-                          )}
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
+              ...[
+                {
+                  value: "bandit",
+                  disabled: !hasMultiArmedBanditFeature,
+                  label: (
+                    <PremiumTooltip
+                      commercialFeature="multi-armed-bandits"
+                      usePortal={true}
+                    >
+                      Bandit
+                    </PremiumTooltip>
+                  ),
+                  description: (
+                    <>
+                      <div>
+                        Find a winner among many variations on one goal metric
+                      </div>
+                    </>
+                  ),
+                },
+              ],
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(
@@ -968,7 +1002,7 @@ export default function RuleModal({
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save"
+        cta="Save to Draft"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         header={headerText}
         docSection={
@@ -984,6 +1018,18 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
+        bodyPrefix={
+          <DraftSelectorForChanges
+            feature={feature}
+            revisionList={revisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={false}
+            gatedEnvSet={gatedEnvSet}
+          />
+        }
       >
         {ruleType === "force" && (
           <ForceValueFields
@@ -1171,6 +1217,10 @@ export default function RuleModal({
                   }
                   setVariations={(variations) =>
                     form.setValue("values", variations)
+                  }
+                  disableBanditConversionWindow={disableBanditConversionWindow}
+                  setDisableBanditConversionWindow={
+                    setDisableBanditConversionWindow
                   }
                 />
               </Page>

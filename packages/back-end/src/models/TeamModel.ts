@@ -1,13 +1,7 @@
-import {
-  apiAddTeamMembersValidator,
-  apiCreateTeamBody,
-  apiRemoveTeamMemberValidator,
-  apiTeamValidator,
-  apiUpdateTeamBody,
-  teamSchema,
-} from "shared/validators";
+import { teamSchema, ApiDeleteTeamReturn } from "shared/validators";
 import { ApiTeamInterface, TeamInterface } from "shared/types/team";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import { stringToBoolean } from "shared/util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getCollection,
@@ -19,7 +13,12 @@ import {
   getMembersOfTeam,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
-import { statusCodeReturn } from "back-end/src/util/handler";
+import {
+  teamApiSpec,
+  addTeamMembersEndpoint,
+  removeTeamMemberEndpoint,
+  deleteTeamEndpoint,
+} from "back-end/src/api/specs/team.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION = "teams";
@@ -27,7 +26,7 @@ const BaseClass = MakeModelClass({
   schema: teamSchema,
   collectionName: COLLECTION,
   idPrefix: "team_",
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   readonlyFields: [],
   additionalIndexes: [],
   defaultValues: {
@@ -38,22 +37,10 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "teams",
-    modelSingular: "team",
-    modelPlural: "teams",
-    apiInterface: apiTeamValidator,
-    schemas: {
-      createBody: apiCreateTeamBody,
-      updateBody: apiUpdateTeamBody,
-    },
-    pathBase: "/teams",
-    includeDefaultCrud: true,
+    openApiSpec: teamApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "/:teamId/members",
-        verb: "post",
-        operationId: "addTeamMembers",
-        validator: apiAddTeamMembersValidator,
-        zodReturnObject: statusCodeReturn,
+        ...addTeamMembersEndpoint,
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
@@ -72,11 +59,7 @@ const BaseClass = MakeModelClass({
         },
       }),
       defineCustomApiHandler({
-        pathFragment: "/:teamId/members",
-        verb: "delete",
-        operationId: "removeTeamMember",
-        validator: apiRemoveTeamMemberValidator,
-        zodReturnObject: statusCodeReturn,
+        ...removeTeamMemberEndpoint,
         reqHandler: async (req) => {
           if (!req.context.permissions.canManageTeam())
             req.context.permissions.throwPermissionError();
@@ -94,6 +77,28 @@ const BaseClass = MakeModelClass({
           };
         },
       }),
+      defineCustomApiHandler({
+        ...deleteTeamEndpoint,
+        reqHandler: async (req): Promise<ApiDeleteTeamReturn> => {
+          if (!req.context.permissions.canManageTeam())
+            req.context.permissions.throwPermissionError();
+          const team = await req.context.models.teams.getById(
+            req.params.teamId,
+          );
+          if (!team) return req.context.throwNotFoundError();
+          if (stringToBoolean(req.query.deleteMembers)) {
+            await removeMembersFromTeam({
+              organization: req.context.org,
+              userIds: getMembersOfTeam(req.context.org, team.id),
+              teamId: team.id,
+            });
+          }
+          await req.context.models.teams.delete(team);
+          return {
+            deletedId: team.id,
+          };
+        },
+      }),
     ],
   },
 });
@@ -103,7 +108,8 @@ export class TeamModel extends BaseClass {
     return this.context.permissions.canManageTeam();
   }
   protected canRead(): boolean {
-    return this.context.permissions.canManageTeam();
+    // Teams aren't project-scoped and they're used to build a user's permissions, so the `readData` check doesn't work
+    return true;
   }
   protected canUpdate(): boolean {
     return this.context.permissions.canManageTeam();
@@ -131,7 +137,7 @@ export class TeamModel extends BaseClass {
       );
     }
 
-    if (team?.managedByIdp) {
+    if (team?.managedByIdp && !this.context.isApiRequest) {
       return this.context.throwBadRequestError(
         "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
       );
