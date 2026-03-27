@@ -2,6 +2,7 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
   productAnalyticsExplorationValidator,
+  ExplorationCacheQuery,
 } from "shared/validators";
 import md5 from "md5";
 import {
@@ -9,7 +10,69 @@ import {
   getDateGranularity,
 } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
+import {
+  getQueryById,
+  toQueryApiInterface,
+} from "back-end/src/models/QueryModel";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import { OpenApiEndpointSpec } from "back-end/src/api/ApiModel";
+import analyticsExplorationApiSpec, {
+  postMetricExplorationEndpoint,
+  postFactTableExplorationEndpoint,
+  postDataSourceExplorationEndpoint,
+} from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
+
+function toExplorationApiInterface(exploration: ProductAnalyticsExploration) {
+  return {
+    id: exploration.id,
+    organization: exploration.organization,
+    dateCreated: exploration.dateCreated.toISOString(),
+    dateUpdated: exploration.dateUpdated.toISOString(),
+    datasource: exploration.datasource,
+    status: exploration.status,
+    dateStart: exploration.dateStart,
+    dateEnd: exploration.dateEnd,
+    error: exploration.error ?? null,
+    result: exploration.result,
+    config: exploration.config,
+  };
+}
+
+function makeExplorationHandler(endpoint: OpenApiEndpointSpec) {
+  return defineCustomApiHandler({
+    ...endpoint,
+    reqHandler: async (req) => {
+      const body = req.body as ExplorationConfig;
+      const query = (req.query as ExplorationCacheQuery) ?? {};
+      const exploration = await runProductAnalyticsExploration(
+        req.context,
+        body,
+        { cache: query.cache },
+      );
+
+      if (!exploration) {
+        return {
+          exploration: null,
+          query: null,
+          message:
+            'No cached result found for this config. Try again shortly or use cache: "preferred".',
+        };
+      }
+
+      const queryId = exploration.queries?.[0]?.query;
+      const queryDoc = queryId
+        ? await getQueryById(req.context, queryId)
+        : null;
+
+      return {
+        exploration: toExplorationApiInterface(exploration),
+        query: queryDoc ? toQueryApiInterface(queryDoc) : null,
+      };
+    },
+  });
+}
 
 const COLLECTION_NAME = "analyticsexploration";
 const BaseClass = MakeModelClass({
@@ -18,6 +81,15 @@ const BaseClass = MakeModelClass({
   idPrefix: "ae_",
   globallyUniquePrimaryKeys: false,
   additionalIndexes: [],
+  apiConfig: {
+    modelKey: "analyticsExplorations",
+    openApiSpec: analyticsExplorationApiSpec,
+    customHandlers: [
+      makeExplorationHandler(postMetricExplorationEndpoint),
+      makeExplorationHandler(postFactTableExplorationEndpoint),
+      makeExplorationHandler(postDataSourceExplorationEndpoint),
+    ],
+  },
 });
 
 export class AnalyticsExplorationModel extends BaseClass {
@@ -168,18 +240,6 @@ export class AnalyticsExplorationModel extends BaseClass {
   }
 
   public toExplorationApiInterface(exploration: ProductAnalyticsExploration) {
-    return {
-      id: exploration.id,
-      organization: exploration.organization,
-      dateCreated: exploration.dateCreated.toISOString(),
-      dateUpdated: exploration.dateUpdated.toISOString(),
-      datasource: exploration.datasource,
-      status: exploration.status,
-      dateStart: exploration.dateStart,
-      dateEnd: exploration.dateEnd,
-      error: exploration.error ?? null,
-      result: exploration.result,
-      config: exploration.config,
-    };
+    return toExplorationApiInterface(exploration);
   }
 }

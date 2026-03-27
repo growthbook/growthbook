@@ -512,6 +512,223 @@ export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    AnalyticsExploration: {
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      datasource: string;
+      /** @enum {string} */
+      status: "running" | "success" | "error";
+      dateStart: string;
+      dateEnd: string;
+      error?: string | null;
+      result: {
+        rows: ({
+            dimensions: (string | null)[];
+            values: ({
+                metricId: string;
+                numerator: number | null;
+                denominator: number | null;
+              })[];
+          })[];
+      };
+      config: ({
+        datasource: string;
+        dimensions: (({
+            /** @constant */
+            dimensionType: "date";
+            column: string | null;
+            /** @enum {string} */
+            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+          }) | ({
+            /** @constant */
+            dimensionType: "dynamic";
+            column: string | null;
+            maxValues: number;
+          }) | {
+            /** @constant */
+            dimensionType: "static";
+            column: string;
+            values: (string)[];
+          } | ({
+            /** @constant */
+            dimensionType: "slice";
+            slices: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          }))[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        /** @constant */
+        type: "metric";
+        dataset: {
+          /** @constant */
+          type: "metric";
+          values: ({
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @constant */
+              type: "metric";
+              metricId: string;
+              unit: string | null;
+              denominatorUnit: string | null;
+            })[];
+        };
+      }) | ({
+        datasource: string;
+        dimensions: (({
+            /** @constant */
+            dimensionType: "date";
+            column: string | null;
+            /** @enum {string} */
+            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+          }) | ({
+            /** @constant */
+            dimensionType: "dynamic";
+            column: string | null;
+            maxValues: number;
+          }) | {
+            /** @constant */
+            dimensionType: "static";
+            column: string;
+            values: (string)[];
+          } | ({
+            /** @constant */
+            dimensionType: "slice";
+            slices: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          }))[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        /** @constant */
+        type: "fact_table";
+        dataset: {
+          /** @constant */
+          type: "fact_table";
+          factTableId: string | null;
+          values: ({
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @constant */
+              type: "fact_table";
+              /** @enum {string} */
+              valueType: "unit_count" | "count" | "sum";
+              valueColumn: string | null;
+              unit: string | null;
+            })[];
+        };
+      }) | ({
+        datasource: string;
+        dimensions: (({
+            /** @constant */
+            dimensionType: "date";
+            column: string | null;
+            /** @enum {string} */
+            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+          }) | ({
+            /** @constant */
+            dimensionType: "dynamic";
+            column: string | null;
+            maxValues: number;
+          }) | {
+            /** @constant */
+            dimensionType: "static";
+            column: string;
+            values: (string)[];
+          } | ({
+            /** @constant */
+            dimensionType: "slice";
+            slices: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          }))[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        /** @constant */
+        type: "data_source";
+        dataset: {
+          /** @constant */
+          type: "data_source";
+          table: string;
+          path: string;
+          timestampColumn: string;
+          columnTypes: {
+            [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+          };
+          values: ({
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @constant */
+              type: "data_source";
+              /** @enum {string} */
+              valueType: "unit_count" | "count" | "sum";
+              valueColumn: string | null;
+              unit: string | null;
+            })[];
+        };
+      });
+    };
     CustomField: {
       id: string;
       /** Format: date-time */
@@ -4657,278 +4874,6 @@ export interface components {
           flagKey: string;
         })[];
     };
-    ProductAnalyticsExplorationBase: {
-      id: string;
-      organization: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      datasource: string;
-      /** @enum {string} */
-      status: "running" | "success" | "error";
-      /** Format: date-time */
-      dateStart: string;
-      /** Format: date-time */
-      dateEnd: string;
-      error?: string | null;
-      result?: {
-        rows: ({
-            dimensions: (string | null)[];
-            values: ({
-                metricId: string;
-                numerator: number | null;
-                denominator: number | null;
-              })[];
-          })[];
-      };
-    };
-    ProductAnalyticsMetricExploration: ({
-      id: string;
-      organization: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      datasource: string;
-      /** @enum {string} */
-      status: "running" | "success" | "error";
-      /** Format: date-time */
-      dateStart: string;
-      /** Format: date-time */
-      dateEnd: string;
-      error?: string | null;
-      result?: {
-        rows: ({
-            dimensions: (string | null)[];
-            values: ({
-                metricId: string;
-                numerator: number | null;
-                denominator: number | null;
-              })[];
-          })[];
-      };
-    }) & ({
-      config: {
-        /** @enum {string} */
-        type: "metric";
-        datasource: string;
-        dimensions: ({
-            /** @enum {string} */
-            dimensionType: "date" | "dynamic" | "static" | "slice";
-            column?: string | null;
-            /** @enum {string} */
-            dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-            maxValues?: number;
-            values?: (string)[];
-            slices?: ({
-                name: string;
-                filters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-              })[];
-          })[];
-        /** @enum {string} */
-        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-        dateRange: {
-          /** @enum {string} */
-          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          /** @enum {string|null} */
-          lookbackUnit: "hour" | "day" | "week" | "month" | null;
-          startDate: string | null;
-          endDate: string | null;
-        };
-        dataset: {
-          /** @enum {string} */
-          type: "metric";
-          values: ({
-              /** @enum {string} */
-              type: "metric";
-              name: string;
-              rowFilters: ({
-                  /** @enum {string} */
-                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                  column?: string;
-                  values?: (string)[];
-                })[];
-              metricId: string;
-              unit: string | null;
-              denominatorUnit: string | null;
-            })[];
-        };
-      };
-    });
-    ProductAnalyticsFactTableExploration: ({
-      id: string;
-      organization: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      datasource: string;
-      /** @enum {string} */
-      status: "running" | "success" | "error";
-      /** Format: date-time */
-      dateStart: string;
-      /** Format: date-time */
-      dateEnd: string;
-      error?: string | null;
-      result?: {
-        rows: ({
-            dimensions: (string | null)[];
-            values: ({
-                metricId: string;
-                numerator: number | null;
-                denominator: number | null;
-              })[];
-          })[];
-      };
-    }) & ({
-      config: {
-        /** @enum {string} */
-        type: "fact_table";
-        datasource: string;
-        dimensions: ({
-            /** @enum {string} */
-            dimensionType: "date" | "dynamic" | "static" | "slice";
-            column?: string | null;
-            /** @enum {string} */
-            dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-            maxValues?: number;
-            values?: (string)[];
-            slices?: ({
-                name: string;
-                filters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-              })[];
-          })[];
-        /** @enum {string} */
-        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-        dateRange: {
-          /** @enum {string} */
-          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          /** @enum {string|null} */
-          lookbackUnit: "hour" | "day" | "week" | "month" | null;
-          startDate: string | null;
-          endDate: string | null;
-        };
-        dataset: {
-          /** @enum {string} */
-          type: "fact_table";
-          factTableId: string | null;
-          values: ({
-              /** @enum {string} */
-              type: "fact_table";
-              name: string;
-              rowFilters: ({
-                  /** @enum {string} */
-                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                  column?: string;
-                  values?: (string)[];
-                })[];
-              /** @enum {string} */
-              valueType: "unit_count" | "count" | "sum";
-              valueColumn: string | null;
-              unit: string | null;
-            })[];
-        };
-      };
-    });
-    ProductAnalyticsDataSourceExploration: ({
-      id: string;
-      organization: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      datasource: string;
-      /** @enum {string} */
-      status: "running" | "success" | "error";
-      /** Format: date-time */
-      dateStart: string;
-      /** Format: date-time */
-      dateEnd: string;
-      error?: string | null;
-      result?: {
-        rows: ({
-            dimensions: (string | null)[];
-            values: ({
-                metricId: string;
-                numerator: number | null;
-                denominator: number | null;
-              })[];
-          })[];
-      };
-    }) & ({
-      config: {
-        /** @enum {string} */
-        type: "data_source";
-        datasource: string;
-        dimensions: ({
-            /** @enum {string} */
-            dimensionType: "date" | "dynamic" | "static" | "slice";
-            column?: string | null;
-            /** @enum {string} */
-            dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-            maxValues?: number;
-            values?: (string)[];
-            slices?: ({
-                name: string;
-                filters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-              })[];
-          })[];
-        /** @enum {string} */
-        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-        dateRange: {
-          /** @enum {string} */
-          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          /** @enum {string|null} */
-          lookbackUnit: "hour" | "day" | "week" | "month" | null;
-          startDate: string | null;
-          endDate: string | null;
-        };
-        dataset: {
-          /** @enum {string} */
-          type: "data_source";
-          table: string;
-          path: string;
-          timestampColumn: string;
-          columnTypes: {
-            [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
-          };
-          values: ({
-              /** @enum {string} */
-              type: "data_source";
-              name: string;
-              rowFilters: ({
-                  /** @enum {string} */
-                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                  column?: string;
-                  values?: (string)[];
-                })[];
-              /** @enum {string} */
-              valueType: "unit_count" | "count" | "sum";
-              valueColumn: string | null;
-              unit: string | null;
-            })[];
-        };
-      };
-    });
   };
   responses: {
     Error: never;
@@ -15761,12 +15706,6 @@ export interface operations {
   postMetricExploration: {
     /** Create a Metric based visualization */
     parameters: {
-        /**
-         * @description Controls cache behavior for this exploration:
-         * - `preferred` (default): return a cached result if one exists, otherwise run a new query
-         * - `never`: always run a new query, ignoring any cached results
-         * - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
-         */
       query: {
         cache?: "preferred" | "required" | "never";
       };
@@ -15774,27 +15713,27 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @enum {string} */
-          type: "metric";
-          /** @description ID of the datasource to query */
           datasource: string;
-          /** @description Dimensions to group results by */
-          dimensions: ({
+          dimensions: (({
+              /** @constant */
+              dimensionType: "date";
+              column: string | null;
               /** @enum {string} */
-              dimensionType: "date" | "dynamic" | "static" | "slice";
-              /** @description Required for `date`, `dynamic`, and `static` dimension types. */
-              column?: string | null;
-              /**
-               * @description Required when dimensionType is `date`. 
-               * @enum {string}
-               */
-              dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-              /** @description Required when dimensionType is `dynamic`. */
-              maxValues?: number;
-              /** @description Required when dimensionType is `static`. */
-              values?: (string)[];
-              /** @description Required when dimensionType is `slice`. */
-              slices?: ({
+              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+            }) | ({
+              /** @constant */
+              dimensionType: "dynamic";
+              column: string | null;
+              maxValues: number;
+            }) | {
+              /** @constant */
+              dimensionType: "static";
+              column: string;
+              values: (string)[];
+            } | ({
+              /** @constant */
+              dimensionType: "slice";
+              slices: ({
                   name: string;
                   filters: ({
                       /** @enum {string} */
@@ -15803,31 +15742,23 @@ export interface operations {
                       values?: (string)[];
                     })[];
                 })[];
-            })[];
+            }))[];
           /** @enum {string} */
           chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            /** @description Required when predefined is `customLookback`. */
             lookbackValue: number | null;
-            /**
-             * @description Required when predefined is `customLookback`. 
-             * @enum {string|null}
-             */
-            lookbackUnit: "hour" | "day" | "week" | "month" | null;
-            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
             startDate: string | null;
-            /** @description ISO date string. Required when predefined is `customDateRange`. */
             endDate: string | null;
           };
+          /** @constant */
+          type: "metric";
           dataset: {
-            /** @enum {string} */
+            /** @constant */
             type: "metric";
-            /** @description One or more metrics to chart */
             values: ({
-                /** @enum {string} */
-                type: "metric";
                 name: string;
                 rowFilters: ({
                     /** @enum {string} */
@@ -15835,6 +15766,8 @@ export interface operations {
                     column?: string;
                     values?: (string)[];
                   })[];
+                /** @constant */
+                type: "metric";
                 metricId: string;
                 unit: string | null;
                 denominatorUnit: string | null;
@@ -15847,22 +15780,18 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            exploration: (({
+            exploration: ({
               id: string;
               organization: string;
-              /** Format: date-time */
               dateCreated: string;
-              /** Format: date-time */
               dateUpdated: string;
               datasource: string;
               /** @enum {string} */
               status: "running" | "success" | "error";
-              /** Format: date-time */
               dateStart: string;
-              /** Format: date-time */
               dateEnd: string;
               error?: string | null;
-              result?: {
+              result: {
                 rows: ({
                     dimensions: (string | null)[];
                     values: ({
@@ -15872,20 +15801,28 @@ export interface operations {
                       })[];
                   })[];
               };
-            }) & ({
               config: {
-                /** @enum {string} */
-                type: "metric";
                 datasource: string;
-                dimensions: ({
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
                     /** @enum {string} */
-                    dimensionType: "date" | "dynamic" | "static" | "slice";
-                    column?: string | null;
-                    /** @enum {string} */
-                    dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-                    maxValues?: number;
-                    values?: (string)[];
-                    slices?: ({
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
                         name: string;
                         filters: ({
                             /** @enum {string} */
@@ -15894,24 +15831,23 @@ export interface operations {
                             values?: (string)[];
                           })[];
                       })[];
-                  })[];
+                  }))[];
                 /** @enum {string} */
                 chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
                   lookbackValue: number | null;
-                  /** @enum {string|null} */
-                  lookbackUnit: "hour" | "day" | "week" | "month" | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
                   startDate: string | null;
                   endDate: string | null;
                 };
+                /** @constant */
+                type: "metric";
                 dataset: {
-                  /** @enum {string} */
+                  /** @constant */
                   type: "metric";
                   values: ({
-                      /** @enum {string} */
-                      type: "metric";
                       name: string;
                       rowFilters: ({
                           /** @enum {string} */
@@ -15919,14 +15855,16 @@ export interface operations {
                           column?: string;
                           values?: (string)[];
                         })[];
+                      /** @constant */
+                      type: "metric";
                       metricId: string;
                       unit: string | null;
                       denominatorUnit: string | null;
                     })[];
                 };
               };
-            })) | null;
-            query?: ({
+            }) | null;
+            query: ({
               id: string;
               organization: string;
               datasource: string;
@@ -15941,7 +15879,6 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
-            /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
         };
@@ -15951,12 +15888,6 @@ export interface operations {
   postFactTableExploration: {
     /** Run a Fact Table based visualization */
     parameters: {
-        /**
-         * @description Controls cache behavior for this exploration:
-         * - `preferred` (default): return a cached result if one exists, otherwise run a new query
-         * - `never`: always run a new query, ignoring any cached results
-         * - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
-         */
       query: {
         cache?: "preferred" | "required" | "never";
       };
@@ -15964,27 +15895,27 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @enum {string} */
-          type: "fact_table";
-          /** @description ID of the datasource to query */
           datasource: string;
-          /** @description Dimensions to group results by */
-          dimensions: ({
+          dimensions: (({
+              /** @constant */
+              dimensionType: "date";
+              column: string | null;
               /** @enum {string} */
-              dimensionType: "date" | "dynamic" | "static" | "slice";
-              /** @description Required for `date`, `dynamic`, and `static` dimension types. */
-              column?: string | null;
-              /**
-               * @description Required when dimensionType is `date`. 
-               * @enum {string}
-               */
-              dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-              /** @description Required when dimensionType is `dynamic`. */
-              maxValues?: number;
-              /** @description Required when dimensionType is `static`. */
-              values?: (string)[];
-              /** @description Required when dimensionType is `slice`. */
-              slices?: ({
+              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+            }) | ({
+              /** @constant */
+              dimensionType: "dynamic";
+              column: string | null;
+              maxValues: number;
+            }) | {
+              /** @constant */
+              dimensionType: "static";
+              column: string;
+              values: (string)[];
+            } | ({
+              /** @constant */
+              dimensionType: "slice";
+              slices: ({
                   name: string;
                   filters: ({
                       /** @enum {string} */
@@ -15993,33 +15924,24 @@ export interface operations {
                       values?: (string)[];
                     })[];
                 })[];
-            })[];
+            }))[];
           /** @enum {string} */
           chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            /** @description Required when predefined is `customLookback`. */
             lookbackValue: number | null;
-            /**
-             * @description Required when predefined is `customLookback`. 
-             * @enum {string|null}
-             */
-            lookbackUnit: "hour" | "day" | "week" | "month" | null;
-            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
             startDate: string | null;
-            /** @description ISO date string. Required when predefined is `customDateRange`. */
             endDate: string | null;
           };
+          /** @constant */
+          type: "fact_table";
           dataset: {
-            /** @enum {string} */
+            /** @constant */
             type: "fact_table";
-            /** @description ID of the fact table to query */
             factTableId: string | null;
-            /** @description One or more values to chart from the fact table */
             values: ({
-                /** @enum {string} */
-                type: "fact_table";
                 name: string;
                 rowFilters: ({
                     /** @enum {string} */
@@ -16027,6 +15949,8 @@ export interface operations {
                     column?: string;
                     values?: (string)[];
                   })[];
+                /** @constant */
+                type: "fact_table";
                 /** @enum {string} */
                 valueType: "unit_count" | "count" | "sum";
                 valueColumn: string | null;
@@ -16040,22 +15964,18 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            exploration: (({
+            exploration: ({
               id: string;
               organization: string;
-              /** Format: date-time */
               dateCreated: string;
-              /** Format: date-time */
               dateUpdated: string;
               datasource: string;
               /** @enum {string} */
               status: "running" | "success" | "error";
-              /** Format: date-time */
               dateStart: string;
-              /** Format: date-time */
               dateEnd: string;
               error?: string | null;
-              result?: {
+              result: {
                 rows: ({
                     dimensions: (string | null)[];
                     values: ({
@@ -16065,20 +15985,28 @@ export interface operations {
                       })[];
                   })[];
               };
-            }) & ({
               config: {
-                /** @enum {string} */
-                type: "fact_table";
                 datasource: string;
-                dimensions: ({
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
                     /** @enum {string} */
-                    dimensionType: "date" | "dynamic" | "static" | "slice";
-                    column?: string | null;
-                    /** @enum {string} */
-                    dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-                    maxValues?: number;
-                    values?: (string)[];
-                    slices?: ({
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
                         name: string;
                         filters: ({
                             /** @enum {string} */
@@ -16087,25 +16015,24 @@ export interface operations {
                             values?: (string)[];
                           })[];
                       })[];
-                  })[];
+                  }))[];
                 /** @enum {string} */
                 chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
                   lookbackValue: number | null;
-                  /** @enum {string|null} */
-                  lookbackUnit: "hour" | "day" | "week" | "month" | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
                   startDate: string | null;
                   endDate: string | null;
                 };
+                /** @constant */
+                type: "fact_table";
                 dataset: {
-                  /** @enum {string} */
+                  /** @constant */
                   type: "fact_table";
                   factTableId: string | null;
                   values: ({
-                      /** @enum {string} */
-                      type: "fact_table";
                       name: string;
                       rowFilters: ({
                           /** @enum {string} */
@@ -16113,6 +16040,8 @@ export interface operations {
                           column?: string;
                           values?: (string)[];
                         })[];
+                      /** @constant */
+                      type: "fact_table";
                       /** @enum {string} */
                       valueType: "unit_count" | "count" | "sum";
                       valueColumn: string | null;
@@ -16120,8 +16049,8 @@ export interface operations {
                     })[];
                 };
               };
-            })) | null;
-            query?: ({
+            }) | null;
+            query: ({
               id: string;
               organization: string;
               datasource: string;
@@ -16136,7 +16065,6 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
-            /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
         };
@@ -16146,12 +16074,6 @@ export interface operations {
   postDataSourceExploration: {
     /** Create a Data Source based visualization */
     parameters: {
-        /**
-         * @description Controls cache behavior for this exploration:
-         * - `preferred` (default): return a cached result if one exists, otherwise run a new query
-         * - `never`: always run a new query, ignoring any cached results
-         * - `required`: only return a cached result; if none exists, returns `exploration: null` with a message
-         */
       query: {
         cache?: "preferred" | "required" | "never";
       };
@@ -16159,27 +16081,27 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @enum {string} */
-          type: "data_source";
-          /** @description ID of the datasource to query */
           datasource: string;
-          /** @description Dimensions to group results by */
-          dimensions: ({
+          dimensions: (({
+              /** @constant */
+              dimensionType: "date";
+              column: string | null;
               /** @enum {string} */
-              dimensionType: "date" | "dynamic" | "static" | "slice";
-              /** @description Required for `date`, `dynamic`, and `static` dimension types. */
-              column?: string | null;
-              /**
-               * @description Required when dimensionType is `date`. 
-               * @enum {string}
-               */
-              dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-              /** @description Required when dimensionType is `dynamic`. */
-              maxValues?: number;
-              /** @description Required when dimensionType is `static`. */
-              values?: (string)[];
-              /** @description Required when dimensionType is `slice`. */
-              slices?: ({
+              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+            }) | ({
+              /** @constant */
+              dimensionType: "dynamic";
+              column: string | null;
+              maxValues: number;
+            }) | {
+              /** @constant */
+              dimensionType: "static";
+              column: string;
+              values: (string)[];
+            } | ({
+              /** @constant */
+              dimensionType: "slice";
+              slices: ({
                   name: string;
                   filters: ({
                       /** @enum {string} */
@@ -16188,41 +16110,29 @@ export interface operations {
                       values?: (string)[];
                     })[];
                 })[];
-            })[];
+            }))[];
           /** @enum {string} */
           chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
           dateRange: {
             /** @enum {string} */
             predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            /** @description Required when predefined is `customLookback`. */
             lookbackValue: number | null;
-            /**
-             * @description Required when predefined is `customLookback`. 
-             * @enum {string|null}
-             */
-            lookbackUnit: "hour" | "day" | "week" | "month" | null;
-            /** @description ISO date string. Required when predefined is `customDateRange`. */
+            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
             startDate: string | null;
-            /** @description ISO date string. Required when predefined is `customDateRange`. */
             endDate: string | null;
           };
+          /** @constant */
+          type: "data_source";
           dataset: {
-            /** @enum {string} */
+            /** @constant */
             type: "data_source";
-            /** @description SQL table name */
             table: string;
-            /** @description Path to the table */
             path: string;
-            /** @description Column used for timestamps */
             timestampColumn: string;
-            /** @description Map of column names to their data types */
             columnTypes: {
               [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
             };
-            /** @description One or more values to chart from the raw table */
             values: ({
-                /** @enum {string} */
-                type: "data_source";
                 name: string;
                 rowFilters: ({
                     /** @enum {string} */
@@ -16230,6 +16140,8 @@ export interface operations {
                     column?: string;
                     values?: (string)[];
                   })[];
+                /** @constant */
+                type: "data_source";
                 /** @enum {string} */
                 valueType: "unit_count" | "count" | "sum";
                 valueColumn: string | null;
@@ -16243,22 +16155,18 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            exploration: (({
+            exploration: ({
               id: string;
               organization: string;
-              /** Format: date-time */
               dateCreated: string;
-              /** Format: date-time */
               dateUpdated: string;
               datasource: string;
               /** @enum {string} */
               status: "running" | "success" | "error";
-              /** Format: date-time */
               dateStart: string;
-              /** Format: date-time */
               dateEnd: string;
               error?: string | null;
-              result?: {
+              result: {
                 rows: ({
                     dimensions: (string | null)[];
                     values: ({
@@ -16268,20 +16176,28 @@ export interface operations {
                       })[];
                   })[];
               };
-            }) & ({
               config: {
-                /** @enum {string} */
-                type: "data_source";
                 datasource: string;
-                dimensions: ({
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
                     /** @enum {string} */
-                    dimensionType: "date" | "dynamic" | "static" | "slice";
-                    column?: string | null;
-                    /** @enum {string} */
-                    dateGranularity?: "auto" | "hour" | "day" | "week" | "month" | "year";
-                    maxValues?: number;
-                    values?: (string)[];
-                    slices?: ({
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
                         name: string;
                         filters: ({
                             /** @enum {string} */
@@ -16290,20 +16206,21 @@ export interface operations {
                             values?: (string)[];
                           })[];
                       })[];
-                  })[];
+                  }))[];
                 /** @enum {string} */
                 chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
                 dateRange: {
                   /** @enum {string} */
                   predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
                   lookbackValue: number | null;
-                  /** @enum {string|null} */
-                  lookbackUnit: "hour" | "day" | "week" | "month" | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
                   startDate: string | null;
                   endDate: string | null;
                 };
+                /** @constant */
+                type: "data_source";
                 dataset: {
-                  /** @enum {string} */
+                  /** @constant */
                   type: "data_source";
                   table: string;
                   path: string;
@@ -16312,8 +16229,6 @@ export interface operations {
                     [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
                   };
                   values: ({
-                      /** @enum {string} */
-                      type: "data_source";
                       name: string;
                       rowFilters: ({
                           /** @enum {string} */
@@ -16321,6 +16236,8 @@ export interface operations {
                           column?: string;
                           values?: (string)[];
                         })[];
+                      /** @constant */
+                      type: "data_source";
                       /** @enum {string} */
                       valueType: "unit_count" | "count" | "sum";
                       valueColumn: string | null;
@@ -16328,8 +16245,8 @@ export interface operations {
                     })[];
                 };
               };
-            })) | null;
-            query?: ({
+            }) | null;
+            query: ({
               id: string;
               organization: string;
               datasource: string;
@@ -16344,7 +16261,6 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
-            /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
         };
@@ -19826,10 +19742,6 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
-export type ApiProductAnalyticsExplorationBase = z.infer<typeof openApiValidators.apiProductAnalyticsExplorationBaseValidator>;
-export type ApiProductAnalyticsMetricExploration = z.infer<typeof openApiValidators.apiProductAnalyticsMetricExplorationValidator>;
-export type ApiProductAnalyticsFactTableExploration = z.infer<typeof openApiValidators.apiProductAnalyticsFactTableExplorationValidator>;
-export type ApiProductAnalyticsDataSourceExploration = z.infer<typeof openApiValidators.apiProductAnalyticsDataSourceExplorationValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -19932,6 +19844,3 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
-export type PostMetricExplorationResponse = operations["postMetricExploration"]["responses"]["200"]["content"]["application/json"];
-export type PostFactTableExplorationResponse = operations["postFactTableExploration"]["responses"]["200"]["content"]["application/json"];
-export type PostDataSourceExplorationResponse = operations["postDataSourceExploration"]["responses"]["200"]["content"]["application/json"];

@@ -271,3 +271,39 @@ export type ProductAnalyticsResultRow = z.infer<
 export type ProductAnalyticsExploration = z.infer<
   typeof productAnalyticsExplorationValidator
 >;
+
+// API-facing validators (ISO strings instead of Date objects, no internal fields)
+export const apiExplorationBaseValidator = z.object({
+  id: z.string(),
+  organization: z.string(),
+  dateCreated: z.string(),
+  dateUpdated: z.string(),
+  datasource: z.string(),
+  status: z.enum(["running", "success", "error"]),
+  dateStart: z.string(),
+  dateEnd: z.string(),
+  error: z.string().nullable().optional(),
+  result: productAnalyticsResultValidator,
+});
+
+export const apiMetricExplorationValidator = apiExplorationBaseValidator.extend(
+  {
+    config: metricExplorationConfigValidator,
+  },
+);
+
+export const apiFactTableExplorationValidator =
+  apiExplorationBaseValidator.extend({
+    config: factTableExplorationConfigValidator,
+  });
+
+export const apiDataSourceExplorationValidator =
+  apiExplorationBaseValidator.extend({
+    config: dataSourceExplorationConfigValidator,
+  });
+
+export const apiExplorationValidator = apiExplorationBaseValidator.extend({
+  config: explorationConfigValidator,
+});
+
+export type ApiExploration = z.infer<typeof apiExplorationValidator>;
