@@ -77,6 +77,9 @@ describe("experiments API", () => {
             },
           }),
         },
+        holdout: {
+          getById: jest.fn().mockResolvedValue(null),
+        },
       },
       permissions: {
         canViewExperiment: () => true,
@@ -384,6 +387,43 @@ describe("experiments API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.experiment.archived).toBe(true);
+    });
+
+    it("returns experiment with holdout information when present", async () => {
+      const experimentWithHoldout = { ...experiment, holdoutId: "hld_123" };
+      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithHoldout);
+
+      updateReqContext({
+        models: {
+          holdout: {
+            getById: jest.fn().mockResolvedValue({
+              id: "hld_123",
+              name: "Test Holdout",
+              organization: "org_1",
+            }),
+          },
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.holdout).toEqual({
+        id: "hld_123",
+        name: "Test Holdout",
+      });
+    });
+
+    it("returns experiment with null holdout when no holdoutId", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.holdout).toBeNull();
     });
   });
 
