@@ -21,10 +21,10 @@ const CustomFieldInput: FC<{
   section,
   setCustomFields,
 }) => {
-  const availableFields = filterCustomFieldsForSectionAndProject(
-    customFields,
-    section,
-    project,
+  const availableFields = useMemo(
+    () =>
+      filterCustomFieldsForSectionAndProject(customFields, section, project),
+    [customFields, section, project],
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
   const normalizedCustomFields = useMemo<Record<string, string>>(() => {
@@ -133,7 +133,12 @@ const CustomFieldInput: FC<{
                 <div key={v.id}>
                   {v.type === "boolean" ? (
                     <div className="mb-3 mt-3">
-                      <label htmlFor={fieldInputId}>{v.name}</label>
+                      <label htmlFor={fieldInputId}>
+                        {v.name}
+                        {v.required && (
+                          <span className="text-danger ml-1">*</span>
+                        )}
+                      </label>
                       <Switch
                         id={fieldInputId}
                         mr="3"

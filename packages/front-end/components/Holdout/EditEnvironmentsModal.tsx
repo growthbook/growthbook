@@ -76,6 +76,7 @@ const EditEnvironmentsModal = ({
           </Callout>
         )}
         <EnvironmentSelect
+          project={experiment.project || ""}
           environmentSettings={environmentSettings}
           environments={environments}
           setValue={(env, on) => {

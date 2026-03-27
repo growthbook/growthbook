@@ -1,10 +1,11 @@
 import { FC } from "react";
 import { FeatureValueType } from "shared/types/feature";
 import SelectField from "@/components/Forms/SelectField";
+import { FeatureFormValueType } from "./FeatureFormTypes";
 
 const ValueTypeField: FC<{
   onChange: (v: FeatureValueType) => void;
-  value: FeatureValueType;
+  value: FeatureFormValueType;
 }> = ({ onChange, value }) => {
   return (
     <SelectField
