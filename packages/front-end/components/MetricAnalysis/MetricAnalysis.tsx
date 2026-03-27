@@ -357,10 +357,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         onChange={(v) => {
                           setValue("lookbackSelected", v);
                           if (v !== "custom") {
-                            setValue(
-                              "lookbackDays",
-                              parseIntWithDefault(v, NaN),
-                            );
+                            setValue("lookbackDays", parseIntWithDefault(v, 1));
                           }
                         }}
                       />

@@ -13,10 +13,9 @@ import {
   SavedQuery,
   QueryExecutionResult,
 } from "shared/validators";
-import { computeAIUsageData } from "shared/ai";
+import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
-import { parseIntWithDefault } from "shared/util";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
@@ -627,14 +626,8 @@ export default function SqlExplorerModal({
           },
           (responseData) => {
             if (responseData.status === 429) {
-              const retryAfter = parseIntWithDefault(
-                responseData.retryAfter,
-                NaN,
-              );
-              const hours = Math.floor(retryAfter / 3600);
-              const minutes = Math.floor((retryAfter % 3600) / 60);
               setAiError(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                formatAIRateLimitRetryMessage(responseData.retryAfter),
               );
             } else if (responseData.message) {
               setAiError(

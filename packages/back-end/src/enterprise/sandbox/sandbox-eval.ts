@@ -3,31 +3,33 @@ import { RequestInit } from "node-fetch";
 import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { parseEnvInt } from "shared/util";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 
-const parseEnvInt = (value: string | undefined, fallback: number) => {
-  if (!value) return fallback;
-  const n = parseInt(value, 10);
-  if (n < 0 || isNaN(n)) return fallback;
-  return n;
-};
-
 // Default memory limit in MB
-const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32);
+const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32, {
+  min: 1,
+  name: "CUSTOM_HOOK_MEMORY_MB",
+});
 // Max active CPU time (excluding fetch)
-const CPU_TIMEOUT_MS = parseEnvInt(process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS, 100);
+const CPU_TIMEOUT_MS = parseEnvInt(process.env.CUSTOM_HOOK_CPU_TIMEOUT_MS, 100, {
+  min: 1,
+  name: "CUSTOM_HOOK_CPU_TIMEOUT_MS",
+});
 // Max total run time (including fetch)
 const WALL_TIMEOUT_MS = parseEnvInt(
   process.env.CUSTOM_HOOK_WALL_TIMEOUT_MS,
   5000,
+  { min: 1, name: "CUSTOM_HOOK_WALL_TIMEOUT_MS" },
 );
 // Max response size from fetch calls (default 500KB)
 const MAX_FETCH_RESP_SIZE = parseEnvInt(
   process.env.CUSTOM_HOOK_MAX_FETCH_RESP_SIZE,
   500 * 1024,
+  { min: 1, name: "CUSTOM_HOOK_MAX_FETCH_RESP_SIZE" },
 );
 
 // Export wrapped calls for each hook type

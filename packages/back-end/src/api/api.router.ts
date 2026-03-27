@@ -44,6 +44,7 @@ import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
 import { defineRouterForApiConfig } from "./ApiModel";
+import { parseEnvInt } from "shared/util";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
@@ -95,7 +96,10 @@ if (SENTRY_DSN) {
   }) as RequestHandler);
 }
 
-const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
+const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
+  min: 1,
+  name: "API_RATE_LIMIT_MAX",
+});
 const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
 // Rate limit API keys to 60 requests per minute
 router.use(

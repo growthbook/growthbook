@@ -3,7 +3,11 @@ import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
-import { isProjectListValidForProject, parseIntWithDefault } from "shared/util";
+import {
+  isProjectListValidForProject,
+  parseIntWithDefault,
+  parseOptionalInt,
+} from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -110,9 +114,10 @@ const ImportExperimentList: FC<{
           return false;
         }
 
+        const minVariations = parseOptionalInt(minVariationsFilter);
         if (
-          minVariationsFilter &&
-          e.numVariations < parseIntWithDefault(minVariationsFilter, NaN)
+          minVariations !== undefined &&
+          e.numVariations < minVariations
         ) {
           return false;
         }

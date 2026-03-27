@@ -6,7 +6,7 @@ import {
   ExperimentResultStatusData,
   ExperimentResultsType,
 } from "shared/types/experiment";
-import { computeAIUsageData } from "shared/ai";
+import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { datetime } from "shared/dates";
@@ -70,11 +70,8 @@ const StopExperimentForm: FC<{
       },
       (responseData) => {
         if (responseData.status === 429) {
-          const retryAfter = parseIntWithDefault(responseData.retryAfter, NaN);
-          const hours = Math.floor(retryAfter / 3600);
-          const minutes = Math.floor((retryAfter % 3600) / 60);
           throw new Error(
-            `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+            formatAIRateLimitRetryMessage(responseData.retryAfter),
           );
         } else if (responseData.message) {
           throw new Error(responseData.message);
