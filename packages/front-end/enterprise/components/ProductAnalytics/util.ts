@@ -16,11 +16,12 @@ import type {
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
-import { dateGranularity, explorationConfigValidator } from "shared/validators";
 import {
+  encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
 } from "shared/enterprise";
+import { dateGranularity, explorationConfigValidator } from "shared/validators";
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -543,11 +544,7 @@ export function computeGroupTotals(
   return totals;
 }
 
-export function encodeExplorationConfig(config: ExplorationConfig): string {
-  return btoa(encodeURIComponent(JSON.stringify(config)));
-}
-
-type DecodeConfigResult =
+export type DecodeConfigResult =
   | { config: ExplorationConfig; error: null }
   | { config: null; error: string };
 
