@@ -405,41 +405,61 @@ const RAMP_PRESETS: {
   },
 ];
 
-// Scheduled rule presets — no intermediate steps, rely on start/end triggers.
-// disableRuleBefore/disableRuleAfter are auto-set to true so the rule is hidden outside the window.
-const SCHEDULED_PRESETS: {
-  label: string;
-  name: string;
-  startMode: StartMode;
-  includeEnd: boolean;
-  disableRuleBefore: boolean;
-  disableRuleAfter: boolean;
-}[] = [
-  {
-    label: "Enable rule on specific date",
-    name: "enable on date",
-    startMode: "specific-time",
-    includeEnd: false,
-    disableRuleBefore: true,
-    disableRuleAfter: false,
-  },
-  {
-    label: "Disable rule on specific date",
-    name: "disable on date",
-    startMode: "immediately",
-    includeEnd: true,
-    disableRuleBefore: false,
-    disableRuleAfter: true,
-  },
-  {
-    label: "Enable and disable rule on specific dates",
-    name: "scheduled window",
-    startMode: "specific-time",
-    includeEnd: true,
-    disableRuleBefore: true,
-    disableRuleAfter: true,
-  },
-];
+
+/**
+ * Detect which preset (if any) matches the given steps + start configuration.
+ *
+ * Returns the preset label string if a match is found, "custom" if steps exist
+ * but don't match any preset, or "" (empty) if there are no steps yet.
+ *
+ * Matching rules:
+ *  - Step count must equal preset.coverages.length
+ *  - Every step's triggerType must match preset.triggerType
+ *  - Every step's patch.coverage must equal the corresponding preset coverage value
+ *  - Each step's patch must contain ONLY coverage (no extra effects)
+ *  - manualStart flag must match (preset.manualStart ↔ startMode === "manual")
+ *  - disableRuleBefore / disableRuleAfter must both be false (presets don't set these)
+ */
+function detectPreset(
+  steps: UIStep[],
+  startMode: StartMode,
+  disableRuleBefore: boolean,
+  disableRuleAfter: boolean,
+): string {
+  if (steps.length === 0) return "";
+  // Presets never enable disableRuleBefore/After — any such config is custom.
+  if (disableRuleBefore || disableRuleAfter) return "custom";
+
+  for (const preset of RAMP_PRESETS) {
+    if (steps.length !== preset.coverages.length) continue;
+
+    const triggerMatches = steps.every(
+      (s) => s.triggerType === preset.triggerType,
+    );
+    if (!triggerMatches) continue;
+
+    const manualStartExpected = !!preset.manualStart;
+    if (manualStartExpected !== (startMode === "manual")) continue;
+
+    const coveragesMatch = steps.every(
+      (s, i) => s.patch.coverage === preset.coverages[i],
+    );
+    if (!coveragesMatch) continue;
+
+    // Reject if any step has effects beyond just coverage.
+    const hasExtraEffects = steps.some((s) => {
+      const keys = (Object.keys(s.patch) as StepField[]).filter(
+        (k) => k !== "coverage" && s.patch[k] !== undefined,
+      );
+      return keys.length > 0;
+    });
+    if (hasExtraEffects) continue;
+
+    return preset.label;
+  }
+
+  return "custom";
+}
 
 // Divide total duration evenly across interval steps. Approval steps use 10 min
 // as a placeholder (trigger type controls advancement, not the interval value).
@@ -590,10 +610,38 @@ export default function RampScheduleSection({
     );
     return fields.size > 1 || (fields.size === 1 && !fields.has("coverage"));
   });
-  const [durationValue, setDurationValue] = useState(10);
-  const [durationUnit, setDurationUnit] = useState<IntervalUnit>("minutes");
+  const [durationValue, setDurationValue] = useState(() => {
+    const detected = detectPreset(
+      state.steps,
+      state.startMode,
+      state.disableRuleBefore,
+      state.disableRuleAfter,
+    );
+    return (
+      RAMP_PRESETS.find((p) => p.label === detected)?.defaultDurationValue ?? 10
+    );
+  });
+  const [durationUnit, setDurationUnit] = useState<IntervalUnit>(() => {
+    const detected = detectPreset(
+      state.steps,
+      state.startMode,
+      state.disableRuleBefore,
+      state.disableRuleAfter,
+    );
+    return (
+      RAMP_PRESETS.find((p) => p.label === detected)?.defaultDurationUnit ??
+      "minutes"
+    );
+  });
   const [durationDirty, setDurationDirty] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState(() =>
+    detectPreset(
+      state.steps,
+      state.startMode,
+      state.disableRuleBefore,
+      state.disableRuleAfter,
+    ),
+  );
   const { settings } = useUser();
   const pollIntervalMinutes = isCloud()
     ? 10
@@ -1368,32 +1416,6 @@ export default function RampScheduleSection({
             }
           >
             <Box mt="3">
-              <MultiSelectField
-                label="Controlled by ramp schedule"
-                value={[...activeFields]}
-                options={ALL_STEP_FIELDS.map((f) => ({
-                  value: f,
-                  label: STEP_FIELD_LABELS[f],
-                }))}
-                onChange={(newValues) => {
-                  setActiveFields(newValues as StepField[]);
-                }}
-                sort={false}
-                showCopyButton={false}
-                closeMenuOnSelect={false}
-                containerClassName="mb-1"
-              />
-              {activeFields.size === 0 &&
-                ruleBaseline.coverage !== undefined && (
-                  <Box mb="3">
-                    <Link
-                      size="1"
-                      onClick={() => setActiveFields(["coverage"])}
-                    >
-                      + Add coverage control
-                    </Link>
-                  </Box>
-                )}
               <Box display="inline-block">
                 <Flex direction="column" gap="2">
                   <Checkbox
@@ -1428,24 +1450,11 @@ export default function RampScheduleSection({
             value={selectedPreset}
             placeholder="Choose a preset..."
             options={[
-              {
-                label: "Ramp ups",
-                options: RAMP_PRESETS.map((p) => ({
-                  value: p.label,
-                  label: p.label,
-                })),
-              },
-              {
-                label: "Scheduled rules",
-                options: SCHEDULED_PRESETS.map((p) => ({
-                  value: p.label,
-                  label: p.label,
-                })),
-              },
-              {
-                label: "",
-                options: [{ value: "custom", label: "Custom..." }],
-              },
+              ...RAMP_PRESETS.map((p) => ({
+                value: p.label,
+                label: p.label,
+              })),
+              { value: "custom", label: "Custom..." },
             ]}
             onChange={(v) => {
               if (v === "custom") {
@@ -1493,32 +1502,6 @@ export default function RampScheduleSection({
                 return;
               }
 
-              const scheduled = SCHEDULED_PRESETS.find((p) => p.label === v);
-              if (scheduled) {
-                setSelectedPreset(v);
-                const defaultEndAt = (() => {
-                  const d = new Date();
-                  d.setSeconds(0, 0);
-                  return d.toISOString().slice(0, 16);
-                })();
-                patchState({
-                  steps: [],
-                  name: scheduled.name,
-                  startMode: scheduled.startMode,
-                  startTime: "",
-                  // Scheduled rules control visibility via disableRuleBefore/After,
-                  // not coverage — start/end patches are intentionally empty.
-                  startPatch: {},
-                  disableRuleBefore: scheduled.disableRuleBefore,
-                  disableRuleAfter: scheduled.disableRuleAfter,
-                  // Scheduled rules hold until the end date fires, not on step completion.
-                  endEarlyWhenStepsComplete: false,
-                  endScheduleAt: scheduled.includeEnd ? defaultEndAt : "",
-                  endSchedulePatch: {},
-                });
-                setMoreOptionsOpen(true);
-                return;
-              }
             }}
             sort={false}
             containerClassName="mb-0"
@@ -1569,6 +1552,30 @@ export default function RampScheduleSection({
           </Flex>
         </Box>
       </Flex>
+
+      {/* Ramp properties */}
+      <Box mb="6" mt="2">
+        <MultiSelectField
+          label="Ramp properties"
+          value={[...activeFields]}
+          options={ALL_STEP_FIELDS.map((f) => ({
+            value: f,
+            label: STEP_FIELD_LABELS[f],
+          }))}
+          onChange={(newValues) => {
+            setActiveFields(newValues as StepField[]);
+          }}
+          sort={false}
+          showCopyButton={false}
+          closeMenuOnSelect={false}
+          containerClassName="mb-1"
+        />
+        {activeFields.size === 0 && ruleBaseline.coverage !== undefined && (
+          <Link size="1" onClick={() => setActiveFields(["coverage"])}>
+            + Add coverage control
+          </Link>
+        )}
+      </Box>
 
       {boxStepGrid ? (
         <div className="appbox px-3 pt-3 pb-2 bg-light">
@@ -1875,16 +1882,25 @@ export function defaultRampSectionState(
   if (ruleRampSchedule) {
     return rampScheduleToSectionState(ruleRampSchedule);
   }
+  // Pre-seed with the first preset so the step table is populated on first open.
+  const preset = RAMP_PRESETS[0];
   return {
     mode: "off",
-    name: "ramp up",
+    name: preset.name,
     startMode: "immediately" as StartMode,
     startTime: "",
     startPatch: { coverage: 0 },
     disableRuleBefore: false,
     disableRuleAfter: false,
     endEarlyWhenStepsComplete: true,
-    steps: [],
+    steps: buildPresetSteps(
+      preset.coverages,
+      preset.triggerType,
+      preset.defaultDurationValue,
+      preset.defaultDurationUnit,
+      new Set<StepField>(["coverage"]),
+      {},
+    ),
     endScheduleAt: "",
     endSchedulePatch: { coverage: 100 },
     linkedRampId: "",

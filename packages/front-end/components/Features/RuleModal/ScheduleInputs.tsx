@@ -10,6 +10,7 @@
 //   • End   = "Never"              → disableRuleAfter  = false
 
 import { Box, Flex } from "@radix-ui/themes";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
@@ -128,9 +129,9 @@ export default function ScheduleInputs({ state, setState }: Props) {
 
   return (
     <Flex direction="column" gap="1">
-      <Text size="medium" weight="medium">
-        Define Schedule
-      </Text>
+      <Heading as="h3" size="small" mb="2">
+        Schedule
+      </Heading>
 
       {/* Start row */}
       <Flex align="center" gap="3" py="2">

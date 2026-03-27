@@ -57,7 +57,10 @@ import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
-import StandardRuleFields from "@/components/Features/RuleModal/StandardRuleFields";
+import StandardRuleFields, {
+  type ScheduleType,
+  deriveScheduleType,
+} from "@/components/Features/RuleModal/StandardRuleFields";
 import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs";
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
@@ -321,6 +324,14 @@ export default function RuleModal({
   );
   const [scheduleToggleEnabled, setScheduleToggleEnabled] =
     useState(defaultHasSchedule);
+  const [scheduleType, setScheduleType] = useState<ScheduleType>(() =>
+    deriveScheduleType(
+      rampSectionState,
+      defaultHasSchedule,
+      defaultHasSchedule,
+      undefined,
+    ),
+  );
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasMultiArmedBanditFeature = hasCommercialFeature(
@@ -448,14 +459,15 @@ export default function RuleModal({
   // Coverage back to 100% → force rule (clean state)
   // Has ramp affecting coverage → rollout rule
   useEffect(() => {
+    // Simple schedules never control coverage — only full ramp-ups do.
     const hasRampWithCoverage =
-      (rampSectionState.mode !== "off" &&
-        (rampSectionState.steps.some(
-          (step) => step.patch.coverage !== undefined,
-        ) ||
-          rampSectionState.startPatch.coverage !== undefined ||
-          rampSectionState.endSchedulePatch.coverage !== undefined)) ||
-      false;
+      scheduleType === "ramp" &&
+      rampSectionState.mode !== "off" &&
+      (rampSectionState.steps.some(
+        (step) => step.patch.coverage !== undefined,
+      ) ||
+        rampSectionState.startPatch.coverage !== undefined ||
+        rampSectionState.endSchedulePatch.coverage !== undefined);
 
     // Determine target rule type and coverage based on current state
     let targetType: "force" | "rollout" =
@@ -488,7 +500,7 @@ export default function RuleModal({
     if (targetCoverage !== currentCoverage) {
       form.setValue("coverage", targetCoverage);
     }
-  }, [currentType, currentCoverage, rampSectionState, form]);
+  }, [currentType, currentCoverage, rampSectionState, scheduleType, form]);
 
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
@@ -969,9 +981,9 @@ export default function RuleModal({
                       values.type as keyof typeof VALID_STEP_FIELDS,
                     )
                   : rampSectionState;
-              // "schedule" mode = 0-step ramp (simple date window, no intermediate steps).
-              // Derived from ramp state rather than a persisted field so it never pollutes rule diffs.
-              const isScheduleMode = rampState.steps.length === 0;
+              // "schedule" mode = simple date window (no intermediate steps).
+              // Driven by the RadioGroup selection — reliable regardless of step count in state.
+              const isScheduleMode = scheduleType === "schedule";
 
               // A "schedule" type with both start=immediately and end=never is a no-op —
               // no schedule should be created or updated in this case.
@@ -1528,6 +1540,8 @@ export default function RuleModal({
             ruleRampSchedule={ruleRampSchedule}
             rampSectionState={rampSectionState}
             setRampSectionState={setRampSectionState}
+            scheduleType={scheduleType}
+            setScheduleType={setScheduleType}
             pendingDetach={hasPendingDetach}
             onChangeRuleType={scrubAndChangeRuleType}
           />

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
 import { Flex, Separator, Box } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
+import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
@@ -23,6 +24,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
 import RampScheduleSection, {
   type RampSectionState,
+  defaultRampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import {
@@ -30,10 +32,10 @@ import {
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
 
-type ScheduleType = "none" | "schedule" | "ramp";
+export type ScheduleType = "none" | "schedule" | "ramp";
 
 /** Derive the schedule type from existing state on first render. */
-function deriveScheduleType(
+export function deriveScheduleType(
   rampSectionState: RampSectionState,
   scheduleToggleEnabled: boolean,
   hasLegacySchedule: boolean,
@@ -56,12 +58,14 @@ export default function StandardRuleFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  scheduleToggleEnabled,
+  scheduleToggleEnabled: _scheduleToggleEnabled,
   setScheduleToggleEnabled,
   featureRampSchedules,
   ruleRampSchedule,
   rampSectionState,
   setRampSectionState,
+  scheduleType,
+  setScheduleType,
   pendingDetach,
   onChangeRuleType,
 }: {
@@ -79,6 +83,8 @@ export default function StandardRuleFields({
   ruleRampSchedule: RampScheduleInterface | undefined;
   rampSectionState: RampSectionState;
   setRampSectionState: (s: RampSectionState) => void;
+  scheduleType: ScheduleType;
+  setScheduleType: (t: ScheduleType) => void;
   pendingDetach?: boolean;
   onChangeRuleType?: (v: string) => void;
 }) {
@@ -97,18 +103,8 @@ export default function StandardRuleFields({
     "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
   ).some((r) => r.timestamp !== null);
 
-  // scheduleType is derived from ramp state — never persisted in rule data.
-  const [scheduleType, setScheduleTypeState] = useState<ScheduleType>(() =>
-    deriveScheduleType(
-      rampSectionState,
-      scheduleToggleEnabled,
-      hasLegacySchedule,
-      undefined,
-    ),
-  );
-
   function applyScheduleType(type: ScheduleType) {
-    setScheduleTypeState(type);
+    setScheduleType(type);
 
     if (type === "none") {
       setScheduleToggleEnabled(false);
@@ -118,30 +114,41 @@ export default function StandardRuleFields({
 
     if (type === "ramp") {
       setScheduleToggleEnabled(false);
-      if (rampSectionState.mode === "off") {
+      const nextMode = ruleRampSchedule ? "edit" : "create";
+      if (
+        rampSectionState.mode === "off" ||
+        rampSectionState.steps.length === 0
+      ) {
+        // Re-seed with default preset steps when coming from "off" or from the
+        // step-less "schedule" state so the step grid is never blank.
+        const seed = !ruleRampSchedule
+          ? defaultRampSectionState(undefined)
+          : null;
         setRampSectionState({
           ...rampSectionState,
-          mode: ruleRampSchedule ? "edit" : "create",
+          mode: nextMode,
+          ...(seed && rampSectionState.steps.length === 0
+            ? { steps: seed.steps, name: seed.name }
+            : {}),
         });
       }
       return;
     }
 
-    // "schedule" — 0-step ramp, start/end dates only
+    // "schedule" — 0-step ramp, start/end dates only.
+    // Always clear steps regardless of current mode so isScheduleMode is reliably true on save.
     setScheduleToggleEnabled(false);
-    if (rampSectionState.mode === "off") {
-      setRampSectionState({
-        ...rampSectionState,
-        mode: ruleRampSchedule ? "edit" : "create",
-        steps: [],
-        endEarlyWhenStepsComplete: false,
-        startMode: "immediately",
-        startTime: "",
-        endScheduleAt: "",
-        disableRuleBefore: false,
-        disableRuleAfter: false,
-      });
-    }
+    setRampSectionState({
+      ...rampSectionState,
+      mode: ruleRampSchedule ? "edit" : "create",
+      steps: [],
+      endEarlyWhenStepsComplete: false,
+      startMode: "immediately",
+      startTime: "",
+      endScheduleAt: "",
+      disableRuleBefore: false,
+      disableRuleAfter: false,
+    });
   }
 
   return (
@@ -229,7 +236,10 @@ export default function StandardRuleFields({
         )}
 
         {scheduleType === "ramp" && (
-          <div className="appbox px-3 pt-3 pb-2 bg-light">
+          <>
+            <Heading as="h3" size="small" mb="4">
+              Ramp-up
+            </Heading>
             <RampScheduleSection
               featureRampSchedules={featureRampSchedules}
               ruleRampSchedule={ruleRampSchedule}
@@ -237,6 +247,7 @@ export default function StandardRuleFields({
               setState={setRampSectionState}
               pendingDetach={pendingDetach}
               hideOuterToggle={true}
+              hideNameField={true}
               feature={feature}
               environments={environments}
               onSetRuleCoverage={(v) => form.setValue("coverage", v)}
@@ -254,7 +265,8 @@ export default function StandardRuleFields({
                   : undefined
               }
             />
-          </div>
+            <Separator size="4" my="6" />
+          </>
         )}
       </div>
 

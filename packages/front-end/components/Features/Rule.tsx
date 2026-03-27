@@ -581,36 +581,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               </DropdownMenuItem>
                             ) : (
                               <>
-                                {/* Edit ramp schedule */}
-                                {[
-                                  "running",
-                                  "pending-approval",
-                                  "conflict",
-                                ].includes(rampSchedule.status) ? (
-                                  <Tooltip
-                                    body="Pause the ramp to edit the schedule"
-                                    tipPosition="left"
-                                  >
-                                    <div style={{ cursor: "not-allowed" }}>
-                                      <DropdownMenuItem disabled>
-                                        Edit ramp schedule
-                                      </DropdownMenuItem>
-                                    </div>
-                                  </Tooltip>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      setRuleModal({
-                                        environment,
-                                        i,
-                                        mode: "edit",
-                                      });
-                                      setDropdownOpen(false);
-                                    }}
-                                  >
-                                    Edit ramp schedule
-                                  </DropdownMenuItem>
-                                )}
                                 {/* pending: blocked Start */}
                                 {rampSchedule.status === "pending" && (
                                   <Tooltip
