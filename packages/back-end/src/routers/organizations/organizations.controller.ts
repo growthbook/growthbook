@@ -47,6 +47,7 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  setLicenseKey,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -2170,20 +2171,6 @@ export async function putAdminResetUserPassword(
   res.status(200).json({
     status: 200,
   });
-}
-
-export async function setLicenseKey(
-  org: OrganizationInterface,
-  licenseKey: string,
-) {
-  if (!IS_CLOUD && IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites.",
-    );
-  }
-
-  org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(
