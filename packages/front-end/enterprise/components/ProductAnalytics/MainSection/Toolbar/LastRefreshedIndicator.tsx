@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
-import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
   formatShortAgo,
   getRefreshInterval,
@@ -15,15 +14,19 @@ import {
 
 interface LastRefreshedIndicatorProps {
   lastRefreshedAt: Date | null;
+  /** When provided, shows a dropdown with an "Update" action that calls this. */
+  onUpdate?: () => void | Promise<void>;
+  /** When onUpdate is provided, disables the Update menu item when true. */
+  isUpdateDisabled?: boolean;
 }
 
 export default function LastRefreshedIndicator({
   lastRefreshedAt,
+  onUpdate,
+  isUpdateDisabled = false,
 }: LastRefreshedIndicatorProps) {
   const [, setTick] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { handleSubmit, loading, draftExploreState, isSubmittable } =
-    useExplorerContext() ?? {};
 
   useEffect(() => {
     if (!lastRefreshedAt) return;
@@ -54,16 +57,13 @@ export default function LastRefreshedIndicator({
 
   if (!lastRefreshedAt) return null;
 
-  const isUpdateDisabled =
-    loading || !draftExploreState?.dataset?.values?.length || !isSubmittable;
-
   const trigger = (
     <Flex
       align="center"
       gap="1"
       style={{
         minWidth: "40px",
-        cursor: "pointer",
+        cursor: onUpdate ? "pointer" : undefined,
       }}
     >
       <PiClockClockwise style={{ color: "var(--gray-11)", flexShrink: 0 }} />
@@ -72,6 +72,10 @@ export default function LastRefreshedIndicator({
       </Text>
     </Flex>
   );
+
+  if (!onUpdate) {
+    return trigger;
+  }
 
   return (
     <DropdownMenu
@@ -83,7 +87,7 @@ export default function LastRefreshedIndicator({
         <DropdownMenuItem
           onClick={async () => {
             setDropdownOpen(false);
-            await handleSubmit?.({ force: true });
+            await onUpdate();
           }}
           disabled={isUpdateDisabled}
         >
