@@ -10,7 +10,7 @@
   "scripts": {
     "build:clean": "rimraf dist",
     "build:typescript": "tsc",
-    "dev": "swc src -w --out-dir dist",
+    "dev": "swc src -w --out-dir dist --copy-files",
     "build": "pnpm build:clean && pnpm build:typescript",
     "test": "jest",
     "clean": "rimraf node_modules",

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
+import { postExperimentVisualChangeset } from "./postExperimentVisualChangeset";
 import { getExperimentResults } from "./getExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
@@ -17,8 +18,9 @@ router.get("/", listExperiments);
 router.post("/", postExperiment);
 router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
-router.post("/:id", updateExperiment);
 router.post("/:id/snapshot", postExperimentSnapshot);
+router.post("/:id/visual-changeset", postExperimentVisualChangeset);
+router.post("/:id", updateExperiment);
 router.post(
   "/:id/variation/:variationId/screenshot/upload",
   postVariationImageUpload,
