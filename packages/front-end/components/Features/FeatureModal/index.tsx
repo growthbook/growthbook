@@ -243,8 +243,13 @@ export default function FeatureModal({
           throw new Error("Please select a value type");
         }
 
+        // When duplicating, skip JSON schema validation since the value is
+        // copied verbatim from an existing feature and the user cannot edit it.
+        const featureForValidation = featureToDuplicate
+          ? { valueType: feature.valueType }
+          : feature;
         const newDefaultValue = validateFeatureValue(
-          feature,
+          featureForValidation,
           defaultValue,
           "Value",
         );
