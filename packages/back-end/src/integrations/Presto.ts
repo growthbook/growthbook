@@ -13,6 +13,7 @@ import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getKerberosHeader } from "back-end/src/util/kerberos.util";
 import { getQueryTagString } from "back-end/src/util/integration";
+import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -21,6 +22,24 @@ type Row = any;
 // Unknown if there is an actual limit, using 2000 as this is the
 // limit in Snowflake
 const PRESTO_QUERY_TAG_MAX_LENGTH = 2000;
+
+const DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC = 3600;
+
+function getPrestoClientTimeoutSeconds(
+  requestTimeout: number | string | undefined | null,
+): number {
+  if (requestTimeout === undefined || requestTimeout === null) {
+    return DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC;
+  }
+  if (typeof requestTimeout === "string") {
+    const t = requestTimeout.trim();
+    if (t === "") return DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC;
+    const n = Number.parseInt(t);
+    return Number.isNaN(n) ? DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC : n;
+  }
+  const n = Number(requestTimeout);
+  return Number.isNaN(n) ? DEFAULT_PRESTO_REQUEST_TIMEOUT_SEC : n;
+}
 
 export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
@@ -41,14 +60,8 @@ export default class Presto extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  runQuery(
-    sql: string,
-    setExternalId?: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
-  ): Promise<QueryResponse> {
-    const engineHeaderName =
-      this.params.engine === "presto" ? "Presto" : "Trino";
 
+  private createClient(): Client {
     const configOptions: ClientOptions = {
       engine: this.params.engine,
       host: this.params.host,
@@ -56,7 +69,7 @@ export default class Presto extends SqlIntegration {
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
-      timeout: this.params.requestTimeout ?? 0,
+      timeout: getPrestoClientTimeoutSeconds(this.params.requestTimeout),
       checkInterval: 500,
     };
     if (this.params.engine === "trino") {
@@ -100,7 +113,34 @@ export default class Presto extends SqlIntegration {
         secureProtocol: "SSLv23_method",
       };
     }
-    const client = new Client(configOptions);
+    return new Client(configOptions);
+  }
+
+  async cancelQuery(externalId: string): Promise<void> {
+    const client = this.createClient();
+    return new Promise((resolve, reject) => {
+      client.kill(externalId, (error) => {
+        if (error) {
+          logger.debug(
+            `Failed to cancel Presto/Trino query ${externalId}: ${error.message}`,
+          );
+          reject(error);
+        } else {
+          logger.debug(`Cancelled Presto/Trino query ${externalId}`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<QueryResponse> {
+    const engineHeaderName =
+      this.params.engine === "presto" ? "Presto" : "Trino";
+    const client = this.createClient();
 
     return new Promise<QueryResponse>((resolve, reject) => {
       let cols: string[];
@@ -116,6 +156,11 @@ export default class Presto extends SqlIntegration {
             queryMetadata ?? {},
             PRESTO_QUERY_TAG_MAX_LENGTH,
           ),
+        },
+        state: (_error, queryId) => {
+          if (queryId && setExternalId) {
+            setExternalId(queryId);
+          }
         },
         columns: (error, data) => {
           if (error) return;
