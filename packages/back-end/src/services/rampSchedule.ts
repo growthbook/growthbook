@@ -20,16 +20,8 @@ import {
   StepHistoryEntry,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
-import {
-  autoMerge,
-  fillRevisionFromFeature,
-  filterEnvironmentsByFeature,
-  liveRevisionFromFeature,
-} from "shared/util";
-import {
-  getEnvironmentIdsFromOrg,
-  getEnvironments,
-} from "back-end/src/services/organizations";
+import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
+import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
@@ -137,6 +129,9 @@ function applyPatchToRule(
   if ("force" in patch && patch.force !== undefined) {
     (updated as { value?: unknown }).value = patch.force;
   }
+  if ("enabled" in patch && patch.enabled !== undefined) {
+    updated.enabled = patch.enabled ?? undefined;
+  }
   return updated;
 }
 
@@ -163,6 +158,9 @@ function extractPreviousValues(
   }
   if ("force" in patch && patch.force !== undefined) {
     prev.force = (existing as { value?: unknown }).value;
+  }
+  if ("enabled" in patch && patch.enabled !== undefined) {
+    prev.enabled = existing.enabled;
   }
   return prev;
 }
@@ -435,60 +433,58 @@ async function createStepRevisions(
       // Approval gate — request review and track it as the blocker.
       await markRevisionAsReviewRequested(ctx, revision, user);
       pendingApprovalRevisionId = revisionRef;
-    } else if (!isPrimary) {
-      // Secondary-entity revision waits for the primary to be approved.
+    } else if (!isPrimary && isApprovalStep) {
+      // Secondary-entity revision for an approval step: waits for the primary to be approved.
       await markRevisionAsPendingParent(
         ctx.org.id,
         feature.id,
         revision.version,
       );
     } else {
-      // Non-approval primary step: org-level approval requirements do NOT apply.
-      // The ramp controls its own publication lifecycle — approval gates are only
-      // introduced by explicit "approval" trigger steps. Interval steps always
-      // auto-publish immediately.
-      const allEnvironments = getEnvironmentIdsFromOrg(ctx.org);
-      const featureEnvs: Record<string, boolean> = Object.fromEntries(
-        Object.entries(
-          (feature as FeatureInterface).environmentSettings ?? {},
-        ).map(([envId, env]) => [envId, !!env.enabled]),
-      );
-      const fillEnvs = (r: FeatureRevisionInterface) => ({
-        ...fillRevisionFromFeature(r, feature as FeatureInterface),
-        environmentsEnabled: {
-          ...featureEnvs,
-          ...(r.environmentsEnabled ?? {}),
-        },
-      });
-      const liveRevision = await getRevision({
-        context: ctx,
-        organization: feature.organization,
-        featureId: feature.id,
-        version: (feature as FeatureInterface).version,
-      });
-      if (liveRevision) {
-        const mergeResult = autoMerge(
-          fillEnvs(liveRevision),
-          fillEnvs(liveRevision),
-          revision,
-          allEnvironments,
-          {},
-        );
-        if (mergeResult.success) {
-          await publishRevision(
-            ctx,
-            feature as FeatureInterface,
-            revision,
-            mergeResult.result,
-            `Ramp: ${schedule.name} — step ${stepIndex + 1}`,
+      // Non-approval step (primary or secondary): apply ramp patches directly
+      // on top of current live rule state — no 3-way merge needed.
+      //
+      // Strategy:
+      //   - Fields the ramp patch explicitly targets → ramp wins ("ours")
+      //   - Everything else → live state is untouched ("theirs")
+      //   - Target rule deleted from all environments → throw (pause ramp)
+      const patchedRules: Record<string, FeatureRule[]> = {};
+      for (const [env, envSettings] of Object.entries(
+        (feature as FeatureInterface).environmentSettings ?? {},
+      )) {
+        patchedRules[env] = [...(envSettings.rules ?? [])];
+      }
+
+      for (const action of group.actions) {
+        const { patch } = action;
+        const { ruleId, ...patchFields } = patch;
+        let foundInAnyEnv = false;
+        for (const env of Object.keys(patchedRules)) {
+          const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
+          if (ruleIdx === -1) continue;
+          foundInAnyEnv = true;
+          patchedRules[env][ruleIdx] = applyPatchToRule(
+            patchedRules[env][ruleIdx],
+            patchFields,
           );
-        } else {
-          logger.warn(
-            { scheduleId: schedule.id, stepIndex },
-            "Ramp step auto-publish: merge conflict, leaving as draft",
+        }
+        if (!foundInAnyEnv) {
+          throw new Error(
+            `Ramp target rule "${ruleId}" not found in any environment — it may have been deleted`,
           );
         }
       }
+
+      const forceResult: MergeResultChanges = { rules: patchedRules };
+      await publishRevision(
+        ctx,
+        feature as FeatureInterface,
+        revision,
+        forceResult,
+        stepIndex >= schedule.steps.length
+          ? `Ramp complete: ${schedule.name}`
+          : `Ramp: ${schedule.name} — step ${stepIndex + 1}`,
+      );
     }
 
     revisionIds.push(revisionRef);
@@ -505,6 +501,36 @@ async function createStepRevisions(
 // advanceStep
 // ---------------------------------------------------------------------------
 
+/**
+ * Apply a condition action list (startCondition.actions or endCondition.actions)
+ * as a single ramp step revision at a virtual step index.
+ */
+async function applyConditionActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  actions: RampStepAction[],
+  virtualStepIndex: number,
+): Promise<void> {
+  if (!actions.length) return;
+  await createStepRevisions(ctx, schedule, virtualStepIndex, actions);
+}
+
+/**
+ * Apply startCondition.actions as a revision. Called on every start path
+ * (immediate publish, Agenda auto-start, manual REST start).
+ */
+export async function applyStartConditionActions(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<void> {
+  await applyConditionActions(
+    ctx,
+    schedule,
+    schedule.startCondition?.actions ?? [],
+    -1, // virtual "start" index — before any step
+  );
+}
+
 export async function advanceStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -514,7 +540,13 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
-    // No more steps — complete the schedule
+    // No more steps — apply endCondition.actions then complete.
+    await applyConditionActions(
+      ctx,
+      schedule,
+      schedule.endCondition?.actions ?? [],
+      schedule.steps.length, // virtual "end" index
+    );
     return ctx.models.rampSchedules.updateById(schedule.id, {
       status: "completed",
       nextStepAt: null,
@@ -663,6 +695,91 @@ export async function rollbackToStep(
       reason: attribution.reason ?? undefined,
       source: attribution.source ?? undefined,
     },
+  });
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// jumpAheadToStep
+// ---------------------------------------------------------------------------
+
+/**
+ * Jump forward to a target step in a single atomic revision.
+ * Merges all patches from (currentStepIndex+1) through jumpTarget inclusive
+ * using last-write-wins per field, then publishes a single revision and lands
+ * paused at the target.
+ *
+ * If there is an open approval-gate revision it is discarded first.
+ * No revisions are created for intermediate steps — only one revision total.
+ */
+export async function jumpAheadToStep(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  jumpTarget: number,
+  attribution: RampAttribution = { type: "manual" },
+): Promise<RampScheduleInterface> {
+  // Discard the open approval-gate revision if one exists, but leave any
+  // already-published interval-step revisions alone.
+  if (schedule.pendingApprovalRevisionId) {
+    const parts = schedule.pendingApprovalRevisionId.split(":");
+    const version = parseInt(parts[parts.length - 1], 10);
+    const featureId = parts.slice(0, parts.length - 1).join(":");
+    const rev = await getRevision({
+      context: ctx,
+      organization: ctx.org.id,
+      featureId,
+      version,
+    });
+    if (rev && rev.status !== "published" && rev.status !== "discarded") {
+      await discardRevision(ctx, rev, { type: "system" });
+    }
+  }
+
+  // Merge all patches from currentStepIndex+1 through jumpTarget (inclusive).
+  // Last-write-wins per targetId+field so the final state is the intended target.
+  const mergedPatches = new Map<string, FeatureRulePatch>();
+  for (let i = schedule.currentStepIndex + 1; i <= jumpTarget; i++) {
+    for (const action of schedule.steps[i]?.actions ?? []) {
+      const prev = mergedPatches.get(action.targetId) ?? {
+        ruleId: action.patch.ruleId,
+      };
+      mergedPatches.set(action.targetId, { ...prev, ...action.patch });
+    }
+  }
+
+  const now = new Date();
+  let revisionIds: string[] = [];
+  let previousValues: { targetId: string; patch: FeatureRulePatch }[] = [];
+
+  if (mergedPatches.size > 0) {
+    const mergedActions = Array.from(mergedPatches.entries()).map(
+      ([targetId, patch]) => ({ targetId, patch }),
+    );
+    ({ revisionIds, previousValues } = await createStepRevisions(
+      ctx,
+      schedule,
+      jumpTarget,
+      mergedActions,
+    ));
+  }
+
+  const historyEntry: StepHistoryEntry = {
+    stepIndex: jumpTarget,
+    enteredAt: now,
+    revisionIds,
+    previousValues,
+    triggeredBy: attribution,
+  };
+
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: "paused",
+    currentStepIndex: jumpTarget,
+    nextStepAt: null,
+    pausedAt: now,
+    pendingRevisionIds: revisionIds,
+    pendingApprovalRevisionId: null,
+    stepHistory: [...schedule.stepHistory, historyEntry],
   });
 
   return updated;
@@ -829,7 +946,6 @@ export async function evaluateAutoRollback(
 // - "immediately": auto-start → "running", advance first step.
 // - "manual": → "ready" (waits for user to click Start).
 // - "scheduled": → "ready" (Agenda auto-starts it when startCondition.trigger.at <= now).
-// TODO: startCondition.actions should be applied as an inline revision before the first step advances.
 async function onActivatingRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -864,6 +980,11 @@ async function onActivatingRevisionPublished(
       "auto-started on activating revision publish",
       "system",
     );
+
+    // Apply startCondition.actions (e.g. enabled: true from disableRuleBefore)
+    // before the first step advances.
+    await applyStartConditionActions(ctx, current);
+
     // Advance step 0 if its timer has already elapsed (interval = 0) and any subsequent steps.
     if (current.steps.length > 0) {
       await advanceUntilBlocked(ctx, current, now, startAttribution);
@@ -957,8 +1078,19 @@ async function onApprovalRevisionPublished(
   const holdForEndDate =
     hasFutureEndDate && schedule.endEarlyWhenStepsComplete === false;
 
+  const isCompleting = !nextStepAt && !holdForEndDate;
+
+  if (isCompleting) {
+    await applyConditionActions(
+      ctx,
+      schedule,
+      schedule.endCondition?.actions ?? [],
+      schedule.steps.length,
+    );
+  }
+
   await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: nextStepAt || holdForEndDate ? "running" : "completed",
+    status: isCompleting ? "completed" : "running",
     nextStepAt,
     stepHistory: updatedHistory,
     pendingRevisionIds: [],
@@ -1056,7 +1188,7 @@ export async function onRevisionDiscarded(
 // Discard all pending revisions in the schedule, skipping excludeRef if provided.
 // Used by completeRollout (discard all) and onRevisionDiscarded (discard all except the
 // one already being discarded).
-async function discardPendingRevisions(
+export async function discardPendingRevisions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   excludeRef?: string,
@@ -1186,7 +1318,6 @@ export type ApproveStepError =
   | { code: "revision_not_found" }
   | { code: "feature_not_found" }
   | { code: "permission_denied"; detail: string }
-  | { code: "merge_conflict"; detail: string }
   | { code: "error"; detail: string };
 
 /**
@@ -1232,55 +1363,53 @@ export async function approveAndPublishStep(
   });
   if (!revision) return { code: "revision_not_found" };
 
-  const live = await getRevision({
-    context: ctx,
-    organization: ctx.org.id,
-    featureId: feature.id,
-    version: feature.version,
-  });
-  if (!live) return { code: "error", detail: "Could not load live revision" };
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context: ctx,
-          organization: ctx.org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) return { code: "error", detail: "Could not load base revision" };
-
   const allEnvironments = getEnvironments(ctx.org);
   const environmentIds = filterEnvironmentsByFeature(
     allEnvironments,
     feature,
   ).map((e) => e.id);
 
-  const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
-    revision,
-    environmentIds,
-    {},
-  );
+  // Apply the ramp's patches (from the current step's actions) directly on top
+  // of current live state — same sparse-apply strategy as interval steps.
+  // Fields the ramp explicitly patches: ramp wins. Everything else: live wins.
+  // This handles concurrent user edits without needing a 3-way merge.
+  const stepIndex = schedule.currentStepIndex;
+  const stepActions = schedule.steps[stepIndex]?.actions ?? [];
 
-  if (!mergeResult.success) {
-    return {
-      code: "merge_conflict",
-      detail: mergeResult.conflicts
-        .filter((c) => !c.resolved)
-        .map((c) => c.name)
-        .join(", "),
-    };
+  const patchedRules: Record<string, FeatureRule[]> = {};
+  for (const [env, envSettings] of Object.entries(
+    feature.environmentSettings ?? {},
+  )) {
+    patchedRules[env] = [...(envSettings.rules ?? [])];
   }
 
+  for (const action of stepActions) {
+    const { patch } = action;
+    const { ruleId, ...patchFields } = patch;
+    let foundInAnyEnv = false;
+    for (const env of Object.keys(patchedRules)) {
+      const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
+      if (ruleIdx === -1) continue;
+      foundInAnyEnv = true;
+      patchedRules[env][ruleIdx] = applyPatchToRule(
+        patchedRules[env][ruleIdx],
+        patchFields,
+      );
+    }
+    if (!foundInAnyEnv) {
+      return {
+        code: "error",
+        detail: `Ramp target rule "${ruleId}" no longer exists — it may have been deleted. The ramp schedule will need to be updated.`,
+      };
+    }
+  }
+
+  const forceResult: MergeResultChanges = { rules: patchedRules };
+
   // Check publish permissions for the affected environments
-  const changedEnvs = Object.keys(mergeResult.result.rules ?? {});
+  const changedEnvs = Object.keys(forceResult.rules ?? {});
   const envsToCheck =
-    mergeResult.result.defaultValue !== undefined
-      ? environmentIds
-      : changedEnvs;
+    forceResult.defaultValue !== undefined ? environmentIds : changedEnvs;
   if (
     envsToCheck.length > 0 &&
     !ctx.permissions.canPublishFeature(feature, envsToCheck)
@@ -1300,7 +1429,7 @@ export async function approveAndPublishStep(
   await submitReviewAndComments(ctx, revision, user, "Approved");
 
   // Publish — this triggers onRevisionPublished which advances the ramp
-  await publishRevision(ctx, feature, revision, mergeResult.result);
+  await publishRevision(ctx, feature, revision, forceResult);
 
   return null;
 }

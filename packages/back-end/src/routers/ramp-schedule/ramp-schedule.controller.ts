@@ -5,10 +5,12 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   advanceStep,
   advanceUntilBlocked,
+  applyStartConditionActions,
   approveAndPublishStep,
   completeRollout,
   computeNextStepAt,
   dispatchRampEvent,
+  jumpAheadToStep,
   makeAttribution,
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
@@ -230,6 +232,85 @@ export const putRampSchedule = async (
   if (body.disableRuleAfter !== undefined) {
     updates.disableRuleAfter = body.disableRuleAfter;
   }
+
+  // When disableRuleBefore or disableRuleAfter change, recompute the injected
+  // enabled patches in startCondition.actions / endCondition.actions so they
+  // stay consistent with the flags.
+  const effectiveDisableBefore =
+    body.disableRuleBefore !== undefined
+      ? body.disableRuleBefore
+      : (schedule.disableRuleBefore ?? false);
+  const effectiveDisableAfter =
+    body.disableRuleAfter !== undefined
+      ? body.disableRuleAfter
+      : (schedule.disableRuleAfter ?? false);
+
+  if (
+    body.disableRuleBefore !== undefined ||
+    body.disableRuleAfter !== undefined ||
+    body.startCondition !== undefined ||
+    body.endCondition !== undefined
+  ) {
+    const primaryTarget = schedule.targets.find(
+      (t) => t.entityType === "feature" && t.entityId === schedule.entityId,
+    );
+    if (primaryTarget) {
+      const enabledPatch = {
+        ruleId: primaryTarget.ruleId,
+        enabled: true as const,
+      };
+      const disabledPatch = {
+        ruleId: primaryTarget.ruleId,
+        enabled: false as const,
+      };
+
+      const currentSc =
+        (updates.startCondition as typeof schedule.startCondition) ??
+        schedule.startCondition;
+      if (currentSc) {
+        const baseStartActions = (currentSc.actions ?? []).filter(
+          (a) => !("enabled" in a.patch),
+        );
+        updates.startCondition = {
+          ...currentSc,
+          actions: effectiveDisableBefore
+            ? [
+                { targetId: primaryTarget.id, patch: enabledPatch },
+                ...baseStartActions,
+              ]
+            : baseStartActions.length
+              ? baseStartActions
+              : undefined,
+        };
+      }
+
+      const currentEc =
+        (updates.endCondition as typeof schedule.endCondition) ??
+        schedule.endCondition;
+      if (currentEc || effectiveDisableAfter) {
+        const baseEndActions = (currentEc?.actions ?? []).filter(
+          (a) => !("enabled" in a.patch),
+        );
+        updates.endCondition = currentEc
+          ? {
+              ...currentEc,
+              actions: effectiveDisableAfter
+                ? [
+                    ...baseEndActions,
+                    { targetId: primaryTarget.id, patch: disabledPatch },
+                  ]
+                : baseEndActions.length
+                  ? baseEndActions
+                  : undefined,
+            }
+          : effectiveDisableAfter
+            ? {
+                actions: [{ targetId: primaryTarget.id, patch: disabledPatch }],
+              }
+            : undefined;
+      }
+    }
+  }
   if (body.endEarlyWhenStepsComplete !== undefined) {
     updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
   }
@@ -333,6 +414,7 @@ export const postRampScheduleAction = async (
         phaseStartedAt: now,
         nextStepAt: initialNextStepAt,
       });
+      await applyStartConditionActions(context, updated);
       await advanceUntilBlocked(context, updated, now, attribution);
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
@@ -594,17 +676,13 @@ export const postRampScheduleAction = async (
           pendingApprovalRevisionId: null,
         });
       } else if (jumpTarget > schedule.currentStepIndex) {
-        // Forward: advance step-by-step up to target, then pause
-        let current = schedule;
-        while (current.currentStepIndex < jumpTarget) {
-          current = await advanceStep(context, current, attribution);
-        }
-        updated = await context.models.rampSchedules.updateById(current.id, {
-          status: "paused",
-          pausedAt: now,
-          phaseStartedAt: freshPhaseStartedAt,
-          nextStepAt: null,
-        });
+        // Forward: merge all intermediate step patches into a single revision.
+        updated = await jumpAheadToStep(
+          context,
+          schedule,
+          jumpTarget,
+          attribution,
+        );
       } else {
         // Same position: just pause
         updated = await context.models.rampSchedules.updateById(schedule.id, {
@@ -642,25 +720,21 @@ export const postRampScheduleAction = async (
         const httpStatus =
           approveErr.code === "permission_denied"
             ? 403
-            : approveErr.code === "merge_conflict"
-              ? 409
-              : approveErr.code === "no_pending_approval" ||
-                  approveErr.code === "revision_not_found"
-                ? 404
-                : 400;
+            : approveErr.code === "no_pending_approval" ||
+                approveErr.code === "revision_not_found"
+              ? 404
+              : 400;
         return res.status(httpStatus).json({
           status: httpStatus,
           code: approveErr.code,
           message:
-            approveErr.code === "merge_conflict"
-              ? `Merge conflict on: ${approveErr.detail}. Open the draft to resolve conflicts before continuing.`
-              : approveErr.code === "permission_denied"
-                ? `Permission denied: ${approveErr.detail}`
-                : approveErr.code === "no_pending_approval"
-                  ? "No pending approval revision found for this ramp step"
-                  : approveErr.code === "revision_not_found"
-                    ? "Pending approval revision no longer exists"
-                    : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`,
+            approveErr.code === "permission_denied"
+              ? `Permission denied: ${approveErr.detail}`
+              : approveErr.code === "no_pending_approval"
+                ? "No pending approval revision found for this ramp step"
+                : approveErr.code === "revision_not_found"
+                  ? "Pending approval revision no longer exists"
+                  : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`,
         });
       }
       // onRevisionPublished hook advances the ramp — re-fetch for fresh state

@@ -26,6 +26,7 @@ import RampScheduleSection, {
   type RampSectionState,
   defaultRampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import {
   AttributeOptionWithTooltip,
@@ -99,11 +100,24 @@ export default function StandardRuleFields({
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
   const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
+  const rampIsEditable =
+    !ruleRampSchedule ||
+    !["running", "pending-approval", "conflict"].includes(
+      ruleRampSchedule.status,
+    );
+
   const hasLegacySchedule = (
     "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
   ).some((r) => r.timestamp !== null);
 
+  const [savedStates, setSavedStates] = useState<
+    Partial<Record<ScheduleType, RampSectionState>>
+  >({});
+
   function applyScheduleType(type: ScheduleType) {
+    // Snapshot the current state for the type we're leaving so we can restore it.
+    setSavedStates((prev) => ({ ...prev, [scheduleType]: rampSectionState }));
+
     setScheduleType(type);
 
     if (type === "none") {
@@ -112,43 +126,45 @@ export default function StandardRuleFields({
       return;
     }
 
+    // Restore a previously saved state for this type if one exists.
+    const saved = savedStates[type];
+
     if (type === "ramp") {
       setScheduleToggleEnabled(false);
-      const nextMode = ruleRampSchedule ? "edit" : "create";
-      if (
-        rampSectionState.mode === "off" ||
-        rampSectionState.steps.length === 0
-      ) {
-        // Re-seed with default preset steps when coming from "off" or from the
-        // step-less "schedule" state so the step grid is never blank.
+      if (saved && saved.steps.length > 0) {
+        setRampSectionState(saved);
+      } else {
+        // Always reset to preset[0] when entering ramp fresh.
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
           : null;
+        const nextMode = ruleRampSchedule ? "edit" : "create";
         setRampSectionState({
-          ...rampSectionState,
+          ...(ruleRampSchedule ? rampSectionState : defaultRampSectionState(undefined)),
           mode: nextMode,
-          ...(seed && rampSectionState.steps.length === 0
-            ? { steps: seed.steps, name: seed.name }
-            : {}),
+          ...(seed ? { steps: seed.steps, name: seed.name } : {}),
         });
       }
       return;
     }
 
-    // "schedule" — 0-step ramp, start/end dates only.
-    // Always clear steps regardless of current mode so isScheduleMode is reliably true on save.
+    // "schedule" — restore saved state or reset to blank.
     setScheduleToggleEnabled(false);
-    setRampSectionState({
-      ...rampSectionState,
-      mode: ruleRampSchedule ? "edit" : "create",
-      steps: [],
-      endEarlyWhenStepsComplete: false,
-      startMode: "immediately",
-      startTime: "",
-      endScheduleAt: "",
-      disableRuleBefore: false,
-      disableRuleAfter: false,
-    });
+    if (saved) {
+      setRampSectionState(saved);
+    } else {
+      setRampSectionState({
+        ...rampSectionState,
+        mode: ruleRampSchedule ? "edit" : "create",
+        steps: [],
+        endEarlyWhenStepsComplete: false,
+        startMode: "immediately",
+        startTime: "",
+        endScheduleAt: "",
+        disableRuleBefore: false,
+        disableRuleAfter: false,
+      });
+    }
   }
 
   return (
@@ -240,31 +256,35 @@ export default function StandardRuleFields({
             <Heading as="h3" size="small" mb="4">
               Ramp-up
             </Heading>
-            <RampScheduleSection
-              featureRampSchedules={featureRampSchedules}
-              ruleRampSchedule={ruleRampSchedule}
-              state={rampSectionState}
-              setState={setRampSectionState}
-              pendingDetach={pendingDetach}
-              hideOuterToggle={true}
-              hideNameField={true}
-              feature={feature}
-              environments={environments}
-              onSetRuleCoverage={(v) => form.setValue("coverage", v)}
-              ruleBaseline={{
-                coverage: form.watch("coverage") ?? 0,
-                condition: form.watch("condition") ?? "{}",
-                savedGroups: form.watch("savedGroups") ?? [],
-                prerequisites: form.watch("prerequisites") ?? [],
-                force: form.watch("value") ?? "",
-              }}
-              ruleType={ruleType}
-              onConvertToRollout={
-                ruleType === "force" && onChangeRuleType
-                  ? () => onChangeRuleType("rollout")
-                  : undefined
-              }
-            />
+            {ruleRampSchedule && !rampIsEditable ? (
+              <RampScheduleDisplay rs={ruleRampSchedule} defaultOpen={true} />
+            ) : (
+              <RampScheduleSection
+                featureRampSchedules={featureRampSchedules}
+                ruleRampSchedule={ruleRampSchedule}
+                state={rampSectionState}
+                setState={setRampSectionState}
+                pendingDetach={pendingDetach}
+                hideOuterToggle={true}
+                hideNameField={true}
+                feature={feature}
+                environments={environments}
+                onSetRuleCoverage={(v) => form.setValue("coverage", v)}
+                ruleBaseline={{
+                  coverage: form.watch("coverage") ?? 0,
+                  condition: form.watch("condition") ?? "{}",
+                  savedGroups: form.watch("savedGroups") ?? [],
+                  prerequisites: form.watch("prerequisites") ?? [],
+                  force: form.watch("value") ?? "",
+                }}
+                ruleType={ruleType}
+                onConvertToRollout={
+                  ruleType === "force" && onChangeRuleType
+                    ? () => onChangeRuleType("rollout")
+                    : undefined
+                }
+              />
+            )}
             <Separator size="4" my="6" />
           </>
         )}
@@ -292,6 +312,7 @@ export default function StandardRuleFields({
             }))}
           value={form.watch("hashAttribute")}
           onChange={(v) => form.setValue("hashAttribute", v)}
+          sort={false}
           formatOptionLabel={(o, meta) => (
             <AttributeOptionWithTooltip
               option={o as AttributeOptionForTooltip}

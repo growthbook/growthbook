@@ -56,14 +56,16 @@ export default function RampScheduleBadge({
   // Simple schedule: show only timing, no status prefix, no tooltip.
   if (simpleSchedule) {
     let label: string;
-    if (futureStart && futureEnd) {
-      label = `schedule: Starts ${abbreviateAgo(startAt)} · ends ${abbreviateAgo(endAt)}`;
+    if (rs.status === "running") {
+      label = "Running";
+    } else if (futureStart && futureEnd) {
+      label = `Starts ${abbreviateAgo(startAt)} · ends ${abbreviateAgo(endAt)}`;
     } else if (futureStart) {
-      label = `schedule: Starts ${abbreviateAgo(startAt)}`;
+      label = `Starts ${abbreviateAgo(startAt)}`;
     } else if (futureEnd) {
-      label = `schedule: Ends ${abbreviateAgo(endAt)}`;
+      label = `Ends ${abbreviateAgo(endAt)}`;
     } else {
-      label = "schedule: active";
+      label = "Active";
     }
     return (
       <Badge label={label} color={getRampBadgeColor(rs.status)} radius="full" />
@@ -103,16 +105,17 @@ export default function RampScheduleBadge({
   }
 
   const baseLabel = getRampStatusLabel(rs);
-  // In a rule context the badge sits next to other rule-level statuses, so prefix
-  // with "schedule: " to make it clear which system owns the status.
-  // "schedule start is pending" already embeds "schedule" — trim it to avoid redundancy.
   const displayLabel = featureRuleContext
     ? `schedule: ${baseLabel.replace(/^schedule start is /, "").replace(/^schedule: /, "")}`
     : baseLabel;
 
   const badge = (
     <Badge
-      label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
+      label={
+        rs.status === "running"
+          ? "Running"
+          : displayLabel + (timingLabel ? ` · ${timingLabel}` : "")
+      }
       color={getRampBadgeColor(rs.status)}
       radius="full"
     />

@@ -113,6 +113,8 @@ interface NodeMeta {
   key: string;
   label: string;
   sublabel: ReactNode;
+  /** Trigger label rendered underneath the connector that leads INTO this node. */
+  connectorLabel?: ReactNode;
   isApproval: boolean;
   dotColorOverride?: string;
   labelColorOverride?: string;
@@ -207,7 +209,9 @@ function Node({
             {node.label}
           </Text>
         </span>
-        {node.sublabel}
+        {node.sublabel && state !== "completed" && (
+          <span style={{ color: "var(--gray-9)" }}>{node.sublabel}</span>
+        )}
       </Flex>
     </Flex>
   );
@@ -217,18 +221,42 @@ const CONNECTOR_WIDTH = 44;
 
 // ─── Connector ───────────────────────────────────────────────────────────────
 
-function Connector({ left }: { left: NodeState }) {
+function Connector({
+  left,
+  triggerLabel,
+}: {
+  left: NodeState;
+  triggerLabel?: ReactNode;
+}) {
   return (
-    <Box
-      style={{
-        width: CONNECTOR_WIDTH,
-        flexShrink: 0,
-        height: 2,
-        marginTop: CONNECTOR_MARGIN_TOP,
-        backgroundColor: connectorColor(left),
-        alignSelf: "flex-start",
-      }}
-    />
+    <Flex
+      direction="column"
+      style={{ width: CONNECTOR_WIDTH, flexShrink: 0, alignSelf: "flex-start" }}
+    >
+      {/* The horizontal line */}
+      <Box
+        style={{
+          width: "100%",
+          height: 2,
+          marginTop: CONNECTOR_MARGIN_TOP,
+          backgroundColor: connectorColor(left),
+        }}
+      />
+      {/* Trigger label sits below the line, right-aligned so it hugs the left
+          side of the following node */}
+      {triggerLabel && (
+        <Box
+          style={{
+            textAlign: "center",
+            marginTop: 2,
+            color: "var(--gray-9)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {triggerLabel}
+        </Box>
+      )}
+    </Flex>
   );
 }
 
@@ -246,17 +274,17 @@ interface Props {
 export function getRampStatusLabel(rs: RampScheduleInterface): string {
   if (rs.status === "ready") {
     return rs.startCondition?.trigger.type === "manual"
-      ? "ready to start"
-      : "scheduled";
+      ? "Ready to Start"
+      : "Scheduled";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
-    pending: "schedule start is pending",
-    running: "running",
-    paused: "paused",
-    "pending-approval": "needs approval",
-    conflict: "conflict",
-    completed: "complete",
-    "rolled-back": "rolled back",
+    pending: "Schedule Start is Pending",
+    running: "Running",
+    paused: "Paused",
+    "pending-approval": "Needs Approval",
+    conflict: "Conflict",
+    completed: "Complete",
+    "rolled-back": "Rolled Back",
   };
   return labels[rs.status] ?? rs.status;
 }
@@ -336,18 +364,21 @@ export default function RampTimeline({
     ...steps.map((step, i) => ({
       key: `step-${i}`,
       label: String(i + 1),
-      sublabel: formatTrigger(step.trigger),
+      sublabel: null,
+      connectorLabel: formatTrigger(step.trigger),
       isApproval: step.trigger.type === "approval",
     })),
     {
       key: "end",
       label: "end",
       sublabel:
-        endCondition?.trigger?.type === "scheduled" ? (
-          formatScheduledDate(endCondition.trigger.at)
-        ) : (
+        endCondition?.trigger?.type === "scheduled"
+          ? formatScheduledDate(endCondition.trigger.at)
+          : null,
+      connectorLabel:
+        endCondition?.trigger?.type !== "scheduled" ? (
           <Text size="small">auto</Text>
-        ),
+        ) : undefined,
       isApproval: false,
     },
   ];
@@ -442,7 +473,17 @@ export default function RampTimeline({
 
           {nodes.map((node, i) => (
             <>
-              {i > 0 && <Connector key={`conn-${i}`} left={getState(i - 1)} />}
+              {i > 0 && (
+                <Connector
+                  key={`conn-${i}`}
+                  left={getState(i - 1)}
+                  triggerLabel={
+                    getState(i) !== "completed"
+                      ? node.connectorLabel
+                      : undefined
+                  }
+                />
+              )}
               <Node
                 key={node.key}
                 node={node}

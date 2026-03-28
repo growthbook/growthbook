@@ -3,6 +3,7 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
+  applyStartConditionActions,
   completeRollout,
   computeNextStepAt,
   makeAttribution,
@@ -200,6 +201,7 @@ export const advanceSingleRampSchedule = async (
         phaseStartedAt: now,
         nextStepAt: initialNextStepAt,
       });
+      await applyStartConditionActions(context, current);
     }
 
     // Advance through all interval steps that have elapsed since the last poll.

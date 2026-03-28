@@ -405,7 +405,6 @@ const RAMP_PRESETS: {
   },
 ];
 
-
 /**
  * Detect which preset (if any) matches the given steps + start configuration.
  *
@@ -919,8 +918,7 @@ export default function RampScheduleSection({
       },
       {
         value: "specific-time",
-        label: "On",
-        tooltip: "Starts at a specific time after draft is published",
+        label: "On date",        tooltip: "Starts at a specific time after draft is published",
       },
     ];
 
@@ -1079,8 +1077,7 @@ export default function RampScheduleSection({
                   },
                   {
                     value: "on",
-                    label: "On",
-                    tooltip: "Ends at a specific time",
+                    label: "On date",                    tooltip: "Ends at a specific time",
                   },
                   {
                     value: "on-or-before",
@@ -1488,20 +1485,19 @@ export default function RampScheduleSection({
                     ruleBaseline,
                   ),
                   name: ramp.name,
+                  endScheduleAt: "",
                   endSchedulePatch: { coverage: 100 },
                   disableRuleBefore: false,
                   disableRuleAfter: false,
                   endEarlyWhenStepsComplete: true,
-                  ...(ramp.manualStart
-                    ? { startMode: "manual" as const, startTime: "" }
-                    : {}),
+                  startMode: ramp.manualStart ? "manual" : "immediately",
+                  startTime: "",
                 });
                 if ((state.startPatch.coverage ?? 0) === 0) {
                   onSetRuleCoverage?.(0);
                 }
                 return;
               }
-
             }}
             sort={false}
             containerClassName="mb-0"

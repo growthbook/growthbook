@@ -1429,11 +1429,10 @@ async function applyRevisionRampActions(
           disableRuleAfter: disableAfter || undefined,
           endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
           endCondition,
-          // Determine initial status on publish:
-          //   "immediately" → start running now
-          //   "scheduled"   → ready, waiting for the trigger date
-          //   "manual"      → ready, waiting for user to click Start
-          status: startTrigger.type === "immediately" ? "running" : "ready",
+          // Always start as "pending" so onActivatingRevisionPublished handles
+          // the "immediately" → "running" transition inline (including start
+          // actions and advanceUntilBlocked). Agenda uses nextStepAt for polling.
+          status: "pending",
           currentStepIndex: -1,
           // nextStepAt drives Agenda polling.
           //   "immediately" → now (so the first step fires ASAP)
@@ -1445,11 +1444,28 @@ async function applyRevisionRampActions(
               : startTrigger.type === "scheduled"
                 ? new Date(startTrigger.at)
                 : null,
-          startedAt: startTrigger.type === "immediately" ? new Date() : null,
-          phaseStartedAt:
-            startTrigger.type === "immediately" ? new Date() : null,
+          startedAt: null,
+          phaseStartedAt: null,
           stepHistory: [],
         });
+
+        // For non-immediate starts with disableRuleBefore, set the rule to
+        // enabled: false right now so it's hidden from SDK until the ramp starts.
+        if (disableBefore && startTrigger.type !== "immediately") {
+          const updatedEnvSettings: FeatureInterface["environmentSettings"] =
+            {};
+          for (const [env, envSettings] of Object.entries(
+            feature.environmentSettings ?? {},
+          )) {
+            const rules = (envSettings.rules ?? []).map((r) =>
+              r.id === action.ruleId ? { ...r, enabled: false } : r,
+            );
+            updatedEnvSettings[env] = { ...envSettings, rules };
+          }
+          await updateFeature(context, feature, {
+            environmentSettings: updatedEnvSettings,
+          });
+        }
       } else if (action.mode === "detach") {
         // Gracefully skip if the schedule no longer exists (e.g., deleted by a concurrent action)
         const existing = await context.models.rampSchedules.getById(

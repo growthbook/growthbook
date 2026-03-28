@@ -4,9 +4,9 @@
 // identical to the ramp schedule path.
 //
 // Wiring (automatic — not exposed as checkboxes to the user):
-//   • Start = "On" (specific-time) → disableRuleBefore = true
+//   • Start = "On date" (specific-time) → disableRuleBefore = true
 //   • Start = "Immediately"        → disableRuleBefore = false
-//   • End   = "On" (specific-time) → disableRuleAfter  = true
+//   • End   = "On date" (specific-time) → disableRuleAfter  = true
 //   • End   = "Never"              → disableRuleAfter  = false
 
 import { Box, Flex } from "@radix-ui/themes";
@@ -51,7 +51,7 @@ const START_OPTIONS = [
   },
   {
     value: "specific-time",
-    label: "On",
+    label: "On date",
     tooltip: "Rule becomes active at a specific date and time",
   },
 ];
@@ -63,7 +63,7 @@ const END_OPTIONS = [
   },
   {
     value: "specific-time",
-    label: "On",
+    label: "On date",
     tooltip: "Rule is automatically disabled at a specific date and time",
   },
 ];
