@@ -1344,151 +1344,158 @@ export async function applyHoldoutSideEffects(
 }
 
 /**
- * Clean up orphaned ramp schedules after a publish.
- * If a rule with a ramp was deleted and it was the only implementation of that ramp,
- * delete the ramp schedule entirely.
+ * Create ramp schedules for all `mode === "create"` actions in a revision.
+ * Called BEFORE the feature write so that a schedule creation failure prevents publish.
+ * Returns the IDs of created schedules for rollback on subsequent failure.
  */
-async function applyRevisionRampActions(
+async function createRampSchedulesForRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
+  revision: { version: number },
+  actions: RevisionRampAction[],
+): Promise<string[]> {
+  const createdIds: string[] = [];
+
+  for (const action of actions) {
+    if (action.mode !== "create") continue;
+
+    const targetId = uuidv4();
+    const enabledPatch = { ruleId: action.ruleId, enabled: true };
+    const disabledPatch = { ruleId: action.ruleId, enabled: false };
+    const disableBefore = !!action.disableRuleBefore;
+    const disableAfter = !!action.disableRuleAfter;
+
+    // Remap "t1" placeholder targetId to the real UUID.
+    const remapTargetId = (a: RampStepAction): RampStepAction =>
+      a.targetId === "t1" ? { ...a, targetId } : a;
+
+    const baseStartActions = (action.startCondition?.actions ?? []).map(
+      remapTargetId,
+    );
+    const startConditionActions = disableBefore
+      ? [
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: enabledPatch,
+          },
+          ...baseStartActions,
+        ]
+      : baseStartActions;
+
+    const rawStartTrigger = action.startCondition?.trigger;
+    const startTrigger =
+      rawStartTrigger?.type === "scheduled"
+        ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
+        : (rawStartTrigger ?? { type: "immediately" as const });
+
+    const baseEndActions = (action.endCondition?.actions ?? []).map(
+      remapTargetId,
+    );
+    const endConditionActions = disableAfter
+      ? [
+          ...baseEndActions,
+          {
+            targetType: "feature-rule" as const,
+            targetId,
+            patch: disabledPatch,
+          },
+        ]
+      : baseEndActions;
+
+    const rawEndTrigger = action.endCondition?.trigger;
+    const endTrigger =
+      rawEndTrigger?.type === "scheduled"
+        ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
+        : undefined;
+    const endCondition =
+      endTrigger || endConditionActions.length
+        ? { trigger: endTrigger, actions: endConditionActions }
+        : undefined;
+
+    const steps = action.steps.map((step) => ({
+      ...step,
+      actions: step.actions.map(remapTargetId),
+    }));
+
+    const created = await context.models.rampSchedules.create({
+      name: action.name,
+      entityType: "feature",
+      entityId: feature.id,
+      targets: [
+        {
+          id: targetId,
+          entityType: "feature",
+          entityId: feature.id,
+          ruleId: action.ruleId,
+          environment: action.environment,
+          status: "active",
+          // Link this target to the activating revision so onRevisionPublished
+          // (and the Agenda recovery path) can transition "pending" → "running".
+          activatingRevisionVersion: revision.version,
+        },
+      ],
+      steps,
+      startCondition: {
+        trigger: startTrigger,
+        actions: startConditionActions.length
+          ? startConditionActions
+          : undefined,
+      },
+      disableRuleBefore: disableBefore || undefined,
+      disableRuleAfter: disableAfter || undefined,
+      endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
+      endCondition,
+      // Start as "pending" — onActivatingRevisionPublished handles the
+      // "immediately" → "running" transition inline when the revision publishes.
+      status: "pending",
+      currentStepIndex: -1,
+      nextStepAt:
+        startTrigger.type === "immediately" && steps.length > 0
+          ? new Date()
+          : startTrigger.type === "scheduled"
+            ? new Date(startTrigger.at)
+            : null,
+      startedAt: null,
+      phaseStartedAt: null,
+      stepHistory: [],
+    });
+
+    createdIds.push(created.id);
+  }
+
+  return createdIds;
+}
+
+/**
+ * Apply detach/update ramp actions stored on a revision.
+ * Best-effort: logs errors but does not throw, since these run after the feature is published.
+ */
+async function applyDetachRampActions(
+  context: ReqContext | ApiReqContext,
   actions: RevisionRampAction[],
 ) {
   for (const action of actions) {
+    if (action.mode !== "detach") continue;
     try {
-      if (action.mode === "create") {
-        const targetId = uuidv4();
-        const enabledPatch = { ruleId: action.ruleId, enabled: true };
-        const disabledPatch = { ruleId: action.ruleId, enabled: false };
-        const disableBefore = !!action.disableRuleBefore;
-        const disableAfter = !!action.disableRuleAfter;
-
-        // The frontend always uses the placeholder "t1" as targetId when building
-        // step/condition action patches. Remap any "t1" references to the real UUID
-        // now that we know it, so the ramp service can resolve patches at execution time.
-        const remapTargetId = (a: RampStepAction): RampStepAction =>
-          a.targetId === "t1" ? { ...a, targetId } : a;
-
-        const baseStartActions = (action.startCondition?.actions ?? []).map(
-          remapTargetId,
+      const existing = await context.models.rampSchedules.getById(
+        action.rampScheduleId,
+      );
+      if (existing) {
+        const remainingTargets = existing.targets.filter(
+          (t) => t.ruleId !== action.ruleId,
         );
-        const startConditionActions = disableBefore
-          ? [{ targetId, patch: enabledPatch }, ...baseStartActions]
-          : baseStartActions;
-
-        const rawStartTrigger = action.startCondition?.trigger;
-        const startTrigger =
-          rawStartTrigger?.type === "scheduled"
-            ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
-            : (rawStartTrigger ?? { type: "immediately" as const });
-
-        const baseEndActions = (action.endCondition?.actions ?? []).map(
-          remapTargetId,
-        );
-        const endConditionActions = disableAfter
-          ? [...baseEndActions, { targetId, patch: disabledPatch }]
-          : baseEndActions;
-
-        const rawEndTrigger = action.endCondition?.trigger;
-        const endTrigger =
-          rawEndTrigger?.type === "scheduled"
-            ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-            : undefined;
-        const endCondition =
-          endTrigger || endConditionActions.length
-            ? { trigger: endTrigger, actions: endConditionActions }
-            : undefined;
-
-        // Remap step action targetId references from "t1" to the real UUID
-        const steps = action.steps.map((step) => ({
-          ...step,
-          actions: step.actions.map(remapTargetId),
-        }));
-
-        await context.models.rampSchedules.create({
-          name: action.name,
-          entityType: "feature",
-          entityId: feature.id,
-          targets: [
-            {
-              id: targetId,
-              entityType: "feature",
-              entityId: feature.id,
-              ruleId: action.ruleId,
-              environment: action.environment,
-              status: "active",
-            },
-          ],
-          steps,
-          startCondition: {
-            trigger: startTrigger,
-            actions: startConditionActions.length
-              ? startConditionActions
-              : undefined,
-          },
-          disableRuleBefore: disableBefore || undefined,
-          disableRuleAfter: disableAfter || undefined,
-          endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
-          endCondition,
-          // Always start as "pending" so onActivatingRevisionPublished handles
-          // the "immediately" → "running" transition inline (including start
-          // actions and advanceUntilBlocked). Agenda uses nextStepAt for polling.
-          status: "pending",
-          currentStepIndex: -1,
-          // nextStepAt drives Agenda polling.
-          //   "immediately" → now (so the first step fires ASAP)
-          //   "scheduled"   → the trigger date (so Agenda wakes up at the right time)
-          //   "manual"      → null (Agenda never auto-starts these)
-          nextStepAt:
-            startTrigger.type === "immediately" && steps.length > 0
-              ? new Date()
-              : startTrigger.type === "scheduled"
-                ? new Date(startTrigger.at)
-                : null,
-          startedAt: null,
-          phaseStartedAt: null,
-          stepHistory: [],
-        });
-
-        // For non-immediate starts with disableRuleBefore, set the rule to
-        // enabled: false right now so it's hidden from SDK until the ramp starts.
-        if (disableBefore && startTrigger.type !== "immediately") {
-          const updatedEnvSettings: FeatureInterface["environmentSettings"] =
-            {};
-          for (const [env, envSettings] of Object.entries(
-            feature.environmentSettings ?? {},
-          )) {
-            const rules = (envSettings.rules ?? []).map((r) =>
-              r.id === action.ruleId ? { ...r, enabled: false } : r,
-            );
-            updatedEnvSettings[env] = { ...envSettings, rules };
-          }
-          await updateFeature(context, feature, {
-            environmentSettings: updatedEnvSettings,
+        if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+          await context.models.rampSchedules.deleteById(existing.id);
+        } else {
+          await context.models.rampSchedules.updateById(existing.id, {
+            targets: remainingTargets,
           });
-        }
-      } else if (action.mode === "detach") {
-        // Gracefully skip if the schedule no longer exists (e.g., deleted by a concurrent action)
-        const existing = await context.models.rampSchedules.getById(
-          action.rampScheduleId,
-        );
-        if (existing) {
-          const remainingTargets = existing.targets.filter(
-            (t) => t.ruleId !== action.ruleId,
-          );
-          if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
-            await context.models.rampSchedules.deleteById(existing.id);
-          } else {
-            await context.models.rampSchedules.updateById(existing.id, {
-              targets: remainingTargets,
-            });
-          }
         }
       }
     } catch (err) {
-      // Log but don't fail the publish — ramp action failures shouldn't block feature delivery.
       logger.error(err, {
-        msg: "Failed to apply revision ramp action",
-        featureId: feature.id,
+        msg: "Failed to apply revision ramp detach action",
         action,
       });
     }
@@ -1580,40 +1587,64 @@ export async function publishRevision(
     throw new Error("Can only publish a draft revision");
   }
 
-  // TODO: wrap these 2 calls in a transaction
-  const updatedFeature = await applyRevisionChanges(
-    context,
-    feature,
-    revision,
-    result,
+  // Create ramp schedules BEFORE writing the feature so that a schedule
+  // creation failure gates the publish (atomicity: no published feature without
+  // its ramp schedule).
+  const createActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create",
   );
-
-  // Run holdout side-effects for every publish path (approval flow, revert, direct publish, etc.)
-  if (result.holdout !== undefined) {
-    await applyHoldoutSideEffects(context, feature, result.holdout);
-  }
-
-  await markRevisionAsPublished(
-    context,
-    feature,
-    revision,
-    context.auditUser,
-    comment,
-  );
-
-  // Execute deferred ramp actions (create/detach) stored on the revision.
-  // These are deferred to publish time to prevent orphaned ramp schedules from
-  // draft abandonment or revision reverts.
-  if (revision.rampActions?.length) {
-    await applyRevisionRampActions(
+  const preCreatedScheduleIds: string[] = [];
+  if (createActions.length) {
+    const ids = await createRampSchedulesForRevision(
       context,
-      updatedFeature,
-      revision.rampActions,
+      feature,
+      revision,
+      createActions,
     );
+    preCreatedScheduleIds.push(...ids);
   }
 
-  // Clean up orphaned ramp schedules: if a rule with a ramp was deleted and it was
-  // the only implementation of that ramp, delete the ramp as well.
+  let updatedFeature: FeatureInterface;
+  try {
+    updatedFeature = await applyRevisionChanges(
+      context,
+      feature,
+      revision,
+      result,
+    );
+
+    if (result.holdout !== undefined) {
+      await applyHoldoutSideEffects(context, feature, result.holdout);
+    }
+
+    await markRevisionAsPublished(
+      context,
+      feature,
+      revision,
+      context.auditUser,
+      comment,
+    );
+  } catch (err) {
+    // Roll back pre-created ramp schedules so they don't linger as orphans.
+    for (const id of preCreatedScheduleIds) {
+      try {
+        await context.models.rampSchedules.deleteById(id);
+      } catch (deleteErr) {
+        logger.error(
+          deleteErr,
+          `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
+        );
+      }
+    }
+    throw err;
+  }
+
+  // Apply detach actions (best-effort: logged but do not fail publish).
+  if (revision.rampActions?.length) {
+    await applyDetachRampActions(context, revision.rampActions);
+  }
+
+  // Clean up orphaned ramp schedules (best-effort).
   await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
 
   return updatedFeature;

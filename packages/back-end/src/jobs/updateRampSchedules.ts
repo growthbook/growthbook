@@ -7,7 +7,9 @@ import {
   completeRollout,
   computeNextStepAt,
   makeAttribution,
+  onActivatingRevisionPublished,
 } from "back-end/src/services/rampSchedule";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 type AdvanceSingleRampScheduleJob = Job<{
@@ -100,6 +102,12 @@ export default async function addRampScheduleJob(
               status: { $in: ["running", "pending-approval"] },
               "endCondition.trigger.at": { $lte: now },
             },
+            // Pending schedules that have a linked activating revision:
+            // recover from crash-before-onRevisionPublished scenarios.
+            {
+              status: "pending",
+              "targets.activatingRevisionVersion": { $exists: true, $ne: null },
+            },
           ],
         },
         { projection: { _id: 1, id: 1, organization: 1 } },
@@ -181,6 +189,28 @@ export const advanceSingleRampSchedule = async (
     // "immediately" ramps are started inline when the activating revision is published.
     // "manual" ramps require an explicit user action (REST start endpoint).
     let current = schedule;
+
+    // Recovery path: if a schedule is still "pending" but its activating revision
+    // has already been published (crash-before-onRevisionPublished scenario),
+    // replay the activation transition now.
+    if (current.status === "pending") {
+      const activatingVersion = current.targets[0]?.activatingRevisionVersion;
+      if (activatingVersion != null) {
+        const entityId = current.entityId;
+        const feature = entityId
+          ? await getFeature(context, entityId)
+          : undefined;
+        const currentVersion = feature?.version ?? -1;
+        if (currentVersion >= activatingVersion) {
+          await onActivatingRevisionPublished(context, current);
+          // Re-fetch after activation — may have advanced to "running" or "ready".
+          current =
+            (await context.models.rampSchedules.getById(current.id)) ?? current;
+        }
+      }
+      if (current.status === "pending") return; // Still pending — nothing to do.
+    }
+
     if (
       current.status === "ready" &&
       current.startCondition?.trigger.type === "scheduled" &&

@@ -3,7 +3,6 @@ import {
   FeatureRule,
   RampStep,
   RampStepAction,
-  RampStepDefaultEffects,
 } from "shared/validators";
 
 /** Wire-format start trigger (dates as ISO strings). */
@@ -26,7 +25,6 @@ export type InlineRampScheduleCreate = {
   /** Start trigger + initial actions, mirrors step shape. Absent = immediately, no start actions. */
   startCondition?: {
     trigger: RampStartTrigger;
-    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   };
   /** When true, rule is hidden from SDK payload before the schedule starts. */
@@ -38,7 +36,6 @@ export type InlineRampScheduleCreate = {
   /** End trigger + teardown actions. trigger is optional (no deadline = fires on natural completion). */
   endCondition?: {
     trigger?: RampEndTrigger;
-    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   };
 };
@@ -77,7 +74,6 @@ export type InlineRampScheduleUpdate = {
   /** null resets start condition to { trigger: "immediately" }. */
   startCondition?: {
     trigger?: RampStartTrigger;
-    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   } | null;
   disableRuleBefore?: boolean;
@@ -86,7 +82,6 @@ export type InlineRampScheduleUpdate = {
   /** null clears the end condition entirely. */
   endCondition?: {
     trigger?: RampEndTrigger;
-    defaultEffects?: RampStepDefaultEffects;
     actions?: RampStepAction[];
   } | null;
 };

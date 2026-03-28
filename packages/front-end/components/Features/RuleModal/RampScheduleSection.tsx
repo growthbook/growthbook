@@ -191,11 +191,8 @@ export function buildRampSteps(
   steps: UIStep[],
   targetId: string,
   ruleId: string,
-  // When true, mirrors the step patch into defaultEffects so the shared ramp
-  // stays in sync with the single implementation editing it.
-  syncDefaultEffects = false,
 ) {
-  return steps.map((s, _i) => {
+  return steps.map((s) => {
     const patch = buildPatch(s.patch, ruleId);
     return {
       trigger:
@@ -205,36 +202,7 @@ export function buildRampSteps(
               seconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
             }
           : { type: "approval" as const },
-      ...(syncDefaultEffects
-        ? {
-            defaultEffects: {
-              ...(s.patch.coverage != null
-                ? { coverage: s.patch.coverage / 100 }
-                : {}),
-              ...(s.patch.condition != null
-                ? { condition: s.patch.condition }
-                : {}),
-              ...(s.patch.savedGroups != null
-                ? { savedGroups: s.patch.savedGroups }
-                : {}),
-              ...(s.patch.prerequisites != null
-                ? { prerequisites: s.patch.prerequisites }
-                : {}),
-              ...(s.patch.force != null
-                ? {
-                    force: (() => {
-                      try {
-                        return JSON.parse(s.patch.force);
-                      } catch {
-                        return s.patch.force;
-                      }
-                    })(),
-                  }
-                : {}),
-            },
-          }
-        : {}),
-      actions: [{ targetId, patch }],
+      actions: [{ targetType: "feature-rule" as const, targetId, patch }],
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
@@ -250,7 +218,11 @@ export function buildStartActions(
   const hasAny = Object.values(patch).some((v) => v !== undefined);
   if (!hasAny) return [];
   return [
-    { targetId, patch: buildPatch(patch, ruleId) as RampStepAction["patch"] },
+    {
+      targetType: "feature-rule" as const,
+      targetId,
+      patch: buildPatch(patch, ruleId) as RampStepAction["patch"],
+    },
   ];
 }
 
@@ -262,30 +234,12 @@ export function buildEndScheduleActions(
   const hasAny = Object.values(patch).some((v) => v !== undefined);
   if (!hasAny) return [];
   return [
-    { targetId, patch: buildPatch(patch, ruleId) as RampStepAction["patch"] },
+    {
+      targetType: "feature-rule" as const,
+      targetId,
+      patch: buildPatch(patch, ruleId) as RampStepAction["patch"],
+    },
   ];
-}
-
-// Builds the defaultEffects bookmark for a start/end condition from a UIStepPatch.
-// Returns undefined when the patch has no values (avoids storing an empty object).
-export function buildConditionDefaultEffects(
-  patch: UIStepPatch,
-): RampStep["defaultEffects"] {
-  const hasAny = Object.values(patch).some((v) => v !== undefined);
-  if (!hasAny) return undefined;
-  const de: RampStep["defaultEffects"] = {};
-  if (patch.coverage != null) de.coverage = patch.coverage / 100;
-  if (patch.condition != null) de.condition = patch.condition;
-  if (patch.savedGroups != null) de.savedGroups = patch.savedGroups;
-  if (patch.prerequisites != null) de.prerequisites = patch.prerequisites;
-  if (patch.force != null) {
-    try {
-      de.force = JSON.parse(patch.force);
-    } catch {
-      de.force = patch.force;
-    }
-  }
-  return de;
 }
 
 // Returns a validation error message if any required date fields are missing, or null if valid.
@@ -918,7 +872,8 @@ export default function RampScheduleSection({
       },
       {
         value: "specific-time",
-        label: "On date",        tooltip: "Starts at a specific time after draft is published",
+        label: "On date",
+        tooltip: "Starts at a specific time after draft is published",
       },
     ];
 
@@ -1077,7 +1032,8 @@ export default function RampScheduleSection({
                   },
                   {
                     value: "on",
-                    label: "On date",                    tooltip: "Ends at a specific time",
+                    label: "On date",
+                    tooltip: "Ends at a specific time",
                   },
                   {
                     value: "on-or-before",
@@ -1793,85 +1749,6 @@ export function rampScheduleToSectionState(
   };
 }
 
-// Same as rampScheduleToSectionState but reads step patches from defaultEffects
-// instead of actions[0].patch. Used by the standalone RampScheduleModal where
-// defaultEffects is the primary editing surface rather than a single-target action.
-export function rampScheduleToSectionStateFromDefaultEffects(
-  rs: RampScheduleInterface,
-): RampSectionState {
-  const trigger = rs.startCondition?.trigger;
-  return {
-    mode: "edit",
-    name: rs.name,
-    startMode:
-      trigger?.type === "scheduled"
-        ? "specific-time"
-        : trigger?.type === "manual"
-          ? "manual"
-          : "immediately",
-    startTime:
-      trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    // Prefer defaultEffects as the shared source of truth; fall back to the
-    // first target's action patch for ramps created before defaultEffects existed.
-    startPatch: reconstructUIPatch(
-      (rs.startCondition?.defaultEffects as FeatureRulePatch | null) ??
-        rs.startCondition?.actions?.[0]?.patch,
-    ),
-    disableRuleBefore: rs.disableRuleBefore ?? false,
-    disableRuleAfter: rs.disableRuleAfter ?? false,
-    endEarlyWhenStepsComplete: rs.endEarlyWhenStepsComplete ?? true,
-    steps: rs.steps.map((step) => {
-      const patch = reconstructUIPatch(
-        step.defaultEffects as FeatureRulePatch | null,
-      );
-      if (
-        step.trigger.type === "approval" ||
-        step.trigger.type === "scheduled"
-      ) {
-        const approvalNotes = step.approvalNotes ?? "";
-        return {
-          patch,
-          triggerType: "approval" as const,
-          intervalValue: 10,
-          intervalUnit: "minutes" as IntervalUnit,
-          approvalNotes,
-          notesOpen: approvalNotes.trim().length > 0,
-        };
-      }
-      const seconds = step.trigger.seconds;
-      const intervalUnit: IntervalUnit =
-        seconds % 86400 === 0 && seconds >= 86400
-          ? "days"
-          : seconds % 3600 === 0 && seconds >= 3600
-            ? "hours"
-            : "minutes";
-      return {
-        patch,
-        triggerType: "interval" as const,
-        intervalUnit,
-        intervalValue:
-          intervalUnit === "days"
-            ? seconds / 86400
-            : intervalUnit === "hours"
-              ? seconds / 3600
-              : seconds / 60,
-        approvalNotes: "",
-        notesOpen: false,
-      };
-    }),
-    endScheduleAt:
-      rs.endCondition?.trigger?.type === "scheduled"
-        ? new Date(rs.endCondition.trigger.at).toISOString()
-        : "",
-    // Same defaultEffects-first preference as startPatch.
-    endSchedulePatch: reconstructUIPatch(
-      (rs.endCondition?.defaultEffects as FeatureRulePatch | null) ??
-        rs.endCondition?.actions?.[0]?.patch,
-    ),
-    linkedRampId: rs.id,
-  };
-}
-
 export function defaultRampSectionState(
   ruleRampSchedule: RampScheduleInterface | undefined,
 ): RampSectionState {
@@ -1924,10 +1801,7 @@ export function createActionToSectionState(
     startMode,
     startTime:
       trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    startPatch: reconstructUIPatch(
-      (action.startCondition?.defaultEffects as FeatureRulePatch | null) ??
-        action.startCondition?.actions?.[0]?.patch,
-    ),
+    startPatch: reconstructUIPatch(action.startCondition?.actions?.[0]?.patch),
     disableRuleBefore: action.disableRuleBefore ?? false,
     disableRuleAfter: action.disableRuleAfter ?? false,
     endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete ?? true,
@@ -1937,8 +1811,7 @@ export function createActionToSectionState(
         ? new Date(action.endCondition.trigger.at).toISOString()
         : "",
     endSchedulePatch: reconstructUIPatch(
-      (action.endCondition?.defaultEffects as FeatureRulePatch | null) ??
-        action.endCondition?.actions?.[0]?.patch,
+      action.endCondition?.actions?.[0]?.patch,
     ),
     linkedRampId: "",
   };

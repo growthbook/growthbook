@@ -79,26 +79,70 @@ export function makeAttribution(
 }
 
 // ---------------------------------------------------------------------------
+// Revision reference helpers
+// ---------------------------------------------------------------------------
+
+/** Build the opaque "entityId:version" string used as a stable revision handle. */
+function buildRevisionRef(entityId: string, version: number): string {
+  return `${entityId}:${version}`;
+}
+
+/**
+ * Parse a revision reference back into its components.
+ * Splits from the right so entity IDs containing ":" are handled correctly.
+ */
+function parseRevisionRef(ref: string): { entityId: string; version: number } {
+  const lastColon = ref.lastIndexOf(":");
+  return {
+    entityId: ref.slice(0, lastColon),
+    version: parseInt(ref.slice(lastColon + 1), 10),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // EntityHandler interface
 // ---------------------------------------------------------------------------
 
-interface BuildRevisionResult {
-  /** Sparse changes to pass to createRevision */
-  changes: Partial<FeatureRevisionInterface>;
-  /** Sparse previous values (same shape as the patch) for rollback storage */
+/** Result from a single entity's applyActions call. */
+type ApplyActionsResult = {
+  revisionRef: string;
   previousValues: { targetId: string; patch: FeatureRulePatch }[];
-}
+  pendingApprovalRevisionId?: string;
+};
 
 interface EntityHandler {
   /**
-   * Build revision changes from the step actions targeting a single entity.
-   * Returns both the revision changes and the previousValues snapshot for stepHistory.
+   * Apply step actions targeting a single entity.
+   * For approval gates: creates a revision and requests review (primary) or
+   * marks pending-parent (secondary). For interval steps: creates and immediately
+   * publishes a revision using sparse-applied patches on top of current live state.
+   *
+   * Throws on unrecoverable errors (rule deleted, entity not found) so the
+   * Agenda error handler can pause the ramp.
    */
-  buildRevisionChanges(
+  applyActions(
     ctx: ReqContext | ApiReqContext,
     entityId: string,
     actions: RampStepAction[],
-  ): Promise<BuildRevisionResult>;
+    opts: {
+      isApprovalGate: boolean;
+      isPrimary: boolean;
+      stepLabel: string;
+      user: EventUser;
+    },
+  ): Promise<ApplyActionsResult>;
+
+  /**
+   * Approve a pending approval-gate revision: sparse-apply its patches on the
+   * current live state and publish. Called by approveAndPublishStep after
+   * permission checks pass.
+   */
+  approveActions(
+    ctx: ReqContext | ApiReqContext,
+    revisionRef: string,
+    stepActions: RampStepAction[],
+    user: EventUser,
+  ): Promise<ApproveStepError | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +153,7 @@ interface EntityHandler {
  * Apply a sparse FeatureRulePatch to an existing rule, returning the merged rule.
  * Only fields present in the patch are overwritten.
  */
-function applyPatchToRule(
+export function applyPatchToRule(
   existing: FeatureRule,
   patch: Omit<FeatureRulePatch, "ruleId">,
 ): FeatureRule {
@@ -138,7 +182,7 @@ function applyPatchToRule(
 /**
  * Extract the current sparse values for the fields in a patch (for previousValues storage).
  */
-function extractPreviousValues(
+export function extractPreviousValues(
   existing: FeatureRule | undefined,
   patch: Omit<FeatureRulePatch, "ruleId">,
 ): Omit<FeatureRulePatch, "ruleId"> {
@@ -165,35 +209,38 @@ function extractPreviousValues(
   return prev;
 }
 
-const featureEntityHandler: EntityHandler = {
-  async buildRevisionChanges(ctx, entityId, actions) {
+export const featureEntityHandler: EntityHandler = {
+  async applyActions(ctx, entityId, actions, opts) {
+    const { isApprovalGate, isPrimary, stepLabel, user } = opts;
+
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
 
-    // Build per-environment rule maps from current live state
-    const rulesSnapshot: Record<string, FeatureRule[]> = {};
+    // Build patched rules from current live state, capturing previousValues.
+    const patchedRules: Record<string, FeatureRule[]> = {};
+    const previousValues: { targetId: string; patch: FeatureRulePatch }[] = [];
+
     for (const [env, envSettings] of Object.entries(
       feature.environmentSettings ?? {},
     )) {
-      rulesSnapshot[env] = [...(envSettings.rules ?? [])];
+      patchedRules[env] = [...(envSettings.rules ?? [])];
     }
 
-    const previousValues: { targetId: string; patch: FeatureRulePatch }[] = [];
-
     for (const action of actions) {
+      // Only handle feature-rule effects; skip any future action types.
+      if (action.targetType !== "feature-rule") continue;
       const { targetId, patch } = action;
       const { ruleId, ...patchFields } = patch;
-
-      // Apply the patch to this rule in every environment it appears in
       let foundInAnyEnv = false;
-      for (const env of Object.keys(rulesSnapshot)) {
-        const ruleIdx = rulesSnapshot[env].findIndex((r) => r.id === ruleId);
+
+      for (const env of Object.keys(patchedRules)) {
+        const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
         if (ruleIdx === -1) continue;
 
         foundInAnyEnv = true;
-        const existingRule = rulesSnapshot[env][ruleIdx];
+        const existingRule = patchedRules[env][ruleIdx];
 
-        // Capture previous values (only once per targetId, from first env found)
+        // Capture previousValues only once per targetId (from the first env found).
         if (!previousValues.find((pv) => pv.targetId === targetId)) {
           previousValues.push({
             targetId,
@@ -204,13 +251,19 @@ const featureEntityHandler: EntityHandler = {
           });
         }
 
-        rulesSnapshot[env][ruleIdx] = applyPatchToRule(
+        patchedRules[env][ruleIdx] = applyPatchToRule(
           existingRule,
           patchFields,
         );
       }
 
       if (!foundInAnyEnv) {
+        if (!isApprovalGate) {
+          // Interval step: rule deleted is a hard error — throw to pause the ramp.
+          throw new Error(
+            `Ramp target rule "${ruleId}" not found in any environment — it may have been deleted`,
+          );
+        }
         logger.warn(
           { ruleId, featureId: entityId },
           "Ramp step action: ruleId not found in any environment",
@@ -218,10 +271,95 @@ const featureEntityHandler: EntityHandler = {
       }
     }
 
-    return {
-      changes: { rules: rulesSnapshot },
-      previousValues,
-    };
+    const revision = await createRevision({
+      context: ctx,
+      feature: feature as FeatureInterface,
+      user,
+      environments: ctx.environments,
+      changes: { rules: patchedRules },
+      publish: false,
+      comment: stepLabel,
+      title: stepLabel,
+      org: ctx.org,
+    });
+
+    const revisionRef = buildRevisionRef(feature.id, revision.version);
+    let pendingApprovalRevisionId: string | undefined;
+
+    if (isApprovalGate && isPrimary) {
+      await markRevisionAsReviewRequested(ctx, revision, user);
+      pendingApprovalRevisionId = revisionRef;
+    } else if (!isPrimary && isApprovalGate) {
+      await markRevisionAsPendingParent(
+        ctx.org.id,
+        feature.id,
+        revision.version,
+      );
+    } else {
+      // Interval step: sparse-apply patches on top of live state and publish directly.
+      const forceResult: MergeResultChanges = { rules: patchedRules };
+      await publishRevision(
+        ctx,
+        feature as FeatureInterface,
+        revision,
+        forceResult,
+        stepLabel,
+      );
+    }
+
+    return { revisionRef, previousValues, pendingApprovalRevisionId };
+  },
+
+  async approveActions(ctx, revisionRef, stepActions, user) {
+    const { entityId: featureId, version: revVersion } =
+      parseRevisionRef(revisionRef);
+
+    const feature = await getFeature(ctx, featureId);
+    if (!feature) return { code: "feature_not_found" };
+
+    const revision = await getRevision({
+      context: ctx,
+      organization: ctx.org.id,
+      featureId: feature.id,
+      version: revVersion,
+    });
+    if (!revision) return { code: "revision_not_found" };
+
+    // Sparse-apply the step's patches on top of current live state.
+    const patchedRules: Record<string, FeatureRule[]> = {};
+    for (const [env, envSettings] of Object.entries(
+      feature.environmentSettings ?? {},
+    )) {
+      patchedRules[env] = [...(envSettings.rules ?? [])];
+    }
+
+    for (const action of stepActions) {
+      // Only handle feature-rule effects.
+      if (action.targetType !== "feature-rule") continue;
+      const { patch } = action;
+      const { ruleId, ...patchFields } = patch;
+      let foundInAnyEnv = false;
+      for (const env of Object.keys(patchedRules)) {
+        const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
+        if (ruleIdx === -1) continue;
+        foundInAnyEnv = true;
+        patchedRules[env][ruleIdx] = applyPatchToRule(
+          patchedRules[env][ruleIdx],
+          patchFields,
+        );
+      }
+      if (!foundInAnyEnv) {
+        return {
+          code: "error",
+          detail: `Ramp target rule "${ruleId}" no longer exists — it may have been deleted. The ramp schedule will need to be updated.`,
+        };
+      }
+    }
+
+    const forceResult: MergeResultChanges = { rules: patchedRules };
+    await submitReviewAndComments(ctx, revision, user, "Approved");
+    await publishRevision(ctx, feature, revision, forceResult);
+    return null;
   },
 };
 
@@ -337,16 +475,16 @@ export function computeRollbackPatch(
 }
 
 // ---------------------------------------------------------------------------
-// advanceStep — internal helper
+// advanceStep — internal helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Create revisions for one step's actions.
+ * Execute actions for one step across all targeted entities.
  * Actions are grouped by entity so targets on the same entity share one revision.
  * For approval-gated steps the primary entity's revision becomes the approval gate;
  * secondary-entity revisions are held as pending-parent until it is approved.
  */
-async function createStepRevisions(
+async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   stepIndex: number,
@@ -356,7 +494,7 @@ async function createStepRevisions(
   previousValues: { targetId: string; patch: FeatureRulePatch }[];
   pendingApprovalRevisionId?: string;
 }> {
-  // Group actions by entityId
+  // Group actions by entityType:entityId
   const byEntity = new Map<
     string,
     { entityType: string; entityId: string; actions: RampStepAction[] }
@@ -380,6 +518,13 @@ async function createStepRevisions(
   const revisionIds: string[] = [];
   const allPreviousValues: { targetId: string; patch: FeatureRulePatch }[] = [];
   const primaryKey = `${schedule.entityType}:${schedule.entityId}`;
+
+  // Multi-entity atomicity note: when byEntity has more than one key, each entity
+  // publishes its own revision independently. A crash between entity N and entity N+1
+  // leaves earlier entities already published with no way to roll back.
+  // Safe for all current use-cases where a step's actions target a single feature
+  // (same entityId, multiple ruleIds → one revision). True cross-entity atomicity
+  // would require application-level two-phase commit, which is not yet implemented.
   const isApprovalStep = schedule.steps[stepIndex]?.trigger.type === "approval";
 
   const user: EventUser = {
@@ -389,105 +534,41 @@ async function createStepRevisions(
   };
   let pendingApprovalRevisionId: string | undefined;
 
+  const stepLabel =
+    stepIndex >= schedule.steps.length
+      ? `Ramp complete: ${schedule.name}`
+      : `Ramp [${stepIndex + 1} of ${schedule.steps.length}]: ${schedule.name}`;
+
   for (const [key, group] of byEntity) {
     const handler = getEntityHandler(group.entityType);
-    const feature = await getFeature(ctx, group.entityId);
-    if (!feature) {
-      logger.warn(
-        { entityId: group.entityId },
-        "Ramp step: entity not found, skipping",
-      );
-      continue;
-    }
-
-    const { changes, previousValues } = await handler.buildRevisionChanges(
-      ctx,
-      group.entityId,
-      group.actions,
-    );
-    allPreviousValues.push(...previousValues);
-
     const isPrimary = key === primaryKey;
 
-    const revision = await createRevision({
-      context: ctx,
-      feature: feature as FeatureInterface,
-      user,
-      environments: ctx.environments,
-      changes,
-      publish: false,
-      comment:
-        stepIndex >= schedule.steps.length
-          ? `Ramp complete`
-          : `Ramp schedule step ${stepIndex + 1}`,
-      title:
-        stepIndex >= schedule.steps.length
-          ? `Ramp complete: ${schedule.name}`
-          : `Ramp [${stepIndex + 1} of ${schedule.steps.length}]: ${schedule.name}`,
-      org: ctx.org,
-    });
-
-    const revisionRef = `${feature.id}:${revision.version}`;
-
-    if (isApprovalStep && isPrimary) {
-      // Approval gate — request review and track it as the blocker.
-      await markRevisionAsReviewRequested(ctx, revision, user);
-      pendingApprovalRevisionId = revisionRef;
-    } else if (!isPrimary && isApprovalStep) {
-      // Secondary-entity revision for an approval step: waits for the primary to be approved.
-      await markRevisionAsPendingParent(
-        ctx.org.id,
-        feature.id,
-        revision.version,
-      );
-    } else {
-      // Non-approval step (primary or secondary): apply ramp patches directly
-      // on top of current live rule state — no 3-way merge needed.
-      //
-      // Strategy:
-      //   - Fields the ramp patch explicitly targets → ramp wins ("ours")
-      //   - Everything else → live state is untouched ("theirs")
-      //   - Target rule deleted from all environments → throw (pause ramp)
-      const patchedRules: Record<string, FeatureRule[]> = {};
-      for (const [env, envSettings] of Object.entries(
-        (feature as FeatureInterface).environmentSettings ?? {},
-      )) {
-        patchedRules[env] = [...(envSettings.rules ?? [])];
+    let result: ApplyActionsResult;
+    try {
+      result = await handler.applyActions(ctx, group.entityId, group.actions, {
+        isApprovalGate: isApprovalStep,
+        isPrimary,
+        stepLabel,
+        user,
+      });
+    } catch (e) {
+      // Entity not found → log and skip (non-fatal).
+      // Rule not found / other errors → re-throw to pause the ramp.
+      if ((e as Error).message?.startsWith("Feature not found:")) {
+        logger.warn(
+          { entityId: group.entityId },
+          "Ramp step: entity not found, skipping",
+        );
+        continue;
       }
-
-      for (const action of group.actions) {
-        const { patch } = action;
-        const { ruleId, ...patchFields } = patch;
-        let foundInAnyEnv = false;
-        for (const env of Object.keys(patchedRules)) {
-          const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
-          if (ruleIdx === -1) continue;
-          foundInAnyEnv = true;
-          patchedRules[env][ruleIdx] = applyPatchToRule(
-            patchedRules[env][ruleIdx],
-            patchFields,
-          );
-        }
-        if (!foundInAnyEnv) {
-          throw new Error(
-            `Ramp target rule "${ruleId}" not found in any environment — it may have been deleted`,
-          );
-        }
-      }
-
-      const forceResult: MergeResultChanges = { rules: patchedRules };
-      await publishRevision(
-        ctx,
-        feature as FeatureInterface,
-        revision,
-        forceResult,
-        stepIndex >= schedule.steps.length
-          ? `Ramp complete: ${schedule.name}`
-          : `Ramp: ${schedule.name} — step ${stepIndex + 1}`,
-      );
+      throw e;
     }
 
-    revisionIds.push(revisionRef);
+    allPreviousValues.push(...result.previousValues);
+    revisionIds.push(result.revisionRef);
+    if (result.pendingApprovalRevisionId) {
+      pendingApprovalRevisionId = result.pendingApprovalRevisionId;
+    }
   }
 
   return {
@@ -512,7 +593,7 @@ async function applyConditionActions(
   virtualStepIndex: number,
 ): Promise<void> {
   if (!actions.length) return;
-  await createStepRevisions(ctx, schedule, virtualStepIndex, actions);
+  await executeStepActions(ctx, schedule, virtualStepIndex, actions);
 }
 
 /**
@@ -555,11 +636,29 @@ export async function advanceStep(
 
   const now = new Date();
 
-  const { revisionIds, previousValues, pendingApprovalRevisionId } =
-    await createStepRevisions(ctx, schedule, nextStepIndex, step.actions);
+  // Idempotency guard: if this step already has a history entry, its revision
+  // was published but the schedule state update crashed before completing.
+  // Reuse the existing entry rather than re-publishing.
+  const existingEntry = schedule.stepHistory.find(
+    (h) => h.stepIndex === nextStepIndex,
+  );
 
-  const historyEntry: StepHistoryEntry = {
+  let revisionIds: string[];
+  let previousValues: { targetId: string; patch: FeatureRulePatch }[];
+  let pendingApprovalRevisionId: string | undefined;
+
+  if (existingEntry) {
+    revisionIds = existingEntry.revisionIds;
+    previousValues = existingEntry.previousValues;
+    pendingApprovalRevisionId = schedule.pendingApprovalRevisionId ?? undefined;
+  } else {
+    ({ revisionIds, previousValues, pendingApprovalRevisionId } =
+      await executeStepActions(ctx, schedule, nextStepIndex, step.actions));
+  }
+
+  const historyEntry: StepHistoryEntry = existingEntry ?? {
     stepIndex: nextStepIndex,
+    kind: "advance",
     enteredAt: now,
     revisionIds,
     previousValues,
@@ -571,7 +670,7 @@ export async function advanceStep(
 
   // A step is "blocked" if it's an explicit approval-type step OR if the
   // org's review policy gates the ramp's target environments (policy-gated
-  // interval steps set pendingApprovalRevisionId in createStepRevisions).
+  // interval steps set pendingApprovalRevisionId in executeStepActions).
   const isBlocked = isApprovalStep || !!pendingApprovalRevisionId;
 
   const nextNextStepIndex = nextStepIndex + 1;
@@ -596,7 +695,9 @@ export async function advanceStep(
     nextStepAt,
     pendingRevisionIds: revisionIds,
     pendingApprovalRevisionId,
-    stepHistory: [...schedule.stepHistory, historyEntry],
+    stepHistory: existingEntry
+      ? schedule.stepHistory
+      : [...schedule.stepHistory, historyEntry],
   });
 
   await dispatchRampEvent(ctx, updated, "step.advanced", {
@@ -647,26 +748,39 @@ export async function rollbackToStep(
 
   // Build step actions from the rollback patch
   const rollbackActions: RampStepAction[] = Object.entries(rollbackPatch).map(
-    ([targetId, patch]) => ({ targetId, patch }),
+    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
   );
 
   const now = new Date();
 
-  // Discard any pending revisions from the current step
-  await discardPendingRevisions(ctx, schedule);
-
-  const { revisionIds } = await createStepRevisions(
-    ctx,
-    schedule,
-    targetStepIndex,
-    rollbackActions,
+  // Idempotency guard: a crash after revision publish but before updateById would
+  // otherwise re-apply the rollback patch on retry. If we find an existing rollback
+  // history entry at targetStepIndex, the revision was already published — reuse it.
+  const existingRollbackEntry = schedule.stepHistory.find(
+    (h) => h.stepIndex === targetStepIndex && h.kind === "rollback",
   );
 
-  const historyEntry: StepHistoryEntry = {
+  let revisionIds: string[];
+
+  if (existingRollbackEntry) {
+    revisionIds = existingRollbackEntry.revisionIds;
+  } else {
+    // Discard any pending revisions from the current step, then publish rollback.
+    await discardPendingRevisions(ctx, schedule);
+    ({ revisionIds } = await executeStepActions(
+      ctx,
+      schedule,
+      targetStepIndex,
+      rollbackActions,
+    ));
+  }
+
+  const historyEntry: StepHistoryEntry = existingRollbackEntry ?? {
     stepIndex: targetStepIndex,
+    kind: "rollback",
     enteredAt: now,
     revisionIds,
-    previousValues: [], // Rollback entries don't store previousValues
+    previousValues: [],
     triggeredBy: attribution,
   };
 
@@ -680,7 +794,9 @@ export async function rollbackToStep(
     nextStepAt: null,
     pausedAt: newStatus === "paused" ? now : null,
     pendingRevisionIds: revisionIds,
-    stepHistory: [...schedule.stepHistory, historyEntry],
+    stepHistory: existingRollbackEntry
+      ? schedule.stepHistory
+      : [...schedule.stepHistory, historyEntry],
   });
 
   await dispatchRampEvent(ctx, updated, "rolledBack", {
@@ -722,9 +838,9 @@ export async function jumpAheadToStep(
   // Discard the open approval-gate revision if one exists, but leave any
   // already-published interval-step revisions alone.
   if (schedule.pendingApprovalRevisionId) {
-    const parts = schedule.pendingApprovalRevisionId.split(":");
-    const version = parseInt(parts[parts.length - 1], 10);
-    const featureId = parts.slice(0, parts.length - 1).join(":");
+    const { entityId: featureId, version } = parseRevisionRef(
+      schedule.pendingApprovalRevisionId,
+    );
     const rev = await getRevision({
       context: ctx,
       organization: ctx.org.id,
@@ -754,9 +870,13 @@ export async function jumpAheadToStep(
 
   if (mergedPatches.size > 0) {
     const mergedActions = Array.from(mergedPatches.entries()).map(
-      ([targetId, patch]) => ({ targetId, patch }),
+      ([targetId, patch]) => ({
+        targetType: "feature-rule" as const,
+        targetId,
+        patch,
+      }),
     );
-    ({ revisionIds, previousValues } = await createStepRevisions(
+    ({ revisionIds, previousValues } = await executeStepActions(
       ctx,
       schedule,
       jumpTarget,
@@ -764,13 +884,59 @@ export async function jumpAheadToStep(
     ));
   }
 
-  const historyEntry: StepHistoryEntry = {
-    stepIndex: jumpTarget,
-    enteredAt: now,
-    revisionIds,
-    previousValues,
-    triggeredBy: attribution,
-  };
+  // Generate one synthetic StepHistoryEntry per skipped step so that
+  // computeRollbackPatch can reconstruct any intermediate state after the jump.
+  // Simulate progressive application of per-step patches, starting from the
+  // live-state snapshot captured in previousValues (= state at currentStepIndex).
+  //
+  // TODO: if any targets had secondary pending-parent revisions (from a previous
+  // approval gate), those are not discarded here — only the primary approval revision
+  // is discarded above. Revisit when multi-entity approval flows are supported;
+  // consider collapsing approval ownership to a single primary revision.
+  const syntheticEntries: StepHistoryEntry[] = [];
+  {
+    // Seed a mutable map with the fields changed across the whole jump.
+    const runningFields = new Map<string, Record<string, unknown>>();
+    for (const { targetId, patch } of previousValues) {
+      const { ruleId, ...fields } = patch;
+      runningFields.set(targetId, { ruleId, ...fields });
+    }
+
+    for (let i = schedule.currentStepIndex + 1; i <= jumpTarget; i++) {
+      const stepActions = schedule.steps[i]?.actions ?? [];
+      const stepPreviousValues: {
+        targetId: string;
+        patch: FeatureRulePatch;
+      }[] = [];
+
+      for (const action of stepActions) {
+        const { targetId, patch } = action;
+        const { ruleId, ...patchFields } = patch;
+        const current =
+          runningFields.get(targetId) ??
+          ({ ruleId } as Record<string, unknown>);
+
+        // Only capture the fields this specific step patches.
+        const prev: FeatureRulePatch = { ruleId };
+        for (const key of Object.keys(patchFields)) {
+          (prev as Record<string, unknown>)[key] = current[key];
+        }
+        stepPreviousValues.push({ targetId, patch: prev });
+
+        // Advance running state for the next iteration.
+        runningFields.set(targetId, { ...current, ...patchFields });
+      }
+
+      syntheticEntries.push({
+        stepIndex: i,
+        kind: "jump",
+        enteredAt: now,
+        revisionIds,
+        previousValues: stepPreviousValues,
+        triggeredBy: attribution,
+      });
+    }
+  }
 
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: "paused",
@@ -779,7 +945,7 @@ export async function jumpAheadToStep(
     pausedAt: now,
     pendingRevisionIds: revisionIds,
     pendingApprovalRevisionId: null,
-    stepHistory: [...schedule.stepHistory, historyEntry],
+    stepHistory: [...schedule.stepHistory, ...syntheticEntries],
   });
 
   return updated;
@@ -826,9 +992,13 @@ export async function completeRollout(
   let previousValues: { targetId: string; patch: FeatureRulePatch }[] = [];
   if (mergedPatches.size > 0) {
     const mergedActions = Array.from(mergedPatches.entries()).map(
-      ([targetId, patch]) => ({ targetId, patch }),
+      ([targetId, patch]) => ({
+        targetType: "feature-rule" as const,
+        targetId,
+        patch,
+      }),
     );
-    ({ revisionIds, previousValues } = await createStepRevisions(
+    ({ revisionIds, previousValues } = await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length, // Virtual "end" index — beyond all defined steps
@@ -946,7 +1116,7 @@ export async function evaluateAutoRollback(
 // - "immediately": auto-start → "running", advance first step.
 // - "manual": → "ready" (waits for user to click Start).
 // - "scheduled": → "ready" (Agenda auto-starts it when startCondition.trigger.at <= now).
-async function onActivatingRevisionPublished(
+export async function onActivatingRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
@@ -1010,8 +1180,7 @@ export async function onRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<void> {
-  const revisionRef = `${revision.featureId}:${revision.version}`;
-
+  const revisionRef = buildRevisionRef(revision.featureId, revision.version);
   // Case 1: This revision activates a pending ramp (created atomically with a rule change)
   const activatingRamps =
     await ctx.models.rampSchedules.findByActivatingRevision(
@@ -1037,16 +1206,22 @@ async function onApprovalRevisionPublished(
   schedule: RampScheduleInterface,
   approvalRevision: FeatureRevisionInterface,
 ): Promise<void> {
-  const approvalRef = `${approvalRevision.featureId}:${approvalRevision.version}`;
+  const approvalRef = buildRevisionRef(
+    approvalRevision.featureId,
+    approvalRevision.version,
+  );
 
-  // Publish all other pending-parent revisions for this step
-  await publishPendingRevisions(ctx, schedule, approvalRef);
-
+  // Idempotency guard: if the current step's history entry already has completedAt,
+  // this approval was already fully processed (crash-after-publish-before-updateById).
   const stepIndex = schedule.currentStepIndex;
   const completedEntry = schedule.stepHistory.find(
     (h) => h.stepIndex === stepIndex,
   );
+  if (completedEntry?.completedAt) return;
   if (!completedEntry) return;
+
+  // Publish all other pending-parent revisions for this step.
+  await publishPendingRevisions(ctx, schedule, approvalRef);
 
   const now = new Date();
   const wasApprovalGate =
@@ -1123,8 +1298,7 @@ async function publishPendingRevisions(
   for (const refId of pendingIds) {
     if (refId === excludeRef) continue;
 
-    const [featureId, versionStr] = refId.split(":");
-    const version = parseInt(versionStr, 10);
+    const { entityId: featureId, version } = parseRevisionRef(refId);
     if (!featureId || isNaN(version)) continue;
 
     const feature = await getFeature(ctx, featureId);
@@ -1146,7 +1320,7 @@ export async function onRevisionDiscarded(
   ctx: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
 ): Promise<void> {
-  const revisionRef = `${revision.featureId}:${revision.version}`;
+  const revisionRef = buildRevisionRef(revision.featureId, revision.version);
 
   // Only react when the approval-gate revision is discarded
   const approvalRamps =
@@ -1199,8 +1373,7 @@ export async function discardPendingRevisions(
   for (const refId of pendingIds) {
     if (excludeRef && refId === excludeRef) continue;
 
-    const [featureId, versionStr] = refId.split(":");
-    const version = parseInt(versionStr, 10);
+    const { entityId: featureId, version } = parseRevisionRef(refId);
     if (!featureId || isNaN(version)) continue;
 
     const revision = await getRevision({
@@ -1325,9 +1498,8 @@ export type ApproveStepError =
  * Returns null on success, or a structured error that the controller can map to
  * an appropriate HTTP response.
  *
- * The caller does not need to pass a serialized merge result — we compute it
- * here and reject if there are unresolvable conflicts, returning a structured
- * error so the UI can prompt the user to open the diff view.
+ * Permission checks are performed here; entity manipulation (sparse-apply + publish)
+ * is delegated to the entity handler.
  */
 export async function approveAndPublishStep(
   ctx: ReqContext | ApiReqContext,
@@ -1338,9 +1510,9 @@ export async function approveAndPublishStep(
   }
 
   // pendingApprovalRevisionId is stored as "featureId:version"
-  const parts = schedule.pendingApprovalRevisionId.split(":");
-  const revVersion = parseInt(parts[parts.length - 1], 10);
-  const featureId = parts.slice(0, parts.length - 1).join(":");
+  const { entityId: featureId } = parseRevisionRef(
+    schedule.pendingApprovalRevisionId,
+  );
 
   const feature = await getFeature(ctx, featureId);
   if (!feature) return { code: "feature_not_found" };
@@ -1355,64 +1527,14 @@ export async function approveAndPublishStep(
     };
   }
 
-  const revision = await getRevision({
-    context: ctx,
-    organization: ctx.org.id,
-    featureId: feature.id,
-    version: revVersion,
-  });
-  if (!revision) return { code: "revision_not_found" };
-
   const allEnvironments = getEnvironments(ctx.org);
   const environmentIds = filterEnvironmentsByFeature(
     allEnvironments,
     feature,
   ).map((e) => e.id);
-
-  // Apply the ramp's patches (from the current step's actions) directly on top
-  // of current live state — same sparse-apply strategy as interval steps.
-  // Fields the ramp explicitly patches: ramp wins. Everything else: live wins.
-  // This handles concurrent user edits without needing a 3-way merge.
-  const stepIndex = schedule.currentStepIndex;
-  const stepActions = schedule.steps[stepIndex]?.actions ?? [];
-
-  const patchedRules: Record<string, FeatureRule[]> = {};
-  for (const [env, envSettings] of Object.entries(
-    feature.environmentSettings ?? {},
-  )) {
-    patchedRules[env] = [...(envSettings.rules ?? [])];
-  }
-
-  for (const action of stepActions) {
-    const { patch } = action;
-    const { ruleId, ...patchFields } = patch;
-    let foundInAnyEnv = false;
-    for (const env of Object.keys(patchedRules)) {
-      const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
-      if (ruleIdx === -1) continue;
-      foundInAnyEnv = true;
-      patchedRules[env][ruleIdx] = applyPatchToRule(
-        patchedRules[env][ruleIdx],
-        patchFields,
-      );
-    }
-    if (!foundInAnyEnv) {
-      return {
-        code: "error",
-        detail: `Ramp target rule "${ruleId}" no longer exists — it may have been deleted. The ramp schedule will need to be updated.`,
-      };
-    }
-  }
-
-  const forceResult: MergeResultChanges = { rules: patchedRules };
-
-  // Check publish permissions for the affected environments
-  const changedEnvs = Object.keys(forceResult.rules ?? {});
-  const envsToCheck =
-    forceResult.defaultValue !== undefined ? environmentIds : changedEnvs;
   if (
-    envsToCheck.length > 0 &&
-    !ctx.permissions.canPublishFeature(feature, envsToCheck)
+    environmentIds.length > 0 &&
+    !ctx.permissions.canPublishFeature(feature, environmentIds)
   ) {
     return {
       code: "permission_denied",
@@ -1420,16 +1542,18 @@ export async function approveAndPublishStep(
     };
   }
 
-  // Mark as approved
   const user: EventUser = {
     type: "system",
     subtype: "ramp-schedule",
     id: schedule.id,
   };
-  await submitReviewAndComments(ctx, revision, user, "Approved");
 
-  // Publish — this triggers onRevisionPublished which advances the ramp
-  await publishRevision(ctx, feature, revision, forceResult);
-
-  return null;
+  const stepActions = schedule.steps[schedule.currentStepIndex]?.actions ?? [];
+  const handler = getEntityHandler(schedule.entityType);
+  return handler.approveActions(
+    ctx,
+    schedule.pendingApprovalRevisionId,
+    stepActions,
+    user,
+  );
 }

@@ -102,9 +102,7 @@ export default function StandardRuleFields({
 
   const rampIsEditable =
     !ruleRampSchedule ||
-    !["running", "pending-approval", "conflict"].includes(
-      ruleRampSchedule.status,
-    );
+    !["running", "pending-approval"].includes(ruleRampSchedule.status);
 
   const hasLegacySchedule = (
     "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
@@ -140,7 +138,9 @@ export default function StandardRuleFields({
           : null;
         const nextMode = ruleRampSchedule ? "edit" : "create";
         setRampSectionState({
-          ...(ruleRampSchedule ? rampSectionState : defaultRampSectionState(undefined)),
+          ...(ruleRampSchedule
+            ? rampSectionState
+            : defaultRampSectionState(undefined)),
           mode: nextMode,
           ...(seed ? { steps: seed.steps, name: seed.name } : {}),
         });

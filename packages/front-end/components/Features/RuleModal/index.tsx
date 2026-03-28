@@ -85,7 +85,6 @@ import {
   buildRampSteps,
   buildStartActions,
   buildEndScheduleActions,
-  buildConditionDefaultEffects,
   validateRampSectionState,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
@@ -1068,12 +1067,9 @@ export default function RuleModal({
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim(),
                   environment,
-                  // New ramps created from a rule always start as single-impl — sync defaultEffects.
-                  steps: buildRampSteps(rampState.steps, "t1", ruleId, true),
+                  steps: buildRampSteps(rampState.steps, "t1", ruleId),
                   startCondition: {
                     trigger: startTrigger,
-                    defaultEffects:
-                      buildConditionDefaultEffects(effectiveStartPatch),
                     actions: startActions.length ? startActions : undefined,
                   },
                   disableRuleBefore: rampState.disableRuleBefore || undefined,
@@ -1086,23 +1082,17 @@ export default function RuleModal({
                           type: "scheduled",
                           at: rampState.endScheduleAt,
                         },
-                        defaultEffects:
-                          buildConditionDefaultEffects(effectiveEndPatch),
                         actions: endActions.length ? endActions : undefined,
                       }
                     : endActions.length
-                      ? {
-                          defaultEffects:
-                            buildConditionDefaultEffects(effectiveEndPatch),
-                          actions: endActions,
-                        }
+                      ? { actions: endActions }
                       : undefined,
                 };
               } else if (
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                !["running", "ready", "pending-approval", "conflict"].includes(
+                !["running", "ready", "pending-approval"].includes(
                   ruleRampSchedule.status,
                 )
               ) {
@@ -1126,28 +1116,15 @@ export default function RuleModal({
                           at: rampState.startTime,
                         } as const)
                       : ({ type: "immediately" } as const);
-                const isSingleImpl =
-                  (ruleRampSchedule.targets.length ?? 0) <= 1;
                 rampScheduleInline = {
                   mode: "update",
                   rampScheduleId: ruleRampSchedule.id,
                   name: isScheduleMode
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim() || undefined,
-                  steps: buildRampSteps(
-                    rampState.steps,
-                    "t1",
-                    ruleId,
-                    isSingleImpl,
-                  ),
+                  steps: buildRampSteps(rampState.steps, "t1", ruleId),
                   startCondition: {
                     trigger: startTrigger,
-                    ...(isSingleImpl
-                      ? {
-                          defaultEffects:
-                            buildConditionDefaultEffects(effectiveStartPatch),
-                        }
-                      : {}),
                     actions: startActions.length ? startActions : undefined,
                   },
                   disableRuleBefore: rampState.disableRuleBefore || undefined,
@@ -1160,26 +1137,10 @@ export default function RuleModal({
                           type: "scheduled",
                           at: rampState.endScheduleAt,
                         },
-                        ...(isSingleImpl
-                          ? {
-                              defaultEffects:
-                                buildConditionDefaultEffects(effectiveEndPatch),
-                            }
-                          : {}),
                         actions: endActions.length ? endActions : undefined,
                       }
                     : endActions.length
-                      ? {
-                          ...(isSingleImpl
-                            ? {
-                                defaultEffects:
-                                  buildConditionDefaultEffects(
-                                    effectiveEndPatch,
-                                  ),
-                              }
-                            : {}),
-                          actions: endActions,
-                        }
+                      ? { actions: endActions }
                       : null,
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
@@ -1199,6 +1160,19 @@ export default function RuleModal({
                 rampScheduleInline = { mode: "clear" };
               }
             }
+          }
+
+          // Fix 5a: if disableRuleBefore is set with a non-immediate start,
+          // publish the rule as disabled in this revision so the draft includes
+          // the enabled:false state from the start.
+          if (
+            rampScheduleInline &&
+            "disableRuleBefore" in rampScheduleInline &&
+            rampScheduleInline.disableRuleBefore &&
+            "startCondition" in rampScheduleInline &&
+            rampScheduleInline.startCondition?.trigger?.type !== "immediately"
+          ) {
+            values = { ...values, enabled: false };
           }
 
           res = await apiCall<{ version: number }>(
@@ -1272,8 +1246,6 @@ export default function RuleModal({
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               startCondition: {
                 trigger: startTrigger,
-                defaultEffects:
-                  buildConditionDefaultEffects(effectiveStartPatch),
                 actions: startActions.length ? startActions : undefined,
               },
               disableRuleBefore: rampState.disableRuleBefore || undefined,
@@ -1285,19 +1257,26 @@ export default function RuleModal({
                       type: "scheduled",
                       at: rampState.endScheduleAt,
                     },
-                    defaultEffects:
-                      buildConditionDefaultEffects(effectiveEndPatch),
                     actions: endActions.length ? endActions : undefined,
                   }
                 : endActions.length
-                  ? {
-                      defaultEffects:
-                        buildConditionDefaultEffects(effectiveEndPatch),
-                      actions: endActions,
-                    }
+                  ? { actions: endActions }
                   : undefined,
             };
           }
+        }
+
+        // Fix 5a: if disableRuleBefore is set with a non-immediate start,
+        // include enabled:false directly in the rule payload so the revision
+        // publishes with the rule disabled from the outset.
+        if (
+          rampScheduleInline &&
+          "disableRuleBefore" in rampScheduleInline &&
+          rampScheduleInline.disableRuleBefore &&
+          "startCondition" in rampScheduleInline &&
+          rampScheduleInline.startCondition?.trigger?.type !== "immediately"
+        ) {
+          values = { ...values, enabled: false };
         }
 
         res = await apiCall<{ version: number }>(

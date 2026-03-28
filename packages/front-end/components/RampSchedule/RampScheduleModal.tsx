@@ -5,12 +5,6 @@
  * editor used inside RuleModal). No target setup — implementations are
  * attached via the per-rule RuleModal. Shows a warning callout when the
  * ramp has no implementations yet.
- *
- * Editing surface: defaultEffects per step.
- * On save (edit): each target's action patch is blindly overwritten from
- * the defaultEffects derived from the step patches. savedGroups and
- * prerequisites from existing actions are preserved when not present in
- * the new patch.
  */
 
 import { useState } from "react";
@@ -23,8 +17,7 @@ import Callout from "@/ui/Callout";
 import RampScheduleSection, {
   type RampSectionState,
   defaultRampSectionState,
-  rampScheduleToSectionStateFromDefaultEffects,
-  buildConditionDefaultEffects,
+  rampScheduleToSectionState,
   buildPatch,
   type UIStep,
   type UIStepPatch,
@@ -43,8 +36,7 @@ interface Props {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Build steps for ALL targets, syncing each target's action patch from the
-// UIStep patches, and setting defaultEffects from those same patches.
+// Build steps for ALL targets, syncing each target's action patch from the UIStep patches.
 function buildStepsForAllTargets(
   steps: UIStep[],
   targets: RampScheduleInterface["targets"],
@@ -70,7 +62,11 @@ function buildStepsForAllTargets(
       ) {
         base.prerequisites = existingAction.patch.prerequisites;
       }
-      return { targetId: t.id, patch: base };
+      return {
+        targetType: "feature-rule" as const,
+        targetId: t.id,
+        patch: base,
+      };
     });
 
     const trigger =
@@ -83,7 +79,6 @@ function buildStepsForAllTargets(
 
     return {
       trigger,
-      defaultEffects: buildConditionDefaultEffects(s.patch),
       actions,
       ...(s.triggerType === "approval" && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
@@ -111,7 +106,7 @@ function buildConditionActionsForAllTargets(
     if (base.prerequisites === undefined && existing?.patch.prerequisites) {
       base.prerequisites = existing.patch.prerequisites;
     }
-    return { targetId: t.id, patch: base };
+    return { targetType: "feature-rule" as const, targetId: t.id, patch: base };
   });
 }
 
@@ -132,7 +127,7 @@ export default function RampScheduleModal({
   // ── Ramp section state ───────────────────────────────────────────────────
   const [rampState, setRampState] = useState<RampSectionState>(() =>
     rs
-      ? rampScheduleToSectionStateFromDefaultEffects(rs)
+      ? rampScheduleToSectionState(rs)
       : { ...defaultRampSectionState(undefined), mode: "create" },
   );
 
@@ -147,13 +142,6 @@ export default function RampScheduleModal({
         : rampState.startMode === "specific-time" && rampState.startTime
           ? ({ type: "scheduled", at: rampState.startTime } as const)
           : ({ type: "immediately" } as const);
-
-    const startDefaultEffects = buildConditionDefaultEffects(
-      rampState.startPatch,
-    );
-    const endDefaultEffects = buildConditionDefaultEffects(
-      rampState.endSchedulePatch,
-    );
 
     if (isEdit) {
       const startActions = buildConditionActionsForAllTargets(
@@ -174,7 +162,6 @@ export default function RampScheduleModal({
           steps: buildStepsForAllTargets(rampState.steps, rs.targets, rs.steps),
           startCondition: {
             trigger: startTrigger,
-            defaultEffects: startDefaultEffects,
             actions: startActions ?? undefined,
           },
           disableRuleBefore: rampState.disableRuleBefore || undefined,
@@ -186,19 +173,16 @@ export default function RampScheduleModal({
                   type: "scheduled" as const,
                   at: rampState.endScheduleAt,
                 },
-                defaultEffects: endDefaultEffects,
                 actions: endActions ?? undefined,
               }
             : endActions
-              ? { defaultEffects: endDefaultEffects, actions: endActions }
-              : endDefaultEffects
-                ? { defaultEffects: endDefaultEffects }
-                : undefined,
+              ? { actions: endActions }
+              : undefined,
         }),
       });
     } else {
-      // Create with no targets — store only defaultEffects; no action patches needed
-      // since there are no implementations to apply them to.
+      // Create with no targets — store triggers and empty action arrays.
+      // Action patches are populated when implementations are attached via RuleModal.
       const UNIT_MULT = { minutes: 60, hours: 3600, days: 86400 } as const;
       await apiCall("/ramp-schedule", {
         method: "POST",
@@ -207,7 +191,7 @@ export default function RampScheduleModal({
           entityType: "feature",
           entityId: feature.id,
           targets: [],
-          steps: rampState.steps.map((s, _i) => ({
+          steps: rampState.steps.map((s) => ({
             trigger:
               s.triggerType === "interval"
                 ? {
@@ -215,7 +199,6 @@ export default function RampScheduleModal({
                     seconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
                   }
                 : { type: "approval" as const },
-            defaultEffects: buildConditionDefaultEffects(s.patch),
             actions: [],
             ...(s.triggerType === "approval" && s.approvalNotes
               ? { approvalNotes: s.approvalNotes }
@@ -223,7 +206,6 @@ export default function RampScheduleModal({
           })),
           startCondition: {
             trigger: startTrigger,
-            defaultEffects: startDefaultEffects,
           },
           disableRuleBefore: rampState.disableRuleBefore || undefined,
           disableRuleAfter: rampState.disableRuleAfter || undefined,
@@ -234,11 +216,8 @@ export default function RampScheduleModal({
                   type: "scheduled" as const,
                   at: rampState.endScheduleAt,
                 },
-                defaultEffects: endDefaultEffects,
               }
-            : endDefaultEffects
-              ? { defaultEffects: endDefaultEffects }
-              : undefined,
+            : undefined,
         }),
       });
     }

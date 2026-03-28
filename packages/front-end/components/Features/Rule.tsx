@@ -6,7 +6,7 @@ import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
-import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
@@ -25,6 +25,7 @@ import {
   HoldoutInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import Heading from "@/ui/Heading";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import RampTimeline, {
   getRampStepsCompleted,
@@ -491,7 +492,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     gap="2"
                     style={{ flex: "0 1 auto", flexWrap: "wrap" }}
                   >
-                    <Heading as="h4" size="3" weight="medium" mb="0">
+                    <Heading as="h4" size="medium" weight="medium" mb="0">
                       {linkedExperiment ? (
                         <>
                           {linkedExperiment.type === "multi-armed-bandit"

@@ -7,11 +7,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import {
-  rampStep,
-  rampStepAction,
-  rampStepDefaultEffects,
-} from "./ramp-schedule";
+import { rampStep, rampStepAction } from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -292,7 +288,6 @@ const revisionRampConditionSchema = z.object({
   trigger: z
     .union([revisionRampStartTrigger, revisionRampEndTrigger])
     .optional(),
-  defaultEffects: rampStepDefaultEffects.optional(),
   actions: z.array(rampStepAction).optional(),
 });
 

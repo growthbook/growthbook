@@ -141,7 +141,6 @@ export default function RuleList({
                       at: new Date(action.startCondition.trigger.at),
                     }
                   : (action.startCondition?.trigger ?? { type: "immediately" }),
-              defaultEffects: action.startCondition?.defaultEffects,
               actions: action.startCondition?.actions,
             },
             endCondition: action.endCondition
@@ -153,7 +152,6 @@ export default function RuleList({
                           at: new Date(action.endCondition.trigger.at),
                         }
                       : undefined,
-                  defaultEffects: action.endCondition.defaultEffects,
                   actions: action.endCondition.actions,
                 }
               : undefined,

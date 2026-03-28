@@ -20,7 +20,12 @@ export const featureRulePatch = z.object({
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
 // A single action within a step. targetId references rampTarget.id in targets[].
+//
+// targetType is a discriminator tag that identifies what kind of effect this action applies.
+// Currently only "feature-rule" exists. When new entity types are added (experiments,
+// webhooks, etc.) this will expand to a z.discriminatedUnion("targetType", [...]).
 export const rampStepAction = z.object({
+  targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
@@ -85,30 +90,13 @@ export const rampTrigger = z.discriminatedUnion("type", [
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
-// Template effects authored at the ramp level — used only as a bookmark for
-// seeding new implementations and syncing changes to existing ones.
-// Never read or applied by the backend at step-execution time; target actions
-// must always carry explicit, fully-resolved patches.
-export const rampStepDefaultEffects = z.object({
-  coverage: z.number().min(0).max(1).nullish(),
-  condition: z.string().nullish(),
-  savedGroups: z.array(savedGroupTargeting).nullish(),
-  prerequisites: z.array(featurePrerequisite).nullish(),
-  // force can be any JSON-serializable value (string, number, boolean, object, array)
-
-  force: z.any().optional(),
-});
-export type RampStepDefaultEffects = z.infer<typeof rampStepDefaultEffects>;
-
+// Template effects for a step — only the fields that vary per step.
+// Removed in favour of per-target action patches; kept as a legacy no-op shim
+// so old documents (with defaultEffects stored) deserialise without errors.
+// TODO: drop this after a migration removes all stored defaultEffects values.
 export const rampStep = z.object({
   trigger: rampTrigger,
-  // defaultEffects: shared template for this step's intended outcome.
-  // Used to seed new target actions and to offer sync to existing ones.
-  // Never applied at runtime — all targets must carry explicit patches.
-  defaultEffects: rampStepDefaultEffects.optional(),
-  // May be empty for template ramps with no implementations attached yet.
   actions: z.array(rampStepAction),
-  // Optional prompt shown to approvers on the ramp overview when this step is pending approval
   approvalNotes: z.string().nullish(),
 });
 export type RampStep = z.infer<typeof rampStep>;
@@ -126,6 +114,9 @@ export type RampAttribution = z.infer<typeof rampAttribution>;
 // Lower-index steps overwrite higher-index steps on overlapping fields (higher rewind precedence).
 export const stepHistoryEntry = z.object({
   stepIndex: z.number().int(),
+  // "advance" = normal forward step; "rollback" = user/system rollback; "jump" = jump-ahead.
+  // Omitted on entries created before this field was added — treat as "advance".
+  kind: z.enum(["advance", "rollback", "jump"]).optional(),
   enteredAt: z.date(),
   completedAt: z.date().nullish(),
   revisionIds: z.array(z.string()),
@@ -172,10 +163,8 @@ export const rampScheduleValidator = baseSchema
     // Combined start trigger + initial actions — mirrors the shape of a step.
     // trigger: when the ramp starts (immediately/manual/scheduled).
     // actions: applied when the ramp transitions to "running" (e.g. set coverage to 0).
-    // defaultEffects: same UI-bookmark semantics as rampStep.defaultEffects.
     startCondition: z.object({
       trigger: rampStartTrigger,
-      defaultEffects: rampStepDefaultEffects.optional(),
       actions: z.array(rampStepAction).nullish(),
     }),
     // When true, the rule is hidden from SDK payload before the schedule starts.
@@ -194,11 +183,9 @@ export const rampScheduleValidator = baseSchema
     //   pending steps and fires endCondition.actions regardless of current progress.
     //   Absent = no deadline; endCondition.actions still fire on natural/manual completion.
     // actions: applied whenever the ramp ends (deadline, manual complete, or last step done).
-    // defaultEffects: same UI-bookmark semantics as rampStep.defaultEffects.
     endCondition: z
       .object({
         trigger: rampEndTrigger.optional(),
-        defaultEffects: rampStepDefaultEffects.optional(),
         actions: z.array(rampStepAction).nullish(),
       })
       .nullish(),
