@@ -363,7 +363,7 @@ export default function StandardRuleFields({
               Ramp-up
             </Heading>
             {ruleRampSchedule && !rampIsEditable ? (
-              <RampScheduleDisplay rs={ruleRampSchedule} defaultOpen={true} />
+              <RampScheduleDisplay rs={ruleRampSchedule} />
             ) : (
               <RampScheduleSection
                 featureRampSchedules={featureRampSchedules}

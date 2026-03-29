@@ -562,7 +562,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           >
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                           {rule.type !== "experiment-ref" && (
                             <DropdownMenuItem
                               onClick={() => {
@@ -623,9 +622,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           >
                             {rule.enabled ? "Disable" : "Enable"}
                           </DropdownMenuItem>
-                          {rampSchedule && !isSimpleSchedule && (
-                            <>
-                              <DropdownMenuSeparator />
+                        </DropdownMenuGroup>
+                        {rampSchedule && !isSimpleSchedule && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup label="Ramp-up schedule">
                               {hasPendingDetach ? (
                                 /* When removal is pending: cancel it directly via API (no modal) */
                                 <DropdownMenuItem
@@ -962,8 +963,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   )}
                                 </>
                               )}
-                            </>
-                          )}
+                            </DropdownMenuGroup>
+                          </>
+                        )}
+                        <DropdownMenuGroup>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             color="red"

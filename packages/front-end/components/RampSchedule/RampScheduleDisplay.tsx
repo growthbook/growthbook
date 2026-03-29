@@ -2,9 +2,8 @@
 // Accepts any RampScheduleInterface — usable inside rule modals, overview pages, or standalone.
 // targetId: when provided, only the actions for that specific target are shown.
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretRightBold } from "react-icons/pi";
 import stringify from "json-stringify-pretty-compact";
 import {
   RampScheduleInterface,
@@ -62,7 +61,7 @@ function PatchDisplay({
 
     if (p.coverage !== null && p.coverage !== undefined) {
       items.push(
-        <EffectRow key={k("cov")} label="% of units">
+        <EffectRow key={k("cov")} label="Rollout %">
           {Math.round(p.coverage * 100)}%
         </EffectRow>,
       );
@@ -230,19 +229,9 @@ interface Props {
   rs: RampScheduleInterface;
   // When set, only actions belonging to this targetId are shown.
   targetId?: string;
-  defaultOpen?: boolean;
-  // Override the toggle label. Defaults to "View/Hide ramp schedule · N steps".
-  triggerLabel?: string;
 }
 
-export default function RampScheduleDisplay({
-  rs,
-  targetId,
-  defaultOpen = false,
-  triggerLabel,
-}: Props) {
-  const [open, setOpen] = useState(defaultOpen);
-  const stepCount = rs.steps.length;
+export default function RampScheduleDisplay({ rs, targetId }: Props) {
   const current = rs.currentStepIndex;
 
   const startActions = filterActions(
@@ -252,117 +241,81 @@ export default function RampScheduleDisplay({
   const endActions = filterActions(rs.endCondition?.actions ?? [], targetId);
 
   return (
-    <Box>
-      {/* Toggle */}
+    <Box mx="2">
+      {/* Column headers */}
       <Flex
-        align="center"
-        gap="1"
-        style={{ cursor: "pointer", userSelect: "none" }}
-        onClick={() => setOpen((o) => !o)}
+        gap="3"
+        mb="1"
+        pl="2"
+        style={{ borderLeft: "2px solid transparent" }}
       >
-        <Box
-          style={{
-            transition: "transform 0.15s",
-            transform: open ? "rotate(90deg)" : "rotate(0deg)",
-            lineHeight: 1,
-          }}
-        >
-          <PiCaretRightBold size={10} color="var(--gray-9)" />
+        <Box style={{ width: LABEL_W, flexShrink: 0 }}>
+          <Text size="small" color="text-low" weight="medium">
+            Step
+          </Text>
         </Box>
-        <Text size="small" color="text-low">
-          {triggerLabel ?? (
-            <>
-              {open ? "Hide" : "View"} ramp schedule
-              {stepCount > 0 && (
-                <>
-                  {" "}
-                  &middot; {stepCount} step{stepCount !== 1 ? "s" : ""}
-                </>
-              )}
-            </>
-          )}
-        </Text>
+        <Box style={{ width: TRIGGER_W, flexShrink: 0 }}>
+          <Text size="small" color="text-low" weight="medium">
+            Trigger
+          </Text>
+        </Box>
+        <Box>
+          <Text size="small" color="text-low" weight="medium">
+            Effects
+          </Text>
+        </Box>
       </Flex>
 
-      {/* Body */}
-      {open && (
-        <Box mt="2" mx="2">
-          {/* Column headers */}
-          <Flex
-            gap="3"
-            mb="1"
-            pl="2"
-            style={{ borderLeft: "2px solid transparent" }}
-          >
-            <Box style={{ width: LABEL_W, flexShrink: 0 }}>
-              <Text size="small" color="text-low" weight="medium">
-                Step
-              </Text>
-            </Box>
-            <Box style={{ width: TRIGGER_W, flexShrink: 0 }}>
-              <Text size="small" color="text-low" weight="medium">
-                Trigger
-              </Text>
-            </Box>
-            <Box>
-              <Text size="small" color="text-low" weight="medium">
-                Effects
-              </Text>
-            </Box>
-          </Flex>
-
-          {/* Start — when disableRuleBefore and no explicit start action stored,
+      {/* Start — when disableRuleBefore and no explicit start action stored,
                the enabled:true is auto-injected by the backend into startCondition.actions
                so it should already appear in the data. Only synthesize if absent. */}
-          <Row
-            label="start"
-            trigger={<StartTriggerLabel trigger={rs.startCondition.trigger} />}
-            actions={startActions}
-            isComplete={current >= 0}
-          />
+      <Row
+        label="start"
+        trigger={<StartTriggerLabel trigger={rs.startCondition.trigger} />}
+        actions={startActions}
+        isComplete={current >= 0}
+      />
 
-          {/* Steps */}
-          {rs.steps.map((step, i) => (
-            <Row
-              key={i}
-              label={i + 1}
-              trigger={formatTrigger(step.trigger)}
-              actions={filterActions(step.actions, targetId)}
-              isActive={i === current}
-              isComplete={i < current}
-            />
-          ))}
+      {/* Steps */}
+      {rs.steps.map((step, i) => (
+        <Row
+          key={i}
+          label={i + 1}
+          trigger={formatTrigger(step.trigger)}
+          actions={filterActions(step.actions, targetId)}
+          isActive={i === current}
+          isComplete={i < current}
+        />
+      ))}
 
-          {/* End — always shown.
+      {/* End — always shown.
                When endCondition is absent but disableRuleAfter is set, synthesize
                Rule: disabled since the backend applies it at completion without storing
                it in an endCondition (no explicit trigger was provided). */}
-          {(() => {
-            const hasExplicitEnd = !!rs.endCondition;
-            const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
-            const terminal =
-              rs.status === "completed" || rs.status === "rolled-back";
-            return (
-              <Row
-                label="end"
-                trigger={
-                  hasExplicitEnd && rs.endCondition?.trigger ? (
-                    formatTrigger(rs.endCondition.trigger)
-                  ) : (
-                    <Text size="small" color="text-low">
-                      auto
-                    </Text>
-                  )
-                }
-                actions={endActions}
-                syntheticEnabled={implicitDisable ? false : undefined}
-                dimmed={!hasExplicitEnd && !implicitDisable}
-                isComplete={terminal}
-              />
-            );
-          })()}
-        </Box>
-      )}
+      {(() => {
+        const hasExplicitEnd = !!rs.endCondition;
+        const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
+        const terminal =
+          rs.status === "completed" || rs.status === "rolled-back";
+        return (
+          <Row
+            label="end"
+            trigger={
+              hasExplicitEnd && rs.endCondition?.trigger ? (
+                formatTrigger(rs.endCondition.trigger)
+              ) : (
+                <Text size="small" color="text-low">
+                  auto
+                </Text>
+              )
+            }
+            actions={endActions}
+            syntheticEnabled={implicitDisable ? false : undefined}
+            dimmed={!hasExplicitEnd && !implicitDisable}
+            isComplete={terminal}
+          />
+        );
+      })()}
     </Box>
   );
 }
