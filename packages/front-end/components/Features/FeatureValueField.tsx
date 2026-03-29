@@ -115,7 +115,9 @@ export default function FeatureValueField({
   if (valueType === "boolean" && !useDropdown) {
     return (
       <div className={clsx("form-group", { "mb-0": label === undefined })}>
-        {label !== undefined && <label>{label}</label>}
+        {label !== undefined && (
+          <label style={{ display: "block" }}>{label}</label>
+        )}
         <div>
           <RadioGroup
             disabled={disabled}

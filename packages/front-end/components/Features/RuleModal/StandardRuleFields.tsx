@@ -5,15 +5,13 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useState } from "react";
-import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
-import { Flex, Separator, Box } from "@radix-ui/themes";
+import { useState, useMemo } from "react";
+import { Separator, Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
-import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import LegacyScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
@@ -22,16 +20,17 @@ import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import RadioGroup from "@/ui/RadioGroup";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
+import Checkbox from "@/ui/Checkbox";
 import RampScheduleSection, {
   type RampSectionState,
   defaultRampSectionState,
+  activeFieldsFromState,
+  rebuildStateWithActiveFields,
+  VALID_STEP_FIELDS,
+  type StepField,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
-import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
-} from "@/components/Features/AttributeOptionTooltip";
 
 export type ScheduleType = "none" | "schedule" | "ramp";
 
@@ -112,6 +111,35 @@ export default function StandardRuleFields({
     Partial<Record<ScheduleType, RampSectionState>>
   >({});
 
+  // Derive which fields the ramp is currently controlling.
+  const rampActiveFields = useMemo(
+    () => activeFieldsFromState(rampSectionState),
+    [rampSectionState],
+  );
+
+  // Toggle a field into/out of ramp control. When enabled, the current baseline
+  // value is seeded into every step so the user can edit per-step from there.
+  function toggleRampField(field: StepField, enabled: boolean) {
+    const current = rampActiveFields;
+    const newFields: StepField[] = enabled
+      ? [...new Set([...current, field])]
+      : [...current].filter((f) => f !== field);
+    setRampSectionState(
+      rebuildStateWithActiveFields(rampSectionState, newFields, {
+        coverage: form.watch("coverage") ?? 0,
+        condition: form.watch("condition") ?? "{}",
+        savedGroups: form.watch("savedGroups") ?? [],
+        prerequisites: form.watch("prerequisites") ?? [],
+        force: form.watch("value") ?? "",
+      }),
+    );
+  }
+
+  const inRamp = scheduleType === "ramp";
+
+  const isRampControlled = (field: StepField) =>
+    inRamp && rampActiveFields.has(field);
+
   function applyScheduleType(type: ScheduleType) {
     // Snapshot the current state for the type we're leaving so we can restore it.
     setSavedStates((prev) => ({ ...prev, [scheduleType]: rampSectionState }));
@@ -133,6 +161,9 @@ export default function StandardRuleFields({
         setRampSectionState(saved);
       } else {
         // Always reset to preset[0] when entering ramp fresh.
+        // Seed startPatch with the current form coverage so the ramp begins
+        // at whatever the rule is currently set to (not always 0).
+        const currentCoverage = Math.round((form.watch("coverage") ?? 0) * 100);
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
           : null;
@@ -142,7 +173,13 @@ export default function StandardRuleFields({
             ? rampSectionState
             : defaultRampSectionState(undefined)),
           mode: nextMode,
-          ...(seed ? { steps: seed.steps, name: seed.name } : {}),
+          ...(seed
+            ? {
+                steps: seed.steps,
+                name: seed.name,
+                startPatch: { coverage: currentCoverage },
+              }
+            : {}),
         });
       }
       return;
@@ -177,19 +214,64 @@ export default function StandardRuleFields({
         placeholder="Short human-readable description of the rule"
       />
 
-      <div className="pb-1">
-        <FeatureValueField
-          label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
-          id="value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-          useCodeInput={true}
-          showFullscreenButton={true}
+      {inRamp && (
+        <label style={{ display: "block" }}>
+          <Flex justify="between" align="center" style={{ width: "100%" }}>
+            <span>{`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}</span>
+            <Checkbox
+              value={rampActiveFields.has("force")}
+              setValue={(v) => toggleRampField("force", v)}
+              label="Ramp up"
+              weight="regular"
+              disabled={!rampIsEditable}
+            />
+          </Flex>
+        </label>
+      )}
+      <FeatureValueField
+        label={
+          inRamp
+            ? undefined
+            : `Value to ${ruleType === "rollout" ? "roll out" : "force"}`
+        }
+        id="value"
+        value={form.watch("value")}
+        setValue={(v) => form.setValue("value", v)}
+        valueType={feature.valueType}
+        feature={feature}
+        renderJSONInline={true}
+        useCodeInput={true}
+        showFullscreenButton={true}
+        disabled={isRampControlled("force")}
+      />
+
+      <Box mt="3" mb="8">
+        <RolloutPercentInput
+          value={form.watch("coverage") ?? 1}
+          setValue={(coverage) => form.setValue("coverage", coverage)}
+          locked={isRampControlled("coverage")}
+          labelActions={
+            inRamp && VALID_STEP_FIELDS.includes("coverage") ? (
+              <Checkbox
+                value={rampActiveFields.has("coverage")}
+                setValue={(v) => toggleRampField("coverage", v)}
+                label="Ramp up"
+                weight="regular"
+                disabled={!rampIsEditable}
+              />
+            ) : undefined
+          }
+          hashAttribute={form.watch("hashAttribute")}
+          setHashAttribute={(v) => form.setValue("hashAttribute", v)}
+          attributeSchema={attributeSchema}
+          hasHashAttributes={hasHashAttributes}
+          seed={form.watch("seed")}
+          setSeed={(v) => form.setValue("seed", v)}
+          featureId={feature.id}
+          advancedOpen={advancedOptionsOpen}
+          setAdvancedOpen={setadvancedOptionsOpen}
         />
-      </div>
+      </Box>
 
       {/* Scheduling section */}
       <div className="mb-3">
@@ -285,90 +367,50 @@ export default function StandardRuleFields({
                 }
               />
             )}
-            <Separator size="4" my="6" />
           </>
         )}
       </div>
-
-      {/* Coverage % + bucketing attribute — always shown for both force and rollout */}
-      <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-        <RolloutPercentInput
-          value={form.watch("coverage") ?? 1}
-          setValue={(coverage) => form.setValue("coverage", coverage)}
-          className="mb-3"
-        />
-        <SelectField
-          withRadixThemedPortal
-          label="Sample based on attribute"
-          options={attributeSchema
-            .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
-          value={form.watch("hashAttribute")}
-          onChange={(v) => form.setValue("hashAttribute", v)}
-          sort={false}
-          formatOptionLabel={(o, meta) => (
-            <AttributeOptionWithTooltip
-              option={o as AttributeOptionForTooltip}
-              context={meta.context}
-            >
-              {o.label}
-            </AttributeOptionWithTooltip>
-          )}
-        />
-        <div className="mb-2">
-          <span
-            className="ml-auto link-purple cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
-              setadvancedOptionsOpen(!advancedOptionsOpen);
-            }}
-          >
-            {!advancedOptionsOpen ? (
-              <PiCaretDownFill className="mr-1" />
-            ) : (
-              <PiCaretUpFill className="mr-1" />
-            )}
-            Advanced Options
-          </span>
-          {advancedOptionsOpen && (
-            <div className="mt-3">
-              <Field
-                label="Seed"
-                type="input"
-                {...form.register("seed")}
-                placeholder={feature.id}
-                helpText={
-                  <>
-                    <strong className="text-danger">Warning:</strong> Changing
-                    this will re-randomize rollout traffic.
-                  </>
-                }
-              />
-            </div>
-          )}
-        </div>
-      </div>
+      <Separator size="4" my="5" />
 
       <SavedGroupTargetingField
         value={form.watch("savedGroups") || []}
         setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
         project={feature.project || ""}
+        label="Target by Saved Groups"
+        labelActions={
+          inRamp && VALID_STEP_FIELDS.includes("savedGroups") ? (
+            <Checkbox
+              value={rampActiveFields.has("savedGroups")}
+              setValue={(v) => toggleRampField("savedGroups", v)}
+              label="Ramp up"
+              weight="regular"
+              disabled={!rampIsEditable}
+            />
+          ) : undefined
+        }
+        locked={isRampControlled("savedGroups")}
       />
-      <hr />
+      <Separator size="4" my="5" />
       <ConditionInput
         defaultValue={form.watch("condition") || ""}
         onChange={(value) => form.setValue("condition", value)}
         key={conditionKey}
         project={feature.project || ""}
+        label="Target by Attributes"
+        labelActions={
+          inRamp && VALID_STEP_FIELDS.includes("condition") ? (
+            <Checkbox
+              value={rampActiveFields.has("condition")}
+              setValue={(v) => toggleRampField("condition", v)}
+              label="Ramp up"
+              weight="regular"
+              disabled={!rampIsEditable}
+            />
+          ) : undefined
+        }
+        locked={isRampControlled("condition")}
       />
-      <hr />
+      <Separator size="4" my="5" />
       <PrerequisiteInput
         value={form.watch("prerequisites") || []}
         setValue={(prerequisites) =>
@@ -377,6 +419,19 @@ export default function StandardRuleFields({
         feature={feature}
         environments={environments}
         setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+        label="Target by Prerequisite Features"
+        labelActions={
+          inRamp ? (
+            <Checkbox
+              value={rampActiveFields.has("prerequisites")}
+              setValue={(v) => toggleRampField("prerequisites", v)}
+              label="Ramp up"
+              weight="regular"
+              disabled={!rampIsEditable}
+            />
+          ) : undefined
+        }
+        locked={isRampControlled("prerequisites")}
       />
       {isCyclic && (
         <div className="alert alert-danger">

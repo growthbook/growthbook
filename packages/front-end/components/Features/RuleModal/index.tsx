@@ -88,7 +88,7 @@ import {
   validateRampSectionState,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
-  VALID_STEP_FIELDS,
+  activeFieldsFromState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 export interface Props {
   close: () => void;
@@ -466,7 +466,7 @@ export default function RuleModal({
         (step) => step.patch.coverage !== undefined,
       ) ||
         rampSectionState.startPatch.coverage !== undefined ||
-        rampSectionState.endSchedulePatch.coverage !== undefined);
+        rampSectionState.endPatch.coverage !== undefined);
 
     // Determine target rule type and coverage based on current state
     let targetType: "force" | "rollout" =
@@ -941,6 +941,13 @@ export default function RuleModal({
           "Ramp schedule requires either steps or scheduled start or end dates.",
         );
       }
+      if (
+        scheduleType === "ramp" &&
+        rampSectionState.mode !== "off" &&
+        activeFieldsFromState(rampSectionState).size === 0
+      ) {
+        throw new Error("Select at least one property to ramp before saving.");
+      }
 
       // Rollout rules with sub-100% coverage and ramp-up schedules that control
       // coverage both require a bucketing attribute to be set.
@@ -1011,10 +1018,7 @@ export default function RuleModal({
               // Defensively scrub patches to only include fields valid for this rule type
               const rampState =
                 values.type === "force" || values.type === "rollout"
-                  ? scrubRampStateForRuleType(
-                      rampSectionState,
-                      values.type as keyof typeof VALID_STEP_FIELDS,
-                    )
+                  ? scrubRampStateForRuleType(rampSectionState)
                   : rampSectionState;
               // "schedule" mode = simple date window (no intermediate steps).
               // Driven by the RadioGroup selection — reliable regardless of step count in state.
@@ -1034,7 +1038,7 @@ export default function RuleModal({
                 : rampState.startPatch;
               const effectiveEndPatch = isScheduleMode
                 ? {}
-                : rampState.endSchedulePatch;
+                : rampState.endPatch;
 
               if (
                 rampState.mode === "create" &&
@@ -1201,10 +1205,7 @@ export default function RuleModal({
           // Defensively scrub patches to only include fields valid for this rule type
           const rampState =
             values.type === "force" || values.type === "rollout"
-              ? scrubRampStateForRuleType(
-                  rampSectionState,
-                  values.type as keyof typeof VALID_STEP_FIELDS,
-                )
+              ? scrubRampStateForRuleType(rampSectionState)
               : rampSectionState;
           const isScheduleMode = scheduleType === "schedule";
           const isNoOpSchedule =
@@ -1214,9 +1215,7 @@ export default function RuleModal({
           const effectiveStartPatch = isScheduleMode
             ? {}
             : rampState.startPatch;
-          const effectiveEndPatch = isScheduleMode
-            ? {}
-            : rampState.endSchedulePatch;
+          const effectiveEndPatch = isScheduleMode ? {} : rampState.endPatch;
           if (rampState.mode === "create" && !isNoOpSchedule) {
             const startActions = buildStartActions(
               effectiveStartPatch,
@@ -1330,7 +1329,8 @@ export default function RuleModal({
           </>
         }
         ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
-        header={`New Rule`}
+        header="New Rule"
+        useRadixButton={true}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
@@ -1545,6 +1545,7 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
+        useRadixButton={true}
         bodyPrefix={
           <DraftSelectorForChanges
             feature={feature}

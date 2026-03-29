@@ -62,7 +62,7 @@ function PatchDisplay({
 
     if (p.coverage !== null && p.coverage !== undefined) {
       items.push(
-        <EffectRow key={k("cov")} label="Coverage">
+        <EffectRow key={k("cov")} label="% of units">
           {Math.round(p.coverage * 100)}%
         </EffectRow>,
       );

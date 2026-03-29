@@ -2,6 +2,7 @@
 // The "Changes" dropdown controls which fields appear on every step row; no per-row add/remove.
 
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import pick from "lodash/pick";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import { PiPlusBold, PiXBold, PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
@@ -29,8 +30,8 @@ import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/ui/Tooltip";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
@@ -53,16 +54,8 @@ export type StepField =
   | "prerequisites"
   | "force";
 
-const ALL_STEP_FIELDS: StepField[] = [
-  "coverage",
-  "condition",
-  "savedGroups",
-  "prerequisites",
-  "force",
-];
-
-const STEP_FIELD_LABELS: Record<StepField, string> = {
-  coverage: "Coverage",
+export const STEP_FIELD_LABELS: Record<StepField, string> = {
+  coverage: "Rollout %",
   condition: "Attribute targeting",
   savedGroups: "Saved groups",
   prerequisites: "Prerequisites",
@@ -104,7 +97,7 @@ export interface RampSectionState {
   endEarlyWhenStepsComplete: boolean;
   steps: UIStep[];
   endScheduleAt: string; // "" = automatic end; non-empty = specific time
-  endSchedulePatch: UIStepPatch;
+  endPatch: UIStepPatch;
   linkedRampId: string;
 }
 
@@ -116,24 +109,23 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
 
 // Fields valid per rule type. coverage only makes sense for rollout;
 // force (feature value) only makes sense for force rules.
-export const VALID_STEP_FIELDS: Record<"force" | "rollout", StepField[]> = {
-  force: ["force", "condition", "savedGroups", "prerequisites"],
-  rollout: ["coverage", "condition", "savedGroups", "prerequisites"],
-};
+export const VALID_STEP_FIELDS: StepField[] = [
+  "coverage",
+  "force",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+];
 
 export function scrubRampStateForRuleType(
   state: RampSectionState,
-  ruleType: "force" | "rollout",
 ): RampSectionState {
-  const valid = new Set(VALID_STEP_FIELDS[ruleType]);
   const scrub = (p: UIStepPatch): UIStepPatch =>
-    Object.fromEntries(
-      Object.entries(p).filter(([k]) => valid.has(k as StepField)),
-    ) as UIStepPatch;
+    pick(p, VALID_STEP_FIELDS) as UIStepPatch;
   return {
     ...state,
     startPatch: scrub(state.startPatch),
-    endSchedulePatch: scrub(state.endSchedulePatch),
+    endPatch: scrub(state.endPatch),
     steps: state.steps.map((s) => ({ ...s, patch: scrub(s.patch) })),
   };
 }
@@ -492,6 +484,70 @@ function applyTotalDuration(
   );
 }
 
+// ─── Active-field helpers (exported for use in parent forms) ─────────────────
+
+/** Derive the set of active fields from the patches stored in a RampSectionState. */
+export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
+  const fields = new Set<StepField>();
+  state.steps.forEach((s) => {
+    (Object.keys(s.patch) as StepField[]).forEach((k) => fields.add(k));
+  });
+  (Object.keys(state.startPatch) as StepField[]).forEach((k) => fields.add(k));
+  (Object.keys(state.endPatch) as StepField[]).forEach((k) => fields.add(k));
+  return fields;
+}
+
+/**
+ * Rebuild all patches in a RampSectionState to include exactly `newFields`.
+ * Existing values for kept fields are preserved; newly-added fields are seeded
+ * from `baseline` (so adding a targeting field copies the current rule value
+ * into every step).
+ */
+export function rebuildStateWithActiveFields(
+  state: RampSectionState,
+  newFields: StepField[],
+  baseline: Partial<UIStepPatch>,
+): RampSectionState {
+  const newSet = new Set(newFields);
+  const n = state.steps.length;
+
+  const baselineFor = (f: StepField): unknown => {
+    if (baseline[f] !== undefined) return baseline[f];
+    if (f === "savedGroups" || f === "prerequisites") return [];
+    if (f === "coverage") return 0;
+    return "";
+  };
+
+  const rebuildPatch = (existing: UIStepPatch, idx?: number): UIStepPatch => {
+    const p: UIStepPatch = {};
+    newSet.forEach((f) => {
+      if (existing[f] !== undefined) {
+        (p as Record<string, unknown>)[f] = existing[f];
+      } else if (f === "coverage" && idx !== undefined) {
+        p.coverage = Math.round(((idx + 1) / Math.max(n, 1)) * 100);
+      } else {
+        (p as Record<string, unknown>)[f] = baselineFor(f);
+      }
+    });
+    return p;
+  };
+
+  return {
+    ...state,
+    startPatch: rebuildPatch(state.startPatch),
+    // Pre-seed coverage: 100 so newly-activated coverage on the end patch
+    // defaults to 100% rather than 0. Explicitly-set values are preserved.
+    endPatch: rebuildPatch({
+      coverage: 100,
+      ...state.endPatch,
+    }),
+    steps: state.steps.map((s, i) => ({
+      ...s,
+      patch: rebuildPatch(s.patch, i),
+    })),
+  };
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
@@ -558,9 +614,7 @@ export default function RampScheduleSection({
     (Object.keys(state.startPatch) as StepField[]).forEach((k) =>
       fields.add(k),
     );
-    (Object.keys(state.endSchedulePatch) as StepField[]).forEach((k) =>
-      fields.add(k),
-    );
+    (Object.keys(state.endPatch) as StepField[]).forEach((k) => fields.add(k));
     return fields.size > 1 || (fields.size === 1 && !fields.has("coverage"));
   });
   const [durationValue, setDurationValue] = useState(() => {
@@ -611,65 +665,16 @@ export default function RampScheduleSection({
     setState({ ...state, ...partial });
   }
 
-  // Active fields are derived from all patches (start, steps, end) so the global
-  // "Schedule controls" dropdown governs all rows uniformly.
-  const activeFields = useMemo<Set<StepField>>(() => {
-    const fields = new Set<StepField>();
-    state.steps.forEach((s) => {
-      (Object.keys(s.patch) as StepField[]).forEach((k) => fields.add(k));
-    });
-    (Object.keys(state.startPatch) as StepField[]).forEach((k) =>
-      fields.add(k),
-    );
-    (Object.keys(state.endSchedulePatch) as StepField[]).forEach((k) =>
-      fields.add(k),
-    );
-    return fields;
-  }, [state.steps, state.startPatch, state.endSchedulePatch]);
+  // Active fields are derived from all patches (start, steps, end).
+  const activeFields = useMemo<Set<StepField>>(
+    () => activeFieldsFromState(state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.steps, state.startPatch, state.endPatch],
+  );
 
-  // Sets the full desired active-field set atomically (used by MultiSelectField onChange).
+  // Rebuild all patches to reflect a new active-field set.
   function setActiveFields(newFields: StepField[]) {
-    const newSet = new Set(newFields);
-    const n = state.steps.length;
-
-    // For a newly-added field, seed from rule baseline so existing targeting isn't wiped.
-    const baselineFor = (f: StepField): unknown => {
-      if (ruleBaseline[f] !== undefined) return ruleBaseline[f];
-      if (f === "savedGroups" || f === "prerequisites") return [];
-      if (f === "coverage") return 0;
-      return "";
-    };
-
-    const rebuildPatch = (existing: UIStepPatch, idx?: number): UIStepPatch => {
-      const p: UIStepPatch = {};
-      newSet.forEach((f) => {
-        if (existing[f] !== undefined) {
-          (p as Record<string, unknown>)[f] = existing[f];
-        } else if (f === "coverage" && idx !== undefined) {
-          p.coverage = Math.round(((idx + 1) / Math.max(n, 1)) * 100);
-        } else {
-          (p as Record<string, unknown>)[f] = baselineFor(f);
-        }
-      });
-      return p;
-    };
-
-    if (newSet.size > 1 || (newSet.size === 1 && !newSet.has("coverage"))) {
-      setMoreOptionsOpen(true);
-    }
-    patchState({
-      startPatch: rebuildPatch(state.startPatch),
-      // Pre-seed coverage: 100 so newly-activated coverage on the end patch defaults to
-      // 100% rather than 0. Explicitly set values from state are preserved by rebuildPatch.
-      endSchedulePatch: rebuildPatch({
-        coverage: 100,
-        ...state.endSchedulePatch,
-      }),
-      steps: state.steps.map((s, i) => ({
-        ...s,
-        patch: rebuildPatch(s.patch, i),
-      })),
-    });
+    setState(rebuildStateWithActiveFields(state, newFields, ruleBaseline));
   }
 
   // ── Step mutations ──────────────────────────────────────────────────────────
@@ -754,7 +759,7 @@ export default function RampScheduleSection({
     ).some((f) => activeFields.has(f));
     const hasEffects = activeFields.has("force") || hasTargeting;
     const rowBorder: React.CSSProperties = hasEffects
-      ? { borderBottom: "1px solid var(--gray-a3)" }
+      ? { borderBottom: "1px solid var(--gray-a6)" }
       : {};
     const subRowIndent = COL.num + 16;
     const effectsHeader = activeFields.has("coverage")
@@ -999,11 +1004,11 @@ export default function RampScheduleSection({
                   min="0"
                   max="100"
                   onFocus={(e) => e.target.select()}
-                  value={String(state.endSchedulePatch.coverage ?? 100)}
+                  value={String(state.endPatch.coverage ?? 100)}
                   onChange={(e) =>
                     patchState({
-                      endSchedulePatch: {
-                        ...state.endSchedulePatch,
+                      endPatch: {
+                        ...state.endPatch,
                         coverage: Math.min(
                           100,
                           Math.max(0, parseInt(e.target.value) || 0),
@@ -1101,10 +1106,10 @@ export default function RampScheduleSection({
           </Link>
         </Flex>
         {renderPatchSubRows(
-          state.endSchedulePatch,
+          state.endPatch,
           (field, value) =>
             patchState({
-              endSchedulePatch: { ...state.endSchedulePatch, [field]: value },
+              endPatch: { ...state.endPatch, [field]: value },
             }),
           "end",
         )}
@@ -1118,11 +1123,11 @@ export default function RampScheduleSection({
           align="center"
           gap="4"
           pb="2"
-          style={{ borderBottom: "1px solid var(--gray-a3)" }}
+          style={{ borderBottom: "1px solid var(--gray-a6)" }}
         >
           <ColHeader width={COL.num}>Step</ColHeader>
           {activeFields.has("coverage") && (
-            <ColHeader width={COL.coverage}>Coverage</ColHeader>
+            <ColHeader width={COL.coverage}>Rollout %</ColHeader>
           )}
           <ColHeader width={COL.trigger}>Triggered by</ColHeader>
         </Flex>
@@ -1134,7 +1139,7 @@ export default function RampScheduleSection({
             <div
               key={i}
               style={
-                hasEffects ? { borderBottom: "1px solid var(--gray-a3)" } : {}
+                hasEffects ? { borderBottom: "1px solid var(--gray-a6)" } : {}
               }
             >
               {/* Main grid row */}
@@ -1442,7 +1447,7 @@ export default function RampScheduleSection({
                   ),
                   name: ramp.name,
                   endScheduleAt: "",
-                  endSchedulePatch: { coverage: 100 },
+                  endPatch: { coverage: 100 },
                   disableRuleBefore: false,
                   disableRuleAfter: false,
                   endEarlyWhenStepsComplete: true,
@@ -1505,29 +1510,52 @@ export default function RampScheduleSection({
         </Box>
       </Flex>
 
-      {/* Ramp properties */}
-      <Box mb="6" mt="2">
-        <MultiSelectField
-          label="Ramp properties"
-          value={[...activeFields]}
-          options={ALL_STEP_FIELDS.map((f) => ({
-            value: f,
-            label: STEP_FIELD_LABELS[f],
-          }))}
-          onChange={(newValues) => {
-            setActiveFields(newValues as StepField[]);
-          }}
-          sort={false}
-          showCopyButton={false}
-          closeMenuOnSelect={false}
-          containerClassName="mb-1"
-        />
-        {activeFields.size === 0 && ruleBaseline.coverage !== undefined && (
-          <Link size="1" onClick={() => setActiveFields(["coverage"])}>
-            + Add coverage control
-          </Link>
-        )}
-      </Box>
+      {/* Ramp properties — which fields each step controls.
+          Coverage is on by default; targeting, saved groups, prerequisites, and
+          feature value can be opted in. Identical to the per-field checkboxes
+          in the rule form. */}
+      {(() => {
+        const validFields = VALID_STEP_FIELDS;
+        if (validFields.length === 0) return null;
+        const activeForType = validFields.filter((f) => activeFields.has(f));
+        return (
+          <Box mb="4">
+            <MultiSelectField
+              label="Properties to ramp"
+              value={activeForType}
+              options={validFields.map((f) => ({
+                value: f,
+                label: STEP_FIELD_LABELS[f],
+              }))}
+              onChange={(newValues) => {
+                setActiveFields(newValues as StepField[]);
+              }}
+              sort={false}
+              showCopyButton={false}
+              closeMenuOnSelect={false}
+              containerClassName="mb-0"
+            />
+            {validFields.includes("coverage") &&
+              !activeFields.has("coverage") && (
+                <Box mt="2">
+                  <Link
+                    onClick={() =>
+                      setActiveFields([...Array.from(activeFields), "coverage"])
+                    }
+                  >
+                    Add <strong>Rollout %</strong>
+                  </Link>
+                </Box>
+              )}
+          </Box>
+        );
+      })()}
+
+      {activeFields.size === 0 && (
+        <Callout status="error" mb="4">
+          Select at least one property to ramp.
+        </Callout>
+      )}
 
       {boxStepGrid ? (
         <div className="appbox px-3 pt-3 pb-2 bg-light">
@@ -1744,7 +1772,7 @@ export function rampScheduleToSectionState(
       rs.endCondition?.trigger?.type === "scheduled"
         ? new Date(rs.endCondition.trigger.at).toISOString()
         : "",
-    endSchedulePatch: reconstructUIPatch(rs.endCondition?.actions?.[0]?.patch),
+    endPatch: reconstructUIPatch(rs.endCondition?.actions?.[0]?.patch),
     linkedRampId: rs.id,
   };
 }
@@ -1775,7 +1803,7 @@ export function defaultRampSectionState(
       {},
     ),
     endScheduleAt: "",
-    endSchedulePatch: { coverage: 100 },
+    endPatch: { coverage: 100 },
     linkedRampId: "",
   };
 }
@@ -1810,9 +1838,7 @@ export function createActionToSectionState(
       action.endCondition?.trigger?.type === "scheduled"
         ? new Date(action.endCondition.trigger.at).toISOString()
         : "",
-    endSchedulePatch: reconstructUIPatch(
-      action.endCondition?.actions?.[0]?.patch,
-    ),
+    endPatch: reconstructUIPatch(action.endCondition?.actions?.[0]?.patch),
     linkedRampId: "",
   };
 }

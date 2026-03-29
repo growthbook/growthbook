@@ -12,8 +12,9 @@ import {
 import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
-import { Box, Flex, Text, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
 import {
@@ -30,7 +31,9 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, {
+  FIVE_LINES_HEIGHT,
+} from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import CountrySelector, {
   ALL_COUNTRY_CODES,
@@ -63,7 +66,7 @@ export function ConditionLabel({
 }) {
   return (
     <Flex align="center" flexShrink="0" style={{ width }} mb="1">
-      <Text weight="medium" size="2">
+      <Text weight="medium" size="medium">
         {label}
       </Text>
     </Flex>
@@ -130,33 +133,45 @@ interface Props {
   project: string;
   labelClassName?: string;
   emptyText?: string;
-  title?: string;
+  label?: string;
+  labelActions?: React.ReactNode;
+  locked?: boolean;
   require?: boolean;
   allowNestedSavedGroups?: boolean;
   excludeSavedGroupId?: string;
   slimMode?: boolean;
 }
 
-export default function ConditionInput(props: Props) {
-  const attributes = useAttributeMap(props.project);
-
-  const title = props.title || "Target by Attributes";
-  const emptyText = props.emptyText || "Applied to everyone by default.";
+export default function ConditionInput({
+  defaultValue,
+  onChange,
+  project,
+  labelClassName,
+  emptyText = "Applied to everyone by default.",
+  label = "Target by Attributes",
+  labelActions,
+  locked = false,
+  require,
+  allowNestedSavedGroups,
+  excludeSavedGroupId,
+  slimMode,
+}: Props) {
+  const attributes = useAttributeMap(project);
 
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, attributes) === null,
+    () => jsonToConds(defaultValue, attributes) === null,
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
-  const [value, setValue] = useState(props.defaultValue);
+  const [value, setValue] = useState(defaultValue);
   const [conds, setConds] = useState(
-    () => jsonToConds(props.defaultValue, attributes) || [],
+    () => jsonToConds(defaultValue, attributes) || [],
   );
   const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
   const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
     defaultCodeEditorToggledOn,
   );
 
-  const attributeSchema = useAttributeSchema(false, props.project);
+  const attributeSchema = useAttributeSchema(false, project);
 
   useEffect(() => {
     if (advanced) return;
@@ -164,7 +179,7 @@ export default function ConditionInput(props: Props) {
   }, [advanced, conds]);
 
   useEffect(() => {
-    props.onChange(value);
+    onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
 
@@ -181,7 +196,7 @@ export default function ConditionInput(props: Props) {
 
     const formatted = formatJSON(value);
 
-    const codeEditorToggleButton = (
+    const codeEditorToggleButton = locked ? null : (
       <Link
         onClick={(e) => {
           e.preventDefault();
@@ -194,7 +209,7 @@ export default function ConditionInput(props: Props) {
       </Link>
     );
 
-    const formatJSONButton = (
+    const formatJSONButton = locked ? null : (
       <Link
         onClick={(e) => {
           e.preventDefault();
@@ -227,63 +242,100 @@ export default function ConditionInput(props: Props) {
             rules
           </HelperText>
         )}
-        <CaseInsensitiveRegexWarning value={value} project={props.project} />
+        <CaseInsensitiveRegexWarning value={value} project={project} />
       </>
     );
 
     return (
-      <Box mb={props.slimMode ? "2" : "6"}>
-        <Flex gap="2" mb={props.slimMode ? "0" : "1"}>
-          <Box flexGrow="1">
-            {props.slimMode ? (
-              <Text
-                as="div"
-                size="1"
-                weight="medium"
-                my="1"
-                style={{ color: "var(--color-text-low)" }}
-              >
-                {title}
-              </Text>
-            ) : (
-              <label className={props.labelClassName}>{title}</label>
-            )}
-          </Box>
-          {simpleAllowed && attributes.size > 0 && (
-            <Box mr={props.slimMode ? "5" : undefined}>
-              <Switch
-                value={advanced}
-                onChange={(checked) => {
-                  if (checked) {
-                    setAdvanced(true);
-                  } else {
-                    const newConds = jsonToConds(value, attributes);
-                    if (newConds === null) return;
-                    setConds(newConds);
-                    setAdvanced(false);
-                  }
-                }}
-                label="Advanced"
-                size="1"
-              />
+      <Box mb={slimMode ? "2" : "6"}>
+        {(label || labelActions) && (
+          <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
+            <Flex gap="2" align="center">
+              {slimMode ? (
+                <Text as="div" size="small" weight="medium" color="text-low">
+                  {label}
+                </Text>
+              ) : (
+                <Text as="div" size="medium" weight="semibold">
+                  {label}
+                </Text>
+              )}
+              {simpleAllowed && attributes.size > 0 && (
+                <Switch
+                  value={advanced}
+                  onChange={(checked) => {
+                    if (checked) {
+                      setAdvanced(true);
+                    } else {
+                      const newConds = jsonToConds(value, attributes);
+                      if (newConds === null) return;
+                      setConds(newConds);
+                      setAdvanced(false);
+                    }
+                  }}
+                  label="Advanced"
+                  size="1"
+                  ml="2"
+                  disabled={locked}
+                />
+              )}
+            </Flex>
+            {labelActions}
+          </Flex>
+        )}
+        {!label && !labelActions && (
+          <Flex gap="2" mb={slimMode ? "0" : "1"}>
+            <Box flexGrow="1">
+              {slimMode ? (
+                <Text as="div" size="small" weight="medium" color="text-low">
+                  Target by Attributes
+                </Text>
+              ) : (
+                <Text as="div" size="medium" weight="semibold">
+                  Target by Attributes
+                </Text>
+              )}
             </Box>
-          )}
-        </Flex>
+            {simpleAllowed && attributes.size > 0 && (
+              <Box ml="2">
+                <Switch
+                  value={advanced}
+                  onChange={(checked) => {
+                    if (checked) {
+                      setAdvanced(true);
+                    } else {
+                      const newConds = jsonToConds(value, attributes);
+                      if (newConds === null) return;
+                      setConds(newConds);
+                      setAdvanced(false);
+                    }
+                  }}
+                  label="Advanced"
+                  size="1"
+                  ml="2"
+                  disabled={locked}
+                />
+              </Box>
+            )}
+          </Flex>
+        )}
         <Box mb="3">
           {codeEditorToggledOn ? (
             <CodeTextArea
-              labelClassName={props.labelClassName}
+              labelClassName={labelClassName}
               language="json"
               value={value}
               setValue={setValue}
               helpText={combinedHelpText}
               resizable={true}
-              showCopyButton={true}
-              showFullscreenButton={true}
+              defaultHeight={FIVE_LINES_HEIGHT}
+              showCopyButton={!locked}
+              showFullscreenButton={!locked}
+              disabled={locked}
             />
           ) : (
             <Field
-              labelClassName={props.labelClassName}
+              labelClassName={labelClassName}
               containerClassName="mb-0"
               placeholder=""
               value={value}
@@ -293,6 +345,7 @@ export default function ConditionInput(props: Props) {
               textarea
               minRows={1}
               helpText={combinedHelpText}
+              disabled={locked}
             />
           )}
         </Box>
@@ -302,27 +355,39 @@ export default function ConditionInput(props: Props) {
 
   if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
-      <Box my={props.slimMode ? "1" : "4"}>
-        {props.slimMode ? (
-          <Text
-            as="div"
-            size="1"
-            weight="medium"
-            my="1"
-            style={{ color: "var(--color-text-low)" }}
-          >
-            {title}
-          </Text>
-        ) : (
-          <label className={props.labelClassName}>{title}</label>
+      <Box my={slimMode ? "1" : "4"}>
+        {(label || labelActions) && (
+          <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+            {slimMode ? (
+              <Text as="div" size="small" weight="medium" color="text-low">
+                {label}
+              </Text>
+            ) : (
+              <Text as="div" size="medium" weight="semibold">
+                {label}
+              </Text>
+            )}
+            {labelActions}
+          </Flex>
         )}
+        {!label &&
+          !labelActions &&
+          (slimMode ? (
+            <Text as="div" size="small" weight="medium" color="text-low">
+              Target by Attributes
+            </Text>
+          ) : (
+            <Text as="div" size="medium" weight="semibold">
+              Target by Attributes
+            </Text>
+          ))}
         <Box>
-          {!props.slimMode && (
-            <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+          {!slimMode && (
+            <Text color="text-low" fontStyle="italic" mb="2">
               {emptyText}
             </Text>
           )}
-          <Box mt={props.slimMode ? "0" : "2"}>
+          <Box mt={slimMode ? "0" : "2"}>
             <Link
               onClick={() => {
                 const prop = attributeSchema[0];
@@ -343,8 +408,9 @@ export default function ConditionInput(props: Props) {
               }}
             >
               <Text
-                weight={props.slimMode ? "regular" : "bold"}
-                size={props.slimMode ? "1" : undefined}
+                weight={slimMode ? "regular" : "semibold"}
+                size={slimMode ? "small" : "medium"}
+                color={locked ? "text-low" : undefined}
               >
                 <PiPlusCircleBold className="mr-1" />
                 Add attribute targeting
@@ -356,23 +422,54 @@ export default function ConditionInput(props: Props) {
     );
   }
   return (
-    <Box mb={props.slimMode ? "2" : "6"}>
-      <Flex justify="between" align="center" mb={props.slimMode ? "0" : "1"}>
-        {props.slimMode ? (
-          <Text
-            as="div"
-            size="1"
-            weight="medium"
-            my="1"
-            style={{ color: "var(--color-text-low)" }}
-          >
-            {title}
-          </Text>
-        ) : (
-          <label className={props.labelClassName}>{title}</label>
-        )}
-        {attributes.size > 0 && (
-          <Box mr={props.slimMode ? "5" : undefined}>
+    <Box mb={slimMode ? "2" : "6"}>
+      {(label || labelActions) && (
+        <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
+          <Flex gap="2" align="center">
+            {slimMode ? (
+              <Text as="div" size="small" weight="medium" color="text-low">
+                {label}
+              </Text>
+            ) : (
+              <Text as="div" size="medium" weight="semibold">
+                {label}
+              </Text>
+            )}
+            {attributes.size > 0 && (
+              <Switch
+                value={advanced}
+                onChange={(checked) => {
+                  if (checked) {
+                    setAdvanced(true);
+                  } else {
+                    const newConds = jsonToConds(value, attributes);
+                    if (newConds === null) return;
+                    setConds(newConds);
+                    setAdvanced(false);
+                  }
+                }}
+                label="Advanced"
+                size="1"
+                ml="2"
+                disabled={locked}
+              />
+            )}
+          </Flex>
+          {labelActions}
+        </Flex>
+      )}
+      {!label && !labelActions && (
+        <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
+          {slimMode ? (
+            <Text as="div" size="small" weight="medium" color="text-low">
+              Target by Attributes
+            </Text>
+          ) : (
+            <Text as="div" size="medium" weight="semibold">
+              Target by Attributes
+            </Text>
+          )}
+          {attributes.size > 0 && (
             <Switch
               value={advanced}
               onChange={(checked) => {
@@ -387,22 +484,25 @@ export default function ConditionInput(props: Props) {
               }}
               label="Advanced"
               size="1"
+              ml="2"
+              disabled={locked}
             />
-          </Box>
-        )}
-      </Flex>
+          )}
+        </Flex>
+      )}
 
       {conds.map((andGroup, i) => (
         <Box key={i}>
-          {i > 0 && <OrSeparator slimMode={props.slimMode} />}
+          {i > 0 && <OrSeparator slimMode={slimMode} />}
           <TargetingConditionsCard
             targetingType="attribute"
             total={conds.length}
-            slimMode={props.slimMode}
+            slimMode={slimMode}
             addButton={
               attributeSchema.length > 0 ? (
                 <AddConditionButton
-                  slimMode={props.slimMode}
+                  slimMode={slimMode}
+                  disabled={locked}
                   onClick={() => {
                     const prop = attributeSchema[0];
                     const newAndGroups = [...conds];
@@ -437,14 +537,15 @@ export default function ConditionInput(props: Props) {
                 setConds(newAndGroups);
               }}
               orGroupsCount={conds.length}
-              project={props.project}
-              labelClassName={props.labelClassName}
-              emptyText={props.emptyText}
-              title={props.title}
-              require={props.require}
-              allowNestedSavedGroups={props.allowNestedSavedGroups}
-              excludeSavedGroupId={props.excludeSavedGroupId}
-              slimMode={props.slimMode}
+              project={project}
+              labelClassName={labelClassName}
+              emptyText={emptyText}
+              label={label}
+              require={require}
+              allowNestedSavedGroups={allowNestedSavedGroups}
+              excludeSavedGroupId={excludeSavedGroupId}
+              slimMode={slimMode}
+              disabled={locked}
             />
           </TargetingConditionsCard>
         </Box>
@@ -452,7 +553,8 @@ export default function ConditionInput(props: Props) {
 
       {attributeSchema.length > 0 && (
         <AddOrGroupButton
-          slimMode={props.slimMode}
+          slimMode={slimMode}
+          disabled={locked}
           onClick={() => {
             const prop = attributeSchema[0];
             setConds([
@@ -481,7 +583,7 @@ export default function ConditionInput(props: Props) {
         </Callout>
       )}
 
-      <CaseInsensitiveRegexWarning value={value} project={props.project} />
+      <CaseInsensitiveRegexWarning value={value} project={project} />
     </Box>
   );
 }
@@ -490,6 +592,7 @@ function ConditionAndGroupInput({
   conds,
   setConds,
   orGroupsCount,
+  disabled = false,
   ...props
 }: {
   conds: Condition[];
@@ -498,11 +601,12 @@ function ConditionAndGroupInput({
   project: string;
   labelClassName?: string;
   emptyText?: string;
-  title?: string;
+  label?: string;
   require?: boolean;
   allowNestedSavedGroups?: boolean;
   excludeSavedGroupId?: string;
   slimMode?: boolean;
+  disabled?: boolean;
 }) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
@@ -570,6 +674,7 @@ function ConditionAndGroupInput({
 
         const fieldSelector = (
           <SelectField
+            disabled={disabled}
             withRadixThemedPortal
             useMultilineLabels={true}
             value={field}
@@ -619,7 +724,7 @@ function ConditionAndGroupInput({
                   option={o as AttributeOptionForTooltip}
                   context={meta.context}
                 >
-                  <Text size="2">{o.label}</Text>
+                  <Text size="medium">{o.label}</Text>
                 </AttributeOptionWithTooltip>
               );
             }}
@@ -721,6 +826,7 @@ function ConditionAndGroupInput({
               attributeSlot={fieldSelector}
               valueSlot={
                 <MultiSelectField
+                  disabled={disabled}
                   value={ids}
                   options={groupOptions}
                   onChange={handleListChange}
@@ -753,6 +859,7 @@ function ConditionAndGroupInput({
                       variant="ghost"
                       radius="full"
                       size="1"
+                      disabled={disabled}
                       onClick={() => {
                         if (conds.length === 1) {
                           setConds([]);
@@ -961,6 +1068,7 @@ function ConditionAndGroupInput({
               <Flex gap="3" align="start">
                 <Box flexGrow="1">
                   <SelectField
+                    disabled={disabled}
                     containerStyles={{
                       control: (base) => ({
                         ...base,
@@ -989,6 +1097,7 @@ function ConditionAndGroupInput({
                     >
                       <IconButton
                         type="button"
+                        disabled={disabled}
                         variant={
                           isCaseInsensitiveOperator(operator) ? "soft" : "ghost"
                         }
@@ -1021,6 +1130,7 @@ function ConditionAndGroupInput({
                   savedGroupOptions.length > 0 ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <SelectField
+                        disabled={disabled}
                         options={savedGroupOptions.map((o) => ({
                           label: o.label,
                           value: o.value,
@@ -1056,6 +1166,7 @@ function ConditionAndGroupInput({
                       style={{ flexBasis: "100%", minWidth: 0 }}
                     >
                       <StringArrayField
+                        disabled={disabled}
                         containerClassName="w-100"
                         value={value ? value.trim().split(",") : []}
                         onChange={handleListChange}
@@ -1072,6 +1183,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <CountrySelector
+                          disabled={disabled}
                           selectAmount="multi"
                           displayFlags={true}
                           value={
@@ -1083,6 +1195,7 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <CountrySelector
+                          disabled={disabled}
                           selectAmount="single"
                           displayFlags={true}
                           value={value}
@@ -1096,6 +1209,7 @@ function ConditionAndGroupInput({
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       {listOperators.includes(operator) ? (
                         <MultiSelectField
+                          disabled={disabled}
                           options={attribute.enum.map((v) => ({
                             label: v,
                             value: v,
@@ -1111,6 +1225,7 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <SelectField
+                          disabled={disabled}
                           useMultilineLabels={true}
                           containerStyles={{
                             control: (base) => ({
@@ -1136,6 +1251,7 @@ function ConditionAndGroupInput({
                   ) : displayType === "number" ? (
                     <Box style={{ flexBasis: "100%", minWidth: 0 }}>
                       <Field
+                        disabled={disabled}
                         type="number"
                         step="any"
                         value={value}
@@ -1155,6 +1271,7 @@ function ConditionAndGroupInput({
                         "$notRegexi",
                       ].includes(operator) ? (
                         <DatePicker
+                          disabled={disabled}
                           date={value}
                           setDate={(v) => {
                             handleCondsChange(
@@ -1166,6 +1283,7 @@ function ConditionAndGroupInput({
                         />
                       ) : (
                         <Field
+                          disabled={disabled}
                           value={value}
                           onChange={handleFieldChange}
                           name="value"
@@ -1199,6 +1317,7 @@ function ConditionAndGroupInput({
                     variant="ghost"
                     radius="full"
                     size="1"
+                    disabled={disabled}
                     onClick={() => {
                       if (conds.length === 1) {
                         setConds([]);

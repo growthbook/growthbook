@@ -150,7 +150,7 @@ export default function RampScheduleModal({
         rs.startCondition?.actions ?? [],
       );
       const endActions = buildConditionActionsForAllTargets(
-        rampState.endSchedulePatch,
+        rampState.endPatch,
         rs.targets,
         rs.endCondition?.actions ?? [],
       );

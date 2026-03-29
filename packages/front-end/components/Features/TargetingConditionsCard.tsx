@@ -273,13 +273,25 @@ export function AddConditionButton({
   onClick,
   children,
   slimMode,
+  disabled,
 }: {
   onClick: () => void;
   children?: React.ReactNode;
   slimMode?: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <Link onClick={onClick} className="and-button">
+    <Link
+      onClick={() => {
+        if (disabled) return;
+        onClick();
+      }}
+      className="and-button"
+      style={{
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
       <Text
         weight={slimMode ? "regular" : "semibold"}
         size={slimMode ? "small" : "medium"}
@@ -294,13 +306,25 @@ export function AddConditionButton({
 export function AddOrGroupButton({
   onClick,
   slimMode,
+  disabled,
 }: {
   onClick: () => void;
   slimMode?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Box my={slimMode ? "1" : "4"}>
-      <Link onClick={onClick} className="or-button">
+      <Link
+        onClick={() => {
+          if (disabled) return;
+          onClick();
+        }}
+        className="or-button"
+        style={{
+          opacity: disabled ? 0.5 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+      >
         <Text
           weight={slimMode ? "regular" : "semibold"}
           size={slimMode ? "small" : "medium"}

@@ -1,7 +1,8 @@
 import { SavedGroupTargeting } from "shared/types/feature";
 import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React from "react";
-import { Box, Text, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -24,6 +25,9 @@ export interface Props {
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
   slimMode?: boolean;
+  label?: string;
+  labelActions?: React.ReactNode;
+  locked?: boolean;
 }
 
 export default function SavedGroupTargetingField({
@@ -31,32 +35,33 @@ export default function SavedGroupTargetingField({
   setValue,
   project,
   slimMode,
+  label = "Target by Saved Groups",
+  labelActions,
+  locked,
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const { unsupportedConnections, hasLargeSavedGroupFeature } =
     useLargeSavedGroupSupport(project);
 
-  const savedGroupsLabel = slimMode ? (
-    <Text
-      as="div"
-      size="1"
-      weight="medium"
-      my="1"
-      style={{ color: "var(--color-text-low)" }}
-    >
-      Target by Saved Groups
-    </Text>
-  ) : (
-    <label>Target by Saved Groups</label>
-  );
+  const savedGroupsLabel =
+    label &&
+    (slimMode ? (
+      <Text as="div" size="small" weight="medium" color="text-low">
+        {label}
+      </Text>
+    ) : (
+      <Text as="div" size="medium" weight="semibold">
+        {label}
+      </Text>
+    ));
 
   if (!savedGroups.length)
     return (
       <Box>
         {savedGroupsLabel}
         <Box>
-          <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+          <Text color="text-low" fontStyle="italic" mb="2">
             You do not have any saved groups.
           </Text>
         </Box>
@@ -79,16 +84,23 @@ export default function SavedGroupTargetingField({
   if (value.length === 0) {
     return (
       <Box>
-        {savedGroupsLabel}
+        {(label || labelActions) && (
+          <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+            {savedGroupsLabel}
+            {labelActions}
+          </Flex>
+        )}
+        {!label && !labelActions && savedGroupsLabel}
         <Box>
           {!slimMode && (
-            <Text color="gray" style={{ fontStyle: "italic" }} mb="2">
+            <Text color="text-low" fontStyle="italic" mb="2">
               No saved group targeting applied.
             </Text>
           )}
           <Box mt={slimMode ? "0" : "2"}>
             <Link
               onClick={() => {
+                if (locked) return;
                 setValue([
                   ...value,
                   {
@@ -99,8 +111,9 @@ export default function SavedGroupTargetingField({
               }}
             >
               <Text
-                weight={slimMode ? "regular" : "bold"}
-                size={slimMode ? "1" : undefined}
+                weight={slimMode ? "regular" : "semibold"}
+                size={slimMode ? "small" : "medium"}
+                color={locked ? "text-low" : undefined}
               >
                 <PiPlusCircleBold className="mr-1" />
                 Add group targeting
@@ -114,145 +127,163 @@ export default function SavedGroupTargetingField({
 
   return (
     <Box mb={slimMode ? "2" : "6"}>
-      <Box mb={slimMode ? "0" : undefined}>
-        {savedGroupsLabel}
-        <LargeSavedGroupPerformanceWarning
-          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          unsupportedConnections={unsupportedConnections}
-        />
-      </Box>
-      {conflicts.length > 0 && (
-        <Callout status="error" mb="3">
-          <Text weight="bold">Error:</Text> You have a conflict in your rules
-          with the following groups:{" "}
-          {conflicts.map((c) => (
-            <Badge
-              key={c}
-              label={getSavedGroupById(c)?.groupName || c}
-              color="red"
-              mr="1"
+      {label || labelActions ? (
+        <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+          {savedGroupsLabel}
+          {labelActions}
+        </Flex>
+      ) : (
+        savedGroupsLabel && (
+          <Box mb={slimMode ? "0" : "1"}>
+            {savedGroupsLabel}
+            <LargeSavedGroupPerformanceWarning
+              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+              unsupportedConnections={unsupportedConnections}
             />
-          ))}
-        </Callout>
+          </Box>
+        )
       )}
-      <TargetingConditionsCard
-        targetingType="group"
-        total={value.length}
-        slimMode={slimMode}
-        addButton={
-          <AddConditionButton
-            slimMode={slimMode}
-            onClick={() => {
-              setValue([
-                ...value,
-                {
-                  match: "any",
-                  ids: [],
-                },
-              ]);
-            }}
-          >
-            Add condition
-          </AddConditionButton>
-        }
-      >
-        <>
-          {value.map((v, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && (
-                <Separator
-                  style={{ width: "100%", backgroundColor: "var(--slate-a3)" }}
-                />
-              )}
-              <ConditionRow
-                prefixSlot={
-                  slimMode ? undefined : (
-                    <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
-                  )
-                }
-                attributeSlot={
-                  <SelectField
-                    value={v.match}
-                    onChange={(match) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].match = match as "all" | "any" | "none";
-                      setValue(newValue);
+      <Box>
+        {conflicts.length > 0 && (
+          <Callout status="error" mb="3">
+            <Text weight="semibold">Error:</Text> You have a conflict in your
+            rules with the following groups:{" "}
+            {conflicts.map((c) => (
+              <Badge
+                key={c}
+                label={getSavedGroupById(c)?.groupName || c}
+                color="red"
+                mr="1"
+              />
+            ))}
+          </Callout>
+        )}
+        <TargetingConditionsCard
+          targetingType="group"
+          total={value.length}
+          slimMode={slimMode}
+          addButton={
+            <AddConditionButton
+              disabled={locked}
+              slimMode={slimMode}
+              onClick={() => {
+                setValue([
+                  ...value,
+                  {
+                    match: "any",
+                    ids: [],
+                  },
+                ]);
+              }}
+            >
+              Add condition
+            </AddConditionButton>
+          }
+        >
+          <>
+            {value.map((v, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <Separator
+                    style={{
+                      width: "100%",
+                      backgroundColor: "var(--slate-a3)",
                     }}
-                    sort={false}
-                    options={[
-                      { value: "any", label: "any of" },
-                      { value: "all", label: "all of" },
-                      { value: "none", label: "none of" },
-                    ]}
                   />
-                }
-                valueSlot={
-                  <MultiSelectField
-                    value={v.ids}
-                    onChange={(ids) => {
-                      const newValue = [...value];
-                      newValue[i] = { ...v };
-                      newValue[i].ids = ids;
-                      setValue(newValue);
-                    }}
-                    options={options}
-                    formatOptionLabel={(o, meta) => {
-                      if (meta.context !== "value") return o.label;
-                      const group = getSavedGroupById(o.value);
-                      if (!group) return o.label;
-                      return (
-                        <Link
-                          href={`/saved-groups/${group.id}`}
-                          target="_blank"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              maxWidth: "200px",
-                            }}
-                          >
-                            {o.label}
-                          </span>
-                          <PiArrowSquareOut style={{ flexShrink: 0 }} />
-                        </Link>
-                      );
-                    }}
-                    required
-                    placeholder="Select groups..."
-                    closeMenuOnSelect={true}
-                  />
-                }
-                removeSlot={
-                  <Tooltip content="Remove group">
-                    <IconButton
-                      type="button"
-                      color="gray"
-                      variant="ghost"
-                      radius="full"
-                      size="1"
-                      onClick={() => {
-                        const newValue = value.filter((_, idx) => idx !== i);
+                )}
+                <ConditionRow
+                  prefixSlot={
+                    slimMode ? undefined : (
+                      <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
+                    )
+                  }
+                  attributeSlot={
+                    <SelectField
+                      disabled={locked}
+                      value={v.match}
+                      onChange={(match) => {
+                        const newValue = [...value];
+                        newValue[i] = { ...v };
+                        newValue[i].match = match as "all" | "any" | "none";
                         setValue(newValue);
                       }}
-                    >
-                      <PiXBold size={16} />
-                    </IconButton>
-                  </Tooltip>
-                }
-              />
-            </React.Fragment>
-          ))}
-        </>
-      </TargetingConditionsCard>
+                      sort={false}
+                      options={[
+                        { value: "any", label: "any of" },
+                        { value: "all", label: "all of" },
+                        { value: "none", label: "none of" },
+                      ]}
+                    />
+                  }
+                  valueSlot={
+                    <MultiSelectField
+                      disabled={locked}
+                      value={v.ids}
+                      onChange={(ids) => {
+                        const newValue = [...value];
+                        newValue[i] = { ...v };
+                        newValue[i].ids = ids;
+                        setValue(newValue);
+                      }}
+                      options={options}
+                      formatOptionLabel={(o, meta) => {
+                        if (meta.context !== "value") return o.label;
+                        const group = getSavedGroupById(o.value);
+                        if (!group) return o.label;
+                        return (
+                          <Link
+                            href={`/saved-groups/${group.id}`}
+                            target="_blank"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <span
+                              style={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: "200px",
+                              }}
+                            >
+                              {o.label}
+                            </span>
+                            <PiArrowSquareOut style={{ flexShrink: 0 }} />
+                          </Link>
+                        );
+                      }}
+                      required
+                      placeholder="Select groups..."
+                      closeMenuOnSelect={true}
+                    />
+                  }
+                  removeSlot={
+                    <Tooltip content="Remove group">
+                      <IconButton
+                        type="button"
+                        color="gray"
+                        variant="ghost"
+                        radius="full"
+                        size="1"
+                        disabled={locked}
+                        onClick={() => {
+                          const newValue = value.filter((_, idx) => idx !== i);
+                          setValue(newValue);
+                        }}
+                      >
+                        <PiXBold size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  }
+                />
+              </React.Fragment>
+            ))}
+          </>
+        </TargetingConditionsCard>
+      </Box>
     </Box>
   );
 }

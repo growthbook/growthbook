@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
   PiCaretDownFill,
@@ -95,14 +95,14 @@ export default function SafeRolloutFields({
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
           project={feature.project || ""}
         />
-        <hr />
+        <Separator size="4" my="5" />
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
           onChange={(value) => form.setValue("condition", value)}
           key={conditionKey}
           project={feature.project || ""}
         />
-        <hr />
+        <Separator size="4" my="5" />
         <PrerequisiteInput
           value={form.watch("prerequisites") || []}
           setValue={(prerequisites) =>
