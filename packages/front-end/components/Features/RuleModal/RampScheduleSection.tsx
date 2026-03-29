@@ -4,7 +4,12 @@
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import pick from "lodash/pick";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
-import { PiPlusBold, PiXBold, PiCaretRightFill } from "react-icons/pi";
+import {
+  PiPlusBold,
+  PiXBold,
+  PiCaretRightFill,
+  PiCaretDownFill,
+} from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import type {
   FeatureInterface,
@@ -41,6 +46,12 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownSubMenu,
+} from "@/ui/DropdownMenu";
 import styles from "./RampScheduleSection.module.scss";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -577,6 +588,84 @@ interface Props {
   pendingDetach?: boolean;
 }
 
+type CopyTarget = "empty" | "all" | "start" | "end" | number;
+
+interface CopyToDropdownProps {
+  field: StepField;
+  currentStepIndex: number | "start" | "end";
+  state: RampSectionState;
+  isPatchFieldEmpty: (p: UIStepPatch, field: StepField) => boolean;
+  onCopy: (field: StepField, target: CopyTarget) => void;
+}
+
+function CopyToDropdown({
+  field,
+  currentStepIndex,
+  state,
+  isPatchFieldEmpty,
+  onCopy,
+}: CopyToDropdownProps) {
+  const [open, setOpen] = useState(false);
+
+  function pick(target: CopyTarget) {
+    onCopy(field, target);
+    setOpen(false);
+  }
+
+  const hasEmptyTargets =
+    (currentStepIndex !== "start" &&
+      isPatchFieldEmpty(state.startPatch, field)) ||
+    state.steps.some(
+      (s, i) => i !== currentStepIndex && isPatchFieldEmpty(s.patch, field),
+    ) ||
+    (currentStepIndex !== "end" && isPatchFieldEmpty(state.endPatch, field));
+
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Link
+          type="button"
+          style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
+        >
+          Copy to... <PiCaretDownFill style={{ fontSize: "9px" }} />
+        </Link>
+      }
+      menuPlacement="end"
+      variant="soft"
+    >
+      <DropdownMenuGroup>
+        {hasEmptyTargets && (
+          <DropdownMenuItem onClick={() => pick("empty")}>
+            Empty steps
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={() => pick("all")}>
+          All steps
+        </DropdownMenuItem>
+      </DropdownMenuGroup>
+      <DropdownSubMenu trigger="Step">
+        {currentStepIndex !== "start" && (
+          <DropdownMenuItem onClick={() => pick("start")}>
+            Start
+          </DropdownMenuItem>
+        )}
+        {state.steps.map((_, i) =>
+          i === currentStepIndex ? null : (
+            <DropdownMenuItem key={i} onClick={() => pick(i)}>
+              Step {i + 1}
+            </DropdownMenuItem>
+          ),
+        )}
+        {currentStepIndex !== "end" && (
+          <DropdownMenuItem onClick={() => pick("end")}>End</DropdownMenuItem>
+        )}
+      </DropdownSubMenu>
+    </DropdownMenu>
+  );
+}
+
 export default function RampScheduleSection({
   featureRampSchedules: _featureRampSchedules,
   ruleRampSchedule,
@@ -594,6 +683,13 @@ export default function RampScheduleSection({
   pendingDetach = false,
 }: Props) {
   const [open, setOpen] = useState(hideOuterToggle || state.mode !== "off");
+
+  // Per-step version counters for ConditionInput (uncontrolled) — incremented
+  // when a copy operation writes a new condition value into a step so the
+  // component remounts and picks up the new defaultValue.
+  const [conditionVersions, setConditionVersions] = useState<
+    Record<string, number>
+  >({});
 
   // Auto-switch to "create" mode when opening a ramp editor with no existing ramp
   useEffect(() => {
@@ -775,9 +871,83 @@ export default function RampScheduleSection({
     function renderPatchSubRows(
       patch: UIStepPatch,
       setPatchFn: (field: StepField, value: unknown) => void,
-      rowKey: string,
+      currentStepIndex: number | "start" | "end",
     ) {
       if (!hasEffects) return null;
+
+      // A patch field counts as "empty" when it hasn't been meaningfully filled in.
+      function isPatchFieldEmpty(p: UIStepPatch, field: StepField): boolean {
+        const v = p[field];
+        if (v === undefined) return true;
+        if (field === "condition") return v === "" || v === "{}";
+        if (field === "savedGroups" || field === "prerequisites")
+          return Array.isArray(v) && v.length === 0;
+        return false;
+      }
+
+      // Helper to copy current patch field value to other steps
+      function copyFieldValue(
+        field: StepField,
+        target: "empty" | "all" | "start" | "end" | number,
+      ) {
+        const sourceValue = patch[field];
+        const newState = { ...state };
+
+        const shouldUpdatePatch = (
+          targetPatch: UIStepPatch,
+          targetIndex: number | "start" | "end",
+        ): boolean => {
+          if (targetIndex === currentStepIndex) return false;
+
+          if (target === "all") return true;
+          if (target === "empty") return isPatchFieldEmpty(targetPatch, field);
+          if (target === "start") return targetIndex === "start";
+          if (target === "end") return targetIndex === "end";
+          if (typeof target === "number") return targetIndex === target;
+          return false;
+        };
+
+        if (shouldUpdatePatch(newState.startPatch, "start")) {
+          newState.startPatch = {
+            ...newState.startPatch,
+            [field]: sourceValue,
+          };
+        }
+
+        newState.steps = newState.steps.map((step, i) => {
+          if (shouldUpdatePatch(step.patch, i)) {
+            return { ...step, patch: { ...step.patch, [field]: sourceValue } };
+          }
+          return step;
+        });
+
+        if (shouldUpdatePatch(newState.endPatch, "end")) {
+          newState.endPatch = { ...newState.endPatch, [field]: sourceValue };
+        }
+
+        setState(newState);
+
+        // ConditionInput is uncontrolled (useState(defaultValue)), so we must
+        // bump the version for each affected step to force a remount.
+        if (field === "condition") {
+          setConditionVersions((prev) => {
+            const next = { ...prev };
+            if (shouldUpdatePatch(newState.startPatch, "start")) {
+              next["start"] = (next["start"] ?? 0) + 1;
+            }
+            newState.steps.forEach((_, i) => {
+              if (shouldUpdatePatch(newState.steps[i].patch, i)) {
+                next[String(i)] = (next[String(i)] ?? 0) + 1;
+              }
+            });
+            if (shouldUpdatePatch(newState.endPatch, "end")) {
+              next["end"] = (next["end"] ?? 0) + 1;
+            }
+            return next;
+          });
+        }
+      }
+
       const trigger = (
         <Flex
           align="center"
@@ -813,7 +983,7 @@ export default function RampScheduleSection({
                     Feature value
                   </Text>
                   <FeatureValueField
-                    id={`${rowKey}-force`}
+                    id={`${currentStepIndex}-force`}
                     valueType={feature.valueType}
                     value={String(patch.force ?? "")}
                     setValue={(v) => setPatchFn("force", v)}
@@ -826,11 +996,20 @@ export default function RampScheduleSection({
               {activeFields.has("condition") && (
                 <Box mb="4">
                   <ConditionInput
-                    key={`${rowKey}-condition`}
+                    key={`${currentStepIndex}-condition-${conditionVersions[String(currentStepIndex)] ?? 0}`}
                     defaultValue={patch.condition ?? "{}"}
                     onChange={(v) => setPatchFn("condition", v)}
                     project={feature.project ?? ""}
                     slimMode
+                    labelActions={
+                      <CopyToDropdown
+                        field="condition"
+                        currentStepIndex={currentStepIndex}
+                        state={state}
+                        isPatchFieldEmpty={isPatchFieldEmpty}
+                        onCopy={copyFieldValue}
+                      />
+                    }
                   />
                 </Box>
               )}
@@ -841,6 +1020,15 @@ export default function RampScheduleSection({
                     setValue={(v) => setPatchFn("savedGroups", v)}
                     project={feature.project ?? ""}
                     slimMode
+                    labelActions={
+                      <CopyToDropdown
+                        field="savedGroups"
+                        currentStepIndex={currentStepIndex}
+                        state={state}
+                        isPatchFieldEmpty={isPatchFieldEmpty}
+                        onCopy={copyFieldValue}
+                      />
+                    }
                   />
                 </Box>
               )}
@@ -853,6 +1041,15 @@ export default function RampScheduleSection({
                     environments={environments}
                     setPrerequisiteTargetingSdkIssues={() => {}}
                     slimMode
+                    labelActions={
+                      <CopyToDropdown
+                        field="prerequisites"
+                        currentStepIndex={currentStepIndex}
+                        state={state}
+                        isPatchFieldEmpty={isPatchFieldEmpty}
+                        onCopy={copyFieldValue}
+                      />
+                    }
                   />
                 </Box>
               )}
@@ -1341,7 +1538,7 @@ export default function RampScheduleSection({
               {renderPatchSubRows(
                 step.patch,
                 (field, value) => updateStepPatch(i, field, value),
-                `step-${i}`,
+                i,
               )}
             </div>
           );
