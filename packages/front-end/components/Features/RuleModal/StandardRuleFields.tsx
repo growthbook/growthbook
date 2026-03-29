@@ -119,14 +119,22 @@ export default function StandardRuleFields({
 
   // Toggle a field into/out of ramp control. When enabled, the current baseline
   // value is seeded into every step so the user can edit per-step from there.
+  // Coverage is special: when enabled, set the rule's coverage to 0% since the
+  // ramp will control it. When disabled, restore it to 100%.
   function toggleRampField(field: StepField, enabled: boolean) {
     const current = rampActiveFields;
     const newFields: StepField[] = enabled
       ? [...new Set([...current, field])]
       : [...current].filter((f) => f !== field);
+
+    // When enabling coverage in a ramp, set the rule's coverage to 0%
+    // When disabling coverage from a ramp, restore it to 100%
+    if (field === "coverage") {
+      form.setValue("coverage", enabled ? 0 : 1);
+    }
+
     setRampSectionState(
       rebuildStateWithActiveFields(rampSectionState, newFields, {
-        coverage: form.watch("coverage") ?? 0,
         condition: form.watch("condition") ?? "{}",
         savedGroups: form.watch("savedGroups") ?? [],
         prerequisites: form.watch("prerequisites") ?? [],
@@ -144,6 +152,14 @@ export default function StandardRuleFields({
     // Snapshot the current state for the type we're leaving so we can restore it.
     setSavedStates((prev) => ({ ...prev, [scheduleType]: rampSectionState }));
 
+    // If leaving ramp mode and coverage was controlled, restore coverage to 100%
+    if (scheduleType === "ramp" && type !== "ramp") {
+      const currentActiveFields = rampActiveFields;
+      if (currentActiveFields.has("coverage")) {
+        form.setValue("coverage", 1);
+      }
+    }
+
     setScheduleType(type);
 
     if (type === "none") {
@@ -159,16 +175,18 @@ export default function StandardRuleFields({
       setScheduleToggleEnabled(false);
       if (saved && saved.steps.length > 0) {
         setRampSectionState(saved);
+        // If coverage is in the active fields, set rule coverage to 0
+        const savedActiveFields = activeFieldsFromState(saved);
+        if (savedActiveFields.has("coverage")) {
+          form.setValue("coverage", 0);
+        }
       } else {
         // Always reset to preset[0] when entering ramp fresh.
-        // Seed startPatch with the current form coverage so the ramp begins
-        // at whatever the rule is currently set to (not always 0).
-        const currentCoverage = Math.round((form.watch("coverage") ?? 0) * 100);
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
           : null;
         const nextMode = ruleRampSchedule ? "edit" : "create";
-        setRampSectionState({
+        const newState: RampSectionState = {
           ...(ruleRampSchedule
             ? rampSectionState
             : defaultRampSectionState(undefined)),
@@ -177,10 +195,16 @@ export default function StandardRuleFields({
             ? {
                 steps: seed.steps,
                 name: seed.name,
-                startPatch: { coverage: currentCoverage },
+                startPatch: seed.startPatch,
               }
             : {}),
-        });
+        };
+        setRampSectionState(newState);
+        // If coverage is in the active fields, set rule coverage to 0
+        const newActiveFields = activeFieldsFromState(newState);
+        if (newActiveFields.has("coverage")) {
+          form.setValue("coverage", 0);
+        }
       }
       return;
     }
@@ -353,7 +377,6 @@ export default function StandardRuleFields({
                 environments={environments}
                 onSetRuleCoverage={(v) => form.setValue("coverage", v)}
                 ruleBaseline={{
-                  coverage: form.watch("coverage") ?? 0,
                   condition: form.watch("condition") ?? "{}",
                   savedGroups: form.watch("savedGroups") ?? [],
                   prerequisites: form.watch("prerequisites") ?? [],
