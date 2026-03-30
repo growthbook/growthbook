@@ -1,5 +1,5 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
+import { Revision, applyTopLevelPatchOps } from "shared/enterprise";
 import React, {
   useCallback,
   useEffect,
@@ -216,6 +216,10 @@ export default function CompareSavedGroupRevisionsModal({
     `${STORAGE_KEY_PREFIX}:${savedGroup.id}:showDrafts`,
     true,
   );
+  const [showMerged, setShowMerged] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:${savedGroup.id}:showMerged`,
+    true,
+  );
   const [diffViewModeRaw, setDiffViewModeRaw] = useLocalStorage<string>(
     `${STORAGE_KEY_PREFIX}:${savedGroup.id}:diffViewMode`,
     "steps",
@@ -240,15 +244,14 @@ export default function CompareSavedGroupRevisionsModal({
   const filteredRevisionList = useMemo(() => {
     return sortedRevisionsAsc
       .filter((r) => {
-        // Filter out all merged revisions since they're part of live history
-        if (r.status === "merged") return false;
+        if (r.status === "merged" && !showMerged) return false;
         if (r.status === "discarded" && !showDiscarded) return false;
         if (ACTIVE_DRAFT_STATUSES.includes(r.status) && !showDrafts)
           return false;
         return true;
       })
       .reverse(); // Show newest first
-  }, [sortedRevisionsAsc, showDiscarded, showDrafts]);
+  }, [sortedRevisionsAsc, showDiscarded, showDrafts, showMerged]);
 
   const revisionsDesc = useMemo(() => {
     return filteredRevisionList.map((r) => r.id);
@@ -300,6 +303,7 @@ export default function CompareSavedGroupRevisionsModal({
       initialModeApplied.current = true;
       setShowDrafts(false);
       setShowDiscarded(false);
+      setShowMerged(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -405,11 +409,12 @@ export default function CompareSavedGroupRevisionsModal({
       setPreviewDraftId(null);
       setShowDrafts(false);
       setShowDiscarded(false);
+      setShowMerged(true);
       // Ensure the range is in chronological order
       setSelectedRevisionIds(sortByChronological(range));
       setDiffPage(0);
     },
-    [setShowDrafts, setShowDiscarded, sortByChronological],
+    [setShowDrafts, setShowDiscarded, setShowMerged, sortByChronological],
   );
 
   const toggleRevision = (id: string) => {
@@ -532,6 +537,10 @@ export default function CompareSavedGroupRevisionsModal({
     () => allRevisions.some((r) => ACTIVE_DRAFT_STATUSES.includes(r.status)),
     [allRevisions],
   );
+  const hasMergedRevisions = useMemo(
+    () => allRevisions.some((r) => r.status === "merged"),
+    [allRevisions],
+  );
 
   // Use full unfiltered list for quick actions
   const mostRecentDraftId = useMemo(() => {
@@ -604,11 +613,10 @@ export default function CompareSavedGroupRevisionsModal({
       previewDraftRev.status === "merged"
         ? (previewDraftRev.target.snapshot as SavedGroupInterface)
         : savedGroup;
-    const proposedSnapshot = {
-      ...baseSnapshot,
-      ...(previewDraftRev.target
-        .proposedChanges as Partial<SavedGroupInterface>),
-    } as SavedGroupInterface;
+    const proposedSnapshot = applyTopLevelPatchOps(
+      baseSnapshot,
+      previewDraftRev.target.proposedChanges,
+    ) as SavedGroupInterface;
     return { baseSnapshot, proposedSnapshot };
   }, [previewDraftRev, savedGroup]);
 
@@ -621,10 +629,10 @@ export default function CompareSavedGroupRevisionsModal({
       stepRevB.status === "merged"
         ? (stepRevB.target.snapshot as SavedGroupInterface)
         : baseState;
-    const proposedSnapshot = {
-      ...baseSnapshot,
-      ...(stepRevB.target.proposedChanges as Partial<SavedGroupInterface>),
-    } as SavedGroupInterface;
+    const proposedSnapshot = applyTopLevelPatchOps(
+      baseSnapshot,
+      stepRevB.target.proposedChanges,
+    ) as SavedGroupInterface;
     return { baseSnapshot, proposedSnapshot };
   }, [stepRevA, stepRevB, savedGroup]);
 
@@ -637,10 +645,10 @@ export default function CompareSavedGroupRevisionsModal({
       singleRevLast.status === "merged"
         ? (singleRevLast.target.snapshot as SavedGroupInterface)
         : baseState;
-    const proposedSnapshot = {
-      ...baseSnapshot,
-      ...(singleRevLast.target.proposedChanges as Partial<SavedGroupInterface>),
-    } as SavedGroupInterface;
+    const proposedSnapshot = applyTopLevelPatchOps(
+      baseSnapshot,
+      singleRevLast.target.proposedChanges,
+    ) as SavedGroupInterface;
     return { baseSnapshot, proposedSnapshot };
   }, [singleRevFirst, singleRevLast, savedGroup]);
 
@@ -860,9 +868,18 @@ export default function CompareSavedGroupRevisionsModal({
               <Text size="medium" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
-              {(hasDraftRevisions || hasDiscardedRevisions) &&
+              {(hasDraftRevisions || hasDiscardedRevisions || hasMergedRevisions) &&
                 (() => {
                   const opts = [
+                    ...(hasMergedRevisions
+                      ? [
+                          {
+                            label: "Show locked",
+                            hidden: !showMerged,
+                            toggle: () => setShowMerged((v) => !v),
+                          },
+                        ]
+                      : []),
                     ...(hasDraftRevisions
                       ? [
                           {
@@ -885,6 +902,7 @@ export default function CompareSavedGroupRevisionsModal({
                   const count = opts.filter((o) => o.hidden).length;
                   const isShowingAll = count === 0;
                   const isAtDefault =
+                    (!hasMergedRevisions || showMerged) &&
                     (!hasDraftRevisions || showDrafts) &&
                     (!hasDiscardedRevisions || !showDiscarded);
                   return (
@@ -911,6 +929,7 @@ export default function CompareSavedGroupRevisionsModal({
                       {!isShowingAll && (
                         <DropdownMenuItem
                           onClick={() => {
+                            if (hasMergedRevisions) setShowMerged(true);
                             if (hasDraftRevisions) setShowDrafts(true);
                             if (hasDiscardedRevisions) setShowDiscarded(true);
                           }}
@@ -926,6 +945,7 @@ export default function CompareSavedGroupRevisionsModal({
                       <DropdownMenuItem
                         disabled={isAtDefault}
                         onClick={() => {
+                          setShowMerged(true);
                           setShowDrafts(true);
                           setShowDiscarded(false);
                         }}

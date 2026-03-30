@@ -4,11 +4,11 @@ import {
   Revision,
   RevisionTargetType,
   ReviewDecision,
+  JsonPatchOperation,
 } from "shared/enterprise";
 import type { CreateProps } from "shared/types/base-model";
-import type { SavedGroupInterface } from "shared/types/saved-group";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
-import { buildSavedGroupSnapshot } from "back-end/src/revisions/util";
+import { getAdapter } from "back-end/src/revisions/index";
 
 export const COLLECTION_NAME = "revisions";
 
@@ -75,24 +75,21 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
-   * Delegate read permission to the underlying target entity's read check.
+   * Delegate read permission to the underlying target entity's read check via adapter.
    */
   protected canRead(doc: Revision): boolean {
-    if (doc.target.type === "saved-group") {
-      const snapshot = doc.target.snapshot as SavedGroupInterface;
-      return this.context.permissions.canReadMultiProjectResource(
-        snapshot.projects,
-      );
-    }
-    return false;
+    return getAdapter(doc.target.type).canRead(
+      this.context,
+      doc.target.snapshot as Record<string, unknown>,
+    );
   }
 
   protected canCreate(_doc: Revision): boolean {
-    return this.context.hasPremiumFeature("require-approvals");
+    return true;
   }
 
   /**
-   * Delegate update permission to the underlying target entity.
+   * Delegate update permission to the underlying target entity via adapter.
    * The author can always update their own revision; otherwise the user must be
    * able to edit the target entity (e.g. for reviews). Merged revisions cannot
    * be updated.
@@ -102,27 +99,21 @@ export class RevisionModel extends BaseClass {
 
     if (existing.authorId === this.context.userId) return true;
 
-    if (existing.target.type === "saved-group") {
-      const snapshot = existing.target.snapshot as SavedGroupInterface;
-      return this.context.permissions.canUpdateSavedGroup(snapshot, {});
-    }
-    return false;
+    return getAdapter(existing.target.type).canUpdate(
+      this.context,
+      existing.target.snapshot as Record<string, unknown>,
+    );
   }
 
   /**
-   * Author can delete their own flow. Otherwise, the user must be able to
-   * bypass approval checks for ALL of the target entity's projects.
+   * Author can delete their own revision. Otherwise, delegate to the adapter.
    */
   protected canDelete(doc: Revision): boolean {
     if (doc.authorId === this.context.userId) return true;
 
-    const projects =
-      (doc.target.snapshot as SavedGroupInterface).projects ?? [];
-    if (projects.length === 0) {
-      return this.context.permissions.canBypassApprovalChecks({ project: "" });
-    }
-    return projects.every((p) =>
-      this.context.permissions.canBypassApprovalChecks({ project: p }),
+    return getAdapter(doc.target.type).canDelete(
+      this.context,
+      doc.target.snapshot as Record<string, unknown>,
     );
   }
 
@@ -195,12 +186,10 @@ export class RevisionModel extends BaseClass {
     updates: Partial<Revision>,
     newDoc: Revision,
   ) {
-    // Clean null values from snapshot before validation
-    if (newDoc.target.type === "saved-group") {
-      newDoc.target.snapshot = buildSavedGroupSnapshot(
-        newDoc.target.snapshot as SavedGroupInterface,
-      );
-    }
+    // Clean null values from snapshot before validation via the adapter
+    newDoc.target.snapshot = getAdapter(newDoc.target.type).buildSnapshot(
+      newDoc.target.snapshot as Record<string, unknown>,
+    ) as typeof newDoc.target.snapshot;
   }
 
   // Query helpers
@@ -307,24 +296,20 @@ export class RevisionModel extends BaseClass {
 
   async updateProposedChanges(
     id: string,
-    proposedChanges: Record<string, unknown>,
+    proposedChanges: JsonPatchOperation[],
     userId: string,
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
-    // Clean snapshot to avoid validation errors with null values
-    const cleanedSnapshot =
-      existing.target.type === "saved-group"
-        ? buildSavedGroupSnapshot(
-            existing.target.snapshot as SavedGroupInterface,
-          )
-        : existing.target.snapshot;
+    const cleanedSnapshot = getAdapter(existing.target.type).buildSnapshot(
+      existing.target.snapshot as Record<string, unknown>,
+    );
 
     return this.update(existing, {
       target: {
         ...existing.target,
-        snapshot: cleanedSnapshot,
+        snapshot: cleanedSnapshot as typeof existing.target.snapshot,
         proposedChanges,
       },
       activityLog: [
@@ -343,22 +328,20 @@ export class RevisionModel extends BaseClass {
   async rebase(
     id: string,
     newSnapshot: Record<string, unknown>,
-    newProposedChanges: Record<string, unknown>,
+    newProposedChanges: JsonPatchOperation[],
     userId: string,
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
-    // Clean snapshot to avoid validation errors with null values
-    const cleanedSnapshot =
-      existing.target.type === "saved-group"
-        ? buildSavedGroupSnapshot(newSnapshot as SavedGroupInterface)
-        : newSnapshot;
+    const cleanedSnapshot = getAdapter(existing.target.type).buildSnapshot(
+      newSnapshot as Record<string, unknown>,
+    );
 
     return this.update(existing, {
       target: {
         ...existing.target,
-        snapshot: cleanedSnapshot,
+        snapshot: cleanedSnapshot as typeof existing.target.snapshot,
         proposedChanges: newProposedChanges,
       },
       activityLog: [
@@ -486,8 +469,8 @@ export class RevisionModel extends BaseClass {
   async createRequest(target: {
     type: RevisionTargetType;
     id: string;
-    snapshot: SavedGroupInterface;
-    proposedChanges: Record<string, unknown>;
+    snapshot: Record<string, unknown>;
+    proposedChanges: JsonPatchOperation[];
     title?: string;
     revertedFrom?: string;
   }) {
@@ -499,6 +482,6 @@ export class RevisionModel extends BaseClass {
       authorId: this.context.userId,
       reviews: [],
       activityLog: [],
-    } as CreateProps<Revision>);
+    } as unknown as CreateProps<Revision>);
   }
 }

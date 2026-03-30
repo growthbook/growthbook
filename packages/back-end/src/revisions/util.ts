@@ -1,28 +1,38 @@
-import { Revision, RevisionTargetType } from "shared/enterprise";
+import { applyPatch, deepClone } from "fast-json-patch";
+import type { Operation } from "fast-json-patch";
+import {
+  JsonPatchOperation,
+  Revision,
+  RevisionTargetType,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { getAdapter } from "back-end/src/revisions/index";
 
+/**
+ * Check whether the approval-flow revision workflow is required for the given
+ * entity type in this org. Delegates to the entity adapter so entity-specific
+ * settings stay in one place.
+ */
 export function isRevisionRequired(
   context: ReqContext | ApiReqContext,
   resourceType: RevisionTargetType,
-  _resourceId: string, // TODO: Future proofing?
+  _resourceId: string,
 ): boolean {
-  if (resourceType === "saved-group") {
-    return context.org.settings?.approvalFlows?.savedGroups?.required || false;
-  }
-  return false;
+  return getAdapter(resourceType).isRevisionRequired(context);
 }
 
 /**
  * Build a clean snapshot of a saved group for use in revision targets.
  * Converts null/undefined optional fields to undefined so they don't persist as null in MongoDB.
+ *
+ * @deprecated Prefer `getAdapter("saved-group").buildSnapshot(entity)` for new code.
  */
 export function buildSavedGroupSnapshot(
   savedGroup: SavedGroupInterface,
 ): SavedGroupInterface {
-  // Remove MongoDB's _id field but keep everything else including organization
-
   const { _id, ...rest } = savedGroup as SavedGroupInterface & {
     _id?: unknown;
   };
@@ -38,94 +48,151 @@ export function buildSavedGroupSnapshot(
 }
 
 /**
- * Clean proposed changes by converting null values to undefined for Zod validation.
+ * Apply a JSON Patch (RFC 6902) operations array to a snapshot object and return
+ * the patched document. The original snapshot is never mutated.
  */
-function cleanProposedChanges(
+export function applyPatchToSnapshot<T extends object>(
+  snapshot: T,
+  proposedChanges: JsonPatchOperation[] | unknown,
+): T {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return snapshot;
+  return applyPatch(deepClone(snapshot), ops as Operation[], false, false)
+    .newDocument as T;
+}
+
+/**
+ * Convert a plain partial-update object into an array of JSON Patch `replace` operations.
+ * Undefined/null values are skipped since they represent "no change".
+ */
+export function buildPatchOps(
   changes: Record<string, unknown>,
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(changes).map(([key, value]) => [
-      key,
-      value === null ? undefined : value,
-    ]),
-  );
+): JsonPatchOperation[] {
+  return Object.entries(changes)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => ({
+      op: "replace" as const,
+      path: `/${key}`,
+      value,
+    }));
+}
+
+/**
+ * Merge new patch operations into an existing array using an upsert-by-path strategy:
+ * for each new op, replace any existing op with the same path; otherwise append.
+ */
+function upsertByPath(
+  existing: JsonPatchOperation[],
+  incoming: JsonPatchOperation[],
+): JsonPatchOperation[] {
+  const result = [...existing];
+  for (const newOp of incoming) {
+    const idx = result.findIndex((o) => o.path === newOp.path);
+    if (idx >= 0) {
+      result[idx] = newOp;
+    } else {
+      result.push(newOp);
+    }
+  }
+  return result;
 }
 
 /**
  * Create a new revision or update an existing open one for the current user.
- * Centralizes the create-or-update pattern used by all saved-group mutation endpoints.
- * @param replaceChanges If true, replace proposed changes entirely instead of merging
- * @param forceCreate If true, always create a new revision (don't update existing)
- * @param title Optional title for the revision
- * @param revertedFrom Optional ID of the revision this is reverting
- * @param revisionId Optional specific revision ID to update (instead of finding by author)
+ * Generic: works for any entity type by delegating snapshot-building to the adapter.
+ *
+ * @param replaceChanges If true, replace proposed ops entirely instead of merging
+ * @param forceCreate   If true, always create a new revision (don't update existing)
+ * @param title         Optional title for the revision
+ * @param revertedFrom  Optional ID of the revision this is reverting
+ * @param revisionId    Optional specific revision ID to update (instead of finding by author)
  */
-export async function createOrUpdateSavedGroupRevision(
+export async function createOrUpdateRevision(
   context: ReqContext | ApiReqContext,
-  savedGroup: SavedGroupInterface,
-  proposedChanges: Record<string, unknown>,
+  entityType: RevisionTargetType,
+  entity: Record<string, unknown> & { id: string },
+  proposedChanges: JsonPatchOperation[],
   replaceChanges = false,
   forceCreate = false,
   title?: string,
   revertedFrom?: string,
   revisionId?: string,
 ): Promise<Revision> {
-  // Clean proposed changes to convert null to undefined
-  const cleanedChanges = cleanProposedChanges(proposedChanges);
-
-  // If updating a specific revision by ID, use that
   if (revisionId && !forceCreate) {
     const targetRevision = await context.models.revisions.getById(revisionId);
     if (targetRevision) {
       const finalChanges = replaceChanges
-        ? cleanedChanges
-        : cleanProposedChanges({
-            ...targetRevision.target.proposedChanges,
-            ...cleanedChanges,
-          });
+        ? proposedChanges
+        : upsertByPath(
+            normalizeProposedChanges(targetRevision.target.proposedChanges),
+            proposedChanges,
+          );
 
-      const result = await context.models.revisions.updateProposedChanges(
+      return context.models.revisions.updateProposedChanges(
         targetRevision.id,
         finalChanges,
         context.userId,
       );
-
-      return result;
     }
   }
 
-  // If forceCreate is true, skip checking for existing revisions
   if (!forceCreate) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
-        "saved-group",
-        savedGroup.id,
+        entityType,
+        entity.id,
         context.userId,
       );
     if (existingRevision) {
       const finalChanges = replaceChanges
-        ? cleanedChanges
-        : cleanProposedChanges({
-            ...existingRevision.target.proposedChanges,
-            ...cleanedChanges,
-          });
+        ? proposedChanges
+        : upsertByPath(
+            normalizeProposedChanges(existingRevision.target.proposedChanges),
+            proposedChanges,
+          );
 
-      const result = await context.models.revisions.updateProposedChanges(
+      return context.models.revisions.updateProposedChanges(
         existingRevision.id,
         finalChanges,
         context.userId,
       );
-
-      return result;
     }
   }
 
+  const snapshot = getAdapter(entityType).buildSnapshot(entity);
+
   return context.models.revisions.createRequest({
-    type: "saved-group",
-    id: savedGroup.id,
-    snapshot: buildSavedGroupSnapshot(savedGroup),
-    proposedChanges: cleanedChanges,
+    type: entityType,
+    id: entity.id,
+    snapshot,
+    proposedChanges,
     title,
     revertedFrom,
   });
+}
+
+/**
+ * @deprecated Use `createOrUpdateRevision` with `entityType: "saved-group"` instead.
+ */
+export async function createOrUpdateSavedGroupRevision(
+  context: ReqContext | ApiReqContext,
+  savedGroup: SavedGroupInterface,
+  proposedChanges: JsonPatchOperation[],
+  replaceChanges = false,
+  forceCreate = false,
+  title?: string,
+  revertedFrom?: string,
+  revisionId?: string,
+): Promise<Revision> {
+  return createOrUpdateRevision(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & { id: string },
+    proposedChanges,
+    replaceChanges,
+    forceCreate,
+    title,
+    revertedFrom,
+    revisionId,
+  );
 }

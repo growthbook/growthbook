@@ -22,6 +22,7 @@ export interface Props {
   onSelectRevision: (revision: Revision | null) => void;
   requiresApproval?: boolean;
   draftsOnly?: boolean;
+  context?: "header";
 }
 
 function RevisionRow({
@@ -48,7 +49,6 @@ function RevisionRow({
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              maxWidth: 400,
             }}
             title={revision.title}
           >
@@ -106,6 +106,7 @@ export default function SavedGroupRevisionDropdown({
   onSelectRevision,
   requiresApproval = true,
   draftsOnly = false,
+  context,
 }: Props) {
   const initialPageSize = 5;
 
@@ -228,7 +229,7 @@ export default function SavedGroupRevisionDropdown({
     (r) => r.status === "discarded",
   ).length;
 
-  const triggerWidth = 430;
+  const triggerWidth = context === "header" ? 340 : "100%";
   const selectedRevisionNumber = selectedRevision
     ? (revisionNumberById.get(selectedRevision.id) ?? 1)
     : null;
@@ -249,7 +250,6 @@ export default function SavedGroupRevisionDropdown({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                maxWidth: 400,
               }}
               title={selectedRevision.title}
             >
@@ -301,7 +301,10 @@ export default function SavedGroupRevisionDropdown({
       open={open}
       onOpenChange={setOpen}
       trigger={trigger}
-      triggerClassName="dropdown-trigger-select-style"
+      triggerClassName={`dropdown-trigger-select-style${context === "header" ? " dropdown-trigger-header" : ""}`}
+      triggerStyle={
+        context === "header" ? { paddingTop: 4, paddingBottom: 4 } : undefined
+      }
       menuWidth="full"
       menuPlacement="end"
     >

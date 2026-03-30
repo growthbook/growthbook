@@ -7,6 +7,7 @@ import {
 import type {
   RevisionTargetType,
   Revision,
+  JsonPatchOperation,
 } from "../../../src/enterprise/validators/revisions";
 
 // Helper to create a mock revision
@@ -17,7 +18,7 @@ const createRevision = (overrides: Partial<Revision> = {}): Revision =>
       type: "saved-group" as const,
       id: "sg-1",
       snapshot: {} as Record<string, unknown>,
-      proposedChanges: {},
+      proposedChanges: [] as JsonPatchOperation[],
     },
     status: "pending-review",
     authorId: "author-1",
@@ -136,7 +137,9 @@ describe("revisions helpers", () => {
     it("returns success when there are no conflicts", () => {
       const base = { name: "old", value: 1 };
       const live = { name: "old", value: 1 };
-      const proposed = { name: "new" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "new" },
+      ];
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(true);
       expect(result.conflicts).toHaveLength(0);
@@ -147,7 +150,9 @@ describe("revisions helpers", () => {
     it("detects conflicts when base, live, and proposed all differ", () => {
       const base = { name: "old" };
       const live = { name: "live-change" };
-      const proposed = { name: "proposed-change" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "proposed-change" },
+      ];
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(false);
       expect(result.conflicts).toHaveLength(1);
@@ -158,7 +163,9 @@ describe("revisions helpers", () => {
     it("no conflict when live and proposed changed to the same value", () => {
       const base = { name: "old" };
       const live = { name: "same-new" };
-      const proposed = { name: "same-new" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "same-new" },
+      ];
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(true);
       expect(result.conflicts).toHaveLength(0);
@@ -167,7 +174,9 @@ describe("revisions helpers", () => {
     it("merges non-overlapping changes", () => {
       const base = { name: "old", color: "red" };
       const live = { name: "old", color: "blue" };
-      const proposed = { name: "new" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "new" },
+      ];
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(true);
       expect(result.mergedChanges).toEqual({ name: "new", color: "blue" });
@@ -176,7 +185,9 @@ describe("revisions helpers", () => {
     it("handles array values", () => {
       const base = { values: ["a", "b"] };
       const live = { values: ["a", "b", "c"] };
-      const proposed = { values: ["a", "d"] };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/values", value: ["a", "d"] },
+      ];
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(false);
       expect(result.conflicts[0].field).toBe("values");
@@ -185,7 +196,9 @@ describe("revisions helpers", () => {
     it("returns no conflict when proposed matches base (no real change)", () => {
       const base = { name: "same" };
       const live = { name: "same" };
-      const proposed = { name: "same" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/name", value: "same" },
+      ];
       const result = checkMergeConflicts(base, live, proposed);
       expect(result.success).toBe(true);
       expect(result.fieldsChanged).toHaveLength(0);

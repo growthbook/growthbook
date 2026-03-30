@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { savedGroupValidator, putSavedGroupBodyValidator } from "./saved-group";
+import { savedGroupValidator } from "./saved-group";
 
 export const revisionStatus = [
   "draft",
@@ -47,21 +47,53 @@ export const activityLogEntryValidator = z.object({
 });
 export type ActivityLogEntry = z.infer<typeof activityLogEntryValidator>;
 
+// To add a new entity type to the revision system:
+// 1. Add the string literal here (e.g. "feature")
+// 2. Create revisionFeatureTargetValidator with snapshot: <entityValidator> below
+// 3. Add it to revisionTargetValidator's discriminated union
+// 4. Create packages/back-end/src/revisions/adapters/feature.adapter.ts
+// 5. Register it in packages/back-end/src/revisions/index.ts registry
+// 6. Extend getRevisionKey / canUserReviewEntity switches in shared/src/revisions/helpers.ts
 export const revisionTargetType = ["saved-group"] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
+
+export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("add"), path: z.string(), value: z.unknown() }),
+  z.object({ op: z.literal("remove"), path: z.string() }),
+  z.object({
+    op: z.literal("replace"),
+    path: z.string(),
+    value: z.unknown(),
+  }),
+  z.object({
+    op: z.literal("move"),
+    from: z.string(),
+    path: z.string(),
+  }),
+  z.object({
+    op: z.literal("copy"),
+    from: z.string(),
+    path: z.string(),
+  }),
+  z.object({ op: z.literal("test"), path: z.string(), value: z.unknown() }),
+]);
+export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
 
 export const revisionSavedGroupTargetValidator = z.object({
   type: z.literal("saved-group"),
   id: z.string(),
   snapshot: savedGroupValidator,
-  proposedChanges: putSavedGroupBodyValidator.partial(),
+  proposedChanges: z.array(jsonPatchOperationValidator),
 });
 export type RevisionSavedGroupTarget = z.infer<
   typeof revisionSavedGroupTargetValidator
 >;
 
+// Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
+// Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
+  // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
 
@@ -93,7 +125,7 @@ export const revisionCreateValidator = z.object({
   target: z.object({
     type: z.enum(revisionTargetType),
     id: z.string(),
-    proposedChanges: putSavedGroupBodyValidator.partial(),
+    proposedChanges: z.array(jsonPatchOperationValidator),
   }),
 });
 

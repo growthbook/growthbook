@@ -5,7 +5,11 @@ import {
   SavedGroupInterface,
   SavedGroupType,
 } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
+import {
+  Revision,
+  applyTopLevelPatchOps,
+  JsonPatchOperation,
+} from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import {
   isIdListSupportedAttribute,
@@ -31,12 +35,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/ui/Link";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
+import SavedGroupDraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
+
+import useProjectOptions from "@/hooks/useProjectOptions";
 
 type SavedGroupFormValues = CreateSavedGroupProps;
-import useProjectOptions from "@/hooks/useProjectOptions";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -62,7 +68,6 @@ const SavedGroupForm: FC<{
   type,
   approvalFlowRequired,
   metadataReviewRequired,
-  hasExistingRevision,
   onRevisionCreated,
   openRevisions = [],
   allRevisions,
@@ -78,7 +83,7 @@ const SavedGroupForm: FC<{
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const { savedGroupSizeLimit } = settings;
-  const { user, getUserDisplay } = useUser();
+  const { user } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   // Compute approvalFlowRequired from settings if not provided as prop
@@ -103,7 +108,28 @@ const SavedGroupForm: FC<{
           )
         : permissionsUtil.canBypassApprovalChecks({ project: "" })));
 
-  const [bypassApproval, setBypassApproval] = useState(autoBypassApproval);
+  const canAutoPublish = !isApprovalFlowRequired || canAdminPublish;
+
+  const isDraftRevision = (r: Revision) =>
+    ["draft", "pending-review", "changes-requested", "approved"].includes(
+      r.status,
+    );
+
+  const [draftMode, setDraftMode] = useState<DraftMode>(() => {
+    if (autoBypassApproval || !isApprovalFlowRequired) return "publish";
+    const hasSelectedDraft =
+      selectedRevision && isDraftRevision(selectedRevision);
+    return hasSelectedDraft ? "existing" : "new";
+  });
+
+  const [draftSelectedId, setDraftSelectedId] = useState<string | null>(() => {
+    if (selectedRevision && isDraftRevision(selectedRevision))
+      return selectedRevision.id;
+    return openRevisions.find(isDraftRevision)?.id ?? null;
+  });
+
+  const allRevisionsForLabel = allRevisions ?? openRevisions;
+
   const [conditionKey, forceConditionRender] = useIncrementer();
   const [internalSelectedRevision, _setInternalSelectedRevision] =
     useState<Revision | null>(selectedRevision ?? null);
@@ -160,12 +186,11 @@ const SavedGroupForm: FC<{
     let baseData: Partial<SavedGroupInterface>;
 
     if (currentRevision) {
-      // If a draft revision is selected, use its snapshot + proposed changes
-      baseData = {
-        ...(currentRevision.target.snapshot as SavedGroupInterface),
-        ...(currentRevision.target
-          .proposedChanges as Partial<SavedGroupInterface>),
-      };
+      // Apply JSON Patch ops to snapshot to derive the effective draft state
+      baseData = applyTopLevelPatchOps(
+        currentRevision.target.snapshot as SavedGroupInterface,
+        currentRevision.target.proposedChanges as JsonPatchOperation[],
+      );
     } else if (liveVersion) {
       // If "Live" is selected, use the live version
       baseData = liveVersion;
@@ -291,37 +316,25 @@ const SavedGroupForm: FC<{
               }`
       }
       cta={
-        <>
-          {current.id
-            ? isApprovalFlowRequired
-              ? bypassApproval || autoBypassApproval
-                ? "Publish"
-                : currentRevision
-                  ? "Update revision"
-                  : hasExistingRevision
-                    ? "Propose changes"
-                    : "Propose changes"
-              : "Save"
-            : "Submit"}
-        </>
+        !current.id
+          ? "Submit"
+          : autoBypassApproval
+            ? "Save"
+            : draftMode === "publish"
+              ? "Publish"
+              : "Save to draft"
+      }
+      submitColor={
+        current.id && !autoBypassApproval && draftMode === "publish"
+          ? isApprovalFlowRequired
+            ? "danger"
+            : "primary"
+          : "primary"
       }
       ctaEnabled={
         isValid && (editConditionOnly || hasProjectPermission) && !isEditBlocked
       }
       disabledMessage={ctaDisabledMessage}
-      backCTA={
-        <div className="mt-3 mb-2">
-          {current.id && !autoBypassApproval && (
-            <Checkbox
-              label="Bypass approval requirement to publish (optional for Admins only)"
-              value={bypassApproval}
-              setValue={(val) => setBypassApproval(!!val)}
-              disabled={!canAdminPublish}
-              disabledMessage="You don't have permission to bypass approval"
-            />
-          )}
-        </div>
-      }
       submit={form.handleSubmit(async (value) => {
         if (!editInfoOnly && type === "condition") {
           const conditionRes = validateAndFixCondition(
@@ -363,17 +376,17 @@ const SavedGroupForm: FC<{
           // Build URL with query params
           const params = new URLSearchParams();
 
-          // If auto-bypassing (metadata review is off), request auto-publish
           if (autoBypassApproval) {
             params.set("autoPublish", "1");
-          } else if (bypassApproval) {
-            params.set("bypassApproval", "1");
-          }
-
-          if (currentRevision?.id && !autoBypassApproval) {
-            params.set("revisionId", currentRevision.id);
-          } else if (!autoBypassApproval) {
-            // Always create a revision when there's no current revision to update
+          } else if (draftMode === "publish") {
+            if (isApprovalFlowRequired) {
+              params.set("bypassApproval", "1");
+            } else {
+              params.set("autoPublish", "1");
+            }
+          } else if (draftMode === "existing" && draftSelectedId) {
+            params.set("revisionId", draftSelectedId);
+          } else {
             params.set("forceCreateRevision", "1");
           }
           const queryString = params.toString();
@@ -428,6 +441,19 @@ const SavedGroupForm: FC<{
       })}
       error={errorMessage}
     >
+      {current.id && !autoBypassApproval && (
+        <SavedGroupDraftSelectorForChanges
+          savedGroup={current as SavedGroupInterface}
+          openRevisions={openRevisions}
+          allRevisions={allRevisionsForLabel}
+          mode={draftMode}
+          setMode={setDraftMode}
+          selectedDraftId={draftSelectedId}
+          setSelectedDraftId={setDraftSelectedId}
+          canAutoPublish={canAutoPublish}
+          approvalRequired={isApprovalFlowRequired}
+        />
+      )}
       {isEditBlocked && (
         <Callout status="warning" mb="4">
           <Text size="2">
@@ -439,53 +465,6 @@ const SavedGroupForm: FC<{
           </Text>
         </Callout>
       )}
-      {!autoBypassApproval &&
-        current.id &&
-        openRevisions.length > 0 &&
-        currentRevision &&
-        (() => {
-          const allFlows = allRevisions ?? openRevisions;
-          const sortedFlows = [...allFlows].sort(
-            (a, b) =>
-              new Date(a.dateCreated).getTime() -
-              new Date(b.dateCreated).getTime(),
-          );
-          const revisionNum =
-            sortedFlows.findIndex((f) => f.id === currentRevision.id) + 1;
-
-          const statusLabels = {
-            pending: "Pending Review",
-            approved: "Approved",
-            "changes-requested": "Changes Requested",
-            rejected: "Rejected",
-          };
-
-          const tooltipContent = (
-            <Flex direction="column" gap="1">
-              <Text size="2">
-                <strong>Created by:</strong>{" "}
-                {getUserDisplay(currentRevision.authorId)}
-              </Text>
-              <Text size="2">
-                <strong>Status:</strong>{" "}
-                {statusLabels[currentRevision.status] || currentRevision.status}
-              </Text>
-            </Flex>
-          );
-
-          return (
-            <Callout status="info" mb="4">
-              <Flex direction="row" gap="2" align="center">
-                <Text size="2" weight="medium">
-                  Editing revision:
-                </Text>
-                <Tooltip body={tooltipContent}>
-                  <Badge label={`Revision ${revisionNum}`} color="indigo" />
-                </Tooltip>
-              </Flex>
-            </Callout>
-          );
-        })()}
       {!editInfoOnly && !editConditionOnly && current.type === "condition" && (
         <div className="form-group">
           Updating this group will automatically update any associated Features

@@ -3,7 +3,13 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
-import { Revision, checkMergeConflicts, Conflict } from "shared/enterprise";
+import {
+  Revision,
+  checkMergeConflicts,
+  Conflict,
+  normalizeProposedChanges,
+  patchOpsToPartial,
+} from "shared/enterprise";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -35,18 +41,11 @@ export function ExpandableConflict({
 }) {
   const [open, setOpen] = useState(true);
 
-  // Format values for display - handle different types appropriately
   const formatValue = (value: unknown): string => {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined) return String(value);
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean")
       return String(value);
-    }
-    if (typeof value === "string") {
-      return value;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
-    }
-    // For objects and arrays, pretty-print as JSON
     return JSON.stringify(value, null, 2);
   };
 
@@ -95,6 +94,7 @@ export function ExpandableConflict({
         easing="ease-out"
       >
         <div className="p-0" style={{ background: "var(--color-surface)" }}>
+          {/* External Change vs Your Change columns */}
           <Grid columns="2">
             <Box
               px="3"
@@ -182,13 +182,14 @@ export default function FixRevisionConflictsModal({
   const [step, setStep] = useState(0);
 
   const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
-  const proposedChanges = revision.target.proposedChanges as Record<
-    string,
-    unknown
-  >;
+  const proposedChanges = normalizeProposedChanges(
+    revision.target.proposedChanges,
+  );
   const liveSnapshot = currentState;
 
   const mergeResult = useMemo(() => {
+    const proposedAsPartial =
+      patchOpsToPartial<Record<string, unknown>>(proposedChanges);
     const conflictCheck = checkMergeConflicts(
       baseSnapshot,
       liveSnapshot,
@@ -202,32 +203,27 @@ export default function FixRevisionConflictsModal({
     conflicts.forEach((conflict) => {
       const strategy = strategies[conflict.field];
       if (strategy === "overwrite") {
-        // Only apply overwrite if the proposed value is not null/undefined
         if (conflict.proposedValue != null) {
           resolvedChanges[conflict.field] = conflict.proposedValue;
         }
       } else if (strategy === "discard") {
-        // Keep the live value
+        // Keep the live value — no-op
       } else {
         unresolvedConflicts.push(conflict);
       }
     });
 
-    // Include non-conflicting proposed changes (skip null/undefined values)
-    Object.keys(proposedChanges).forEach((field) => {
-      const value = proposedChanges[field];
-      // Skip null/undefined - these represent untouched fields
+    // Include non-conflicting proposed changes
+    Object.entries(proposedAsPartial).forEach(([field, value]) => {
       if (value != null && !conflicts.find((c) => c.field === field)) {
         resolvedChanges[field] = value;
       }
     });
 
     // Calculate new proposed changes relative to live state
-    // Skip null/undefined values - only include actual changes
     const newProposedChanges: Record<string, unknown> = {};
     Object.keys(resolvedChanges).forEach((field) => {
       const value = resolvedChanges[field];
-      // Skip null/undefined values
       if (value != null && !isEqual(value, liveSnapshot[field])) {
         newProposedChanges[field] = value;
       }
@@ -294,12 +290,7 @@ export default function FixRevisionConflictsModal({
           >
             <Text as="p">
               Conflicting changes have been published since you created this
-              revision. Your draft is based on an older version of the saved
-              group, but the live version has since been updated with
-              conflicting changes.
-            </Text>
-            <Text as="p">
-              Resolve each conflict below, then click{" "}
+              revision. Resolve each conflict below, then click{" "}
               <Text as="span" weight="medium">
                 Update Draft
               </Text>{" "}
@@ -308,7 +299,7 @@ export default function FixRevisionConflictsModal({
           </Callout>
         </Box>
 
-        <Flex justify="center" gap="3" mb="4">
+        <Flex justify="center" gap="3" mb="4" wrap="wrap">
           <Button
             variant="outline"
             onClick={() => {
@@ -375,18 +366,14 @@ export default function FixRevisionConflictsModal({
                 {Object.keys(mergeResult.newProposedChanges || {}).map(
                   (field) => {
                     const formatValue = (value: unknown): string => {
-                      if (value === null || value === undefined) {
+                      if (value === null || value === undefined)
                         return String(value);
-                      }
-                      if (typeof value === "string") {
-                        return value;
-                      }
+                      if (typeof value === "string") return value;
                       if (
                         typeof value === "number" ||
                         typeof value === "boolean"
-                      ) {
+                      )
                         return String(value);
-                      }
                       return JSON.stringify(value, null, 2);
                     };
 

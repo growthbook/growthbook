@@ -1,5 +1,5 @@
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Revision } from "shared/enterprise";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -10,9 +10,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import SavedGroupReferencesList from "./SavedGroupReferencesList";
-import SavedGroupDraftSelector from "./SavedGroupDraftSelector";
-
-export type DraftMode = "existing" | "new" | "publish";
+import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
 
 interface SavedGroupArchiveModalProps {
   savedGroup: SavedGroupInterface;
@@ -64,6 +63,32 @@ export default function SavedGroupArchiveModal({
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
     openRevisions[0]?.id ?? null,
   );
+
+  const isDraftRevision = (r: Revision) =>
+    ["draft", "pending-review", "changes-requested", "approved"].includes(
+      r.status,
+    );
+  const activeDrafts = useMemo(
+    () => openRevisions.filter(isDraftRevision),
+    [openRevisions],
+  );
+  const selectedDraftRevision = useMemo(
+    () =>
+      selectedDraftId
+        ? allRevisions.find((r) => r.id === selectedDraftId) ?? null
+        : null,
+    [selectedDraftId, allRevisions],
+  );
+  const existingDraftLabel = selectedDraftRevision
+    ? selectedDraftRevision.title ||
+      `Revision ${
+        allRevisions.filter(
+          (r) =>
+            new Date(r.dateCreated) <=
+            new Date(selectedDraftRevision.dateCreated),
+        ).length
+      }`
+    : null;
 
   const canSubmit = !loading && totalReferences === 0;
 
@@ -119,16 +144,23 @@ export default function SavedGroupArchiveModal({
       ctaEnabled={canSubmit}
       useRadixButton={true}
     >
-      <SavedGroupDraftSelector
-        savedGroup={savedGroup}
-        openRevisions={openRevisions}
-        allRevisions={allRevisions}
+      <DraftSelector
+        hasActiveDrafts={activeDrafts.length > 0}
         mode={mode}
         setMode={setMode}
-        selectedDraftId={selectedDraftId}
-        setSelectedDraftId={setSelectedDraftId}
         canAutoPublish={canAutoPublish}
         approvalRequired={archiveGated}
+        existingDraftLabel={existingDraftLabel}
+        revisionDropdown={
+          <SavedGroupRevisionDropdown
+            savedGroupId={savedGroup.id}
+            allRevisions={allRevisions}
+            selectedRevisionId={selectedDraftId}
+            onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
+            draftsOnly
+            requiresApproval={false}
+          />
+        }
       />
       {loading ? (
         <Text color="text-disabled">

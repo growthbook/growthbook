@@ -13,14 +13,16 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
+import { Revision, JsonPatchOperation, normalizeProposedChanges } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   isRevisionRequired,
-  createOrUpdateSavedGroupRevision,
+  createOrUpdateRevision,
   buildSavedGroupSnapshot,
+  buildPatchOps,
+  applyPatchToSnapshot,
 } from "back-end/src/revisions/util";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
@@ -134,7 +136,7 @@ export const postSavedGroup = async (
       type: "saved-group",
       id: savedGroup.id,
       snapshot,
-      proposedChanges: {},
+      proposedChanges: [] as JsonPatchOperation[],
     },
     status: "merged",
     resolution: {
@@ -276,7 +278,7 @@ export const postSavedGroupAddItems = async (
         type: "saved-group",
         id: savedGroup.id,
         snapshot,
-        proposedChanges: {},
+        proposedChanges: [] as JsonPatchOperation[],
       },
       status: "merged",
       resolution: {
@@ -296,8 +298,16 @@ export const postSavedGroupAddItems = async (
       id,
       context.userId,
     );
-  const baseValues =
-    existingRevision?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+  const existingOps = normalizeProposedChanges(
+    existingRevision?.target.proposedChanges,
+  );
+  const currentState = existingRevision
+    ? applyPatchToSnapshot(
+        existingRevision.target.snapshot as SavedGroupInterface,
+        existingOps,
+      )
+    : savedGroup;
+  const baseValues = currentState.values ?? [];
   const newValues = [...new Set([...baseValues, ...items])];
   validateListSize(
     newValues,
@@ -305,9 +315,12 @@ export const postSavedGroupAddItems = async (
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
 
-  const revision = await createOrUpdateSavedGroupRevision(context, savedGroup, {
-    values: newValues,
-  });
+  const revision = await createOrUpdateRevision(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & { id: string },
+    [{ op: "replace", path: "/values", value: newValues }],
+  );
 
   return res.status(202).json({
     status: 202,
@@ -400,7 +413,7 @@ export const postSavedGroupRemoveItems = async (
         type: "saved-group",
         id: savedGroup.id,
         snapshot,
-        proposedChanges: {},
+        proposedChanges: [] as JsonPatchOperation[],
       },
       status: "merged",
       resolution: {
@@ -420,8 +433,16 @@ export const postSavedGroupRemoveItems = async (
       id,
       context.userId,
     );
-  const baseValues =
-    existingRevision?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+  const existingOps = normalizeProposedChanges(
+    existingRevision?.target.proposedChanges,
+  );
+  const currentState = existingRevision
+    ? applyPatchToSnapshot(
+        existingRevision.target.snapshot as SavedGroupInterface,
+        existingOps,
+      )
+    : savedGroup;
+  const baseValues = currentState.values ?? [];
   const toRemove = new Set(items);
   const newValues = baseValues.filter((value: string) => !toRemove.has(value));
   validateListSize(
@@ -430,9 +451,12 @@ export const postSavedGroupRemoveItems = async (
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
 
-  const revision = await createOrUpdateSavedGroupRevision(context, savedGroup, {
-    values: newValues,
-  });
+  const revision = await createOrUpdateRevision(
+    context,
+    "saved-group",
+    savedGroup as unknown as Record<string, unknown> & { id: string },
+    [{ op: "replace", path: "/values", value: newValues }],
+  );
 
   return res.status(202).json({
     status: 202,
@@ -520,13 +544,12 @@ export const putSavedGroup = async (
   if (revisionId) {
     targetRevision = await context.models.revisions.getById(revisionId);
     if (targetRevision && targetRevision.target.type === "saved-group") {
-      // Merge snapshot with proposed changes to get the current state of this revision
-      comparisonBase = {
-        ...savedGroup,
-        ...(targetRevision.target.snapshot as SavedGroupInterface),
-        ...(targetRevision.target
-          .proposedChanges as Partial<SavedGroupInterface>),
-      };
+      // Apply patch ops to snapshot to get current state of the revision
+      const patchedSnapshot = applyPatchToSnapshot(
+        targetRevision.target.snapshot as SavedGroupInterface,
+        normalizeProposedChanges(targetRevision.target.proposedChanges),
+      );
+      comparisonBase = { ...savedGroup, ...patchedSnapshot };
     }
   }
 
@@ -653,7 +676,7 @@ export const putSavedGroup = async (
           type: "saved-group",
           id: savedGroup.id,
           snapshot,
-          proposedChanges: {},
+          proposedChanges: [] as JsonPatchOperation[],
         },
         status: "merged",
         resolution: {
@@ -666,11 +689,17 @@ export const putSavedGroup = async (
       });
     }
 
+    // Convert fieldsToUpdate to JSON Patch operations
+    const patchOps = buildPatchOps(
+      fieldsToUpdate as Record<string, unknown>,
+    );
+
     // When updating a revision, merge changes (don't replace) to preserve other fields
-    let revision = await createOrUpdateSavedGroupRevision(
+    let revision = await createOrUpdateRevision(
       context,
-      savedGroup,
-      fieldsToUpdate,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & { id: string },
+      patchOps,
       false, // replaceChanges = false to merge with existing proposed changes
       forceCreateRevision || bypassApproval || autoPublish, // forceCreate = true when creating new revision
       title, // optional title for the revision

@@ -215,12 +215,14 @@ router.post(
   "/:id/rebase",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
-    body: z
-      .object({
-        strategies: z.record(z.string(), z.enum(["discard", "overwrite"])),
-        mergeResultSerialized: z.string(),
-      })
-      .strict(),
+    body: z.object({
+      strategies: z.record(
+        z.string(),
+        z.enum(["discard", "overwrite", "union"]),
+      ),
+      mergeResultSerialized: z.string(),
+      customValues: z.record(z.string(), z.array(z.unknown())).optional(),
+    }),
   }),
   revisionController.postRebase,
 );

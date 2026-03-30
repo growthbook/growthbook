@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/router";
-import { Revision } from "shared/enterprise";
+import { Revision, JsonPatchOperation } from "shared/enterprise";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -8,6 +9,7 @@ import { useUser } from "@/services/UserContext";
 export function useSavedGroupRevision(
   savedGroupId: string | undefined,
   savedGroupMutate: () => void,
+  savedGroup?: SavedGroupInterface,
 ) {
   const { userId } = useUser();
   const router = useRouter();
@@ -171,11 +173,58 @@ export function useSavedGroupRevision(
     [openRevisions, userId],
   );
 
+  const hasRealRevisions = data !== undefined && (data.revisions?.length ?? 0) > 0;
+
+  // When no real revisions exist yet, synthesize a dummy "Revision 1" representing
+  // the initial saved state. This is frontend-only and never persisted.
+  const syntheticInitialRevision = useMemo((): Revision | null => {
+    if (!savedGroup || !data || data.revisions.length > 0) return null;
+    return {
+      id: "__initial__",
+      authorId: savedGroup.owner,
+      version: 1,
+      title: "Revision 1",
+      target: {
+        type: "saved-group" as const,
+        id: savedGroup.id,
+        snapshot: savedGroup,
+        proposedChanges: [] as JsonPatchOperation[],
+      },
+      status: "merged" as const,
+      reviews: [],
+      activityLog: [
+        {
+          id: "initial",
+          userId: savedGroup.owner,
+          action: "created" as const,
+          dateCreated: savedGroup.dateCreated,
+        },
+      ],
+      resolution: {
+        action: "merged" as const,
+        userId: savedGroup.owner,
+        dateCreated: savedGroup.dateCreated,
+      },
+      dateCreated: savedGroup.dateCreated,
+      dateUpdated: savedGroup.dateUpdated,
+      organization: savedGroup.organization,
+    };
+  }, [data, savedGroup]);
+
+  const allRevisions = useMemo(
+    () =>
+      syntheticInitialRevision
+        ? [syntheticInitialRevision]
+        : (data?.revisions ?? []),
+    [syntheticInitialRevision, data?.revisions],
+  );
+
   return {
     selectedApprovalFlow: selectedRevision,
     selectedApprovalFlowId: selectedRevisionId,
     openApprovalFlows: openRevisions,
-    allApprovalFlows: data?.revisions ?? [],
+    allApprovalFlows: allRevisions,
+    hasRealRevisions,
     selectFlow,
     onApprovalFlowCreated: onRevisionCreated,
     handlePublish,

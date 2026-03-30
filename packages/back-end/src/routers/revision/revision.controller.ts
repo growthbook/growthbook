@@ -6,14 +6,15 @@ import {
   Conflict,
   ReviewDecision,
   checkMergeConflicts,
+  JsonPatchOperation,
+  normalizeProposedChanges,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
-import { getEntityModel } from "back-end/src/revisions";
+import { getAdapter, getEntityModel } from "back-end/src/revisions";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 // region GET /revision
 
@@ -53,7 +54,7 @@ type CreateRevisionRequest = AuthRequest<{
   target: {
     type: RevisionTargetType;
     id: string;
-    proposedChanges: Record<string, unknown>;
+    proposedChanges: JsonPatchOperation[];
   };
 }>;
 
@@ -90,30 +91,17 @@ export const postRevision = async (
   }
 
   // Verify the caller can edit the underlying entity before creating a revision
-  if (entityType === "saved-group") {
-    if (
-      !context.permissions.canUpdateSavedGroup(
-        originalEntity as SavedGroupInterface,
-        {},
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
+  if (!getAdapter(entityType).canCreate(context, originalEntity as Record<string, unknown>)) {
+    context.permissions.throwPermissionError();
   }
 
   const revisionModel = new RevisionModel(context);
 
-  const revision = await revisionModel.create({
-    target: {
-      type: entityType,
-      id: entityId,
-      snapshot: originalEntity as SavedGroupInterface,
-      proposedChanges,
-    },
-    status: "draft",
-    authorId: userId,
-    reviews: [],
-    activityLog: [],
+  const revision = await revisionModel.createRequest({
+    type: entityType,
+    id: entityId,
+    snapshot: originalEntity as Record<string, unknown>,
+    proposedChanges,
   });
 
   res.status(200).json({
@@ -315,18 +303,13 @@ export const postSubmit = async (
   }
 
   // Must have permission to edit the underlying entity
-  if (existingRevision.target.type === "saved-group") {
-    const savedGroup = await context.models.savedGroups.getById(
-      existingRevision.target.id,
-    );
-    if (!savedGroup) {
-      return res
-        .status(404)
-        .json({ message: "Underlying saved group not found" });
-    }
-    if (!context.permissions.canUpdateSavedGroup(savedGroup, {})) {
-      context.permissions.throwPermissionError();
-    }
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const revision = await revisionModel.submitForReview(id, userId);
@@ -394,18 +377,13 @@ export const postReview = async (
   }
 
   // Must have permission to edit the underlying entity
-  if (existingRevision.target.type === "saved-group") {
-    const savedGroup = await context.models.savedGroups.getById(
-      existingRevision.target.id,
-    );
-    if (!savedGroup) {
-      return res
-        .status(404)
-        .json({ message: "Underlying saved group not found" });
-    }
-    if (!context.permissions.canUpdateSavedGroup(savedGroup, {})) {
-      context.permissions.throwPermissionError();
-    }
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   const revision = await revisionModel.addReview(id, userId, decision, comment);
@@ -422,7 +400,7 @@ export const postReview = async (
 
 type PutProposedChangesRequest = AuthRequest<
   {
-    proposedChanges: Record<string, unknown>;
+    proposedChanges: JsonPatchOperation[];
   },
   { id: string }
 >;
@@ -550,7 +528,8 @@ export const patchTitle = async (
 
 type PostRebaseRequest = AuthRequest<
   {
-    strategies: Record<string, "discard" | "overwrite">;
+    strategies: Record<string, "discard" | "overwrite" | "union">;
+    customValues?: Record<string, unknown[]>;
     mergeResultSerialized: string;
   },
   { id: string }
@@ -574,7 +553,7 @@ export const postRebase = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const { id } = req.params;
-  const { strategies } = req.body;
+  const { strategies, customValues } = req.body;
 
   const revisionModel = new RevisionModel(context);
 
@@ -606,63 +585,104 @@ export const postRebase = async (
 
   // Recalculate merge result to ensure it's still valid
   const baseSnapshot = revision.target.snapshot as Record<string, unknown>;
-  const proposedChanges = revision.target.proposedChanges as Record<
-    string,
-    unknown
-  >;
+  const existingOps = normalizeProposedChanges(revision.target.proposedChanges);
   const liveSnapshot = liveState as Record<string, unknown>;
 
   const mergeResult = checkMergeConflicts(
     baseSnapshot,
     liveSnapshot,
-    proposedChanges,
+    existingOps,
   );
 
-  // Apply strategies to resolve conflicts
-  const resolvedChanges: Record<string, unknown> = { ...liveSnapshot };
   const conflicts = mergeResult.conflicts || [];
 
+  // Validate all conflicts have a strategy
   for (const conflict of conflicts) {
     const strategy = strategies[conflict.field];
-    if (strategy === "overwrite") {
-      // Only apply overwrite if the proposed value is not null/undefined
-      if (conflict.proposedValue != null) {
-        resolvedChanges[conflict.field] = conflict.proposedValue;
-      }
-    } else if (strategy === "discard") {
-      // Keep the live value (do nothing)
-    } else {
+    if (
+      strategy !== "overwrite" &&
+      strategy !== "discard" &&
+      strategy !== "union"
+    ) {
       return res.status(400).json({
         message: `Please resolve conflict for field: ${conflict.field}`,
       });
     }
   }
 
-  // Include non-conflicting proposed changes (skip null/undefined values)
-  Object.keys(proposedChanges).forEach((field) => {
-    const value = proposedChanges[field];
-    // Skip null/undefined - these represent untouched fields
-    if (value != null && !conflicts.find((c) => c.field === field)) {
-      resolvedChanges[field] = value;
-    }
-  });
+  const conflictFields = new Set(conflicts.map((c) => c.field));
 
-  // Calculate new proposed changes relative to live state
-  // Skip null/undefined values - only include actual changes
-  const newProposedChanges: Record<string, unknown> = {};
-  Object.keys(resolvedChanges).forEach((field) => {
-    const value = resolvedChanges[field];
-    // Skip null/undefined values
-    if (value != null && !isEqual(value, liveSnapshot[field])) {
-      newProposedChanges[field] = value;
-    }
-  });
+  // Build resolved patch ops relative to the new live state:
+  // - Non-conflicting ops: keep if they still differ from the live value
+  // - Conflict "overwrite": keep the proposed op
+  // - Conflict "discard": drop the op (live value wins)
+  // - Conflict "union": build a merged array op
+  const newOps: JsonPatchOperation[] = [];
+  const seenFields = new Set<string>();
 
-  // Update the revision with new snapshot and proposed changes
+  for (const op of existingOps) {
+    const field = op.path.split("/")[1];
+    if (!field || seenFields.has(field)) continue;
+    seenFields.add(field);
+
+    if (!conflictFields.has(field)) {
+      const proposedValue =
+        op.op === "replace" || op.op === "add" ? op.value : undefined;
+      if (
+        proposedValue !== undefined &&
+        !isEqual(proposedValue, liveSnapshot[field])
+      ) {
+        newOps.push(op);
+      }
+    } else {
+      const strategy = strategies[field];
+      const conflict = conflicts.find((c) => c.field === field);
+      if (strategy === "overwrite" && conflict) {
+        if (
+          conflict.proposedValue != null &&
+          !isEqual(conflict.proposedValue, liveSnapshot[field])
+        ) {
+          newOps.push({ op: "replace", path: `/${field}`, value: conflict.proposedValue });
+        }
+      } else if (strategy === "union" && conflict) {
+        const custom = customValues?.[field];
+        let resolvedValue: unknown;
+        if (custom !== undefined) {
+          resolvedValue = custom;
+        } else if (
+          Array.isArray(conflict.liveValue) &&
+          Array.isArray(conflict.proposedValue)
+        ) {
+          const seen = new Set<string>();
+          const result: unknown[] = [];
+          for (const item of [
+            ...(conflict.liveValue as unknown[]),
+            ...(conflict.proposedValue as unknown[]),
+          ]) {
+            const key =
+              typeof item === "object" ? JSON.stringify(item) : String(item);
+            if (!seen.has(key)) {
+              seen.add(key);
+              result.push(item);
+            }
+          }
+          resolvedValue = result;
+        } else {
+          resolvedValue = conflict.proposedValue;
+        }
+        if (resolvedValue != null && !isEqual(resolvedValue, liveSnapshot[field])) {
+          newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
+        }
+      }
+      // "discard" → drop op
+    }
+  }
+
+  // Update the revision with new snapshot (current live) and resolved patch ops
   const updatedRevision = await revisionModel.rebase(
     id,
     liveSnapshot,
-    newProposedChanges,
+    newOps,
     userId,
   );
 
@@ -713,87 +733,78 @@ export const postMerge = async (
     });
   }
 
-  if (revision.target.type === "saved-group") {
-    const savedGroup = await context.models.savedGroups.getById(
-      revision.target.id,
-    );
-    if (!savedGroup) {
-      return res.status(404).json({ message: "Saved group not found" });
-    }
-
-    // Check edit permission
-    if (!context.permissions.canUpdateSavedGroup(savedGroup, {})) {
-      context.permissions.throwPermissionError();
-    }
-
-    const canBypass =
-      (savedGroup.projects?.length ?? 0) === 0
-        ? context.permissions.canBypassApprovalChecks({ project: "" })
-        : savedGroup.projects!.every((p) =>
-            context.permissions.canBypassApprovalChecks({ project: p }),
-          );
-
-    // Check if approval is required for saved groups
-    const approvalRequired =
-      context.org.settings?.approvalFlows?.savedGroups?.required || false;
-
-    // If approval is required: must be approved OR user can bypass
-    // If approval is not required: can always publish
-    if (approvalRequired && revision.status !== "approved" && !canBypass) {
-      return res.status(400).json({
-        message: "The revision must be approved before it can be published",
-      });
-    }
-
-    const isBypass = approvalRequired && revision.status !== "approved";
-
-    // Clean up null values to undefined for Zod validation
-    const proposedChanges = revision.target
-      .proposedChanges as UpdateProps<SavedGroupInterface>;
-    const cleanedChanges = Object.fromEntries(
-      Object.entries(proposedChanges).map(([key, value]) => [
-        key,
-        value === null ? undefined : value,
-      ]),
-    ) as UpdateProps<SavedGroupInterface>;
-
-    // Check if there are any actual changes
-    const hasChanges = Object.keys(cleanedChanges).some((key) => {
-      const newValue = cleanedChanges[key as keyof typeof cleanedChanges];
-      const currentValue = savedGroup[key as keyof SavedGroupInterface];
-      return JSON.stringify(newValue) !== JSON.stringify(currentValue);
-    });
-
-    if (!hasChanges) {
-      return res.status(400).json({
-        message: "Cannot publish: no changes detected in this revision",
-      });
-    }
-
-    // Check for merge conflicts before applying
-    const conflictResult = checkMergeConflicts(
-      revision.target.snapshot as unknown as Record<string, unknown>,
-      savedGroup as unknown as Record<string, unknown>,
-      revision.target.proposedChanges as Record<string, unknown>,
-    );
-    if (!conflictResult.success) {
-      return res.status(400).json({
-        message:
-          "Cannot merge: there are conflicts with the current state. Please rebase first.",
-      });
-    }
-
-    // Apply entity update FIRST, then mark revision as merged (defensive write ordering)
-    await context.models.savedGroups.update(savedGroup, cleanedChanges);
-    const mergedRevision = await revisionModel.merge(id, userId, {
-      bypass: isBypass,
-    });
-    return res.status(200).json({ status: 200, revision: mergedRevision });
+  const adapter = getAdapter(revision.target.type);
+  const entityModel = adapter.getModel(context);
+  if (!entityModel) {
+    return res.status(400).json({ message: "Unsupported entity type" });
+  }
+  const entity = await entityModel.getById(revision.target.id);
+  if (!entity) {
+    return res.status(404).json({ message: "Entity not found" });
   }
 
-  // Exhaustive check for future entity types
-  const _exhaustive: never = revision.target.type;
-  throw new Error(`Unsupported entity type for merge: ${_exhaustive}`);
+  // Check edit permission
+  if (!adapter.canUpdate(context, entity as Record<string, unknown>)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const approvalRequired = adapter.isApprovalRequired(context);
+  const canBypass = adapter.canBypassApproval(context, entity as Record<string, unknown>);
+
+  // If approval is required: must be approved OR user can bypass
+  // If approval is not required: can always publish
+  if (approvalRequired && revision.status !== "approved" && !canBypass) {
+    return res.status(400).json({
+      message: "The revision must be approved before it can be published",
+    });
+  }
+
+  const isBypass = approvalRequired && revision.status !== "approved";
+
+  // Apply patch ops to snapshot to derive the desired final state
+  const desiredState = applyPatchToSnapshot(
+    revision.target.snapshot as Record<string, unknown>,
+    normalizeProposedChanges(revision.target.proposedChanges),
+  );
+
+  // Check for merge conflicts before applying
+  const conflictResult = checkMergeConflicts(
+    revision.target.snapshot as Record<string, unknown>,
+    entity as Record<string, unknown>,
+    normalizeProposedChanges(revision.target.proposedChanges),
+  );
+  if (!conflictResult.success) {
+    return res.status(400).json({
+      message:
+        "Cannot merge: there are conflicts with the current state. Please rebase first.",
+    });
+  }
+
+  // Check whether there are any updatable fields that actually differ.
+  // The adapter defines which fields may be written; we skip metadata fields.
+  const updatableFields = adapter.getUpdatableFields();
+  const hasChanges = Object.keys(desiredState).some((key) => {
+    if (!updatableFields.has(key)) return false;
+    return !isEqual(desiredState[key], (entity as Record<string, unknown>)[key]);
+  });
+
+  if (!hasChanges) {
+    return res.status(400).json({
+      message: "Cannot publish: no changes detected in this revision",
+    });
+  }
+
+  // Apply entity update FIRST, then mark revision as merged (defensive write ordering)
+  await adapter.applyChanges(
+    context,
+    entity as Record<string, unknown>,
+    desiredState,
+  );
+
+  const mergedRevision = await revisionModel.merge(id, userId, {
+    bypass: isBypass,
+  });
+  return res.status(200).json({ status: 200, revision: mergedRevision });
 };
 
 // endregion POST /revision/:id/merge
@@ -845,17 +856,12 @@ export const postClose = async (
 
   if (existingRevision.authorId !== userId) {
     // Also allow entity editors to close
-    if (existingRevision.target.type === "saved-group") {
-      const savedGroup = await context.models.savedGroups.getById(
-        existingRevision.target.id,
-      );
-      if (
-        !savedGroup ||
-        !context.permissions.canUpdateSavedGroup(savedGroup, {})
-      ) {
-        context.permissions.throwPermissionError();
-      }
-    } else {
+    if (
+      !getAdapter(existingRevision.target.type).canUpdate(
+        context,
+        existingRevision.target.snapshot as Record<string, unknown>,
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   }
@@ -909,17 +915,12 @@ export const postReopen = async (
 
   if (existingRevision.authorId !== userId) {
     // Also allow entity editors to reopen
-    if (existingRevision.target.type === "saved-group") {
-      const savedGroup = await context.models.savedGroups.getById(
-        existingRevision.target.id,
-      );
-      if (
-        !savedGroup ||
-        !context.permissions.canUpdateSavedGroup(savedGroup, {})
-      ) {
-        context.permissions.throwPermissionError();
-      }
-    } else {
+    if (
+      !getAdapter(existingRevision.target.type).canUpdate(
+        context,
+        existingRevision.target.snapshot as Record<string, unknown>,
+      )
+    ) {
       context.permissions.throwPermissionError();
     }
   }
@@ -1017,7 +1018,7 @@ export const getConflicts = async (
   const result = checkMergeConflicts(
     revision.target.snapshot as unknown as Record<string, unknown>,
     liveEntity as Record<string, unknown>,
-    revision.target.proposedChanges as Record<string, unknown>,
+    normalizeProposedChanges(revision.target.proposedChanges),
   );
 
   res.status(200).json({

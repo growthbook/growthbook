@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
-import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -75,7 +75,7 @@ export default function ApprovalFlowSettings() {
     <Frame>
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
-          <Heading size="large" as="h2">
+          <Heading size="4" as="h4">
             <PremiumTooltip commercialFeature="require-approvals">
               Approval Flows
             </PremiumTooltip>
@@ -84,13 +84,13 @@ export default function ApprovalFlowSettings() {
       </Flex>
 
       <Flex align="start" direction="column" gap="5" mt="7">
-        <Box width="100%">
-          <Frame mb="0">
-            <Heading size="medium" weight="semibold" as="h3" mb="4">
+        <Box mb="6" width="100%">
+          <Box className="appbox p-3">
+            <Heading size="3" className="font-weight-semibold" mb="4">
               Features
             </Heading>
 
-            <Text as="p" size="small" mb="4" color="text-low">
+            <Text as="p" size="2" mb="4" color="gray">
               All changes to features are tracked as revisions. Kill switch
               changes always open a modal where you can choose to save to a
               draft or auto-publish.
@@ -98,7 +98,7 @@ export default function ApprovalFlowSettings() {
 
             {hasRequireApprovals && (
               <>
-                {featureRequireReviews.map?.((requireReviews, i) => (
+                {featureRequireReviews.map((_, i) => (
                   <Box key={`approval-flow-${i}`}>
                     <Checkbox
                       id={`toggle-require-reviews-${i}`}
@@ -199,12 +199,7 @@ export default function ApprovalFlowSettings() {
                           }
                         />
                         <Box mt="2">
-                          <Text
-                            as="label"
-                            size="small"
-                            weight="semibold"
-                            mb="2"
-                          >
+                          <Text as="label" size="2" weight="bold" mb="2">
                             Require approval for
                           </Text>
                           <Flex direction="column" gap="2" align="start">
@@ -248,11 +243,7 @@ export default function ApprovalFlowSettings() {
                           </Flex>
                         </Box>
                         {/* REST API bypass — global, shown after the last rule's options */}
-                        {i ===
-                          (Array.isArray(form.watch("requireReviews"))
-                            ? (form.watch("requireReviews") as unknown[]).length
-                            : 1) -
-                            1 && (
+                        {i === featureRequireReviews.length - 1 && (
                           <Box mt="2">
                             <Checkbox
                               id="toggle-restApiBypassesReviews"
@@ -273,64 +264,52 @@ export default function ApprovalFlowSettings() {
                 ))}
               </>
             )}
-          </Frame>
+          </Box>
         </Box>
 
-        <Box width="100%">
-          <Frame mb="0">
-            <Heading size="medium" weight="semibold" as="h3" mb="4">
+        <Box mb="6" width="100%">
+          <Box className="appbox p-3">
+            <Heading size="3" className="font-weight-semibold" mb="4">
               Saved Groups
             </Heading>
 
-            <Flex gap="3" align="start">
-              <Checkbox
-                id="toggle-require-approvals-saved-groups"
-                value={!!form.watch("approvalFlows.savedGroups.required")}
-                setValue={(v) =>
-                  form.setValue("approvalFlows.savedGroups.required", v)
-                }
-                disabled={!hasRequireApprovals}
-              />
-              <Flex direction="column" gap="1">
-                <Text
-                  as="label"
-                  htmlFor="toggle-require-approvals-saved-groups"
-                >
-                  Require approval to modify Saved Groups
-                </Text>
-                <Text as="p" size="small" color="text-low">
-                  When enabled, all changes to Saved Groups must be reviewed and
-                  approved by another person before going live.
-                </Text>
-                {!!form.watch("approvalFlows.savedGroups.required") && (
-                  <Flex direction="column" gap="3" mt="2" ml="5">
-                    <Box mt="2">
-                      <Text as="label" size="small" weight="semibold" mb="2">
-                        Require approval for
-                      </Text>
-                      <Flex direction="column" gap="2" align="start">
-                        <Checkbox
-                          id="toggle-savedgroup-metadata-review"
-                          label="Metadata changes (description, owner, project, tags, etc.)"
-                          value={
-                            form.watch(
-                              `approvalFlows.savedGroups.requireMetadataReview`,
-                            ) !== false
-                          }
-                          setValue={(v) =>
-                            form.setValue(
-                              `approvalFlows.savedGroups.requireMetadataReview`,
-                              v,
-                            )
-                          }
-                        />
-                      </Flex>
-                    </Box>
+            <Checkbox
+              id="toggle-require-approvals-saved-groups"
+              label="Require approval to modify Saved Groups"
+              description="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
+              value={!!form.watch("approvalFlows.savedGroups.required")}
+              setValue={(v) =>
+                form.setValue("approvalFlows.savedGroups.required", v)
+              }
+              disabled={!hasRequireApprovals}
+            />
+            {!!form.watch("approvalFlows.savedGroups.required") && (
+              <Flex direction="column" gap="3" mt="2" ml="5">
+                <Box mt="2">
+                  <Text as="label" size="2" weight="bold" mb="2">
+                    Require approval for
+                  </Text>
+                  <Flex direction="column" gap="2" align="start">
+                    <Checkbox
+                      id="toggle-saved-group-metadata-review"
+                      label="Metadata changes (description, owner, project, tags, etc.)"
+                      value={
+                        form.watch(
+                          `approvalFlows.savedGroups.requireMetadataReview`,
+                        ) !== false
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.savedGroups.requireMetadataReview`,
+                          v,
+                        )
+                      }
+                    />
                   </Flex>
-                )}
+                </Box>
               </Flex>
-            </Flex>
-          </Frame>
+            )}
+          </Box>
         </Box>
       </Flex>
     </Frame>

@@ -1,57 +1,71 @@
-import { useMemo, useState } from "react";
+import { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightBold } from "react-icons/pi";
-import { SavedGroupInterface } from "shared/types/saved-group";
-import { Revision } from "shared/enterprise";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import RadioGroup from "@/ui/RadioGroup";
-import SavedGroupRevisionDropdown from "./SavedGroupRevisionDropdown";
 
 export type DraftMode = "existing" | "new" | "publish";
 
-export default function SavedGroupDraftSelector({
-  savedGroup,
-  openRevisions,
-  allRevisions,
+/**
+ * Generic collapsible draft-selector shell shared between features and saved
+ * groups. Callers supply the revision dropdown (rendered in the "existing
+ * draft" disclosure) and the trigger label text for the "existing" option;
+ * this component owns the Collapsible wrapper, trigger bar, and RadioGroup.
+ */
+export default function DraftSelector({
+  hasActiveDrafts,
   mode,
   setMode,
-  selectedDraftId,
-  setSelectedDraftId,
   canAutoPublish,
   approvalRequired,
   defaultExpanded = false,
   triggerPrefix = "Changes will be",
+  existingDraftLabel,
+  revisionDropdown,
 }: {
-  savedGroup: SavedGroupInterface;
-  openRevisions: Revision[];
-  allRevisions: Revision[];
+  hasActiveDrafts: boolean;
   mode: DraftMode;
   setMode: (m: DraftMode) => void;
-  selectedDraftId: string | null;
-  setSelectedDraftId: (v: string | null) => void;
   canAutoPublish: boolean;
   approvalRequired: boolean;
   defaultExpanded?: boolean;
   triggerPrefix?: string;
+  /** Label shown in the collapsed trigger when mode === "existing" and a draft
+   *  is selected. When null/undefined the fallback "a new draft" copy is used. */
+  existingDraftLabel?: ReactNode;
+  /** Content rendered inside the "Add to existing draft" disclosure. */
+  revisionDropdown?: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(defaultExpanded ?? false);
 
-  const activeDrafts = useMemo(
-    () =>
-      openRevisions.filter(
-        (r) =>
-          r.status === "draft" ||
-          r.status === "pending-review" ||
-          r.status === "changes-requested" ||
-          r.status === "approved",
-      ),
-    [openRevisions],
-  );
+  const triggerLabel =
+    mode === "publish" ? (
+      <>
+        {" "}
+        <Text weight="semibold" as="span">
+          published immediately
+        </Text>
+      </>
+    ) : mode === "existing" && existingDraftLabel != null ? (
+      <>
+        {" added to draft: "}
+        <Text weight="semibold" as="span">
+          {existingDraftLabel}
+        </Text>
+      </>
+    ) : (
+      <>
+        {" added to "}
+        <Text weight="semibold" as="span">
+          a new draft
+        </Text>
+      </>
+    );
 
-  const existingDraftDisclosure = (
+  const existingDraftDisclosure = revisionDropdown ? (
     <Flex
       direction="column"
       gap="2"
@@ -60,24 +74,17 @@ export default function SavedGroupDraftSelector({
       mb="2"
       style={{ width: "100%" }}
     >
-      <SavedGroupRevisionDropdown
-        savedGroupId={savedGroup.id}
-        allRevisions={allRevisions}
-        selectedRevisionId={selectedDraftId}
-        onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
-        draftsOnly
-        requiresApproval={false}
-      />
+      {revisionDropdown}
     </Flex>
-  );
+  ) : null;
 
   const options = [
-    ...(activeDrafts.length > 0
+    ...(hasActiveDrafts
       ? [
           {
             value: "existing",
             label: "Add to existing draft",
-            renderOnSelect: existingDraftDisclosure,
+            renderOnSelect: existingDraftDisclosure ?? undefined,
             renderOutsideItem: true,
           },
         ]
@@ -98,36 +105,6 @@ export default function SavedGroupDraftSelector({
         ]
       : []),
   ];
-
-  const selectedDraft =
-    mode === "existing"
-      ? allRevisions.find((r) => r.id === selectedDraftId)
-      : null;
-
-  const triggerLabel =
-    mode === "publish" ? (
-      <>
-        {" "}
-        <Text weight="semibold" as="span">
-          published immediately
-        </Text>
-      </>
-    ) : mode === "existing" && selectedDraft ? (
-      <>
-        {" added to draft: "}
-        <Text weight="semibold" as="span">
-          {selectedDraft.title ||
-            `Revision ${allRevisions.filter((r) => new Date(r.dateCreated) <= new Date(selectedDraft.dateCreated)).length}`}
-        </Text>
-      </>
-    ) : (
-      <>
-        {" added to "}
-        <Text weight="semibold" as="span">
-          a new draft
-        </Text>
-      </>
-    );
 
   const trigger = (
     <Flex

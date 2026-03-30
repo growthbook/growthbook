@@ -2,7 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Box, Flex, Popover } from "@radix-ui/themes";
 import { PiCaretDown } from "react-icons/pi";
 import { date, ago } from "shared/dates";
-import { Revision, checkMergeConflicts, MergeResult } from "shared/enterprise";
+import {
+  Revision,
+  checkMergeConflicts,
+  MergeResult,
+  applyTopLevelPatchOps,
+} from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -17,6 +22,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/ui/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
+import Checkbox from "@/ui/Checkbox";
 import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
 import FixRevisionConflictsModal from "./FixRevisionConflictsModal";
 import { getStatusBadge } from "./revisionUtils";
@@ -27,7 +33,6 @@ interface RevisionDetailProps<T> {
   currentState: Revision["target"]["snapshot"];
   mutate?: () => void;
   setCurrentRevision: (revision: Revision | null) => void;
-  onDiscard: (revisionId: string) => Promise<void>;
   onPublish: (revisionId: string) => Promise<void>;
   onReopen?: (revisionId: string) => Promise<void>;
   diffConfig: RevisionDiffConfig<T>;
@@ -41,7 +46,6 @@ function RevisionDetail<T>({
   currentState,
   mutate,
   setCurrentRevision,
-  onDiscard,
   onPublish,
   onReopen,
   diffConfig,
@@ -52,9 +56,8 @@ function RevisionDetail<T>({
   const { getUserDisplay, userId, user } = useUser();
   const { apiCall } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
-  const [confirmBypass, setConfirmBypass] = useState(false);
+  const [bypassApproval, setBypassApproval] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
   const [reviewDropdownOpen, setReviewDropdownOpen] = useState(false);
@@ -86,7 +89,7 @@ function RevisionDetail<T>({
     const result = checkMergeConflicts(
       revision.target.snapshot as unknown as Record<string, unknown>,
       currentState as unknown as Record<string, unknown>,
-      revision.target.proposedChanges as Record<string, unknown>,
+      revision.target.proposedChanges,
     );
     setMergeResult(result);
   }, [
@@ -260,10 +263,10 @@ function RevisionDetail<T>({
       ? (revision.target.snapshot as T)
       : (currentState as T);
 
-  const proposedSnapshot = {
-    ...baseSnapshot,
-    ...(revision.target.proposedChanges as Partial<T>),
-  } as T;
+  const proposedSnapshot = applyTopLevelPatchOps(
+    baseSnapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+  ) as T;
 
   // Use custom hook to compute diffs
   const { diffs, badges, customRenderGroups } = useRevisionDiff<T>(
@@ -307,7 +310,7 @@ function RevisionDetail<T>({
       );
     }
     // If approval is required, check for approval or bypass
-    if (revision.status !== "approved" && !canBypass) return false;
+    if (revision.status !== "approved" && !bypassApproval) return false;
     return permissionsUtil.canUpdateSavedGroup(
       currentState as SavedGroupInterface,
       {},
@@ -387,23 +390,6 @@ function RevisionDetail<T>({
   };
   return (
     <Box>
-      {confirmDiscard && (
-        <Modal
-          trackingEventModalType=""
-          header="Discard Draft"
-          close={() => setConfirmDiscard(false)}
-          open={true}
-          dismissible
-          cta="Discard"
-          submitColor="danger"
-          submit={async () => {
-            await onDiscard(revision.id);
-          }}
-        >
-          Are you sure you want to discard this proposed change? This action
-          cannot be undone.
-        </Modal>
-      )}
       {confirmPublish && (
         <Modal
           trackingEventModalType=""
@@ -417,21 +403,6 @@ function RevisionDetail<T>({
         >
           These changes will go live immediately. Are you sure you want to
           publish?
-        </Modal>
-      )}
-      {confirmBypass && requiresApproval && (
-        <Modal
-          trackingEventModalType=""
-          header="Bypass Approval & Publish"
-          close={() => setConfirmBypass(false)}
-          open={true}
-          dismissible
-          cta="Publish Anyway"
-          submitColor="danger"
-          submit={handleMerge}
-        >
-          This will publish without approval and go live immediately. Are you
-          sure you want to continue?
         </Modal>
       )}
       {confirmReopen && onReopen && (
@@ -508,6 +479,16 @@ function RevisionDetail<T>({
         </Callout>
       )}
 
+      {canBypass && requiresApproval && isOpen && (
+        <Box mt="3" mb="4" ml="1">
+          <Checkbox
+            label="Bypass approval requirement to publish (optional for Admins only)"
+            value={bypassApproval}
+            setValue={(val) => setBypassApproval(!!val)}
+          />
+        </Box>
+      )}
+
       {(revision.title || isEditingTitle || (isRevisionAuthor && isOpen)) && (
         <Box mb="2">
           {isEditingTitle ? (
@@ -571,39 +552,55 @@ function RevisionDetail<T>({
           {getStatusBadge(revision.status, requiresApproval)}
         </Flex>
         <Flex gap="2">
-          {isOpen && (
-            <Button
-              variant="ghost"
-              color="red"
-              onClick={() => setConfirmDiscard(true)}
-              disabled={isSubmitting}
-            >
-              Discard
-            </Button>
-          )}
           {revision.status === "draft" ? (
             // For drafts: show either "Request Approval" or "Publish" based on approval requirement
             requiresApproval ? (
-              <Tooltip
-                content={
-                  diffs.length === 0 ? "No changes to submit" : undefined
-                }
-                enabled={diffs.length === 0}
-              >
-                <span style={{ display: "inline-block" }}>
-                  <Button
-                    variant="solid"
-                    color="violet"
-                    onClick={handleSubmitForReview}
-                    disabled={isSubmitting || diffs.length === 0}
-                    style={
-                      diffs.length === 0 ? { pointerEvents: "none" } : undefined
+              <>
+                <Tooltip
+                  content={
+                    diffs.length === 0 ? "No changes to submit" : undefined
+                  }
+                  enabled={diffs.length === 0}
+                >
+                  <span style={{ display: "inline-block" }}>
+                    <Button
+                      variant="solid"
+                      color="violet"
+                      onClick={handleSubmitForReview}
+                      disabled={isSubmitting || diffs.length === 0}
+                      style={
+                        diffs.length === 0
+                          ? { pointerEvents: "none" }
+                          : undefined
+                      }
+                    >
+                      {isSubmitting ? "Submitting..." : "Request Approval"}
+                    </Button>
+                  </span>
+                </Tooltip>
+                {bypassApproval && (
+                  <Tooltip
+                    content={
+                      diffs.length === 0 ? "No changes to publish" : undefined
                     }
+                    enabled={!canMerge() && !isSubmitting}
                   >
-                    {isSubmitting ? "Submitting..." : "Request Approval"}
-                  </Button>
-                </span>
-              </Tooltip>
+                    <span style={{ display: "inline-block" }}>
+                      <Button
+                        variant="solid"
+                        color="violet"
+                        onClick={handleMerge}
+                        disabled={isSubmitting || !canMerge()}
+                        style={
+                          !canMerge() ? { pointerEvents: "none" } : undefined
+                        }
+                      >
+                        Publish
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )}
+              </>
             ) : (
               <Tooltip
                 content={
@@ -725,7 +722,7 @@ function RevisionDetail<T>({
                   diffs.length === 0
                     ? "No changes to publish"
                     : requiresApproval
-                      ? canBypass
+                      ? bypassApproval
                         ? undefined
                         : "Approval is required before publishing"
                       : undefined
@@ -737,9 +734,7 @@ function RevisionDetail<T>({
                     variant="solid"
                     color="violet"
                     onClick={() =>
-                      requiresApproval && canBypass
-                        ? setConfirmBypass(true)
-                        : setConfirmPublish(true)
+                      bypassApproval ? handleMerge() : setConfirmPublish(true)
                     }
                     disabled={isSubmitting || !canMerge()}
                     style={!canMerge() ? { pointerEvents: "none" } : undefined}

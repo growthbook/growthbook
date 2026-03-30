@@ -306,6 +306,9 @@ importers:
       express-rate-limit:
         specifier: ^6.6.0
         version: 6.6.0(express@4.21.2)
+      fast-json-patch:
+        specifier: ^3.1.1
+        version: 3.1.1
       free-email-domains-typescript:
         specifier: ^1.0.9
         version: 1.0.9
