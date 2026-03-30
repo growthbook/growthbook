@@ -2,48 +2,57 @@ import {
   tokenize,
   fuzzyMatchName,
   buildCommandPaletteIndex,
-  combinedSearch,
+  partitionItemsForCommandPaletteSearch,
+  searchCommandPalette,
+  isStrictCommandPaletteSearchType,
 } from "@/components/CommandPalette/searchUtils";
 
 const ITEMS = [
   {
     id: "f1",
+    type: "feature" as const,
     name: "alpha_bravo_charlie",
     description: "",
     tags: "",
   },
   {
     id: "f2",
+    type: "feature" as const,
     name: "foo_bar",
     description: "",
     tags: "",
   },
   {
     id: "f3",
+    type: "feature" as const,
     name: "myToggleFlag",
     description: "Controls the widget rollout",
     tags: "widget rollout",
   },
   {
     id: "e1",
+    type: "experiment" as const,
     name: "enable-flow-v2",
     description: "",
     tags: "",
   },
   {
     id: "e2",
+    type: "experiment" as const,
     name: "beta_test_experiment",
     description: "",
     tags: "",
   },
   {
     id: "m1",
+    type: "metric" as const,
     name: "ValuePerSession",
     description: "Average value per session",
     tags: "value sessions",
   },
   {
     id: "x1",
+    type: "feature" as const,
     name: "able_body",
     description: "",
     tags: "",
@@ -51,8 +60,34 @@ const ITEMS = [
 ];
 
 function search(query: string): string[] {
-  const index = buildCommandPaletteIndex(ITEMS);
-  return combinedSearch(index, ITEMS, query.trim()).map((item) => item.name);
+  const { strictItems, fuzzyItems } =
+    partitionItemsForCommandPaletteSearch(ITEMS);
+  const strictIndex = buildCommandPaletteIndex(strictItems, { fuzzy: false });
+  const fuzzyIndex = buildCommandPaletteIndex(fuzzyItems, { fuzzy: true });
+  return searchCommandPalette(
+    strictIndex,
+    strictItems,
+    fuzzyIndex,
+    fuzzyItems,
+    query.trim(),
+  ).map((item) => item.name);
+}
+
+function searchWithMixedItems(
+  items: Parameters<typeof partitionItemsForCommandPaletteSearch>[0],
+  query: string,
+): string[] {
+  const { strictItems, fuzzyItems } =
+    partitionItemsForCommandPaletteSearch(items);
+  const strictIndex = buildCommandPaletteIndex(strictItems, { fuzzy: false });
+  const fuzzyIndex = buildCommandPaletteIndex(fuzzyItems, { fuzzy: true });
+  return searchCommandPalette(
+    strictIndex,
+    strictItems,
+    fuzzyIndex,
+    fuzzyItems,
+    query.trim(),
+  ).map((item) => item.name);
 }
 
 describe("tokenize", () => {
@@ -213,5 +248,99 @@ describe("search — result ordering", () => {
     // It should be the first result (or at least present and ranked highly).
     const results = search("bravo");
     expect(results[0]).toBe("alpha_bravo_charlie");
+  });
+});
+
+describe("isStrictCommandPaletteSearchType", () => {
+  it("treats navigation, documentation, and apiReference as strict", () => {
+    expect(isStrictCommandPaletteSearchType("navigation")).toBe(true);
+    expect(isStrictCommandPaletteSearchType("documentation")).toBe(true);
+    expect(isStrictCommandPaletteSearchType("apiReference")).toBe(true);
+  });
+
+  it("treats entity types as fuzzy tier", () => {
+    expect(isStrictCommandPaletteSearchType("feature")).toBe(false);
+    expect(isStrictCommandPaletteSearchType("experiment")).toBe(false);
+    expect(isStrictCommandPaletteSearchType("metric")).toBe(false);
+    expect(isStrictCommandPaletteSearchType("savedGroup")).toBe(false);
+    expect(isStrictCommandPaletteSearchType("dashboard")).toBe(false);
+  });
+});
+
+describe("searchCommandPalette — strict types (no microfuzz, no MiniSearch fuzzy)", () => {
+  it("does not match navigation rows via microfuzz abbreviations", () => {
+    const mixed = [
+      ...ITEMS,
+      {
+        id: "nav-fb",
+        type: "navigation" as const,
+        name: "Foo Bar",
+        description: "",
+        tags: "",
+      },
+    ];
+    expect(searchWithMixedItems(mixed, "fb")).toEqual(["foo_bar"]);
+  });
+
+  it("does not typo-fuzzy-match strict rows (documentation)", () => {
+    const mixed = [
+      {
+        id: "doc1",
+        type: "documentation" as const,
+        name: "Templates",
+        description: "",
+        tags: "Experimentation Templates",
+      },
+      {
+        id: "f-typo",
+        type: "feature" as const,
+        name: "myToggleFlag",
+        description: "",
+        tags: "",
+      },
+    ];
+    // Feature tier still tolerates typo "togxle" → myToggleFlag
+    expect(searchWithMixedItems(mixed, "togxle")).toContain("myToggleFlag");
+    // Strict tier: no fuzzy edit distance on "Templates"
+    expect(searchWithMixedItems(mixed, "templtes")).not.toContain("Templates");
+  });
+
+  it("places strict matches before fuzzy matches when both tiers hit", () => {
+    const mixed = [
+      {
+        id: "nav-exp",
+        type: "navigation" as const,
+        name: "Experiments",
+        description: "",
+        tags: "",
+      },
+      {
+        id: "exp1",
+        type: "experiment" as const,
+        name: "checkout-flow",
+        description: "Experiment for checkout",
+        tags: "",
+      },
+    ];
+    const names = searchWithMixedItems(mixed, "experiment");
+    expect(names[0]).toBe("Experiments");
+    expect(names).toContain("checkout-flow");
+  });
+
+  it("omits strict duplicate-named row when only microfuzz would match the name", () => {
+    const mixed = [
+      {
+        id: "nav-abc",
+        type: "navigation" as const,
+        name: "alpha_bravo_charlie",
+        description: "",
+        tags: "",
+      },
+      ...ITEMS,
+    ];
+    const names = searchWithMixedItems(mixed, "abc");
+    expect(names.filter((n) => n === "alpha_bravo_charlie")).toEqual([
+      "alpha_bravo_charlie",
+    ]);
   });
 });
