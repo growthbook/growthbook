@@ -1,3 +1,5 @@
+import { parseOptionalInt } from "./util/numbers";
+
 // AI Provider types and configurations
 export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 
@@ -194,4 +196,32 @@ export function computeAIUsageData({
     fieldExists: !!value,
     suggestionExists: !!aiSuggestionText,
   };
+}
+
+const AI_RATE_LIMIT_GENERIC =
+  "You have reached the AI request limit. Please try again later.";
+
+function pluralUnit(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Human-readable AI rate-limit message from optional `Retry-After` seconds */
+export function formatAIRateLimitRetryMessage(
+  retryAfterSeconds: unknown,
+): string {
+  const s = parseOptionalInt(retryAfterSeconds);
+  if (s === undefined) return AI_RATE_LIMIT_GENERIC;
+  if (s <= 0) return AI_RATE_LIMIT_GENERIC;
+  const hours = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  if (hours === 0 && minutes === 0) {
+    return `You have reached the AI request limit. Try again in less than a minute.`;
+  }
+  const hourPart = hours > 0 ? pluralUnit(hours, "hour", "hours") : "";
+  const minutePart =
+    minutes > 0 ? pluralUnit(minutes, "minute", "minutes") : "";
+  if (hourPart && minutePart) {
+    return `You have reached the AI request limit. Try again in ${hourPart} and ${minutePart}.`;
+  }
+  return `You have reached the AI request limit. Try again in ${hourPart || minutePart}.`;
 }
