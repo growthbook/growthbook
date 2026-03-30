@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
+import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
@@ -34,6 +35,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
   expandAllSliceMetricsInMap,
   getEqualWeights,
   getEffectiveLookbackOverride,
@@ -101,10 +103,12 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
+  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
 } from "shared/types/organization";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
@@ -135,6 +139,7 @@ import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
   getLatestSnapshotMultipleExperiments,
+  updateSnapshot,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
@@ -1415,6 +1420,8 @@ export async function createSnapshotFromPlan({
     }
   }
 
+  let createdSnapshotId: string | null = null;
+
   try {
     let scheduleNextSnapshot = true;
     if (
@@ -1445,6 +1452,7 @@ export async function createSnapshotFromPlan({
     const snapshot = await createExperimentSnapshotModel({
       data: plan.snapshot,
     });
+    createdSnapshotId = snapshot.id;
 
     let queryRunner: ExperimentSnapshotQueryRunner;
     switch (plan.runnerKind) {
@@ -1556,6 +1564,18 @@ export async function createSnapshotFromPlan({
           ),
         );
     }
+
+    if (createdSnapshotId) {
+      await updateSnapshot({
+        organization: context.org.id,
+        id: createdSnapshotId,
+        updates: {
+          status: "error",
+          error: e.message,
+        },
+        context,
+      });
+    }
     throw e;
   }
 }
@@ -1612,6 +1632,237 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
   });
+}
+
+export function validateVariationIds(variations: Variation[]) {
+  variations.forEach((variation, i) => {
+    if (!variation.id) {
+      variation.id = uniqid("var_");
+    }
+    if (!variation.key) {
+      variation.key = i + "";
+    }
+  });
+  const keys = variations.map((v) => v.key);
+  if (keys.length !== new Set(keys).size) {
+    throw new Error("Variation keys must be unique");
+  }
+}
+
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
+export async function createExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const plan = await planExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    triggeredBy,
+    type,
+    reweight,
+    allowIncrementalRefresh,
+  });
+
+  return createExperimentSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+  });
+}
+
+export async function createExperimentSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
+  const queryRunner = await createSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
+  return { snapshot: queryRunner.model, queryRunner };
+}
+
+export async function planExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<PlannedExperimentSnapshot> {
+  const snapshotType =
+    type ??
+    getSnapshotType({
+      experiment,
+      dimension,
+      phaseIndex: phase,
+    });
+
+  let project = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
+  }
+
+  const { org } = context;
+  const orgSettings: OrganizationSettings =
+    org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment,
+  });
+  const statsEngine = settings.statsEngine.value;
+  const postStratificationEnabled = settings.postStratificationEnabled.value;
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[],
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
+
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
+    });
+
+  const analysisSettings = getDefaultExperimentAnalysisSettings({
+    statsEngine,
+    experiment,
+    organization: org,
+    regressionAdjustmentEnabled,
+    postStratificationEnabled,
+    dimension,
+  });
+
+  const plan = await planSnapshot({
+    experiment,
+    context,
+    phaseIndex: phase,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    reweight,
+    type: snapshotType,
+    triggeredBy: triggeredBy ?? "manual",
+    allowIncrementalRefresh,
+  });
+  return plan;
 }
 
 export type SnapshotAnalysisParams = {

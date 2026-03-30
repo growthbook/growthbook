@@ -16,6 +16,7 @@ import {
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
 import { FactMetricInterface } from "shared/types/fact-table";
+import { parseIntWithDefault } from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import RunQueriesButton, {
@@ -356,7 +357,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         onChange={(v) => {
                           setValue("lookbackSelected", v);
                           if (v !== "custom") {
-                            setValue("lookbackDays", parseInt(v));
+                            setValue("lookbackDays", parseIntWithDefault(v, 1));
                           }
                         }}
                       />
