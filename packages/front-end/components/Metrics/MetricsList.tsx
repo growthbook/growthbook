@@ -34,6 +34,13 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 export interface MetricTableItem {
   id: string;
@@ -322,7 +329,7 @@ const MetricsList = (): React.ReactElement => {
     isFiltered,
     syntaxFilters,
     setSearchValue,
-    SortableTH,
+    SortableTableColumnHeader,
     pagination,
   } = useSearch({
     items: filteredMetrics,
@@ -387,7 +394,7 @@ const MetricsList = (): React.ReactElement => {
   };
 
   return (
-    <div className="container-fluid pagecontents p-0">
+    <Box className="pagecontents" p="0">
       {modalData ? (
         <MetricModal {...modalData} close={closeModal} source="blank-state" />
       ) : null}
@@ -398,36 +405,42 @@ const MetricsList = (): React.ReactElement => {
           mutate={mutateDefinitions}
         />
       )}
-      <div className="filters md-form row mb-3 align-items-center">
-        <div className="col-auto d-flex">
+      <Flex
+        className="filters md-form"
+        mb="3"
+        align="center"
+        gap="3"
+        wrap="wrap"
+      >
+        <Flex align="center" gap="2">
           <div>
             Define what constitutes success and failure for your business.
           </div>
-          <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
+          <DocLink docSection="metrics" className="align-self-center pb-1">
             View Docs
           </DocLink>
-        </div>
-        <div style={{ flex: 1 }} />
+        </Flex>
+        <Box style={{ flex: 1 }} />
         {permissionsUtil.canCreateMetric({ projects: [project] }) &&
         envAllowsCreatingMetrics() &&
         !showCreateFactTableButton ? (
-          <div className="col-auto">
+          <Flex gap="2">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
             <Button onClick={() => setModalData({ mode: "new" })}>
               Add Metric
             </Button>
-          </div>
+          </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
-          <div className="col-auto">
+          <Box>
             <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
-          </div>
+          </Box>
         ) : null}
-      </div>
-      <div className="mt-4">
+      </Flex>
+      <Box mt="4">
         <CustomMarkdown page={"metricList"} />
-      </div>
+      </Box>
       <Flex justify="between" mb="3" gap="3" align="center">
         <Box className="relative" width="40%">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
@@ -451,36 +464,36 @@ const MetricsList = (): React.ReactElement => {
           metrics at scale.
         </PremiumCallout>
       ) : null}
-      <table className="table appbox gbtable table-hover">
-        <thead>
-          <tr>
-            <th />
-            <SortableTH field="name" className="col-3">
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader />
+            <SortableTableColumnHeader field="name">
               Metric Name
-            </SortableTH>
-            <SortableTH field="type" className="col-1">
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="type">
               Type
-            </SortableTH>
-            <th>Projects</th>
-            <th className="col-2">Tags</th>
-            <SortableTH
+            </SortableTableColumnHeader>
+            <TableColumnHeader>Projects</TableColumnHeader>
+            <TableColumnHeader>Tags</TableColumnHeader>
+            <SortableTableColumnHeader
               field="dateUpdated"
-              className="d-none d-md-table-cell col-1"
+              className="d-none d-md-table-cell"
             >
               Last Updated
-            </SortableTH>
-            <th />
-            <th />
-          </tr>
-        </thead>
-        <tbody>
+            </SortableTableColumnHeader>
+            <TableColumnHeader />
+            <TableColumnHeader />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((metric) => {
             const moreMenuLinks: ReactElement[] = [];
 
             if (metric.onDuplicate && envAllowsCreatingMetrics()) {
               moreMenuLinks.push(
                 <button
-                  className="btn dropdown-item py-2"
+                  className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
                     metric.onDuplicate && metric.onDuplicate();
@@ -494,7 +507,7 @@ const MetricsList = (): React.ReactElement => {
             if (metric.canEdit && !metric.archived && metric.onEdit) {
               moreMenuLinks.push(
                 <button
-                  className="btn dropdown-item py-2"
+                  className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
                     metric.onEdit?.();
@@ -508,7 +521,7 @@ const MetricsList = (): React.ReactElement => {
             if (metric.canEdit && metric.onArchive) {
               moreMenuLinks.push(
                 <button
-                  className="btn dropdown-item py-2"
+                  className="dropdown-item"
                   onClick={async (e) => {
                     e.preventDefault();
                     await metric.onArchive?.(!metric.archived);
@@ -536,7 +549,7 @@ const MetricsList = (): React.ReactElement => {
             }
 
             return (
-              <tr
+              <TableRow
                 key={metric.id}
                 onClick={(e) => {
                   // If clicking on a link or button, default to browser behavior
@@ -557,48 +570,52 @@ const MetricsList = (): React.ReactElement => {
                   e.preventDefault();
                   router.push(getMetricLink(metric.id));
                 }}
-                style={{ cursor: "pointer" }}
-                className={metric.archived ? "text-muted" : ""}
+                style={{
+                  cursor: "pointer",
+                  color: metric.archived ? "var(--gray-11)" : undefined,
+                }}
               >
-                <td>
+                <TableCell>
                   <OfficialBadge
                     type="metric"
                     managedBy={metric.managedBy || ""}
                     leftGap
                   />
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <Link
                     href={getMetricLink(metric.id)}
-                    className={`${
-                      metric.archived ? "text-muted" : "text-dark"
-                    } font-weight-bold`}
+                    style={{
+                      color: metric.archived
+                        ? "var(--gray-11)"
+                        : "var(--gray-12)",
+                    }}
                   >
                     {metric.name}
                   </Link>
-                </td>
-                <td>{startCase(metric.type)}</td>
-                <td className="col-2">
+                </TableCell>
+                <TableCell>{startCase(metric.type)}</TableCell>
+                <TableCell>
                   {metric.projectNames.length === 0
                     ? null
                     : metric.projectNames.join(", ")}
-                </td>
-                <td className="col-4">
+                </TableCell>
+                <TableCell>
                   <SortedTags
                     tags={metric.tags ? Object.values(metric.tags) : []}
                     shouldShowEllipsis={true}
                     useFlex={true}
                   />
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
                   {metric.managedBy === "config"
                     ? ""
                     : date(metric.dateUpdated || "")}
-                </td>
-                <td className="text-muted">
+                </TableCell>
+                <TableCell style={{ color: "var(--gray-11)" }}>
                   {metric.archived && (
                     <Tooltip
                       body={"Archived"}
@@ -608,8 +625,8 @@ const MetricsList = (): React.ReactElement => {
                       <FaArchive />
                     </Tooltip>
                   )}
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   style={{ cursor: "initial" }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -617,27 +634,25 @@ const MetricsList = (): React.ReactElement => {
                 >
                   <MoreMenu>
                     {moreMenuLinks.map((menuItem, i) => (
-                      <div key={`${menuItem}-${i}`} className="d-inline">
-                        {menuItem}
-                      </div>
+                      <div key={`${menuItem}-${i}`}>{menuItem}</div>
                     ))}
                   </MoreMenu>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
 
           {!items.length && isFiltered && (
-            <tr>
-              <td colSpan={8} align={"center"}>
+            <TableRow>
+              <TableCell colSpan={8} style={{ textAlign: "center" }}>
                 No matching metrics
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {pagination}
-    </div>
+    </Box>
   );
 };
 

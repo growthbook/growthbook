@@ -1,7 +1,6 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "shared/types/dimension";
-import clsx from "clsx";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
@@ -18,7 +17,15 @@ import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSearch } from "@/services/search";
-import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
@@ -93,7 +100,11 @@ const DimensionsPage: FC = () => {
 
   const experimentDimensions = getExperimentDimensions(datasources);
 
-  const { items, SortableTH, pagination } = useSearch({
+  const {
+    items,
+    SortableTableColumnHeader: SortableTableColumnHeaderExperiment,
+    pagination,
+  } = useSearch({
     items: experimentDimensions,
     localStorageKey: "dimensions",
     defaultSortField: "dimension",
@@ -107,6 +118,19 @@ const DimensionsPage: FC = () => {
     pageSize: 10,
   });
 
+  const {
+    items: unitDimensionsItems,
+    SortableTableColumnHeader: SortableTableColumnHeaderUnit,
+    pagination: unitPagination,
+  } = useSearch({
+    items: dimensions,
+    localStorageKey: "unitDimensions",
+    defaultSortField: "name",
+    defaultSortDir: 1,
+    searchFields: ["name", "owner", "description", "sql"],
+    pageSize: 20,
+  });
+
   if (!error && !ready) {
     return <LoadingOverlay />;
   }
@@ -117,38 +141,31 @@ const DimensionsPage: FC = () => {
 
   if (!hasValidDataSources) {
     return (
-      <div className="p-3 container-fluid pagecontents">
-        <div className="row mb-3">
-          <div className="col d-flex">
-            <h1>User Dimensions</h1>
-            <DocLink
-              docSection="dimensions"
-              className="align-self-center ml-2 pb-1"
-            >
-              View Documentation
-            </DocLink>
-          </div>
-        </div>
-        <div className="alert alert-info">
+      <Box className="container-fluid pagecontents" p="3">
+        <Flex align="center" gap="2" mb="3">
+          <h1 style={{ margin: 0 }}>User Dimensions</h1>
+          <DocLink docSection="dimensions">View Documentation</DocLink>
+        </Flex>
+        <Callout status="info">
           Dimensions are only available if you connect GrowthBook to a
           compatible data source (Snowflake, Redshift, BigQuery, ClickHouse,
           Athena, Postgres, MySQL, MS SQL, Presto, Databricks, or Mixpanel).
           Support for other data sources like Google Analytics is coming soon.
-        </div>
-      </div>
+        </Callout>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         There was an error loading the list of dimensions
-      </div>
+      </Callout>
     );
   }
 
   return (
-    <div className="p-3 container-fluid pagecontents">
+    <Box className="container-fluid pagecontents" p="3">
       {dimensionForm && (
         <DimensionForm
           close={() => setDimensionForm(null)}
@@ -157,21 +174,34 @@ const DimensionsPage: FC = () => {
       )}
       <Flex mb="3" direction="column">
         <Box>
-          <h1>Experiment Dimensions</h1>
+          <h1 style={{ margin: 0 }}>Experiment Dimensions</h1>
         </Box>
         <Box mb="3">
-          Experiment Dimensions are specific to the point-in-time that a unit is
-          put into an experiment - for example, &quot;browser&quot; or
-          &quot;referrer&quot;. They are defined via the experiment assignment
-          queries and are the preferred way to specify dimensions.
+          <Text as="p" m="0">
+            Experiment Dimensions are specific to the point-in-time that a unit
+            is put into an experiment - for example, &quot;browser&quot; or
+            &quot;referrer&quot;. They are defined via the experiment assignment
+            queries and are the preferred way to specify dimensions.
+          </Text>
         </Box>
-        <Table className="appbox table gbtable responsive-table">
+        <Table
+          variant="list"
+          stickyHeader
+          roundedCorners
+          className="appbox responsive-table"
+        >
           <TableHeader>
             <TableRow>
-              <SortableTH field="dimension">Name</SortableTH>
-              <SortableTH field="datasourceName">Data Source</SortableTH>
-              <SortableTH field="identifierTypes">Identifier Types</SortableTH>
-              <th></th>
+              <SortableTableColumnHeaderExperiment field="dimension">
+                Name
+              </SortableTableColumnHeaderExperiment>
+              <SortableTableColumnHeaderExperiment field="datasourceName">
+                Data Source
+              </SortableTableColumnHeaderExperiment>
+              <SortableTableColumnHeaderExperiment field="identifierTypes">
+                Identifier Types
+              </SortableTableColumnHeaderExperiment>
+              <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -209,155 +239,161 @@ const DimensionsPage: FC = () => {
         </Table>
         {pagination}
       </Flex>
-      <div className="row mb-3">
-        <div className="col-auto d-flex">
-          <h1>Unit Dimensions</h1>
-        </div>
-        <div style={{ flex: 1 }}></div>
+      <Flex align="center" justify="between" mb="3" wrap="wrap" gap="3">
+        <h1 style={{ margin: 0 }}>Unit Dimensions</h1>
         {orgCanCreateDimensions && hasCreateDimensionPermission && (
-          <div className="col-auto">
-            <Button
-              onClick={async () => {
-                setDimensionForm({});
-              }}
-            >
-              Add Unit Dimension
-            </Button>
-          </div>
+          <Button
+            onClick={() => {
+              setDimensionForm({});
+            }}
+          >
+            Add Unit Dimension
+          </Button>
         )}
-      </div>
+      </Flex>
       {dimensions.length > 0 && (
-        <div className="row mb-4">
-          <div className="col-12">
-            <p>
-              Unit Dimensions are attributes of your units - for example,
-              &quot;subscription plan&quot; or &quot;age group&quot;. GrowthBook
-              will join these dimensions to your units in the exposure query to
-              let you drill down into experiment results.
-            </p>
-            <table
-              className={clsx("table appbox gbtable", {
-                "table-hover": !hasFileConfig(),
-              })}
-            >
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Owner</th>
-                  <th className="d-none d-sm-table-cell">Data Source</th>
-                  <th className="d-none d-md-table-cell">Identifier Type</th>
-                  <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {dimensions.map((s) => {
-                  const datasource = getDatasourceById(s.datasource);
-                  const language: Language =
-                    datasource?.properties?.queryLanguage || "sql";
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        {" "}
+        <Box mb="4">
+          <Text as="p" mb="3">
+            Unit Dimensions are attributes of your units - for example,
+            &quot;subscription plan&quot; or &quot;age group&quot;. GrowthBook
+            will join these dimensions to your units in the exposure query to
+            let you drill down into experiment results.
+          </Text>
+          <Table
+            variant="list"
+            stickyHeader
+            roundedCorners
+            className="appbox responsive-table"
+          >
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeaderUnit field="name">
+                  Name
+                </SortableTableColumnHeaderUnit>
+                <SortableTableColumnHeaderUnit field="owner">
+                  Owner
+                </SortableTableColumnHeaderUnit>
+                <TableColumnHeader className="d-none d-sm-table-cell">
+                  Data Source
+                </TableColumnHeader>
+                <TableColumnHeader className="d-none d-md-table-cell">
+                  Identifier Type
+                </TableColumnHeader>
+                <TableColumnHeader className="d-none d-lg-table-cell">
+                  Definition
+                </TableColumnHeader>
+                <SortableTableColumnHeaderUnit field="dateUpdated">
+                  Date Updated
+                </SortableTableColumnHeaderUnit>
+                <TableColumnHeader />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {unitDimensionsItems.map((s) => {
+                const datasource = getDatasourceById(s.datasource);
+                const language: Language =
+                  datasource?.properties?.queryLanguage || "sql";
+                return (
+                  <TableRow key={s.id} className="hover-highlight">
+                    <TableCell>
+                      <>
+                        <OfficialBadge
+                          type="Dimension"
+                          managedBy={s.managedBy}
+                        />
+                        {s.name}{" "}
+                        {s.description ? (
+                          <Tooltip body={s.description} />
+                        ) : null}
+                      </>
+                    </TableCell>
+                    <TableCell>{getOwnerDisplay(s.owner)}</TableCell>
+                    <TableCell className="d-none d-sm-table-cell">
+                      {datasource && (
                         <>
-                          <OfficialBadge
-                            type="Dimension"
-                            managedBy={s.managedBy}
-                          />
-                          {s.name}{" "}
-                          {s.description ? (
-                            <Tooltip body={s.description} />
+                          <Link href={`/datasources/${datasource.id}`}>
+                            {datasource.name}
+                          </Link>{" "}
+                          {datasource.description ? (
+                            <Tooltip body={datasource.description} />
                           ) : null}
                         </>
-                      </td>
-                      <td>{getOwnerDisplay(s.owner)}</td>
-                      <td className="d-none d-sm-table-cell">
-                        {datasource && (
-                          <>
-                            <Link href={`/datasources/${datasource.id}`}>
-                              {datasource.name}
-                            </Link>{" "}
-                            {datasource.description ? (
-                              <Tooltip body={datasource.description} />
-                            ) : null}
-                          </>
-                        )}
-                      </td>
-                      <td className="d-none d-md-table-cell">
-                        {datasource?.properties?.userIds
-                          ? s.userIdType || "user_id"
-                          : ""}
-                      </td>
-                      <td
-                        className="d-none d-lg-table-cell"
-                        style={{ maxWidth: "30em" }}
-                      >
-                        <Code
-                          language={language}
-                          code={s.sql}
-                          expandable={true}
-                        />
-                      </td>
-                      <td>
-                        {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
-                      </td>
-                      {!s.managedBy ? (
-                        <td>
-                          {hasEditDimensionPermission ? (
-                            <a
-                              href="#"
-                              className="tr-hover text-primary mr-3"
-                              title="Edit this dimension"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setDimensionForm(s);
-                              }}
-                            >
-                              <FaPencilAlt />
-                            </a>
-                          ) : null}
-                          {hasDeleteDimensionPermissions ? (
-                            <DeleteButton
-                              link={true}
-                              className={"tr-hover text-primary"}
-                              displayName={s.name}
-                              title="Delete this dimension"
-                              onClick={async () => {
-                                await apiCall(`/dimensions/${s.id}`, {
-                                  method: "DELETE",
-                                });
-                                await mutateDefinitions({});
-                              }}
-                            />
-                          ) : null}
-                        </td>
-                      ) : (
-                        <td></td>
                       )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    </TableCell>
+                    <TableCell className="d-none d-md-table-cell">
+                      {datasource?.properties?.userIds
+                        ? s.userIdType || "user_id"
+                        : ""}
+                    </TableCell>
+                    <TableCell
+                      className="d-none d-lg-table-cell"
+                      style={{ maxWidth: "30em" }}
+                    >
+                      <Code
+                        language={language}
+                        code={s.sql}
+                        expandable={true}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
+                    </TableCell>
+                    {!s.managedBy ? (
+                      <TableCell>
+                        {hasEditDimensionPermission ? (
+                          <a
+                            href="#"
+                            className="tr-hover text-primary mr-3"
+                            title="Edit this dimension"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setDimensionForm(s);
+                            }}
+                          >
+                            <FaPencilAlt />
+                          </a>
+                        ) : null}
+                        {hasDeleteDimensionPermissions ? (
+                          <DeleteButton
+                            link={true}
+                            className="tr-hover text-primary"
+                            displayName={s.name}
+                            title="Delete this dimension"
+                            onClick={async () => {
+                              await apiCall(`/dimensions/${s.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutateDefinitions({});
+                            }}
+                          />
+                        ) : null}
+                      </TableCell>
+                    ) : (
+                      <TableCell />
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          {unitPagination}
+        </Box>
       )}
       {!error && dimensions.length === 0 && orgCanCreateDimensions && (
-        <div className="alert alert-info">
+        <Callout status="info">
           You don&apos;t have any user dimensions defined yet.{" "}
           {hasCreateDimensionPermission &&
             "Click the button above to create your first one."}
-        </div>
+        </Callout>
       )}
       {!error && dimensions.length === 0 && !orgCanCreateDimensions && (
-        <div className="alert alert-info">
+        <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
           <DocLink docSection="config_yml">View Documentation</DocLink>
-        </div>
+        </Callout>
       )}
-    </div>
+    </Box>
   );
 };
 

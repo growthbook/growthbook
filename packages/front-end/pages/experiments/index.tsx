@@ -63,7 +63,7 @@ const ExperimentsPage = (): React.ReactElement => {
     items,
     searchInputProps,
     isFiltered,
-    SortableTH,
+    SortableTableColumnHeader,
     syntaxFilters,
     setSearchValue,
   } = useExperimentSearch({
@@ -254,7 +254,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TabsContent value="all">
                     <ExperimentsListTable
                       tab="all"
-                      SortableTH={SortableTH}
+                      SortableTableColumnHeader={SortableTableColumnHeader}
                       filtered={filtered}
                       isFiltered={isFiltered}
                       project={project}
@@ -266,7 +266,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       <TabsContent value={tab} key={tab}>
                         <ExperimentsListTable
                           tab={tab}
-                          SortableTH={SortableTH}
+                          SortableTableColumnHeader={SortableTableColumnHeader}
                           filtered={filtered.filter((e) => e.tab === tab)}
                           isFiltered={isFiltered}
                           project={project}

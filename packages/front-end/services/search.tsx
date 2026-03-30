@@ -13,6 +13,7 @@ import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
+import { TableColumnHeader } from "@/ui/Table";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -87,6 +88,13 @@ export interface SearchReturn<T> {
     children: ReactNode;
     style?: React.CSSProperties;
   }>;
+  /** Radix Table header with same sort UI/callbacks; use with TableColumnHeader in ui/Table. */
+  SortableTableColumnHeader: FC<{
+    field: keyof T;
+    className?: string;
+    children: ReactNode;
+    style?: React.CSSProperties;
+  }>;
   page: number;
   resetPage: () => void;
   pagination: ReactNode;
@@ -131,22 +139,14 @@ export function useSearch<T extends { id: string }>({
     );
     const fields = Object.keys(keys);
 
-    // MiniSearch requires globally unique document IDs.
-    // Some lists can contain duplicate business IDs (e.g. experiment tracking keys),
-    // so we store a separate internal ID only for indexing.
-    const internalSearchIdField = "__gb_search_id";
+    // Create a Map of item ID to item to use for lookups
+    // after a search is performed
     const itemMap = new Map<string, T>();
-    const indexedItems = items.map((item, index) => {
-      const indexedId = `${item.id}::${index}`;
-      itemMap.set(indexedId, item);
-      return {
-        ...item,
-        [internalSearchIdField]: indexedId,
-      };
+    items.forEach((item) => {
+      itemMap.set(item.id, item);
     });
 
     const miniSearchInstance = new MiniSearch({
-      idField: internalSearchIdField,
       fields,
       searchOptions: {
         boost: keys,
@@ -157,7 +157,7 @@ export function useSearch<T extends { id: string }>({
 
     // Add items to the index
     try {
-      miniSearchInstance.addAll(indexedItems);
+      miniSearchInstance.addAll(items);
     } catch (error) {
       console.error("Error adding items to search index:", error);
     }
@@ -174,9 +174,7 @@ export function useSearch<T extends { id: string }>({
     let filtered = items;
     if (searchTerm.length > 0) {
       const searchResults = miniSearch.search(searchTerm);
-      filtered = searchResults
-        .map((result) => itemMap.get(result.id + ""))
-        .filter((item): item is T => !!item);
+      filtered = searchResults.map((result) => itemMap.get(result.id) as T);
     }
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
@@ -342,6 +340,50 @@ export function useSearch<T extends { id: string }>({
     return th;
   }, [sort.dir, sort.field, isRelevanceSortActive]);
 
+  const SortableTableColumnHeader = useMemo(() => {
+    const Header: FC<{
+      field: keyof T;
+      className?: string;
+      children: ReactNode;
+      style?: React.CSSProperties;
+    }> = ({ children, field, className, style }) => {
+      const showSortDirection = !isRelevanceSortActive && sort.field === field;
+
+      return (
+        <TableColumnHeader className={className} style={style}>
+          <span
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setDisableRelevanceSort(true);
+              setSort({
+                field,
+                dir: sort.field === field ? sort.dir * -1 : 1,
+              });
+            }}
+          >
+            {children}{" "}
+            <a
+              href="#"
+              className={showSortDirection ? "activesort" : "inactivesort"}
+            >
+              {showSortDirection ? (
+                sort.dir < 0 ? (
+                  <FaSortDown />
+                ) : (
+                  <FaSortUp />
+                )
+              ) : (
+                <FaSort />
+              )}
+            </a>
+          </span>
+        </TableColumnHeader>
+      );
+    };
+    return Header;
+  }, [sort.dir, sort.field, isRelevanceSortActive]);
+
   const clear = useCallback(() => {
     setValue("");
   }, []);
@@ -363,6 +405,7 @@ export function useSearch<T extends { id: string }>({
     },
     setSearchValue: setValue,
     SortableTH,
+    SortableTableColumnHeader,
     page,
     resetPage: () => setPage(1),
     pagination:

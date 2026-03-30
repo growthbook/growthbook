@@ -5,6 +5,7 @@ import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import Heading from "@/ui/Heading";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -25,6 +26,13 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import {
   createInitialResources,
   getInitialDatasourceResources,
@@ -147,7 +155,13 @@ export default function FactTablesPage() {
     [tagsFilter.tags],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    clear,
+  } = useSearch({
     items: showArchived
       ? factTablesWithLabels
       : factTablesWithLabels.filter((t) => !t.archived),
@@ -164,15 +178,17 @@ export default function FactTablesPage() {
   });
 
   return (
-    <div className="pagecontents container-fluid">
+    <Box className="pagecontents container-fluid">
       {createFactOpen && (
         <FactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <h1 className="mb-4">Fact Tables</h1>
+      <Heading as="h1" size="x-large" mb="4">
+        Fact Tables
+      </Heading>
 
       {!filteredFactTables.length ? (
-        <div className="appbox p-5 text-center">
+        <Box className="appbox" p="5" style={{ textAlign: "center" }}>
           <h2>A SQL Foundation for your Metrics</h2>
           <p>
             With Fact Tables, you can better organize your metrics, cut down on
@@ -324,36 +340,36 @@ export default function FactTablesPage() {
               </Flex>
             </Box>
           </Flex>
-        </div>
+        </Box>
       ) : (
-        <div>
-          <div className="row mb-2 align-items-center">
+        <Box>
+          <Flex mb="2" align="center" gap="3" wrap="wrap">
             {filteredFactTables.length > 0 && (
               <>
-                <div className="col-lg-3 col-md-4 col-6">
+                <Box style={{ minWidth: 120, flex: "1 1 200px" }}>
                   <Field
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}
                   />
-                </div>
+                </Box>
                 {hasArchivedFactTables && (
-                  <div className="col-auto text-muted">
+                  <Box className="text-muted">
                     <Switch
                       value={showArchived}
                       onChange={setShowArchived}
                       id="show-archived"
                       label="Show archived"
                     />
-                  </div>
+                  </Box>
                 )}
-                <div className="col-auto">
+                <Box>
                   <TagsFilter filter={tagsFilter} items={items} />
-                </div>
-                <div className="ml-auto"></div>
+                </Box>
+                <Box style={{ marginLeft: "auto" }} />
               </>
             )}
-            <div className="col-auto">
+            <Box>
               {initialFactTableData && canCreate && (
                 <Button
                   variant="outline"
@@ -396,26 +412,44 @@ export default function FactTablesPage() {
                   </Button>
                 </Tooltip>
               ) : null}
-            </div>
-          </div>
-          <table className="table appbox gbtable table-hover">
-            <thead>
-              <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="datasourceName">Data Source</SortableTH>
-                <SortableTH field="tags">Tags</SortableTH>
-                <th>Projects</th>
-                <SortableTH field="userIdTypes">Identifier Types</SortableTH>
-                <SortableTH field="numMetrics">Metrics</SortableTH>
-                <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
-                <SortableTH field="numFilters">Filters</SortableTH>
-                <SortableTH field="ownerNameDisplay">Owner</SortableTH>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-              </tr>
-            </thead>
-            <tbody>
+            </Box>
+          </Flex>
+          <Table variant="list" stickyHeader roundedCorners className="appbox">
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="name">
+                  Name
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="datasourceName">
+                  Data Source
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="tags">
+                  Tags
+                </SortableTableColumnHeader>
+                <TableColumnHeader>Projects</TableColumnHeader>
+                <SortableTableColumnHeader field="userIdTypes">
+                  Identifier Types
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="numMetrics">
+                  Metrics
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="numAutoSlices">
+                  Auto Slices
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="numFilters">
+                  Filters
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="ownerNameDisplay">
+                  Owner
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="dateUpdated">
+                  Last Updated
+                </SortableTableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((f) => (
-                <tr
+                <TableRow
                   key={f.id}
                   onClick={(e) => {
                     // If clicking on a link or button, default to browser behavior
@@ -443,19 +477,19 @@ export default function FactTablesPage() {
                   }}
                   className="cursor-pointer"
                 >
-                  <td>
+                  <TableCell>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
                     <OfficialBadge
                       type="fact table"
                       managedBy={f.managedBy}
                       leftGap={true}
                     />
-                  </td>
-                  <td>{f.datasourceName}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell>{f.datasourceName}</TableCell>
+                  <TableCell>
                     <SortedTags tags={f.tags} />
-                  </td>
-                  <td className="col-2">
+                  </TableCell>
+                  <TableCell className="col-2">
                     {f.projects.length > 0 ? (
                       <ProjectBadges
                         resourceType="fact table"
@@ -464,25 +498,27 @@ export default function FactTablesPage() {
                     ) : (
                       <ProjectBadges resourceType="fact table" />
                     )}
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell>
                     {f.userIdTypes.map((t) => (
                       <span className="badge badge-secondary mr-1" key={t}>
                         {t}
                       </span>
                     ))}
-                  </td>
-                  <td>{f.numMetrics}</td>
-                  <td>{f.numAutoSlices}</td>
-                  <td>{f.numFilters}</td>
-                  <td>{f.ownerNameDisplay}</td>
-                  <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{f.numMetrics}</TableCell>
+                  <TableCell>{f.numAutoSlices}</TableCell>
+                  <TableCell>{f.numFilters}</TableCell>
+                  <TableCell>{f.ownerNameDisplay}</TableCell>
+                  <TableCell>
+                    {f.dateUpdated ? date(f.dateUpdated) : null}
+                  </TableCell>
+                </TableRow>
               ))}
 
               {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={10} align={"center"}>
+                <TableRow>
+                  <TableCell colSpan={10} style={{ textAlign: "center" }}>
                     No matching fact tables.{" "}
                     <a
                       href="#"
@@ -493,13 +529,13 @@ export default function FactTablesPage() {
                     >
                       Clear search field
                     </a>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }

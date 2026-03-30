@@ -8,14 +8,13 @@ interface RadixThemeProps extends PropsWithChildren {
 
 export const RadixTheme: FC<RadixThemeProps> = ({ children, flip }) => {
   const { theme } = useAppearanceUITheme();
-  const computedTheme = flip ? (theme === "dark" ? "light" : "dark") : theme;
+  // When flip is false/undefined, pass no appearance so Theme inherits from parent
+  const spreadProps: { appearance?: "light" | "dark" } = flip
+    ? { appearance: theme === "dark" ? "light" : "dark" }
+    : {};
 
   return (
-    <Theme
-      accentColor="violet"
-      panelBackground="solid"
-      {...(flip ? { appearance: computedTheme } : {})}
-    >
+    <Theme accentColor="violet" panelBackground="solid" {...spreadProps}>
       {children}
     </Theme>
   );

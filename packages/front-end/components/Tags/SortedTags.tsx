@@ -3,15 +3,21 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Tag from "./Tag";
 
-export interface Props {
+export type Props = {
   tags?: string[];
   shouldShowEllipsis?: boolean;
   skipFirstMargin?: boolean;
   useFlex?: boolean;
   showEllipsisAtIndex?: number;
+  truncateTagChars?: number;
   /** When provided, used for the overflow label instead of "X more tag(s)...". Receives the count of hidden tags. */
   ellipsisFormat?: (count: number) => string;
-}
+  /**
+   * Show at most this many tag pills, then "+N" (tooltip lists the rest).
+   * When set, overrides showEllipsisAtIndex / shouldShowEllipsis for overflow.
+   */
+  maxVisibleTags?: number;
+};
 
 export default function SortedTags({
   tags,
@@ -19,7 +25,9 @@ export default function SortedTags({
   skipFirstMargin = false,
   useFlex = false,
   showEllipsisAtIndex = 5,
+  truncateTagChars,
   ellipsisFormat,
+  maxVisibleTags,
 }: Props) {
   const { tags: all } = useDefinitions();
   //index starting at 0
@@ -32,28 +40,6 @@ export default function SortedTags({
     return sortedIds.indexOf(a) - sortedIds.indexOf(b);
   });
 
-  const renderEllipsis = () => {
-    const tags = sorted.slice(showEllipsisAtIndex);
-    const moreTagsCopy = ellipsisFormat
-      ? ellipsisFormat(tags.length)
-      : `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
-    const tagElements = renderTags(tags);
-    return (
-      <Tooltip
-        body={<>{renderFlexContainer(tagElements, true)}</>}
-        usePortal={true}
-      >
-        <Text ml={useFlex ? undefined : "2"}>{moreTagsCopy}</Text>
-      </Tooltip>
-    );
-  };
-
-  const renderTags = (tags: string[]) => {
-    return tags.map((tag, i) => {
-      const skipMargin = useFlex || (skipFirstMargin && i === 0);
-      return <Tag tag={tag} key={tag} skipMargin={skipMargin} />;
-    });
-  };
   const renderFlexContainer = (
     child: JSX.Element | JSX.Element[],
     shouldUseFlex = useFlex,
@@ -62,6 +48,69 @@ export default function SortedTags({
       <div className="tags-container">{child}</div>
     ) : (
       child
+    );
+  };
+
+  const renderTags = (tagsToRender: string[], truncateInTable = true) => {
+    return tagsToRender.map((tag, i) => {
+      const skipMargin = useFlex || (skipFirstMargin && i === 0);
+      return (
+        <Tag
+          tag={tag}
+          key={tag}
+          skipMargin={skipMargin}
+          maxChars={truncateInTable ? truncateTagChars : undefined}
+        />
+      );
+    });
+  };
+
+  if (
+    maxVisibleTags !== undefined &&
+    maxVisibleTags >= 0 &&
+    sorted.length > maxVisibleTags
+  ) {
+    const visible = sorted.slice(0, maxVisibleTags);
+    const hidden = sorted.slice(maxVisibleTags);
+    const n = hidden.length;
+    const overflowLabel = ellipsisFormat ? ellipsisFormat(n) : `+${n}`;
+    const hiddenTagElements = renderTags(hidden, false);
+    return (
+      <>
+        {renderFlexContainer(
+          <>
+            {renderTags(visible)}
+            <Tooltip
+              flipTheme={false}
+              body={<>{renderFlexContainer(hiddenTagElements, true)}</>}
+              usePortal={true}
+            >
+              <Text ml={useFlex ? undefined : "2"} style={{ flexShrink: 0 }}>
+                {overflowLabel}
+              </Text>
+            </Tooltip>
+          </>,
+        )}
+      </>
+    );
+  }
+
+  const renderEllipsis = () => {
+    const overflowTags = sorted.slice(showEllipsisAtIndex);
+    const moreTagsCopy = ellipsisFormat
+      ? ellipsisFormat(overflowTags.length)
+      : `${overflowTags.length} more tag${
+          overflowTags.length === 1 ? "" : "s"
+        }...`;
+    const tagElements = renderTags(overflowTags, false);
+    return (
+      <Tooltip
+        flipTheme={false}
+        body={<>{renderFlexContainer(tagElements, true)}</>}
+        usePortal={true}
+      >
+        <Text ml={useFlex ? undefined : "2"}>{moreTagsCopy}</Text>
+      </Tooltip>
     );
   };
 

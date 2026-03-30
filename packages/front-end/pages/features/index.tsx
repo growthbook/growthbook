@@ -1,34 +1,30 @@
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
-import { FeatureInterface } from "shared/types/feature";
+import { FeatureInterface, FeatureMetaInfo } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
-import {
-  FaTriangleExclamation,
-  FaRegCircleCheck,
-  FaRegCircleXmark,
-} from "react-icons/fa6";
-import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
 import track from "@/services/track";
+import Switch from "@/ui/Switch";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
   useRealtimeData,
   useEnvironments,
   useFeatureSearch,
 } from "@/services/features";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/components/Pagination";
+import Pagination from "@/ui/Pagination";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -38,28 +34,68 @@ import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
-import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useAuth } from "@/services/auth";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Modal from "@/components/Modal";
+import ProjectBadges from "@/components/ProjectBadges";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
-const HEADER_HEIGHT_PX = 55;
+
+// Feature table column widths (shared by header and body for alignment)
+const FEATURE_TABLE_COLUMN_WIDTH = {
+  WATCHING: 40,
+  FEATURE_KEY_MAX: 200,
+  TAGS: 160,
+  DATA_TYPE_MIN: 80,
+  RECENT_USAGE: 170,
+} as const;
+
+function valueTypeLabel(
+  valueType: "boolean" | "string" | "number" | "json",
+): string {
+  const labels: Record<string, string> = {
+    boolean: "Boolean",
+    string: "String",
+    number: "Number",
+    json: "JSON",
+  };
+  return labels[valueType] ?? valueType;
+}
 
 export default function FeaturesPage() {
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [featureToDuplicate, setFeatureToDuplicate] =
-    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureMetaInfo | null>(null);
+  const [confirmToggle, setConfirmToggle] = useState<{
+    featureId: string;
+    envId: string;
+    state: boolean;
+  } | null>(null);
+
+  useAuth();
+  const settings = useOrgSettings();
+  const showConfirmation = !!settings?.killswitchConfirmation;
+
+  const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
   const { project, projects } = useDefinitions();
   const environments = useEnvironments();
@@ -81,23 +117,29 @@ export default function FeaturesPage() {
   const { usage, usageDomain } = useRealtimeData(
     allFeatures as unknown as FeatureInterface[],
     !!router?.query?.mockdata,
+    showGraphs,
   );
 
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
   const staleHook = useFeatureStaleStates();
 
-  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
-    useFeatureSearch({
-      allFeatures: allFeatures as unknown as FeatureInterface[],
-      environments,
-      environmentStatus: statusHook.environmentStatus,
-      draftStates: draftHook.draftStates,
-      staleStates: staleHook.staleStates,
-      filterResults: !showArchived
-        ? (items) => items.filter((f) => !f.archived)
-        : undefined,
-    });
+  const {
+    searchInputProps,
+    items,
+    SortableTableColumnHeader,
+    setSearchValue,
+    syntaxFilters,
+  } = useFeatureSearch({
+    allFeatures: allFeatures as unknown as FeatureInterface[],
+    environments,
+    environmentStatus: statusHook.environmentStatus,
+    draftStates: draftHook.draftStates,
+    staleStates: staleHook.staleStates,
+    filterResults: !showArchived
+      ? (items) => items.filter((f) => !f.archived)
+      : undefined,
+  });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -171,19 +213,28 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
-  // Reset featureToDuplicate when modal closes
-  useEffect(() => {
-    if (modalOpen) return;
-    setFeatureToDuplicate(null);
-  }, [modalOpen]);
+  const handleToggle = useCallback(
+    async (featureId: string, envId: string, state: boolean) => {
+      if (showConfirmation) {
+        setConfirmToggle({ featureId, envId, state });
+      } else {
+        await statusHook.toggle(featureId, envId, state);
+        track("Feature Environment Toggle", {
+          environment: envId,
+          enabled: state,
+        });
+      }
+    },
+    [showConfirmation, statusHook],
+  );
 
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
         <Box>
-          <Box className="mb-2 align-items-center">
+          <Box mb="2">
             <Flex justify="between" mb="3" gap="3" align="center">
-              <Box className="relative" width="40%">
+              <Box width="40%" style={{ position: "relative" }}>
                 <Field
                   placeholder="Search..."
                   type="search"
@@ -200,137 +251,204 @@ export default function FeaturesPage() {
             </Flex>
           </Box>
 
-          <table className="table gbtable appbox">
-            <thead
-              className="sticky-top shadow-sm"
-              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
-            >
-              <tr>
-                <th></th>
-                <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</th>}
-                <SortableTH field="tags">Tags</SortableTH>
+          <Table variant="list" stickyHeader roundedCorners>
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader
+                  style={{ width: FEATURE_TABLE_COLUMN_WIDTH.WATCHING }}
+                />
+                <SortableTableColumnHeader
+                  field="id"
+                  style={{
+                    maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
+                  }}
+                >
+                  Feature Key
+                </SortableTableColumnHeader>
+                {showProjectColumn && (
+                  <TableColumnHeader>Project</TableColumnHeader>
+                )}
+                <TableColumnHeader
+                  style={{ maxWidth: FEATURE_TABLE_COLUMN_WIDTH.TAGS }}
+                >
+                  Tags
+                </TableColumnHeader>
                 {toggleEnvs.map((en) => (
-                  <th key={en.id} className="text-center">
+                  <TableColumnHeader
+                    key={en.id}
+                    style={{ textAlign: "center" }}
+                  >
                     {en.id}
-                  </th>
+                  </TableColumnHeader>
                 ))}
-                <th>Type</th>
-                <th>Version</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th>
-                  Recent Usage{" "}
-                  <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                </th>
-                <th>Stale</th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader>Data Type</TableColumnHeader>
+                <TableColumnHeader>Changes</TableColumnHeader>
+                <SortableTableColumnHeader field="dateUpdated">
+                  Last Modified
+                </SortableTableColumnHeader>
+                {showGraphs && (
+                  <TableColumnHeader>
+                    Recent Usage{" "}
+                    <Tooltip
+                      flipTheme={false}
+                      body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'."
+                    />
+                  </TableColumnHeader>
+                )}
+                <TableColumnHeader>Stale</TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {featureItems.map((feature) => {
-                const version = feature.version;
                 const draftEntry = draftHook.draftStates[feature.id];
 
                 return (
-                  <tr
+                  <TableRow
                     key={feature.id}
-                    className={clsx("hover-highlight", {
-                      "text-muted": feature.archived,
-                    })}
+                    style={{
+                      color: feature.archived ? "var(--gray-11)" : undefined,
+                    }}
                   >
-                    <td data-title="Watching status:" className="watching">
+                    <TableCell className="watching">
                       <WatchButton
                         item={feature.id}
                         itemType="feature"
                         type="icon"
                       />
-                    </td>
-                    <td className="p-0">
+                    </TableCell>
+                    <TableCell
+                      style={{
+                        padding: "var(--space-0)",
+                        maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
+                      }}
+                    >
                       <Link
                         href={`/features/${feature.id}`}
-                        className={clsx("featurename d-block p-2", {
-                          "text-muted": feature.archived,
-                        })}
+                        className="featurename"
+                        style={{
+                          padding: "var(--space-3)",
+                          display: "block",
+                          color: feature.archived
+                            ? "var(--gray-11)"
+                            : undefined,
+                        }}
                       >
-                        {feature.id}
+                        <TruncateMiddleWithTooltip
+                          text={feature.id}
+                          maxChars={23}
+                          maxWidth={FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX}
+                          flipTheme={false}
+                        />
                       </Link>
-                    </td>
+                    </TableCell>
                     {showProjectColumn && (
-                      <td>
+                      <TableCell>
                         {feature.project ? (
                           <ProjectBadges
                             resourceType="feature"
                             projectIds={[feature.project]}
                           />
                         ) : null}
-                      </td>
+                      </TableCell>
                     )}
-                    <td>
-                      <SortedTags tags={feature?.tags || []} useFlex={true} />
-                    </td>
+                    <TableCell
+                      style={{
+                        width: FEATURE_TABLE_COLUMN_WIDTH.TAGS,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        className="tags-cell-content"
+                        style={{
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <SortedTags
+                          tags={feature?.tags || []}
+                          useFlex={true}
+                          maxVisibleTags={1}
+                          truncateTagChars={15}
+                        />
+                      </div>
+                    </TableCell>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id}>
+                      <TableCell key={en.id}>
                         <Flex align="center" justify="center">
                           {featureHasEnvironment(
                             feature as unknown as FeatureInterface,
                             en,
-                          ) &&
-                            (() => {
-                              const enabled =
+                          ) && (
+                            <Switch
+                              id={`${feature.id}__${en.id}`}
+                              disabled={
+                                !permissionsUtil.canPublishFeature(
+                                  { project: feature.project },
+                                  [en.id],
+                                )
+                              }
+                              value={
                                 statusHook.environmentStatus[feature.id]?.[
                                   en.id
-                                ] ?? false;
-                              return (
-                                <Tooltip
-                                  body={
-                                    enabled
-                                      ? `${en.id}: enabled`
-                                      : `${en.id}: disabled`
-                                  }
-                                >
-                                  {enabled ? (
-                                    <FaRegCircleCheck
-                                      style={{
-                                        color: "var(--green-9)",
-                                        fontSize: 18,
-                                      }}
-                                    />
-                                  ) : (
-                                    <FaRegCircleXmark
-                                      style={{
-                                        color: "var(--gray-8)",
-                                        fontSize: 18,
-                                      }}
-                                    />
-                                  )}
-                                </Tooltip>
-                              );
-                            })()}
+                                ] ?? false
+                              }
+                              onChange={(on) =>
+                                handleToggle(feature.id, en.id, on)
+                              }
+                              size="2"
+                            />
+                          )}
                         </Flex>
-                      </td>
+                      </TableCell>
                     ))}
-                    <td>{feature.valueType}</td>
-                    <td style={{ textAlign: "center" }}>
-                      {version}
-                      {draftEntry ? (
-                        <Tooltip body="This feature has an active draft that has not been published yet">
-                          <FaTriangleExclamation
-                            className="text-warning ml-1"
-                            style={{ marginTop: -3 }}
-                          />
-                        </Tooltip>
-                      ) : null}
-                    </td>
-                    <td title={datetime(feature.dateUpdated)}>
+                    <TableCell
+                      style={{
+                        minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
+                      }}
+                    >
+                      {valueTypeLabel(feature.valueType)}
+                    </TableCell>
+                    <TableCell
+                      style={{ textAlign: "center", verticalAlign: "middle" }}
+                    >
+                      <div>
+                        {draftEntry ? (
+                          <Tooltip
+                            flipTheme={false}
+                            body="This feature has an active draft that has not been published yet"
+                          >
+                            <span
+                              style={{
+                                display: "inline-block",
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: "var(--red-9)",
+                                flexShrink: 0,
+                              }}
+                              aria-hidden
+                            />
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
-                    </td>
-                    <td style={{ width: 170 }}>
-                      <RealTimeFeatureGraph
-                        data={usage?.[feature.id]?.realtime || []}
-                        yDomain={usageDomain}
-                      />
-                    </td>
-                    <td>
+                    </TableCell>
+                    {showGraphs && (
+                      <TableCell
+                        style={{
+                          width: FEATURE_TABLE_COLUMN_WIDTH.RECENT_USAGE,
+                        }}
+                      >
+                        <RealTimeFeatureGraph
+                          data={usage?.[feature.id]?.realtime || []}
+                          yDomain={usageDomain}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell style={{ textAlign: "left" }}>
                       <StaleFeatureIcon
                         context="list"
                         neverStale={feature.neverStale}
@@ -340,39 +458,32 @@ export default function FeaturesPage() {
                           staleHook.invalidate([feature.id]);
                           await staleHook.fetchSome([feature.id]);
                         }}
+                        onDisable={
+                          permissionsUtil.canViewFeatureModal(feature.project)
+                            ? () => setFeatureToToggleStaleDetection(feature)
+                            : undefined
+                        }
                       />
-                    </td>
-                    <td>
-                      <MoreMenu>
-                        {permissionsUtil.canCreateFeature(feature) &&
-                        permissionsUtil.canManageFeatureDrafts({
-                          project: feature.project,
-                        }) ? (
-                          <button
-                            className="dropdown-item"
-                            onClick={async () => {
-                              const res = await apiCall<{
-                                feature: FeatureInterface;
-                              }>(`/feature/${feature.id}`);
-                              setFeatureToDuplicate(res.feature);
-                              setModalOpen(true);
-                            }}
-                          >
-                            Duplicate
-                          </button>
-                        ) : null}
-                      </MoreMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {!items.length && (
-                <tr>
-                  <td colSpan={7}>No matching features</td>
-                </tr>
+                <TableRow>
+                  <TableCell
+                    colSpan={
+                      6 +
+                      (showProjectColumn ? 1 : 0) +
+                      toggleEnvs.length +
+                      (showGraphs ? 1 : 0)
+                    }
+                  >
+                    No matching features
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
             <Pagination
               numItemsTotal={items.length}
@@ -415,11 +526,7 @@ export default function FeaturesPage() {
   }, [project, projects, permissionsUtil]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading) {
     return <LoadingOverlay />;
@@ -454,10 +561,36 @@ export default function FeaturesPage() {
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
-    <div className="contents container pagecontents">
+    <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
+      {confirmToggle && (
+        <Modal
+          trackingEventModalType=""
+          header="Toggle environment"
+          close={() => setConfirmToggle(null)}
+          open={true}
+          cta="Confirm"
+          useRadixButton={true}
+          submit={async () => {
+            await statusHook.toggle(
+              confirmToggle.featureId,
+              confirmToggle.envId,
+              confirmToggle.state,
+            );
+            track("Feature Environment Toggle", {
+              environment: confirmToggle.envId,
+              enabled: confirmToggle.state,
+            });
+            setConfirmToggle(null);
+          }}
+        >
+          You are about to set the <strong>{confirmToggle.envId}</strong>{" "}
+          environment to{" "}
+          <strong>{confirmToggle.state ? "enabled" : "disabled"}</strong>.
+        </Modal>
+      )}
       {modalOpen && (
         <FeatureModal
-          cta={featureToDuplicate ? "Duplicate" : "Create"}
+          cta="Create"
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
@@ -466,16 +599,30 @@ export default function FeaturesPage() {
             router.push(url);
             mutate();
           }}
-          featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
-
-      <div className="row my-3">
-        <div className="col">
+      {featureToToggleStaleDetection && (
+        <StaleDetectionModal
+          close={() => setFeatureToToggleStaleDetection(null)}
+          feature={featureToToggleStaleDetection as FeatureInterface}
+          revisionList={[]}
+          mutate={async () => {
+            mutate();
+          }}
+          setVersion={() => {}}
+          onEnable={async () => {
+            const id = featureToToggleStaleDetection.id;
+            staleHook.invalidate([id]);
+            await staleHook.fetchSome([id]);
+          }}
+        />
+      )}
+      <Flex align="center" justify="between" gap="3" my="3">
+        <Box style={{ flex: 1 }}>
           <h1>Features</h1>
-        </div>
+        </Box>
         {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
-          <div className="col-auto">
+          <Box>
             <Button
               onClick={() => {
                 setModalOpen(true);
@@ -486,12 +633,12 @@ export default function FeaturesPage() {
             >
               Add Feature
             </Button>
-          </div>
+          </Box>
         )}
-      </div>
-      <div className="mt-3">
+      </Flex>
+      <Box mt="3">
         <CustomMarkdown page={"featureList"} />
-      </div>
+      </Box>
       {!hasFeatures ? (
         <>
           <EmptyState
@@ -551,6 +698,6 @@ export default function FeaturesPage() {
           </TabsContent>
         </Tabs>
       )}
-    </div>
+    </Box>
   );
 }

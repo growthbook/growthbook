@@ -935,11 +935,13 @@ export function getUnreachableRuleIndex(
       continue;
     }
 
-    // Only force rules and 100%-coverage rollouts consume all traffic
-    const isFullCoverage =
-      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
-    if (!isFullCoverage) continue;
+    // Skip non-force rules (require a non-null hash attribute, so may not match)
+    if (rule.type !== "force") {
+      continue;
+    }
 
+    // By this point, we have a force rule that matches all users
+    // Any rule after this is unreachable
     return i + 1;
   }
 
@@ -1418,9 +1420,11 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
+  enabled = true,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
     `/usage/features`,
+    { shouldRun: () => enabled },
   );
 
   // Mock data
@@ -1447,6 +1451,7 @@ export function useRealtimeData(
 
   // Update usage data every 10 seconds
   useEffect(() => {
+    if (!enabled) return;
     let timer = 0;
     const cb = async () => {
       await mutate();
@@ -1456,7 +1461,7 @@ export function useRealtimeData(
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [enabled, mutate]);
 
   const max = useMemo(() => {
     return Math.max(
