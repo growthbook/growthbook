@@ -269,8 +269,6 @@ function NodePopoverContent({
         return { label: "Current: needs approval", color: "var(--orange-9)" };
       if (status === "paused")
         return { label: "Current: paused", color: "var(--amber-11)" };
-      if (status === "conflict")
-        return { label: "Current: conflict", color: "var(--red-9)" };
       return { label: "Current", color: "var(--green-9)" };
     }
     return { label: "Upcoming", color: "var(--gray-10)" };
@@ -343,8 +341,7 @@ function activeDotColor(status: RampScheduleStatus): string {
   if (status === "running") return "var(--green-9)";
   if (status === "pending" || status === "ready" || status === "paused")
     return "var(--amber-9)";
-  if (status === "pending-approval" || status === "conflict")
-    return "var(--orange-9)";
+  if (status === "pending-approval") return "var(--orange-9)";
   if (status === "rolled-back") return "var(--gray-8)";
   return "var(--accent-9)";
 }
@@ -353,8 +350,7 @@ function activeLabelColor(status: RampScheduleStatus): string {
   if (status === "running") return "var(--green-11)";
   if (status === "pending" || status === "ready" || status === "paused")
     return "var(--amber-11)";
-  if (status === "pending-approval" || status === "conflict")
-    return "var(--orange-11)";
+  if (status === "pending-approval") return "var(--orange-11)";
   if (status === "rolled-back") return "var(--gray-10)";
   return "var(--accent-11)";
 }
@@ -530,7 +526,6 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     running: "Running",
     paused: "Paused",
     "pending-approval": "Needs Approval",
-    conflict: "Conflict",
     completed: "Complete",
     "rolled-back": "Rolled Back",
   };
@@ -549,7 +544,6 @@ export function getRampBadgeColor(
     running: "green",
     paused: "amber",
     "pending-approval": "orange",
-    conflict: "orange",
     completed: "gray",
     "rolled-back": "gray",
   };
@@ -724,7 +718,6 @@ export default function RampTimeline({
 
   return (
     <Box className={styles.timelineRoot}>
-      Step: {rs.currentStepIndex}
       {/* Single-row timeline */}
       <Box className={styles.timelineScroll}>
         <Flex align="start" className={styles.timelineRow}>

@@ -130,11 +130,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "rampSchedule.step.approved":
     case "rampSchedule.paused":
     case "rampSchedule.resumed":
-    case "rampSchedule.conflict":
-    case "rampSchedule.error":
     case "rampSchedule.completed":
     case "rampSchedule.rolledBack":
-    case "rampSchedule.autoRollback":
     case "rampSchedule.created":
     case "rampSchedule.deleted":
     case "rampSchedule.reset":

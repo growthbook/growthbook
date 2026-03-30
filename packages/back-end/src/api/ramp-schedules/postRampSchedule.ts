@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { rampStep, RampScheduleInterface } from "shared/validators";
+import { rampControlledField, rampStep, RampScheduleInterface } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 
@@ -19,6 +19,7 @@ const postRampScheduleValidator = {
     ruleId: z.string(),
     environment: z.string(),
     steps: z.array(rampStep).min(0),
+    controlledFields: z.array(rampControlledField.exclude(["enabled"])),
     startCondition: z.object({ trigger: startTriggerSchema }).optional(),
     disableRuleBefore: z.boolean().optional(),
     disableRuleAfter: z.boolean().optional(),
@@ -92,8 +93,8 @@ export const postRampSchedule = createApiRequestHandler(
         entityId: body.featureId,
         ruleId: body.ruleId,
         environment: body.environment,
-        // Rule is already live — target is immediately active
         status: "active",
+        controlledFields: body.controlledFields,
       },
     ],
     steps: body.steps,

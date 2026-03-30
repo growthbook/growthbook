@@ -23,11 +23,8 @@
 | **[rampSchedule.step.approved](#rampSchedulestepapproved)** | Triggered when an approval gate is cleared and the ramp step proceeds |
 | **[rampSchedule.paused](#rampSchedulepaused)** | Triggered when a ramp schedule is paused |
 | **[rampSchedule.resumed](#rampScheduleresumed)** | Triggered when a paused ramp schedule is resumed |
-| **[rampSchedule.conflict](#rampScheduleconflict)** | Triggered when a ramp revision conflict is detected during an approval window |
-| **[rampSchedule.error](#rampScheduleerror)** | Triggered when an unexpected error occurs during ramp step execution |
 | **[rampSchedule.completed](#rampSchedulecompleted)** | Triggered when a ramp schedule completes all steps |
 | **[rampSchedule.rolledBack](#rampSchedulerolledBack)** | Triggered when a ramp schedule is manually rolled back |
-| **[rampSchedule.autoRollback](#rampScheduleautoRollback)** | Triggered when a ramp schedule is automatically rolled back by a criteria/metric evaluation |
 | **[rampSchedule.created](#rampSchedulecreated)** | Triggered when a ramp schedule is created |
 | **[rampSchedule.deleted](#rampScheduledeleted)** | Triggered when a ramp schedule is deleted |
 | **[rampSchedule.reset](#rampSchedulereset)** | Triggered when a ramp schedule is reset to its initial state |
@@ -2323,9 +2320,6 @@ Triggered when a ramp schedule starts
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
         };
     };
     user: {
@@ -2369,9 +2363,6 @@ Triggered when a ramp schedule advances to the next step
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
         };
     };
     user: {
@@ -2415,10 +2406,6 @@ Triggered when an approval-gated ramp step is waiting for review
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-            revisionId: string;
         };
     };
     user: {
@@ -2462,10 +2449,6 @@ Triggered when an approval gate is cleared and the ramp step proceeds
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-            revisionId: string;
         };
     };
     user: {
@@ -2509,9 +2492,6 @@ Triggered when a ramp schedule is paused
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
         };
     };
     user: {
@@ -2555,103 +2535,6 @@ Triggered when a paused ramp schedule is resumed
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.conflict
-
-Triggered when a ramp revision conflict is detected during an approval window
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.conflict";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-            revisionId: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.error
-
-Triggered when an unexpected error occurs during ramp step execution
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.error";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-            error: string;
         };
     };
     user: {
@@ -2695,9 +2578,6 @@ Triggered when a ramp schedule completes all steps
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
         };
     };
     user: {
@@ -2741,57 +2621,7 @@ Triggered when a ramp schedule is manually rolled back
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
             targetStepIndex: number;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.autoRollback
-
-Triggered when a ramp schedule is automatically rolled back by a criteria/metric evaluation
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.autoRollback";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
-            criteriaId: string;
         };
     };
     user: {
@@ -2835,7 +2665,6 @@ Triggered when a ramp schedule is created
             orgId: string;
             entityType: string;
             entityId: string;
-            userId?: string | undefined;
         };
     };
     user: {
@@ -2877,7 +2706,6 @@ Triggered when a ramp schedule is deleted
             rampScheduleId: string;
             rampName: string;
             orgId: string;
-            userId?: string | undefined;
         };
     };
     user: {
@@ -2921,9 +2749,6 @@ Triggered when a ramp schedule is reset to its initial state
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
         };
     };
     user: {
@@ -2967,9 +2792,6 @@ Triggered when a ramp schedule is jumped to a specific step
             orgId: string;
             currentStepIndex: number;
             status: string;
-            userId?: string | undefined;
-            reason?: string | undefined;
-            source?: string | undefined;
             targetStepIndex: number;
         };
     };

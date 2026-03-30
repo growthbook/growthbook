@@ -18,11 +18,8 @@ import {
   rampScheduleStepApprovedPayload,
   rampSchedulePausedPayload,
   rampScheduleResumedPayload,
-  rampScheduleConflictPayload,
-  rampScheduleErrorPayload,
   rampScheduleCompletedPayload,
   rampScheduleRolledBackPayload,
-  rampScheduleAutoRollbackPayload,
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
   rampScheduleResetPayload,
@@ -196,16 +193,6 @@ export const notificationEvents = {
       schema: rampScheduleResumedPayload,
       description: "Triggered when a paused ramp schedule is resumed",
     },
-    conflict: {
-      schema: rampScheduleConflictPayload,
-      description:
-        "Triggered when a ramp revision conflict is detected during an approval window",
-    },
-    error: {
-      schema: rampScheduleErrorPayload,
-      description:
-        "Triggered when an unexpected error occurs during ramp step execution",
-    },
     completed: {
       schema: rampScheduleCompletedPayload,
       description: "Triggered when a ramp schedule completes all steps",
@@ -213,11 +200,6 @@ export const notificationEvents = {
     rolledBack: {
       schema: rampScheduleRolledBackPayload,
       description: "Triggered when a ramp schedule is manually rolled back",
-    },
-    autoRollback: {
-      schema: rampScheduleAutoRollbackPayload,
-      description:
-        "Triggered when a ramp schedule is automatically rolled back by a criteria/metric evaluation",
     },
     created: {
       schema: rampScheduleCreatedPayload,

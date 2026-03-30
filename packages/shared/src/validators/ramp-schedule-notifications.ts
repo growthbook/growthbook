@@ -6,10 +6,6 @@ export const rampScheduleBaseNotificationPayload = z.object({
   orgId: z.string(),
   currentStepIndex: z.number().int(),
   status: z.string(),
-  // Attribution — who/what triggered the action. Present on all user-initiated events.
-  userId: z.string().optional(),
-  reason: z.string().optional(),
-  source: z.string().optional(),
 });
 
 export const rampScheduleStartedPayload =
@@ -48,50 +44,19 @@ export type RampScheduleResumedPayload = z.infer<
   typeof rampScheduleResumedPayload
 >;
 
-export const rampScheduleConflictPayload =
-  rampScheduleBaseNotificationPayload.strict();
-export type RampScheduleConflictPayload = z.infer<
-  typeof rampScheduleConflictPayload
->;
-
-export const rampScheduleErrorPayload = rampScheduleBaseNotificationPayload
-  .extend({
-    error: z.string(),
-  })
-  .strict();
-export type RampScheduleErrorPayload = z.infer<typeof rampScheduleErrorPayload>;
-
 export const rampScheduleCompletedPayload =
   rampScheduleBaseNotificationPayload.strict();
 export type RampScheduleCompletedPayload = z.infer<
   typeof rampScheduleCompletedPayload
 >;
 
-export const rampScheduleExpiredPayload =
-  rampScheduleBaseNotificationPayload.strict();
-export type RampScheduleExpiredPayload = z.infer<
-  typeof rampScheduleExpiredPayload
->;
-
 export const rampScheduleRolledBackPayload = rampScheduleBaseNotificationPayload
   .extend({
     targetStepIndex: z.number().int(),
-    reason: z.string().optional(),
-    source: z.string().optional(),
   })
   .strict();
 export type RampScheduleRolledBackPayload = z.infer<
   typeof rampScheduleRolledBackPayload
->;
-
-export const rampScheduleAutoRollbackPayload =
-  rampScheduleBaseNotificationPayload
-    .extend({
-      criteriaId: z.string(),
-    })
-    .strict();
-export type RampScheduleAutoRollbackPayload = z.infer<
-  typeof rampScheduleAutoRollbackPayload
 >;
 
 export const rampScheduleCreatedPayload = z
@@ -101,7 +66,6 @@ export const rampScheduleCreatedPayload = z
     orgId: z.string(),
     entityType: z.string(),
     entityId: z.string(),
-    userId: z.string().optional(),
   })
   .strict();
 export type RampScheduleCreatedPayload = z.infer<
@@ -113,7 +77,6 @@ export const rampScheduleDeletedPayload = z
     rampScheduleId: z.string(),
     rampName: z.string(),
     orgId: z.string(),
-    userId: z.string().optional(),
   })
   .strict();
 export type RampScheduleDeletedPayload = z.infer<

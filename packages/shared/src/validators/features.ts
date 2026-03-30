@@ -7,7 +7,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { rampStep, rampStepAction } from "./ramp-schedule";
+import { rampControlledField, rampStep, rampStepAction } from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -301,6 +301,8 @@ export const revisionRampCreateAction = z.object({
   disableRuleAfter: z.boolean().optional(),
   endEarlyWhenStepsComplete: z.boolean().optional(),
   endCondition: revisionRampConditionSchema.optional(),
+  /** Which feature rule fields this schedule manages. Absent controlled fields in any step are cleared. Does not include "enabled" (system-managed). */
+  controlledFields: z.array(rampControlledField.exclude(["enabled"])).optional(),
   /** Rule ID this ramp is being created for. Used at publish time to build the target. */
   ruleId: z.string(),
 });

@@ -10,6 +10,7 @@ import {
   resumeRampSchedule,
   advanceRampSchedule,
   rollbackRampSchedule,
+  jumpRampSchedule,
   completeRampSchedule,
 } from "./rampScheduleActions";
 
@@ -29,7 +30,8 @@ router.post("/:id/actions/start", startRampSchedule);
 router.post("/:id/actions/pause", pauseRampSchedule);
 router.post("/:id/actions/resume", resumeRampSchedule);
 router.post("/:id/actions/advance", advanceRampSchedule);
-router.post("/:id/actions/rollback", rollbackRampSchedule);
+router.post("/:id/actions/rollback", rollbackRampSchedule); // always resets to beginning
+router.post("/:id/actions/jump", jumpRampSchedule);         // jump to a specific step
 router.post("/:id/actions/complete", completeRampSchedule);
 
 export default router;

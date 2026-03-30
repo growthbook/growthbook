@@ -26,6 +26,19 @@ export const rampStepAction = z.object({
 });
 export type RampStepAction = z.infer<typeof rampStepAction>;
 
+// Fields a ramp can manage on a feature rule. Absent controlled fields in any step
+// are cleared on the rule when that step applies.
+// "enabled" is internal plumbing for disableRuleBefore / disableRuleAfter — not user-authored.
+export const rampControlledField = z.enum([
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+  "force",
+  "enabled", // internal only — injected by disableRuleBefore / disableRuleAfter
+]);
+export type RampControlledField = z.infer<typeof rampControlledField>;
+
 // Controlled entity reference. activatingRevisionVersion: set when the ramp is
 // created alongside a rule change; cleared once the activating revision is published.
 export const rampTarget = z.object({
@@ -34,8 +47,9 @@ export const rampTarget = z.object({
   entityId: z.string(),
   ruleId: z.string().nullish(),
   environment: z.string().nullish(),
-  status: z.enum(["pending-join", "active", "pending-eject", "ejected"]),
+  status: z.enum(["pending-join", "active"]),
   activatingRevisionVersion: z.number().int().nullish(),
+  controlledFields: z.array(rampControlledField).optional(),
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
@@ -69,9 +83,10 @@ export const rampTrigger = z.discriminatedUnion("type", [
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
 // IMPORTANT — actions is a complete state specification, not a sparse delta.
-// The form's activeFields system ensures every step (and startCondition) defines
-// the same fields so that { ...startCondition, ...s0, ..., ...sN } is always
-// fully-qualified. Rollbacks and jump-aheads rely on this contract.
+// Every controlled field must be present in every step. When jumping or rolling back
+// to step N, that step's actions are applied directly as the full desired state.
+// Absent fields in a patch leave the rule's existing value unchanged (field not
+// controlled by this ramp). Null clears the field (except force, where null is valid).
 export const rampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(rampStepAction),
@@ -94,7 +109,6 @@ export const rampScheduleStatusArray = [
   "running",
   "paused",
   "pending-approval",
-  "conflict",
   "completed",
   "rolled-back",
 ] as const;
@@ -108,12 +122,9 @@ export const rampScheduleValidator = baseSchema
     entityId: z.string(),
     targets: z.array(rampTarget),
     steps: z.array(rampStep),
-    autoRollback: z
-      .object({ enabled: z.boolean(), criteriaId: z.string() })
-      .nullish(),
     // Combined start trigger + baseline actions applied on ramp start.
-    // actions must be a complete state spec — all activeFields included —
-    // as it is the first layer in the cumulative merge used by rollback/jump.
+    // actions must be a complete state spec — all activeFields included.
+    // On rollback to start (-1), these actions are applied directly as the full desired state.
     startCondition: z.object({
       trigger: rampStartTrigger,
       actions: z.array(rampStepAction).nullish(),

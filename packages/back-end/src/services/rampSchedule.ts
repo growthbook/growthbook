@@ -3,7 +3,6 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import {
   FeatureRulePatch,
-  RampAttribution,
   RampScheduleInterface,
   RampStepAction,
 } from "shared/validators";
@@ -19,20 +18,6 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { logger } from "back-end/src/util/logger";
-// type: userId → "manual"; source "system" → "system"; otherwise → "schedule".
-export function makeAttribution(
-  userId?: string,
-  reason?: string,
-  source?: string,
-): RampAttribution {
-  const type = userId ? "manual" : source === "system" ? "system" : "schedule";
-  return {
-    type,
-    ...(userId !== undefined && { userId }),
-    ...(reason !== undefined && { reason }),
-    ...(source !== undefined && { source }),
-  };
-}
 
 // Applies actions for one entity: computes a fresh patch against live state and publishes immediately.
 interface EntityHandler {
@@ -44,22 +29,29 @@ interface EntityHandler {
   ): Promise<void>;
 }
 
-// Apply a sparse FeatureRulePatch onto an existing rule — only present fields are overwritten.
+// Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
+// null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
   existing: FeatureRule,
   patch: Omit<FeatureRulePatch, "ruleId">,
 ): FeatureRule {
   const updated = { ...existing };
-  if (patch.coverage != null) {
-    (updated as { coverage?: number }).coverage = patch.coverage;
+  if ("coverage" in patch) {
+    (updated as { coverage?: number }).coverage = patch.coverage ?? undefined;
   }
-  if (patch.condition != null) updated.condition = patch.condition;
-  if (patch.savedGroups != null) updated.savedGroups = patch.savedGroups;
-  if (patch.prerequisites != null) updated.prerequisites = patch.prerequisites;
-  if ("force" in patch && patch.force !== undefined) {
-    (updated as { value?: unknown }).value = patch.force;
+  if ("condition" in patch) {
+    updated.condition = patch.condition ?? undefined;
   }
-  if ("enabled" in patch && patch.enabled !== undefined) {
+  if ("savedGroups" in patch) {
+    updated.savedGroups = patch.savedGroups ?? undefined;
+  }
+  if ("prerequisites" in patch) {
+    updated.prerequisites = patch.prerequisites ?? undefined;
+  }
+  if ("force" in patch) {
+    (updated as { value?: unknown }).value = patch.force; // null is a valid JSON value
+  }
+  if ("enabled" in patch) {
     updated.enabled = patch.enabled ?? undefined;
   }
   return updated;
@@ -140,11 +132,8 @@ function getEntityHandler(entityType: string): EntityHandler {
   return handler;
 }
 
-// Compute nextStepAt after step `stepIndex` applies its effects (apply-first).
-// nextStepAt = phaseStartedAt + cumulative sum of interval seconds[0..stepIndex].
-// Approval steps return `now` (gate is human, not time-based).
-// After an approval gate, phaseStartedAt is reset via computePhaseStartAfterApproval
-// so subsequent interval steps fire relative to approval time.
+// nextStepAt = phaseStartedAt + cumulative interval seconds up to stepIndex.
+// Approval steps return now (gate is human); phaseStartedAt resets after approval gates.
 export function computeNextStepAt(
   schedule: RampScheduleInterface,
   stepIndex: number,
@@ -166,9 +155,7 @@ export function computeNextStepAt(
   return new Date(phaseStart.getTime() + total * 1000);
 }
 
-// Compute phaseStartedAt after an approval gate so that the next interval step
-// fires exactly steps[nextStepIndex].seconds after the approval time.
-// phaseStart = now - sum(interval seconds of steps[0..nextStepIndex-1])
+// After approval, rebase phaseStartedAt so the next interval fires at approval + its seconds.
 export function computePhaseStartAfterApproval(
   now: Date,
   schedule: RampScheduleInterface,
@@ -182,39 +169,7 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
-// Merge actions from startCondition + steps[0..targetStepIndex] into a single
-// absolute state. Each step is a complete state spec (not a delta), so last-write-wins.
-// targetStepIndex === -1 → startCondition only.
-function buildCumulativeActions(
-  schedule: RampScheduleInterface,
-  targetStepIndex: number,
-): RampStepAction[] {
-  const merged = new Map<string, FeatureRulePatch>();
-
-  const absorb = (actions: RampStepAction[]) => {
-    for (const action of actions) {
-      const prev = merged.get(action.targetId) ?? {
-        ruleId: action.patch.ruleId,
-      };
-      merged.set(action.targetId, { ...prev, ...action.patch });
-    }
-  };
-
-  absorb(schedule.startCondition?.actions ?? []);
-  for (let i = 0; i <= targetStepIndex; i++) {
-    absorb(schedule.steps[i]?.actions ?? []);
-  }
-
-  return Array.from(merged.entries()).map(([targetId, patch]) => ({
-    targetType: "feature-rule" as const,
-    targetId,
-    patch,
-  }));
-}
-
-// Group actions by entity and publish one revision per entity.
-// Multi-entity note: each entity publishes independently; partial failure leaves
-// earlier entities already published with no rollback path.
+// Group actions by entity and publish one revision per entity. Partial failure is not rolled back.
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
@@ -230,6 +185,26 @@ async function executeStepActions(
     const target = schedule.targets.find((t) => t.id === action.targetId);
     if (!target || target.status !== "active") continue;
 
+    // Whitelist: only controlled fields pass through; absent ones become undefined (clear).
+    // "enabled" is always passed through if present (system-managed by disableRuleBefore/disableRuleAfter).
+    let normalizedAction = action;
+    if (target.controlledFields?.length) {
+      const allowed = new Set(target.controlledFields);
+      const { ruleId, ...patchFields } = action.patch;
+      const normalized: Record<string, unknown> = { ruleId };
+      if ("enabled" in patchFields) normalized.enabled = patchFields.enabled;
+      for (const field of allowed) {
+        normalized[field] =
+          field in patchFields
+            ? (patchFields as Record<string, unknown>)[field]
+            : undefined;
+      }
+      normalizedAction = {
+        ...action,
+        patch: normalized as typeof action.patch,
+      };
+    }
+
     const key = `${target.entityType}:${target.entityId}`;
     if (!byEntity.has(key)) {
       byEntity.set(key, {
@@ -238,7 +213,7 @@ async function executeStepActions(
         actions: [],
       });
     }
-    byEntity.get(key)!.actions.push(action);
+    byEntity.get(key)!.actions.push(normalizedAction);
   }
 
   const user: EventUser = {
@@ -284,7 +259,6 @@ export async function applyStartConditionActions(
 export async function advanceStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  attribution: RampAttribution = { type: "schedule" },
 ): Promise<RampScheduleInterface> {
   const nextStepIndex = schedule.currentStepIndex + 1;
   const step = schedule.steps[nextStepIndex];
@@ -309,14 +283,9 @@ export async function advanceStep(
   const now = new Date();
   const isApprovalStep = step.trigger.type === "approval";
 
-  // Apply-first: all step types apply immediately on enter.
+  // Apply-first: each step is a complete state — apply its actions directly.
   // Approval steps go live right away; the user's approval is the signal to advance.
-  await executeStepActions(
-    ctx,
-    schedule,
-    nextStepIndex,
-    buildCumulativeActions(schedule, nextStepIndex),
-  );
+  await executeStepActions(ctx, schedule, nextStepIndex, step.actions);
 
   const nextStepAt = isApprovalStep
     ? null
@@ -335,9 +304,6 @@ export async function advanceStep(
       orgId: ctx.org.id,
       currentStepIndex: updated.currentStepIndex,
       status: updated.status,
-      userId: attribution.userId ?? undefined,
-      reason: attribution.reason ?? undefined,
-      source: attribution.source ?? undefined,
     },
   });
 
@@ -360,9 +326,12 @@ export async function rollbackToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   targetStepIndex: number,
-  attribution: RampAttribution = { type: "manual" },
 ): Promise<RampScheduleInterface> {
-  const rollbackActions = buildCumulativeActions(schedule, targetStepIndex);
+  // Each step is a complete state — apply the target step's actions directly.
+  const rollbackActions =
+    targetStepIndex === -1
+      ? (schedule.startCondition?.actions ?? [])
+      : (schedule.steps[targetStepIndex]?.actions ?? []);
   if (rollbackActions.length === 0) return schedule;
 
   const now = new Date();
@@ -386,23 +355,19 @@ export async function rollbackToStep(
       currentStepIndex: updated.currentStepIndex,
       status: updated.status,
       targetStepIndex,
-      userId: attribution.userId ?? undefined,
-      reason: attribution.reason ?? undefined,
-      source: attribution.source ?? undefined,
     },
   });
 
   return updated;
 }
 
-// Jump to jumpTarget in one revision: { ...start, ...s0, ..., ...sN }.
-// Identical merge logic to rollback — cumulative state at the target index.
+// Jump forward to jumpTarget, applying that step's actions as complete state.
 export async function jumpAheadToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   jumpTarget: number,
 ): Promise<RampScheduleInterface> {
-  const jumpActions = buildCumulativeActions(schedule, jumpTarget);
+  const jumpActions = schedule.steps[jumpTarget]?.actions ?? [];
   const now = new Date();
 
   if (jumpActions.length > 0) {
@@ -417,45 +382,25 @@ export async function jumpAheadToStep(
   });
 }
 
-// Merge remaining steps + endCondition into one revision, then mark complete.
-// Bypasses timing and approval gates. Used by the REST "complete" action and the
-// endCondition deadline handler.
+// Fast-forwards to the terminal state, bypassing timing and approval gates.
+// endCondition.actions define the final state if present; otherwise the last step does.
+// No merging — each is applied as complete state. Used by REST "complete" and endCondition deadlines.
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  attribution: RampAttribution = { type: "manual" },
 ): Promise<RampScheduleInterface> {
   const endConditionActions = schedule.endCondition?.actions ?? [];
+  const lastStepActions =
+    schedule.steps[schedule.steps.length - 1]?.actions ?? [];
+  const actionsToApply =
+    endConditionActions.length > 0 ? endConditionActions : lastStepActions;
 
-  const mergedPatches = new Map<string, FeatureRulePatch>();
-  for (let i = schedule.currentStepIndex + 1; i < schedule.steps.length; i++) {
-    for (const action of schedule.steps[i].actions) {
-      const prev = mergedPatches.get(action.targetId) ?? {
-        ruleId: action.patch.ruleId,
-      };
-      mergedPatches.set(action.targetId, { ...prev, ...action.patch });
-    }
-  }
-  for (const action of endConditionActions) {
-    const prev = mergedPatches.get(action.targetId) ?? {
-      ruleId: action.patch.ruleId,
-    };
-    mergedPatches.set(action.targetId, { ...prev, ...action.patch });
-  }
-
-  if (mergedPatches.size > 0) {
-    const mergedActions = Array.from(mergedPatches.entries()).map(
-      ([targetId, patch]) => ({
-        targetType: "feature-rule" as const,
-        targetId,
-        patch,
-      }),
-    );
+  if (actionsToApply.length > 0) {
     await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length,
-      mergedActions,
+      actionsToApply,
     );
   }
 
@@ -477,56 +422,10 @@ export async function completeRollout(
       orgId: ctx.org.id,
       currentStepIndex: updated.currentStepIndex,
       status: updated.status,
-      userId: attribution.userId ?? undefined,
-      reason: attribution.reason ?? undefined,
-      source: attribution.source ?? undefined,
     },
   });
 
   return updated;
-}
-
-export type CriteriaResult = "pass" | "fail" | "inconclusive";
-
-// STUB — not yet wired to a caller. Will connect once DecisionCriteria entity exists.
-// See evaluateAutoRollback JSDoc history for wiring plan.
-export async function evaluateAutoRollback(
-  ctx: ReqContext | ApiReqContext,
-  criteriaIds: string[],
-  result: CriteriaResult,
-): Promise<void> {
-  if (result !== "fail") return;
-
-  const activeSchedules = await ctx.models.rampSchedules.getActiveSchedules();
-  const affected = activeSchedules.filter(
-    (s) =>
-      s.autoRollback?.enabled &&
-      s.autoRollback.criteriaId &&
-      criteriaIds.includes(s.autoRollback.criteriaId),
-  );
-
-  for (const schedule of affected) {
-    try {
-      await rollbackToStep(ctx, schedule, -1, {
-        type: "system",
-        reason: "Auto-rollback: criteria evaluation failed",
-        source: "system",
-      });
-
-      await dispatchRampEvent(ctx, schedule, "autoRollback", {
-        object: {
-          rampScheduleId: schedule.id,
-          rampName: schedule.name,
-          orgId: ctx.org.id,
-          currentStepIndex: schedule.currentStepIndex,
-          status: "rolled-back",
-          criteriaId: schedule.autoRollback!.criteriaId,
-        },
-      });
-    } catch (e) {
-      logger.error(e, `Error auto-rolling back ramp schedule ${schedule.id}`);
-    }
-  }
 }
 
 // Transitions a ramp from "pending" once its activating revision is published.
@@ -552,16 +451,10 @@ export async function onActivatingRevisionPublished(
       nextStepAt: initialNextStepAt,
     });
 
-    const startAttribution = makeAttribution(
-      undefined,
-      "auto-started on activating revision publish",
-      "system",
-    );
-
     await applyStartConditionActions(ctx, current);
 
     if (current.steps.length > 0) {
-      await advanceUntilBlocked(ctx, current, now, startAttribution);
+      await advanceUntilBlocked(ctx, current, now);
       current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     }
 
@@ -630,7 +523,6 @@ export async function advanceUntilBlocked(
   ctx: ReqContext | ApiReqContext,
   initial: RampScheduleInterface,
   now: Date,
-  attribution: RampAttribution,
 ): Promise<void> {
   let current = initial;
   const maxSteps = current.steps.length;
@@ -641,18 +533,14 @@ export async function advanceUntilBlocked(
       current.endCondition.trigger.at <= now &&
       ["running", "paused", "pending-approval"].includes(current.status)
     ) {
-      await completeRollout(
-        ctx,
-        current,
-        makeAttribution(undefined, "endCondition deadline reached", "system"),
-      );
+      await completeRollout(ctx, current);
       return;
     }
 
     if (current.status !== "running") return;
     if (!current.nextStepAt || current.nextStepAt > now) return;
 
-    current = await advanceStep(ctx, current, attribution);
+    current = await advanceStep(ctx, current);
   }
 }
 

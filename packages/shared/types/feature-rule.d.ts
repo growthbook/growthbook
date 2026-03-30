@@ -1,6 +1,7 @@
 import {
   CreateSafeRolloutInterface,
   FeatureRule,
+  RampControlledField,
   RampStep,
   RampStepAction,
 } from "shared/validators";
@@ -38,6 +39,8 @@ export type InlineRampScheduleCreate = {
     trigger?: RampEndTrigger;
     actions?: RampStepAction[];
   };
+  /** Which feature rule fields this schedule manages. Absent controlled fields in any step are cleared. Does not include "enabled" (system-managed). */
+  controlledFields?: Exclude<RampControlledField, "enabled">[];
 };
 
 /** Link the new rule as an additional target on an existing ramp schedule.
@@ -84,6 +87,8 @@ export type InlineRampScheduleUpdate = {
     trigger?: RampEndTrigger;
     actions?: RampStepAction[];
   } | null;
+  /** Which feature rule fields this schedule manages. Updates all targets. */
+  controlledFields?: Exclude<RampControlledField, "enabled">[];
 };
 
 export type PostFeatureRuleBody = {

@@ -11,7 +11,6 @@ import {
   computeNextStepAt,
   dispatchRampEvent,
   jumpAheadToStep,
-  makeAttribution,
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
 
@@ -36,7 +35,6 @@ type CreateBody = Pick<
   RampScheduleInterface,
   "name" | "entityType" | "entityId" | "targets" | "steps"
 > & {
-  autoRollback?: RampScheduleInterface["autoRollback"];
   startCondition?: StartCondition;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
@@ -45,7 +43,7 @@ type CreateBody = Pick<
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
-  autoRollback?: RampScheduleInterface["autoRollback"];
+  controlledFields?: string[];
   startCondition?: StartCondition | null;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
@@ -54,8 +52,6 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
 };
 
 type ActionBody = {
-  reason?: string;
-  source?: string;
   targetStepIndex?: number;
 };
 
@@ -153,7 +149,6 @@ export const postRampSchedule = async (
     entityId: body.entityId,
     targets: body.targets,
     steps: body.steps,
-    autoRollback: body.autoRollback,
     startCondition: {
       trigger: resolvedStartTrigger,
       actions: startConditionActions.length ? startConditionActions : undefined,
@@ -178,7 +173,6 @@ export const postRampSchedule = async (
       orgId: context.org.id,
       entityType: schedule.entityType,
       entityId: schedule.entityId,
-      userId: context.userId || undefined,
     },
   });
 
@@ -208,7 +202,12 @@ export const putRampSchedule = async (
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.autoRollback !== undefined) updates.autoRollback = body.autoRollback;
+  if (body.controlledFields !== undefined) {
+    updates.targets = schedule.targets.map((t) => ({
+      ...t,
+      controlledFields: body.controlledFields,
+    }));
+  }
   if (body.startCondition !== undefined) {
     const sc = body.startCondition;
     if (!sc) {
@@ -359,7 +358,6 @@ export const deleteRampSchedule = async (
       rampScheduleId: schedule.id,
       rampName: schedule.name,
       orgId: context.org.id,
-      userId: context.userId || undefined,
     },
   });
 
@@ -378,12 +376,6 @@ export const postRampScheduleAction = async (
       .status(404)
       .json({ status: 404, message: "Ramp schedule not found" });
   }
-
-  const attribution = makeAttribution(
-    context.userId || undefined,
-    req.body.reason,
-    req.body.source,
-  );
 
   const now = new Date();
   let updated: RampScheduleInterface;
@@ -404,7 +396,7 @@ export const postRampScheduleAction = async (
         nextStepAt: initialNextStepAt,
       });
       await applyStartConditionActions(context, updated);
-      await advanceUntilBlocked(context, updated, now, attribution);
+      await advanceUntilBlocked(context, updated, now);
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
       await dispatchRampEvent(context, updated, "started", {
@@ -414,9 +406,6 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId ?? undefined,
-          reason: attribution.reason ?? undefined,
-          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -440,9 +429,6 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId ?? undefined,
-          reason: attribution.reason ?? undefined,
-          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -514,7 +500,7 @@ export const postRampScheduleAction = async (
         resumeUpdates,
       );
       if (!pausedAtApproval) {
-        await advanceUntilBlocked(context, updated, now, attribution);
+        await advanceUntilBlocked(context, updated, now);
       }
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
@@ -525,9 +511,6 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId ?? undefined,
-          reason: attribution.reason ?? undefined,
-          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -540,19 +523,12 @@ export const postRampScheduleAction = async (
           message: `Cannot advance a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await advanceStep(context, schedule, attribution);
+      updated = await advanceStep(context, schedule);
       break;
 
-    case "rollback": {
-      const targetStepIndex = req.body.targetStepIndex ?? -1;
-      updated = await rollbackToStep(
-        context,
-        schedule,
-        targetStepIndex,
-        attribution,
-      );
+    case "rollback":
+      updated = await rollbackToStep(context, schedule, -1);
       break;
-    }
 
     case "complete":
       if (["completed", "rolled-back"].includes(schedule.status)) {
@@ -561,7 +537,7 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
-      updated = await completeRollout(context, schedule, attribution);
+      updated = await completeRollout(context, schedule);
       break;
 
     case "reset": {
@@ -570,7 +546,7 @@ export const postRampScheduleAction = async (
       // Terminal restarts also clear timing anchors so resume starts fresh.
       const resetRolled =
         schedule.currentStepIndex >= 0
-          ? await rollbackToStep(context, schedule, -1, attribution)
+          ? await rollbackToStep(context, schedule, -1)
           : schedule;
       updated = await context.models.rampSchedules.updateById(resetRolled.id, {
         status: "paused",
@@ -587,9 +563,6 @@ export const postRampScheduleAction = async (
           orgId: context.org.id,
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
-          userId: attribution.userId ?? undefined,
-          reason: attribution.reason ?? undefined,
-          source: attribution.source ?? undefined,
         },
       });
       break;
@@ -626,12 +599,7 @@ export const postRampScheduleAction = async (
       })();
 
       if (jumpTarget < schedule.currentStepIndex) {
-        const j = await rollbackToStep(
-          context,
-          schedule,
-          jumpTarget,
-          attribution,
-        );
+        const j = await rollbackToStep(context, schedule, jumpTarget);
         updated = await context.models.rampSchedules.updateById(j.id, {
           status: "paused",
           pausedAt: now,
@@ -656,9 +624,6 @@ export const postRampScheduleAction = async (
           currentStepIndex: updated.currentStepIndex,
           status: updated.status,
           targetStepIndex: jumpTarget,
-          userId: attribution.userId ?? undefined,
-          reason: attribution.reason ?? undefined,
-          source: attribution.source ?? undefined,
         },
       });
       break;

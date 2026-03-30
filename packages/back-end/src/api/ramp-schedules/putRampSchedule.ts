@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { rampStep } from "shared/validators";
+import { rampControlledField, rampStep } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const startTriggerSchema = z.discriminatedUnion("type", [
@@ -25,9 +25,7 @@ const putRampScheduleValidator = {
   bodySchema: z.object({
     name: z.string().optional(),
     steps: z.array(rampStep).min(0).optional(),
-    autoRollback: z
-      .object({ enabled: z.boolean(), criteriaId: z.string() })
-      .optional(),
+    controlledFields: z.array(rampControlledField.exclude(["enabled"])).optional(),
     startCondition: z
       .object({
         trigger: startTriggerSchema.optional(),
@@ -72,7 +70,12 @@ export const putRampSchedule = createApiRequestHandler(
 
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.autoRollback !== undefined) updates.autoRollback = body.autoRollback;
+  if (body.controlledFields !== undefined) {
+    updates.targets = schedule.targets.map((t) => ({
+      ...t,
+      controlledFields: body.controlledFields,
+    }));
+  }
   if (body.startCondition !== undefined) {
     const sc = body.startCondition;
     if (!sc) {

@@ -1091,6 +1091,7 @@ export default function RuleModal({
                     : endActions.length
                       ? { actions: endActions }
                       : undefined,
+                  controlledFields: [...activeFieldsFromState(rampState)],
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1146,6 +1147,7 @@ export default function RuleModal({
                     : endActions.length
                       ? { actions: endActions }
                       : null,
+                  controlledFields: [...activeFieldsFromState(rampState)],
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1261,6 +1263,7 @@ export default function RuleModal({
                 : endActions.length
                   ? { actions: endActions }
                   : undefined,
+              controlledFields: [...activeFieldsFromState(rampState)],
             };
           }
         }

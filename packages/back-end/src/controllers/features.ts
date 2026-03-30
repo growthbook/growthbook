@@ -1834,6 +1834,7 @@ export async function postFeatureRule(
           rampSchedulePayload.endEarlyWhenStepsComplete,
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
+        controlledFields: rampSchedulePayload.controlledFields,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -2674,6 +2675,7 @@ export async function putFeatureRule(
           rampSchedulePayload.endEarlyWhenStepsComplete,
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
+        controlledFields: rampSchedulePayload.controlledFields,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -2816,6 +2818,12 @@ export async function putFeatureRule(
             actions: remappedActions.length ? remappedActions : undefined,
           };
         }
+      }
+      if (rampSchedulePayload.controlledFields !== undefined) {
+        updates.targets = existing.targets.map((t) => ({
+          ...t,
+          controlledFields: rampSchedulePayload.controlledFields,
+        }));
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }

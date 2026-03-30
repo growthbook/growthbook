@@ -5,7 +5,6 @@ import {
   advanceUntilBlocked,
   applyStartConditionActions,
   completeRollout,
-  makeAttribution,
   onActivatingRevisionPublished,
 } from "back-end/src/services/rampSchedule";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -125,11 +124,6 @@ export const advanceSingleRampSchedule = async (
   if (!schedule) return;
 
   const now = new Date();
-  const scheduleAttribution = makeAttribution(
-    undefined,
-    "scheduled step advance",
-    "system",
-  );
 
   try {
     // Hard deadline — trumps everything else.
@@ -138,11 +132,7 @@ export const advanceSingleRampSchedule = async (
       schedule.endCondition.trigger.at <= now &&
       ["running", "pending-approval"].includes(schedule.status)
     ) {
-      await completeRollout(
-        context,
-        schedule,
-        makeAttribution(undefined, "endCondition deadline reached", "system"),
-      );
+      await completeRollout(context, schedule);
       return;
     }
 
@@ -179,33 +169,12 @@ export const advanceSingleRampSchedule = async (
       await applyStartConditionActions(context, current);
     }
 
-    await advanceUntilBlocked(context, current, now, scheduleAttribution);
+    await advanceUntilBlocked(context, current, now);
   } catch (e) {
     logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
     try {
       await context.models.rampSchedules.updateById(rampScheduleId, {
         status: "paused",
-      });
-      const { createEvent } = await import("back-end/src/models/EventModel");
-      await createEvent({
-        context,
-        object: "rampSchedule",
-        objectId: rampScheduleId,
-        event: "error",
-        data: {
-          object: {
-            rampScheduleId,
-            rampName: schedule.name,
-            orgId: organization,
-            currentStepIndex: schedule.currentStepIndex,
-            status: "paused",
-            error: (e as Error).message ?? String(e),
-          },
-        },
-        projects: [],
-        tags: [],
-        environments: [],
-        containsSecrets: false,
       });
     } catch (inner) {
       logger.error(inner, "Error updating ramp schedule status after failure");

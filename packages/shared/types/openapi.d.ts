@@ -1019,121 +1019,106 @@ export interface components {
       nextOffset: OneOf<[number, null]>;
     };
     RampSchedule: {
-      /** @description Unique identifier for the ramp schedule (rs_ prefix) */
+      /** @description Unique identifier (rs_ prefix) */
       id: string;
       organization: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
-      /** @description Human-readable name for the ramp schedule */
       name: string;
-      /**
-       * @description Parent controller entity type 
-       * @enum {string}
-       */
+      /** @enum {string} */
       entityType: "feature";
-      /** @description Parent controller entity ID */
       entityId: string;
-      /** @description Controlled entity references with lifecycle status */
+      /** @description Controlled entity references */
       targets: ({
           id: string;
           /** @enum {string} */
           entityType: "feature";
           entityId: string;
-          /** @description Stable rule ID for sub-rule targeting */
           ruleId?: string;
           environment?: string;
           /** @enum {string} */
-          status: "pending-join" | "active" | "pending-eject" | "ejected";
-          joinRevisionId?: string;
-          ejectRevisionId?: string;
+          status: "pending-join" | "active";
+          /** @description Feature revision version that activates this ramp; cleared once published */
+          activatingRevisionVersion?: number;
+          /** @description Rule fields this ramp manages. Absent controlled fields in any step's patch are cleared when that step applies. The 'enabled' field is managed automatically via disableRuleBefore/disableRuleAfter. */
+          controlledFields?: ("coverage" | "condition" | "savedGroups" | "prerequisites" | "force")[];
         })[];
-      /** @description Ordered list of ramp steps */
+      /** @description Ordered ramp steps */
       steps: ({
-          /** @description What causes this step to fire */
           trigger: {
             /** @enum {string} */
-            type: "interval" | "approval";
-            /** @description Duration in seconds before auto-advancing (interval triggers only) */
+            type: "interval" | "approval" | "scheduled";
+            /** @description Hold duration (interval triggers only) */
             seconds?: number;
+            /**
+             * Format: date-time 
+             * @description Absolute fire time (scheduled triggers only)
+             */
+            at?: string;
           };
-          /** @description Patches to apply to targets when this step fires */
           actions: ({
+              /** @enum {string} */
+              targetType: "feature-rule";
               targetId: string;
               patch: {
                 ruleId: string;
                 coverage?: number;
                 condition?: string;
-                /** @description Force value for force rules */
+                /** @description Force value (any JSON type) */
                 force?: any;
               };
             })[];
+          approvalNotes?: string;
         })[];
-      /** @description Criteria-driven auto-rollback configuration */
-      autoRollback?: {
-        enabled: boolean;
-        criteriaId: string;
+      /** @description When and how the ramp starts */
+      startCondition?: {
+        trigger: {
+          /** @enum {string} */
+          type: "immediately" | "manual" | "scheduled";
+          /** Format: date-time */
+          at?: string;
+        };
+        /** @description Baseline state applied on ramp start */
+        actions?: (any)[];
       };
-      /**
-       * Format: date-time 
-       * @description Optional absolute start time; Agenda auto-starts when now >= startTime and status=pending
-       */
-      startTime?: string;
-      /** @description Optional hard deadline teardown; fires regardless of current step progress */
-      endSchedule?: {
-        /** Format: date-time */
-        at: string;
-        actions: ({
-            targetId: string;
-            patch: {
-              ruleId: string;
-              coverage?: number;
-              condition?: string;
-              /** @description Teardown force value */
-              force?: any;
-            };
-          })[];
+      /** @description Optional hard deadline and teardown actions */
+      endCondition?: {
+        trigger?: {
+          /** @enum {string} */
+          type?: "scheduled";
+          /** Format: date-time */
+          at?: string;
+        };
+        actions?: (any)[];
       };
+      /** @description Hide the rule from SDK before the schedule starts */
+      disableRuleBefore?: boolean;
+      /** @description Hide the rule from SDK after the schedule ends */
+      disableRuleAfter?: boolean;
+      /** @description Complete immediately when all steps finish (true) or hold until endCondition.trigger fires (false) */
+      endEarlyWhenStepsComplete?: boolean;
       /** @enum {string} */
-      status: "pending" | "running" | "paused" | "pending-approval" | "conflict" | "completed" | "rolled-back";
-      /** @description Index of the current step; -1 means not yet started */
+      status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+      /** @description Index of current step; -1 = not yet started */
       currentStepIndex: number;
       /** Format: date-time */
       startedAt?: string;
       /**
        * Format: date-time 
-       * @description Anchor for cumulative interval steps; resets after each approval gate
+       * @description Anchor for cumulative interval timing; resets after each approval gate
        */
       phaseStartedAt?: string;
+      /** Format: date-time */
+      pausedAt?: string;
       /**
        * Format: date-time 
-       * @description When the next step is scheduled to fire (null for approval steps and terminal states)
+       * @description When the next step fires; null for approval steps and terminal states
        */
       nextStepAt: string | null;
-      /** @description IDs of draft/pending-parent revisions created for the current step */
-      pendingRevisionIds?: (string)[];
-      /** @description Historical record of steps that have been executed */
-      stepHistory: ({
-          stepIndex: number;
-          /** Format: date-time */
-          enteredAt: string;
-          /** Format: date-time */
-          completedAt?: string;
-          revisionIds: (string)[];
-          /** @description Sparse patch-shaped previous values for rollback */
-          previousValues: ({
-              targetId: string;
-              patch: any;
-            })[];
-          triggeredBy: {
-            /** @enum {string} */
-            type: "schedule" | "manual" | "system";
-            userId?: string;
-            reason?: string;
-            source?: string;
-          };
-        })[];
+      /** @description Milliseconds since startedAt (computed at response time, not stored) */
+      elapsedMs?: number;
     };
     Dimension: {
       id: string;

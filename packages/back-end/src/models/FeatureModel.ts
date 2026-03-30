@@ -1430,6 +1430,7 @@ async function createRampSchedulesForRevision(
           ruleId: action.ruleId,
           environment: action.environment,
           status: "active",
+          controlledFields: action.controlledFields,
           // Link this target to the activating revision so onRevisionPublished
           // (and the Agenda recovery path) can transition "pending" → "running".
           activatingRevisionVersion: revision.version,

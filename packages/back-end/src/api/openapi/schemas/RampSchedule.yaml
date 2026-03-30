@@ -12,11 +12,10 @@ required:
   - status
   - currentStepIndex
   - nextStepAt
-  - stepHistory
 properties:
   id:
     type: string
-    description: "Unique identifier for the ramp schedule (rs_ prefix)"
+    description: "Unique identifier (rs_ prefix)"
   organization:
     type: string
   dateCreated:
@@ -27,17 +26,14 @@ properties:
     format: date-time
   name:
     type: string
-    description: "Human-readable name for the ramp schedule"
   entityType:
     type: string
     enum: ["feature"]
-    description: "Parent controller entity type"
   entityId:
     type: string
-    description: "Parent controller entity ID"
   targets:
     type: array
-    description: "Controlled entity references with lifecycle status"
+    description: "Controlled entity references"
     items:
       type: object
       required:
@@ -55,19 +51,23 @@ properties:
           type: string
         ruleId:
           type: string
-          description: "Stable rule ID for sub-rule targeting"
         environment:
           type: string
         status:
           type: string
-          enum: ["pending-join", "active", "pending-eject", "ejected"]
-        joinRevisionId:
-          type: string
-        ejectRevisionId:
-          type: string
+          enum: ["pending-join", "active"]
+        activatingRevisionVersion:
+          type: integer
+          description: "Feature revision version that activates this ramp; cleared once published"
+        controlledFields:
+          type: array
+          items:
+            type: string
+            enum: ["coverage", "condition", "savedGroups", "prerequisites", "force"]
+          description: "Rule fields this ramp manages. Absent controlled fields in any step's patch are cleared when that step applies. The 'enabled' field is managed automatically via disableRuleBefore/disableRuleAfter."
   steps:
     type: array
-    description: "Ordered list of ramp steps"
+    description: "Ordered ramp steps"
     items:
       type: object
       required:
@@ -76,25 +76,31 @@ properties:
       properties:
         trigger:
           type: object
-          description: "What causes this step to fire"
           required:
             - type
           properties:
             type:
               type: string
-              enum: ["interval", "approval"]
+              enum: ["interval", "approval", "scheduled"]
             seconds:
               type: number
-              description: "Duration in seconds before auto-advancing (interval triggers only)"
+              description: "Hold duration (interval triggers only)"
+            at:
+              type: string
+              format: date-time
+              description: "Absolute fire time (scheduled triggers only)"
         actions:
           type: array
-          description: "Patches to apply to targets when this step fires"
           items:
             type: object
             required:
+              - targetType
               - targetId
               - patch
             properties:
+              targetType:
+                type: string
+                enum: ["feature-rule"]
               targetId:
                 type: string
               patch:
@@ -111,134 +117,86 @@ properties:
                   condition:
                     type: string
                   force:
-                    description: "Force value for force rules"
-  autoRollback:
+                    description: "Force value (any JSON type)"
+        approvalNotes:
+          type: string
+  startCondition:
     type: object
-    description: "Criteria-driven auto-rollback configuration"
+    description: "When and how the ramp starts"
     required:
-      - enabled
-      - criteriaId
+      - trigger
     properties:
-      enabled:
-        type: boolean
-      criteriaId:
-        type: string
-  startTime:
-    type: string
-    format: date-time
-    description: "Optional absolute start time; Agenda auto-starts when now >= startTime and status=pending"
-  endSchedule:
+      trigger:
+        type: object
+        required:
+          - type
+        properties:
+          type:
+            type: string
+            enum: ["immediately", "manual", "scheduled"]
+          at:
+            type: string
+            format: date-time
+      actions:
+        type: array
+        description: "Baseline state applied on ramp start"
+        items:
+          type: object
+  endCondition:
     type: object
-    description: "Optional hard deadline teardown; fires regardless of current step progress"
-    required:
-      - at
-      - actions
+    description: "Optional hard deadline and teardown actions"
     properties:
-      at:
-        type: string
-        format: date-time
+      trigger:
+        type: object
+        properties:
+          type:
+            type: string
+            enum: ["scheduled"]
+          at:
+            type: string
+            format: date-time
       actions:
         type: array
         items:
           type: object
-          required:
-            - targetId
-            - patch
-          properties:
-            targetId:
-              type: string
-            patch:
-              type: object
-              required:
-                - ruleId
-              properties:
-                ruleId:
-                  type: string
-                coverage:
-                  type: number
-                condition:
-                  type: string
-                force:
-                  description: "Teardown force value"
+  disableRuleBefore:
+    type: boolean
+    description: "Hide the rule from SDK before the schedule starts"
+  disableRuleAfter:
+    type: boolean
+    description: "Hide the rule from SDK after the schedule ends"
+  endEarlyWhenStepsComplete:
+    type: boolean
+    description: "Complete immediately when all steps finish (true) or hold until endCondition.trigger fires (false)"
   status:
     type: string
     enum:
       - pending
+      - ready
       - running
       - paused
       - pending-approval
-      - conflict
       - completed
       - rolled-back
   currentStepIndex:
     type: integer
     minimum: -1
-    description: "Index of the current step; -1 means not yet started"
+    description: "Index of current step; -1 = not yet started"
   startedAt:
     type: string
     format: date-time
   phaseStartedAt:
     type: string
     format: date-time
-    description: "Anchor for cumulative interval steps; resets after each approval gate"
+    description: "Anchor for cumulative interval timing; resets after each approval gate"
+  pausedAt:
+    type: string
+    format: date-time
   nextStepAt:
     type: string
     format: date-time
     nullable: true
-    description: "When the next step is scheduled to fire (null for approval steps and terminal states)"
-  pendingRevisionIds:
-    type: array
-    description: "IDs of draft/pending-parent revisions created for the current step"
-    items:
-      type: string
-  stepHistory:
-    type: array
-    description: "Historical record of steps that have been executed"
-    items:
-      type: object
-      required:
-        - stepIndex
-        - enteredAt
-        - revisionIds
-        - previousValues
-        - triggeredBy
-      properties:
-        stepIndex:
-          type: integer
-        enteredAt:
-          type: string
-          format: date-time
-        completedAt:
-          type: string
-          format: date-time
-        revisionIds:
-          type: array
-          items:
-            type: string
-        previousValues:
-          type: array
-          description: "Sparse patch-shaped previous values for rollback"
-          items:
-            type: object
-            required:
-              - targetId
-              - patch
-            properties:
-              targetId:
-                type: string
-              patch:
-                type: object
-        triggeredBy:
-          type: object
-          required:
-            - type
-          properties:
-            type:
-              type: string
-              enum: ["schedule", "manual", "system"]
-            userId:
-              type: string
-            reason:
-              type: string
-            source:
-              type: string
+    description: "When the next step fires; null for approval steps and terminal states"
+  elapsedMs:
+    type: integer
+    description: "Milliseconds since startedAt (computed at response time, not stored)"
