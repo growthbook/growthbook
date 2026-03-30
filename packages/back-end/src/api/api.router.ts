@@ -4,12 +4,14 @@ import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
+import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -52,6 +54,7 @@ const API_MODELS: ModelClass[] = [
   MetricGroupModel,
   TeamModel,
   ExperimentTemplatesModel,
+  AnalyticsExplorationModel,
 ];
 
 const router = Router();
@@ -96,7 +99,10 @@ if (SENTRY_DSN) {
   }) as RequestHandler);
 }
 
-const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
+const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
+  min: 1,
+  name: "API_RATE_LIMIT_MAX",
+});
 const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
 // Rate limit API keys to 60 requests per minute
 router.use(
