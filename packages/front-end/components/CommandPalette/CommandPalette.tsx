@@ -206,8 +206,8 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     const result: CommandPaletteItem[] = flatNav.map((row) => ({
       id: `nav::${row.href}::${row.name}`,
       type: "navigation",
-      name: row.name,
-      description: row.parentName ?? "",
+      name: row.parentName ? `${row.parentName} → ${row.name}` : row.name,
+      description: row.parentName ? row.name : "",
       url: row.href,
       tags: row.parentName ? `${row.parentName} ${row.name}` : row.name,
     }));

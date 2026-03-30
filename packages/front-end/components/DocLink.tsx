@@ -137,13 +137,16 @@ const docSections = {
 export type DocSection = keyof typeof docSections;
 
 /**
- * Human-readable title for search (e.g. Cmd+K). Handles camelCase, snake_case,
- * and #anchors in keys (e.g. `sdkWebhooks#payload-format`).
+ * Human-readable title for search (e.g. Cmd+K). Handles camelCase (including
+ * acronyms such as `SDK`), snake_case, and #anchors in keys (e.g.
+ * `sdkWebhooks#payload-format`).
  */
 export function docTitleForSection(section: DocSection): string {
   const raw = section as string;
   const withSpaces = raw.replace(/#/g, " ").replace(/-/g, " ");
-  const splitCamel = withSpaces.replace(/([a-z])([A-Z])/g, "$1 $2");
+  const splitCamel = withSpaces
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
   return splitCamel
     .replace(/_/g, " ")
     .split(/\s+/)
