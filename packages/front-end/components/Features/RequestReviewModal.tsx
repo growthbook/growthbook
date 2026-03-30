@@ -364,8 +364,8 @@ export default function RequestReviewModal({
         {linkedRamps.map(({ ramp }) => (
           <Callout key={ramp.id} status="info" mb="3">
             Publishing this draft will activate ramp schedule{" "}
-            <strong>{ramp.name}</strong>. The ramp will begin once this
-            revision is live.
+            <strong>{ramp.name}</strong>. The ramp will begin once this revision
+            is live.
           </Callout>
         ))}
 

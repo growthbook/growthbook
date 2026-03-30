@@ -843,7 +843,6 @@ export async function discardRevision(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
-
 }
 
 export async function getFeatureRevisionsByFeatureIds(

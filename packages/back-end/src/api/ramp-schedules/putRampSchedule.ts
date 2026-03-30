@@ -25,7 +25,9 @@ const putRampScheduleValidator = {
   bodySchema: z.object({
     name: z.string().optional(),
     steps: z.array(rampStep).min(0).optional(),
-    controlledFields: z.array(rampControlledField.exclude(["enabled"])).optional(),
+    controlledFields: z
+      .array(rampControlledField.exclude(["enabled"]))
+      .optional(),
     startCondition: z
       .object({
         trigger: startTriggerSchema.optional(),

@@ -106,14 +106,18 @@ export default function RolloutPercentInput({
         </Box>
       </Flex>
 
-      {(setHashAttribute && attributeSchema) || (setSeed && setAdvancedOpen !== undefined) ? (
+      {(setHashAttribute && attributeSchema) ||
+      (setSeed && setAdvancedOpen !== undefined) ? (
         <Box px="2" style={{ borderLeft: "4px solid var(--gray-3)" }}>
           {setHashAttribute && attributeSchema && (
             <Flex align="center" gap="2" mb={setSeed ? "2" : "0"}>
               <Text weight="medium">Sample using attribute</Text>
               <DropdownMenu
                 trigger={
-                  <Link type="button" style={{ color: "var(--color-text-high)" }}>
+                  <Link
+                    type="button"
+                    style={{ color: "var(--color-text-high)" }}
+                  >
                     <Text mr="1">{currentAttributeName}</Text>
                     <PiCaretDownFill style={{ fontSize: "12px" }} />
                   </Link>

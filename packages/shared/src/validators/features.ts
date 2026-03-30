@@ -302,7 +302,9 @@ export const revisionRampCreateAction = z.object({
   endEarlyWhenStepsComplete: z.boolean().optional(),
   endCondition: revisionRampConditionSchema.optional(),
   /** Which feature rule fields this schedule manages. Absent controlled fields in any step are cleared. Does not include "enabled" (system-managed). */
-  controlledFields: z.array(rampControlledField.exclude(["enabled"])).optional(),
+  controlledFields: z
+    .array(rampControlledField.exclude(["enabled"]))
+    .optional(),
   /** Rule ID this ramp is being created for. Used at publish time to build the target. */
   ruleId: z.string(),
 });
