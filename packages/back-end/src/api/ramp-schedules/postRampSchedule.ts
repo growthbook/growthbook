@@ -83,9 +83,22 @@ export const postRampSchedule = createApiRequestHandler(
   const endTrigger = rawEndTrigger
     ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
     : undefined;
-  const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 
   const targetId = uuidv4();
+  const enabledPatch = { ruleId: body.ruleId, enabled: true as const };
+  const disabledPatch = { ruleId: body.ruleId, enabled: false as const };
+
+  const startActions = body.disableRuleBefore
+    ? [{ targetType: "feature-rule" as const, targetId, patch: enabledPatch }]
+    : undefined;
+  const endActions = body.disableRuleAfter
+    ? [{ targetType: "feature-rule" as const, targetId, patch: disabledPatch }]
+    : undefined;
+  const endCondition =
+    endTrigger || endActions
+      ? { trigger: endTrigger, actions: endActions }
+      : undefined;
+
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name,
     entityType: "feature",
@@ -102,7 +115,7 @@ export const postRampSchedule = createApiRequestHandler(
       },
     ],
     steps: body.steps,
-    startCondition: { trigger: startTrigger },
+    startCondition: { trigger: startTrigger, actions: startActions },
     disableRuleBefore: body.disableRuleBefore,
     disableRuleAfter: body.disableRuleAfter,
     endEarlyWhenStepsComplete: body.endEarlyWhenStepsComplete,

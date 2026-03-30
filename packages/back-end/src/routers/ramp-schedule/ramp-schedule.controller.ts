@@ -122,7 +122,11 @@ export const postRampSchedule = async (
   const startConditionActions =
     disableBefore && enabledPatch
       ? [
-          { targetId: firstTarget!.id, patch: enabledPatch },
+          {
+            targetType: "feature-rule" as const,
+            targetId: firstTarget!.id,
+            patch: enabledPatch,
+          },
           ...baseStartActions,
         ]
       : baseStartActions;
@@ -130,7 +134,14 @@ export const postRampSchedule = async (
   const baseEndActions = body.endCondition?.actions ?? [];
   const endConditionActions =
     disableAfter && disabledPatch
-      ? [...baseEndActions, { targetId: firstTarget!.id, patch: disabledPatch }]
+      ? [
+          ...baseEndActions,
+          {
+            targetType: "feature-rule" as const,
+            targetId: firstTarget!.id,
+            patch: disabledPatch,
+          },
+        ]
       : baseEndActions;
 
   const rawEndTrigger = body.endCondition?.trigger;
@@ -286,7 +297,11 @@ export const putRampSchedule = async (
           ...currentSc,
           actions: effectiveDisableBefore
             ? [
-                { targetId: primaryTarget.id, patch: enabledPatch },
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: primaryTarget.id,
+                  patch: enabledPatch,
+                },
                 ...baseStartActions,
               ]
             : baseStartActions.length
@@ -308,7 +323,11 @@ export const putRampSchedule = async (
               actions: effectiveDisableAfter
                 ? [
                     ...baseEndActions,
-                    { targetId: primaryTarget.id, patch: disabledPatch },
+                    {
+                      targetType: "feature-rule" as const,
+                      targetId: primaryTarget.id,
+                      patch: disabledPatch,
+                    },
                   ]
                 : baseEndActions.length
                   ? baseEndActions
