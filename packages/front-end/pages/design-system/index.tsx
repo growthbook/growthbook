@@ -32,6 +32,7 @@ import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
 
 type StoryEntry = {
   name: string;
@@ -68,6 +69,7 @@ export default function DesignSystemPage() {
       name: "ExperimentStatusIndicator",
       Stories: ExperimentStatusIndicatorStories,
     },
+    { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
