@@ -1,4 +1,5 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
+import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
   InsertMetricProps,
@@ -297,28 +298,15 @@ export async function getMetricMap(
 
 async function findMetrics(
   context: ReqContext | ApiReqContext,
-  additionalQuery?: Partial<MetricInterface>,
+  additionalQuery?: FilterQuery<LegacyMetricInterface>,
 ) {
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
 
   // If using config.yml, first check there
   if (usingFileConfig()) {
-    const filter = additionalQuery
-      ? (m: MetricInterface) => {
-          for (const key in additionalQuery) {
-            if (
-              m[key as keyof MetricInterface] !==
-              additionalQuery[key as keyof MetricInterface]
-            ) {
-              return false;
-            }
-          }
-          return true;
-        }
-      : false;
     getConfigMetrics(context)
-      .filter((m) => !filter || filter(m))
+      .filter((m) => !additionalQuery || evalCondition(m, additionalQuery))
       .forEach((m) => {
         metrics.push(m);
         metricIds.add(m.id);
@@ -367,7 +355,7 @@ export async function getMetricsByOrganization(
   options?: MetricFilterOptions,
 ) {
   // Build query with optional filters
-  const query: Record<string, unknown> = {};
+  const query: FilterQuery<LegacyMetricInterface> = {};
 
   if (options?.datasourceId) {
     query.datasource = options.datasourceId;
@@ -376,14 +364,17 @@ export async function getMetricsByOrganization(
   if (options?.projectId) {
     // Match if: projects array contains the projectId OR projects is empty/missing
     // (empty projects means the metric is available to all projects)
+    // Use $in instead of implicit array element matching because
+    // evalCondition (used for config-file metrics) doesn't support
+    // MongoDB's implicit "array contains value" semantics.
     query.$or = [
-      { projects: options.projectId },
+      { projects: { $in: [options.projectId] } },
       { projects: { $size: 0 } },
       { projects: { $exists: false } },
     ];
   }
 
-  return findMetrics(context, query as Partial<MetricInterface>);
+  return findMetrics(context, query);
 }
 
 export async function getMetricsByDatasource(
