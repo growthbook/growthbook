@@ -143,10 +143,7 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import {
-  assertCanAutoPublish,
-  getLiveAndBaseRevisionsForFeature,
-} from "back-end/src/services/features";
+import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { validateExperimentFeatureUpdates } from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -4067,7 +4064,7 @@ export async function postExperimentFeatureValues(
     }
   }
 
-  // Preflight: Validate feature updates and get update plans for each feature
+  // Validate feature updates and get update plans for each feature before applying any changes
   const featureUpdatePlans = await validateExperimentFeatureUpdates({
     experiment,
     features,
@@ -4134,15 +4131,14 @@ export async function postExperimentFeatureValues(
     });
 
     if (autoPublish) {
-      await assertCanAutoPublish(context, feature, updatedRevision);
-
+      // Auto publish permission check is in validateExperimentFeatureUpdates
       const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
 
+      // This should never happen, but guard against it just in case
       if (!mergeResult.success) {
         res.status(400).json({
           status: 400,
-          message:
-            "Unable to auto-publish feature values. Please resolve conflicts before publishing.",
+          message: `Unable to auto-publish feature values for feature ${feature.id}. Please resolve conflicts before publishing.`,
         });
         return;
       }

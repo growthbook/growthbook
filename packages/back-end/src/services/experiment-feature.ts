@@ -7,7 +7,11 @@ import {
   FeatureRule,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-import { getDraftRevision } from "back-end/src/services/features";
+import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
+import {
+  assertCanAutoPublish,
+  getDraftRevision,
+} from "back-end/src/services/features";
 
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
@@ -72,16 +76,26 @@ export const validateExperimentFeatureUpdates = async ({
 
     if (!featureNeedsUpdate) continue;
 
-    const affectedEnvs = Array.from(
-      new Set(matchingRules.map((m: MatchingRule) => m.environmentId)),
-    );
+    if (autoPublish) {
+      if (
+        !context.permissions.canPublishFeature(
+          feature,
+          matchingRules.map((m) => m.environmentId),
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
 
-    if (
-      affectedEnvs.length > 0 &&
-      autoPublish &&
-      !context.permissions.canPublishFeature(feature, affectedEnvs)
-    ) {
-      context.permissions.throwPermissionError();
+      const matches = matchingRules.map((m) => ({
+        environmentId: m.environmentId,
+        i: m.i,
+      }));
+      const projectedRevision = applyPartialFeatureRuleUpdatesToRevision(
+        revision,
+        matches,
+        { variations: updatedVariationValues },
+      );
+      await assertCanAutoPublish(context, feature, projectedRevision);
     }
 
     plans.push({ feature, revision, matchingRules });

@@ -44,6 +44,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
+import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
@@ -955,22 +956,15 @@ export async function editFeatureRules(
   user: EventUser,
   resetReview: boolean,
 ) {
+  const projected = applyPartialFeatureRuleUpdatesToRevision(
+    revision,
+    matches,
+    updates,
+  );
   const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
+    rules: projected.rules ?? {},
+    status: projected.status,
   };
-
-  matches.forEach(({ environmentId, i }) => {
-    changes.rules[environmentId] = changes.rules[environmentId] || [];
-    if (!changes.rules[environmentId][i]) {
-      throw new Error("Unknown rule");
-    }
-
-    changes.rules[environmentId][i] = {
-      ...changes.rules[environmentId][i],
-      ...updates,
-    } as FeatureRule;
-  });
 
   const subject =
     matches.length === 1
