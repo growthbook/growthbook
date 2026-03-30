@@ -1,3 +1,4 @@
+import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -156,9 +157,31 @@ export class FactMetricModel extends BaseClass {
   }
 
   /**
-   * Get all fact metrics with optional filter and DB-level sorting by id
+   * Get all fact metrics with optional filters and DB-level sorting by id
    */
-  public getAllSorted(filter?: Record<string, unknown>) {
+  public getAllSorted(options?: {
+    datasourceId?: string;
+    factTableId?: string;
+    projectId?: string;
+  }) {
+    const filter: FilterQuery<FactMetricInterface> = {};
+
+    if (options?.datasourceId) {
+      filter.datasource = options.datasourceId;
+    }
+
+    if (options?.factTableId) {
+      filter["numerator.factTableId"] = options.factTableId;
+    }
+
+    if (options?.projectId) {
+      filter.$or = [
+        { projects: options.projectId },
+        { projects: { $size: 0 } },
+        { projects: { $exists: false } },
+      ];
+    }
+
     return this._find(filter, { sort: { id: 1 } });
   }
 

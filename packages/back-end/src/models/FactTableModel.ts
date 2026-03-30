@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
@@ -155,7 +155,9 @@ export async function getAllFactTablesForOrganization(
   options?: FactTableFilterOptions,
 ) {
   // Build query with optional filters
-  const query: Record<string, unknown> = { organization: context.org.id };
+  const query: FilterQuery<FactTableInterface> = {
+    organization: context.org.id,
+  };
 
   if (options?.datasourceId) {
     query.datasource = options.datasourceId;
