@@ -8,7 +8,6 @@ import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
   isDefined,
-  resetReviewOnChange,
   autoMerge,
 } from "shared/util";
 import {
@@ -128,7 +127,6 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import {
-  editFeatureRules,
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
@@ -144,7 +142,10 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
-import { validateExperimentFeatureUpdates } from "back-end/src/services/experiment-feature";
+import {
+  updateExperimentRefVariations,
+  validateExperimentFeatureUpdates,
+} from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -4092,35 +4093,15 @@ export async function postExperimentFeatureValues(
     const orgEnvIds = context.environments;
     const updatedVariationValues = features[feature.id];
 
-    const changedEnvironments = matchingRules.map((m) => m.environmentId);
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments,
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
-
-    const updatedRevision = await editFeatureRules(
+    const updatedRevision = await updateExperimentRefVariations({
       context,
       feature,
       revision,
-      matchingRules.map((m) => ({
-        environmentId: m.environmentId,
-        i: m.i,
-      })),
-      { variations: updatedVariationValues },
-      res.locals.eventAudit,
-      resetReview,
-    );
-
-    if (!updatedRevision) {
-      res.status(400).json({
-        status: 400,
-        message:
-          "Failed to update experiment feature rules on the draft revision",
-      });
-      return;
-    }
+      matchingRules,
+      updatedVariationValues,
+      user: res.locals.eventAudit,
+      orgSettings: org.settings,
+    });
 
     const { live, base } = await getLiveAndBaseRevisionsForFeature({
       context,
