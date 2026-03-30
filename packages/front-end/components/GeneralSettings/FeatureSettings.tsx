@@ -16,8 +16,6 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
-import { isCloud } from "@/services/env";
-
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
@@ -573,37 +571,6 @@ export default function FeatureSettings() {
               )}
             </Box>
           </Box>
-
-          {!isCloud() && (
-            <Box mb="4" width="100%">
-              <SelectField
-                label="Ramp Schedule Step Granularity"
-                helpText={
-                  <>
-                    Minimum allowed hold-step duration for ramp schedules.
-                    Shorter values allow more fine-grained ramp timing but
-                    increase database polling frequency. Cloud deployments are
-                    fixed at 10 minutes.
-                  </>
-                }
-                value={String(
-                  form.watch("rampSchedulePollIntervalMinutes") ?? 10,
-                )}
-                options={[
-                  { label: "1 minute", value: "1" },
-                  { label: "2 minutes", value: "2" },
-                  { label: "5 minutes", value: "5" },
-                  { label: "10 minutes (default)", value: "10" },
-                ]}
-                onChange={(v: string) =>
-                  form.setValue(
-                    "rampSchedulePollIntervalMinutes",
-                    parseInt(v, 10),
-                  )
-                }
-              />
-            </Box>
-          )}
         </Flex>
       </Flex>
     </Frame>

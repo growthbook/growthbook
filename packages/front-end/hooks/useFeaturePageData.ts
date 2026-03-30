@@ -51,7 +51,6 @@ function toMinimalRevision(
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
-  rampPollIntervalMinutes?: number,
 ) {
   const [version, setVersion] = useState<number | null>(null);
   const forcedVersionFromQuery = useMemo(
@@ -76,9 +75,7 @@ export function useFeaturePageData(
 
   // Poll ramp schedules independently so the timeline stays live without
   // reloading the full (heavy) feature page payload.
-  // Use the org-configured ramp poll interval (default 10 min, min 1 min).
-  const rampPollMs =
-    Math.min(10, Math.max(1, rampPollIntervalMinutes ?? 10)) * 60_000;
+  const rampPollMs = 60_000;
   const { data: rampSchedulesData, mutate: mutateRampSchedules } = useApi<{
     status: 200;
     rampSchedules: RampScheduleInterface[];

@@ -42,8 +42,6 @@ import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import Text from "@/ui/Text";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Callout from "@/ui/Callout";
-import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -742,17 +740,7 @@ export default function RampScheduleSection({
       state.disableRuleAfter,
     ),
   );
-  const { settings } = useUser();
-  const pollIntervalMinutes = isCloud()
-    ? 10
-    : Math.min(
-        10,
-        Math.max(
-          1,
-          Math.round(settings?.rampSchedulePollIntervalMinutes ?? 10),
-        ),
-      );
-  const pollIntervalSeconds = pollIntervalMinutes * 60;
+  const pollIntervalSeconds = 60;
 
   function patchState(partial: Partial<RampSectionState>) {
     setState({ ...state, ...partial });
@@ -1725,9 +1713,9 @@ export default function RampScheduleSection({
               s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
           ) && (
             <Callout status="warning" mb="3">
-              One or more steps are shorter than the minimum check interval (
-              {pollIntervalMinutes} min). Short steps may be applied together
-              rather than at their exact scheduled times.
+              One or more steps are shorter than the minimum check interval (1
+              min). Short steps may be applied together rather than at their
+              exact scheduled times.
             </Callout>
           )}
           {renderStepGrid()}
@@ -1741,9 +1729,9 @@ export default function RampScheduleSection({
               s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
           ) && (
             <Callout status="warning" mb="3">
-              One or more steps are shorter than the minimum check interval (
-              {pollIntervalMinutes} min). Short steps may be applied together
-              rather than at their exact scheduled times.
+              One or more steps are shorter than the minimum check interval (1
+              min). Short steps may be applied together rather than at their
+              exact scheduled times.
             </Callout>
           )}
           {renderStepGrid()}

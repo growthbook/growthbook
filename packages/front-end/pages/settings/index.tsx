@@ -183,8 +183,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
-      rampSchedulePollIntervalMinutes:
-        settings.rampSchedulePollIntervalMinutes ?? 10,
     },
   });
   const { apiCall } = useAuth();
@@ -237,9 +235,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
-    rampSchedulePollIntervalMinutes: form.watch(
-      "rampSchedulePollIntervalMinutes",
-    ),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";

@@ -51,11 +51,7 @@ export default function FeaturePage() {
     revision,
     version,
     setVersion,
-  } = useFeaturePageData(
-    fid,
-    router.query.v,
-    orgSettings.rampSchedulePollIntervalMinutes,
-  );
+  } = useFeaturePageData(fid, router.query.v);
 
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;

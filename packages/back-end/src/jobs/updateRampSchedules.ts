@@ -8,7 +8,6 @@ import {
   onActivatingRevisionPublished,
 } from "back-end/src/services/rampSchedule";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -18,29 +17,7 @@ type AdvanceSingleRampScheduleJob = Job<{
 export const QUEUE_RAMP_SCHEDULE_ADVANCES = "queueRampScheduleAdvances";
 const ADVANCE_SINGLE_RAMP_SCHEDULE = "advanceSingleRampSchedule";
 
-// Default polling interval. Cloud and unset self-hosted orgs use this.
-export const DEFAULT_RAMP_POLL_INTERVAL_MINUTES = 10;
-
-// Cancel and re-register the outer polling job at a new interval.
-// Cloud is always locked to the default.
-export async function rescheduleRampScheduleJob(
-  agenda: Agenda,
-  intervalMinutes: number,
-): Promise<void> {
-  if (IS_CLOUD) {
-    intervalMinutes = DEFAULT_RAMP_POLL_INTERVAL_MINUTES;
-  }
-  const clamped = Math.min(
-    DEFAULT_RAMP_POLL_INTERVAL_MINUTES,
-    Math.max(1, Math.round(intervalMinutes)),
-  );
-  await agenda.cancel({ name: QUEUE_RAMP_SCHEDULE_ADVANCES });
-  const job = agenda.create(QUEUE_RAMP_SCHEDULE_ADVANCES, {});
-  job.unique({});
-  job.repeatEvery(`${clamped} minutes`);
-  await job.save();
-  logger.info(`Ramp schedule polling interval set to ${clamped} minute(s).`);
-}
+const RAMP_POLL_INTERVAL_MINUTES = 1;
 
 async function queueRampScheduleAdvance(
   agenda: Agenda,
@@ -58,10 +35,7 @@ async function queueRampScheduleAdvance(
   await job.save();
 }
 
-export default async function addRampScheduleJob(
-  agenda: Agenda,
-  initialIntervalMinutes: number = DEFAULT_RAMP_POLL_INTERVAL_MINUTES,
-) {
+export default async function addRampScheduleJob(agenda: Agenda) {
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
     // Uses db.collection() directly — RampScheduleModel is a BaseModel, not a mongoose.model.
@@ -109,7 +83,10 @@ export default async function addRampScheduleJob(
   });
 
   agenda.define(ADVANCE_SINGLE_RAMP_SCHEDULE, advanceSingleRampSchedule);
-  await rescheduleRampScheduleJob(agenda, initialIntervalMinutes);
+  const job = agenda.create(QUEUE_RAMP_SCHEDULE_ADVANCES, {});
+  job.unique({});
+  job.repeatEvery(`${RAMP_POLL_INTERVAL_MINUTES} minutes`);
+  await job.save();
 }
 
 export const advanceSingleRampSchedule = async (
