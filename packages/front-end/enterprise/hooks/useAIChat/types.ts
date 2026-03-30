@@ -2,16 +2,9 @@
 // Public types for useAIChat
 // ---------------------------------------------------------------------------
 
-export interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  kind?: "text" | "tool-call";
-  toolLabel?: string;
-  /** Preserved from the tool-status item so consumers can correlate
-   *  finalized tool-call messages with domain-specific data (e.g. charts). */
-  toolCallId?: string;
-}
+import type { RichMessage } from "shared";
+
+export type { RichMessage };
 
 export type ActiveTurnItem =
   | { kind: "text"; id: string; content: string }
@@ -19,8 +12,18 @@ export type ActiveTurnItem =
       kind: "tool-status";
       id: string;
       toolCallId: string;
+      toolName: string;
       label: string;
-      status: "running" | "done";
+      status: "running" | "done" | "error";
+      /** Parsed tool arguments from tool-call-input SSE. */
+      toolInput?: Record<string, unknown>;
+      /** Raw argument stream before JSON is complete (tool-call-args-delta). */
+      argsTextPreview?: string;
+      /** Serialized tool return value from tool-call-end SSE. */
+      toolOutput?: unknown;
+      errorMessage?: string;
+      /** Populated from chart-result SSE for runExploration. */
+      toolResultData?: Record<string, unknown>;
     }
   | { kind: "thinking"; id: string };
 
@@ -56,17 +59,19 @@ export interface UseAIChatOptions {
 
   /**
    * Returns the URL for loading an existing conversation (messages + streaming
-   * status). Required when `conversationStorageKey` is set to enable reconnect.
+   * status). When set, the hook refetches whenever `conversationId` changes
+   * and polls while the server reports `isStreaming` (e.g. after refresh or
+   * opening a chat from the sidebar). Pair with `conversationStorageKey` to
+   * restore the last-open conversation on load.
    */
   getConversationEndpoint?: (conversationId: string) => string;
 
   /**
-   * Called with the full raw ModelMessage array whenever a conversation is
-   * loaded from the server (on mount reconnect or explicit loadConversation).
-   * Use this to reconstruct domain-specific artifact state (e.g. chart data)
-   * from stored tool results that are not captured by the hydrated ChatMessages.
+   * Called once the POST to `endpoint` returns a successful response (before
+   * the response body is read). Use to refresh conversation lists after the
+   * server has persisted the user message.
    */
-  onRawMessages?: (messages: unknown[]) => void;
+  onStreamAccepted?: () => void;
 }
 
 export interface ConversationSummary {
@@ -77,8 +82,15 @@ export interface ConversationSummary {
   isStreaming: boolean;
 }
 
+/** GET /chat/:id — messages plus whether the agent is still generating. */
+export interface ConversationLoadResponse {
+  messages: RichMessage[];
+  isStreaming: boolean;
+  lastStreamedAt: number;
+}
+
 export interface UseAIChatReturn {
-  messages: ChatMessage[];
+  messages: RichMessage[];
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
   sendMessage: () => void;

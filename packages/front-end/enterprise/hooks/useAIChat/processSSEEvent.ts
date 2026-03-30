@@ -74,11 +74,115 @@ export function processSSEEvent(
           : `tool_${nextId()}`;
       const label = toolStatusLabels[toolName] ?? "Working...";
 
+      const already = currentItems.some(
+        (i) => i.kind === "tool-status" && i.toolCallId === toolCallId,
+      );
+      if (already) {
+        return { waitingForNextStep: false };
+      }
+
       return {
         waitingForNextStep: false,
         activeTurnItems: [
           ...currentItems,
-          { kind: "tool-status", id: toolCallId, toolCallId, label, status: "running" },
+          {
+            kind: "tool-status",
+            id: toolCallId,
+            toolCallId,
+            toolName,
+            label,
+            status: "running",
+          },
+        ],
+      };
+    }
+
+    case "tool-call-args-delta": {
+      const toolCallId =
+        typeof event.data.toolCallId === "string" ? event.data.toolCallId : "";
+      const delta =
+        typeof event.data.inputTextDelta === "string"
+          ? event.data.inputTextDelta
+          : "";
+      if (!toolCallId || !delta) return {};
+
+      return {
+        waitingForNextStep: false,
+        activeTurnItems: currentItems.map((item) =>
+          item.kind === "tool-status" && item.toolCallId === toolCallId
+            ? {
+                ...item,
+                argsTextPreview: (item.argsTextPreview ?? "") + delta,
+              }
+            : item,
+        ),
+      };
+    }
+
+    case "tool-call-input": {
+      const toolName =
+        typeof event.data.toolName === "string" ? event.data.toolName : "";
+      const toolCallId =
+        typeof event.data.toolCallId === "string" ? event.data.toolCallId : "";
+      if (!toolCallId || !toolName) return {};
+
+      const label = toolStatusLabels[toolName] ?? "Working...";
+      const rawInput = event.data.input;
+      const toolInput =
+        rawInput &&
+        typeof rawInput === "object" &&
+        rawInput !== null &&
+        !Array.isArray(rawInput)
+          ? (rawInput as Record<string, unknown>)
+          : undefined;
+      const invalid = event.data.invalid === true;
+      const errorText =
+        typeof event.data.errorText === "string"
+          ? event.data.errorText
+          : undefined;
+
+      const idx = currentItems.findIndex(
+        (i) => i.kind === "tool-status" && i.toolCallId === toolCallId,
+      );
+
+      if (idx >= 0) {
+        return {
+          waitingForNextStep: false,
+          activeTurnItems: currentItems.map((item, i) =>
+            i === idx && item.kind === "tool-status"
+              ? {
+                  ...item,
+                  toolName,
+                  label,
+                  toolInput: toolInput ?? item.toolInput,
+                  ...(invalid
+                    ? {
+                        status: "error" as const,
+                        errorMessage: errorText ?? "Invalid tool arguments",
+                      }
+                    : {}),
+                }
+              : item,
+          ),
+        };
+      }
+
+      return {
+        waitingForNextStep: false,
+        activeTurnItems: [
+          ...currentItems,
+          {
+            kind: "tool-status",
+            id: toolCallId,
+            toolCallId,
+            toolName,
+            label,
+            status: invalid ? ("error" as const) : "running",
+            ...(toolInput ? { toolInput } : {}),
+            ...(invalid
+              ? { errorMessage: errorText ?? "Invalid tool arguments" }
+              : {}),
+          },
         ],
       };
     }
@@ -86,12 +190,75 @@ export function processSSEEvent(
     case "tool-call-end": {
       const toolCallId =
         typeof event.data.toolCallId === "string" ? event.data.toolCallId : "";
+      const preliminary = event.data.preliminary === true;
+      const hasOutput = "output" in event.data;
+      const output = hasOutput ? event.data.output : undefined;
+      const rawIn = event.data.input;
+      const inputPatch =
+        rawIn &&
+        typeof rawIn === "object" &&
+        rawIn !== null &&
+        !Array.isArray(rawIn)
+          ? (rawIn as Record<string, unknown>)
+          : undefined;
+
+      return {
+        waitingForNextStep: !preliminary,
+        activeTurnItems: currentItems.map((item) =>
+          item.kind === "tool-status" && item.toolCallId === toolCallId
+            ? {
+                ...item,
+                ...(inputPatch ? { toolInput: inputPatch } : {}),
+                ...(hasOutput ? { toolOutput: output } : {}),
+                ...(!preliminary ? { status: "done" as const } : {}),
+              }
+            : item,
+        ),
+      };
+    }
+
+    case "tool-call-error": {
+      const toolCallId =
+        typeof event.data.toolCallId === "string" ? event.data.toolCallId : "";
+      const message =
+        typeof event.data.message === "string"
+          ? event.data.message
+          : "Tool failed";
+      if (!toolCallId) return {};
 
       return {
         waitingForNextStep: true,
         activeTurnItems: currentItems.map((item) =>
           item.kind === "tool-status" && item.toolCallId === toolCallId
-            ? { ...item, status: "done" as const }
+            ? {
+                ...item,
+                status: "error" as const,
+                errorMessage: message,
+              }
+            : item,
+        ),
+      };
+    }
+
+    case "chart-result": {
+      const toolCallId = event.data.toolCallId;
+      if (typeof toolCallId !== "string") return {};
+
+      const toolResultData: Record<string, unknown> = {};
+      if (typeof event.data.snapshotId === "string") {
+        toolResultData.snapshotId = event.data.snapshotId;
+      }
+      if (event.data.config !== undefined) {
+        toolResultData.config = event.data.config;
+      }
+      if (event.data.exploration !== undefined) {
+        toolResultData.exploration = event.data.exploration;
+      }
+
+      return {
+        activeTurnItems: currentItems.map((item) =>
+          item.kind === "tool-status" && item.toolCallId === toolCallId
+            ? { ...item, toolResultData }
             : item,
         ),
       };

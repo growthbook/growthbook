@@ -1,0 +1,34 @@
+.truncationWarning {
+  margin: 0 0 var(--space-2);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--amber-11);
+}
+
+.wrap,
+.embedded {
+  max-width: 100%;
+}
+
+.embedded .summary {
+  padding: 2px 0;
+}
+
+.summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.details .pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  max-height: min(75vh, 4000px);
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  border-radius: var(--radius-2);
+  background: var(--gray-2);
+  color: var(--gray-12);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

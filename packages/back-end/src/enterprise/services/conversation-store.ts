@@ -1,7 +1,7 @@
-import type { ModelMessage } from "ai";
+import type { RichMessage } from "shared";
 
 interface ConversationEntry {
-  messages: ModelMessage[];
+  messages: RichMessage[];
   lastAccessedAt: number;
   isStreaming: boolean;
   lastStreamedAt: number;
@@ -13,7 +13,7 @@ interface ConversationEntry {
 
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-const MAX_MESSAGES_PER_CONVERSATION = 100;
+const MAX_MESSAGES_PER_CONVERSATION = 200;
 
 const store = new Map<string, ConversationEntry>();
 
@@ -41,7 +41,7 @@ function getOrCreate(conversationId: string): ConversationEntry {
   return entry;
 }
 
-export function getConversation(conversationId: string): ModelMessage[] {
+export function getConversation(conversationId: string): RichMessage[] {
   const entry = store.get(conversationId);
   if (!entry) return [];
   entry.lastAccessedAt = now();
@@ -73,7 +73,7 @@ export function initConversation(
 
 export function appendMessages(
   conversationId: string,
-  messages: ModelMessage[],
+  messages: RichMessage[],
 ): void {
   if (!messages.length) return;
   const entry = getOrCreate(conversationId);
@@ -113,7 +113,7 @@ export function touchStreamedAt(conversationId: string): void {
 export interface ConversationStatus {
   isStreaming: boolean;
   lastStreamedAt: number;
-  messages: ModelMessage[];
+  messages: RichMessage[];
 }
 
 export interface ConversationSummary {
@@ -139,6 +139,37 @@ export function getConversationStatus(
     lastStreamedAt: entry.lastStreamedAt,
     messages: entry.messages,
   };
+}
+
+/**
+ * Find a persisted tool-result whose data includes the given snapshotId.
+ */
+export function findSnapshot(
+  conversationId: string,
+  snapshotId: string,
+): RichMessage | undefined {
+  const messages = getConversation(conversationId);
+  for (const m of messages) {
+    if (m.kind !== "tool-result") continue;
+    const sid = m.data.snapshotId;
+    if (sid === snapshotId) return m;
+  }
+  return undefined;
+}
+
+/**
+ * Most recent tool-result for the given tool name, or undefined.
+ */
+export function getLatestToolResult(
+  conversationId: string,
+  toolName: string,
+): RichMessage | undefined {
+  const messages = getConversation(conversationId);
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.kind === "tool-result" && m.toolName === toolName) return m;
+  }
+  return undefined;
 }
 
 /**

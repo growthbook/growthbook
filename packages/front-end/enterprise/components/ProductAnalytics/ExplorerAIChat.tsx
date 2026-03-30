@@ -6,6 +6,7 @@ import {
   PiSparkle,
   PiCheckCircle,
   PiCircleNotch,
+  PiWarningFill,
 } from "react-icons/pi";
 import {
   ExplorationConfig,
@@ -13,19 +14,23 @@ import {
 } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
-import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
 import {
   useAIChat,
+  useChatListBackgroundPoll,
   type ActiveTurnItem,
-  type ChatMessage,
-  type SSEEvent,
+  type RichMessage,
   type ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
+import {
+  pairedToolCallForResult,
+  toolCallHasPairedResult,
+} from "@/enterprise/hooks/useAIChat/pairRichToolMessages";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
+import ToolTransparencyBlock from "@/enterprise/components/AIChat/ToolTransparencyBlock";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import styles from "./ExplorerAIChat.module.scss";
@@ -49,13 +54,22 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   getConfigSchema: "Loading config schema...",
 };
 
+function chartDataFromRecord(data: Record<string, unknown>): ChartData | null {
+  const config = data.config as ExplorationConfig | undefined;
+  if (!config || typeof config !== "object") return null;
+  return {
+    config,
+    exploration: (data.exploration as ProductAnalyticsExploration) ?? null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Chart render helper (shared between active items and finalized messages)
 // ---------------------------------------------------------------------------
 
-function renderChart(key: string, chartData: ChartData) {
+function renderChart(chartData: ChartData, toolTransparency?: React.ReactNode) {
   return (
-    <Box key={key} className={styles.chartMessage}>
+    <Box className={styles.chartMessage}>
       <Flex align="center" gap="2" mb="2">
         <PiSparkle size={12} />
         <Text size="small" weight="medium">
@@ -70,6 +84,9 @@ function renderChart(key: string, chartData: ChartData) {
           loading={false}
         />
       </Box>
+      {toolTransparency ? (
+        <Box className={styles.chartToolTransparency}>{toolTransparency}</Box>
+      ) : null}
     </Box>
   );
 }
@@ -79,8 +96,6 @@ function renderChart(key: string, chartData: ChartData) {
 // ---------------------------------------------------------------------------
 
 export default function ExplorerAIChat() {
-  // Maps toolCallId → ChartData, populated from chart-result SSE events
-  const chartDataRef = useRef<Map<string, ChartData>>(new Map());
   const prevLoadingRef = useRef(false);
 
   const { hasCommercialFeature } = useUser();
@@ -91,56 +106,9 @@ export default function ExplorerAIChat() {
 
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
-  // Stash chart data keyed by toolCallId so the render helpers can find it
-  const handleSSEEvent = useCallback((event: SSEEvent) => {
-    if (event.type === "chart-result") {
-      const toolCallId = event.data.toolCallId;
-      if (typeof toolCallId === "string") {
-        chartDataRef.current.set(toolCallId, {
-          config: event.data.config as ExplorationConfig,
-          exploration:
-            (event.data.exploration as ProductAnalyticsExploration) ?? null,
-        });
-      }
-    }
-  }, []);
-
-  // Reconstruct chart data from stored tool results when loading a conversation
-  const handleRawMessages = useCallback((rawMessages: unknown[]) => {
-    type ToolResultPart = {
-      type: string;
-      toolCallId?: string;
-      toolName?: string;
-      result?: unknown;
-    };
-
-    for (const msg of rawMessages as Array<{
-      role: string;
-      content: unknown;
-    }>) {
-      if (msg.role !== "tool" || !Array.isArray(msg.content)) continue;
-
-      for (const part of msg.content as ToolResultPart[]) {
-        if (
-          part.type === "tool-result" &&
-          part.toolName === "runExploration" &&
-          part.toolCallId &&
-          part.result
-        ) {
-          const result = part.result as {
-            config?: ExplorationConfig;
-            exploration?: ProductAnalyticsExploration;
-          };
-          if (result.config) {
-            chartDataRef.current.set(part.toolCallId, {
-              config: result.config,
-              exploration: result.exploration ?? null,
-            });
-          }
-        }
-      }
-    }
-  }, []);
+  const { data: listData, mutate: refreshList } = useApi<{
+    conversations: ConversationSummary[];
+  }>(CHAT_LIST_ENDPOINT);
 
   const {
     messages,
@@ -163,15 +131,18 @@ export default function ExplorerAIChat() {
       datasourceId: draftExploreState.datasource,
     }),
     toolStatusLabels: TOOL_STATUS_LABELS,
-    onSSEEvent: handleSSEEvent,
-    onRawMessages: handleRawMessages,
     conversationStorageKey: `pa-chat-${draftExploreState.datasource ?? "default"}`,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
+    onStreamAccepted: () => {
+      void refreshList();
+    },
   });
 
-  const { data: listData, mutate: refreshList } = useApi<{
-    conversations: ConversationSummary[];
-  }>(CHAT_LIST_ENDPOINT);
+  useChatListBackgroundPoll(
+    listData?.conversations,
+    conversationId,
+    refreshList,
+  );
 
   // Refresh sidebar list when a streaming turn completes
   useEffect(() => {
@@ -182,14 +153,12 @@ export default function ExplorerAIChat() {
   }, [loading, refreshList]);
 
   const handleNewChat = useCallback(() => {
-    chartDataRef.current = new Map();
     newChat();
     refreshList();
   }, [newChat, refreshList]);
 
   const handleLoadConversation = useCallback(
     (id: string) => {
-      chartDataRef.current = new Map();
       return loadConversation(id);
     },
     [loadConversation],
@@ -229,25 +198,47 @@ export default function ExplorerAIChat() {
     }
 
     if (item.kind === "tool-status") {
-      // If this tool produced a chart, render it instead of just a pill
-      const chartData = chartDataRef.current.get(item.toolCallId);
+      const chartData = item.toolResultData
+        ? chartDataFromRecord(item.toolResultData)
+        : null;
+      const isError = item.status === "error";
       if (chartData && item.status === "done") {
-        return renderChart(item.toolCallId, chartData);
+        return (
+          <Box key={item.toolCallId}>
+            {renderChart(
+              chartData,
+              <ToolTransparencyBlock
+                embedded
+                summaryLabel="Query & tool response"
+                toolInput={item.toolInput}
+                argsTextPreview={item.argsTextPreview}
+                toolOutput={item.toolOutput}
+              />,
+            )}
+          </Box>
+        );
       }
       return (
-        <Box key={item.id} className={styles.assistantMessage}>
+        <Box key={item.toolCallId} className={styles.assistantMessage}>
           <Flex align="center" gap="2">
             {item.status === "running" ? (
               <span className={styles.spinIcon}>
                 <PiCircleNotch size={12} />
               </span>
+            ) : isError ? (
+              <PiWarningFill size={12} color="var(--amber-11)" />
             ) : (
               <PiCheckCircle size={12} color="var(--green-9)" />
             )}
             <Text size="small" color="text-low">
-              {item.label}
+              {isError && item.errorMessage ? item.errorMessage : item.label}
             </Text>
           </Flex>
+          <ToolTransparencyBlock
+            toolInput={item.toolInput}
+            argsTextPreview={item.argsTextPreview}
+            toolOutput={item.toolOutput}
+          />
         </Box>
       );
     }
@@ -270,52 +261,81 @@ export default function ExplorerAIChat() {
     return null;
   };
 
-  const renderMessage = (msg: ChatMessage) => {
-    // If this tool-call produced a chart, render the chart
-    if (msg.kind === "tool-call" && msg.toolCallId) {
-      const chartData = chartDataRef.current.get(msg.toolCallId);
-      if (chartData) {
-        return renderChart(msg.toolCallId, chartData);
-      }
+  const renderMessage = (msg: RichMessage, index: number) => {
+    if (msg.kind === "tool-call" && toolCallHasPairedResult(messages, index)) {
+      return null;
+    }
+
+    if (msg.kind === "user-text") {
+      return (
+        <Box key={msg.id} className={styles.userMessage}>
+          <Text size="small">{msg.content}</Text>
+        </Box>
+      );
+    }
+
+    if (msg.kind === "assistant-text") {
       return (
         <Box key={msg.id} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <PiCheckCircle size={12} color="var(--green-9)" />
-            <Text size="small" color="text-low">
-              {msg.toolLabel}
-            </Text>
-          </Flex>
+          <Markdown>{msg.content}</Markdown>
         </Box>
       );
     }
 
     if (msg.kind === "tool-call") {
+      const label =
+        TOOL_STATUS_LABELS[msg.toolName] ?? msg.toolName ?? "Tool call";
       return (
-        <Box key={msg.id} className={styles.assistantMessage}>
+        <Box key={msg.toolCallId} className={styles.assistantMessage}>
           <Flex align="center" gap="2">
             <PiCheckCircle size={12} color="var(--green-9)" />
             <Text size="small" color="text-low">
-              {msg.toolLabel}
+              {label}
             </Text>
           </Flex>
+          <ToolTransparencyBlock toolInput={msg.args} />
         </Box>
       );
     }
 
-    return (
-      <Box
-        key={msg.id}
-        className={
-          msg.role === "user" ? styles.userMessage : styles.assistantMessage
+    if (msg.kind === "tool-result") {
+      const pairedCall = pairedToolCallForResult(messages, index);
+
+      if (msg.toolName === "runExploration") {
+        const chartData = chartDataFromRecord(msg.data);
+        if (chartData) {
+          return (
+            <Box key={msg.toolCallId}>
+              {renderChart(
+                chartData,
+                <ToolTransparencyBlock
+                  embedded
+                  summaryLabel="Query & tool response"
+                  toolInput={pairedCall?.args}
+                  toolOutput={{ summary: msg.summary, data: msg.data }}
+                />,
+              )}
+            </Box>
+          );
         }
-      >
-        {msg.role === "assistant" ? (
-          <Markdown>{msg.content}</Markdown>
-        ) : (
-          <Text size="small">{msg.content}</Text>
-        )}
-      </Box>
-    );
+      }
+      return (
+        <Box key={msg.toolCallId} className={styles.assistantMessage}>
+          <Flex align="center" gap="2">
+            <PiCheckCircle size={12} color="var(--green-9)" />
+            <Text size="small" color="text-low">
+              {TOOL_STATUS_LABELS[msg.toolName] ?? msg.summary}
+            </Text>
+          </Flex>
+          <ToolTransparencyBlock
+            toolInput={pairedCall?.args}
+            toolOutput={{ summary: msg.summary, data: msg.data }}
+          />
+        </Box>
+      );
+    }
+
+    return null;
   };
 
   // ---------------------------------------------------------------------------
@@ -398,7 +418,7 @@ export default function ExplorerAIChat() {
           )}
 
           {[
-            ...messages.map(renderMessage),
+            ...messages.map((m, i) => renderMessage(m, i)),
             ...activeTurnItems.map(renderActiveTurnItem),
           ]}
 

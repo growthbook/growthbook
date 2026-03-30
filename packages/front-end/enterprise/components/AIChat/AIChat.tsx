@@ -5,6 +5,7 @@ import {
   PiPaperPlaneRight,
   PiCheckCircle,
   PiCircleNotch,
+  PiWarningFill,
 } from "react-icons/pi";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
@@ -15,12 +16,18 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
 import {
   useAIChat,
+  useChatListBackgroundPoll,
   type UseAIChatOptions,
   type ActiveTurnItem,
-  type ChatMessage,
+  type RichMessage,
   type ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
+import {
+  pairedToolCallForResult,
+  toolCallHasPairedResult,
+} from "@/enterprise/hooks/useAIChat/pairRichToolMessages";
 import ConversationSidebar from "./ConversationSidebar";
+import ToolTransparencyBlock from "./ToolTransparencyBlock";
 import styles from "./AIChat.module.scss";
 
 // ---------------------------------------------------------------------------
@@ -75,6 +82,12 @@ export default function AIChat({
     shouldRun: () => !!getConversationsListEndpoint,
   });
 
+  useChatListBackgroundPoll(
+    listData?.conversations,
+    conversationId,
+    refreshList,
+  );
+
   // Refresh the sidebar list when a streaming turn completes
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
@@ -117,6 +130,7 @@ export default function AIChat({
       );
     }
     if (item.kind === "tool-status") {
+      const isError = item.status === "error";
       return (
         <Box key={item.id} className={styles.assistantMessage}>
           <Flex align="center" gap="2">
@@ -124,13 +138,20 @@ export default function AIChat({
               <span className={styles.spinIcon}>
                 <PiCircleNotch size={12} />
               </span>
+            ) : isError ? (
+              <PiWarningFill size={12} color="var(--amber-11)" />
             ) : (
               <PiCheckCircle size={12} color="var(--green-9)" />
             )}
             <Text size="small" color="text-low">
-              {item.label}
+              {isError && item.errorMessage ? item.errorMessage : item.label}
             </Text>
           </Flex>
+          <ToolTransparencyBlock
+            toolInput={item.toolInput}
+            argsTextPreview={item.argsTextPreview}
+            toolOutput={item.toolOutput}
+          />
         </Box>
       );
     }
@@ -151,34 +172,61 @@ export default function AIChat({
     return null;
   };
 
-  const renderMessage = (msg: ChatMessage) => {
+  const renderMessage = (msg: RichMessage, index: number) => {
+    if (msg.kind === "tool-call" && toolCallHasPairedResult(messages, index)) {
+      return null;
+    }
+
+    if (msg.kind === "user-text") {
+      return (
+        <Box key={msg.id} className={styles.userMessage}>
+          <Text size="small">{msg.content}</Text>
+        </Box>
+      );
+    }
+    if (msg.kind === "assistant-text") {
+      return (
+        <Box key={msg.id} className={styles.assistantMessage}>
+          <Markdown>{msg.content}</Markdown>
+        </Box>
+      );
+    }
     if (msg.kind === "tool-call") {
+      const label =
+        hookOptions.toolStatusLabels?.[msg.toolName] ??
+        msg.toolName ??
+        "Tool call";
       return (
         <Box key={msg.id} className={styles.assistantMessage}>
           <Flex align="center" gap="2">
             <PiCheckCircle size={12} color="var(--green-9)" />
             <Text size="small" color="text-low">
-              {msg.toolLabel}
+              {label}
             </Text>
           </Flex>
+          <ToolTransparencyBlock toolInput={msg.args} />
         </Box>
       );
     }
-
-    return (
-      <Box
-        key={msg.id}
-        className={
-          msg.role === "user" ? styles.userMessage : styles.assistantMessage
-        }
-      >
-        {msg.role === "assistant" ? (
-          <Markdown>{msg.content}</Markdown>
-        ) : (
-          <Text size="small">{msg.content}</Text>
-        )}
-      </Box>
-    );
+    if (msg.kind === "tool-result") {
+      const label = hookOptions.toolStatusLabels?.[msg.toolName] ?? msg.summary;
+      const pairedCall = pairedToolCallForResult(messages, index);
+      return (
+        <Box key={msg.id} className={styles.assistantMessage}>
+          <Flex align="center" gap="2">
+            <PiCheckCircle size={12} color="var(--green-9)" />
+            <Text size="small" color="text-low">
+              {label}
+            </Text>
+          </Flex>
+          <ToolTransparencyBlock
+            toolInput={pairedCall?.args}
+            toolOutput={{ summary: msg.summary, data: msg.data }}
+          />
+        </Box>
+      );
+    }
+    return null;
   };
 
   if (!hasAISuggestions || !aiEnabled) {
@@ -249,7 +297,7 @@ export default function AIChat({
         )}
 
         {[
-          ...messages.map(renderMessage),
+          ...messages.map((m, i) => renderMessage(m, i)),
           ...activeTurnItems.map(renderActiveTurnItem),
         ]}
 

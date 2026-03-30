@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import type { ModelMessage, ToolResultPart } from "ai";
+import type { RichMessage } from "shared";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -15,13 +15,21 @@ import { NotFoundError } from "back-end/src/util/errors";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
 import { aiTool } from "back-end/src/enterprise/services/ai";
+import { setPendingToolArtifact } from "back-end/src/enterprise/services/pending-tool-artifacts";
 import {
-  addSnapshot,
-  getSnapshot,
-  getSessionSnapshots,
-} from "back-end/src/enterprise/services/snapshot-store";
+  getPendingSnapshot,
+  registerPendingSnapshot,
+} from "back-end/src/enterprise/services/pending-snapshot-lookup";
 import {
+  getSessionLatestExplorationConfig,
+  nextSnapshotSlot,
+  setSessionLatestExplorationConfig,
+} from "back-end/src/enterprise/services/exploration-session-config";
+import {
+  findSnapshot,
+  getConversation,
   getConversationStatus,
+  getLatestToolResult,
   listConversations,
   type ConversationSummary,
 } from "back-end/src/enterprise/services/conversation-store";
@@ -230,62 +238,24 @@ function buildResultCsv(
   return csv;
 }
 
-/**
- * Replaces the content of tool result messages from older turns with compact
- * snapshot stub references. The most recent assistant+tool pair is left
- * untouched so the LLM has full context for its last action.
- *
- * Only the copy sent to the LLM is compacted — the conversation store always
- * holds the full uncompacted messages.
- */
-function compactMessages(messages: ModelMessage[]): ModelMessage[] {
-  let lastAssistantIdx = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "assistant") {
-      lastAssistantIdx = i;
-      break;
-    }
+function nextSnapshotId(conversationId: string): string {
+  const msgs = getConversation(conversationId);
+  const persisted = msgs.filter(
+    (m) => m.kind === "tool-result" && m.toolName === "runExploration",
+  ).length;
+  const slot = nextSnapshotSlot(conversationId);
+  return `snap_${conversationId.slice(0, 8)}_${persisted + slot}`;
+}
+
+function explorationConfigFromLatestRun(
+  msg: RichMessage | undefined,
+): ExplorationConfig | null {
+  if (!msg || msg.kind !== "tool-result" || msg.toolName !== "runExploration") {
+    return null;
   }
-
-  return messages.map((msg, idx) => {
-    if (idx >= lastAssistantIdx) return msg;
-
-    if (msg.role === "tool") {
-      const compactedContent = msg.content.map((part) => {
-        if (part.type !== "tool-result") return part;
-
-        let snapshotHint = "";
-        if (part.toolName === "runExploration") {
-          try {
-            const rawOutput = part.output;
-            const parsed =
-              rawOutput &&
-              typeof rawOutput === "object" &&
-              "type" in rawOutput &&
-              rawOutput.type === "text" &&
-              "value" in rawOutput
-                ? JSON.parse(rawOutput.value as string)
-                : null;
-            if (parsed?.snapshotId) {
-              snapshotHint = ` (snapshotId: ${parsed.snapshotId})`;
-            }
-          } catch {
-            // ignore parse errors
-          }
-        }
-
-        const stub = `[Result compacted${snapshotHint} — use getSnapshot to retrieve full data]`;
-        return {
-          ...part,
-          output: { type: "text" as const, value: stub },
-        } satisfies ToolResultPart;
-      });
-
-      return { ...msg, content: compactedContent };
-    }
-
-    return msg;
-  });
+  const c = msg.data.config;
+  if (c && typeof c === "object") return c as ExplorationConfig;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -409,10 +379,10 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
           "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.",
         inputSchema: z.object({}),
         execute: async () => {
-          const snaps = getSessionSnapshots(conversationId);
-          const latest = snaps.length > 0 ? snaps[snaps.length - 1] : null;
-          return latest?.config
-            ? JSON.stringify(latest.config, null, 2)
+          const latest = getLatestToolResult(conversationId, "runExploration");
+          const cfg = explorationConfigFromLatestRun(latest);
+          return cfg
+            ? JSON.stringify(cfg, null, 2)
             : "No current exploration config is available yet.";
         },
       }),
@@ -444,17 +414,32 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
               { cache: "preferred" },
             );
 
-            const snaps = getSessionSnapshots(conversationId);
             const prevConfig =
-              snaps.length > 0 ? snaps[snaps.length - 1].config : null;
+              getSessionLatestExplorationConfig(conversationId) ??
+              explorationConfigFromLatestRun(
+                getLatestToolResult(conversationId, "runExploration"),
+              );
             const summary = buildSnapshotSummary(prevConfig, config);
             const resultCsv = buildResultCsv(
               exploration?.result?.rows ?? [],
               config,
             );
 
-            const snap = addSnapshot(conversationId, {
+            const snapshotId = nextSnapshotId(conversationId);
+
+            setSessionLatestExplorationConfig(conversationId, config);
+
+            setPendingToolArtifact(conversationId, options.toolCallId, {
               summary,
+              snapshotId,
+              config,
+              exploration: exploration ?? null,
+              resultCsv,
+            });
+
+            registerPendingSnapshot(conversationId, {
+              summary,
+              snapshotId,
               config,
               exploration: exploration ?? null,
               resultCsv,
@@ -462,14 +447,14 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
             emit("chart-result", {
               toolCallId: options.toolCallId,
-              snapshotId: snap.id,
-              config: snap.config,
-              exploration: snap.exploration,
+              snapshotId,
+              config,
+              exploration: exploration ?? null,
             });
 
             return JSON.stringify({
               status: "success",
-              snapshotId: snap.id,
+              snapshotId,
               rowCount: exploration?.result?.rows?.length ?? 0,
               summary,
             });
@@ -495,16 +480,34 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
             ),
         }),
         execute: async ({ snapshotId }: { snapshotId: string }) => {
-          const snap = getSnapshot(conversationId, snapshotId);
-          if (!snap) return `Snapshot "${snapshotId}" not found.`;
-          return (
-            `Snapshot ${snap.id} (${snap.timestamp}):\n` +
-            `Summary: ${snap.summary}\n` +
-            `Config: ${JSON.stringify(snap.config, null, 2)}\n` +
-            (snap.resultCsv
-              ? `Result data (CSV):\n${snap.resultCsv}`
-              : "No result data.")
-          );
+          const msg = findSnapshot(conversationId, snapshotId);
+          if (msg?.kind === "tool-result") {
+            const cfg = msg.data.config as ExplorationConfig | undefined;
+            const csv =
+              typeof msg.data.resultCsv === "string"
+                ? msg.data.resultCsv
+                : null;
+            return (
+              `Snapshot ${snapshotId} (${new Date(msg.ts).toISOString()}):\n` +
+              `Summary: ${msg.summary}\n` +
+              `Config: ${JSON.stringify(cfg ?? {}, null, 2)}\n` +
+              (csv ? `Result data (CSV):\n${csv}` : "No result data.")
+            );
+          }
+
+          const pending = getPendingSnapshot(conversationId, snapshotId);
+          if (pending) {
+            const cfg = pending.config as ExplorationConfig | undefined;
+            const csv = pending.resultCsv;
+            return (
+              `Snapshot ${snapshotId} (in-flight):\n` +
+              `Summary: ${pending.summary}\n` +
+              `Config: ${JSON.stringify(cfg ?? {}, null, 2)}\n` +
+              (csv ? `Result data (CSV):\n${csv}` : "No result data.")
+            );
+          }
+
+          return `Snapshot "${snapshotId}" not found.`;
         },
       }),
     };
@@ -512,8 +515,6 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
   temperature: 0.3,
   maxSteps: 10,
-
-  preSubmit: compactMessages,
 };
 
 export const postChat = createAgentHandler(productAnalyticsAgentConfig);
@@ -528,7 +529,7 @@ export const getChat = async (
     status: 200;
     isStreaming: boolean;
     lastStreamedAt: number;
-    messages: ModelMessage[];
+    messages: RichMessage[];
   }>,
 ) => {
   const { conversationId } = req.params;

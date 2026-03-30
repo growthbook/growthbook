@@ -1,6 +1,8 @@
+import { randomUUID } from "crypto";
 import type { Response } from "express";
-import type { ModelMessage, ToolSet, TextStreamPart } from "ai";
+import type { ToolSet, TextStreamPart } from "ai";
 import type { AIPromptType } from "shared/ai";
+import type { RichMessage } from "shared";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -19,7 +21,18 @@ import {
   touchStreamedAt,
   initConversation,
 } from "back-end/src/enterprise/services/conversation-store";
+import {
+  peekToolOutputToRich,
+  stripForLLM,
+} from "back-end/src/enterprise/services/rich-message";
+import { clearPendingToolArtifactsForConversation } from "back-end/src/enterprise/services/pending-tool-artifacts";
+import {
+  clearSessionLatestExplorationConfig,
+  resetSnapshotSlotCounter,
+} from "back-end/src/enterprise/services/exploration-session-config";
+import { clearPendingSnapshotsForConversation } from "back-end/src/enterprise/services/pending-snapshot-lookup";
 import { logger } from "back-end/src/util/logger";
+import { serializeUnknownForSSE } from "back-end/src/enterprise/services/sse-tool-payload";
 
 export type AgentEmit = (event: string, data: unknown) => void;
 
@@ -49,15 +62,10 @@ export interface AgentConfig<TParams = unknown> {
   maxSteps?: number;
 
   /**
-   * Transform messages before sending to the LLM (e.g. context compaction).
-   * The conversation store always receives the uncompacted originals.
-   */
-  preSubmit?: (messages: ModelMessage[]) => ModelMessage[];
-
-  /**
    * Called after the default SSE mapping for every AI SDK stream part.
    * Use this to emit additional events. Default events (text-delta,
-   * tool-call-start, tool-call-end, reasoning-delta, error) are always emitted.
+   * tool-call-start, tool-call-args-delta, tool-call-input, tool-call-end with
+   * output, tool-call-error, reasoning-delta, error) are always emitted.
    */
   onLLMEvent?: (part: TextStreamPart<ToolSet>, emit: AgentEmit) => void;
 }
@@ -86,6 +94,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     } & Record<string, unknown>;
     const { message, conversationId } = body;
     const context = getContextFromReq(req);
+
+    resetSnapshotSlotCounter(conversationId);
 
     // --- Gate: commercial feature ---
     if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
@@ -141,13 +151,15 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       );
     }
 
-    const userMessage: ModelMessage = { role: "user", content: message };
-    const fullMessages: ModelMessage[] = [...history, userMessage];
-
-    // --- Pre-submit hook (e.g. compaction) ---
-    const messagesForLLM = config.preSubmit
-      ? config.preSubmit(fullMessages)
-      : fullMessages;
+    const userMessage: RichMessage = {
+      kind: "user-text",
+      id: randomUUID(),
+      content: message,
+      ts: Date.now(),
+    };
+    appendMessages(conversationId, [userMessage]);
+    const fullRich = getConversation(conversationId);
+    const messagesForLLM = stripForLLM(fullRich);
 
     // --- Set SSE response headers ---
     res.setHeader("Content-Type", "text/event-stream");
@@ -181,6 +193,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       maxSteps: config.maxSteps,
     });
 
+    let assistantTextBuffer = "";
+
     try {
       for await (const part of stream.fullStream) {
         if (part.type !== "text-delta" && part.type !== "reasoning-delta") {
@@ -194,6 +208,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         // Default event mapping — always emitted
         switch (part.type) {
           case "text-delta":
+            assistantTextBuffer += part.text;
             emit("text-delta", { content: part.text });
             break;
           case "tool-input-start":
@@ -202,12 +217,143 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
               toolCallId: part.id,
             });
             break;
-          case "tool-result":
+          case "tool-input-delta": {
+            const toolCallId =
+              "id" in part && typeof part.id === "string" ? part.id : "";
+            const delta =
+              "delta" in part && typeof part.delta === "string"
+                ? part.delta
+                : "";
+            if (toolCallId && delta) {
+              emit("tool-call-args-delta", {
+                toolCallId,
+                inputTextDelta: delta,
+              });
+            }
+            break;
+          }
+          case "tool-call": {
+            const toolCallId =
+              "toolCallId" in part && typeof part.toolCallId === "string"
+                ? part.toolCallId
+                : "";
+            const toolName =
+              "toolName" in part && typeof part.toolName === "string"
+                ? part.toolName
+                : "";
+            if (!toolCallId || !toolName) break;
+
+            const rawInput = "input" in part ? part.input : undefined;
+            const invalid = "invalid" in part && Boolean(part.invalid);
+            let errorText: string | undefined;
+            if (invalid && "error" in part && part.error != null) {
+              errorText =
+                part.error instanceof Error
+                  ? part.error.message
+                  : typeof part.error === "string"
+                    ? part.error
+                    : JSON.stringify(part.error);
+            }
+
+            emit("tool-call-input", {
+              toolCallId,
+              toolName,
+              input: serializeUnknownForSSE(rawInput),
+              ...(invalid ? { invalid: true as const } : {}),
+              ...(errorText != null ? { errorText } : {}),
+            });
+
+            const trimmed = assistantTextBuffer.trim();
+            if (trimmed) {
+              appendMessages(conversationId, [
+                {
+                  kind: "assistant-text",
+                  id: randomUUID(),
+                  content: trimmed,
+                  ts: Date.now(),
+                },
+              ]);
+              assistantTextBuffer = "";
+            }
+
+            const args =
+              rawInput &&
+              typeof rawInput === "object" &&
+              rawInput !== null &&
+              !invalid
+                ? (rawInput as Record<string, unknown>)
+                : undefined;
+            appendMessages(conversationId, [
+              {
+                kind: "tool-call",
+                id: randomUUID(),
+                toolName,
+                toolCallId,
+                ...(args ? { args } : {}),
+                ts: Date.now(),
+              },
+            ]);
+            break;
+          }
+          case "tool-result": {
+            const preliminary =
+              "preliminary" in part && Boolean(part.preliminary);
+            const rawInput = "input" in part ? part.input : undefined;
             emit("tool-call-end", {
               toolName: part.toolName,
               toolCallId: part.toolCallId,
+              output: serializeUnknownForSSE(part.output),
+              ...(rawInput !== undefined
+                ? { input: serializeUnknownForSSE(rawInput) }
+                : {}),
+              ...(preliminary ? { preliminary: true as const } : {}),
             });
+
+            if (!preliminary) {
+              const { summary, data } = peekToolOutputToRich(
+                conversationId,
+                part.toolName,
+                part.toolCallId,
+                part.output,
+              );
+              appendMessages(conversationId, [
+                {
+                  kind: "tool-result",
+                  id: randomUUID(),
+                  toolName: part.toolName,
+                  toolCallId: part.toolCallId,
+                  summary,
+                  data,
+                  ts: Date.now(),
+                },
+              ]);
+            }
             break;
+          }
+          case "tool-error": {
+            const toolCallId =
+              "toolCallId" in part && typeof part.toolCallId === "string"
+                ? part.toolCallId
+                : "";
+            const toolName =
+              "toolName" in part && typeof part.toolName === "string"
+                ? part.toolName
+                : "";
+            const message =
+              "error" in part && part.error instanceof Error
+                ? part.error.message
+                : "error" in part && typeof part.error === "string"
+                  ? part.error
+                  : "Tool execution failed";
+            if (toolCallId) {
+              emit("tool-call-error", {
+                toolCallId,
+                ...(toolName ? { toolName } : {}),
+                message,
+              });
+            }
+            break;
+          }
           case "reasoning-delta":
             emit("reasoning-delta", { text: part.text });
             break;
@@ -232,12 +378,30 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       });
     }
 
-    // --- Persist full (uncompacted) messages to conversation store ---
+    const tail = assistantTextBuffer.trim();
+    if (tail) {
+      appendMessages(conversationId, [
+        {
+          kind: "assistant-text",
+          id: randomUUID(),
+          content: tail,
+          ts: Date.now(),
+        },
+      ]);
+    }
+
     try {
-      const response = await stream.response;
-      appendMessages(conversationId, [userMessage, ...response.messages]);
+      await stream.response;
     } catch {
-      // Non-fatal: next turn will just lose this turn's history
+      // Stream may already be settled; ignore
+    }
+
+    try {
+      clearSessionLatestExplorationConfig(conversationId);
+      clearPendingSnapshotsForConversation(conversationId);
+      clearPendingToolArtifactsForConversation(conversationId);
+    } catch {
+      // ignore cleanup errors
     }
 
     // --- Clear streaming flag and finalize ---

@@ -1,16 +1,19 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
-  ChatMessage,
+  ConversationLoadResponse,
+  RichMessage,
   UseAIChatOptions,
   UseAIChatReturn,
 } from "./types";
+import {
+  REMOTE_STREAM_POLL_INTERVAL_MS,
+  REMOTE_STREAM_STALE_MS,
+} from "./remoteStreamConstants";
 import { parseSSEEvents } from "./parseSSE";
 import { processSSEEvent } from "./processSSEEvent";
 import { useTypewriter } from "./useTypewriter";
-import { useReconnect } from "./useReconnect";
-import { hydrateMessages } from "./utils";
 
 // ---------------------------------------------------------------------------
 // useAIChat
@@ -23,7 +26,7 @@ export function useAIChat({
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
-  onRawMessages,
+  onStreamAccepted,
 }: UseAIChatOptions): UseAIChatReturn {
   const messageCounterRef = useRef(0);
   const nextId = useCallback(() => messageCounterRef.current++, []);
@@ -40,7 +43,7 @@ export function useAIChat({
     return newId;
   });
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<RichMessage[]>([]);
   const [activeTurnItems, setActiveTurnItems] = useState<ActiveTurnItem[]>([]);
   const activeTurnItemsRef = useRef<ActiveTurnItem[]>([]);
 
@@ -49,16 +52,30 @@ export function useAIChat({
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const remotePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  /** Conversation id the active remote poll is for; stale callbacks must not apply. */
+  const remotePollTargetIdRef = useRef<string | null>(null);
+  const getConversationEndpointRef = useRef(getConversationEndpoint);
+  getConversationEndpointRef.current = getConversationEndpoint;
 
   const { fetchRaw, apiCall } = useAuth();
+
+  const clearRemotePoll = useCallback(() => {
+    if (remotePollIntervalRef.current !== null) {
+      clearInterval(remotePollIntervalRef.current);
+      remotePollIntervalRef.current = null;
+    }
+    remotePollTargetIdRef.current = null;
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Active items state helper
   // ---------------------------------------------------------------------------
 
-  const { displayedTextMap, clearDisplayedText } = useTypewriter(
-    activeTurnItemsRef,
-  );
+  const { displayedTextMap, clearDisplayedText } =
+    useTypewriter(activeTurnItemsRef);
 
   const setActive = useCallback(
     (items: ActiveTurnItem[]) => {
@@ -70,50 +87,161 @@ export function useAIChat({
   );
 
   // ---------------------------------------------------------------------------
-  // Reconnect: on mount, check for active/recent conversations
+  // Load conversation from server when id changes; poll while remote stream runs
   // ---------------------------------------------------------------------------
 
-  useReconnect({
-    conversationId,
-    conversationStorageKey,
-    getConversationEndpoint,
-    apiCall,
-    messageCounterRef,
-    toolStatusLabels,
-    setMessages,
-    setLoading,
-    setError,
-    onRawMessages,
-  });
+  useEffect(() => {
+    const getEp = getConversationEndpointRef.current;
+    if (!getEp) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const data = await apiCall<ConversationLoadResponse>(
+          getEp(conversationId),
+        );
+        if (cancelled) return;
+
+        setMessages(data.messages ?? []);
+
+        const isRecent =
+          data.lastStreamedAt > 0 &&
+          Date.now() - data.lastStreamedAt < REMOTE_STREAM_STALE_MS;
+
+        if (data.isStreaming && isRecent) {
+          setLoading(true);
+          const targetId = conversationId;
+          remotePollTargetIdRef.current = targetId;
+          remotePollIntervalRef.current = setInterval(async () => {
+            try {
+              const poll = await apiCall<ConversationLoadResponse>(
+                getEp(targetId),
+              );
+              if (cancelled || remotePollTargetIdRef.current !== targetId)
+                return;
+              setMessages(poll.messages ?? []);
+              if (!poll.isStreaming) {
+                clearRemotePoll();
+                setLoading(false);
+              }
+            } catch {
+              if (!cancelled && remotePollTargetIdRef.current === targetId) {
+                clearRemotePoll();
+                setLoading(false);
+              }
+            }
+          }, REMOTE_STREAM_POLL_INTERVAL_MS);
+        } else if (data.isStreaming && !isRecent) {
+          setError("Generation was interrupted. You can send a new message.");
+          setLoading(false);
+        } else {
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Failed to load conversation.");
+          setLoading(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      clearRemotePoll();
+    };
+  }, [apiCall, clearRemotePoll, conversationId]);
 
   // ---------------------------------------------------------------------------
-  // finalizeTurn: convert active items to persisted ChatMessages
+  // finalizeTurn: convert active items to persisted RichMessages (fallback)
   // ---------------------------------------------------------------------------
 
   const finalizeTurn = useCallback(() => {
     const items = activeTurnItemsRef.current;
     if (!items.length) return;
 
-    const newMessages: ChatMessage[] = [];
+    const toolOutputToData = (output: unknown): Record<string, unknown> => {
+      if (output && typeof output === "object" && !Array.isArray(output)) {
+        return { ...(output as Record<string, unknown>) };
+      }
+      return { value: output as unknown };
+    };
+
+    const summaryFromOutput = (output: unknown, fallback: string): string => {
+      if (typeof output === "string") {
+        return output;
+      }
+      try {
+        return JSON.stringify(output);
+      } catch {
+        return fallback;
+      }
+    };
+
+    const newMessages: RichMessage[] = [];
+    const ts = () => Date.now();
     for (const item of items) {
       if (item.kind === "thinking") {
         continue;
       } else if (item.kind === "text" && item.content.trim()) {
         newMessages.push({
+          kind: "assistant-text",
           id: `msg_${messageCounterRef.current++}`,
-          role: "assistant",
-          kind: "text",
           content: item.content,
+          ts: ts(),
         });
       } else if (item.kind === "tool-status") {
+        const args =
+          item.toolInput && Object.keys(item.toolInput).length > 0
+            ? item.toolInput
+            : undefined;
         newMessages.push({
-          id: `msg_${messageCounterRef.current++}`,
-          role: "assistant",
           kind: "tool-call",
-          content: "",
-          toolLabel: item.label,
+          id: `msg_${messageCounterRef.current++}`,
+          toolName: item.toolName,
           toolCallId: item.toolCallId,
+          ...(args ? { args } : {}),
+          ts: ts(),
         });
+        if (
+          item.toolResultData &&
+          Object.keys(item.toolResultData).length > 0
+        ) {
+          newMessages.push({
+            kind: "tool-result",
+            id: `msg_${messageCounterRef.current++}`,
+            toolName: item.toolName,
+            toolCallId: item.toolCallId,
+            summary: item.label,
+            data: item.toolResultData,
+            ts: ts(),
+          });
+        } else if (item.status === "done" && item.toolOutput !== undefined) {
+          newMessages.push({
+            kind: "tool-result",
+            id: `msg_${messageCounterRef.current++}`,
+            toolName: item.toolName,
+            toolCallId: item.toolCallId,
+            summary: summaryFromOutput(item.toolOutput, item.label),
+            data: toolOutputToData(item.toolOutput),
+            ts: ts(),
+          });
+        } else if (item.status === "error") {
+          newMessages.push({
+            kind: "tool-result",
+            id: `msg_${messageCounterRef.current++}`,
+            toolName: item.toolName,
+            toolCallId: item.toolCallId,
+            summary: item.errorMessage ?? "Tool error",
+            data: {
+              error: true,
+              message: item.errorMessage ?? "Tool error",
+            },
+            ts: ts(),
+          });
+        }
       }
     }
 
@@ -123,6 +251,25 @@ export function useAIChat({
     setActive([]);
   }, [setActive]);
 
+  const syncMessagesFromServer = useCallback(async () => {
+    if (!getConversationEndpoint) return;
+    try {
+      const data = await apiCall<ConversationLoadResponse>(
+        getConversationEndpoint(conversationId),
+      );
+      setMessages(data.messages ?? []);
+    } catch {
+      finalizeTurn();
+    }
+    setActive([]);
+  }, [
+    apiCall,
+    conversationId,
+    finalizeTurn,
+    getConversationEndpoint,
+    setActive,
+  ]);
+
   // ---------------------------------------------------------------------------
   // sendMessage
   // ---------------------------------------------------------------------------
@@ -131,21 +278,24 @@ export function useAIChat({
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
-    const userMessage: ChatMessage = {
+    const userMessage: RichMessage = {
+      kind: "user-text",
       id: `msg_${messageCounterRef.current++}`,
-      role: "user",
       content: trimmed,
-      kind: "text",
+      ts: Date.now(),
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setError(null);
+    clearRemotePoll();
     setLoading(true);
     setActive([]);
     setWaitingForNextStep(false);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    let streamCompletedOk = false;
 
     try {
       const response = await fetchRaw(endpoint, {
@@ -167,14 +317,14 @@ export function useAIChat({
         } else {
           setError(errorData?.message || `Error: ${response.status}`);
         }
-        setLoading(false);
         return;
       }
+
+      onStreamAccepted?.();
 
       const reader = response.body?.getReader();
       if (!reader) {
         setError("Streaming not supported");
-        setLoading(false);
         return;
       }
 
@@ -202,9 +352,10 @@ export function useAIChat({
           if (result.waitingForNextStep !== undefined)
             setWaitingForNextStep(result.waitingForNextStep);
           if (result.error) setError(result.error);
-          if (result.done) finalizeTurn();
         }
       }
+
+      streamCompletedOk = true;
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         // User cancelled — ignore
@@ -212,10 +363,17 @@ export function useAIChat({
         setError("Failed to get a response. Please try again.");
       }
     } finally {
-      finalizeTurn();
       setWaitingForNextStep(false);
       setLoading(false);
       abortControllerRef.current = null;
+      if (getConversationEndpoint && streamCompletedOk) {
+        await syncMessagesFromServer();
+      } else if (getConversationEndpoint) {
+        setActive([]);
+      } else {
+        finalizeTurn();
+        setActive([]);
+      }
     }
   }, [
     input,
@@ -226,9 +384,13 @@ export function useAIChat({
     conversationId,
     toolStatusLabels,
     onSSEEvent,
+    onStreamAccepted,
     setActive,
     finalizeTurn,
+    syncMessagesFromServer,
+    getConversationEndpoint,
     nextId,
+    clearRemotePoll,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -237,6 +399,7 @@ export function useAIChat({
 
   const newChat = useCallback(() => {
     abortControllerRef.current?.abort();
+    clearRemotePoll();
     const newId = crypto.randomUUID();
     if (conversationStorageKey) {
       sessionStorage.setItem(conversationStorageKey, newId);
@@ -247,7 +410,7 @@ export function useAIChat({
     setError(null);
     setLoading(false);
     setWaitingForNextStep(false);
-  }, [conversationStorageKey, setActive]);
+  }, [conversationStorageKey, clearRemotePoll, setActive]);
 
   // ---------------------------------------------------------------------------
   // loadConversation: switch to an existing conversation by ID
@@ -256,6 +419,7 @@ export function useAIChat({
   const loadConversation = useCallback(
     async (id: string) => {
       abortControllerRef.current?.abort();
+      clearRemotePoll();
       if (conversationStorageKey) {
         sessionStorage.setItem(conversationStorageKey, id);
       }
@@ -264,36 +428,17 @@ export function useAIChat({
       setActive([]);
       setError(null);
       setWaitingForNextStep(false);
-      setLoading(true);
-
       if (getConversationEndpoint) {
-        try {
-          const data = await apiCall<{ messages: unknown[] }>(
-            getConversationEndpoint(id),
-          );
-          onRawMessages?.(data.messages);
-          const hydrated = hydrateMessages(
-            data.messages,
-            messageCounterRef,
-            toolStatusLabels,
-          );
-          if (hydrated.length > 0) setMessages(hydrated);
-        } catch {
-          setError("Failed to load conversation.");
-        } finally {
-          setLoading(false);
-        }
+        setLoading(true);
       } else {
         setLoading(false);
       }
     },
     [
+      clearRemotePoll,
       conversationStorageKey,
       getConversationEndpoint,
-      apiCall,
       setActive,
-      toolStatusLabels,
-      onRawMessages,
     ],
   );
 

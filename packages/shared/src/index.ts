@@ -8,5 +8,6 @@ export * as sdkVersioning from "./sdk-versioning";
 export * as types from "../types";
 export * as power from "./power";
 export * as health from "./health";
+export * from "./ai-chat";
 export * as sql from "./sql";
 export * as validators from "./validators";
