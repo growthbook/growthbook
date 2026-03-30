@@ -42,6 +42,8 @@ router.post(
   productAnalyticsController.postChat,
 );
 
+router.get("/chat", productAnalyticsController.listChats);
+
 router.get(
   "/chat/:conversationId",
   validateRequestMiddleware({

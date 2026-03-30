@@ -11,10 +11,6 @@ import {
   createEmptyValue,
 } from "@/enterprise/components/ProductAnalytics/util";
 
-function AIChatPageContent() {
-  return <ExplorerAIChat />;
-}
-
 export default function AIChatExplorePage() {
   const { datasources } = useDefinitions();
   const defaultDataset = createEmptyDataset("metric");
@@ -39,7 +35,7 @@ export default function AIChatExplorePage() {
         ]}
       />
       <ExplorerProvider initialConfig={defaultDraftState}>
-        <AIChatPageContent />
+        <ExplorerAIChat />
       </ExplorerProvider>
     </Box>
   );

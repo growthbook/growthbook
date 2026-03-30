@@ -12,12 +12,15 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import {
   useAIChat,
   type UseAIChatOptions,
   type ActiveTurnItem,
   type ChatMessage,
+  type ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
+import ConversationSidebar from "./ConversationSidebar";
 import styles from "./AIChat.module.scss";
 
 // ---------------------------------------------------------------------------
@@ -28,6 +31,8 @@ export interface AIChatProps extends UseAIChatOptions {
   title?: string;
   placeholder?: string;
   emptyStateMessage?: string;
+  /** When provided, a conversation history sidebar is shown. */
+  getConversationsListEndpoint?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,10 +43,12 @@ export default function AIChat({
   title = "AI Chat",
   placeholder = "Ask a question...",
   emptyStateMessage = "Ask a question and I'll help you find answers.",
+  getConversationsListEndpoint,
   ...hookOptions
 }: AIChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const prevLoadingRef = useRef(false);
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
@@ -53,12 +60,28 @@ export default function AIChat({
     displayedTextMap,
     sendMessage,
     newChat,
+    loadConversation,
     loading,
     waitingForNextStep,
     error,
     input,
     setInput,
+    conversationId,
   } = useAIChat(hookOptions);
+
+  const { data: listData, mutate: refreshList } = useApi<{
+    conversations: ConversationSummary[];
+  }>(getConversationsListEndpoint ?? "", {
+    shouldRun: () => !!getConversationsListEndpoint,
+  });
+
+  // Refresh the sidebar list when a streaming turn completes
+  useEffect(() => {
+    if (prevLoadingRef.current && !loading) {
+      refreshList();
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, refreshList]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -77,6 +100,11 @@ export default function AIChat({
     },
     [sendMessage],
   );
+
+  const handleNewChat = useCallback(() => {
+    newChat();
+    refreshList();
+  }, [newChat, refreshList]);
 
   const renderActiveTurnItem = (item: ActiveTurnItem) => {
     if (item.kind === "text") {
@@ -174,9 +202,10 @@ export default function AIChat({
   }
 
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
+  const conversations = listData?.conversations ?? [];
 
-  return (
-    <Flex direction="column" className={styles.layout}>
+  const chatPanel = (
+    <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
       <Flex
         align="center"
         justify="between"
@@ -190,9 +219,11 @@ export default function AIChat({
             {title}
           </Heading>
         </Flex>
-        <Button variant="ghost" size="xs" onClick={newChat}>
-          New chat
-        </Button>
+        {!getConversationsListEndpoint && (
+          <Button variant="ghost" size="xs" onClick={handleNewChat}>
+            New chat
+          </Button>
+        )}
       </Flex>
 
       <Flex
@@ -276,6 +307,26 @@ export default function AIChat({
           <PiPaperPlaneRight size={16} />
         </button>
       </Flex>
+    </Flex>
+  );
+
+  if (getConversationsListEndpoint) {
+    return (
+      <Flex className={styles.layout} style={{ flexDirection: "row" }}>
+        <ConversationSidebar
+          conversations={conversations}
+          activeConversationId={conversationId}
+          onSelect={loadConversation}
+          onNewChat={handleNewChat}
+        />
+        {chatPanel}
+      </Flex>
+    );
+  }
+
+  return (
+    <Flex direction="column" className={styles.layout}>
+      {chatPanel}
     </Flex>
   );
 }

@@ -17,15 +17,20 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Markdown from "@/components/Markdown/Markdown";
+import useApi from "@/hooks/useApi";
 import {
   useAIChat,
   type ActiveTurnItem,
   type ChatMessage,
   type SSEEvent,
+  type ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
+import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import styles from "./ExplorerAIChat.module.scss";
+
+const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
 // ---------------------------------------------------------------------------
 // PA-specific types
@@ -76,6 +81,7 @@ function renderChart(key: string, chartData: ChartData) {
 export default function ExplorerAIChat() {
   // Maps toolCallId → ChartData, populated from chart-result SSE events
   const chartDataRef = useRef<Map<string, ChartData>>(new Map());
+  const prevLoadingRef = useRef(false);
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
@@ -99,17 +105,56 @@ export default function ExplorerAIChat() {
     }
   }, []);
 
+  // Reconstruct chart data from stored tool results when loading a conversation
+  const handleRawMessages = useCallback((rawMessages: unknown[]) => {
+    type ToolResultPart = {
+      type: string;
+      toolCallId?: string;
+      toolName?: string;
+      result?: unknown;
+    };
+
+    for (const msg of rawMessages as Array<{
+      role: string;
+      content: unknown;
+    }>) {
+      if (msg.role !== "tool" || !Array.isArray(msg.content)) continue;
+
+      for (const part of msg.content as ToolResultPart[]) {
+        if (
+          part.type === "tool-result" &&
+          part.toolName === "runExploration" &&
+          part.toolCallId &&
+          part.result
+        ) {
+          const result = part.result as {
+            config?: ExplorationConfig;
+            exploration?: ProductAnalyticsExploration;
+          };
+          if (result.config) {
+            chartDataRef.current.set(part.toolCallId, {
+              config: result.config,
+              exploration: result.exploration ?? null,
+            });
+          }
+        }
+      }
+    }
+  }, []);
+
   const {
     messages,
     activeTurnItems,
     displayedTextMap,
     sendMessage,
     newChat,
+    loadConversation,
     loading,
     waitingForNextStep,
     error,
     input,
     setInput,
+    conversationId,
   } = useAIChat({
     endpoint: "/product-analytics/chat",
     buildRequestBody: (message, cid) => ({
@@ -119,14 +164,36 @@ export default function ExplorerAIChat() {
     }),
     toolStatusLabels: TOOL_STATUS_LABELS,
     onSSEEvent: handleSSEEvent,
+    onRawMessages: handleRawMessages,
     conversationStorageKey: `pa-chat-${draftExploreState.datasource ?? "default"}`,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
   });
 
+  const { data: listData, mutate: refreshList } = useApi<{
+    conversations: ConversationSummary[];
+  }>(CHAT_LIST_ENDPOINT);
+
+  // Refresh sidebar list when a streaming turn completes
+  useEffect(() => {
+    if (prevLoadingRef.current && !loading) {
+      refreshList();
+    }
+    prevLoadingRef.current = loading;
+  }, [loading, refreshList]);
+
   const handleNewChat = useCallback(() => {
     chartDataRef.current = new Map();
     newChat();
-  }, [newChat]);
+    refreshList();
+  }, [newChat, refreshList]);
+
+  const handleLoadConversation = useCallback(
+    (id: string) => {
+      chartDataRef.current = new Map();
+      return loadConversation(id);
+    },
+    [loadConversation],
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -276,112 +343,119 @@ export default function ExplorerAIChat() {
   }
 
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
+  const conversations = listData?.conversations ?? [];
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
   return (
-    <Flex direction="column" className={styles.layout}>
-      <Flex
-        align="center"
-        justify="between"
-        px="4"
-        py="3"
-        className={styles.chatHeader}
-      >
-        <Flex align="center" gap="2">
-          <BsStars size={14} />
-          <Heading as="h2" size="small" weight="medium">
-            AI Chat
-          </Heading>
-        </Flex>
-        <Button variant="ghost" size="xs" onClick={handleNewChat}>
-          New chat
-        </Button>
-      </Flex>
+    <Flex className={styles.layout} style={{ flexDirection: "row" }}>
+      <ConversationSidebar
+        conversations={conversations}
+        activeConversationId={conversationId}
+        onSelect={handleLoadConversation}
+        onNewChat={handleNewChat}
+      />
 
-      <Flex
-        direction="column"
-        gap="3"
-        px="4"
-        py="3"
-        className={styles.chatMessages}
-      >
-        {!hasAnyContent && !loading && (
-          <Flex
-            align="center"
-            justify="center"
-            direction="column"
-            gap="2"
-            py="6"
-          >
-            <BsStars size={24} color="var(--gray-a8)" />
-            <Text size="small" color="text-low" align="center">
-              Ask about your data, and I&apos;ll answer with analysis plus
-              charts inline.
-            </Text>
-          </Flex>
-        )}
-
-        {[
-          ...messages.map(renderMessage),
-          ...activeTurnItems.map(renderActiveTurnItem),
-        ]}
-
-        {loading && activeTurnItems.length === 0 && (
-          <Box className={styles.assistantMessage}>
-            <Flex align="center" gap="2">
-              <span className={styles.spinIcon}>
-                <PiCircleNotch size={12} />
-              </span>
-              <Text size="small" color="text-low">
-                Thinking...
-              </Text>
-            </Flex>
-          </Box>
-        )}
-
-        {loading && waitingForNextStep && (
-          <Box className={styles.assistantMessage}>
-            <Flex align="center" gap="2">
-              <span className={styles.spinIcon}>
-                <PiCircleNotch size={12} />
-              </span>
-              <Text size="small" color="text-low">
-                Planning next step...
-              </Text>
-            </Flex>
-          </Box>
-        )}
-
-        {error && (
-          <Box className={styles.errorMessage}>
-            <Text size="small">{error}</Text>
-          </Box>
-        )}
-
-        <div ref={messagesEndRef} />
-      </Flex>
-
-      <Flex align="end" gap="2" px="3" py="2" className={styles.chatInput}>
-        <textarea
-          ref={inputRef}
-          className={styles.chatTextarea}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about your metrics..."
-          rows={2}
-          disabled={loading}
-        />
-        <button
-          className={styles.sendButton}
-          onClick={sendMessage}
-          disabled={!input.trim() || loading}
+      <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
+        <Flex
+          align="center"
+          justify="between"
+          px="4"
+          py="3"
+          className={styles.chatHeader}
         >
-          <PiPaperPlaneRight size={16} />
-        </button>
+          <Flex align="center" gap="2">
+            <BsStars size={14} />
+            <Heading as="h2" size="small" weight="medium">
+              AI Chat
+            </Heading>
+          </Flex>
+        </Flex>
+
+        <Flex
+          direction="column"
+          gap="3"
+          px="4"
+          py="3"
+          className={styles.chatMessages}
+        >
+          {!hasAnyContent && !loading && (
+            <Flex
+              align="center"
+              justify="center"
+              direction="column"
+              gap="2"
+              py="6"
+            >
+              <BsStars size={24} color="var(--gray-a8)" />
+              <Text size="small" color="text-low" align="center">
+                Ask about your data, and I&apos;ll answer with analysis plus
+                charts inline.
+              </Text>
+            </Flex>
+          )}
+
+          {[
+            ...messages.map(renderMessage),
+            ...activeTurnItems.map(renderActiveTurnItem),
+          ]}
+
+          {loading && activeTurnItems.length === 0 && (
+            <Box className={styles.assistantMessage}>
+              <Flex align="center" gap="2">
+                <span className={styles.spinIcon}>
+                  <PiCircleNotch size={12} />
+                </span>
+                <Text size="small" color="text-low">
+                  Thinking...
+                </Text>
+              </Flex>
+            </Box>
+          )}
+
+          {loading && waitingForNextStep && (
+            <Box className={styles.assistantMessage}>
+              <Flex align="center" gap="2">
+                <span className={styles.spinIcon}>
+                  <PiCircleNotch size={12} />
+                </span>
+                <Text size="small" color="text-low">
+                  Planning next step...
+                </Text>
+              </Flex>
+            </Box>
+          )}
+
+          {error && (
+            <Box className={styles.errorMessage}>
+              <Text size="small">{error}</Text>
+            </Box>
+          )}
+
+          <div ref={messagesEndRef} />
+        </Flex>
+
+        <Flex align="end" gap="2" px="3" py="2" className={styles.chatInput}>
+          <textarea
+            ref={inputRef}
+            className={styles.chatTextarea}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your metrics..."
+            rows={2}
+            disabled={loading}
+          />
+          <button
+            className={styles.sendButton}
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+          >
+            <PiPaperPlaneRight size={16} />
+          </button>
+        </Flex>
       </Flex>
     </Flex>
   );

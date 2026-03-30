@@ -17,6 +17,7 @@ import {
   appendMessages,
   setStreaming,
   touchStreamedAt,
+  initConversation,
 } from "back-end/src/enterprise/services/conversation-store";
 import { logger } from "back-end/src/util/logger";
 
@@ -129,6 +130,17 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     // --- Load conversation history and append user message ---
     const history = getConversation(conversationId);
+
+    // Initialise metadata for brand-new conversations (no-op on subsequent turns)
+    if (history.length === 0) {
+      initConversation(
+        conversationId,
+        context.userId,
+        context.org.id,
+        message.slice(0, 80),
+      );
+    }
+
     const userMessage: ModelMessage = { role: "user", content: message };
     const fullMessages: ModelMessage[] = [...history, userMessage];
 

@@ -20,7 +20,11 @@ import {
   getSnapshot,
   getSessionSnapshots,
 } from "back-end/src/enterprise/services/snapshot-store";
-import { getConversationStatus } from "back-end/src/enterprise/services/conversation-store";
+import {
+  getConversationStatus,
+  listConversations,
+  type ConversationSummary,
+} from "back-end/src/enterprise/services/conversation-store";
 import {
   createAgentHandler,
   type AgentConfig,
@@ -545,6 +549,22 @@ export const getChat = async (
     lastStreamedAt: statusData.lastStreamedAt,
     messages: statusData.messages,
   });
+};
+
+// ---------------------------------------------------------------------------
+// List conversations for the current user
+// ---------------------------------------------------------------------------
+
+export const listChats = async (
+  req: AuthRequest,
+  res: Response<{
+    status: 200;
+    conversations: ConversationSummary[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const conversations = listConversations(context.userId, context.org.id);
+  return res.status(200).json({ status: 200, conversations });
 };
 
 // ---------------------------------------------------------------------------
