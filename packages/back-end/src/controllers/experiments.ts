@@ -51,6 +51,7 @@ import {
 } from "back-end/src/types/AuthRequest";
 import {
   _getSnapshots,
+  applyVariationWeightsToLatestPhase,
   createSnapshotFromPlan,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -1729,13 +1730,10 @@ export async function postExperiment(
   }
 
   if (data.variationWeights) {
-    const phases = [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      variationWeights: data.variationWeights,
-    };
-    changes.phases = phases;
+    changes.phases = applyVariationWeightsToLatestPhase(
+      experiment,
+      data.variationWeights,
+    );
   }
 
   // Only some fields affect production SDK payloads
@@ -4020,14 +4018,10 @@ export async function postExperimentFeatureValues(
   }
 
   if (variationWeightsChanged) {
-    // Mirror `postExperiment`: variationWeights are updated on the last phase only.
-    const phases = [...experiment.phases];
-    const lastIndex = phases.length - 1;
-    phases[lastIndex] = {
-      ...phases[lastIndex],
+    changes.phases = applyVariationWeightsToLatestPhase(
+      experiment,
       variationWeights,
-    };
-    changes.phases = phases;
+    );
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
