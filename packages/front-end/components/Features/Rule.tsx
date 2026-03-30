@@ -1186,7 +1186,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       )}
                       <RampTimeline
                         rs={rampSchedule}
-                        hideHeader
                         pendingDetach={!!hasPendingDetach}
                         onJump={async (targetStepIndex) => {
                           await apiCall(

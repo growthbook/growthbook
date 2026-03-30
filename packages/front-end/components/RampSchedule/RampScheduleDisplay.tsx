@@ -1,6 +1,5 @@
-// Read-only, collapsible view of a ramp schedule's steps and effects.
-// Accepts any RampScheduleInterface — usable inside rule modals, overview pages, or standalone.
-// targetId: when provided, only the actions for that specific target are shown.
+// Read-only view of a ramp schedule's steps and effects.
+// When targetId is set, only actions for that target are shown.
 
 import { type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -42,8 +41,6 @@ function EffectRow({
 
 // ─── Patch display ────────────────────────────────────────────────────────────
 
-// syntheticEnabled: inject an enabled/disabled effect that isn't stored in actions
-// (happens when disableRuleAfter auto-injects at end but no endCondition trigger).
 function PatchDisplay({
   actions,
   syntheticEnabled,
@@ -101,8 +98,6 @@ function PatchDisplay({
       );
     }
 
-    // Skip enabled patches from actions — they're shown via syntheticEnabled instead
-    // so we don't double-render when the backend stored them explicitly in endCondition.
     if (p.enabled === false && syntheticEnabled === undefined) {
       items.push(
         <EffectRow key={k("enabled")} label="Rule">
@@ -118,7 +113,6 @@ function PatchDisplay({
     }
   });
 
-  // Synthetic enabled/disabled from disableRuleBefore/disableRuleAfter (not stored explicitly in actions)
   if (syntheticEnabled === false) {
     items.push(
       <EffectRow key="syn-enabled" label="Rule">
@@ -152,7 +146,11 @@ function PatchDisplay({
 
 function StartTriggerLabel({ trigger }: { trigger: RampStartTrigger }) {
   if (trigger.type === "immediately") {
-    return <Text size="small" color="text-low">—</Text>;
+    return (
+      <Text size="small" color="text-low">
+        —
+      </Text>
+    );
   }
   if (trigger.type === "manual") {
     return <Text size="small">Manual</Text>;
@@ -179,7 +177,6 @@ function Row({
   syntheticEnabled?: boolean;
   dimmed?: boolean;
   isActive?: boolean;
-  isComplete?: boolean;
 }) {
   const labelColor: "text-mid" | "text-low" = isActive
     ? "text-mid"
@@ -266,14 +263,10 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
         </Box>
       </Flex>
 
-      {/* Start — when disableRuleBefore and no explicit start action stored,
-               the enabled:true is auto-injected by the backend into startCondition.actions
-               so it should already appear in the data. Only synthesize if absent. */}
       <Row
         label="start"
         trigger={<StartTriggerLabel trigger={rs.startCondition.trigger} />}
         actions={startActions}
-        isComplete={current >= 0}
       />
 
       {/* Steps */}
@@ -284,19 +277,12 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
           trigger={formatTrigger(step.trigger)}
           actions={filterActions(step.actions, targetId)}
           isActive={i === current}
-          isComplete={i < current}
         />
       ))}
 
-      {/* End — always shown.
-               When endCondition is absent but disableRuleAfter is set, synthesize
-               Rule: disabled since the backend applies it at completion without storing
-               it in an endCondition (no explicit trigger was provided). */}
       {(() => {
         const hasExplicitEnd = !!rs.endCondition;
         const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
-        const terminal =
-          rs.status === "completed" || rs.status === "rolled-back";
         return (
           <Row
             label="end"
@@ -312,7 +298,6 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
             actions={endActions}
             syntheticEnabled={implicitDisable ? false : undefined}
             dimmed={!hasExplicitEnd && !implicitDisable}
-            isComplete={terminal}
           />
         );
       })()}

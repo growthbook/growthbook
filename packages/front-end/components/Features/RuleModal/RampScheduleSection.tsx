@@ -1,5 +1,4 @@
 // Inline ramp schedule editor inside RuleModal.
-// The "Changes" dropdown controls which fields appear on every step row; no per-row add/remove.
 
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import pick from "lodash/pick";
@@ -102,9 +101,7 @@ export interface RampSectionState {
   startPatch: UIStepPatch; // patch applied when the ramp starts (e.g. coverage: 0)
   disableRuleBefore: boolean;
   disableRuleAfter: boolean;
-  // When true (default for ramp-ups): complete as soon as all steps are done
-  // even if a future end date is set. When false (default for scheduled rules):
-  // hold "running" after all steps until the end date fires.
+  // true = complete when steps finish (ramp-up); false = hold until end date (scheduled rule)
   endEarlyWhenStepsComplete: boolean;
   steps: UIStep[];
   endScheduleAt: string; // "" = automatic end; non-empty = specific time
@@ -118,8 +115,6 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
   days: 86400,
 };
 
-// Fields valid per rule type. coverage only makes sense for rollout;
-// force (feature value) only makes sense for force rules.
 export const VALID_STEP_FIELDS: StepField[] = [
   "coverage",
   "force",
@@ -142,21 +137,12 @@ export function scrubRampStateForRuleType(
 }
 
 export function isRampSectionConfigured(state: RampSectionState): boolean {
-  // A ramp is configured if:
-  // - It's off/link/edit mode, OR
-  // - It has steps, OR
-  // - It's a 0-step ramp with a scheduled start or end condition
-  if (state.mode === "off" || state.mode === "link" || state.mode === "edit") {
-    return true;
-  }
-  if (state.steps.length > 0) {
-    return true;
-  }
-  // 0-step ramp is valid if it has scheduled start or an end condition
-  if (state.startMode === "specific-time" || state.endScheduleAt) {
-    return true;
-  }
-  return false;
+  return (
+    state.mode !== "create" ||
+    state.steps.length > 0 ||
+    state.startMode === "specific-time" ||
+    !!state.endScheduleAt
+  );
 }
 
 // ─── Grid column widths ──────────────────────────────────────────────────────
@@ -497,7 +483,6 @@ function applyTotalDuration(
 
 // ─── Active-field helpers (exported for use in parent forms) ─────────────────
 
-/** Derive the set of active fields from the patches stored in a RampSectionState. */
 export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
   const fields = new Set<StepField>();
   state.steps.forEach((s) => {
@@ -508,12 +493,7 @@ export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
   return fields;
 }
 
-/**
- * Rebuild all patches in a RampSectionState to include exactly `newFields`.
- * Existing values for kept fields are preserved; newly-added fields are seeded
- * from `baseline` (so adding a targeting field copies the current rule value
- * into every step).
- */
+// Rebuild all patches to include exactly newFields; new fields are seeded from baseline.
 export function rebuildStateWithActiveFields(
   state: RampSectionState,
   newFields: StepField[],

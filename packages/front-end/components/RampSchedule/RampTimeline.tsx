@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from "react";
-import styles from "./RampTimeline.module.scss";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
@@ -9,15 +8,15 @@ import {
   RampScheduleStatus,
   RampStepAction,
   RampStartTrigger,
-  RampTarget,
   RampTrigger,
 } from "shared/src/validators/ramp-schedule";
+import stringify from "json-stringify-pretty-compact";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
-import stringify from "json-stringify-pretty-compact";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -63,7 +62,11 @@ function formatScheduledDate(d: Date | string): ReactNode {
 
 function formatStartTrigger(trigger?: RampStartTrigger | null): ReactNode {
   if (!trigger || trigger.type === "immediately")
-    return <Text size="small" color="text-low">—</Text>;
+    return (
+      <Text size="small" color="text-low">
+        —
+      </Text>
+    );
   if (trigger.type === "manual") return <Text size="small">manual</Text>;
   return formatTrigger({ type: "scheduled", at: trigger.at });
 }
@@ -232,8 +235,7 @@ function NodePopoverContent({
   const [loading, setLoading] = useState(false);
 
   const canAct =
-    !isActive &&
-    ["running", "paused", "pending-approval"].includes(rs.status);
+    !isActive && ["running", "paused", "pending-approval"].includes(rs.status);
 
   let ctaLabel: string | null = null;
   if (canAct) {
@@ -242,8 +244,7 @@ function NodePopoverContent({
     else ctaLabel = `Jump to Step ${(stepIndex as number) + 1}`;
   }
 
-  const hasCtaHandler =
-    stepIndex === "end" ? !!onComplete : !!onJump;
+  const hasCtaHandler = stepIndex === "end" ? !!onComplete : !!onJump;
 
   async function handleCta() {
     setLoading(true);
@@ -287,7 +288,10 @@ function NodePopoverContent({
             </Text>
           </span>
         </Flex>
-        <span className={styles.popoverStatusLabel} style={{ color: statusMeta.color }}>
+        <span
+          className={styles.popoverStatusLabel}
+          style={{ color: statusMeta.color }}
+        >
           {statusMeta.label}
         </span>
       </Flex>
@@ -298,25 +302,35 @@ function NodePopoverContent({
       </Box>
 
       {/* Remaining hold — only for active interval steps */}
-      {isActive && trigger?.type === "interval" && (() => {
-        if (!rs.nextStepAt) return null;
-        const remainingMs = new Date(rs.nextStepAt).getTime() - Date.now();
-        return (
-          <Box mb="2">
-            <PopoverEffectRow label="Remaining">
-              {formatRemaining(remainingMs)}
-            </PopoverEffectRow>
-          </Box>
-        );
-      })()}
+      {isActive &&
+        trigger?.type === "interval" &&
+        (() => {
+          if (!rs.nextStepAt) return null;
+          const remainingMs = new Date(rs.nextStepAt).getTime() - Date.now();
+          return (
+            <Box mb="2">
+              <PopoverEffectRow label="Remaining">
+                {formatRemaining(remainingMs)}
+              </PopoverEffectRow>
+            </Box>
+          );
+        })()}
 
       {/* Effects */}
-      <PopoverPatchDisplay actions={actions} syntheticEnabled={syntheticEnabled} />
+      <PopoverPatchDisplay
+        actions={actions}
+        syntheticEnabled={syntheticEnabled}
+      />
 
       {/* CTA */}
       {ctaLabel && hasCtaHandler && (
         <Flex mt="2" justify="center">
-          <Button size="xs" variant="ghost" loading={loading} onClick={handleCta}>
+          <Button
+            size="xs"
+            variant="ghost"
+            loading={loading}
+            onClick={handleCta}
+          >
             {ctaLabel}
           </Button>
         </Flex>
@@ -392,10 +406,7 @@ function NodeDot({
           style={{ border: `2px solid ${color}` }}
         />
       )}
-      <Box
-        className={styles.nodeDot}
-        style={{ backgroundColor: color }}
-      >
+      <Box className={styles.nodeDot} style={{ backgroundColor: color }}>
         {state === "completed" && <PiCheckBold size={11} color="white" />}
       </Box>
     </Box>
@@ -506,8 +517,6 @@ function Connector({
 
 interface Props {
   rs: RampScheduleInterface;
-  onEditTarget?: (target: RampTarget) => void;
-  hideHeader?: boolean;
   pendingDetach?: boolean;
   onJump?: (targetStepIndex: number) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
@@ -560,8 +569,6 @@ export function getRampStepsCompleted(rs: RampScheduleInterface): number {
 
 export default function RampTimeline({
   rs,
-  onEditTarget: _onEditTarget,
-  hideHeader: _hideHeader,
   pendingDetach,
   onJump,
   onComplete,
@@ -575,19 +582,13 @@ export default function RampTimeline({
   const doneCount = completedNodeCount(rs);
 
   function getState(i: number): NodeState {
-    // Pending detach is the authoritative state — all timeline nodes become future (gray).
     if (pendingDetach) return "future";
     if (i < doneCount) return "completed";
-    // "pending": a separate pre-node shows "pending"; all timeline nodes are future.
-    // "ready" with "manual": a pre-node shows "ready to start"; timeline nodes are future.
-    // "ready" with "scheduled": the "start" node (i=0) is highlighted as active.
     if (status === "pending") return "future";
     if (status === "ready") {
       if (startTrigger?.type === "scheduled" && i === 0) return "active";
       return "future";
     }
-    // Apply-first: the active node is the step currently holding at its coverage
-    // level (applied, counting down its own hold interval before advancing).
     if (i === doneCount && status !== "completed" && status !== "rolled-back")
       return "active";
     return "future";
@@ -626,18 +627,17 @@ export default function RampTimeline({
       key: `step-${i}`,
       label: String(i + 1),
       sublabel: null,
-      // Apply-first: the connector to the LEFT of this node shows the hold that
-      // preceded it — i.e. the previous step's interval (or the start trigger for
-      // step 0). For scheduled starts the date is already under the start node so
-      // we omit it from the connector.
+      // connector to the left shows the hold that preceded this node
       connectorLabel:
-        i === 0
-          ? startTrigger?.type === "immediately" || !startTrigger
-            ? <Text size="small">auto</Text>
-            : startTrigger?.type === "manual"
-            ? <Text size="small">manual</Text>
-            : undefined
-          : formatTrigger(steps[i - 1].trigger),
+        i === 0 ? (
+          startTrigger?.type === "immediately" || !startTrigger ? (
+            <Text size="small">auto</Text>
+          ) : startTrigger?.type === "manual" ? (
+            <Text size="small">manual</Text>
+          ) : undefined
+        ) : (
+          formatTrigger(steps[i - 1].trigger)
+        ),
       isApproval: step.trigger.type === "approval",
       popoverContent: (
         <NodePopoverContent
@@ -664,7 +664,6 @@ export default function RampTimeline({
         endCondition?.trigger?.type === "scheduled"
           ? formatScheduledDate(endCondition.trigger.at)
           : null,
-      // Apply-first: the connector before [end] is the last step's hold interval.
       connectorLabel:
         steps.length > 0
           ? formatTrigger(steps[steps.length - 1].trigger)
