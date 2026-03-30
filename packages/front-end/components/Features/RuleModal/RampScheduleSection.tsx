@@ -693,15 +693,16 @@ export default function RampScheduleSection({
     (Object.keys(state.endPatch) as StepField[]).forEach((k) => fields.add(k));
     return fields.size > 1 || (fields.size === 1 && !fields.has("coverage"));
   });
-  const [durationValue, setDurationValue] = useState(() => {
+  const [durationValue, setDurationValue] = useState<string>(() => {
     const detected = detectPreset(
       state.steps,
       state.startMode,
       state.disableRuleBefore,
       state.disableRuleAfter,
     );
-    return (
-      RAMP_PRESETS.find((p) => p.label === detected)?.defaultDurationValue ?? 10
+    return String(
+      RAMP_PRESETS.find((p) => p.label === detected)?.defaultDurationValue ??
+        10,
     );
   });
   const [durationUnit, setDurationUnit] = useState<IntervalUnit>(() => {
@@ -1604,13 +1605,13 @@ export default function RampScheduleSection({
                 }
                 setSelectedPreset(v);
                 const effectiveDurationValue = durationDirty
-                  ? durationValue
+                  ? Math.max(1, parseInt(durationValue) || 1)
                   : ramp.defaultDurationValue;
                 const effectiveDurationUnit = durationDirty
                   ? durationUnit
                   : ramp.defaultDurationUnit;
                 if (!durationDirty) {
-                  setDurationValue(ramp.defaultDurationValue);
+                  setDurationValue(String(ramp.defaultDurationValue));
                   setDurationUnit(ramp.defaultDurationUnit);
                 }
                 patchState({
@@ -1649,14 +1650,15 @@ export default function RampScheduleSection({
             <Field
               type="number"
               min="1"
-              value={String(durationValue)}
+              value={durationValue}
               onFocus={(e) => e.target.select()}
               onChange={(e) => {
-                setDurationValue(Math.max(1, parseInt(e.target.value) || 1));
+                setDurationValue(e.target.value);
                 setDurationDirty(true);
               }}
               onBlur={(e) => {
                 const v = Math.max(1, parseInt(e.target.value) || 1);
+                setDurationValue(String(v));
                 patchState({
                   steps: applyTotalDuration(state.steps, v, durationUnit),
                 });
@@ -1677,7 +1679,11 @@ export default function RampScheduleSection({
                 setDurationUnit(unit);
                 setDurationDirty(true);
                 patchState({
-                  steps: applyTotalDuration(state.steps, durationValue, unit),
+                  steps: applyTotalDuration(
+                    state.steps,
+                    Math.max(1, parseInt(durationValue) || 1),
+                    unit,
+                  ),
                 });
               }}
               containerClassName="mb-0"
