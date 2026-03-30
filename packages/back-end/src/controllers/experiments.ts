@@ -7,9 +7,7 @@ import { getValidDate } from "shared/dates";
 import {
   getAffectedEnvsForExperiment,
   getSnapshotAnalysis,
-  getMatchingRules,
   isDefined,
-  MatchingRule,
   resetReviewOnChange,
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -48,7 +46,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { OrganizationSettings } from "shared/types/organization";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
-import { ExperimentRefVariation, FeatureRule } from "shared/types/feature";
+import { ExperimentRefVariation } from "shared/types/feature";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -147,7 +145,7 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
-import { getDraftRevision } from "./features";
+import { validateExperimentFeatureUpdates } from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -4015,14 +4013,17 @@ export async function postExperimentFeatureValues(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
+  // Make sure features ids are valid for the experiment
+  Object.keys(features).forEach((featureId) => {
+    if (!linkedFeatureIds.includes(featureId)) {
+      throw new Error(`Feature ${featureId} is not linked to the experiment`);
+    }
+  });
+
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
 
   if (linkedFeatures.length !== Object.keys(features).length) {
-    res.status(400).json({
-      status: 400,
-      message: "One or more features not found",
-    });
-    return;
+    throw new Error("One or more features not found");
   }
 
   const envs = getAffectedEnvsForExperiment({
@@ -4060,42 +4061,14 @@ export async function postExperimentFeatureValues(
     }
   }
 
-  // Preflight: ensure auto-publish permissions for all affected features/environments
-  // before applying any experiment or feature updates.
-  for (const feature of linkedFeatures) {
-    const { autoPublish } = featureRevisionOptions[feature.id];
-    if (!autoPublish) continue;
-
-    const matchingRules = getMatchingRules(
-      feature,
-      (r: FeatureRule) =>
-        r.type === "experiment-ref" && r.experimentId === experiment.id,
-      context.environments,
-    );
-
-    if (!matchingRules.length) continue;
-
-    const updatedVariationValues = features[feature.id];
-    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
-      if (m.rule.type !== "experiment-ref") return false;
-      return (
-        JSON.stringify(m.rule.variations) !==
-        JSON.stringify(updatedVariationValues)
-      );
-    });
-
-    if (!featureNeedsUpdate) continue;
-
-    const affectedEnvs = Array.from(
-      new Set(matchingRules.map((m: MatchingRule) => m.environmentId)),
-    );
-    if (
-      affectedEnvs.length > 0 &&
-      !context.permissions.canPublishFeature(feature, affectedEnvs)
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
+  // Preflight: Validate feature updates and get update plans for each feature
+  const featureUpdatePlans = await validateExperimentFeatureUpdates({
+    experiment,
+    features,
+    linkedFeatures,
+    context,
+    featureRevisionOptions,
+  });
 
   // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
   let experimentForResponse = experiment;
@@ -4110,57 +4083,19 @@ export async function postExperimentFeatureValues(
     });
   }
 
-  // Go through features and create revisions
-  for (const feature of linkedFeatures) {
-    const { targetVersion, autoPublish } = featureRevisionOptions[feature.id];
+  // Apply draft updates for features that need them (same revision + rules as preflight)
+  for (const { feature, revision, matchingRules } of featureUpdatePlans) {
+    const { autoPublish } = featureRevisionOptions[feature.id];
     const orgEnvIds = context.environments;
-    // Get existing experiment-ref rules for this experiment across all environments
-    const matchingRules = getMatchingRules(
-      feature,
-      (r: FeatureRule) =>
-        r.type === "experiment-ref" && r.experimentId === experiment.id,
-      orgEnvIds,
-    );
-
-    if (!matchingRules.length) {
-      // If there are no existing experiment-ref rules for this experiment
-      // on this feature, skip it
-      logger.error(
-        "No experiment-ref rules found for this experiment on this feature",
-        {
-          featureId: feature.id,
-          experimentId: experiment.id,
-        },
-      );
-      continue;
-    }
-
     const updatedVariationValues = features[feature.id];
 
-    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
-      // This should never happen, but needed for type safety to access the rule variations
-      if (m.rule.type !== "experiment-ref") return false;
-      return (
-        JSON.stringify(m.rule.variations) !==
-        JSON.stringify(updatedVariationValues)
-      );
-    });
-
-    if (!featureNeedsUpdate) {
-      continue;
-    }
-
-    const changedEnvironments = matchingRules.map(
-      (m: MatchingRule) => m.environmentId,
-    );
+    const changedEnvironments = matchingRules.map((m) => m.environmentId);
     const resetReview = resetReviewOnChange({
       feature,
       changedEnvironments,
       defaultValueChanged: false,
       settings: org?.settings,
     });
-
-    const revision = await getDraftRevision(context, feature, targetVersion);
 
     const updatedRevision = await editFeatureRules(
       context,

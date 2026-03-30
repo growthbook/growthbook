@@ -1,0 +1,79 @@
+import { getMatchingRules, MatchingRule } from "shared/util";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  ExperimentInterface,
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeatureRule,
+} from "shared/validators";
+import { ReqContext } from "back-end/types/request";
+import { getDraftRevision } from "back-end/src/services/features";
+
+export type ExperimentFeatureUpdatePlan = {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  matchingRules: MatchingRule[];
+};
+
+export const validateExperimentFeatureUpdates = async ({
+  experiment,
+  features,
+  linkedFeatures,
+  context,
+  featureRevisionOptions,
+}: {
+  experiment: ExperimentInterface;
+  features: Record<string, ExperimentRefVariation[]>;
+  featureRevisionOptions: Record<
+    string,
+    { targetVersion: number; autoPublish?: boolean }
+  >;
+  linkedFeatures: FeatureInterface[];
+  context: ReqContext;
+}): Promise<ExperimentFeatureUpdatePlan[]> => {
+  const plans: ExperimentFeatureUpdatePlan[] = [];
+
+  for (const feature of linkedFeatures) {
+    const { targetVersion, autoPublish } = featureRevisionOptions[feature.id];
+    const revision = await getDraftRevision(context, feature, targetVersion);
+    const matchingRules = getMatchingRules(
+      feature,
+      (r: FeatureRule) =>
+        r.type === "experiment-ref" && r.experimentId === experiment.id,
+      context.environments,
+      revision,
+    );
+
+    if (!matchingRules.length)
+      throw new Error(
+        `No experiment-ref rules found for this experiment on feature ${feature.id}`,
+      );
+
+    const updatedVariationValues = features[feature.id];
+    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
+      if (m.rule.type !== "experiment-ref") return false;
+      return (
+        JSON.stringify(m.rule.variations) !==
+        JSON.stringify(updatedVariationValues)
+      );
+    });
+
+    if (!featureNeedsUpdate) continue;
+
+    const affectedEnvs = Array.from(
+      new Set(matchingRules.map((m: MatchingRule) => m.environmentId)),
+    );
+
+    if (
+      affectedEnvs.length > 0 &&
+      autoPublish &&
+      !context.permissions.canPublishFeature(feature, affectedEnvs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
+    plans.push({ feature, revision, matchingRules });
+  }
+
+  return plans;
+};

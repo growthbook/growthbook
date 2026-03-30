@@ -100,6 +100,7 @@ import {
   getFeatureDefinitions,
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
+  getDraftRevision,
 } from "back-end/src/services/features";
 import {
   getSDKPayloadCacheLocation,
@@ -2041,50 +2042,6 @@ export async function postFeatureExperimentRefRule(
     status: 200,
     version: revision.version,
   });
-}
-
-export async function getDraftRevision(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  version: number,
-): Promise<FeatureRevisionInterface> {
-  // This is the published version, create a new draft revision
-  const { org } = context;
-  if (version === feature.version) {
-    const newRevision = await createRevision({
-      context,
-      feature,
-      user: context.auditUser,
-      environments: getEnvironmentIdsFromOrg(context.org),
-      baseVersion: version,
-      org,
-    });
-
-    return newRevision;
-  }
-
-  // If this is already a draft, return it
-  const revision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version,
-  });
-  if (!revision) {
-    throw new Error("Cannot find revision");
-  }
-  if (
-    !(
-      revision.status === "draft" ||
-      revision.status === "pending-review" ||
-      revision.status === "changes-requested" ||
-      revision.status === "approved"
-    )
-  ) {
-    throw new Error("Can only make changes to draft revisions");
-  }
-
-  return revision;
 }
 
 export async function putRevisionComment(
