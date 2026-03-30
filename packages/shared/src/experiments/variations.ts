@@ -1,15 +1,13 @@
 import {
+  ExperimentInterface,
   ExperimentPhase,
   Variation,
   VariationStatus,
 } from "shared/types/experiment";
 
-type ExperimentWithVariations = {
-  variations: Variation[];
-};
+type ExperimentWithVariations = Pick<ExperimentInterface, "variations">;
 
-type ExperimentWithVariationsAndPhases = {
-  variations: Variation[];
+type ExperimentWithVariationsAndPhases = ExperimentWithVariations & {
   phases: Pick<ExperimentPhase, "variations">[];
 };
 
@@ -31,13 +29,22 @@ export function getLatestPhaseVariations(
   experiment: ExperimentWithVariationsAndPhases,
 ): VariationWithIndexAndStatus[] {
   const allVariations = getAllVariations(experiment);
+  const defaultResponse = allVariations.map((v, i) => ({
+    ...v,
+    index: i,
+    status: "active" as const,
+  }));
 
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
-  const phaseVariations = latestPhase.variations;
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+
+  // safe guard in case phase is missing
+  if (!latestPhase) {
+    return defaultResponse;
+  }
 
   let hasMissing = false;
   const foundVariations: VariationWithIndexAndStatus[] = [];
-  phaseVariations.forEach((v) => {
+  latestPhase.variations.forEach((v) => {
     const foundVariation = allVariations.find((allV) => allV.id === v.id);
     if (foundVariation === undefined) {
       hasMissing = true;
@@ -50,12 +57,8 @@ export function getLatestPhaseVariations(
     });
   });
   // If any missing, fall back to all variations with status "active"
-  if (!hasMissing) {
-    return allVariations.map((v, i) => ({
-      ...v,
-      index: i,
-      status: "active",
-    }));
+  if (hasMissing) {
+    return defaultResponse;
   }
 
   return foundVariations;

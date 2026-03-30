@@ -1743,11 +1743,9 @@ const getExperimentChanges = (
     "releasedVariationId",
     "excludeFromPayload",
     "autoAssign",
-    "variations",
     "phases",
   ];
 
-  // TODO: check variations logic here
   return {
     ...pick(experiment, importantKeys),
     variations: getLatestPhaseVariations(experiment).map((v) =>

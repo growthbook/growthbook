@@ -414,24 +414,30 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         screenshots?: { path: string }[];
       }[],
     ) => {
+      const normalizedVariations = v.map((data, i) => ({
+        ...data,
+        key: data.value ?? `${i}`,
+        id: data.id || generateVariationId(),
+      }));
+
       form.setValue(
         "variations",
-        v.map((data, i) => ({
+        normalizedVariations.map((data) => ({
           name: data.name ?? "",
           description: data.description ?? "",
           screenshots: data.screenshots ?? [],
-          key: data.value ?? `${i}`,
-          id: data.id || generateVariationId(),
+          key: data.key,
+          id: data.id,
         })),
       );
       form.setValue(
         "phases.0.variationWeights",
-        v.map((data) => data.weight),
+        normalizedVariations.map((data) => data.weight),
       );
       form.setValue(
         "phases.0.variations",
-        v.map((data) => ({
-          id: data.id || generateVariationId(),
+        normalizedVariations.map((data) => ({
+          id: data.id,
           status: "active" as const,
         })),
       );

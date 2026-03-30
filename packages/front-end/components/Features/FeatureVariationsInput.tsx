@@ -287,12 +287,9 @@ export default function FeatureVariationsInput({
                       {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
                     </th>
                   )}
-                  {!hideVariationIds && !hideValueField && editingIds && (
-                    <th>Id</th>
-                  )}
-                  {hideVariationIds && !hideValueField && valueAsId && (
-                    <th>Id</th>
-                  )}
+                  {!hideVariationIds &&
+                    !hideValueField &&
+                    (editingIds || valueAsId) && <th>Id</th>}
                   {hideVariationIds && !hideValueField && !valueAsId && (
                     <th>Value to Force</th>
                   )}

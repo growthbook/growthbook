@@ -3071,6 +3071,80 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
+type UpdateExperimentApiPayload = z.infer<
+  typeof updateExperimentValidator.bodySchema
+>;
+
+function resolveExperimentUpdateVariationsAndPhases(
+  phases: UpdateExperimentApiPayload["phases"],
+  variations: UpdateExperimentApiPayload["variations"],
+  experiment: ExperimentInterface,
+): Partial<ExperimentInterface> {
+  const resolvedVariations: ExperimentInterface["variations"] | undefined =
+    variations
+      ? variations.map((v) => ({
+          id: v.id || generateVariationId(),
+          screenshots: v.screenshots || [],
+          ...v,
+        }))
+      : undefined;
+
+  const resolvedPhases: ExperimentInterface["phases"] | undefined = phases
+    ? phases.map((p) => {
+        const conditionRes = validateCondition(p.condition);
+        if (!conditionRes.success) {
+          throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+        }
+        p.prerequisites?.forEach((prerequisite) => {
+          const conditionRes = validateCondition(prerequisite.condition);
+          if (!conditionRes.success) {
+            throw new Error(
+              `Invalid prerequisite condition: ${conditionRes.error}`,
+            );
+          }
+        });
+
+        return {
+          ...p,
+          dateStarted: new Date(p.dateStarted),
+          dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+          reason: p.reason || "",
+          coverage: p.coverage != null ? p.coverage : 1,
+          condition: p.condition || "{}",
+          prerequisites: p.prerequisites || [],
+          savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+            match: s.matchType,
+            ids: s.savedGroups,
+          })),
+          namespace: {
+            name: p.namespace?.namespaceId || "",
+            range: toNamespaceRange(p.namespace?.range),
+            enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+          },
+          variationWeights:
+            p.variationWeights ||
+            (variations || getLatestPhaseVariations(experiment))?.map(
+              (_v, _i, arr) => 1 / arr.length,
+            ),
+          variations: resolvedVariations
+            ? resolvedVariations.map((v) => ({
+                id: v.id,
+                status: "active" as const,
+              }))
+            : experiment.variations.map((v) => ({
+                id: v.id,
+                status: "active" as const,
+              })),
+        };
+      })
+    : undefined;
+
+  return {
+    ...(resolvedVariations ? { variations: resolvedVariations } : {}),
+    ...(resolvedPhases ? { phases: resolvedPhases } : {}),
+  };
+}
+
 /**
  * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
  * @param payload
@@ -3178,72 +3252,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(sequentialTestingTuningParameter !== undefined
       ? { sequentialTestingTuningParameter }
       : {}),
-    ...(() => {
-      const resolvedVariations = variations
-        ? variations.map((v) => ({
-            id: v.id,
-            screenshots: v.screenshots || [],
-            ...v,
-          }))
-        : undefined;
-
-      const resolvedPhases = phases
-        ? phases.map((p) => {
-            const conditionRes = validateCondition(p.condition);
-            if (!conditionRes.success) {
-              throw new Error(
-                `Invalid targeting condition: ${conditionRes.error}`,
-              );
-            }
-            p.prerequisites?.forEach((prerequisite) => {
-              const conditionRes = validateCondition(prerequisite.condition);
-              if (!conditionRes.success) {
-                throw new Error(
-                  `Invalid prerequisite condition: ${conditionRes.error}`,
-                );
-              }
-            });
-
-            return {
-              ...p,
-              dateStarted: new Date(p.dateStarted),
-              dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-              reason: p.reason || "",
-              coverage: p.coverage != null ? p.coverage : 1,
-              condition: p.condition || "{}",
-              prerequisites: p.prerequisites || [],
-              savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-                match: s.matchType,
-                ids: s.savedGroups,
-              })),
-              namespace: {
-                name: p.namespace?.namespaceId || "",
-                range: toNamespaceRange(p.namespace?.range),
-                enabled:
-                  p.namespace?.enabled != null ? p.namespace.enabled : false,
-              },
-              variationWeights:
-                p.variationWeights ||
-                (
-                  payload.variations || getLatestPhaseVariations(experiment)
-                )?.map((_v, _i, arr) => 1 / arr.length),
-              variations: resolvedVariations
-                ? resolvedVariations.map((v) => ({
-                    id: v.id,
-                    status: "active" as const,
-                  }))
-                : experiment.variations.map((v) => ({
-                    id: v.id,
-                    status: "active" as const,
-                  })),
-            };
-          })
-        : undefined;
-      return {
-        ...(resolvedVariations ? { variations: resolvedVariations } : {}),
-        ...(resolvedPhases ? { phases: resolvedPhases } : {}),
-      };
-    })(),
+    ...resolveExperimentUpdateVariationsAndPhases(
+      phases,
+      variations,
+      experiment,
+    ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),

@@ -1726,7 +1726,7 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // Re-order variations to match the order of the experiment.variations
+  // Re-order phase variations to match the order of the variations coming in via the request body
   if (data.variations) {
     const phases = changes.phases || [...experiment.phases];
     const lastIndex = phases.length - 1;
