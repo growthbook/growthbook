@@ -7,7 +7,6 @@ import { ProjectInterface } from "shared/types/project";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import {
-  applyFilter,
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
@@ -15,23 +14,18 @@ import {
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator,
 )(async (req): Promise<ListExperimentsResponse> => {
+  // Filter and sort at the database level for better performance
+  // Note: type is not specified, which defaults to excluding holdouts
   const experiments = await getAllExperiments(req.context, {
     includeArchived: true,
+    project: req.query.projectId,
+    datasourceId: req.query.datasourceId,
+    trackingKey: req.query.experimentId,
+    sortBy: { dateCreated: 1 },
   });
 
-  // TODO: Move sorting/limiting to the database query for better performance
-  const { filtered, returnFields } = applyPagination(
-    experiments
-      .filter(
-        (exp) =>
-          applyFilter(req.query.experimentId, exp.trackingKey) &&
-          applyFilter(req.query.datasourceId, exp.datasource) &&
-          applyFilter(req.query.projectId, exp.project) &&
-          exp.type !== "holdout",
-      )
-      .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
-    req.query,
-  );
+  // TODO: Move pagination (limit/offset) to database for better performance
+  const { filtered, returnFields } = applyPagination(experiments, req.query);
 
   // Batch-load all projects for the filtered experiments to avoid N+1 queries
   const projectIds = [

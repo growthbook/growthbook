@@ -1,6 +1,7 @@
 import bs58 from "bs58";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { parseIntWithDefault } from "shared/util";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
@@ -602,7 +603,7 @@ export default abstract class SqlIntegration
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",
           variation_name: row.variation_name,
-          users: parseInt(row.users) || 0,
+          users: parseIntWithDefault(row.users, 0),
           end_date: getValidDate(row.end_date).toISOString(),
           start_date: getValidDate(row.start_date).toISOString(),
           latest_data: getValidDate(row.latest_data).toISOString(),
@@ -1367,8 +1368,8 @@ export default abstract class SqlIntegration
       return {
         variation: row.variation ?? "",
         ...dimensionData,
-        users: parseInt(row.users) || 0,
-        count: parseInt(row.users) || 0,
+        users: parseIntWithDefault(row.users, 0),
+        count: parseIntWithDefault(row.users, 0),
         ...metricData,
       };
     });
@@ -1430,8 +1431,8 @@ export default abstract class SqlIntegration
         const result: ExperimentMetricQueryResponseRows[number] = {
           variation: row.variation ?? "",
           ...dimensionData,
-          users: parseInt(row.users as string) || 0,
-          count: parseInt(row.users as string) || 0,
+          users: parseIntWithDefault(row.users, 0),
+          count: parseIntWithDefault(row.users, 0),
           main_sum: parseFloat(row.main_sum as string) || 0,
           main_sum_squares: parseFloat(row.main_sum_squares as string) || 0,
         };
@@ -2593,8 +2594,8 @@ export default abstract class SqlIntegration
         return {
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
-          units: parseInt(row.units) || 0,
-          total_units: parseInt(row.total_units) || 0,
+          units: parseIntWithDefault(row.units, 0),
+          total_units: parseIntWithDefault(row.total_units, 0),
         };
       }),
       statistics: statistics,
