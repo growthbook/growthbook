@@ -21,27 +21,11 @@ export type RampScheduleStepAdvancedPayload = z.infer<
 >;
 
 export const rampScheduleStepApprovalRequiredPayload =
-  rampScheduleBaseNotificationPayload.strict();
+  rampScheduleBaseNotificationPayload
+    .extend({ approvalNotes: z.string().nullish() })
+    .strict();
 export type RampScheduleStepApprovalRequiredPayload = z.infer<
   typeof rampScheduleStepApprovalRequiredPayload
->;
-
-export const rampScheduleStepApprovedPayload =
-  rampScheduleBaseNotificationPayload.strict();
-export type RampScheduleStepApprovedPayload = z.infer<
-  typeof rampScheduleStepApprovedPayload
->;
-
-export const rampSchedulePausedPayload =
-  rampScheduleBaseNotificationPayload.strict();
-export type RampSchedulePausedPayload = z.infer<
-  typeof rampSchedulePausedPayload
->;
-
-export const rampScheduleResumedPayload =
-  rampScheduleBaseNotificationPayload.strict();
-export type RampScheduleResumedPayload = z.infer<
-  typeof rampScheduleResumedPayload
 >;
 
 export const rampScheduleCompletedPayload =
@@ -82,10 +66,6 @@ export const rampScheduleDeletedPayload = z
 export type RampScheduleDeletedPayload = z.infer<
   typeof rampScheduleDeletedPayload
 >;
-
-export const rampScheduleResetPayload =
-  rampScheduleBaseNotificationPayload.strict();
-export type RampScheduleResetPayload = z.infer<typeof rampScheduleResetPayload>;
 
 export const rampScheduleJumpedPayload = rampScheduleBaseNotificationPayload
   .extend({

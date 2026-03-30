@@ -15,6 +15,7 @@ import {
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
+  RampScheduleStepApprovalRequiredPayload,
 } from "shared/validators";
 import {
   DiffResult,
@@ -124,21 +125,19 @@ export const getSlackMessageForNotificationEvent = async (
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
 
-    case "rampSchedule.started":
-    case "rampSchedule.step.advanced":
-    case "rampSchedule.step.approvalRequired":
-    case "rampSchedule.step.approved":
-    case "rampSchedule.paused":
-    case "rampSchedule.resumed":
-    case "rampSchedule.completed":
-    case "rampSchedule.rolledBack":
-    case "rampSchedule.created":
-    case "rampSchedule.deleted":
-    case "rampSchedule.reset":
-    case "rampSchedule.jumped":
-      // Ramp schedule events do not currently have dedicated Slack message templates.
-      // TODO: add buildSlackMessageForRampScheduleEvent() when Slack templates are designed.
-      return null;
+    case "feature.rampSchedule.created":
+    case "feature.rampSchedule.deleted":
+    case "feature.rampSchedule.actions.started":
+    case "feature.rampSchedule.actions.completed":
+    case "feature.rampSchedule.actions.rolledBack":
+    case "feature.rampSchedule.actions.jumped":
+    case "feature.rampSchedule.actions.step.advanced":
+    case "feature.rampSchedule.actions.step.approvalRequired":
+      return buildSlackMessageForRampScheduleEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
 
     default:
       invalidEvent = event;
@@ -450,6 +449,78 @@ const buildSlackMessageForSafeRolloutUnhealthyEvent = (
 };
 
 // endregion Event-specific messages -> Feature
+
+// region Event-specific messages -> Ramp Schedule
+
+type RampBasePayload = {
+  rampName: string;
+  currentStepIndex?: number;
+  targetStepIndex?: number;
+};
+
+const buildSlackMessageForRampScheduleEvent = (
+  eventType: string,
+  data: RampBasePayload & Partial<RampScheduleStepApprovalRequiredPayload>,
+  eventId: string,
+): SlackMessage => {
+  const name = `*${data.rampName}*`;
+  const step = (data.currentStepIndex ?? -1) + 1;
+  const jumpTarget = (data.targetStepIndex ?? 0) + 1;
+
+  let text: string;
+  switch (eventType) {
+    case "feature.rampSchedule.created":
+      text = `Ramp schedule ${name} was created`;
+      break;
+    case "feature.rampSchedule.deleted":
+      text = `Ramp schedule ${name} was deleted`;
+      break;
+    case "feature.rampSchedule.actions.started":
+      text = `Ramp schedule ${name} has started`;
+      break;
+    case "feature.rampSchedule.actions.completed":
+      text = `Ramp schedule ${name} has completed`;
+      break;
+    case "feature.rampSchedule.actions.rolledBack":
+      text = `Ramp schedule ${name} was rolled back to start`;
+      break;
+    case "feature.rampSchedule.actions.jumped":
+      text = `Ramp schedule ${name} jumped to step ${jumpTarget}`;
+      break;
+    case "feature.rampSchedule.actions.step.advanced":
+      text = `Ramp schedule ${name} advanced to step ${step}`;
+      break;
+    case "feature.rampSchedule.actions.step.approvalRequired":
+      text = `Ramp schedule ${name} step ${step} requires approval`;
+      break;
+    default:
+      text = `Ramp schedule ${name}: ${eventType}`;
+  }
+
+  const blocks: KnownBlock[] = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: text + getEventUrlFormatted(eventId),
+      },
+    },
+  ];
+
+  if (
+    eventType === "feature.rampSchedule.actions.step.approvalRequired" &&
+    data.approvalNotes
+  ) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `*Approval notes:* ${data.approvalNotes}` },
+    });
+  }
+
+  return { text, blocks };
+};
+
+// endregion Event-specific messages -> Ramp Schedule
 
 // region Event-specific messages -> Experiment
 

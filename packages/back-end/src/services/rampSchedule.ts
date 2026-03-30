@@ -297,7 +297,7 @@ export async function advanceStep(
     nextStepAt,
   });
 
-  await dispatchRampEvent(ctx, updated, "step.advanced", {
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.step.advanced", {
     object: {
       rampScheduleId: updated.id,
       rampName: updated.name,
@@ -308,15 +308,21 @@ export async function advanceStep(
   });
 
   if (isApprovalStep) {
-    await dispatchRampEvent(ctx, updated, "step.approvalRequired", {
-      object: {
-        rampScheduleId: updated.id,
-        rampName: updated.name,
-        orgId: ctx.org.id,
-        currentStepIndex: updated.currentStepIndex,
-        status: updated.status,
+    await dispatchRampEvent(
+      ctx,
+      updated,
+      "rampSchedule.actions.step.approvalRequired",
+      {
+        object: {
+          rampScheduleId: updated.id,
+          rampName: updated.name,
+          orgId: ctx.org.id,
+          currentStepIndex: updated.currentStepIndex,
+          status: updated.status,
+          approvalNotes: step.approvalNotes ?? undefined,
+        },
       },
-    });
+    );
   }
 
   return updated;
@@ -347,7 +353,7 @@ export async function rollbackToStep(
     pausedAt: newStatus === "paused" ? now : null,
   });
 
-  await dispatchRampEvent(ctx, updated, "rolledBack", {
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.rolledBack", {
     object: {
       rampScheduleId: updated.id,
       rampName: updated.name,
@@ -415,7 +421,7 @@ export async function completeRollout(
     nextStepAt: null,
   });
 
-  await dispatchRampEvent(ctx, updated, "completed", {
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
     object: {
       rampScheduleId: updated.id,
       rampName: updated.name,
@@ -458,7 +464,7 @@ export async function onActivatingRevisionPublished(
       current = (await ctx.models.rampSchedules.getById(current.id)) ?? current;
     }
 
-    await dispatchRampEvent(ctx, current, "started", {
+    await dispatchRampEvent(ctx, current, "rampSchedule.actions.started", {
       object: {
         rampScheduleId: current.id,
         rampName: current.name,
@@ -486,24 +492,42 @@ export async function onRevisionPublished(
   }
 }
 
-export async function dispatchRampEvent<
-  T extends ResourceEvents<"rampSchedule">,
->(
+type RampFeatureEvent = Extract<
+  ResourceEvents<"feature">,
+  `rampSchedule.${string}`
+>;
+
+export async function dispatchRampEvent<T extends RampFeatureEvent>(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface | { id: string },
   event: T,
-  data: CreateEventData<"rampSchedule", T>,
+  data: CreateEventData<"feature", T>,
 ): Promise<void> {
   try {
+    // Resolve project + environments for Slack/webhook filtering.
+    // environments come directly from targets; project requires a feature lookup.
+    let projects: string[] = [];
+    let environments: string[] = [];
+    let tags: string[] = [];
+    if ("targets" in schedule && schedule.entityType === "feature") {
+      environments = [
+        ...new Set(schedule.targets.flatMap((t) => t.environment ?? [])),
+      ];
+      const feature = await getFeature(ctx, schedule.entityId);
+      if (feature) {
+        projects = feature.project ? [feature.project] : [];
+        tags = feature.tags ?? [];
+      }
+    }
     await createEvent({
       context: ctx,
-      object: "rampSchedule",
+      object: "feature",
       objectId: schedule.id,
       event,
       data,
-      projects: [],
-      tags: [],
-      environments: [],
+      projects,
+      tags,
+      environments,
       containsSecrets: false,
     });
   } catch (e) {
@@ -626,16 +650,6 @@ export async function approveAndPublishStep(
     status: isCompleting ? "completed" : "running",
     nextStepAt,
     ...(wasApprovalGate ? { phaseStartedAt: newPhaseStart } : {}),
-  });
-
-  await dispatchRampEvent(ctx, schedule, "step.approved", {
-    object: {
-      rampScheduleId: schedule.id,
-      rampName: schedule.name,
-      orgId: ctx.org.id,
-      currentStepIndex: stepIndex,
-      status: isCompleting ? "completed" : "running",
-    },
   });
 
   return null;

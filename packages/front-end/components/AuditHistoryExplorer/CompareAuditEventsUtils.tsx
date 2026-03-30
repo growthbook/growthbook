@@ -56,23 +56,16 @@ export function dedupeDiffBadges(badges: DiffBadge[]): DiffBadge[] {
   });
 }
 
-// Explicit labels for ramp schedule events (keyed by the suffix after "rampSchedule.").
+// Labels for ramp schedule notification events (keyed by suffix after "feature.").
 export const RAMP_EVENT_LABELS: Record<string, string> = {
-  created: "Created",
-  deleted: "Deleted",
-  started: "Started",
-  paused: "Paused",
-  resumed: "Resumed",
-  completed: "Completed",
-  rolledBack: "Rolled back",
-  autoRollback: "Auto-rolled back",
-  reset: "Restart from beginning",
-  jumped: "Jumped to step",
-  conflict: "Conflict detected",
-  error: "Error",
-  "step.advanced": "Step advanced",
-  "step.approvalRequired": "Step awaiting approval",
-  "step.approved": "Step approved",
+  "rampSchedule.created": "Ramp schedule created",
+  "rampSchedule.deleted": "Ramp schedule deleted",
+  "rampSchedule.actions.started": "Ramp schedule started",
+  "rampSchedule.actions.completed": "Ramp schedule completed",
+  "rampSchedule.actions.rolledBack": "Ramp schedule rolled back",
+  "rampSchedule.actions.jumped": "Ramp schedule jumped to step",
+  "rampSchedule.actions.step.advanced": "Ramp step advanced",
+  "rampSchedule.actions.step.approvalRequired": "Ramp step awaiting approval",
 };
 
 // Derive a human-readable label from a raw event string using the entity type
@@ -82,8 +75,8 @@ export function formatEventLabel(event: string, entityType: string): string {
   const prefix = `${entityType}.`;
   const suffix = event.startsWith(prefix) ? event.slice(prefix.length) : event;
 
-  // Use explicit labels for ramp schedule events when available.
-  if (entityType === "rampSchedule" && RAMP_EVENT_LABELS[suffix]) {
+  // Ramp schedule notification events are stored under the "feature" entity type.
+  if (entityType === "feature" && RAMP_EVENT_LABELS[suffix]) {
     return RAMP_EVENT_LABELS[suffix];
   }
 

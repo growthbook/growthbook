@@ -166,7 +166,7 @@ export const postRampSchedule = async (
     "id" | "organization" | "dateCreated" | "dateUpdated"
   >);
 
-  await dispatchRampEvent(context, schedule, "created", {
+  await dispatchRampEvent(context, schedule, "rampSchedule.created", {
     object: {
       rampScheduleId: schedule.id,
       rampName: schedule.name,
@@ -353,7 +353,7 @@ export const deleteRampSchedule = async (
   }
   await context.models.rampSchedules.deleteById(schedule.id);
 
-  await dispatchRampEvent(context, schedule, "deleted", {
+  await dispatchRampEvent(context, schedule, "rampSchedule.deleted", {
     object: {
       rampScheduleId: schedule.id,
       rampName: schedule.name,
@@ -399,15 +399,20 @@ export const postRampScheduleAction = async (
       await advanceUntilBlocked(context, updated, now);
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
-      await dispatchRampEvent(context, updated, "started", {
-        object: {
-          rampScheduleId: updated.id,
-          rampName: updated.name,
-          orgId: context.org.id,
-          currentStepIndex: updated.currentStepIndex,
-          status: updated.status,
+      await dispatchRampEvent(
+        context,
+        updated,
+        "rampSchedule.actions.started",
+        {
+          object: {
+            rampScheduleId: updated.id,
+            rampName: updated.name,
+            orgId: context.org.id,
+            currentStepIndex: updated.currentStepIndex,
+            status: updated.status,
+          },
         },
-      });
+      );
       break;
     }
 
@@ -421,15 +426,6 @@ export const postRampScheduleAction = async (
       updated = await context.models.rampSchedules.updateById(schedule.id, {
         status: "paused",
         pausedAt: now,
-      });
-      await dispatchRampEvent(context, updated, "paused", {
-        object: {
-          rampScheduleId: updated.id,
-          rampName: updated.name,
-          orgId: context.org.id,
-          currentStepIndex: updated.currentStepIndex,
-          status: updated.status,
-        },
       });
       break;
 
@@ -504,15 +500,6 @@ export const postRampScheduleAction = async (
       }
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
-      await dispatchRampEvent(context, updated, "resumed", {
-        object: {
-          rampScheduleId: updated.id,
-          rampName: updated.name,
-          orgId: context.org.id,
-          currentStepIndex: updated.currentStepIndex,
-          status: updated.status,
-        },
-      });
       break;
     }
 
@@ -556,15 +543,21 @@ export const postRampScheduleAction = async (
           phaseStartedAt: null,
         }),
       });
-      await dispatchRampEvent(context, updated, "reset", {
-        object: {
-          rampScheduleId: updated.id,
-          rampName: updated.name,
-          orgId: context.org.id,
-          currentStepIndex: updated.currentStepIndex,
-          status: updated.status,
+      await dispatchRampEvent(
+        context,
+        updated,
+        "rampSchedule.actions.rolledBack",
+        {
+          object: {
+            rampScheduleId: updated.id,
+            rampName: updated.name,
+            orgId: context.org.id,
+            currentStepIndex: updated.currentStepIndex,
+            status: updated.status,
+            targetStepIndex: -1,
+          },
         },
-      });
+      );
       break;
     }
 
@@ -616,7 +609,7 @@ export const postRampScheduleAction = async (
           nextStepAt: null,
         });
       }
-      await dispatchRampEvent(context, updated, "jumped", {
+      await dispatchRampEvent(context, updated, "rampSchedule.actions.jumped", {
         object: {
           rampScheduleId: updated.id,
           rampName: updated.name,

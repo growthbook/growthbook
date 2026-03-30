@@ -15,14 +15,10 @@ import {
   rampScheduleStartedPayload,
   rampScheduleStepAdvancedPayload,
   rampScheduleStepApprovalRequiredPayload,
-  rampScheduleStepApprovedPayload,
-  rampSchedulePausedPayload,
-  rampScheduleResumedPayload,
   rampScheduleCompletedPayload,
   rampScheduleRolledBackPayload,
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
-  rampScheduleResetPayload,
   rampScheduleJumpedPayload,
 } from "./ramp-schedule-notifications";
 
@@ -114,6 +110,41 @@ export const notificationEvents = {
       description:
         "Triggered when a safe rollout is failing a health check and may not be working as expected.",
     },
+    "rampSchedule.created": {
+      schema: rampScheduleCreatedPayload,
+      description: "Triggered when a ramp schedule is created for a feature",
+    },
+    "rampSchedule.deleted": {
+      schema: rampScheduleDeletedPayload,
+      description: "Triggered when a ramp schedule is deleted from a feature",
+    },
+    "rampSchedule.actions.started": {
+      schema: rampScheduleStartedPayload,
+      description: "Triggered when a feature ramp schedule starts",
+    },
+    "rampSchedule.actions.completed": {
+      schema: rampScheduleCompletedPayload,
+      description: "Triggered when a feature ramp schedule completes all steps",
+    },
+    "rampSchedule.actions.rolledBack": {
+      schema: rampScheduleRolledBackPayload,
+      description:
+        "Triggered when a feature ramp schedule is rolled back or reset to start",
+    },
+    "rampSchedule.actions.jumped": {
+      schema: rampScheduleJumpedPayload,
+      description:
+        "Triggered when a feature ramp schedule is jumped to a specific step",
+    },
+    "rampSchedule.actions.step.advanced": {
+      schema: rampScheduleStepAdvancedPayload,
+      description:
+        "Triggered when a feature ramp schedule advances to the next step",
+    },
+    "rampSchedule.actions.step.approvalRequired": {
+      schema: rampScheduleStepApprovalRequiredPayload,
+      description: "Triggered when a feature ramp step is waiting for approval",
+    },
   },
   experiment: {
     created: {
@@ -164,60 +195,6 @@ export const notificationEvents = {
       description: "Triggered when a webhook is being tested",
       isDiff: false,
       noDoc: true,
-    },
-  },
-  rampSchedule: {
-    started: {
-      schema: rampScheduleStartedPayload,
-      description: "Triggered when a ramp schedule starts",
-    },
-    "step.advanced": {
-      schema: rampScheduleStepAdvancedPayload,
-      description: "Triggered when a ramp schedule advances to the next step",
-    },
-    "step.approvalRequired": {
-      schema: rampScheduleStepApprovalRequiredPayload,
-      description:
-        "Triggered when an approval-gated ramp step is waiting for review",
-    },
-    "step.approved": {
-      schema: rampScheduleStepApprovedPayload,
-      description:
-        "Triggered when an approval gate is cleared and the ramp step proceeds",
-    },
-    paused: {
-      schema: rampSchedulePausedPayload,
-      description: "Triggered when a ramp schedule is paused",
-    },
-    resumed: {
-      schema: rampScheduleResumedPayload,
-      description: "Triggered when a paused ramp schedule is resumed",
-    },
-    completed: {
-      schema: rampScheduleCompletedPayload,
-      description: "Triggered when a ramp schedule completes all steps",
-    },
-    rolledBack: {
-      schema: rampScheduleRolledBackPayload,
-      description: "Triggered when a ramp schedule is manually rolled back",
-    },
-    created: {
-      schema: rampScheduleCreatedPayload,
-      description: "Triggered when a ramp schedule is created",
-    },
-    deleted: {
-      schema: rampScheduleDeletedPayload,
-      description: "Triggered when a ramp schedule is deleted",
-    },
-    reset: {
-      schema: rampScheduleResetPayload,
-      description:
-        "Triggered when a ramp schedule is reset to its initial state",
-    },
-    jumped: {
-      schema: rampScheduleJumpedPayload,
-      description:
-        "Triggered when a ramp schedule is jumped to a specific step",
     },
   },
 } as const;

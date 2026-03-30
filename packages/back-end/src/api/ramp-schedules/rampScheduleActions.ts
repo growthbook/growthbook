@@ -43,15 +43,20 @@ export const startRampSchedule = createApiRequestHandler({
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
 
-  await dispatchRampEvent(req.context, current, "started", {
-    object: {
-      rampScheduleId: current.id,
-      rampName: current.name,
-      orgId: req.context.org.id,
-      currentStepIndex: current.currentStepIndex,
-      status: current.status,
+  await dispatchRampEvent(
+    req.context,
+    current,
+    "rampSchedule.actions.started",
+    {
+      object: {
+        rampScheduleId: current.id,
+        rampName: current.name,
+        orgId: req.context.org.id,
+        currentStepIndex: current.currentStepIndex,
+        status: current.status,
+      },
     },
-  });
+  );
 
   return { rampSchedule: current };
 });
@@ -214,7 +219,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     });
   }
 
-  await dispatchRampEvent(req.context, updated, "jumped", {
+  await dispatchRampEvent(req.context, updated, "rampSchedule.actions.jumped", {
     object: {
       rampScheduleId: updated.id,
       rampName: updated.name,

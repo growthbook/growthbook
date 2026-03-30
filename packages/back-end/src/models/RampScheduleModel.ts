@@ -3,10 +3,6 @@ import {
   RampScheduleInterface,
   rampScheduleValidator,
 } from "shared/validators";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { getFeature } from "back-end/src/models/FeatureModel";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -82,41 +78,5 @@ export class RampScheduleModel extends BaseClass {
         },
       },
     });
-  }
-
-  protected async afterUpdate(
-    existing: RampScheduleInterface,
-    updates: UpdateProps<RampScheduleInterface>,
-  ) {
-    const stepChanged =
-      updates.currentStepIndex !== undefined &&
-      updates.currentStepIndex !== existing.currentStepIndex;
-
-    const statusChanged =
-      updates.status !== undefined && updates.status !== existing.status;
-
-    if ((stepChanged || statusChanged) && existing.entityType === "feature") {
-      const feature = await getFeature(this.context, existing.entityId);
-      if (!feature) return;
-
-      const environments = existing.targets
-        .filter((t) => t.environment)
-        .map((t) => t.environment as string);
-
-      const envIds =
-        environments.length > 0
-          ? environments
-          : getEnvironmentIdsFromOrg(this.context.org);
-
-      queueSDKPayloadRefresh({
-        context: this.context,
-        payloadKeys: getAffectedSDKPayloadKeys([feature], envIds),
-        auditContext: {
-          event: "step changed",
-          model: "rampschedule",
-          id: existing.id,
-        },
-      });
-    }
   }
 }

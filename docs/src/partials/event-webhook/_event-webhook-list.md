@@ -8,6 +8,14 @@
 | **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
 | **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
 | **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
+| **[feature.rampSchedule.created](#featurerampSchedulecreated)** | Triggered when a ramp schedule is created for a feature |
+| **[feature.rampSchedule.deleted](#featurerampScheduledeleted)** | Triggered when a ramp schedule is deleted from a feature |
+| **[feature.rampSchedule.actions.started](#featurerampScheduleactionsstarted)** | Triggered when a feature ramp schedule starts |
+| **[feature.rampSchedule.actions.completed](#featurerampScheduleactionscompleted)** | Triggered when a feature ramp schedule completes all steps |
+| **[feature.rampSchedule.actions.rolledBack](#featurerampScheduleactionsrolledBack)** | Triggered when a feature ramp schedule is rolled back or reset to start |
+| **[feature.rampSchedule.actions.jumped](#featurerampScheduleactionsjumped)** | Triggered when a feature ramp schedule is jumped to a specific step |
+| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances to the next step |
+| **[feature.rampSchedule.actions.step.approvalRequired](#featurerampScheduleactionsstepapprovalRequired)** | Triggered when a feature ramp step is waiting for approval |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -17,18 +25,6 @@
 | **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
 | **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
-| **[rampSchedule.started](#rampSchedulestarted)** | Triggered when a ramp schedule starts |
-| **[rampSchedule.step.advanced](#rampSchedulestepadvanced)** | Triggered when a ramp schedule advances to the next step |
-| **[rampSchedule.step.approvalRequired](#rampSchedulestepapprovalRequired)** | Triggered when an approval-gated ramp step is waiting for review |
-| **[rampSchedule.step.approved](#rampSchedulestepapproved)** | Triggered when an approval gate is cleared and the ramp step proceeds |
-| **[rampSchedule.paused](#rampSchedulepaused)** | Triggered when a ramp schedule is paused |
-| **[rampSchedule.resumed](#rampScheduleresumed)** | Triggered when a paused ramp schedule is resumed |
-| **[rampSchedule.completed](#rampSchedulecompleted)** | Triggered when a ramp schedule completes all steps |
-| **[rampSchedule.rolledBack](#rampSchedulerolledBack)** | Triggered when a ramp schedule is manually rolled back |
-| **[rampSchedule.created](#rampSchedulecreated)** | Triggered when a ramp schedule is created |
-| **[rampSchedule.deleted](#rampScheduledeleted)** | Triggered when a ramp schedule is deleted |
-| **[rampSchedule.reset](#rampSchedulereset)** | Triggered when a ramp schedule is reset to its initial state |
-| **[rampSchedule.jumped](#rampSchedulejumped)** | Triggered when a ramp schedule is jumped to a specific step |
   
 ### feature.created
 
@@ -1347,6 +1343,351 @@ Triggered when a safe rollout is failing a health check and may not be working a
 </details>
 
 
+### feature.rampSchedule.created
+
+Triggered when a ramp schedule is created for a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.created";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            entityType: string;
+            entityId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.deleted
+
+Triggered when a ramp schedule is deleted from a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.deleted";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.started
+
+Triggered when a feature ramp schedule starts
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.started";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.completed
+
+Triggered when a feature ramp schedule completes all steps
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.completed";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.rolledBack
+
+Triggered when a feature ramp schedule is rolled back or reset to start
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.rolledBack";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.jumped
+
+Triggered when a feature ramp schedule is jumped to a specific step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.jumped";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.advanced
+
+Triggered when a feature ramp schedule advances to the next step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.advanced";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.approvalRequired
+
+Triggered when a feature ramp step is waiting for approval
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.approvalRequired";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            approvalNotes?: (string | null) | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
 ### experiment.created
 
 Triggered when an experiment is created
@@ -2277,522 +2618,6 @@ Triggered when a user logs in
             userAgent: string;
             os: string;
             device: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.started
-
-Triggered when a ramp schedule starts
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.started";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.step.advanced
-
-Triggered when a ramp schedule advances to the next step
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.step.advanced";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.step.approvalRequired
-
-Triggered when an approval-gated ramp step is waiting for review
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.step.approvalRequired";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.step.approved
-
-Triggered when an approval gate is cleared and the ramp step proceeds
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.step.approved";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.paused
-
-Triggered when a ramp schedule is paused
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.paused";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.resumed
-
-Triggered when a paused ramp schedule is resumed
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.resumed";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.completed
-
-Triggered when a ramp schedule completes all steps
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.completed";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.rolledBack
-
-Triggered when a ramp schedule is manually rolled back
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.rolledBack";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-            targetStepIndex: number;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.created
-
-Triggered when a ramp schedule is created
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.created";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            entityType: string;
-            entityId: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.deleted
-
-Triggered when a ramp schedule is deleted
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.deleted";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.reset
-
-Triggered when a ramp schedule is reset to its initial state
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.reset";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-        };
-    };
-    user: {
-        type: "dashboard";
-        id: string;
-        email: string;
-        name: string;
-    } | {
-        type: "api_key";
-        apiKey: string;
-    } | {
-        type: "system";
-        subtype?: string | undefined;
-        id?: string | undefined;
-    } | null;
-    tags: string[];
-    environments: string[];
-    containsSecrets: boolean;
-}
-```
-</details>
-
-
-### rampSchedule.jumped
-
-Triggered when a ramp schedule is jumped to a specific step
-
-<details>
-  <summary>Payload</summary>
-
-```typescript
-{
-    event: "rampSchedule.jumped";
-    object: "rampSchedule";
-    api_version: string;
-    created: number;
-    data: {
-        object: {
-            rampScheduleId: string;
-            rampName: string;
-            orgId: string;
-            currentStepIndex: number;
-            status: string;
-            targetStepIndex: number;
         };
     };
     user: {
