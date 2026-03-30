@@ -19,8 +19,8 @@ export const listMetrics = createApiRequestHandler(listMetricsValidator)(async (
 
   const datasources = await getDataSourcesByOrganization(req.context);
 
-  // Sorting is done at DB level, but we sort again here to handle config file metrics
-  // TODO: Move pagination (limit/offset) to database for better performance
+  // Sorting could be done at DB level, but we sort here instead to handle config file metrics
+  // TODO: Move sorting and pagination (limit/offset) to database for better performance
   const { filtered, returnFields } = applyPagination(
     metrics.sort((a, b) => a.id.localeCompare(b.id)),
     req.query,

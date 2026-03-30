@@ -331,7 +331,6 @@ async function findMetrics(
         projection: { analysis: 0 },
       },
     )
-    .sort({ id: 1 })
     .toArray();
   docs.forEach((doc) => {
     if (metricIds.has(doc.id)) {
@@ -346,14 +345,12 @@ async function findMetrics(
   );
 }
 
-export interface MetricFilterOptions {
-  datasourceId?: string;
-  projectId?: string;
-}
-
 export async function getMetricsByOrganization(
   context: ReqContext | ApiReqContext,
-  options?: MetricFilterOptions,
+  options?: {
+    datasourceId?: string;
+    projectId?: string;
+  },
 ) {
   const query: FilterQuery<LegacyMetricInterface> = {
     ...(options?.datasourceId && { datasource: options.datasourceId }),
