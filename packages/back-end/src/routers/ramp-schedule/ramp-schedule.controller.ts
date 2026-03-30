@@ -8,6 +8,7 @@ import {
   applyStartConditionActions,
   approveAndPublishStep,
   completeRollout,
+  computeNextProcessAt,
   computeNextStepAt,
   dispatchRampEvent,
   jumpAheadToStep,
@@ -172,6 +173,8 @@ export const postRampSchedule = async (
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
+    nextProcessAt:
+      resolvedStartTrigger.type === "scheduled" ? resolvedStartTrigger.at : null,
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -345,6 +348,17 @@ export const putRampSchedule = async (
     updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
   }
 
+  updates.nextProcessAt = computeNextProcessAt({
+    status: schedule.status,
+    nextStepAt: schedule.nextStepAt,
+    endCondition:
+      (updates.endCondition as RampScheduleInterface["endCondition"]) ??
+      schedule.endCondition,
+    startCondition:
+      (updates.startCondition as RampScheduleInterface["startCondition"]) ??
+      schedule.startCondition,
+  });
+
   const updated = await context.models.rampSchedules.updateById(
     schedule.id,
     updates,
@@ -413,6 +427,11 @@ export const postRampScheduleAction = async (
         startedAt: now,
         phaseStartedAt: now,
         nextStepAt: initialNextStepAt,
+        nextProcessAt: computeNextProcessAt({
+          status: "running",
+          nextStepAt: initialNextStepAt,
+          endCondition: schedule.endCondition,
+        }),
       });
       await applyStartConditionActions(context, updated);
       await advanceUntilBlocked(context, updated, now);
@@ -445,6 +464,7 @@ export const postRampScheduleAction = async (
       updated = await context.models.rampSchedules.updateById(schedule.id, {
         status: "paused",
         pausedAt: now,
+        nextProcessAt: null,
       });
       break;
 
@@ -510,6 +530,13 @@ export const postRampScheduleAction = async (
         }
       }
 
+      resumeUpdates.nextProcessAt = computeNextProcessAt({
+        status: resumeUpdates.status as RampScheduleInterface["status"],
+        nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
+        endCondition: schedule.endCondition,
+        startCondition: schedule.startCondition,
+      });
+
       updated = await context.models.rampSchedules.updateById(
         schedule.id,
         resumeUpdates,
@@ -557,6 +584,7 @@ export const postRampScheduleAction = async (
       updated = await context.models.rampSchedules.updateById(resetRolled.id, {
         status: "paused",
         pausedAt: now,
+        nextProcessAt: null,
         ...(isTerminal && {
           startedAt: null,
           phaseStartedAt: null,
@@ -617,6 +645,7 @@ export const postRampScheduleAction = async (
           pausedAt: now,
           phaseStartedAt: freshPhaseStartedAt,
           nextStepAt: null,
+          nextProcessAt: null,
         });
       } else if (jumpTarget > schedule.currentStepIndex) {
         updated = await jumpAheadToStep(context, schedule, jumpTarget);
@@ -626,6 +655,7 @@ export const postRampScheduleAction = async (
           pausedAt: now,
           phaseStartedAt: freshPhaseStartedAt,
           nextStepAt: null,
+          nextProcessAt: null,
         });
       }
       await dispatchRampEvent(context, updated, "rampSchedule.actions.jumped", {

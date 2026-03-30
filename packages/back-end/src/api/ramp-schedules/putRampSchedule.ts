@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { rampControlledField, rampStep } from "shared/validators";
+import { rampControlledField, rampStep, RampScheduleInterface } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { computeNextProcessAt } from "back-end/src/services/rampSchedule";
 
 const startTriggerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("immediately") }),
@@ -113,6 +114,17 @@ export const putRampSchedule = createApiRequestHandler(
       updates.endCondition = { trigger, actions: ec.actions ?? undefined };
     }
   }
+
+  updates.nextProcessAt = computeNextProcessAt({
+    status: schedule.status,
+    nextStepAt: schedule.nextStepAt,
+    endCondition:
+      (updates.endCondition as RampScheduleInterface["endCondition"]) ??
+      schedule.endCondition,
+    startCondition:
+      (updates.startCondition as RampScheduleInterface["startCondition"]) ??
+      schedule.startCondition,
+  });
 
   const updated = await req.context.models.rampSchedules.updateById(
     schedule.id,

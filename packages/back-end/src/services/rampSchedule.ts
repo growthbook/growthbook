@@ -155,6 +155,35 @@ export function computeNextStepAt(
   return new Date(phaseStart.getTime() + total * 1000);
 }
 
+// Computes when the job should next poll this schedule. null = no polling needed.
+export function computeNextProcessAt(schedule: {
+  status: RampScheduleInterface["status"];
+  nextStepAt?: Date | null;
+  endCondition?: RampScheduleInterface["endCondition"];
+  startCondition?: RampScheduleInterface["startCondition"];
+}): Date | null {
+  const endAt =
+    schedule.endCondition?.trigger?.type === "scheduled"
+      ? schedule.endCondition.trigger.at
+      : null;
+
+  switch (schedule.status) {
+    case "running": {
+      const stepAt = schedule.nextStepAt ?? null;
+      if (stepAt) return endAt && endAt < stepAt ? endAt : stepAt;
+      return endAt;
+    }
+    case "pending-approval":
+      return endAt;
+    case "ready":
+      return schedule.startCondition?.trigger.type === "scheduled"
+        ? schedule.startCondition.trigger.at
+        : null;
+    default:
+      return null;
+  }
+}
+
 // After approval, rebase phaseStartedAt so the next interval fires at approval + its seconds.
 export function computePhaseStartAfterApproval(
   now: Date,
@@ -277,6 +306,7 @@ export async function advanceStep(
     return ctx.models.rampSchedules.updateById(schedule.id, {
       status: "completed",
       nextStepAt: null,
+      nextProcessAt: null,
     });
   }
 
@@ -291,10 +321,16 @@ export async function advanceStep(
     ? null
     : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
 
+  const newStatus = isApprovalStep ? ("pending-approval" as const) : ("running" as const);
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: isApprovalStep ? "pending-approval" : "running",
+    status: newStatus,
     currentStepIndex: nextStepIndex,
     nextStepAt,
+    nextProcessAt: computeNextProcessAt({
+      status: newStatus,
+      nextStepAt,
+      endCondition: schedule.endCondition,
+    }),
   });
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.step.advanced", {
@@ -351,6 +387,7 @@ export async function rollbackToStep(
     currentStepIndex: targetStepIndex,
     nextStepAt: null,
     pausedAt: newStatus === "paused" ? now : null,
+    nextProcessAt: null,
   });
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.rolledBack", {
@@ -385,6 +422,7 @@ export async function jumpAheadToStep(
     currentStepIndex: jumpTarget,
     nextStepAt: null,
     pausedAt: now,
+    nextProcessAt: null,
   });
 }
 
@@ -419,6 +457,7 @@ export async function completeRollout(
     status: "completed",
     currentStepIndex: finalStepIndex,
     nextStepAt: null,
+    nextProcessAt: null,
   });
 
   await dispatchRampEvent(ctx, updated, "rampSchedule.actions.completed", {
@@ -455,6 +494,11 @@ export async function onActivatingRevisionPublished(
       startedAt: now,
       phaseStartedAt: now,
       nextStepAt: initialNextStepAt,
+      nextProcessAt: computeNextProcessAt({
+        status: "running",
+        nextStepAt: initialNextStepAt,
+        endCondition: schedule.endCondition,
+      }),
     });
 
     await applyStartConditionActions(ctx, current);
@@ -474,7 +518,10 @@ export async function onActivatingRevisionPublished(
       },
     });
   } else {
-    await ctx.models.rampSchedules.updateById(schedule.id, { status: "ready" });
+    await ctx.models.rampSchedules.updateById(schedule.id, {
+      status: "ready",
+      nextProcessAt: computeNextProcessAt({ ...schedule, status: "ready" }),
+    });
   }
 }
 
@@ -646,10 +693,16 @@ export async function approveAndPublishStep(
     }
   }
 
+  const approveStatus = isCompleting ? ("completed" as const) : ("running" as const);
   await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: isCompleting ? "completed" : "running",
+    status: approveStatus,
     nextStepAt,
     ...(wasApprovalGate ? { phaseStartedAt: newPhaseStart } : {}),
+    nextProcessAt: computeNextProcessAt({
+      status: approveStatus,
+      nextStepAt,
+      endCondition: schedule.endCondition,
+    }),
   });
 
   return null;

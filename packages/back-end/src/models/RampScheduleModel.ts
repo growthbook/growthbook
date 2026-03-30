@@ -22,6 +22,7 @@ const BaseClass = MakeModelClass({
     status: "pending" as const,
     currentStepIndex: -1,
     nextStepAt: null,
+    nextProcessAt: null,
   },
 });
 

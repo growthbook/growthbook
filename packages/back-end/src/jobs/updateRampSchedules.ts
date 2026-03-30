@@ -5,6 +5,7 @@ import {
   advanceUntilBlocked,
   applyStartConditionActions,
   completeRollout,
+  computeNextProcessAt,
   onActivatingRevisionPublished,
 } from "back-end/src/services/rampSchedule";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -36,29 +37,23 @@ async function queueRampScheduleAdvance(
 }
 
 export default async function addRampScheduleJob(agenda: Agenda) {
+  // Ensure a sparse index on nextProcessAt for efficient polling.
+  const mongoose = await import("mongoose");
+  await mongoose.default.connection.db
+    .collection("rampschedules")
+    .createIndex({ nextProcessAt: 1 }, { sparse: true, name: "nextProcessAt_1" });
+
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
-    // Uses db.collection() directly — RampScheduleModel is a BaseModel, not a mongoose.model.
     const mongoose = await import("mongoose");
     const scheduleDocs = await mongoose.default.connection.db
       .collection("rampschedules")
       .find(
         {
           $or: [
-            // Running schedules with a step timer due
-            { status: "running", nextStepAt: { $ne: null, $lte: now } },
-            // Scheduled-start "ready" schedules — "immediately"/"manual" are NOT started here
-            {
-              status: "ready",
-              "startCondition.trigger.type": "scheduled",
-              "startCondition.trigger.at": { $lte: now },
-            },
-            // Hard end-date deadline (paused schedules excluded — deferred until resumed)
-            {
-              status: { $in: ["running", "pending-approval"] },
-              "endCondition.trigger.at": { $lte: now },
-            },
-            // Crash recovery: pending with an already-published activating revision
+            // Primary path: any schedule with a due process time
+            { nextProcessAt: { $ne: null, $lte: now } },
+            // Crash recovery: pending schedules whose activation hook may have missed
             {
               status: "pending",
               "targets.activatingRevisionVersion": { $exists: true, $ne: null },
@@ -142,6 +137,11 @@ export const advanceSingleRampSchedule = async (
         startedAt: now,
         phaseStartedAt: now,
         nextStepAt: initialNextStepAt,
+        nextProcessAt: computeNextProcessAt({
+          status: "running",
+          nextStepAt: initialNextStepAt,
+          endCondition: current.endCondition,
+        }),
       });
       await applyStartConditionActions(context, current);
     }
@@ -152,6 +152,7 @@ export const advanceSingleRampSchedule = async (
     try {
       await context.models.rampSchedules.updateById(rampScheduleId, {
         status: "paused",
+        nextProcessAt: null,
       });
     } catch (inner) {
       logger.error(inner, "Error updating ramp schedule status after failure");

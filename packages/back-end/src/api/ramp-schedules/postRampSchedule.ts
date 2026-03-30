@@ -124,6 +124,7 @@ export const postRampSchedule = createApiRequestHandler(
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
+    nextProcessAt: startTrigger.type === "scheduled" ? startTrigger.at : null,
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"

@@ -4,6 +4,7 @@ import {
   advanceUntilBlocked,
   applyStartConditionActions,
   completeRollout,
+  computeNextProcessAt,
   dispatchRampEvent,
   jumpAheadToStep,
   rollbackToStep,
@@ -36,6 +37,11 @@ export const startRampSchedule = createApiRequestHandler({
     startedAt: now,
     phaseStartedAt: now,
     nextStepAt: initialNextStepAt,
+    nextProcessAt: computeNextProcessAt({
+      status: "running",
+      nextStepAt: initialNextStepAt,
+      endCondition: schedule.endCondition,
+    }),
   });
 
   await applyStartConditionActions(req.context, current);
@@ -78,7 +84,7 @@ export const pauseRampSchedule = createApiRequestHandler({
 
   const updated = await req.context.models.rampSchedules.updateById(
     schedule.id,
-    { status: "paused", pausedAt: new Date() },
+    { status: "paused", pausedAt: new Date(), nextProcessAt: null },
   );
 
   return { rampSchedule: updated };
@@ -131,6 +137,13 @@ export const resumeRampSchedule = createApiRequestHandler({
       }
     }
   }
+
+  resumeUpdates.nextProcessAt = computeNextProcessAt({
+    status: resumeUpdates.status as "running" | "pending-approval",
+    nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
+    endCondition: schedule.endCondition,
+    startCondition: schedule.startCondition,
+  });
 
   let updated = await req.context.models.rampSchedules.updateById(
     schedule.id,
@@ -216,6 +229,7 @@ export const jumpRampSchedule = createApiRequestHandler({
       status: "paused",
       pausedAt: now,
       nextStepAt: null,
+      nextProcessAt: null,
     });
   }
 

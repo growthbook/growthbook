@@ -116,6 +116,7 @@ export const rampScheduleValidator = baseSchema
     phaseStartedAt: z.date().nullish(), // interval timing anchor; resets after approval gates
     pausedAt: z.date().nullish(),
     nextStepAt: z.date().nullable(),
+    nextProcessAt: z.date().nullish(), // next time the job should process this schedule; null = no polling needed
     elapsedMs: z.number().int().nullish(), // computed at response time; never stored
   })
   .strict()
