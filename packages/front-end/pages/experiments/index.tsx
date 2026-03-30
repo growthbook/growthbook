@@ -46,9 +46,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const initialHash = globalThis?.window ? window.location.hash.slice(1) : "";
   const hasInitialValidHash = isExperimentListTab(initialHash);
-  const [urlTab, setTab] = useURLHash<ExperimentListTab>(
-    EXPERIMENT_LIST_TABS as unknown as ExperimentListTab[],
-  );
+  const [urlTab, setTab] = useURLHash<ExperimentListTab>(EXPERIMENT_LIST_TABS);
   const normalizedURLTab = urlTab ?? "";
   const tab: ExperimentListTab = isExperimentListTab(normalizedURLTab)
     ? normalizedURLTab
