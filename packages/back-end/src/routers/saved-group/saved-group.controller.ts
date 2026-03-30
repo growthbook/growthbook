@@ -680,9 +680,19 @@ export const putSavedGroup = async (
 
     // If bypassing approval or auto-publishing, immediately merge the revision
     if (bypassApproval || autoPublish) {
-      const canBypass = context.permissions.canBypassApprovalChecks({
-        project: savedGroup.projects?.[0] || "",
-      });
+      const canBypass =
+        (savedGroup.projects?.length ?? 0) === 0
+          ? context.permissions.canBypassApprovalChecks({ project: "" })
+          : savedGroup.projects!.every((p) =>
+              context.permissions.canBypassApprovalChecks({ project: p }),
+            );
+
+      // bypassApproval is an explicit admin override — enforce the permission server-side.
+      // autoPublish is used when metadata review is disabled; no bypass permission needed.
+      if (bypassApproval && !canBypass) {
+        context.permissions.throwPermissionError();
+      }
+
       const isBypass = approvalRequired && bypassApproval && !canBypass;
 
       // Apply entity update

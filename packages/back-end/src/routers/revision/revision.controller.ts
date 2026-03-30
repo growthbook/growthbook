@@ -726,9 +726,12 @@ export const postMerge = async (
       context.permissions.throwPermissionError();
     }
 
-    const canBypass = context.permissions.canBypassApprovalChecks({
-      project: savedGroup.projects?.[0] || "",
-    });
+    const canBypass =
+      (savedGroup.projects?.length ?? 0) === 0
+        ? context.permissions.canBypassApprovalChecks({ project: "" })
+        : savedGroup.projects!.every((p) =>
+            context.permissions.canBypassApprovalChecks({ project: p }),
+          );
 
     // Check if approval is required for saved groups
     const approvalRequired =
