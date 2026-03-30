@@ -10,6 +10,7 @@ const startTriggerSchema = z.discriminatedUnion("type", [
 
 const actionSchema = z.array(
   z.object({
+    targetType: z.literal("feature-rule"),
     targetId: z.string(),
     patch: z.object({
       ruleId: z.string(),

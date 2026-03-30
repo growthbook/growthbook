@@ -1858,7 +1858,6 @@ export async function postFeatureRule(
   // Prepare rule addition changes (also includes ramp actions if needed)
   const ruleAdditionChanges = {
     rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
   };
   selectedEnvironments.forEach((env) => {
     ruleAdditionChanges.rules[env] = ruleAdditionChanges.rules[env] || [];
