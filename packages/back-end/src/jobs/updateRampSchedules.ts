@@ -5,7 +5,6 @@ import {
   advanceUntilBlocked,
   applyStartConditionActions,
   completeRollout,
-  computeNextStepAt,
   makeAttribution,
   onActivatingRevisionPublished,
 } from "back-end/src/services/rampSchedule";
@@ -20,15 +19,11 @@ type AdvanceSingleRampScheduleJob = Job<{
 export const QUEUE_RAMP_SCHEDULE_ADVANCES = "queueRampScheduleAdvances";
 const ADVANCE_SINGLE_RAMP_SCHEDULE = "advanceSingleRampSchedule";
 
-/** Default polling interval in minutes — applies to Cloud and self-hosted
- * instances that have not overridden the setting. */
+// Default polling interval. Cloud and unset self-hosted orgs use this.
 export const DEFAULT_RAMP_POLL_INTERVAL_MINUTES = 10;
 
-/**
- * Cancel any existing outer ramp-schedule polling job and re-register it with
- * the given interval. Safe to call at any point after the job definitions have
- * been registered.  Cloud deployments are always locked to the default.
- */
+// Cancel and re-register the outer polling job at a new interval.
+// Cloud is always locked to the default.
 export async function rescheduleRampScheduleJob(
   agenda: Agenda,
   intervalMinutes: number,
@@ -40,15 +35,11 @@ export async function rescheduleRampScheduleJob(
     DEFAULT_RAMP_POLL_INTERVAL_MINUTES,
     Math.max(1, Math.round(intervalMinutes)),
   );
-
-  // Cancel all existing recurring outer jobs so we don't end up with duplicates.
   await agenda.cancel({ name: QUEUE_RAMP_SCHEDULE_ADVANCES });
-
   const job = agenda.create(QUEUE_RAMP_SCHEDULE_ADVANCES, {});
   job.unique({});
   job.repeatEvery(`${clamped} minutes`);
   await job.save();
-
   logger.info(`Ramp schedule polling interval set to ${clamped} minute(s).`);
 }
 
@@ -60,7 +51,6 @@ async function queueRampScheduleAdvance(
     rampScheduleId: schedule.id,
     organization: schedule.organization,
   }) as AdvanceSingleRampScheduleJob;
-
   job.unique({
     rampScheduleId: schedule.id,
     organization: schedule.organization,
@@ -73,12 +63,9 @@ export default async function addRampScheduleJob(
   agenda: Agenda,
   initialIntervalMinutes: number = DEFAULT_RAMP_POLL_INTERVAL_MINUTES,
 ) {
-  // Outer recurring job: poll for schedules due for advancement
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
-
-    // Collect all orgs with active ramp schedules that need processing.
-    // Uses db.collection() directly since RampScheduleModel is a BaseModel (not mongoose.model).
+    // Uses db.collection() directly — RampScheduleModel is a BaseModel, not a mongoose.model.
     const mongoose = await import("mongoose");
     const scheduleDocs = await mongoose.default.connection.db
       .collection("rampschedules")
@@ -87,23 +74,18 @@ export default async function addRampScheduleJob(
           $or: [
             // Running schedules with a step timer due
             { status: "running", nextStepAt: { $ne: null, $lte: now } },
-            // Ready schedules with a scheduled start time that has passed — Agenda auto-starts these.
-            // "immediately" and "manual" ready schedules are NOT started by Agenda:
-            //   - "immediately" is started inline when the activating revision is published.
-            //   - "manual" requires the user to click Start.
+            // Scheduled-start "ready" schedules — "immediately"/"manual" are NOT started here
             {
               status: "ready",
               "startCondition.trigger.type": "scheduled",
               "startCondition.trigger.at": { $lte: now },
             },
-            // Running/pending-approval schedules with a hard deadline due.
-            // Paused schedules are excluded — the deadline is deferred until resumed.
+            // Hard end-date deadline (paused schedules excluded — deferred until resumed)
             {
               status: { $in: ["running", "pending-approval"] },
               "endCondition.trigger.at": { $lte: now },
             },
-            // Pending schedules that have a linked activating revision:
-            // recover from crash-before-onRevisionPublished scenarios.
+            // Crash recovery: pending with an already-published activating revision
             {
               status: "pending",
               "targets.activatingRevisionVersion": { $exists: true, $ne: null },
@@ -127,30 +109,9 @@ export default async function addRampScheduleJob(
     }
   });
 
-  // Inner job: advance or complete a single ramp schedule
   agenda.define(ADVANCE_SINGLE_RAMP_SCHEDULE, advanceSingleRampSchedule);
-
-  // Register the outer job at the org-configured interval (default 10 minutes).
-  // Self-hosted orgs can lower this to 1 minute via org settings; the interval
-  // is re-registered at startup (reading the saved org setting) and again
-  // whenever the org setting changes via putOrganization.
   await rescheduleRampScheduleJob(agenda, initialIntervalMinutes);
 }
-
-/**
- * Advance a running schedule through all steps that are currently due,
- * creating a separate revision for each step.
- *
- * The loop stops when:
- *   - The schedule leaves the "running" state (approval gate, completion, error)
- *   - No more steps remain (nextStepAt === null)
- *   - The next step is not yet due (nextStepAt > now)
- *   - A safety cap of schedule.steps.length iterations is reached
- *
- * Only non-intervention (interval) steps are advanced automatically.
- * Approval-trigger steps naturally break the loop because advanceStep sets
- * status to "pending-approval", which fails the loop's status check.
- */
 
 export const advanceSingleRampSchedule = async (
   job: AdvanceSingleRampScheduleJob,
@@ -171,7 +132,7 @@ export const advanceSingleRampSchedule = async (
   );
 
   try {
-    // Hard deadline — trumps everything else, but deferred while paused.
+    // Hard deadline — trumps everything else.
     if (
       schedule.endCondition?.trigger?.type === "scheduled" &&
       schedule.endCondition.trigger.at <= now &&
@@ -185,30 +146,22 @@ export const advanceSingleRampSchedule = async (
       return;
     }
 
-    // Auto-start "ready" schedules whose startCondition.trigger.type === "scheduled" and at <= now.
-    // "immediately" ramps are started inline when the activating revision is published.
-    // "manual" ramps require an explicit user action (REST start endpoint).
     let current = schedule;
 
-    // Recovery path: if a schedule is still "pending" but its activating revision
-    // has already been published (crash-before-onRevisionPublished scenario),
-    // replay the activation transition now.
+    // Crash recovery: replay activation if revision was published before we processed it.
     if (current.status === "pending") {
       const activatingVersion = current.targets[0]?.activatingRevisionVersion;
       if (activatingVersion != null) {
-        const entityId = current.entityId;
-        const feature = entityId
-          ? await getFeature(context, entityId)
+        const feature = current.entityId
+          ? await getFeature(context, current.entityId)
           : undefined;
-        const currentVersion = feature?.version ?? -1;
-        if (currentVersion >= activatingVersion) {
+        if ((feature?.version ?? -1) >= activatingVersion) {
           await onActivatingRevisionPublished(context, current);
-          // Re-fetch after activation — may have advanced to "running" or "ready".
           current =
             (await context.models.rampSchedules.getById(current.id)) ?? current;
         }
       }
-      if (current.status === "pending") return; // Still pending — nothing to do.
+      if (current.status === "pending") return;
     }
 
     if (
@@ -216,15 +169,7 @@ export const advanceSingleRampSchedule = async (
       current.startCondition?.trigger.type === "scheduled" &&
       current.startCondition.trigger.at <= now
     ) {
-      // Hold-first: compute step 0's fire time before advancing.
-      const initialNextStepAt =
-        current.steps.length > 0
-          ? computeNextStepAt(
-              { ...current, phaseStartedAt: now, startedAt: now },
-              0,
-              now,
-            )
-          : null;
+      const initialNextStepAt = current.steps.length > 0 ? now : null;
       current = await context.models.rampSchedules.updateById(current.id, {
         status: "running",
         startedAt: now,
@@ -234,17 +179,13 @@ export const advanceSingleRampSchedule = async (
       await applyStartConditionActions(context, current);
     }
 
-    // Advance through all interval steps that have elapsed since the last poll.
-    // Each step produces its own revision; approval steps stop the loop.
     await advanceUntilBlocked(context, current, now, scheduleAttribution);
   } catch (e) {
     logger.error(e, `Error advancing ramp schedule ${rampScheduleId}`);
-
     try {
       await context.models.rampSchedules.updateById(rampScheduleId, {
         status: "paused",
       });
-
       const { createEvent } = await import("back-end/src/models/EventModel");
       await createEvent({
         context,

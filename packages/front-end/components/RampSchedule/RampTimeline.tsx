@@ -1,14 +1,23 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import styles from "./RampTimeline.module.scss";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
+import { abbreviateAgo } from "shared/src/dates";
 import {
   RampScheduleInterface,
   RampScheduleStatus,
+  RampStepAction,
+  RampStartTrigger,
   RampTarget,
   RampTrigger,
 } from "shared/src/validators/ramp-schedule";
 import Text from "@/ui/Text";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/ui/Button";
+import stringify from "json-stringify-pretty-compact";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -42,18 +51,285 @@ function formatScheduledDate(d: Date | string): ReactNode {
   const timeLine = format(parsed, "h:mm a");
   return (
     <>
-      <div style={{ lineHeight: 1.2 }}>
+      <div className={styles.scheduledDateLine}>
         <Text size="small">{dateLine}</Text>
       </div>
-      <div style={{ lineHeight: 1.2 }}>
+      <div className={styles.scheduledDateLine}>
         <Text size="small">{timeLine}</Text>
       </div>
     </>
   );
 }
 
+function formatStartTrigger(trigger?: RampStartTrigger | null): ReactNode {
+  if (!trigger || trigger.type === "immediately")
+    return <Text size="small" color="text-low">—</Text>;
+  if (trigger.type === "manual") return <Text size="small">manual</Text>;
+  return formatTrigger({ type: "scheduled", at: trigger.at });
+}
+
+function formatRemaining(ms: number): ReactNode {
+  if (ms <= 0) return <Text size="small">any moment</Text>;
+  const future = new Date(Date.now() + ms);
+  const label = abbreviateAgo(future).replace(/^in /, "");
+  return <Text size="small">{label}</Text>;
+}
+
+// ─── PopoverEffectRow ─────────────────────────────────────────────────────────
+
+function PopoverEffectRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Flex align="start" gap="2">
+      <Box className={styles.effectLabel}>
+        <Text size="small" color="text-low">
+          {label}:
+        </Text>
+      </Box>
+      <Box className={styles.effectValue}>
+        <Text size="small">{children}</Text>
+      </Box>
+    </Flex>
+  );
+}
+
+// ─── Popover patch display ────────────────────────────────────────────────────
+
+function PopoverPatchDisplay({
+  actions,
+  syntheticEnabled,
+}: {
+  actions: RampStepAction[];
+  syntheticEnabled?: boolean;
+}) {
+  const items: ReactNode[] = [];
+
+  actions.forEach((action, ai) => {
+    const p = action.patch;
+    const k = (s: string) => `${ai}-${s}`;
+
+    if (p.coverage !== null && p.coverage !== undefined) {
+      items.push(
+        <PopoverEffectRow key={k("cov")} label="Rollout %">
+          {Math.round(p.coverage * 100)}%
+        </PopoverEffectRow>,
+      );
+    }
+    if (p.force !== undefined && p.force !== null) {
+      const forceStr =
+        typeof p.force === "string" ? p.force : stringify(p.force as object);
+      items.push(
+        <PopoverEffectRow key={k("force")} label="Value">
+          <InlineCode language="json" code={forceStr} />
+        </PopoverEffectRow>,
+      );
+    }
+    if (p.condition && p.condition !== "{}") {
+      items.push(
+        <PopoverEffectRow key={k("cond")} label="Targeting">
+          <ConditionDisplay condition={p.condition} />
+        </PopoverEffectRow>,
+      );
+    }
+    if (p.savedGroups && p.savedGroups.length > 0) {
+      items.push(
+        <PopoverEffectRow key={k("sg")} label="Saved groups">
+          <ConditionDisplay savedGroups={p.savedGroups} />
+        </PopoverEffectRow>,
+      );
+    }
+    if (p.prerequisites && p.prerequisites.length > 0) {
+      items.push(
+        <PopoverEffectRow key={k("prereq")} label="Prerequisites">
+          <ConditionDisplay prerequisites={p.prerequisites} />
+        </PopoverEffectRow>,
+      );
+    }
+    if (p.enabled === false && syntheticEnabled === undefined) {
+      items.push(
+        <PopoverEffectRow key={k("enabled")} label="Rule">
+          disabled
+        </PopoverEffectRow>,
+      );
+    } else if (p.enabled === true && syntheticEnabled === undefined) {
+      items.push(
+        <PopoverEffectRow key={k("enabled")} label="Rule">
+          enabled
+        </PopoverEffectRow>,
+      );
+    }
+  });
+
+  if (syntheticEnabled === false) {
+    items.push(
+      <PopoverEffectRow key="syn-enabled" label="Rule">
+        disabled
+      </PopoverEffectRow>,
+    );
+  } else if (syntheticEnabled === true) {
+    items.push(
+      <PopoverEffectRow key="syn-enabled" label="Rule">
+        enabled
+      </PopoverEffectRow>,
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Text size="small" color="text-low">
+        No changes
+      </Text>
+    );
+  }
+
+  return (
+    <Flex direction="column" gap="1">
+      {items}
+    </Flex>
+  );
+}
+
+// ─── Node popover content ─────────────────────────────────────────────────────
+
+interface NodePopoverContentProps {
+  heading: string;
+  headingColor: string;
+  nodeColor: string;
+  nodeState: NodeState;
+  status: RampScheduleStatus;
+  trigger: RampTrigger | RampStartTrigger | null;
+  triggerLabel: ReactNode;
+  actions: RampStepAction[];
+  syntheticEnabled?: boolean;
+  stepIndex: number | "start" | "end";
+  isActive: boolean;
+  rs: RampScheduleInterface;
+  onJump?: (targetStepIndex: number) => Promise<void> | void;
+  onComplete?: () => Promise<void> | void;
+}
+
+function NodePopoverContent({
+  heading,
+  headingColor,
+  nodeColor,
+  nodeState,
+  status,
+  trigger,
+  triggerLabel,
+  actions,
+  syntheticEnabled,
+  stepIndex,
+  isActive,
+  rs,
+  onJump,
+  onComplete,
+}: NodePopoverContentProps) {
+  const [loading, setLoading] = useState(false);
+
+  const canAct =
+    !isActive &&
+    ["running", "paused", "pending-approval"].includes(rs.status);
+
+  let ctaLabel: string | null = null;
+  if (canAct) {
+    if (stepIndex === "start") ctaLabel = "Roll back to start";
+    else if (stepIndex === "end") ctaLabel = "Complete ramp";
+    else ctaLabel = `Jump to Step ${(stepIndex as number) + 1}`;
+  }
+
+  const hasCtaHandler =
+    stepIndex === "end" ? !!onComplete : !!onJump;
+
+  async function handleCta() {
+    setLoading(true);
+    try {
+      if (stepIndex === "end") {
+        await onComplete?.();
+      } else if (stepIndex === "start") {
+        await onJump?.(-1);
+      } else {
+        await onJump?.(stepIndex as number);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  type StatusMeta = { label: string; color: string };
+  const statusMeta: StatusMeta = (() => {
+    if (nodeState === "completed")
+      return { label: "Completed", color: "var(--violet-9)" };
+    if (nodeState === "active") {
+      if (status === "pending-approval")
+        return { label: "Current: needs approval", color: "var(--orange-9)" };
+      if (status === "paused")
+        return { label: "Current: paused", color: "var(--amber-11)" };
+      if (status === "conflict")
+        return { label: "Current: conflict", color: "var(--red-9)" };
+      return { label: "Current", color: "var(--green-9)" };
+    }
+    return { label: "Upcoming", color: "var(--gray-10)" };
+  })();
+
+  return (
+    <Box className={styles.popoverBox}>
+      {/* Header */}
+      <Flex align="center" gap="2" mb="2">
+        {/* Fixed-width area keeps status text consistently aligned */}
+        <Flex align="center" gap="2" className={styles.popoverHeaderLeft}>
+          <NodeDot state={nodeState} color={nodeColor} status={status} />
+          <span style={{ color: headingColor }}>
+            <Text weight="medium" size="small">
+              {heading}
+            </Text>
+          </span>
+        </Flex>
+        <span className={styles.popoverStatusLabel} style={{ color: statusMeta.color }}>
+          {statusMeta.label}
+        </span>
+      </Flex>
+
+      {/* Hold / trigger label */}
+      <Box mb="2">
+        <PopoverEffectRow label="Hold">{triggerLabel}</PopoverEffectRow>
+      </Box>
+
+      {/* Remaining hold — only for active interval steps */}
+      {isActive && trigger?.type === "interval" && (() => {
+        if (!rs.nextStepAt) return null;
+        const remainingMs = new Date(rs.nextStepAt).getTime() - Date.now();
+        return (
+          <Box mb="2">
+            <PopoverEffectRow label="Remaining">
+              {formatRemaining(remainingMs)}
+            </PopoverEffectRow>
+          </Box>
+        );
+      })()}
+
+      {/* Effects */}
+      <PopoverPatchDisplay actions={actions} syntheticEnabled={syntheticEnabled} />
+
+      {/* CTA */}
+      {ctaLabel && hasCtaHandler && (
+        <Flex mt="2" justify="center">
+          <Button size="xs" variant="ghost" loading={loading} onClick={handleCta}>
+            {ctaLabel}
+          </Button>
+        </Flex>
+      )}
+    </Box>
+  );
+}
+
 function completedNodeCount(rs: RampScheduleInterface): number {
   if (rs.status === "completed") return rs.steps.length + 2;
+
   if (rs.status === "pending" || rs.status === "ready") return 0;
   // currentStepIndex is the step currently active/in-progress (0-indexed).
   // Nodes before it (start + prior steps) are completed; it is active.
@@ -95,17 +371,40 @@ function nodeLabelColor(state: NodeState, status: RampScheduleStatus): string {
   return activeLabelColor(status);
 }
 
-function connectorColor(left: NodeState): string {
-  return left === "completed" ? "var(--violet-9)" : "var(--gray-4)";
+function connectorColor(left: NodeState, status: RampScheduleStatus): string {
+  if (left === "completed") return "var(--violet-9)";
+  if (left === "active") return activeDotColor(status);
+  return "var(--gray-4)";
 }
 
-// ─── constants ───────────────────────────────────────────────────────────────
+// ─── NodeDot ─────────────────────────────────────────────────────────────────
 
-// All dots sit inside a fixed-height container so the connector marginTop is constant.
-const DOT_CONTAINER = 15; // px — same height for all nodes
-const DOT_SIZE = 15;
-// Center the 2px connector line on the dot: container/2 - 1, +4 accounts for my="1" (4px) on the dot container
-const CONNECTOR_MARGIN_TOP = DOT_CONTAINER / 2 - 1 + 4;
+function NodeDot({
+  state,
+  color,
+  status,
+}: {
+  state: NodeState;
+  color: string;
+  status: RampScheduleStatus;
+}) {
+  return (
+    <Box className={styles.dotContainer}>
+      {state === "active" && (
+        <Box
+          className={`${styles.dotRing}${status === "running" ? ` ${styles.dotRingPulse}` : ""}`}
+          style={{ border: `2px solid ${color}` }}
+        />
+      )}
+      <Box
+        className={styles.nodeDot}
+        style={{ backgroundColor: color }}
+      >
+        {state === "completed" && <PiCheckBold size={11} color="white" />}
+      </Box>
+    </Box>
+  );
+}
 
 // ─── Node ────────────────────────────────────────────────────────────────────
 
@@ -118,6 +417,8 @@ interface NodeMeta {
   isApproval: boolean;
   dotColorOverride?: string;
   labelColorOverride?: string;
+  /** Pre-built popover content — when present, wraps node in a hover popover. */
+  popoverContent?: ReactNode;
 }
 
 function Node({
@@ -130,67 +431,13 @@ function Node({
   status: RampScheduleStatus;
 }) {
   const color = node.dotColorOverride ?? dotColor(state, status);
-  const dotSize = DOT_SIZE;
   const labelColor = node.labelColorOverride ?? nodeLabelColor(state, status);
 
-  return (
-    <Flex
-      direction="column"
-      align="center"
-      style={{ flexShrink: 0, minWidth: 44 }}
-    >
-      {/* Dot — fixed-height container keeps all dots on the same baseline */}
-      <Box
-        my="1"
-        style={{
-          height: DOT_CONTAINER,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-        }}
-      >
-        {state === "active" && (
-          <>
-            {status === "running" && (
-              <style>{`
-                @keyframes ramp-dot-blip {
-                  0%        { transform: scale(1);    opacity: 0; }
-                  20%, 60%   { transform: scale(1);    opacity: 0.35; }
-                  80%       { transform: scale(1.3);  opacity: 0; }
-                  100%      { transform: scale(1.3);  opacity: 0; }
-                }
-              `}</style>
-            )}
-            <Box
-              style={{
-                position: "absolute",
-                width: dotSize + 6,
-                height: dotSize + 6,
-                borderRadius: "50%",
-                border: `2px solid ${color}`,
-                opacity: 0.35,
-                ...(status === "running" && {
-                  animation: "ramp-dot-blip 2.5s ease-in-out infinite",
-                }),
-              }}
-            />
-          </>
-        )}
-        <Box
-          style={{
-            width: dotSize,
-            height: dotSize,
-            borderRadius: "50%",
-            backgroundColor: color,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          {state === "completed" && <PiCheckBold size={11} color="white" />}
-        </Box>
+  const nodeContent = (
+    <Flex direction="column" align="center" className={styles.nodeInner}>
+      {/* Dot */}
+      <Box my="1">
+        <NodeDot state={state} color={color} status={status} />
       </Box>
 
       {/* Labels */}
@@ -198,7 +445,7 @@ function Node({
         direction="column"
         justify="center"
         align="center"
-        style={{ marginLeft: -5, marginRight: -5, whiteSpace: "nowrap" }}
+        className={styles.nodeLabels}
       >
         <span style={{ color: labelColor }}>
           <Text
@@ -210,51 +457,50 @@ function Node({
           </Text>
         </span>
         {node.sublabel && state !== "completed" && (
-          <span style={{ color: "var(--gray-9)" }}>{node.sublabel}</span>
+          <span className={styles.nodeSublabel}>{node.sublabel}</span>
         )}
       </Flex>
     </Flex>
   );
-}
 
-const CONNECTOR_WIDTH = 44;
+  if (node.popoverContent) {
+    return (
+      <Tooltip
+        body={node.popoverContent}
+        tipPosition="top"
+        flipTheme={false}
+        usePortal
+        tipMinWidth="150px"
+        popperStyle={{ maxWidth: 280 }}
+        delay={200}
+      >
+        <div className={styles.nodeHoverable}>{nodeContent}</div>
+      </Tooltip>
+    );
+  }
+
+  return nodeContent;
+}
 
 // ─── Connector ───────────────────────────────────────────────────────────────
 
 function Connector({
   left,
+  status,
   triggerLabel,
 }: {
   left: NodeState;
+  status: RampScheduleStatus;
   triggerLabel?: ReactNode;
 }) {
   return (
-    <Flex
-      direction="column"
-      style={{ width: CONNECTOR_WIDTH, flexShrink: 0, alignSelf: "flex-start" }}
-    >
-      {/* The horizontal line */}
+    <Flex direction="column" className={styles.connector}>
       <Box
-        style={{
-          width: "100%",
-          height: 2,
-          marginTop: CONNECTOR_MARGIN_TOP,
-          backgroundColor: connectorColor(left),
-        }}
+        className={styles.connectorLine}
+        style={{ backgroundColor: connectorColor(left, status) }}
       />
-      {/* Trigger label sits below the line, right-aligned so it hugs the left
-          side of the following node */}
       {triggerLabel && (
-        <Box
-          style={{
-            textAlign: "center",
-            marginTop: 2,
-            color: "var(--gray-9)",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {triggerLabel}
-        </Box>
+        <Box className={styles.connectorLabel}>{triggerLabel}</Box>
       )}
     </Flex>
   );
@@ -267,6 +513,8 @@ interface Props {
   onEditTarget?: (target: RampTarget) => void;
   hideHeader?: boolean;
   pendingDetach?: boolean;
+  onJump?: (targetStepIndex: number) => Promise<void> | void;
+  onComplete?: () => Promise<void> | void;
 }
 
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
@@ -321,6 +569,8 @@ export default function RampTimeline({
   onEditTarget: _onEditTarget,
   hideHeader: _hideHeader,
   pendingDetach,
+  onJump,
+  onComplete,
 }: Props) {
   const { steps, status, startCondition, endCondition, targets } = rs;
   const startTrigger = startCondition?.trigger;
@@ -342,6 +592,8 @@ export default function RampTimeline({
       if (startTrigger?.type === "scheduled" && i === 0) return "active";
       return "future";
     }
+    // Apply-first: the active node is the step currently holding at its coverage
+    // level (applied, counting down its own hold interval before advancing).
     if (i === doneCount && status !== "completed" && status !== "rolled-back")
       return "active";
     return "future";
@@ -351,22 +603,65 @@ export default function RampTimeline({
     {
       key: "start",
       label: "start",
+      // Only show a sublabel for scheduled starts — the date belongs under the node.
+      // "auto" and "manual" labels move to the connector between start and [1].
       sublabel:
-        startTrigger?.type === "scheduled" ? (
-          formatScheduledDate(startTrigger.at)
-        ) : startTrigger?.type === "manual" ? (
-          <Text size="small">manual</Text>
-        ) : (
-          <Text size="small">auto</Text>
-        ),
+        startTrigger?.type === "scheduled"
+          ? formatScheduledDate(startTrigger.at)
+          : null,
       isApproval: false,
+      popoverContent: (
+        <NodePopoverContent
+          heading="Start"
+          headingColor={nodeLabelColor(getState(0), status)}
+          nodeColor={dotColor(getState(0), status)}
+          nodeState={getState(0)}
+          status={status}
+          trigger={startTrigger ?? null}
+          triggerLabel={formatStartTrigger(startTrigger)}
+          actions={startCondition?.actions ?? []}
+          stepIndex="start"
+          isActive={getState(0) === "active"}
+          rs={rs}
+          onJump={onJump}
+          onComplete={onComplete}
+        />
+      ),
     },
     ...steps.map((step, i) => ({
       key: `step-${i}`,
       label: String(i + 1),
       sublabel: null,
-      connectorLabel: formatTrigger(step.trigger),
+      // Apply-first: the connector to the LEFT of this node shows the hold that
+      // preceded it — i.e. the previous step's interval (or the start trigger for
+      // step 0). For scheduled starts the date is already under the start node so
+      // we omit it from the connector.
+      connectorLabel:
+        i === 0
+          ? startTrigger?.type === "immediately" || !startTrigger
+            ? <Text size="small">auto</Text>
+            : startTrigger?.type === "manual"
+            ? <Text size="small">manual</Text>
+            : undefined
+          : formatTrigger(steps[i - 1].trigger),
       isApproval: step.trigger.type === "approval",
+      popoverContent: (
+        <NodePopoverContent
+          heading={`Step ${i + 1}`}
+          headingColor={nodeLabelColor(getState(i + 1), status)}
+          nodeColor={dotColor(getState(i + 1), status)}
+          nodeState={getState(i + 1)}
+          status={status}
+          trigger={step.trigger}
+          triggerLabel={formatTrigger(step.trigger)}
+          actions={step.actions}
+          stepIndex={i}
+          isActive={getState(i + 1) === "active"}
+          rs={rs}
+          onJump={onJump}
+          onComplete={onComplete}
+        />
+      ),
     })),
     {
       key: "end",
@@ -375,19 +670,64 @@ export default function RampTimeline({
         endCondition?.trigger?.type === "scheduled"
           ? formatScheduledDate(endCondition.trigger.at)
           : null,
+      // Apply-first: the connector before [end] is the last step's hold interval.
       connectorLabel:
-        endCondition?.trigger?.type !== "scheduled" ? (
-          <Text size="small">auto</Text>
-        ) : undefined,
+        steps.length > 0
+          ? formatTrigger(steps[steps.length - 1].trigger)
+          : undefined,
       isApproval: false,
+      popoverContent: (() => {
+        const endNodeIndex = steps.length + 1;
+        const hasExplicitEnd = !!endCondition;
+        const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
+        return (
+          <NodePopoverContent
+            heading="End"
+            headingColor={nodeLabelColor(getState(endNodeIndex), status)}
+            nodeColor={dotColor(getState(endNodeIndex), status)}
+            nodeState={getState(endNodeIndex)}
+            status={status}
+            trigger={endCondition?.trigger ?? null}
+            triggerLabel={
+              endCondition?.trigger ? (
+                formatTrigger(endCondition.trigger)
+              ) : (
+                <Text size="small">auto</Text>
+              )
+            }
+            actions={endCondition?.actions ?? []}
+            syntheticEnabled={implicitDisable ? false : undefined}
+            stepIndex="end"
+            isActive={getState(endNodeIndex) === "active"}
+            rs={rs}
+            onJump={onJump}
+            onComplete={onComplete}
+          />
+        );
+      })(),
     },
   ];
 
+  const sublabelLine = (text: ReactNode) => (
+    <div className={styles.scheduledDateLine}>{text}</div>
+  );
+
+  const revisionSublabel = (
+    <>
+      {sublabelLine(<Text size="small">awaiting publish</Text>)}
+      {activatingRevisionVersion != null &&
+        sublabelLine(
+          <Text size="small">Revision {activatingRevisionVersion}</Text>,
+        )}
+    </>
+  );
+
   return (
-    <Box style={{ minWidth: 0, overflow: "hidden" }}>
+    <Box className={styles.timelineRoot}>
+      Step: {rs.currentStepIndex}
       {/* Single-row timeline */}
-      <Box style={{ overflowX: "auto", padding: "6px 8px" }}>
-        <Flex align="start" style={{ width: "fit-content" }}>
+      <Box className={styles.timelineScroll}>
+        <Flex align="start" className={styles.timelineRow}>
           {/* Pre-timeline indicator: pending detach overrides all other pre-nodes */}
           {pendingDetach ? (
             <>
@@ -395,20 +735,7 @@ export default function RampTimeline({
                 node={{
                   key: "pending-removal",
                   label: "removal",
-                  sublabel: (
-                    <>
-                      <div style={{ lineHeight: 1.2 }}>
-                        <Text size="small">awaiting publish</Text>
-                      </div>
-                      {activatingRevisionVersion != null && (
-                        <div style={{ lineHeight: 1.2 }}>
-                          <Text size="small">
-                            Revision {activatingRevisionVersion}
-                          </Text>
-                        </div>
-                      )}
-                    </>
-                  ),
+                  sublabel: revisionSublabel,
                   isApproval: false,
                   dotColorOverride: "var(--red-9)",
                   labelColorOverride: "var(--red-11)",
@@ -416,15 +743,7 @@ export default function RampTimeline({
                 state="active"
                 status={status}
               />
-              {/* Spacer (no drawn connector) */}
-              <Box
-                style={{
-                  width: CONNECTOR_WIDTH,
-                  flexShrink: 0,
-                  marginTop: CONNECTOR_MARGIN_TOP,
-                  alignSelf: "flex-start",
-                }}
-              />
+              <Box className={styles.connectorSpacer} />
             </>
           ) : (
             /* Normal pre-timeline indicator node for states where the ramp hasn't started yet */
@@ -438,18 +757,7 @@ export default function RampTimeline({
                     label: status === "pending" ? "pending" : "ready",
                     sublabel:
                       status === "pending" ? (
-                        <>
-                          <div style={{ lineHeight: 1.2 }}>
-                            <Text size="small">awaiting publish</Text>
-                          </div>
-                          {activatingRevisionVersion != null && (
-                            <div style={{ lineHeight: 1.2 }}>
-                              <Text size="small">
-                                Revision {activatingRevisionVersion}
-                              </Text>
-                            </div>
-                          )}
-                        </>
+                        revisionSublabel
                       ) : (
                         <Text size="small">awaiting start</Text>
                       ),
@@ -458,15 +766,7 @@ export default function RampTimeline({
                   state="active"
                   status={status}
                 />
-                {/* Same-width spacer as a connector but undrawn */}
-                <Box
-                  style={{
-                    width: CONNECTOR_WIDTH,
-                    flexShrink: 0,
-                    marginTop: CONNECTOR_MARGIN_TOP,
-                    alignSelf: "flex-start",
-                  }}
-                />
+                <Box className={styles.connectorSpacer} />
               </>
             )
           )}
@@ -477,10 +777,9 @@ export default function RampTimeline({
                 <Connector
                   key={`conn-${i}`}
                   left={getState(i - 1)}
+                  status={status}
                   triggerLabel={
-                    getState(i) !== "completed"
-                      ? node.connectorLabel
-                      : undefined
+                    getState(i) === "future" ? node.connectorLabel : undefined
                   }
                 />
               )}

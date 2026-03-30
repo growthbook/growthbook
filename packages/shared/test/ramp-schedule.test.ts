@@ -37,7 +37,6 @@ function makeSchedule(overrides: Record<string, unknown> = {}) {
     status: "pending",
     currentStepIndex: -1,
     nextStepAt: null,
-    stepHistory: [],
     ...overrides,
   };
 }

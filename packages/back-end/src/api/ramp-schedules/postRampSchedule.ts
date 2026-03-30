@@ -106,7 +106,6 @@ export const postRampSchedule = createApiRequestHandler(
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
-    stepHistory: [],
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"

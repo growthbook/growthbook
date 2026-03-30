@@ -501,33 +501,6 @@ function rampDiffsForRevision(
     });
   }
 
-  // Approval: ramps that had/have newerRevision as their approval gate
-  const approvalRef = `${featureId}:${newerRevision.version}`;
-  for (const ramp of rampSchedules) {
-    if (ramp.pendingApprovalRevisionId !== approvalRef) continue;
-    const stepIndex = ramp.currentStepIndex;
-    const thisStep = ramp.steps[stepIndex];
-    const prevStepActions =
-      stepIndex > 0 ? (ramp.steps[stepIndex - 1]?.actions ?? []) : [];
-    diffs.push({
-      title: `Ramp Schedule – ${ramp.name}`,
-      a: JSON.stringify(prevStepActions, null, 2),
-      b: JSON.stringify(thisStep?.actions ?? [], null, 2),
-      customRender: (
-        <p className="mb-0">
-          Advances ramp schedule <strong>{ramp.name}</strong> to step{" "}
-          {stepIndex + 1} of {ramp.steps.length}.
-        </p>
-      ),
-      badges: [
-        {
-          label: `Advance ramp: ${ramp.name} (step ${stepIndex + 1})`,
-          action: "advance ramp",
-        },
-      ],
-    });
-  }
-
   // Pending ramp actions: display "create" and "detach" actions queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {

@@ -296,9 +296,9 @@ function ColHeader({
 
 // ─── Presets ─────────────────────────────────────────────────────────────────
 
-// Presets use hold-first semantics: each step's interval is the wait *before*
-// that step fires. The initial 0% state is applied by startCondition.actions;
-// steps start from the first non-zero coverage value.
+// Presets use apply-first semantics: each step's effects are applied immediately,
+// then the step holds for its own interval before advancing. The initial 0% state
+// is applied by startCondition.actions; steps start from the first non-zero coverage.
 // Step counts do NOT include the start anchor (step 0).
 const RAMP_PRESETS: {
   label: string;
@@ -1064,17 +1064,17 @@ export default function RampScheduleSection({
     const START_OPTIONS = [
       {
         value: "immediately",
-        label: "Immediately",
+        label: "Auto start",
         tooltip: "Starts as soon as the draft is published",
       },
       {
         value: "manual",
-        label: "Manual",
+        label: "Manual start",
         tooltip: "Starts after user confirmation",
       },
       {
         value: "specific-time",
-        label: "On date",
+        label: "Start date",
         tooltip: "Starts at a specific time after draft is published",
       },
     ];
@@ -1229,12 +1229,12 @@ export default function RampScheduleSection({
                 options={[
                   {
                     value: "automatic",
-                    label: "Automatic",
+                    label: "Complete",
                     tooltip: "Ends after all steps complete",
                   },
                   {
                     value: "on",
-                    label: "On date",
+                    label: "End date",
                     tooltip: "Ends at a specific time",
                   },
                   {
@@ -1326,7 +1326,7 @@ export default function RampScheduleSection({
           {activeFields.has("coverage") && (
             <ColHeader width={COL.coverage}>Rollout %</ColHeader>
           )}
-          <ColHeader width={COL.trigger}>Triggered by</ColHeader>
+          <ColHeader width={COL.trigger}>Wait for</ColHeader>
         </Flex>
 
         {startRow}
@@ -1382,7 +1382,7 @@ export default function RampScheduleSection({
                     </div>
                   </Box>
                 )}
-                {/* Triggered by — select + detail inline */}
+                {/* Hold for — select + detail inline */}
                 <Flex
                   align="center"
                   gap="2"
@@ -1398,15 +1398,15 @@ export default function RampScheduleSection({
                       options={[
                         {
                           value: "interval",
-                          label: "Wait",
+                          label: "Hold",
                           tooltip:
-                            "Wait the interval, then apply this step's effects",
+                            "Apply this step's effects, then hold for the interval before advancing",
                         },
                         {
                           value: "approval",
-                          label: "Manual",
+                          label: "Approval",
                           tooltip:
-                            "Prompt for approval, then apply this step's effects",
+                            "Apply this step's effects, then hold for manual approval before advancing",
                         },
                       ]}
                       onChange={(v) =>

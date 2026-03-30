@@ -186,7 +186,6 @@ interface SortableProps {
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
   rampSchedule?: RampScheduleInterface;
-  onRampReviewDraft?: (version: number) => void;
   draftRevision?: FeatureRevisionInterface | null;
 }
 
@@ -248,7 +247,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       isDraft,
       holdout,
       rampSchedule,
-      onRampReviewDraft,
       draftRevision,
       ...props
     },
@@ -551,7 +549,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         open={dropdownOpen}
                         onOpenChange={setDropdownOpen}
                         menuPlacement="end"
-                        variant="solid"
+                        variant="soft"
                       >
                         <DropdownMenuGroup>
                           <DropdownMenuItem
@@ -1175,28 +1173,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           <Flex justify="between" align="start" gap="3">
                             <Text>{rampApproveError}</Text>
                             <Flex gap="2" flexShrink="0">
-                              {rampApproveError
-                                .toLowerCase()
-                                .includes("conflict") &&
-                                onRampReviewDraft && (
-                                  <Button
-                                    size="xs"
-                                    variant="ghost"
-                                    onClick={() => {
-                                      const parts =
-                                        rampSchedule.pendingApprovalRevisionId?.split(
-                                          ":",
-                                        ) ?? [];
-                                      const v = parseInt(
-                                        parts[parts.length - 1],
-                                        10,
-                                      );
-                                      if (!isNaN(v)) onRampReviewDraft(v);
-                                    }}
-                                  >
-                                    Open Draft
-                                  </Button>
-                                )}
                               <Button
                                 size="xs"
                                 variant="ghost"
@@ -1212,6 +1188,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         rs={rampSchedule}
                         hideHeader
                         pendingDetach={!!hasPendingDetach}
+                        onJump={async (targetStepIndex) => {
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/jump`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({ targetStepIndex }),
+                            },
+                          );
+                          await mutate();
+                        }}
+                        onComplete={async () => {
+                          await apiCall(
+                            `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                            { method: "POST" },
+                          );
+                          await mutate();
+                        }}
                       />
                     </Box>
                   )}

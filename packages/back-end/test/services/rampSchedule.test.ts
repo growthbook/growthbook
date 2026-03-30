@@ -3,8 +3,8 @@
  *
  * Structure:
  *   1. Pure functions (no mocking): computeNextStepAt, computePhaseStartAfterApproval,
- *      makeAttribution, applyPatchToRule, extractPreviousValues, computeRollbackPatch
- *   2. featureEntityHandler: applyActions + approveActions (mocked FeatureModel / FeatureRevisionModel)
+ *      makeAttribution, applyPatchToRule
+ *   2. featureEntityHandler: applyActions (mocked FeatureModel / FeatureRevisionModel)
  *   3. Orchestration: advanceStep, jumpAheadToStep, advanceUntilBlocked (mocked context)
  */
 
@@ -13,10 +13,8 @@ import type { FeatureRule } from "shared/types/feature";
 import {
   computeNextStepAt,
   computePhaseStartAfterApproval,
-  computeRollbackPatch,
   makeAttribution,
   applyPatchToRule,
-  extractPreviousValues,
   featureEntityHandler,
   advanceStep,
   jumpAheadToStep,
@@ -36,12 +34,7 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   createRevision: jest.fn(),
   getRevision: jest.fn(),
   discardRevision: jest.fn(),
-  markRevisionAsPublished: jest.fn(),
-  markRevisionAsPendingParent: jest.fn(),
-  markRevisionAsReviewRequested: jest.fn(),
   registerRevisionPublishedHook: jest.fn(),
-  registerRevisionDiscardedHook: jest.fn(),
-  submitReviewAndComments: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/EventModel", () => ({
@@ -66,13 +59,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import {
-  createRevision,
-  getRevision,
-  markRevisionAsReviewRequested,
-  markRevisionAsPendingParent,
-  submitReviewAndComments,
-} from "back-end/src/models/FeatureRevisionModel";
+import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
@@ -80,18 +67,6 @@ const mockPublishRevision = publishRevision as jest.MockedFunction<
 >;
 const mockCreateRevision = createRevision as jest.MockedFunction<
   typeof createRevision
->;
-const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
-const mockMarkReviewRequested =
-  markRevisionAsReviewRequested as jest.MockedFunction<
-    typeof markRevisionAsReviewRequested
-  >;
-const mockMarkPendingParent =
-  markRevisionAsPendingParent as jest.MockedFunction<
-    typeof markRevisionAsPendingParent
-  >;
-const mockSubmitReview = submitReviewAndComments as jest.MockedFunction<
-  typeof submitReviewAndComments
 >;
 
 // ---------------------------------------------------------------------------
@@ -197,8 +172,6 @@ function makeSchedule(
     nextStepAt: new Date(),
     startedAt: new Date(Date.now() - 60_000),
     phaseStartedAt: new Date(Date.now() - 60_000),
-    stepHistory: [],
-    pendingRevisionIds: [],
     ...overrides,
   } as RampScheduleInterface;
 }
@@ -310,44 +283,6 @@ describe("applyPatchToRule", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-
-describe("extractPreviousValues", () => {
-  const rule: FeatureRule = {
-    id: "r1",
-    type: "rollout",
-    coverage: 0.3,
-    hashAttribute: "id",
-    enabled: true,
-    condition: '{"country":"CA"}',
-  };
-
-  it("extracts coverage when patching coverage", () => {
-    const prev = extractPreviousValues(rule, { coverage: 0.8 });
-    expect(prev.coverage).toBe(0.3);
-  });
-
-  it("extracts condition when patching condition", () => {
-    const prev = extractPreviousValues(rule, { condition: "new" });
-    expect(prev.condition).toBe('{"country":"CA"}');
-  });
-
-  it("extracts enabled when patching enabled", () => {
-    const prev = extractPreviousValues(rule, { enabled: false });
-    expect(prev.enabled).toBe(true);
-  });
-
-  it("only extracts fields that are in the patch", () => {
-    const prev = extractPreviousValues(rule, { coverage: 0.8 });
-    expect("condition" in prev).toBe(false);
-    expect("enabled" in prev).toBe(false);
-  });
-
-  it("returns empty object for undefined rule", () => {
-    const prev = extractPreviousValues(undefined, { coverage: 0.5 });
-    expect(prev).toEqual({});
-  });
-});
 
 // ---------------------------------------------------------------------------
 
@@ -444,71 +379,12 @@ describe("computePhaseStartAfterApproval", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-
-describe("computeRollbackPatch", () => {
-  it("returns the merged previous values for rolling back from step 2 to step 0", () => {
-    const stepHistory = [
-      {
-        stepIndex: 1,
-        enteredAt: new Date(),
-        revisionIds: ["feat:1"],
-        previousValues: [
-          { targetId: "t1", patch: { ruleId: "r1", coverage: 0.1 } },
-        ],
-        triggeredBy: { type: "schedule" as const },
-      },
-      {
-        stepIndex: 2,
-        enteredAt: new Date(),
-        revisionIds: ["feat:2"],
-        previousValues: [
-          { targetId: "t1", patch: { ruleId: "r1", coverage: 0.3 } },
-        ],
-        triggeredBy: { type: "schedule" as const },
-      },
-    ];
-    const patch = computeRollbackPatch(stepHistory, 2, 0);
-    // Earlier steps win (i=1 overwrites i=2 on overlap): coverage = 0.1 (from step 1)
-    expect(patch["t1"].coverage).toBe(0.1);
-  });
-
-  it("partial rollback from step 2 to step 1 uses only step 2 history", () => {
-    const stepHistory = [
-      {
-        stepIndex: 1,
-        enteredAt: new Date(),
-        revisionIds: ["feat:1"],
-        previousValues: [
-          { targetId: "t1", patch: { ruleId: "r1", coverage: 0.1 } },
-        ],
-        triggeredBy: { type: "schedule" as const },
-      },
-      {
-        stepIndex: 2,
-        enteredAt: new Date(),
-        revisionIds: ["feat:2"],
-        previousValues: [
-          { targetId: "t1", patch: { ruleId: "r1", coverage: 0.3 } },
-        ],
-        triggeredBy: { type: "schedule" as const },
-      },
-    ];
-    const patch = computeRollbackPatch(stepHistory, 2, 1);
-    expect(patch["t1"].coverage).toBe(0.3);
-  });
-
-  it("returns empty object when no history entries exist", () => {
-    const patch = computeRollbackPatch([], 2, 0);
-    expect(patch).toEqual({});
-  });
-});
 
 // ---------------------------------------------------------------------------
 // 2. featureEntityHandler.applyActions
 // ---------------------------------------------------------------------------
 
-describe("featureEntityHandler.applyActions — interval step", () => {
+describe("featureEntityHandler.applyActions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
@@ -531,8 +407,6 @@ describe("featureEntityHandler.applyActions — interval step", () => {
       },
     ];
     await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
-      isApprovalGate: false,
-      isPrimary: true,
       stepLabel: "Ramp [1 of 3]: Test",
       user: { type: "system" },
     });
@@ -546,32 +420,7 @@ describe("featureEntityHandler.applyActions — interval step", () => {
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
   });
 
-  it("returns the revisionRef and previousValues", async () => {
-    const actions = [
-      {
-        targetType: "feature-rule" as const,
-        targetId: TARGET_ID,
-        patch: { ruleId: RULE_ID, coverage: 0.5 },
-      },
-    ];
-    const result = await featureEntityHandler.applyActions(
-      ctx,
-      FEATURE_ID,
-      actions,
-      {
-        isApprovalGate: false,
-        isPrimary: true,
-        stepLabel: "Ramp [1 of 3]: Test",
-        user: { type: "system" },
-      },
-    );
-
-    expect(result.revisionRef).toBe(`${FEATURE_ID}:6`);
-    expect(result.previousValues).toHaveLength(1);
-    expect(result.previousValues[0].patch.coverage).toBe(0.1);
-  });
-
-  it("throws when the rule is not found in any environment (interval step)", async () => {
+  it("throws when the rule is not found in any environment", async () => {
     const actions = [
       {
         targetType: "feature-rule" as const,
@@ -581,8 +430,6 @@ describe("featureEntityHandler.applyActions — interval step", () => {
     ];
     await expect(
       featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
-        isApprovalGate: false,
-        isPrimary: true,
         stepLabel: "Ramp [1 of 3]: Test",
         user: { type: "system" },
       }),
@@ -593,30 +440,13 @@ describe("featureEntityHandler.applyActions — interval step", () => {
     mockGetFeature.mockResolvedValue(null as never);
     await expect(
       featureEntityHandler.applyActions(ctx, "nonexistent", [], {
-        isApprovalGate: false,
-        isPrimary: true,
         stepLabel: "Ramp [1 of 3]: Test",
         user: { type: "system" },
       }),
     ).rejects.toThrow("Feature not found: nonexistent");
   });
-});
 
-describe("featureEntityHandler.applyActions — approval gate (primary)", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetFeature.mockResolvedValue(makeFeature() as never);
-    mockCreateRevision.mockResolvedValue(makeRevision() as never);
-    mockMarkReviewRequested.mockResolvedValue(undefined as never);
-  });
-
-  const ctx = {
-    org: { id: ORG_ID, settings: {} },
-    environments: [],
-    auditUser: { type: "system" },
-  } as never;
-
-  it("calls markRevisionAsReviewRequested instead of publishRevision", async () => {
+  it("always publishes immediately — including when called for an approval step", async () => {
     const actions = [
       {
         targetType: "feature-rule" as const,
@@ -624,147 +454,15 @@ describe("featureEntityHandler.applyActions — approval gate (primary)", () => 
         patch: { ruleId: RULE_ID, coverage: 0.5 },
       },
     ];
-    const result = await featureEntityHandler.applyActions(
-      ctx,
-      FEATURE_ID,
-      actions,
-      {
-        isApprovalGate: true,
-        isPrimary: true,
-        stepLabel: "Ramp [1 of 3]: Test",
-        user: { type: "system", id: "rs_1" },
-      },
-    );
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+      stepLabel: "Ramp [1 of 3]: Test",
+      user: { type: "system" },
+    });
 
-    expect(mockMarkReviewRequested).toHaveBeenCalledTimes(1);
-    expect(mockPublishRevision).not.toHaveBeenCalled();
-    expect(result.pendingApprovalRevisionId).toBe(`${FEATURE_ID}:6`);
-  });
-});
-
-describe("featureEntityHandler.applyActions — approval gate (secondary)", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetFeature.mockResolvedValue(makeFeature() as never);
-    mockCreateRevision.mockResolvedValue(makeRevision() as never);
-    mockMarkPendingParent.mockResolvedValue(undefined as never);
-  });
-
-  const ctx = {
-    org: { id: ORG_ID, settings: {} },
-    environments: [],
-    auditUser: { type: "system" },
-  } as never;
-
-  it("calls markRevisionAsPendingParent for non-primary approval steps", async () => {
-    const actions = [
-      {
-        targetType: "feature-rule" as const,
-        targetId: TARGET_ID,
-        patch: { ruleId: RULE_ID, coverage: 0.5 },
-      },
-    ];
-    const result = await featureEntityHandler.applyActions(
-      ctx,
-      FEATURE_ID,
-      actions,
-      {
-        isApprovalGate: true,
-        isPrimary: false,
-        stepLabel: "Ramp [1 of 3]: Test",
-        user: { type: "system" },
-      },
-    );
-
-    expect(mockMarkPendingParent).toHaveBeenCalledTimes(1);
-    expect(mockPublishRevision).not.toHaveBeenCalled();
-    expect(result.pendingApprovalRevisionId).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// featureEntityHandler.approveActions
-// ---------------------------------------------------------------------------
-
-describe("featureEntityHandler.approveActions", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetFeature.mockResolvedValue(makeFeature() as never);
-    mockGetRevision.mockResolvedValue(
-      makeRevision({ status: "review-requested" }) as never,
-    );
-    mockSubmitReview.mockResolvedValue(undefined as never);
-    mockPublishRevision.mockResolvedValue(makeFeature() as never);
-  });
-
-  const ctx = {
-    org: { id: ORG_ID, settings: {} },
-    environments: [],
-    auditUser: { type: "system" },
-  } as never;
-  const revisionRef = `${FEATURE_ID}:6`;
-  const user = { type: "system" as const, id: "rs_1" };
-
-  it("calls submitReviewAndComments then publishRevision and returns null", async () => {
-    const stepActions = [
-      {
-        targetType: "feature-rule" as const,
-        targetId: TARGET_ID,
-        patch: { ruleId: RULE_ID, coverage: 0.5 },
-      },
-    ];
-    const result = await featureEntityHandler.approveActions(
-      ctx,
-      revisionRef,
-      stepActions,
-      user,
-    );
-
-    expect(mockSubmitReview).toHaveBeenCalledTimes(1);
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-    expect(result).toBeNull();
-  });
-
-  it("returns feature_not_found when feature does not exist", async () => {
-    mockGetFeature.mockResolvedValue(null as never);
-    const result = await featureEntityHandler.approveActions(
-      ctx,
-      revisionRef,
-      [],
-      user,
-    );
-    expect(result).toEqual({ code: "feature_not_found" });
-  });
-
-  it("returns revision_not_found when revision does not exist", async () => {
-    mockGetRevision.mockResolvedValue(null as never);
-    const result = await featureEntityHandler.approveActions(
-      ctx,
-      revisionRef,
-      [],
-      user,
-    );
-    expect(result).toEqual({ code: "revision_not_found" });
-  });
-
-  it("returns error when target rule no longer exists", async () => {
-    const stepActions = [
-      {
-        targetType: "feature-rule" as const,
-        targetId: TARGET_ID,
-        patch: { ruleId: "deleted_rule", coverage: 0.5 },
-      },
-    ];
-    const result = await featureEntityHandler.approveActions(
-      ctx,
-      revisionRef,
-      stepActions,
-      user,
-    );
-    expect(result?.code).toBe("error");
-    expect(result?.detail).toMatch(/deleted_rule/);
   });
 });
+
 
 // ---------------------------------------------------------------------------
 // 3. advanceStep
@@ -778,16 +476,13 @@ describe("advanceStep — interval step", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("increments currentStepIndex and records a history entry", async () => {
+  it("increments currentStepIndex", async () => {
     const { ctx, updateById } = makeContext({ currentStepIndex: -1 });
     await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
 
     expect(updateById).toHaveBeenCalledTimes(1);
     const [, updates] = updateById.mock.calls[0];
     expect(updates.currentStepIndex).toBe(0);
-    expect(Array.isArray(updates.stepHistory)).toBe(true);
-    expect(updates.stepHistory).toHaveLength(1);
-    expect(updates.stepHistory[0].stepIndex).toBe(0);
   });
 
   it("sets status to 'running' for interval steps", async () => {
@@ -812,10 +507,10 @@ describe("advanceStep — approval step", () => {
     jest.clearAllMocks();
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
-    mockMarkReviewRequested.mockResolvedValue(undefined as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("sets status to pending-approval and records pendingApprovalRevisionId", async () => {
+  it("sets status to pending-approval without publishing a revision (deferred to approve)", async () => {
     const schedule = makeSchedule({
       currentStepIndex: -1,
       steps: [
@@ -836,7 +531,8 @@ describe("advanceStep — approval step", () => {
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("pending-approval");
-    expect(updates.pendingApprovalRevisionId).toBe(`${FEATURE_ID}:6`);
+    // Apply-first: coverage is applied immediately on entering the step.
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -859,37 +555,6 @@ describe("advanceStep — last step / completion", () => {
   });
 });
 
-describe("advanceStep — idempotency guard", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockGetFeature.mockResolvedValue(makeFeature() as never);
-    mockCreateRevision.mockResolvedValue(makeRevision() as never);
-    mockPublishRevision.mockResolvedValue(makeFeature() as never);
-  });
-
-  it("reuses existing history entry without re-publishing when entry already exists", async () => {
-    const existingEntry = {
-      stepIndex: 0,
-      enteredAt: new Date(),
-      revisionIds: [`${FEATURE_ID}:10`],
-      previousValues: [],
-      triggeredBy: { type: "schedule" as const },
-    };
-    const schedule = makeSchedule({
-      currentStepIndex: -1,
-      stepHistory: [existingEntry],
-    });
-    const { ctx, updateById } = makeContext();
-    await advanceStep(ctx as never, schedule);
-
-    // publishRevision should NOT be called again — step was already applied.
-    expect(mockPublishRevision).not.toHaveBeenCalled();
-    // updateById should still be called to advance the schedule state.
-    expect(updateById).toHaveBeenCalledTimes(1);
-    const [, updates] = updateById.mock.calls[0];
-    expect(updates.currentStepIndex).toBe(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // jumpAheadToStep
@@ -915,36 +580,6 @@ describe("jumpAheadToStep", () => {
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
     // Last-write-wins: step 2 sets coverage 1.0
     expect((patched as { coverage?: number })?.coverage).toBe(1.0);
-  });
-
-  it("produces one synthetic stepHistory entry per skipped step", async () => {
-    const schedule = makeSchedule({ currentStepIndex: -1 });
-    const { ctx, updateById } = makeContext();
-    await jumpAheadToStep(ctx as never, schedule, 2);
-
-    const [, updates] = updateById.mock.calls[0];
-    // Jumped from -1 to 2 → entries for steps 0, 1, 2
-    expect(updates.stepHistory).toHaveLength(3);
-    expect(updates.stepHistory[0].stepIndex).toBe(0);
-    expect(updates.stepHistory[1].stepIndex).toBe(1);
-    expect(updates.stepHistory[2].stepIndex).toBe(2);
-  });
-
-  it("allows computeRollbackPatch to reconstruct any intermediate state", async () => {
-    const schedule = makeSchedule({ currentStepIndex: -1 });
-    const { ctx, updateById } = makeContext();
-    await jumpAheadToStep(ctx as never, schedule, 2);
-
-    const [, updates] = updateById.mock.calls[0];
-    const stepHistory = updates.stepHistory;
-
-    // Roll back to step 0: undo steps 1 and 2 → coverage should be from BEFORE step 1 ran
-    // step 1 previousValues: coverage was 0.3 (after step 0 applied it)
-    const rollbackTo0 = computeRollbackPatch(stepHistory, 2, 0);
-    // Step 1's previousValues.coverage = value before step 1 (= 0.3 from step 0)
-    // Step 2's previousValues.coverage = value before step 2 (= 0.6 from step 1)
-    // Earlier step wins (step 1 at i=1 overrides step 2 at i=2): result = 0.3
-    expect(rollbackTo0[TARGET_ID]?.coverage).toBe(0.3);
   });
 
   it("sets status to paused at the target step", async () => {
@@ -1030,7 +665,6 @@ describe("advanceUntilBlocked", () => {
   });
 
   it("stops at an approval gate (status → pending-approval)", async () => {
-    mockMarkReviewRequested.mockResolvedValue(undefined as never);
     const past = new Date(Date.now() - 1000);
     const scheduleWithApproval = makeSchedule({
       currentStepIndex: -1,

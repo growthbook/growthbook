@@ -1458,7 +1458,6 @@ async function createRampSchedulesForRevision(
             : null,
       startedAt: null,
       phaseStartedAt: null,
-      stepHistory: [],
     });
 
     createdIds.push(created.id);

@@ -844,7 +844,6 @@ export async function discardRevision(
       logger.error(e, "Error creating revisionlog");
     });
 
-  await dispatchRevisionDiscardedHook(context, revision);
 }
 
 export async function getFeatureRevisionsByFeatureIds(
@@ -970,18 +969,11 @@ type RevisionHook = (
 ) => Promise<void>;
 
 let _onRevisionPublishedHook: RevisionHook | null = null;
-let _onRevisionDiscardedHook: RevisionHook | null = null;
 
 export function registerRevisionPublishedHook(hook: RevisionHook): void {
   _onRevisionPublishedHook = hook;
 }
 
-export function registerRevisionDiscardedHook(hook: RevisionHook): void {
-  _onRevisionDiscardedHook = hook;
-}
-
-// Dispatch ramp hooks after a revision is published.
-// Always fires — the hook itself queries ramps by revision identity.
 export async function dispatchRevisionPublishedHook(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -991,20 +983,6 @@ export async function dispatchRevisionPublishedHook(
     await _onRevisionPublishedHook(context, revision);
   } catch (e) {
     logger.error(e, "Error in revision published ramp hook");
-  }
-}
-
-// Dispatch ramp hooks after a revision is discarded.
-// Always fires — the hook itself queries ramps by revision identity.
-export async function dispatchRevisionDiscardedHook(
-  context: ReqContext | ApiReqContext,
-  revision: FeatureRevisionInterface,
-): Promise<void> {
-  if (!_onRevisionDiscardedHook) return;
-  try {
-    await _onRevisionDiscardedHook(context, revision);
-  } catch (e) {
-    logger.error(e, "Error in revision discarded ramp hook");
   }
 }
 

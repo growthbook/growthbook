@@ -79,7 +79,7 @@ function PatchDisplay({
 
     if (p.condition && p.condition !== "{}") {
       items.push(
-        <EffectRow key={k("cond")} label="Targeting">
+        <EffectRow key={k("cond")} label="Attribute targeting">
           <ConditionDisplay condition={p.condition} />
         </EffectRow>,
       );
@@ -152,10 +152,10 @@ function PatchDisplay({
 
 function StartTriggerLabel({ trigger }: { trigger: RampStartTrigger }) {
   if (trigger.type === "immediately") {
-    return <Text size="small">immediately</Text>;
+    return <Text size="small" color="text-low">—</Text>;
   }
   if (trigger.type === "manual") {
-    return <Text size="small">manual</Text>;
+    return <Text size="small">Manual</Text>;
   }
   return <>{formatTrigger({ type: "scheduled", at: trigger.at })}</>;
 }
@@ -256,7 +256,7 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
         </Box>
         <Box style={{ width: TRIGGER_W, flexShrink: 0 }}>
           <Text size="small" color="text-low" weight="medium">
-            Trigger
+            Wait for
           </Text>
         </Box>
         <Box>
@@ -305,7 +305,7 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
                 formatTrigger(rs.endCondition.trigger)
               ) : (
                 <Text size="small" color="text-low">
-                  auto
+                  Complete
                 </Text>
               )
             }

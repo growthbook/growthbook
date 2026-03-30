@@ -51,7 +51,6 @@ export default function FeatureRules({
   draftRevision,
   pendingRuleEdit,
   onPendingRuleEditHandled,
-  onRampReviewDraft,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -71,7 +70,6 @@ export default function FeatureRules({
   draftRevision?: FeatureRevisionInterface | null;
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
-  onRampReviewDraft?: (version: number) => void;
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
@@ -274,7 +272,6 @@ export default function FeatureRules({
                     revisionList={revisionList}
                     rampSchedules={rampSchedules}
                     draftRevision={draftRevision}
-                    onRampReviewDraft={onRampReviewDraft}
                   />
                 ) : (
                   <Box py="4" className="text-muted">

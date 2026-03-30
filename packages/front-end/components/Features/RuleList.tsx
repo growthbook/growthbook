@@ -56,7 +56,6 @@ export default function RuleList({
   revisionList,
   rampSchedules,
   draftRevision,
-  onRampReviewDraft,
 }: {
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
@@ -85,7 +84,6 @@ export default function RuleList({
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
-  onRampReviewDraft?: (version: number) => void;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -288,7 +286,6 @@ export default function RuleList({
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
             rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
-            onRampReviewDraft={onRampReviewDraft}
             draftRevision={draftRevision}
           />
         ))}
@@ -316,7 +313,6 @@ export default function RuleList({
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
             rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
-            onRampReviewDraft={onRampReviewDraft}
             draftRevision={draftRevision}
           />
         ) : null}

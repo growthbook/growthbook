@@ -26,13 +26,11 @@ const BaseClass = MakeModelClass({
     status: "pending" as const,
     currentStepIndex: -1,
     nextStepAt: null,
-    stepHistory: [],
   },
 });
 
 export class RampScheduleModel extends BaseClass {
   protected canRead() {
-    // Ramp schedule read permission delegates to feature manage permission (no project scoping at read time)
     return this.context.permissions.canViewFeatureModal(undefined);
   }
   protected canCreate() {
@@ -70,8 +68,6 @@ export class RampScheduleModel extends BaseClass {
     });
   }
 
-  // Find pending ramps that are waiting for a specific revision to be published.
-  // Returns ramps where any target has activatingRevisionVersion === version for the given feature.
   public async findByActivatingRevision(
     featureId: string,
     version: number,
@@ -88,38 +84,10 @@ export class RampScheduleModel extends BaseClass {
     });
   }
 
-  // Find ramps whose current approval-gated step is waiting on the given revision ref.
-  // revisionRef is "featureId:version".
-  public async findByPendingApprovalRevision(
-    revisionRef: string,
-  ): Promise<RampScheduleInterface[]> {
-    return this._find({ pendingApprovalRevisionId: revisionRef });
-  }
-
-  public async getSchedulesDueForAdvance(
-    now: Date,
-  ): Promise<RampScheduleInterface[]> {
-    return this._find({
-      $or: [
-        // Running schedules with a step due
-        { status: "running", nextStepAt: { $lte: now } },
-        // Pending schedules with an auto-start time due
-        { status: "pending", startTime: { $lte: now } },
-        // Running schedules with a hard deadline due
-        {
-          status: { $in: ["running", "paused", "pending-approval"] },
-          "endCondition.trigger.at": { $lte: now },
-        },
-      ],
-    });
-  }
-
   protected async afterUpdate(
     existing: RampScheduleInterface,
     updates: UpdateProps<RampScheduleInterface>,
   ) {
-    // Trigger SDK payload refresh when the schedule step advances (currentStepIndex changes)
-    // or when the schedule completes/expires (status change that implies published changes)
     const stepChanged =
       updates.currentStepIndex !== undefined &&
       updates.currentStepIndex !== existing.currentStepIndex;

@@ -25,21 +25,13 @@ export type RampScheduleStepAdvancedPayload = z.infer<
 >;
 
 export const rampScheduleStepApprovalRequiredPayload =
-  rampScheduleBaseNotificationPayload
-    .extend({
-      revisionId: z.string(),
-    })
-    .strict();
+  rampScheduleBaseNotificationPayload.strict();
 export type RampScheduleStepApprovalRequiredPayload = z.infer<
   typeof rampScheduleStepApprovalRequiredPayload
 >;
 
 export const rampScheduleStepApprovedPayload =
-  rampScheduleBaseNotificationPayload
-    .extend({
-      revisionId: z.string(),
-    })
-    .strict();
+  rampScheduleBaseNotificationPayload.strict();
 export type RampScheduleStepApprovedPayload = z.infer<
   typeof rampScheduleStepApprovedPayload
 >;
@@ -56,11 +48,8 @@ export type RampScheduleResumedPayload = z.infer<
   typeof rampScheduleResumedPayload
 >;
 
-export const rampScheduleConflictPayload = rampScheduleBaseNotificationPayload
-  .extend({
-    revisionId: z.string(),
-  })
-  .strict();
+export const rampScheduleConflictPayload =
+  rampScheduleBaseNotificationPayload.strict();
 export type RampScheduleConflictPayload = z.infer<
   typeof rampScheduleConflictPayload
 >;

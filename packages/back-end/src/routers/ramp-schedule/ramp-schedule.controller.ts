@@ -166,7 +166,6 @@ export const postRampSchedule = async (
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
-    stepHistory: [],
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -233,9 +232,7 @@ export const putRampSchedule = async (
     updates.disableRuleAfter = body.disableRuleAfter;
   }
 
-  // When disableRuleBefore or disableRuleAfter change, recompute the injected
-  // enabled patches in startCondition.actions / endCondition.actions so they
-  // stay consistent with the flags.
+  // Recompute injected enabled patches when disableRuleBefore/After flags change.
   const effectiveDisableBefore =
     body.disableRuleBefore !== undefined
       ? body.disableRuleBefore
@@ -399,15 +396,7 @@ export const postRampScheduleAction = async (
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
-      // Hold-first: compute step 0's fire time so advanceUntilBlocked can pick it up.
-      const initialNextStepAt =
-        schedule.steps.length > 0
-          ? computeNextStepAt(
-              { ...schedule, phaseStartedAt: now, startedAt: now },
-              0,
-              now,
-            )
-          : null;
+      const initialNextStepAt = schedule.steps.length > 0 ? now : null;
       updated = await context.models.rampSchedules.updateById(schedule.id, {
         status: "running",
         startedAt: now,
@@ -465,79 +454,65 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      // Shift phaseStartedAt and nextStepAt forward by the duration of the pause
-      // so interval steps continue from exactly where they left off.
-      // When resuming after a terminal restart startedAt/phaseStartedAt will be
-      // null (cleared by the reset), so we anchor them to now as a fresh start.
+      // Shift timing anchors forward by the pause duration so interval steps continue
+      // exactly where they left off. Null anchors (post-reset) anchor to now.
       const pauseDurationMs = schedule.pausedAt
         ? now.getTime() - schedule.pausedAt.getTime()
         : 0;
 
       const newStartedAt = schedule.startedAt ? schedule.startedAt : now;
-
       const newPhaseStartedAt = schedule.phaseStartedAt
         ? new Date(
-            schedule.phaseStartedAt.getTime() +
-              (pauseDurationMs > 0 ? pauseDurationMs : 0),
+            schedule.phaseStartedAt.getTime() + Math.max(0, pauseDurationMs),
           )
         : now;
 
-      // If the ramp was paused while waiting at an approval gate, resuming
-      // must return to "pending-approval" — not "running". Advancing the
-      // Agenda index here would silently skip the approval step.
+      // Resuming at an approval gate returns to "pending-approval" — not "running".
       const currentStep = schedule.steps[schedule.currentStepIndex];
-      const pausedAtApproval =
-        currentStep?.trigger?.type === "approval" &&
-        schedule.pendingApprovalRevisionId;
+      const pausedAtApproval = currentStep?.trigger?.type === "approval";
 
       const resumeUpdates: Record<string, unknown> = {
         status: pausedAtApproval ? "pending-approval" : "running",
         pausedAt: null,
         startedAt: newStartedAt,
         phaseStartedAt: newPhaseStartedAt,
-        // Approval steps have no timer — keep nextStepAt null so Agenda
-        // doesn't accidentally advance past the gate.
         nextStepAt: pausedAtApproval ? null : schedule.nextStepAt,
       };
 
       if (!pausedAtApproval) {
         if (schedule.nextStepAt) {
-          // Shift the existing deadline forward by the pause duration.
+          // Shift existing deadline forward by the pause duration.
           resumeUpdates.nextStepAt = new Date(
             schedule.nextStepAt.getTime() + pauseDurationMs,
           );
         } else {
-          // nextStepAt was null (after a reset/rollback). Recompute from the
-          // now-anchored phaseStartedAt so the agenda job picks this ramp up.
+          // nextStepAt is null (after a reset/rollback).
+          // At start: fire step 0 immediately. Mid-schedule: restart current step's hold timer.
           const nextStepIndex = schedule.currentStepIndex + 1;
-          if (nextStepIndex < schedule.steps.length) {
-            const tempSchedule = {
-              ...schedule,
-              startedAt: newStartedAt,
-              phaseStartedAt: newPhaseStartedAt,
-            };
+          if (schedule.currentStepIndex === -1) {
+            resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
+          } else if (nextStepIndex < schedule.steps.length) {
+            const currentStepIndex = schedule.currentStepIndex;
+            let sumBefore = 0;
+            for (let i = 0; i < currentStepIndex; i++) {
+              const t = schedule.steps[i]?.trigger;
+              if (t?.type === "interval") sumBefore += t.seconds;
+            }
+            const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
+            resumeUpdates.phaseStartedAt = freshPhaseStart;
             resumeUpdates.nextStepAt = computeNextStepAt(
-              tempSchedule,
-              nextStepIndex,
+              { ...schedule, phaseStartedAt: freshPhaseStart },
+              currentStepIndex,
               now,
             );
           }
         }
       }
 
-      // Clear stale pending revision tracking from before the pause
-      // (e.g., a rollback revision that was already auto-published).
-      // Preserve them only when pendingApprovalRevisionId is set — that
-      // means an approval gate is still open and we must not discard it.
-      if (!schedule.pendingApprovalRevisionId) {
-        resumeUpdates.pendingRevisionIds = [];
-      }
       updated = await context.models.rampSchedules.updateById(
         schedule.id,
         resumeUpdates,
       );
-      // Only advance for non-approval resumes — approval gates require
-      // explicit user action and must not be bypassed by the Agenda loop.
       if (!pausedAtApproval) {
         await advanceUntilBlocked(context, updated, now, attribution);
       }
@@ -591,22 +566,15 @@ export const postRampScheduleAction = async (
 
     case "reset": {
       const isTerminal = ["completed", "rolled-back"].includes(schedule.status);
-      // Revert all applied steps to the initial state.
-      // For terminal states (restart): clear timing fields and set to "ready"
-      // so the user starts the ramp fresh with an explicit Start action.
-      // For active states: stay paused so the user can resume from the beginning.
+      // Roll back to start (-1), then land in "paused" so the user must explicitly resume.
+      // Terminal restarts also clear timing anchors so resume starts fresh.
       const resetRolled =
         schedule.currentStepIndex >= 0
           ? await rollbackToStep(context, schedule, -1, attribution)
           : schedule;
-      // Both terminal and non-terminal restarts land in "paused" so the user
-      // must explicitly resume to kick off the ramp again. For terminal cases
-      // we also clear the timing anchors so resume starts fresh from now.
       updated = await context.models.rampSchedules.updateById(resetRolled.id, {
         status: "paused",
         pausedAt: now,
-        pendingRevisionIds: [],
-        pendingApprovalRevisionId: null,
         ...(isTerminal && {
           startedAt: null,
           phaseStartedAt: null,
@@ -645,10 +613,8 @@ export const postRampScheduleAction = async (
         });
       }
 
-      // After any jump, reset phaseStartedAt so the target step's interval
-      // runs fresh from resume time rather than being stale from the original start.
-      // phaseStartedAt = now - sum(intervals of steps 0..target-1)
-      // This ensures nextStepAt = phaseStartedAt + sum(0..target) = now + steps[target].seconds
+      // Reset phaseStartedAt so the target step's hold timer runs from now.
+      // phaseStartedAt = now - sum(intervals[0..target-1]) ensures nextStepAt = now + steps[target].seconds
       const freshPhaseStartedAt = (() => {
         if (jumpTarget <= 0) return now;
         let elapsed = 0;
@@ -660,7 +626,6 @@ export const postRampScheduleAction = async (
       })();
 
       if (jumpTarget < schedule.currentStepIndex) {
-        // Backward: rollback then override to paused, clearing any pending approval state
         const j = await rollbackToStep(
           context,
           schedule,
@@ -672,19 +637,10 @@ export const postRampScheduleAction = async (
           pausedAt: now,
           phaseStartedAt: freshPhaseStartedAt,
           nextStepAt: null,
-          pendingRevisionIds: [],
-          pendingApprovalRevisionId: null,
         });
       } else if (jumpTarget > schedule.currentStepIndex) {
-        // Forward: merge all intermediate step patches into a single revision.
-        updated = await jumpAheadToStep(
-          context,
-          schedule,
-          jumpTarget,
-          attribution,
-        );
+        updated = await jumpAheadToStep(context, schedule, jumpTarget);
       } else {
-        // Same position: just pause
         updated = await context.models.rampSchedules.updateById(schedule.id, {
           status: "paused",
           pausedAt: now,
@@ -717,27 +673,16 @@ export const postRampScheduleAction = async (
       }
       const approveErr = await approveAndPublishStep(context, schedule);
       if (approveErr) {
-        const httpStatus =
-          approveErr.code === "permission_denied"
-            ? 403
-            : approveErr.code === "no_pending_approval" ||
-                approveErr.code === "revision_not_found"
-              ? 404
-              : 400;
+        const httpStatus = approveErr.code === "permission_denied" ? 403 : 400;
         return res.status(httpStatus).json({
           status: httpStatus,
           code: approveErr.code,
           message:
             approveErr.code === "permission_denied"
               ? `Permission denied: ${approveErr.detail}`
-              : approveErr.code === "no_pending_approval"
-                ? "No pending approval revision found for this ramp step"
-                : approveErr.code === "revision_not_found"
-                  ? "Pending approval revision no longer exists"
-                  : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`,
+              : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`,
         });
       }
-      // onRevisionPublished hook advances the ramp — re-fetch for fresh state
       const afterApprove = await context.models.rampSchedules.getById(
         schedule.id,
       );

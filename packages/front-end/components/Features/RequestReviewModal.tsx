@@ -202,12 +202,6 @@ export default function RequestReviewModal({
       ),
   );
 
-  // Approval ramps: ramps waiting on this specific revision as the approval gate.
-  const approvalRevisionRef = `${feature.id}:${revision?.version}`;
-  const approvalRamps = (rampSchedules ?? []).filter(
-    (r) => r.pendingApprovalRevisionId === approvalRevisionRef,
-  );
-
   const rampDiffs: FeatureRevisionDiff[] = [
     ...activatingRamps.map((ramp) => {
       const rampConfig = {
@@ -238,29 +232,6 @@ export default function RequestReviewModal({
           </p>
         ),
         badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
-      } as FeatureRevisionDiff;
-    }),
-    ...approvalRamps.map((ramp) => {
-      const stepIndex = ramp.currentStepIndex;
-      const thisStep = ramp.steps[stepIndex];
-      const prevStepActions =
-        stepIndex > 0 ? (ramp.steps[stepIndex - 1]?.actions ?? []) : [];
-      return {
-        title: `Ramp Schedule – ${ramp.name}`,
-        a: JSON.stringify(prevStepActions, null, 2),
-        b: JSON.stringify(thisStep?.actions ?? [], null, 2),
-        customRender: (
-          <p className="mb-0">
-            Advances ramp schedule <strong>{ramp.name}</strong> to step{" "}
-            {stepIndex + 1} of {ramp.steps.length}.
-          </p>
-        ),
-        badges: [
-          {
-            label: `Advance ramp: ${ramp.name} (step ${stepIndex + 1})`,
-            action: "advance ramp",
-          },
-        ],
       } as FeatureRevisionDiff;
     }),
     // Pending ramp actions: create/detach actions queued in the draft
@@ -330,11 +301,6 @@ export default function RequestReviewModal({
 
   const linkedRamps = [
     ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
-    ...approvalRamps.map((ramp) => ({
-      ramp,
-      role: "approval" as const,
-      stepIndex: ramp.currentStepIndex,
-    })),
   ];
 
   if (!revision || !mergeResult) return null;
@@ -395,22 +361,11 @@ export default function RequestReviewModal({
           </Callout>
         )}
 
-        {linkedRamps.map(({ ramp, role, ...rest }) => (
+        {linkedRamps.map(({ ramp }) => (
           <Callout key={ramp.id} status="info" mb="3">
-            {role === "activating" ? (
-              <>
-                Publishing this draft will activate ramp schedule{" "}
-                <strong>{ramp.name}</strong>. The ramp will begin once this
-                revision is live.
-              </>
-            ) : (
-              <>
-                This revision is controlled by ramp schedule{" "}
-                <strong>{ramp.name}</strong> (step{" "}
-                {"stepIndex" in rest ? rest.stepIndex + 1 : "?"}). Approving and
-                publishing will advance the ramp to the next step.
-              </>
-            )}
+            Publishing this draft will activate ramp schedule{" "}
+            <strong>{ramp.name}</strong>. The ramp will begin once this
+            revision is live.
           </Callout>
         ))}
 

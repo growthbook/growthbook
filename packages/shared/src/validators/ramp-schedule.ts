@@ -3,27 +3,22 @@ import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { baseSchema } from "./base-model";
 
 // Sparse patch for a feature rule — only ramped fields included.
-// The ramp service merges this with current state to build a full revision change set.
+// The ramp service merges this with current live state to build a full revision change set.
 export const featureRulePatch = z.object({
   ruleId: z.string(),
   coverage: z.number().min(0).max(1).nullish(),
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
   prerequisites: z.array(featurePrerequisite).nullish(),
-  // force can be any JSON-serializable value (string, number, boolean, object, array)
-
+  // force: any JSON-serializable value
   force: z.any().optional(),
-  // Internal only — managed automatically by disableRuleBeforeStart / disableRuleAfterComplete.
-  // Never user-authored or shown in the UI.
+  // Internal only — managed by disableRuleBeforeStart / disableRuleAfterComplete. Never user-authored.
   enabled: z.boolean().nullish(),
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
 
-// A single action within a step. targetId references rampTarget.id in targets[].
-//
-// targetType is a discriminator tag that identifies what kind of effect this action applies.
-// Currently only "feature-rule" exists. When new entity types are added (experiments,
-// webhooks, etc.) this will expand to a z.discriminatedUnion("targetType", [...]).
+// targetType discriminates action kind. Currently only "feature-rule" exists;
+// future types (experiments, webhooks) will expand to a discriminatedUnion.
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
@@ -31,7 +26,8 @@ export const rampStepAction = z.object({
 });
 export type RampStepAction = z.infer<typeof rampStepAction>;
 
-// Controlled entity reference with lifecycle status. Targets can be added/ejected via the REST API.
+// Controlled entity reference. activatingRevisionVersion: set when the ramp is
+// created alongside a rule change; cleared once the activating revision is published.
 export const rampTarget = z.object({
   id: z.string(),
   entityType: z.enum(["feature"]), // TODO v2: add "experiment"
@@ -39,20 +35,13 @@ export const rampTarget = z.object({
   ruleId: z.string().nullish(),
   environment: z.string().nullish(),
   status: z.enum(["pending-join", "active", "pending-eject", "ejected"]),
-  joinRevisionId: z.string().nullish(),
-  ejectRevisionId: z.string().nullish(),
-  // Version of the draft revision whose publication activates this ramp.
-  // Set when the ramp is created atomically alongside a rule change.
-  // Once all targets have had their activating revisions published the ramp
-  // transitions out of "pending" based on startTrigger.
   activatingRevisionVersion: z.number().int().nullish(),
 });
 export type RampTarget = z.infer<typeof rampTarget>;
 
-// Start trigger — always present, defaults to "immediately" for legacy documents.
-// "immediately": auto-starts when the activating draft is published.
-// "manual":      transitions to "ready" on publish; requires explicit user start action.
-// "scheduled":   transitions to "ready" on publish; Agenda auto-starts when now >= at.
+// "immediately": auto-start on activating revision publish.
+// "manual": transitions to "ready"; requires explicit user start.
+// "scheduled": transitions to "ready"; Agenda auto-starts when now >= at.
 export const rampStartTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("immediately") }),
   z.object({ type: z.literal("manual") }),
@@ -60,40 +49,29 @@ export const rampStartTrigger = z.discriminatedUnion("type", [
 ]);
 export type RampStartTrigger = z.infer<typeof rampStartTrigger>;
 
-// End schedule trigger. "scheduled": fires when now >= at, discards pending steps,
-// and applies endSchedule.actions regardless of current progress.
+// "scheduled": fires when now >= at, discards pending steps, applies endCondition.actions.
 export const rampEndTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("scheduled"), at: z.date() }),
   // Future: z.object({ type: z.literal("criteria"), criteriaId: z.string() }),
 ]);
 export type RampEndTrigger = z.infer<typeof rampEndTrigger>;
 
-// Step trigger. "interval": auto-advance after N cumulative seconds from phaseStartedAt
-// (nextStepAt = phaseStartedAt + sum(seconds[0..stepIndex]); resets after approval gates).
-// "approval": manual gate — requests review and blocks until approved.
+// "interval": auto-advance after cumulative seconds from phaseStartedAt.
+// "approval": manual gate — blocks until user approves.
 // "scheduled": fires at an absolute datetime.
 export const rampTrigger = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("interval"),
-    seconds: z.number().positive(),
-  }),
+  z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
   z.object({ type: z.literal("approval") }),
   z.object({ type: z.literal("scheduled"), at: z.date() }),
-  // Future: criteria-gated advancement (references existing DecisionCriteria entity)
-  // z.object({
-  //   type: z.literal("criteria"),
-  //   criteriaId: z.string(),
-  //   minHoldSeconds: z.number().optional(),
-  //   maxHoldSeconds: z.number().optional(),
-  //   onFailure: z.enum(["pause", "rollback"]).optional(),
-  // }),
+  // Future: criteria-gated advancement
+  // z.object({ type: z.literal("criteria"), criteriaId: z.string(), ... }),
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
-// Template effects for a step — only the fields that vary per step.
-// Removed in favour of per-target action patches; kept as a legacy no-op shim
-// so old documents (with defaultEffects stored) deserialise without errors.
-// TODO: drop this after a migration removes all stored defaultEffects values.
+// IMPORTANT — actions is a complete state specification, not a sparse delta.
+// The form's activeFields system ensures every step (and startCondition) defines
+// the same fields so that { ...startCondition, ...s0, ..., ...sN } is always
+// fully-qualified. Rollbacks and jump-aheads rely on this contract.
 export const rampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(rampStepAction),
@@ -110,28 +88,6 @@ export const rampAttribution = z.object({
 });
 export type RampAttribution = z.infer<typeof rampAttribution>;
 
-// Rollback to step N: accumulate previousValues from currentStepIndex down to N+1 per targetId.
-// Lower-index steps overwrite higher-index steps on overlapping fields (higher rewind precedence).
-export const stepHistoryEntry = z.object({
-  stepIndex: z.number().int(),
-  // "advance" = normal forward step; "rollback" = user/system rollback; "jump" = jump-ahead.
-  // Omitted on entries created before this field was added — treat as "advance".
-  kind: z.enum(["advance", "rollback", "jump"]).optional(),
-  enteredAt: z.date(),
-  completedAt: z.date().nullish(),
-  revisionIds: z.array(z.string()),
-  // Sparse patch-shaped snapshot — only the specific fields this step changed, per target.
-  // Full rollback and N-step rollbacks are computed by accumulating these across steps.
-  previousValues: z.array(
-    z.object({
-      targetId: z.string(),
-      patch: featureRulePatch,
-    }),
-  ),
-  triggeredBy: rampAttribution,
-});
-export type StepHistoryEntry = z.infer<typeof stepHistoryEntry>;
-
 export const rampScheduleStatusArray = [
   "pending",
   "ready",
@@ -147,42 +103,29 @@ export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
-    // Parent controller entity — its permissions govern the schedule;
-    // its approval settings determine whether approval-gated revisions require review.
+    // Controls permissions and approval settings for the schedule.
     entityType: z.enum(["feature"]), // TODO v2: add "experiment"
     entityId: z.string(),
-    // May be empty for template ramps that have no implementations yet.
     targets: z.array(rampTarget),
-    // Steps may be empty when a start/end anchor pair alone defines the ramp
-    // (e.g. a timed sale: auto-start Jan 15, auto-teardown Feb 1 with no intervening steps).
     steps: z.array(rampStep),
-    // When set, a failing criteria result from evaluateAutoRollback() triggers rollback.
     autoRollback: z
       .object({ enabled: z.boolean(), criteriaId: z.string() })
       .nullish(),
-    // Combined start trigger + initial actions — mirrors the shape of a step.
-    // trigger: when the ramp starts (immediately/manual/scheduled).
-    // actions: applied when the ramp transitions to "running" (e.g. set coverage to 0).
+    // Combined start trigger + baseline actions applied on ramp start.
+    // actions must be a complete state spec — all activeFields included —
+    // as it is the first layer in the cumulative merge used by rollback/jump.
     startCondition: z.object({
       trigger: rampStartTrigger,
       actions: z.array(rampStepAction).nullish(),
     }),
-    // When true, the rule is hidden from SDK payload before the schedule starts.
-    // Backend auto-injects enabled:true into startCondition.actions.
+    // When true, rule is hidden before start; backend injects enabled:true into startCondition.actions.
     disableRuleBefore: z.boolean().optional(),
-    // When true, the rule is hidden from SDK payload after the schedule ends.
-    // Backend auto-injects enabled:false into endCondition.actions.
+    // When true, rule is hidden after end; backend injects enabled:false into endCondition.actions.
     disableRuleAfter: z.boolean().optional(),
-    // When true (default for ramp-ups), the schedule completes as soon as all steps
-    // are done even if endCondition.trigger.at is still in the future.
-    // When false (default for scheduled rules), the schedule holds in "running" state
-    // after all steps and only applies endCondition.actions when the date trigger fires.
+    // When true (ramp-ups): completes as soon as all steps are done even if endCondition.trigger is future.
+    // When false (scheduled rules): holds in "running" until the date trigger fires.
     endEarlyWhenStepsComplete: z.boolean().optional(),
-    // Optional teardown condition — mirrors the shape of a step.
-    // trigger: optional hard deadline (scheduled datetime). When reached, Agenda discards
-    //   pending steps and fires endCondition.actions regardless of current progress.
-    //   Absent = no deadline; endCondition.actions still fire on natural/manual completion.
-    // actions: applied whenever the ramp ends (deadline, manual complete, or last step done).
+    // Optional teardown condition. trigger: hard deadline. actions: applied on any end path.
     endCondition: z
       .object({
         trigger: rampEndTrigger.optional(),
@@ -192,31 +135,16 @@ export const rampScheduleValidator = baseSchema
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
     startedAt: z.date().nullish(),
-    // Anchor for cumulative interval steps. Set to startedAt when the ramp transitions
-    // to "running"; resets to approval-completion time after each approval gate so
-    // subsequent interval steps remain on schedule regardless of how long the gate was open.
+    // Anchor for cumulative interval timing. Resets after approval gates.
     phaseStartedAt: z.date().nullish(),
-    // Set when the ramp is manually paused. Cleared on resume. Used to shift
-    // phaseStartedAt and nextStepAt forward by the pause duration so interval
-    // steps continue exactly where they left off.
+    // Set on manual pause; cleared on resume. Used to shift timing anchors forward.
     pausedAt: z.date().nullish(),
     nextStepAt: z.date().nullable(),
-    // Computed at response time by the API (never stored). Milliseconds since startedAt,
-    // calculated server-side to avoid client timezone/clock-skew issues.
+    // Computed at response time (never stored): ms since startedAt.
     elapsedMs: z.number().int().nullish(),
-    // IDs of all revisions created for the current step ("featureId:version" format).
-    // Cleared when the step completes or the ramp is paused/rolled back.
-    pendingRevisionIds: z.array(z.string()).nullish(),
-    // The specific revision ref (from pendingRevisionIds) that requires explicit approval
-    // before the ramp can advance. Absent for auto-advance steps.
-    // When this revision is published all other pendingRevisionIds are auto-published.
-    // When it is discarded all other pendingRevisionIds are discarded and the ramp pauses.
-    pendingApprovalRevisionId: z.string().nullish(),
-    stepHistory: z.array(stepHistoryEntry),
   })
   .strict()
   .superRefine((data, ctx) => {
-    // A zero-step ramp is only meaningful if at least one absolute datetime anchor exists.
     if (
       data.steps.length === 0 &&
       data.startCondition.trigger.type !== "scheduled" &&
@@ -233,11 +161,7 @@ export const rampScheduleValidator = baseSchema
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
 
-/**
- * Minimal interface for displaying pending/draft ramp schedules in the UI.
- * Contains only fields needed for rendering; other fields are optional.
- * Compatible with RampScheduleInterface for display purposes.
- */
+// Minimal type for displaying pending/draft ramp schedules before full data is available.
 export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {
   id: string;
   status: RampScheduleInterface["status"];
