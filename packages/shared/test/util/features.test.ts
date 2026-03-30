@@ -204,7 +204,14 @@ describe("autoMerge", () => {
       defaultValue: "base",
       rules: {
         dev: [],
-        prod: [],
+        prod: [
+          {
+            type: "force",
+            description: "",
+            id: "sharedForce",
+            value: "base",
+          },
+        ],
       },
       version: 4,
     };
@@ -216,8 +223,8 @@ describe("autoMerge", () => {
           {
             type: "force",
             description: "",
-            id: "liveForce",
-            value: "force",
+            id: "sharedForce",
+            value: "live",
           },
         ],
       },
@@ -238,8 +245,8 @@ describe("autoMerge", () => {
           {
             type: "force",
             description: "",
-            id: "revisionForce",
-            value: "force",
+            id: "sharedForce",
+            value: "revision",
           },
         ],
       },
