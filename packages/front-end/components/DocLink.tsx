@@ -165,6 +165,8 @@ const docSectionDisplayTitles: Partial<Record<DocSection, string>> = {
   roku: "Roku SDK",
 };
 
+const uppercaseAcronymTokens = new Set(["api", "gtm", "sdk", "url"]);
+
 /**
  * Human-readable title for search (e.g. Cmd+K). Handles camelCase (including
  * acronyms such as `SDK`), snake_case, and #anchors in keys (e.g.
@@ -183,7 +185,17 @@ export function docTitleForSection(section: DocSection): string {
     .replace(/_/g, " ")
     .split(/\s+/)
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .map((w) => {
+      const normalized = w.toLowerCase();
+      if (uppercaseAcronymTokens.has(normalized)) {
+        return normalized.toUpperCase();
+      }
+      // Preserve acronym tokens already split from camelCase (e.g. "SDK").
+      if (/^[A-Z0-9]+$/.test(w) && /[A-Z]/.test(w)) {
+        return w;
+      }
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
     .join(" ");
 }
 
