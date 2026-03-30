@@ -24,8 +24,8 @@ import {
 import {
   getContextFromReq,
   getOrganizationById,
+  setLicenseKey,
 } from "back-end/src/services/organizations";
-import { setLicenseKey } from "back-end/src/routers/organizations/organizations.controller";
 import {
   auditDetailsCreate,
   auditDetailsUpdate,
