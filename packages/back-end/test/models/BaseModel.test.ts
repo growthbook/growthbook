@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Collection } from "mongodb";
-import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
+import { Context, MakeModelClass } from "../../src/models/BaseModel";
 
 type WriteOptions = {
   option?: boolean;
@@ -10,6 +10,7 @@ const BaseModel = MakeModelClass({
   schema: z
     .object({
       id: z.string(),
+      uid: z.string(),
       organization: z.string(),
       dateCreated: z.date(),
       dateUpdated: z.date(),
@@ -125,6 +126,87 @@ class TestModel extends BaseModel<WriteOptions> {
 
   protected afterUpdate(...args) {
     return this.afterUpdateMock(...args);
+  }
+
+  public exposeGetEntityId(doc: Record<string, unknown>): string {
+    return this.getEntityId(doc);
+  }
+}
+
+const CompositeBaseModel = MakeModelClass({
+  schema: z
+    .object({
+      userId: z.string(),
+      organization: z.string(),
+      dateCreated: z.date(),
+      dateUpdated: z.date(),
+      name: z.string(),
+    })
+    .strict(),
+  collectionName: "composite_test",
+  pKey: ["userId", "organization"],
+  auditLog: {
+    entity: "metric",
+    createEvent: "metric.create",
+    updateEvent: "metric.update",
+    deleteEvent: "metric.delete",
+  },
+});
+
+class CompositeTestModel extends CompositeBaseModel {
+  public canReadMock: jest.Mock;
+  public canCreateMock: jest.Mock;
+  public canUpdateMock: jest.Mock;
+  public canDeleteMock: jest.Mock;
+  public dangerousGetCollectionMock: jest.Mock;
+  public migrateMock: jest.Mock;
+  public populateForeignRefsMock: jest.Mock;
+
+  public constructor(context: Context) {
+    super(context);
+    this.canReadMock = jest.fn(() => true);
+    this.canCreateMock = jest.fn(() => true);
+    this.canUpdateMock = jest.fn(() => true);
+    this.canDeleteMock = jest.fn(() => true);
+    this.dangerousGetCollectionMock = jest.fn();
+    this.migrateMock = jest.fn((doc) => doc);
+    this.populateForeignRefsMock = jest.fn();
+  }
+
+  public exposeGetEntityId(doc: Record<string, unknown>): string {
+    return this.getEntityId(doc);
+  }
+
+  protected canRead(...args): boolean {
+    return this.canReadMock(...args);
+  }
+
+  protected canCreate(...args): boolean {
+    return this.canCreateMock(...args);
+  }
+
+  protected canUpdate(...args): boolean {
+    return this.canUpdateMock(...args);
+  }
+
+  protected canDelete(...args): boolean {
+    return this.canDeleteMock(...args);
+  }
+
+  protected updateIndexes(...args) {
+    updateIndexesMock(...args);
+  }
+
+  protected migrate(...args) {
+    return this.migrateMock(...args);
+  }
+
+  protected populateForeignRefs(...args) {
+    return this.populateForeignRefsMock(...args);
+  }
+
+  protected _dangerousGetCollection(...args): Collection {
+    return this.dangerousGetCollectionMock(...args);
   }
 }
 
@@ -649,13 +731,13 @@ describe("BaseModel", () => {
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
       existing,
-      { name: "gni" },
+      { name: "gni", dateUpdated: expect.any(Date) },
       expectedSet,
       { option: true },
     );
     expect(model.afterUpdateMock).toHaveBeenCalledWith(
       existing,
-      { name: "gni" },
+      { name: "gni", dateUpdated: expect.any(Date) },
       expectedSet,
       { option: true },
     );
@@ -678,5 +760,137 @@ describe("BaseModel", () => {
     ).rejects.toEqual(
       new Error("You do not have access to delete this resource"),
     );
+  });
+
+  it("raises an error when attempting to update uid", () => {
+    const model = new TestModel(defaultContext);
+    expect(
+      model.update(
+        {
+          name: "foo",
+          id: "aabb",
+          uid: "ccdd",
+          organization: "a",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        },
+        { uid: "new-uid" },
+      ),
+    ).rejects.toThrow();
+  });
+
+  describe("composite primary key", () => {
+    const idMethods: [string, (m: CompositeTestModel) => Promise<unknown>][] = [
+      ["getById", async (m) => m.getById("u1")],
+      ["getByIds", async (m) => m.getByIds(["u1"])],
+      ["updateById", (m) => m.updateById("u1", { name: "x" })],
+      ["deleteById", (m) => m.deleteById("u1")],
+      [
+        "dangerousUpdateByIdBypassPermission",
+        (m) => m.dangerousUpdateByIdBypassPermission("u1", { name: "x" }),
+      ],
+    ];
+
+    it.each(idMethods)(
+      "%s throws on a model without an id field",
+      async (_, action) => {
+        const model = new CompositeTestModel(defaultContext);
+        await expect(action(model)).rejects.toThrow(/"id" field/);
+      },
+    );
+
+    it("uses the composite key in the update filter", async () => {
+      const model = new CompositeTestModel(defaultContext);
+      const updateOneMock = jest.fn();
+      model.dangerousGetCollectionMock.mockReturnValue({
+        updateOne: updateOneMock,
+      });
+
+      const existing = {
+        userId: "u1",
+        organization: "a",
+        name: "old",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+
+      await model.update(existing, { name: "new" });
+
+      expect(updateOneMock).toHaveBeenCalledWith(
+        { userId: "u1", organization: "a" },
+        { $set: expect.objectContaining({ name: "new" }) },
+      );
+    });
+
+    it("uses the composite key in the delete filter", async () => {
+      const model = new CompositeTestModel(defaultContext);
+      const deleteOneMock = jest.fn();
+      model.dangerousGetCollectionMock.mockReturnValue({
+        deleteOne: deleteOneMock,
+      });
+
+      const doc = {
+        userId: "u1",
+        organization: "a",
+        name: "test",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+
+      await model.delete(doc);
+
+      expect(deleteOneMock).toHaveBeenCalledWith({
+        userId: "u1",
+        organization: "a",
+      });
+    });
+
+    it("does not auto-generate an id when the schema has no id field", async () => {
+      const model = new CompositeTestModel(defaultContext);
+      const insertOneMock = jest.fn();
+      model.dangerousGetCollectionMock.mockReturnValue({
+        insertOne: insertOneMock,
+      });
+
+      await model.create({ userId: "u1", name: "test" });
+
+      const insertedDoc = insertOneMock.mock.calls[0][0];
+      expect(insertedDoc).not.toHaveProperty("id");
+      expect(insertedDoc).toMatchObject({
+        userId: "u1",
+        name: "test",
+        organization: "a",
+        dateCreated: expect.any(Date),
+        dateUpdated: expect.any(Date),
+      });
+    });
+
+    describe("getEntityId", () => {
+      it("serializes a single-field primary key as a bare string", () => {
+        const model = new TestModel(defaultContext);
+        expect(
+          model.exposeGetEntityId({
+            id: "abc123",
+            organization: "a",
+            name: "test",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+          }),
+        ).toBe("abc123");
+      });
+
+      it("serializes a composite primary key as a JSON object string", () => {
+        const model = new CompositeTestModel(defaultContext);
+        expect(
+          model.exposeGetEntityId({
+            userId: "u1",
+            organization: "a",
+            name: "test",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+          }),
+        ).toBe('{"userId":"u1","organization":"a"}');
+      });
+    });
   });
 });

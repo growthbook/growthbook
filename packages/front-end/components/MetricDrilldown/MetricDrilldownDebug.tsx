@@ -38,7 +38,7 @@ interface MetricDrilldownDebugProps {
   isLatestPhase: boolean;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  experimentStatus: ExperimentStatus;
+  experimentStatus?: ExperimentStatus;
 }
 
 function createRowLabel(description: string) {

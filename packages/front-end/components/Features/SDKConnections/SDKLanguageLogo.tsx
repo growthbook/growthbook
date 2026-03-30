@@ -16,6 +16,7 @@ import {
   SiElixir,
   SiFastly,
   SiNextdotjs,
+  SiRoku,
 } from "react-icons/si";
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
@@ -82,6 +83,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["browser", "mobile", "popular"],
     packageName: "@growthbook/growthbook-react",
     packageUrl: "https://www.npmjs.com/package/@growthbook/growthbook-react",
+  },
+  roku: {
+    Icon: SiRoku,
+    color: "#4F01A3",
+    label: "Roku",
+    docs: "roku",
+    type: "frontend",
+    filters: ["browser"],
+    packageName: "growthbook-roku",
+    packageUrl: "https://www.npmjs.com/package/growthbook-roku",
   },
   nodejs: {
     Icon: SiNodedotjs,

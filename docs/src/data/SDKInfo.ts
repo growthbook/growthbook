@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -74,7 +74,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -244,7 +244,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -393,7 +393,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.4",
+    version: "0.2.6",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -442,7 +442,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.0.3",
+    version: "0.1.1",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -464,6 +464,15 @@ export default {
         experimentation: "All versions",
       },
       {
+        caseInsensitiveRegex: "≥ v0.1.1",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.1.1",
+      },
+      {
+        stickyBucketing: "≥ v0.1.0",
+      },
+      {
         encryption: "≥ v0.0.1",
       },
       {
@@ -482,7 +491,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.10.2",
+    version: "0.10.6",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -514,6 +523,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.10.6",
       },
       {
         remoteEvaluation: "≥ v0.9.92",
@@ -674,7 +686,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.82",
+    version: "1.0.95",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -718,7 +730,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.4",
+    version: "1.6.5",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -789,7 +801,7 @@ export default {
   },
   edgeCloudflare: {
     name: "Cloudflare Workers App & SDK",
-    version: "0.2.6",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
@@ -810,6 +822,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         savedGroupReferences: "≥ v0.1.12",
@@ -851,7 +869,7 @@ export default {
   },
   edgeFastly: {
     name: "Fastly Compute App & SDK",
-    version: "0.2.6",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
@@ -872,6 +890,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         savedGroupReferences: "≥ v0.1.6",
@@ -913,7 +937,7 @@ export default {
   },
   edgeLambda: {
     name: "Lambda@Edge App & SDK",
-    version: "0.0.26",
+    version: "0.0.28",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
     examples: [],
@@ -929,6 +953,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.0.27",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.0.27",
       },
       {
         savedGroupReferences: "≥ v0.0.7",
@@ -970,7 +1000,7 @@ export default {
   },
   edgeUtils: {
     name: "Edge Utils",
-    version: "0.2.5",
+    version: "0.2.8",
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
     examples: [],
@@ -986,6 +1016,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         savedGroupReferences: "≥ v0.1.5",
@@ -1027,7 +1063,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.1.0",
+    version: "4.2.1",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
@@ -1066,6 +1102,42 @@ export default {
       },
       {
         looseUnmarshalling: "≥ v0.0.0",
+      },
+    ],
+  },
+  roku: {
+    name: "Roku SDK",
+    version: "1.3.1",
+    github: "https://github.com/growthbook/growthbook-roku",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-roku/tree/main/examples",
+        name: "Roku examples",
+      },
+      {
+        url: "https://www.npmjs.com/package/growthbook-roku",
+        name: "npm package",
+      },
+    ],
+    packageRepos: [],
+    capabilities: [
+      {
+        features: "All versions",
+      },
+      {
+        experimentation: "All versions",
+      },
+      {
+        prerequisites: "≥ v1.3.0",
+      },
+      {
+        looseUnmarshalling: "≥ v1.3.0",
+      },
+      {
+        semverTargeting: "≥ v1.3.0",
+      },
+      {
+        bucketingV2: "≥ v1.3.0",
       },
     ],
   },

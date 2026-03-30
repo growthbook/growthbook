@@ -6,9 +6,9 @@ import {
 } from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -19,9 +19,13 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import ConditionInput from "@/components//Features/ConditionInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
@@ -113,7 +117,7 @@ export default function EditTargetingModal({
     trackingKey: experiment.trackingKey || "",
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+      getEqualWeights(getLatestPhaseVariations(experiment).length, 4),
     newPhase: false,
     reseed: true,
   };
@@ -281,7 +285,7 @@ export default function EditTargetingModal({
       }
     >
       <Page display="Type of Changes">
-        <div className="px-3 py-2">
+        <div className="py-2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
@@ -306,7 +310,7 @@ export default function EditTargetingModal({
 
       {changeType !== "phase" && (
         <Page display="Make Changes">
-          <div className="px-2">
+          <div>
             <TargetingForm
               experiment={experiment}
               form={form}
@@ -322,7 +326,7 @@ export default function EditTargetingModal({
       )}
 
       <Page display="Review & Deploy">
-        <div className="px-3 mt-2">
+        <div className="mt-2">
           <ReleaseChangesForm
             experiment={experiment}
             form={form}
@@ -411,9 +415,16 @@ function TargetingForm({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const hashAttributeOptions = attributeSchema
+  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({ label: s.property, value: s.property }));
+    .map((s) => ({
+      label: s.property,
+      value: s.property,
+      description: s.description,
+      tags: s.tags,
+      datatype: s.datatype,
+      hashAttribute: s.hashAttribute,
+    }));
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
   // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
@@ -441,10 +452,8 @@ function TargetingForm({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
 
-  const isBandit = experiment.type === "multi-armed-bandit";
-
   return (
-    <div className="px-2 pt-2">
+    <div className="pt-2">
       {safeToEdit && (
         <>
           <Field
@@ -468,6 +477,7 @@ function TargetingForm({
             }
           />
           <SelectField
+            withRadixThemedPortal
             containerClassName="flex-1"
             label="Assign variation based on attribute"
             labelClassName="font-weight-bold"
@@ -476,6 +486,16 @@ function TargetingForm({
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+            }}
+            formatOptionLabel={(o, meta) => {
+              return (
+                <AttributeOptionWithTooltip
+                  option={o as AttributeOptionForTooltip}
+                  context={meta.context}
+                >
+                  {o.label}
+                </AttributeOptionWithTooltip>
+              );
             }}
             helpText={"The globally unique tracking key for the experiment"}
           />
@@ -489,7 +509,7 @@ function TargetingForm({
             project={experiment.project}
           />
 
-          {orgStickyBucketing && !isBandit ? (
+          {orgStickyBucketing ? (
             <Checkbox
               mt="4"
               size="lg"
@@ -528,7 +548,7 @@ function TargetingForm({
             project={experiment.project || ""}
           />
           <hr />
-          <PrerequisiteTargetingField
+          <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
               form.setValue("prerequisites", prerequisites)
@@ -564,7 +584,7 @@ function TargetingForm({
           }
           valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
+            getLatestPhaseVariations(experiment).map((v, i) => {
               return {
                 value: v.key || i + "",
                 name: v.name,

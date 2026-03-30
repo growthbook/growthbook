@@ -18,6 +18,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -39,8 +40,12 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) return;
 
-  const updates: Partial<Pick<FactTableInterface, "columns" | "columnsError">> =
-    {};
+  const updates: Partial<
+    Pick<
+      FactTableInterface,
+      "columns" | "columnsError" | "columnRefreshPending" | "userIdTypes"
+    >
+  > = {};
 
   try {
     const columns = await runRefreshColumnsQuery(
@@ -50,10 +55,14 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     );
     updates.columns = columns;
     updates.columnsError = null;
+
+    updates.userIdTypes = deriveUserIdTypesFromColumns(datasource, columns);
   } catch (e) {
     updates.columnsError = e.message;
   }
 
+  // Always set columnRefreshPending to false - job is done (even if it failed)
+  updates.columnRefreshPending = false;
   await updateFactTableColumns(factTable, updates, context);
 };
 
@@ -322,7 +331,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface,
+  factTable: Pick<FactTableInterface, "id" | "organization">,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,

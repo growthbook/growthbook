@@ -17,7 +17,7 @@ export default function OverflowText({
         textOverflow: "ellipsis",
         display: "inline-block",
         whiteSpace: "nowrap",
-        verticalAlign: "middle",
+        verticalAlign: "bottom",
       }}
       {...props}
     >

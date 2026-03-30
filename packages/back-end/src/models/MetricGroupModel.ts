@@ -1,5 +1,6 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { metricGroupValidator } from "shared/validators";
+import { metricGroupApiSpec } from "back-end/src/api/specs/metric-group.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -12,12 +13,16 @@ const BaseClass = MakeModelClass({
     updateEvent: "metricGroup.update",
     deleteEvent: "metricGroup.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [{ fields: { organization: 1, id: 1 } }],
   defaultValues: {
     owner: "",
     tags: [],
     archived: false,
+  },
+  apiConfig: {
+    modelKey: "metricGroups",
+    openApiSpec: metricGroupApiSpec,
   },
 });
 

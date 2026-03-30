@@ -415,9 +415,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                         />
 
                         <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/4.2-release.png"
+                          imgUrl="/images/get-started/thumbnails/4.3-release.png"
                           hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/growthbook-version-4-2/"
+                          href="https://blog.growthbook.io/growthbook-version-4-3/"
                           type="link"
                         />
                       </Flex>

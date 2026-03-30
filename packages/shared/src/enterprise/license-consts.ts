@@ -36,6 +36,7 @@ export type CommercialFeature =
   | "custom-launch-checklist"
   | "multi-metric-queries"
   | "no-access-role"
+  | "project-admin-role"
   | "teams"
   | "sticky-bucketing"
   | "require-approvals"
@@ -72,7 +73,8 @@ export type CommercialFeature =
   | "custom-hooks"
   | "metric-slices"
   | "manage-official-resources"
-  | "incremental-refresh";
+  | "incremental-refresh"
+  | "adv-presentations";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -288,6 +290,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "quantile-metrics",
     "retention-metrics",
     "custom-roles",
+    "project-admin-role",
     "custom-markdown",
     "experiment-impact",
     "metric-populations",
@@ -313,6 +316,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "product-analytics-dashboards",
     "share-product-analytics-dashboards",
     "incremental-refresh",
+    "adv-presentations",
   ]),
 };
 

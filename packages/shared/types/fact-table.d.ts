@@ -76,8 +76,10 @@ export interface FactTableInterface {
   eventName: string;
   columns: ColumnInterface[];
   columnsError?: string | null;
+  columnRefreshPending?: boolean;
   filters: FactFilterInterface[];
   archived?: boolean;
+  timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
 }
 

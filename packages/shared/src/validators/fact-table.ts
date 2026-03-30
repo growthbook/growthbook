@@ -87,6 +87,7 @@ export const createFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    columnRefreshPending: z.boolean().optional(),
   })
   .strict();
 
@@ -105,6 +106,7 @@ export const updateFactTablePropsValidator = z
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    columnRefreshPending: z.boolean().optional(),
   })
   .strict();
 

@@ -30,7 +30,6 @@ import {
 } from "shared/experiments";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -52,7 +51,6 @@ import SelectField, {
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
@@ -545,9 +543,6 @@ function ColumnRefSelector({
                 setValue({ ...value, column, aggregation });
               }}
               sort={false}
-              formatGroupLabel={({ label }) => (
-                <div className="pt-2 pb-1 border-bottom">{label}</div>
-              )}
               options={columnOptions}
               placeholder="Value..."
               required
@@ -1285,8 +1280,6 @@ export default function FactMetricModal({
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const { disableLegacyMetricCreation } = settings;
 
-  const growthbook = useGrowthBook();
-  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   // TODO: We may want to hide this from non-technical users in the future
@@ -1351,11 +1344,6 @@ export default function FactMetricModal({
   );
 
   const type = form.watch("metricType");
-
-  const riskError =
-    form.watch("loseRisk") < form.watch("winRisk")
-      ? "The acceptable risk percentage cannot be higher than the too risky percentage"
-      : "";
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
@@ -2150,8 +2138,7 @@ export default function FactMetricModal({
                 ]}
               />
 
-              {isMetricSlicesFeatureEnabled &&
-                hasMetricSlicesFeature &&
+              {hasMetricSlicesFeature &&
                 (() => {
                   const factTableId = form.watch("numerator.factTableId");
                   const factTable = getFactTableById(factTableId);
@@ -2485,14 +2472,6 @@ export default function FactMetricModal({
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
             }%)`}
-                        />
-
-                        <RiskThresholds
-                          winRisk={form.watch("winRisk")}
-                          loseRisk={form.watch("loseRisk")}
-                          winRiskRegisterField={form.register("winRisk")}
-                          loseRiskRegisterField={form.register("loseRisk")}
-                          riskError={riskError}
                         />
                         {type === "ratio" || type === "dailyParticipation" ? (
                           <Box mb="1">

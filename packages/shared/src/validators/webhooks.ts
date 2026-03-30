@@ -43,6 +43,8 @@ export const webhookSchema = z.strictObject({
   headers: z.string().optional(),
   httpMethod: z.enum(webhookMethods).optional(),
   managedBy: managedByValidator.optional(),
+  consecutiveFailures: z.number().optional(),
+  disabled: z.boolean().optional(),
 });
 
 export type WebhookPayloadFormat = z.infer<typeof payloadFormatValidator>;

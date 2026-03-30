@@ -4,16 +4,15 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
@@ -23,7 +22,6 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
-import HistoryTable from "@/components/HistoryTable";
 import {
   getBrowserDevice,
   openVisualEditor,
@@ -47,6 +45,7 @@ import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -68,7 +67,7 @@ export type ExperimentTab =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterface;
+  holdout?: HoldoutInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -87,7 +86,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  stop?: (() => void) | null;
+  editHoldoutSchedule?: (() => void) | null;
 }
 
 export default function TabbedPage({
@@ -110,14 +109,14 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
-  stop,
+  editHoldoutSchedule,
 }: Props) {
-  const growthbook = useGrowthBook();
-  const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview",
   );
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const [tabPath, setTabPath] = useState(
     window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
   );
@@ -126,7 +125,7 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [auditModal, setAuditModal] = useState(false);
+  const [compareModal, setCompareModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
@@ -174,26 +173,44 @@ export default function TabbedPage({
   };
 
   useEffect(() => {
+    const getHash = () => {
+      // Prefer window.location.hash; on client-side nav it can be empty at first,
+      // so fall back to router.asPath (Next.js includes hash in asPath on client).
+      const fromWindow =
+        typeof window !== "undefined"
+          ? window.location.hash.replace(/^#/, "")
+          : "";
+      const fromAsPath = router.asPath.includes("#")
+        ? (router.asPath.split("#")[1] ?? "")
+        : "";
+      return fromWindow || fromAsPath;
+    };
+
     const handler = () => {
-      const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
-      let [tabName, ...tabPathSegments] = hash.split("/") as [
+      const hash = getHash() as ExperimentTab;
+      const [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
         ...string[],
       ];
       if (experimentTabs.includes(tabName)) {
-        if (tabName === "dashboards" && !dashboardsEnabled) {
-          tabName = "overview";
-          tabPathSegments = [];
-        }
         const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
+      } else if (!hash) {
+        // If no hash in URL, add the current tab from state to the URL
+        const newUrl =
+          window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
+        router.replace(newUrl, undefined, { shallow: true }).catch((e) => {
+          if (!e.cancelled) {
+            throw e;
+          }
+        });
       }
     };
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab, dashboardsEnabled]);
+  }, [setTab, router]);
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 
@@ -293,22 +310,34 @@ export default function TabbedPage({
   const viewingOldPhase =
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
-  const setTabAndScroll = (tab: ExperimentTab) => {
+  const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
     setTab(tab);
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl === window.location.href) return;
-    router.push(newUrl, undefined, { shallow: true }).catch((e) => {
-      // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
-      // This navigation gets cancelled by persistTabPath with the default dashboard id
-      if (!e.cancelled) {
-        throw e;
-      }
-    });
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    if (newUrl !== window.location.href) {
+      router.push(newUrl, undefined, { shallow: true }).catch((e) => {
+        // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+        // This navigation gets cancelled by persistTabPath with the default dashboard id
+        if (!e.cancelled) {
+          throw e;
+        }
+      });
+    }
+    if (scrollToId) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(scrollToId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+    } else if (newUrl !== window.location.href) {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
   };
 
   const persistTabPath = useCallback(
@@ -400,17 +429,11 @@ export default function TabbedPage({
 
   return (
     <>
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-          closeCta="Close"
-        >
-          <HistoryTable type="experiment" id={experiment.id} />
-        </Modal>
+      {compareModal && (
+        <CompareExperimentEventsModal
+          experiment={experiment}
+          onClose={() => setCompareModal(false)}
+        />
       )}
       {watchersModal && (
         <Modal
@@ -481,7 +504,7 @@ export default function TabbedPage({
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
-        setAuditModal={setAuditModal}
+        setCompareModal={setCompareModal}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
@@ -495,9 +518,9 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
-        stop={stop}
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
+        editHoldoutSchedule={editHoldoutSchedule}
       />
 
       <div
@@ -550,7 +573,7 @@ export default function TabbedPage({
                 onClick={() => setPhase(experiment.phases.length - 1)}
               >
                 {isHoldout
-                  ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
+                  ? "Switch to the analysis phase to view results with a lookback based on the analysis phase start date."
                   : "Switch to the latest phase"}
               </Link>
             </Callout>
@@ -587,6 +610,7 @@ export default function TabbedPage({
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             envs={envs}
+            editHoldoutSchedule={editHoldoutSchedule}
           />
           <Implementation
             experiment={experiment}

@@ -7,12 +7,13 @@ slug: /app/visual
 ---
 
 import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
-# Visual Editor
+<CommercialFeature feature="visual-editor" />
 
 With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate GrowthBook's [Script Tag](/lib/script-tag), [JavaScript](/lib/js), or [ReactJS](/lib/react) SDKs with your application. Alternatively, use one of our [Edge SDKs](/lib/edge/cloudflare) to render visual experiments on a CDN.
 
-:::note Visual Editor may not work optimally on client-side rendered apps
+:::warning Visual Editor may not work optimally on client-side rendered apps
 
 With client-side rendered apps (e.g., React, Vue, Svelte), the Visual Editor may not work optimally. Consider using [Feature Flags](/app/features) instead for a better experience.
 

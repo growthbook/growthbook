@@ -11,7 +11,7 @@ import {
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
-  RulesAndValues,
+  RevisionFields,
   MergeConflict,
   validateCondition,
   checkEnvironmentsMatch,
@@ -114,7 +114,7 @@ const revision: FeatureRevisionInterface = {
 
 describe("autoMerge", () => {
   it("Auto merges when there are no conflicts", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -122,7 +122,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const live: RulesAndValues = {
+    const live: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -137,7 +137,7 @@ describe("autoMerge", () => {
       },
       version: 6,
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -165,7 +165,7 @@ describe("autoMerge", () => {
     });
   });
   it("Auto merges when live and base are the same revision", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -173,7 +173,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -200,7 +200,7 @@ describe("autoMerge", () => {
     });
   });
   it("Handles merge conflicts", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -208,7 +208,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const live: RulesAndValues = {
+    const live: RevisionFields = {
       defaultValue: "live",
       rules: {
         dev: [],
@@ -223,7 +223,7 @@ describe("autoMerge", () => {
       },
       version: 6,
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -1283,7 +1283,8 @@ describe("validateCondition", () => {
     expect(validateCondition("{(+")).toEqual({
       success: false,
       empty: false,
-      error: "Expected property name or '}' in JSON at position 1",
+      error:
+        "Expected property name or '}' in JSON at position 1 (line 1 column 2)",
     });
   });
   it("returns error when condition is not an object", () => {
@@ -1297,7 +1298,8 @@ describe("validateCondition", () => {
     expect(validateCondition("{test: true}")).toEqual({
       success: false,
       empty: false,
-      error: "Expected property name or '}' in JSON at position 1",
+      error:
+        "Expected property name or '}' in JSON at position 1 (line 1 column 2)",
       suggestedValue: '{"test":true}',
     });
   });

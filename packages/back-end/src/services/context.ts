@@ -65,6 +65,11 @@ import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
+import { WatchModel } from "back-end/src/models/WatchModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -101,7 +106,12 @@ export type ModelName =
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
-  | "savedGroups";
+  | "savedGroups"
+  | "teams"
+  | "analyticsExplorations"
+  | "presentationThemes"
+  | "watch"
+  | "apiKeys";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -131,6 +141,11 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  teams: TeamModel,
+  analyticsExplorations: AnalyticsExplorationModel,
+  presentationThemes: PresentationThemeModel,
+  watch: WatchModel,
+  apiKeys: ApiKeyModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -169,6 +184,11 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      teams: new TeamModel(this),
+      analyticsExplorations: new AnalyticsExplorationModel(this),
+      presentationThemes: new PresentationThemeModel(this),
+      watch: new WatchModel(this),
+      apiKeys: new ApiKeyModel(this),
     };
   }
 

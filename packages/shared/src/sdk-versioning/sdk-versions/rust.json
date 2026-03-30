@@ -1,6 +1,14 @@
 {
   "versions": [
     {
+      "version": "0.1.1",
+      "capabilities": ["caseInsensitiveRegex", "caseInsensitiveMembership"]
+    },
+    {
+      "version": "0.1.0",
+      "capabilities": ["stickyBucketing"]
+    },
+    {
       "version": "0.0.4"
     },
     {

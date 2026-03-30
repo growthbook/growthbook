@@ -1,9 +1,11 @@
 import { date } from "shared/dates";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
+import Text from "@/ui/Text";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
@@ -15,6 +17,7 @@ export interface Props {
   isBandit?: boolean;
   isHoldout?: boolean;
   newUi?: boolean;
+  holdout?: HoldoutInterfaceStringDates;
 }
 
 export default function PhaseSelector({
@@ -26,6 +29,7 @@ export default function PhaseSelector({
   isBandit,
   isHoldout,
   newUi = true,
+  holdout,
 }: Props) {
   const {
     phase: snapshotPhase,
@@ -75,7 +79,11 @@ export default function PhaseSelector({
           <>
             {newUi ? (
               <span className="font-weight-bold">
-                {!isHoldout ? "Phase " : "Holdout"}
+                {!isHoldout
+                  ? "Phase "
+                  : phaseIndex === 0
+                    ? "Holdout: "
+                    : "Analysis: "}
               </span>
             ) : null}
             {!isHoldout && (
@@ -83,7 +91,10 @@ export default function PhaseSelector({
             )}
             <span className="date-label">
               {phase.lookbackStartDate && isHoldout
-                ? date(phase.lookbackStartDate, "UTC")
+                ? date(
+                    holdout?.analysisStartDate ?? phase.lookbackStartDate,
+                    "UTC",
+                  )
                 : date(phase.dateStarted ?? "", "UTC")}{" "}
               - {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
             </span>

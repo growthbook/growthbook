@@ -13,6 +13,7 @@ import {
   isMetricJoinable,
   expandAllSliceMetricsInMap,
   ExperimentMetricInterface,
+  getLatestPhaseVariations,
 } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -173,9 +174,10 @@ export default function AnalysisSettingsSummary({
     ? getDatasourceById(experiment.datasource)
     : null;
   const phaseObj = experiment.phases?.[phase];
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -515,7 +517,7 @@ export default function AnalysisSettingsSummary({
 
     if (
       isDifferentStringArray(
-        exp.variations.map((v) => v.key),
+        getLatestPhaseVariations(exp).map((v) => v.key),
         snapshotSettings.variations.map((v) => v.id),
       )
     ) {
@@ -649,6 +651,11 @@ export default function AnalysisSettingsSummary({
                 nextUpdate={experiment.nextSnapshotAttempt}
                 autoUpdateEnabled={experiment.autoSnapshots}
                 showAutoUpdateWidget={true}
+                failedString={
+                  latest && !latest.queries.length && latest.error
+                    ? `Snapshot update failed: ${latest.error}`
+                    : undefined
+                }
                 queries={
                   latest &&
                   (status === "failed" || status === "partially-succeeded")

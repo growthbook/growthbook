@@ -4,10 +4,9 @@ slug: /bandits/overview
 ---
 
 import Pill from '@site/src/components/Pill';
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
-:::note Bandits are available only on Pro and Enterprise plans.
-
-:::
+<CommercialFeature feature="multi-armed-bandits" />
 
 ### What are Bandits?
 
@@ -36,7 +35,6 @@ You should run a bandit when:
 - You want to reduce the cost of experimentation
 - You have a clear decision metric you are optimizing for
 - You have many arms you want to test against one another, and care less about learning about user behavior on several metrics
-- You are able to properly ensure consistent user experiences with [Sticky Bucketing](/bandits/config#prerequisite-sticky-bucketing)
 
 ### Why should I run a Bandit?
 
@@ -51,6 +49,8 @@ You should run a bandit when:
 
 3. Bandits can even perform worse at selecting the best variation more quickly than traditional experiments in some cases, such as when there are only two arms.
    In that case, a standard Experiment can evenly split traffic between the two arms, which is best for reducing variance and increasing precision of lift estimates.
+
+4. If you are not using [Sticky Bucketing](/app/sticky-bucketing), Bandits will cause users to change variations over time, which can be jarring for users if the feature being tested is not ephemeral, or easy to switch on and off for a given user.
 
 ### Comparison of Bandits and Experiments
 
@@ -90,7 +90,7 @@ In practice, GrowthBook ensures that each variation has at least 1% of traffic, 
    GrowthBook power results should be conservative for your Bandit. In many settings, Bandit power will be higher. However power in Bandits is much more complicated to estimate.
 
 4. **What happens to users in worse-performing variants?**<br />
-   As the experiment progresses, worse-performing variations will receive progressively less traffic. However, because of sticky bucketing, users will continue to see the same variation they were originally assigned to.
+   As the experiment progresses, worse-performing variations will receive progressively less traffic. New users will not be exposed to those worse-performing variations. The experience of returning users depends on whether you have set up and are using sticky bucketing; with sticky bucketing, users will continue to see the same variation they were originally assigned to, without sticky bucketing, users could be re-assigned when they return to the experiment.
 
 5. **What’s the difference between multi-armed bandit and contextual bandit experiments?**<br />
    GrowthBook uses multi-armed bandit experiments, which focus on optimizing traffic allocation among variations based purely on overall performance ([the Decision Metric](/bandits/config#3-selecting-a-decision-metric)). These experiments treat all users the same, without taking individual user characteristics into account.

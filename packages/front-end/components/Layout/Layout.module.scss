@@ -55,6 +55,42 @@
   }
 }
 
+.searchTrigger {
+  display: flex;
+  align-items: center;
+  line-height: 1rem;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2); //#10172e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 18px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.1); //#10172e;
+    color: #fff;
+  }
+}
+
+.searchTriggerLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.searchTriggerKbd {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 1px 5px;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 0.8;
+  font-weight: bold;
+}
+
 @media (max-width: 1180px) {
   .sidebar {
     width: variables.$expandedwidth;

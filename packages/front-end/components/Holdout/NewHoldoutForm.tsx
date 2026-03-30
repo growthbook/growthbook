@@ -15,7 +15,7 @@ import { Tooltip, Text } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "shared/types/feature";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -36,6 +36,10 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -55,7 +59,7 @@ weekAgo.setDate(weekAgo.getDate() - 7);
 
 export type NewHoldoutFormProps = {
   initialStep?: number;
-  initialHoldout?: Partial<HoldoutInterface>;
+  initialHoldout?: Partial<HoldoutInterfaceStringDates>;
   initialExperiment?: Partial<ExperimentInterfaceStringDates>;
   includeDescription?: boolean;
   duplicate?: boolean;
@@ -197,7 +201,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         ExperimentInterfaceStringDates,
         "id" | "linkedFeatures" | "linkedExperiments"
       > &
-        HoldoutInterface
+        HoldoutInterfaceStringDates
     >
   >({
     defaultValues: {
@@ -219,7 +223,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
           coverage: initialExperiment?.phases?.[0]?.coverage || 0.1,
           dateStarted: new Date().toISOString().substr(0, 16),
           dateEnded: new Date().toISOString().substr(0, 16),
-          name: "Full Holdout",
+          name: "Holdout",
           reason: "",
           variationWeights: [0.5, 0.5],
           savedGroups: initialExperiment?.phases?.[0]?.savedGroups || [],
@@ -290,7 +294,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
     const res = await apiCall<{
       experiment: ExperimentInterfaceStringDates;
-      holdout: HoldoutInterface;
+      holdout: HoldoutInterfaceStringDates;
     }>("/holdout", {
       method: "POST",
       body,
@@ -316,8 +320,16 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const availableProjects: (SingleValue | GroupedValue)[] = projects
     .slice()
     .sort((a, b) => (a.name > b.name ? 1 : -1))
-    .filter((p) => permissionsUtils.canViewHoldoutModal([p.id]))
+    .filter((p) => permissionsUtils.canCreateHoldout({ projects: [p.id] }))
     .map((p) => ({ value: p.id, label: p.name }));
+
+  const selectedProjects = form.watch("projects") ?? [];
+  const canCreateWithoutProject = permissionsUtils.canCreateHoldout({
+    projects: [],
+  });
+  const hasProjectPermission =
+    canCreateWithoutProject ||
+    permissionsUtils.canCreateHoldout({ projects: selectedProjects });
 
   const exposureQueries = useMemo(() => {
     return datasource?.settings?.queries?.exposure || [];
@@ -382,7 +394,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         docSection="holdouts"
         submit={onSubmit}
         cta="Save"
-        ctaEnabled={hasSDKWithPrerequisites}
+        ctaEnabled={hasSDKWithPrerequisites && hasProjectPermission}
+        disabledMessage={
+          !hasProjectPermission
+            ? !selectedProjects.length && availableProjects.length > 0
+              ? "Select a project to continue."
+              : "You don't have permission to create holdouts."
+            : undefined
+        }
         closeCta="Cancel"
         size="lg"
         step={step}
@@ -444,7 +463,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                       />
                     </>
                   }
-                  placeholder="All projects"
+                  placeholder={
+                    canCreateWithoutProject
+                      ? "All projects"
+                      : "Select projects..."
+                  }
                   value={form.watch("projects") || []}
                   options={availableProjects}
                   onChange={(v) => form.setValue("projects", v)}
@@ -498,14 +521,32 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             <div className="mb-4">
               <SelectField
+                withRadixThemedPortal
                 label="Assign Variation by Attribute"
                 containerClassName="flex-1"
                 options={attributeSchema
                   .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
+                  .map((s) => ({
+                    label: s.property,
+                    value: s.property,
+                    description: s.description,
+                    tags: s.tags,
+                    datatype: s.datatype,
+                    hashAttribute: s.hashAttribute,
+                  }))}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
+                }}
+                formatOptionLabel={(o, meta) => {
+                  return (
+                    <AttributeOptionWithTooltip
+                      option={o as AttributeOptionForTooltip}
+                      context={meta.context}
+                    >
+                      {o.label}
+                    </AttributeOptionWithTooltip>
+                  );
                 }}
                 helpText={
                   "Will be hashed together with the Tracking Key to determine which variation to assign"
@@ -552,7 +593,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         </Page>
 
         <Page display="Targeting">
-          <div className="px-2">
+          <div>
             {prerequisiteAlert}
 
             <SavedGroupTargetingField

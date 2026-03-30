@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentStatus, MetricTimeSeries } from "shared/validators";
+import { MetricTimeSeries } from "shared/validators";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
@@ -16,6 +16,7 @@ import {
 } from "@/services/metrics";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
+import { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
 } from "./ExperimentTimeSeriesGraph";
@@ -23,16 +24,16 @@ import ExperimentTimeSeriesGraph, {
 interface ExperimentMetricTimeSeriesGraphWrapperProps {
   experimentId: string;
   phase: number;
-  experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
-  variationNames: string[];
+  variations: GraphVariation[];
   showVariations: boolean[];
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
   sliceId?: string;
   baselineRow?: number;
+  unavailableMessage?: string;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -55,16 +56,16 @@ export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
 function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
   phase,
-  experimentStatus,
   metric,
   differenceType,
-  variationNames,
+  variations,
   showVariations,
   statsEngine,
   pValueAdjustmentEnabled,
   firstDateToRender,
   sliceId,
   baselineRow = 0,
+  unavailableMessage,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -85,6 +86,10 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const filteredMetricTimeSeries = useMemo(() => {
     return filterInvalidMetricTimeSeries(data?.timeSeries || []);
   }, [data]);
+
+  if (unavailableMessage) {
+    return <Message height="70px">{unavailableMessage}</Message>;
+  }
 
   if (baselineRow !== 0) {
     return (
@@ -131,8 +136,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
     });
-  } else if (experimentStatus === "running") {
-    // When experiment is running, always show one additional day at the end of the graph
+  } else {
+    // Always show one additional day at the end of the graph
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDataPointDate), 1),
     });
@@ -146,9 +151,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
   const dataPoints = [
     ...timeSeries.dataPoints.map((point, idx) => {
-      // Preprocess variations to match variationNames order exactly with indices
-      const variations = variationNames.map((vName) => {
-        const variation = point.variations.find((v) => v.name === vName);
+      const pointVariations = variations.map((gv) => {
+        const variation = point.variations.find((v) => v.name === gv.name);
         if (!variation) return null;
 
         // compute adjusted CI if we have all the data and adjustment exists
@@ -184,7 +188,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
-        variations,
+        variations: pointVariations,
         helperText:
           idx < lastIndexInvalidConfiguration
             ? "Analysis or metric settings do not match current version"
@@ -210,7 +214,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   return (
     <ExperimentTimeSeriesGraph
       yaxis="effect"
-      variationNames={variationNames}
+      variations={variations}
       label={labelText}
       datapoints={dataPoints}
       showVariations={showVariations}
@@ -229,13 +233,19 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   );
 }
 
-function Message({ children }: { children: React.ReactNode }) {
+function Message({
+  children,
+  height = "220px",
+}: {
+  children: React.ReactNode;
+  height?: string;
+}) {
   return (
     <Flex
       align="center"
-      height="220px"
+      height={height}
       justify="center"
-      pb="1rem"
+      mb="-1rem"
       position="relative"
       width="100%"
     >

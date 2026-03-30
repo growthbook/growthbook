@@ -4,9 +4,12 @@ import metaDataStyles from "@/ui/Metadata.module.scss";
 import SortedTags from "@/components/Tags/SortedTags";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { ExperimentTableRow } from "@/services/experiments";
+import { useUser } from "@/services/UserContext";
 
 export function MetricDrilldownOwnerTags({ row }: { row: ExperimentTableRow }) {
   const { metric } = row;
+  const { getOwnerDisplay } = useUser();
+  const ownerDisplay = getOwnerDisplay(metric.owner);
 
   return (
     <Flex gap="4">
@@ -14,11 +17,11 @@ export function MetricDrilldownOwnerTags({ row }: { row: ExperimentTableRow }) {
         label="Owner"
         value={
           <Flex align="center" gap="1">
-            {metric.owner !== "" && (
-              <UserAvatar name={metric.owner} size="sm" variant="soft" />
+            {ownerDisplay && (
+              <UserAvatar name={ownerDisplay} size="sm" variant="soft" />
             )}
             <Text weight="regular" className={metaDataStyles.valueColor}>
-              {metric.owner === "" ? "None" : metric.owner}
+              {ownerDisplay || "None"}
             </Text>
           </Flex>
         }

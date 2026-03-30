@@ -11,9 +11,10 @@ const getUserAvatar = (
   icon?: ReactElement,
 ): string | ReactElement => {
   if (icon) return icon;
+  if (!name) return "";
 
-  const firstNameLetter = name?.charAt(0);
-  const lastNameLetter = name?.split(" ")[1]?.charAt(0) || "";
+  const firstNameLetter = name.charAt(0);
+  const lastNameLetter = name.split(" ")[1]?.charAt(0) || "";
   const userInitials =
     name.toLowerCase() === "api"
       ? name.toUpperCase()

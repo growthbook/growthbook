@@ -141,8 +141,10 @@ export default function DashboardsPage() {
         mutateDashboards();
         setDashboardId(res.dashboard.id);
         setBlocks(res.dashboard.blocks);
+        return { dashboardId: res.dashboard.id };
       } else {
         console.error(res);
+        throw new Error("Failed to save dashboard");
       }
     },
     [apiCall, mutateDashboards],
@@ -250,7 +252,6 @@ export default function DashboardsPage() {
         <Flex justify="between" align="center">
           <Flex align="center">
             <h1>Product Analytics Dashboards</h1>
-            <span className="badge badge-purple text-uppercase ml-2">Beta</span>
           </Flex>
           {filteredDashboards.length ? (
             <LinkButton

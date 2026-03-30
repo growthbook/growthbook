@@ -18,8 +18,11 @@ import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MinSDKVersionsList from "./MinSDKVersionsList";
+import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
   close: () => void;
@@ -58,6 +61,7 @@ export default function AttributeModal({ close, attribute }: Props) {
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
       disableEqualityConditions: current?.disableEqualityConditions || false,
+      tags: current?.tags || [],
     },
   });
 
@@ -82,6 +86,25 @@ export default function AttributeModal({ close, attribute }: Props) {
     form.watch("projects") || [],
   );
 
+  const selectedProjects = form.watch("projects") || [];
+  const canCreateWithoutProject = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: [] });
+  const hasProjectPermission = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
+  const ctaDisabledMessage = !hasProjectPermission
+    ? !selectedProjects.length && projectOptions.length > 0
+      ? "Select a project to continue."
+      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
+    : undefined;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -89,6 +112,8 @@ export default function AttributeModal({ close, attribute }: Props) {
       close={close}
       header={title}
       cta="Save"
+      ctaEnabled={hasProjectPermission}
+      disabledMessage={ctaDisabledMessage}
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
@@ -123,6 +148,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           enum: value.enum,
           hashAttribute: value.hashAttribute,
           disableEqualityConditions: value.disableEqualityConditions,
+          tags: value.tags,
         };
 
         // If the attribute name is changed, we need to pass in the original name
@@ -151,24 +177,25 @@ export default function AttributeModal({ close, attribute }: Props) {
         {...form.register("property")}
       />
       {attribute && form.watch("property") !== attribute ? (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
-        </div>
+        </Callout>
       ) : null}
       <div className="form-group">
-        <Field
-          className="form-control"
-          label={
-            <>
-              Description <small className="text-muted">(optional)</small>
-            </>
-          }
-          {...form.register("description")}
-          textarea={true}
+        <label>
+          Description <small className="text-muted">(optional)</small>
+        </label>
+        <MarkdownInput
+          value={form.watch("description") || ""}
+          setValue={(value) => form.setValue("description", value)}
         />
       </div>
+      <TagsField
+        value={form.watch("tags") || []}
+        onChange={(tags) => form.setValue("tags", tags)}
+      />
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
@@ -182,7 +209,9 @@ export default function AttributeModal({ close, attribute }: Props) {
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder={
+              canCreateWithoutProject ? "All projects" : "Select projects..."
+            }
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
@@ -276,7 +305,7 @@ export default function AttributeModal({ close, attribute }: Props) {
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />
           {form.watch("format") === "version" && (
-            <div className="alert alert-warning">
+            <Callout status="warning" contentsAs="div">
               <strong>Warning:</strong> Version string attributes are only
               supported in{" "}
               <Tooltip
@@ -286,7 +315,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               </Tooltip>
               . Do not use this format if you are using an incompatible SDK as
               it will break any filtering based on the attribute.
-            </div>
+            </Callout>
           )}
 
           {!form.watch("format") && (

@@ -1,12 +1,7 @@
 import { SavedGroupTargeting } from "shared/types/feature";
-import {
-  PiArrowSquareOut,
-  PiPlusBold,
-  PiPlusCircleBold,
-  PiXBold,
-} from "react-icons/pi";
+import { PiArrowSquareOut, PiPlusCircleBold, PiXBold } from "react-icons/pi";
 import React from "react";
-import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { Box, Text, IconButton, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,7 +12,12 @@ import LargeSavedGroupPerformanceWarning, {
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import { ConditionLabel } from "./ConditionInput";
+import {
+  TargetingConditionsCard,
+  ConditionRow,
+  AddConditionButton,
+  ConditionRowLabel,
+} from "./TargetingConditionsCard";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -92,44 +92,61 @@ export default function SavedGroupTargetingField({
   }
 
   return (
-    <Box my="4">
-      <label>Target by Saved Groups</label>
-      <Box mb="2">
+    <Box mb="6">
+      <Box>
+        <label>Target by Saved Groups</label>
         <LargeSavedGroupPerformanceWarning
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           unsupportedConnections={unsupportedConnections}
         />
       </Box>
-      <Box className="appbox bg-light px-3 py-3">
-        {conflicts.length > 0 && (
-          <Callout status="error" mb="3">
-            <Text weight="bold">Error:</Text> You have a conflict in your rules
-            with the following groups:{" "}
-            {conflicts.map((c) => (
-              <Badge
-                key={c}
-                label={getSavedGroupById(c)?.groupName || c}
-                color="red"
-                mr="1"
-              />
-            ))}
-          </Callout>
-        )}
-        {value.map((v, i) => {
-          return (
-            <Flex key={i} gap="2" align="start" mb="4">
-              <Box style={{ flexShrink: 0 }}>
-                <ConditionLabel label={i === 0 ? "In" : "AND"} />
-              </Box>
-              <Flex
-                align="start"
-                gap="2"
-                wrap="wrap"
-                style={{ flex: "1 1 0", minWidth: 0 }}
-              >
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+      {conflicts.length > 0 && (
+        <Callout status="error" mb="3">
+          <Text weight="bold">Error:</Text> You have a conflict in your rules
+          with the following groups:{" "}
+          {conflicts.map((c) => (
+            <Badge
+              key={c}
+              label={getSavedGroupById(c)?.groupName || c}
+              color="red"
+              mr="1"
+            />
+          ))}
+        </Callout>
+      )}
+      <TargetingConditionsCard
+        targetingType="group"
+        total={value.length}
+        addButton={
+          <AddConditionButton
+            onClick={() => {
+              setValue([
+                ...value,
+                {
+                  match: "any",
+                  ids: [],
+                },
+              ]);
+            }}
+          >
+            Add condition
+          </AddConditionButton>
+        }
+      >
+        <>
+          {value.map((v, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <Separator
+                  style={{ width: "100%", backgroundColor: "var(--slate-a3)" }}
+                />
+              )}
+              <ConditionRow
+                prefixSlot={
+                  <ConditionRowLabel label={i === 0 ? "IF IN" : "AND"} />
+                }
+                attributeSlot={
                   <SelectField
-                    useMultilineLabels={true}
                     value={v.match}
                     onChange={(match) => {
                       const newValue = [...value];
@@ -139,22 +156,13 @@ export default function SavedGroupTargetingField({
                     }}
                     sort={false}
                     options={[
-                      {
-                        value: "any",
-                        label: "Any of",
-                      },
-                      {
-                        value: "all",
-                        label: "All of",
-                      },
-                      {
-                        value: "none",
-                        label: "None of",
-                      },
+                      { value: "any", label: "any of" },
+                      { value: "all", label: "all of" },
+                      { value: "none", label: "none of" },
                     ]}
                   />
-                </Box>
-                <Box style={{ minWidth: 200, flex: "1 1 0" }}>
+                }
+                valueSlot={
                   <MultiSelectField
                     value={v.ids}
                     onChange={(ids) => {
@@ -172,8 +180,24 @@ export default function SavedGroupTargetingField({
                         <Link
                           href={`/saved-groups/${group.id}`}
                           target="_blank"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            overflow: "hidden",
+                          }}
                         >
-                          {o.label} <PiArrowSquareOut />
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: "200px",
+                            }}
+                          >
+                            {o.label}
+                          </span>
+                          <PiArrowSquareOut style={{ flexShrink: 0 }} />
                         </Link>
                       );
                     }}
@@ -181,46 +205,29 @@ export default function SavedGroupTargetingField({
                     placeholder="Select groups..."
                     closeMenuOnSelect={true}
                   />
-                </Box>
-              </Flex>
-              <Box px="1" pt="3" style={{ width: 16 }}>
-                <Tooltip content="Remove condition">
-                  <IconButton
-                    type="button"
-                    color="red"
-                    variant="ghost"
-                    onClick={() => {
-                      const newValue = [...value];
-                      newValue.splice(i, 1);
-                      setValue(newValue);
-                    }}
-                  >
-                    <PiXBold size={16} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Flex>
-          );
-        })}
-        <Box mt="2">
-          <Link
-            onClick={() => {
-              setValue([
-                ...value,
-                {
-                  match: "any",
-                  ids: [],
-                },
-              ]);
-            }}
-          >
-            <Text weight="bold">
-              <PiPlusBold className="mr-1" />
-              Add another condition
-            </Text>
-          </Link>
-        </Box>
-      </Box>
+                }
+                removeSlot={
+                  <Tooltip content="Remove group">
+                    <IconButton
+                      type="button"
+                      color="gray"
+                      variant="ghost"
+                      radius="full"
+                      size="1"
+                      onClick={() => {
+                        const newValue = value.filter((_, idx) => idx !== i);
+                        setValue(newValue);
+                      }}
+                    >
+                      <PiXBold size={16} />
+                    </IconButton>
+                  </Tooltip>
+                }
+              />
+            </React.Fragment>
+          ))}
+        </>
+      </TargetingConditionsCard>
     </Box>
   );
 }

@@ -4,6 +4,7 @@ import { MetricSnapshotSettings } from "shared/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
+import { getLatestPhaseVariations } from "shared/experiments";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -147,11 +148,9 @@ export default function ExperimentTimeSeriesBlock({
               const appliedPValueCorrection =
                 resultGroup === "goal" ? (pValueCorrection ?? null) : null;
 
-              const showVariations = experiment.variations.map(
+              const variations = getLatestPhaseVariations(experiment);
+              const showVariations = variations.map(
                 (v) => variationIds.length === 0 || variationIds.includes(v.id),
-              );
-              const variationNames = experiment.variations.map(
-                ({ name }) => name,
               );
 
               // Check if this metric has slices and if it's expanded
@@ -192,13 +191,12 @@ export default function ExperimentTimeSeriesBlock({
                         key={metric.id}
                         experimentId={experiment.id}
                         phase={snapshot.phase}
-                        experimentStatus={experiment.status}
                         metric={metric}
                         differenceType={
                           analysis?.settings.differenceType || "relative"
                         }
                         showVariations={showVariations}
-                        variationNames={variationNames}
+                        variations={variations}
                         statsEngine={statsEngine}
                         pValueAdjustmentEnabled={!!appliedPValueCorrection}
                         firstDateToRender={phaseStartDate}
@@ -238,13 +236,12 @@ export default function ExperimentTimeSeriesBlock({
                           <ExperimentMetricTimeSeriesGraphWrapper
                             experimentId={experiment.id}
                             phase={snapshot.phase}
-                            experimentStatus={experiment.status}
                             metric={sliceRow.metric}
                             differenceType={
                               analysis?.settings.differenceType || "relative"
                             }
                             showVariations={showVariations}
-                            variationNames={variationNames}
+                            variations={variations}
                             statsEngine={statsEngine}
                             pValueAdjustmentEnabled={!!appliedPValueCorrection}
                             firstDateToRender={phaseStartDate}

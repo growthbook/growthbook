@@ -2,7 +2,11 @@ import express from "express";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { putDefaultRoleValidator } from "./organizations.validators";
+import {
+  postApiKeyValidator,
+  putDefaultRoleValidator,
+  putMemberProjectRoleValidator,
+} from "./organizations.validators";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
@@ -49,6 +53,13 @@ router.post("/member/:id/approve", organizationsController.postMemberApproval);
 router.delete("/member/:id", organizationsController.deleteMember);
 router.put("/member/:id/role", organizationsController.putMemberRole);
 router.put(
+  "/member/:id/project-role",
+  validateRequestMiddleware({
+    body: putMemberProjectRoleValidator,
+  }),
+  organizationsController.putMemberProjectRole,
+);
+router.put(
   "/member/:id/admin-password-reset",
   organizationsController.putAdminResetUserPassword,
 );
@@ -75,7 +86,13 @@ router.get(
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
-router.post("/keys", organizationsController.postApiKey);
+router.post(
+  "/keys",
+  validateRequestMiddleware({
+    body: postApiKeyValidator,
+  }),
+  organizationsController.postApiKey,
+);
 router.delete("/keys", organizationsController.deleteApiKey);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 

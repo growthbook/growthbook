@@ -3,6 +3,7 @@ import { isReadOnlySQL } from "shared/sql";
 import { TemplateVariables } from "shared/types/sql";
 import {
   FeatureEvalDiagnosticsQueryResponseRows,
+  QueryResponseColumnData,
   TestQueryRow,
   UserExperimentExposuresQueryResponseRows,
 } from "shared/types/integrations";
@@ -11,8 +12,10 @@ import {
   DataSourceParams,
   ExposureQuery,
 } from "shared/types/datasource";
+import { FactTableColumnType } from "shared/types/fact-table";
 import { QueryStatistics } from "shared/types/query";
 import { SQLExecutionError } from "back-end/src/util/errors";
+import { determineColumnTypes } from "back-end/src/util/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -57,7 +60,7 @@ export function mergeParams(
   newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
-  Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
+  (Object.keys(newParams) as (keyof DataSourceParams)[]).forEach((k) => {
     // If a secret value is left empty, keep the original value
     if (secretKeys.includes(k) && !newParams[k]) return;
     integration.params[k] = newParams[k];
@@ -156,6 +159,7 @@ export async function runFreeFormQuery(
   error?: string;
   sql?: string;
   limit?: number;
+  columns?: QueryResponseColumnData[];
 }> {
   if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
     throw new Error("Permission denied");
@@ -174,13 +178,34 @@ export async function runFreeFormQuery(
 
   const sql = integration.getFreeFormQuery(query, limit);
   try {
-    const { results, duration } = await integration.runTestQuery(sql, [
+    const { results, duration, columns } = await integration.runTestQuery(sql, [
       "timestamp",
     ]);
+
+    // Build a type map from SQL engine metadata
+    const typeMap = new Map<string, FactTableColumnType>();
+    columns?.forEach((col) => {
+      if (col.dataType !== undefined && col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    });
+
+    // Enhance with inferred types from actual data
+    const detectedColumns = determineColumnTypes(results, typeMap);
+    detectedColumns.forEach((col) => {
+      typeMap.set(col.column, col.datatype);
+    });
+
+    // Build final columns array
+    const finalColumns: QueryResponseColumnData[] = Array.from(
+      typeMap.entries(),
+    ).map(([name, dataType]) => ({ name, dataType }));
+
     return {
       results,
       duration,
       sql,
+      columns: finalColumns,
     };
   } catch (e) {
     return {
@@ -349,10 +374,23 @@ export async function testQueryValidity(
   const sql = integration.getTestValidityQuery(query.query, testDays);
   try {
     const results = await integration.runTestQuery(sql);
-    if (results.results.length === 0) {
-      return "No rows returned";
+
+    let columns: Set<string>;
+
+    // For datasources where the result includes columns, use column metadata
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
+      if (columnNames.length === 0) {
+        return "Unable to determine columns from query";
+      }
+      columns = new Set(columnNames);
+    } else {
+      // For other datasources, extract from first row (requires LIMIT 1+)
+      if (results.results.length === 0) {
+        return "No rows returned";
+      }
+      columns = new Set(Object.keys(results.results[0]));
     }
-    const columns = new Set(Object.keys(results.results[0]));
 
     const missingColumns: string[] = [];
     for (const col of requiredColumns) {

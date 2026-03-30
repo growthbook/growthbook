@@ -6,7 +6,6 @@ import {
   editSDKConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { validatePutPayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
@@ -27,15 +26,6 @@ export const putSdkConnection = createApiRequestHandler(
     sdkConnection,
     params,
   );
-
-  await req.audit({
-    event: "sdk-connection.update",
-    entity: {
-      object: "sdk-connection",
-      id: sdkConnection.id,
-    },
-    details: auditDetailsUpdate(sdkConnection, updatedSdkConnection),
-  });
 
   return {
     sdkConnection: toApiSDKConnectionInterface(updatedSdkConnection),

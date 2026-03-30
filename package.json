@@ -2,12 +2,12 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "4.2.0",
+  "version": "4.3.0",
   "scripts": {
-    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
+    "lint": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
-    "type-check": "pnpm -r --workspace-concurrency=1 run type-check",
+    "type-check": "pnpm -r run type-check",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "doc-gen": "cd docs && pnpm install && pnpm gen",
     "unused-export-check": "pnpm -r --workspace-concurrency=1 run unused-export-check",
@@ -33,18 +33,20 @@
     "bump-sdk-version": "pnpm --filter @growthbook/growthbook bump-version"
   },
   "dependencies": {
-    "dd-trace": "^5.46.0",
+    "@datadog/native-metrics": "^3.1.1",
+    "@datadog/pprof": "^5.13.2",
+    "dd-trace": "^5.83.0",
     "pm2": "^6.0.14"
   },
   "devDependencies": {
     "@eslint/compat": "^1.3.1",
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.39.2",
-    "@next/eslint-plugin-next": "^15.3.0",
+    "@next/eslint-plugin-next": "^16.1.6",
     "@typescript-eslint/eslint-plugin": "^8.33.1",
     "@typescript-eslint/parser": "^8.33.1",
     "eslint": "^9.39.2",
-    "eslint-config-next": "^15.3.0",
+    "eslint-config-next": "^16.1.6",
     "eslint-config-prettier": "^10.1.0",
     "eslint-import-resolver-typescript": "^4.4.0",
     "eslint-plugin-import": "^2.31.0",
@@ -74,20 +76,32 @@
   },
   "pnpm": {
     "overrides": {
-      "@growthbook/growthbook": "1.6.4",
-      "vite": "^6.0.0",
-      "execa": "^5.0.0",
-      "form-data@2": "^2.5.5",
-      "form-data@3": "^3.0.4",
-      "form-data@4": "^4.0.5",
-      "fast-xml-parser@4": "^4.4.1",
-      "mdast-util-to-hast@13": "^13.2.1",
-      "node-forge@1": "^1.3.2",
+      "@babel/runtime@7": "^7.28.6",
+      "@growthbook/growthbook": "1.6.5",
       "@grpc/grpc-js@1.8": "1.8.22",
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",
       "@octokit/request-error@5": "^5.1.1",
-      "prismjs@1": "^1.30.0"
+      "baseline-browser-mapping": "^2.9.19",
+      "brace-expansion@1": "^1.1.12",
+      "axios@1": "^1.13.5",
+      "basic-ftp@5": "^5.2.0",
+      "bn.js@4": "^4.12.3",
+      "bn.js@5": "^5.2.3",
+      "diff@4": "^4.0.4",
+      "execa": "^5.0.0",
+      "form-data@2": "^2.5.5",
+      "form-data@3": "^3.0.4",
+      "form-data@4": "^4.0.5",
+      "fast-xml-parser@4": "^4.5.4",
+      "fast-xml-parser@5": "^5.5.6",
+      "jws@4": "^4.0.1",
+      "mdast-util-to-hast@13": "^13.2.1",
+      "nan@2": "2.25.0",
+      "node-forge@1": "^1.3.2",
+      "prismjs@1": "^1.30.0",
+      "qs@6": "^6.15.0",
+      "vite": "^6.0.0"
     },
     "peerDependencyRules": {
       "ignoreMissing": [
@@ -99,7 +113,27 @@
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
       "agenda@5.0.0": "patches/agenda@5.0.0.patch",
       "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@datadog/native-appsec",
+      "@datadog/native-iast-taint-tracking",
+      "@datadog/native-metrics",
+      "@datadog/pprof",
+      "@parcel/watcher",
+      "@sentry/cli",
+      "@swc/core",
+      "aws-sdk",
+      "dd-trace",
+      "esbuild",
+      "isolated-vm",
+      "kerberos",
+      "lz4",
+      "mongodb-memory-server",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver",
+      "yarn"
+    ]
   },
   "prettier": {
     "overrides": [
@@ -113,7 +147,7 @@
   },
   "license": "Mixed",
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@10.32.1"
 }

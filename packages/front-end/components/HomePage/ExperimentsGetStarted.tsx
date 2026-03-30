@@ -3,13 +3,8 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  envAllowsCreatingMetrics,
-  hasFileConfig,
-  isCloud,
-} from "@/services/env";
+import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -25,7 +20,8 @@ import Button from "@/components/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
+  const { metrics, datasources, mutateDefinitions, project, projects } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -57,8 +53,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const { apiCall } = useAuth();
 
-  const gb = useGrowthBook();
-
   const openSampleExperiment = async () => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
@@ -66,14 +60,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
-      }>(
-        isCloud() && gb.isOn("new-sample-data")
-          ? "/demo-datasource-project/new"
-          : "/demo-datasource-project",
-        {
-          method: "POST",
-        },
-      );
+      }>("/demo-datasource-project", {
+        method: "POST",
+      });
       track("Create Sample Project", {
         source: "experiments-get-started",
       });
@@ -196,7 +185,10 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                               datasource,
                             ),
                           )
-                        : permissionsUtil.canViewCreateDataSourceModal(project))
+                        : permissionsUtil.canViewCreateDataSourceModal(
+                            project,
+                            projects,
+                          ))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"
@@ -259,7 +251,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta={"Import Experiment"}
                     finishedCTA="Import Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={true}
                     onClick={() => {
@@ -311,7 +303,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="View Sample Experiment"
                     finishedCTA="View Sample Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={openSampleExperiment}
@@ -341,7 +333,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Design New Experiment"
                     finishedCTA="Design New Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={() => {
@@ -367,7 +359,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Analyze Existing Experiment"
                     finishedCTA="Analyze Existing Experiment"
                     permissionsError={
-                      !permissionsUtil.canViewExperimentModal(project)
+                      !permissionsUtil.canViewExperimentModal(project, projects)
                     }
                     imageLeft={false}
                     onClick={() => {

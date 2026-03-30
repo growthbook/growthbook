@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.6.5** - Feb 18, 2026
+
+- Add `setFeatureUsageCallback` method
+
 ## **1.6.4** - Jan 26, 2026
 
 - Add support for case-insensitive membership operators: `$ini`, `$nini`, `$alli`

@@ -1,14 +1,13 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import React, { useMemo, useState } from "react";
-import { Text } from "@radix-ui/themes";
+import { useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getMetricLink,
+  isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
@@ -18,7 +17,7 @@ import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
-import { AppFeatures } from "@/types/app-features";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -53,15 +52,15 @@ export default function AnalysisSettings({
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getMetricById,
     getSegmentById,
+    segments,
     metricGroups,
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const growthbook = useGrowthBook<AppFeatures>();
   const hasDecisionFramework =
-    growthbook.isOn("decision-framework-criteria") &&
     organization?.settings?.decisionFrameworkEnabled &&
     hasCommercialFeature("decision-framework");
 
@@ -115,10 +114,16 @@ export default function AnalysisSettings({
     const metric =
       ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
     if (metric) {
+      // For legacy metrics with a denominator, look up the denominator metric
+      const denominatorMetric =
+        !isFactMetric(metric) && metric.denominator
+          ? getMetricById(metric.denominator)
+          : undefined;
       const { settings: scopedSettings } = getScopedSettings({
         organization,
         experiment,
         metric,
+        denominatorMetric: denominatorMetric ?? undefined,
       });
       goalsWithTargetMDE.push({
         ...metric,
@@ -223,7 +228,7 @@ export default function AnalysisSettings({
                 </div>
               </div>
             )}
-            {!isHoldout && (
+            {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
                 <div className="h5">Segment</div>
                 <div>
@@ -249,11 +254,29 @@ export default function AnalysisSettings({
                   {goalsWithTargetMDE.map((metric, i) => {
                     if (isBandit && i > 0) return null;
                     return (
-                      <li key={`goal-${i}`}>
-                        <Link href={getMetricLink(metric.id)}>
-                          {metric.name}
-                        </Link>
-                      </li>
+                      <>
+                        <li key={`goal-${i}`}>
+                          <Link href={getMetricLink(metric.id)}>
+                            {metric.name}
+                          </Link>
+                        </li>
+                        <li key={`goal-${i}-conversion-window`}>
+                          {isBandit &&
+                            experiment.banditConversionWindowValue &&
+                            experiment.banditConversionWindowUnit && (
+                              <Text size="small">
+                                Conversion Window:{" "}
+                                {experiment.banditConversionWindowValue}{" "}
+                                {experiment.banditConversionWindowValue === 1
+                                  ? experiment.banditConversionWindowUnit.slice(
+                                      0,
+                                      -1,
+                                    )
+                                  : experiment.banditConversionWindowUnit}
+                              </Text>
+                            )}
+                        </li>
+                      </>
                     );
                   })}
                 </ul>
@@ -336,7 +359,7 @@ export default function AnalysisSettings({
               <div className="h5">Decision Criteria</div>
               <div>
                 <Text weight="regular">{decisionCriteria.name}</Text>
-                <Text color="gray">{`: ${decisionCriteria.description}`}</Text>
+                <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
               </div>
               <div className="mt-1">
                 <Link

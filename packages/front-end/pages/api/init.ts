@@ -75,7 +75,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     UPLOAD_METHOD,
   } = process.env;
 
-  const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
+  // Use process.cwd() which returns the front-end directory (set via ecosystem.config.js cwd)
+  // Go 2 levels up to reach the workspace/app root where buildinfo and config directories live
+  const rootPath = path.join(process.cwd(), "..", "..");
 
   const hasConfigFile = fs.existsSync(
     path.join(rootPath, "config", "config.yml"),
@@ -89,12 +91,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
     build.sha = fs
       .readFileSync(path.join(rootPath, "buildinfo", "SHA"))
-      .toString();
+      .toString()
+      .trim();
   }
   if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
     build.date = fs
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
-      .toString();
+      .toString()
+      .trim();
   }
 
   // Read version from package.json
@@ -163,5 +167,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 
-  res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
+  const cacheControl =
+    body.environment === "production"
+      ? "max-age=3600"
+      : "no-cache, no-store, must-revalidate";
+
+  res.setHeader("Cache-Control", cacheControl).status(200).json(body);
 }

@@ -3,17 +3,21 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
+import { AISuggestionType, computeAIUsageData } from "shared/ai";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
+import track from "@/services/track";
+import { AppFeatures } from "@/types/app-features";
 
 interface Props {
   source: string;
@@ -39,6 +43,7 @@ export default function EditHypothesisModal({
   const [revertValue, setRevertValue] = useState<string | null>(null);
   const [showModal, setShowModal] = useState<boolean>(true);
   const { hasCommercialFeature } = useUser();
+  const gb = useGrowthBook<AppFeatures>();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const form = useForm<{ hypothesis: string }>({
     defaultValues: {
@@ -46,7 +51,7 @@ export default function EditHypothesisModal({
     },
   });
 
-  const checkHypothesis = async () => {
+  const checkHypothesis = async (type?: AISuggestionType) => {
     if (!aiAgreedTo) {
       setAiAgreementModal(true);
       // This needs a timeout to avoid a flicker if this modal disappears before the AI agreement modal appears.
@@ -57,6 +62,9 @@ export default function EditHypothesisModal({
       if (aiEnabled) {
         setError(null);
         setLoading(true);
+        const aiTemperature =
+          gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+        track("ai-suggestion", { source: "edit-hypothesis-modal", type });
         apiCall(
           `/ai/reformat`,
           {
@@ -64,6 +72,7 @@ export default function EditHypothesisModal({
             body: JSON.stringify({
               type: "experiment-hypothesis",
               text: form.watch("hypothesis"),
+              temperature: aiTemperature,
             }),
           },
           (responseData) => {
@@ -107,6 +116,14 @@ export default function EditHypothesisModal({
         open={showModal}
         close={close}
         submit={form.handleSubmit(async (data) => {
+          if (aiResponse) {
+            track("experiment-hypothesis-saved-after-ai-suggestion", {
+              aiUsageData: computeAIUsageData({
+                value: data.hypothesis,
+                aiSuggestionText: aiResponse,
+              }),
+            });
+          }
           await apiCall(`/experiment/${experimentId}`, {
             method: "POST",
             body: JSON.stringify({
@@ -118,17 +135,13 @@ export default function EditHypothesisModal({
         cta="Save"
         ctaEnabled={initialValue !== form.watch("hypothesis")}
       >
-        <div style={{ paddingBottom: "4px" }}>
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={3}
-            placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-            name="hypothesis"
-          />
-        </div>
-        <Box>
+        <MarkdownInput
+          value={form.watch("hypothesis")}
+          setValue={(value) => form.setValue("hypothesis", value)}
+          placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
+          showButtons={false}
+        />
+        <Box my="4">
           {!aiResponse && (
             <Flex align="start" justify="start">
               {hasAISuggestions ? (
@@ -151,7 +164,7 @@ export default function EditHypothesisModal({
                       form.watch("hypothesis").trim() === ""
                     }
                     variant="soft"
-                    onClick={checkHypothesis}
+                    onClick={() => checkHypothesis("suggest")}
                     stopPropagation={true}
                   >
                     <BsStars /> Check hypothesis
@@ -178,7 +191,10 @@ export default function EditHypothesisModal({
                   Suggested Hypothesis:
                 </Heading>
                 <Flex gap="2">
-                  <Button variant="ghost" onClick={checkHypothesis}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => checkHypothesis("try-again")}
+                  >
                     <PiArrowClockwise /> Try Again
                   </Button>
                   {aiResponse && form.getValues("hypothesis") != aiResponse && (
@@ -188,6 +204,9 @@ export default function EditHypothesisModal({
                         onClick={() => {
                           setRevertValue(form.getValues("hypothesis"));
                           form.setValue("hypothesis", aiResponse);
+                          track("use-ai-suggestion", {
+                            source: "edit-hypothesis-modal",
+                          });
                         }}
                       >
                         Use Suggested
@@ -202,6 +221,9 @@ export default function EditHypothesisModal({
                           onClick={() => {
                             form.setValue("hypothesis", revertValue);
                             setRevertValue(null);
+                            track("revert-ai-suggestion", {
+                              source: "edit-hypothesis-modal",
+                            });
                           }}
                         >
                           Revert

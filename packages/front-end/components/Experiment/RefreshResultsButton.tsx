@@ -3,6 +3,7 @@ import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { SafeRolloutInterface } from "shared/validators";
+import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
@@ -104,27 +105,34 @@ export default function RefreshResultsButton<
           useRadixButton={true}
           radixVariant="outline"
           onSubmit={async () => {
+            // Precomputed dimensions are computed as part of a standard snapshot,
+            // so we don't need to pass them to the backend for a new snapshot query
+            const snapshotDimension = isPrecomputedDimension(dimension)
+              ? ""
+              : (dimension ?? "");
             const body =
               entityType === "experiment" || entityType === "holdout"
                 ? JSON.stringify({
                     phase: phase ?? 0,
-                    dimension: dimension ?? "",
+                    dimension: snapshotDimension,
                   })
                 : undefined;
 
-            await apiCall<{ snapshot: T }>(snapshotEndpoint, {
-              method: "POST",
-              ...(body && { body }),
-            })
-              .then((res) => {
-                onSubmitSuccess?.(res.snapshot);
-                mutate();
-                mutateAdditional?.();
-                setRefreshError("");
-              })
-              .catch((e) => {
-                setRefreshError(e.message);
+            try {
+              const res = await apiCall<{ snapshot: T }>(snapshotEndpoint, {
+                method: "POST",
+                ...(body && { body }),
               });
+              onSubmitSuccess?.(res.snapshot);
+              setRefreshError("");
+            } catch (e) {
+              setRefreshError(e.message);
+            } finally {
+              // Always refresh, regardless of success or failure
+              // to give the UI a chance to catch up
+              mutate();
+              mutateAdditional?.();
+            }
           }}
         />
       ) : shouldRenderExperimentButton ? (

@@ -7,13 +7,17 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import {
+  isPrecomputedDimension,
+  getEffectiveLookbackOverride,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import FilterSummary from "@/components/Experiment/FilterSummary";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import StatusBanner from "@/components/Experiment/StatusBanner";
@@ -23,6 +27,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -45,7 +50,6 @@ const Results: FC<{
   draftMode?: boolean;
   editMetrics?: () => void;
   editResult?: () => void;
-  reportDetailsLink?: boolean;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
@@ -64,7 +68,6 @@ const Results: FC<{
   draftMode = false,
   editMetrics,
   editResult,
-  reportDetailsLink = true,
   statsEngine,
   analysisBarSettings,
   setAnalysisBarSettings,
@@ -122,9 +125,10 @@ const Results: FC<{
     (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
     (1000 * 60);
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -179,8 +183,8 @@ const Results: FC<{
   }
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
-  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
-    d.startsWith("precomputed:"),
+  const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some(
+    isPrecomputedDimension,
   );
 
   const datasource = experiment.datasource
@@ -193,7 +197,7 @@ const Results: FC<{
     experiment.guardrailMetrics.length > 0;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
+  const hasQueries = queryStrings.length > 0;
   return (
     <>
       {!draftMode ? null : (
@@ -223,9 +227,18 @@ const Results: FC<{
 
       {status === "failed" && !hasData && !snapshotLoading ? (
         <Callout status="error" mx="3" my="4">
-          The most recent update failed.{" "}
-          <Link onClick={() => setQueriesModalOpen(true)}>View queries</Link> to
-          see what went wrong.
+          The most recent update failed.
+          {hasQueries ? (
+            <>
+              {" "}
+              <Link onClick={() => setQueriesModalOpen(true)}>
+                View queries
+              </Link>
+              {" to see what went wrong."}
+            </>
+          ) : (
+            ""
+          )}
         </Callout>
       ) : null}
 
@@ -288,7 +301,7 @@ const Results: FC<{
             await apiCall(`/experiment/${experiment.id}`, {
               method: "POST",
               body: JSON.stringify({
-                variations: experiment.variations.map((v, i) => {
+                variations: getLatestPhaseVariations(experiment).map((v, i) => {
                   return {
                     ...v,
                     key: ids[i] ?? v.key,
@@ -321,145 +334,176 @@ const Results: FC<{
         />
       )}
 
-      {showDateResults ? (
-        <DateResults
-          goalMetrics={experiment.goalMetrics}
-          secondaryMetrics={experiment.secondaryMetrics}
-          guardrailMetrics={experiment.guardrailMetrics}
-          results={analysis?.results ?? []}
-          seriestype={snapshot.dimension ?? ""}
-          variations={variations}
-          statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
-          differenceType={analysis.settings?.differenceType}
-        />
-      ) : showBreakDownResults && snapshot ? (
-        <BreakDownResults
+      {analysis && (
+        <MetricDrilldownProvider
           experimentId={experiment.id}
-          key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
-          results={analysis?.results ?? []}
-          queryStatusData={queryStatusData}
-          variations={variations}
-          variationFilter={analysisBarSettings.variationFilter}
-          setVariationFilter={(v: number[]) =>
-            setAnalysisBarSettings({
-              ...analysisBarSettings,
-              variationFilter: v,
-            })
-          }
-          baselineRow={analysisBarSettings.baselineRow}
-          setBaselineRow={(b: number) =>
-            setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
-          }
-          snapshot={snapshot}
+          phase={phase}
+          experimentStatus={experiment.status}
           analysis={analysis}
-          setAnalysisSettings={setAnalysisSettings}
-          mutate={mutate}
+          variations={variations}
           goalMetrics={experiment.goalMetrics}
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
           metricOverrides={experiment.metricOverrides ?? []}
-          dimensionId={
-            analysis?.settings?.dimensions?.[0] ?? snapshot.dimension ?? ""
-          }
-          showErrorsOnQuantileMetrics={showErrorsOnQuantileMetrics}
-          isLatestPhase={phase === experiment.phases.length - 1}
-          phase={phase}
+          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+          customMetricSlices={experiment.customMetricSlices}
+          statsEngine={analysis.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+          pValueCorrection={pValueCorrection}
           startDate={phaseObj?.dateStarted ?? ""}
           endDate={phaseObj?.dateEnded ?? ""}
-          reportDate={snapshot.dateCreated}
-          activationMetric={experiment.activationMetric}
-          status={experiment.status}
-          statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
-          pValueCorrection={pValueCorrection}
-          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-          sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-          differenceType={analysis?.settings?.differenceType || "relative"}
-          setDifferenceType={(d: DifferenceType) =>
-            setAnalysisBarSettings({
-              ...analysisBarSettings,
-              differenceType: d,
-            })
-          }
-          metricTagFilter={metricTagFilter}
-          metricsFilter={metricsFilter}
-          experimentType={experiment.type}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortDirection={sortDirection}
-          setSortDirection={setSortDirection}
-          analysisBarSettings={analysisBarSettings}
-        />
-      ) : showCompactResults ? (
-        <>
-          {reportDetailsLink && (
-            <div className="float-right pr-3">
-              <FilterSummary
-                experiment={experiment}
-                phase={phaseObj}
-                snapshot={snapshot}
-              />
-            </div>
+          reportDate={snapshot?.dateCreated ?? new Date()}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+          lookbackOverride={getEffectiveLookbackOverride(
+            snapshot?.settings?.attributionModel,
+            snapshot?.settings?.lookbackOverride,
           )}
-          <CompactResults
-            experimentId={experiment.id}
-            editMetrics={editMetrics}
-            variations={variations}
-            variationFilter={analysisBarSettings.variationFilter}
-            setVariationFilter={(v: number[]) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                variationFilter: v,
-              })
-            }
-            baselineRow={analysisBarSettings.baselineRow}
-            setBaselineRow={(b: number) =>
-              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
-            }
-            snapshot={snapshot}
-            analysis={analysis}
-            setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
-            multipleExposures={snapshot.multipleExposures || 0}
-            results={analysis.results[0]}
-            queryStatusData={queryStatusData}
-            reportDate={snapshot.dateCreated}
-            startDate={phaseObj?.dateStarted ?? ""}
-            endDate={phaseObj?.dateEnded ?? ""}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            phase={phase}
-            status={experiment.status}
-            goalMetrics={experiment.goalMetrics}
-            secondaryMetrics={experiment.secondaryMetrics}
-            guardrailMetrics={experiment.guardrailMetrics}
-            metricOverrides={experiment.metricOverrides ?? []}
-            id={experiment.id}
-            statsEngine={analysis.settings.statsEngine}
-            pValueCorrection={pValueCorrection}
-            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-            sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-            differenceType={analysis.settings?.differenceType}
-            setDifferenceType={(d: DifferenceType) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                differenceType: d,
-              })
-            }
-            metricTagFilter={metricTagFilter}
-            metricsFilter={metricsFilter}
-            sliceTagsFilter={sliceTagsFilter}
-            isTabActive={isTabActive}
-            setTab={setTab}
-            experimentType={experiment.type}
-            customMetricSlices={experiment.customMetricSlices}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortDirection={sortDirection}
-            setSortDirection={setSortDirection}
-            analysisBarSettings={analysisBarSettings}
-          />
-        </>
-      ) : null}
-      {queriesModalOpen && queryStrings.length > 0 && (
+          differenceType={analysis.settings?.differenceType || "relative"}
+          baselineRow={analysisBarSettings.baselineRow}
+          variationFilter={analysisBarSettings.variationFilter}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+        >
+          {showDateResults ? (
+            <DateResults
+              goalMetrics={experiment.goalMetrics}
+              secondaryMetrics={experiment.secondaryMetrics}
+              guardrailMetrics={experiment.guardrailMetrics}
+              results={analysis?.results ?? []}
+              seriestype={snapshot.dimension ?? ""}
+              variations={variations}
+              statsEngine={
+                analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+              }
+              differenceType={analysis.settings?.differenceType}
+            />
+          ) : showBreakDownResults && snapshot ? (
+            <BreakDownResults
+              experimentId={experiment.id}
+              key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
+              results={analysis?.results ?? []}
+              queryStatusData={queryStatusData}
+              variations={variations}
+              variationFilter={analysisBarSettings.variationFilter}
+              setVariationFilter={(v: number[]) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  variationFilter: v,
+                })
+              }
+              baselineRow={analysisBarSettings.baselineRow}
+              setBaselineRow={(b: number) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  baselineRow: b,
+                })
+              }
+              snapshot={snapshot}
+              analysis={analysis}
+              setAnalysisSettings={setAnalysisSettings}
+              mutate={mutate}
+              goalMetrics={experiment.goalMetrics}
+              secondaryMetrics={experiment.secondaryMetrics}
+              guardrailMetrics={experiment.guardrailMetrics}
+              metricOverrides={experiment.metricOverrides ?? []}
+              dimensionId={
+                analysis?.settings?.dimensions?.[0] ?? snapshot.dimension ?? ""
+              }
+              showErrorsOnQuantileMetrics={showErrorsOnQuantileMetrics}
+              isLatestPhase={phase === experiment.phases.length - 1}
+              phase={phase}
+              startDate={phaseObj?.dateStarted ?? ""}
+              endDate={phaseObj?.dateEnded ?? ""}
+              reportDate={snapshot.dateCreated}
+              activationMetric={experiment.activationMetric}
+              status={experiment.status}
+              statsEngine={
+                analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+              }
+              pValueCorrection={pValueCorrection}
+              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+              sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+              differenceType={analysis?.settings?.differenceType || "relative"}
+              setDifferenceType={(d: DifferenceType) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  differenceType: d,
+                })
+              }
+              metricTagFilter={metricTagFilter}
+              metricsFilter={metricsFilter}
+              experimentType={experiment.type}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortDirection={sortDirection}
+              setSortDirection={setSortDirection}
+              analysisBarSettings={analysisBarSettings}
+            />
+          ) : showCompactResults ? (
+            <CompactResults
+              experimentId={experiment.id}
+              editMetrics={editMetrics}
+              variations={variations}
+              variationFilter={analysisBarSettings.variationFilter}
+              setVariationFilter={(v: number[]) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  variationFilter: v,
+                })
+              }
+              baselineRow={analysisBarSettings.baselineRow}
+              setBaselineRow={(b: number) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  baselineRow: b,
+                })
+              }
+              snapshot={snapshot}
+              analysis={analysis}
+              setAnalysisSettings={setAnalysisSettings}
+              mutate={mutate}
+              multipleExposures={snapshot.multipleExposures || 0}
+              results={analysis.results[0]}
+              queryStatusData={queryStatusData}
+              reportDate={snapshot.dateCreated}
+              startDate={phaseObj?.dateStarted ?? ""}
+              endDate={phaseObj?.dateEnded ?? ""}
+              isLatestPhase={phase === experiment.phases.length - 1}
+              phase={phase}
+              status={experiment.status}
+              goalMetrics={experiment.goalMetrics}
+              secondaryMetrics={experiment.secondaryMetrics}
+              guardrailMetrics={experiment.guardrailMetrics}
+              metricOverrides={experiment.metricOverrides ?? []}
+              id={experiment.id}
+              statsEngine={analysis.settings.statsEngine}
+              pValueCorrection={pValueCorrection}
+              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+              sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+              differenceType={analysis.settings?.differenceType}
+              setDifferenceType={(d: DifferenceType) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  differenceType: d,
+                })
+              }
+              metricTagFilter={metricTagFilter}
+              metricsFilter={metricsFilter}
+              sliceTagsFilter={sliceTagsFilter}
+              isTabActive={isTabActive}
+              setTab={setTab}
+              experimentType={experiment.type}
+              customMetricSlices={experiment.customMetricSlices}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortDirection={sortDirection}
+              setSortDirection={setSortDirection}
+              analysisBarSettings={analysisBarSettings}
+            />
+          ) : null}
+        </MetricDrilldownProvider>
+      )}
+      {queriesModalOpen && hasQueries && (
         <AsyncQueriesModal
           close={() => setQueriesModalOpen(false)}
           queries={queryStrings}

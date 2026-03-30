@@ -12,6 +12,13 @@ import {
   getOrganizationIdsWithTrackingDisabled,
 } from "back-end/src/models/OrganizationModel";
 import { getUsages } from "back-end/src/enterprise/billing";
+import { licenseInit } from "back-end/src/enterprise";
+import {
+  getUserCodesForOrg,
+  getLicenseMetaData,
+} from "back-end/src/services/licenseData";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { logger } from "back-end/src/util/logger";
 
 interface SdkInfo {
   organization: string;
@@ -71,6 +78,21 @@ export const getDataEnrichment = createApiRequestHandler({
   // downstream types.  Alternatively we can batch.
   const organizations = await _dangerouslyFindAllOrganizationsByIds(
     orgIdsWithTrackingEnabled,
+  );
+
+  // Initialize licenses for all organizations in batches to populate cache
+  // getUsages relies on license data being in cache in order to calculate the effectivePlan
+  await promiseAllChunks(
+    organizations.map(
+      (org) => () =>
+        licenseInit(org, getUserCodesForOrg, getLicenseMetaData).catch((e) => {
+          // Log error but don't fail the entire batch
+          logger.error(
+            `Data-enrichment endpoint: Failed to init license for org ${org.id}: ${e.message}`,
+          );
+        }),
+    ),
+    10,
   );
 
   const usages = await getUsages(organizations);

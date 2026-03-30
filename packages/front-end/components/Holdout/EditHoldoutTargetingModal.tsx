@@ -12,6 +12,10 @@ import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import ConditionInput from "@/components//Features/ConditionInput";
 import SelectField from "@/components//Forms/SelectField";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -97,9 +101,16 @@ function TargetingForm({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const hashAttributeOptions = attributeSchema
+  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
     .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map((s) => ({ label: s.property, value: s.property }));
+    .map((s) => ({
+      label: s.property,
+      value: s.property,
+      description: s.description,
+      tags: s.tags,
+      datatype: s.datatype,
+      hashAttribute: s.hashAttribute,
+    }));
 
   // If the current hashAttribute isn't in the list, add it for backwards compatibility
   // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
@@ -114,9 +125,10 @@ function TargetingForm({
   }
 
   return (
-    <div className="px-2 pt-2">
+    <div className="pt-2">
       <div className="mb-4">
         <SelectField
+          withRadixThemedPortal
           containerClassName="flex-1"
           label="Assign variation based on attribute"
           labelClassName="font-weight-bold"
@@ -125,6 +137,16 @@ function TargetingForm({
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
+          }}
+          formatOptionLabel={(o, meta) => {
+            return (
+              <AttributeOptionWithTooltip
+                option={o as AttributeOptionForTooltip}
+                context={meta.context}
+              >
+                {o.label}
+              </AttributeOptionWithTooltip>
+            );
           }}
           helpText={"The globally unique tracking key for the experiment"}
         />

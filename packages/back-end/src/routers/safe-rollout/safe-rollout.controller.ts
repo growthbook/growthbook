@@ -12,7 +12,6 @@ import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnap
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 
 // region GET /safe-rollout/:id/snapshot
@@ -71,9 +70,6 @@ export const postSafeRolloutSnapshot = async (
   const { id } = req.params;
   const useCache = !req.query["force"];
 
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(SNAPSHOT_TIMEOUT);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
     return res.status(404).json({

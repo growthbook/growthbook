@@ -18,7 +18,18 @@ import {
   SubscriptionInfo,
 } from "shared/enterprise";
 import { AIModel, EmbeddingModel } from "shared/ai";
-import { AgreementType, environment } from "shared/validators";
+import {
+  AgreementType,
+  environment,
+  expandedMember,
+  expandedMemberInfo,
+  invite,
+  member,
+  memberRoleInfo,
+  memberRoleWithProjects,
+  pendingMember,
+  projectMemberRole,
+} from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
@@ -57,6 +68,8 @@ export type RequireReview = {
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];
+  featureRequireEnvironmentReview?: boolean;
+  featureRequireMetadataReview?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -74,6 +87,7 @@ export interface CreateOrganizationPostBody {
   demographicData?: DemographicData;
 }
 
+// If adding new default roles, please prefix the role with "gbDefault_" to reduce the risk of collision with custom roles that organizations may have created
 export type DefaultMemberRole =
   | "noaccess"
   | "readonly"
@@ -82,58 +96,39 @@ export type DefaultMemberRole =
   | "analyst"
   | "engineer"
   | "experimenter"
+  | "gbDefault_projectAdmin"
   | "admin";
+
+/** Custom role IDs defined by orgs in org.customRoles */
+export type CustomRole = string;
+
+/** A member's role is either a built-in default or a custom role ID */
+export type MemberRole = DefaultMemberRole | CustomRole;
 
 export type Role = {
   id: string;
   description: string;
   policies: Policy[];
+  displayName?: string;
 };
 
-export interface MemberRoleInfo {
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  teams?: string[];
-}
+export type MemberRoleInfo = z.infer<typeof memberRoleInfo>;
 
-export interface ProjectMemberRole extends MemberRoleInfo {
-  project: string;
-}
+export type ProjectMemberRole = z.infer<typeof projectMemberRole>;
 
-export interface MemberRoleWithProjects extends MemberRoleInfo {
-  projectRoles?: ProjectMemberRole[];
-}
+export type MemberRoleWithProjects = z.infer<typeof memberRoleWithProjects>;
 
-export interface Invite extends MemberRoleWithProjects {
-  email: string;
-  key: string;
-  dateCreated: Date;
-}
+export type Invite = z.infer<typeof invite>;
 
-export interface PendingMember extends MemberRoleWithProjects {
-  id: string;
-  name: string;
-  email: string;
-  dateCreated: Date;
-}
+export type PendingMember = z.infer<typeof pendingMember>;
 
-export interface Member extends MemberRoleWithProjects {
-  id: string;
-  dateCreated?: Date;
-  externalId?: string;
-  managedByIdp?: boolean;
-  lastLoginDate?: Date;
-}
+export type Member = z.infer<typeof member>;
 
-export interface ExpandedMemberInfo {
-  email: string;
-  name: string;
-  verified: boolean;
-  numTeams?: number;
-}
+export type ExpandedMemberInfo = z.infer<
+  z.ZodObject<typeof expandedMemberInfo>
+>;
 
-export type ExpandedMember = Member & ExpandedMemberInfo;
+export type ExpandedMember = z.infer<typeof expandedMember>;
 
 export interface NorthStarMetric {
   //enabled: boolean;
@@ -176,6 +171,7 @@ export type SDKAttribute = {
   format?: SDKAttributeFormat;
   projects?: string[];
   disableEqualityConditions?: boolean;
+  tags?: string[];
 };
 
 export type SDKAttributeSchema = SDKAttribute[];
@@ -227,8 +223,10 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
@@ -293,6 +291,7 @@ export type OrganizationMessage = {
 // The type used to get member data to calculate usage counts for licenses
 export type OrgMemberInfo = {
   id: string;
+  licenseKey?: string;
   invites: { email: string }[];
   members: {
     id: string;

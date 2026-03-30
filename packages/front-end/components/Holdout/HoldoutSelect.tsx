@@ -36,7 +36,7 @@ export const HoldoutSelect = ({
 
       const experiment = experimentsMap.get(h.experimentId);
 
-      // If the holdout is in draft or is in the analysis period, don't show it
+      // If the holdout is in draft or is in the analysis phase, don't show it
       if (!!h.analysisStartDate || experiment?.status === "draft") {
         return false;
       }

@@ -2,7 +2,7 @@ import request from "supertest";
 import { setupApp } from "./api.setup";
 
 describe("environements API", () => {
-  const { app, auditMock, setReqContext } = setupApp();
+  const { app, setReqContext } = setupApp();
 
   afterEach(async () => {
     jest.clearAllMocks();
@@ -104,11 +104,6 @@ describe("environements API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ deletedId: "prj__1" });
     expect(deleteByIdMock).toHaveBeenCalledWith("prj__1");
-    expect(auditMock).toHaveBeenCalledWith({
-      details: '{"pre":{"id":"prj__1","name":"le proj 1"},"context":{}}',
-      entity: { id: "prj__1", object: "project" },
-      event: "project.delete",
-    });
   });
 
   it("throws and error when deleting non-existing projects", async () => {
@@ -184,12 +179,6 @@ describe("environements API", () => {
     expect(toApiInterfaceMock).toHaveBeenCalledWith({
       id: "prj__3",
       description: "new description",
-    });
-    expect(auditMock).toHaveBeenCalledWith({
-      details:
-        '{"pre":{"id":"prj__3","description":"le proj 3"},"post":{"id":"prj__3","description":"new description"},"context":{}}',
-      entity: { id: "prj__3", object: "project" },
-      event: "project.update",
     });
   });
 
@@ -275,11 +264,6 @@ describe("environements API", () => {
     expect(toApiInterfaceMock).toHaveBeenCalledWith({
       id: "prj__3",
       name: "le proj trois",
-    });
-    expect(auditMock).toHaveBeenCalledWith({
-      details: '{"post":{"name":"le proj trois","id":"prj__3"},"context":{}}',
-      entity: { id: "prj__3", object: "project" },
-      event: "project.create",
     });
   });
 

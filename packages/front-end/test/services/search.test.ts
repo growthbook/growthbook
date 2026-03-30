@@ -1,6 +1,25 @@
-import { filterSearchTerm, transformQuery } from "@/services/search";
+import React from "react";
+import { useRouter } from "next/router";
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { filterSearchTerm, transformQuery, useSearch } from "@/services/search";
+
+vi.mock("next/router", () => ({
+  useRouter: vi.fn(),
+}));
 
 describe("useSearch", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    // @ts-expect-error "partial test mock"
+    vi.mocked(useRouter).mockReturnValue({
+      query: {},
+      pathname: "/",
+      replace: vi.fn(),
+    });
+  });
+
   describe("transformQuery", () => {
     it("should parse a query string into an object", () => {
       const query = "foo:bar hello baz:>3 world:!a f:1,2,3 h:!^yo unknown:yes";
@@ -27,6 +46,132 @@ describe("useSearch", () => {
         ],
       });
     });
+    it("handles unquoted single value", () => {
+      const query = `owner:Adriel`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Adriel"],
+          },
+        ],
+      });
+    });
+    it("preserves commas inside quoted values", () => {
+      const query = `owner:"Vieira, Adriel"`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira, Adriel"],
+          },
+        ],
+      });
+    });
+    it("treats comma-separated quoted values as separate values", () => {
+      const query = `owner:"Vieira","Adriel"`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira", "Adriel"],
+          },
+        ],
+      });
+    });
+    it("preserves commas inside quoted values mixed with unquoted CSV", () => {
+      const query = `owner:"Vieira, Adriel","Smith, John",bob`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira, Adriel", "Smith, John", "bob"],
+          },
+        ],
+      });
+    });
+    it("handles comma-only quoted value", () => {
+      const query = `owner:","`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: [","],
+          },
+        ],
+      });
+    });
+    it("handles negated filter with comma in quoted value", () => {
+      const query = `owner:!"Vieira, Adriel"`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: true,
+            values: ["Vieira, Adriel"],
+          },
+        ],
+      });
+    });
+    it("handles multiple filters where one has commas in quotes", () => {
+      const query = `owner:"Vieira, Adriel" tag:important`;
+      const result = transformQuery(query, ["owner", "tag"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: ["Vieira, Adriel"],
+          },
+          {
+            field: "tag",
+            operator: "",
+            negated: false,
+            values: ["important"],
+          },
+        ],
+      });
+    });
+    it("handles empty quoted value as no owner", () => {
+      const query = `owner:""`;
+      const result = transformQuery(query, ["owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "owner",
+            operator: "",
+            negated: false,
+            values: [""],
+          },
+        ],
+      });
+    });
     it("trims extra spaces", () => {
       const query = "test foo:bar  ";
       const result = transformQuery(query, ["foo"]);
@@ -38,6 +183,242 @@ describe("useSearch", () => {
       });
     });
   });
+  describe("manual sorting with syntax filters", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+      owner: string;
+      dateCreated: number;
+    };
+
+    const items: SearchItem[] = [
+      { id: "a", name: "alpha one", owner: "jeremy", dateCreated: 3 },
+      { id: "b", name: "alpha two", owner: "jeremy", dateCreated: 1 },
+      { id: "c", name: "alpha three", owner: "tom", dateCreated: 2 },
+      { id: "d", name: "beta one", owner: "jeremy", dateCreated: 4 },
+      { id: "e", name: "beta two", owner: "jeremy", dateCreated: 0 },
+    ];
+
+    const getSortLinkClass = (header: React.ReactElement): string => {
+      const span = header.props.children as React.ReactElement;
+      const link = React.Children.toArray(span.props.children).find(
+        (child) => React.isValidElement(child) && child.type === "a",
+      ) as React.ReactElement<{ className: string }>;
+
+      return link.props.className;
+    };
+
+    const clickHeader = (header: React.ReactElement) => {
+      const span = header.props.children as React.ReactElement<{
+        onClick: (e: { preventDefault: () => void }) => void;
+      }>;
+      span.props.onClick({
+        preventDefault: vi.fn(),
+      });
+    };
+
+    it("keeps manual sorting enabled for filter-only queries", () => {
+      const useSearchHook = () =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-filter-only",
+          defaultSortField: "dateCreated",
+          searchTermFilters: {
+            owner: (item) => item.owner,
+          },
+        });
+
+      const { result } = renderHook(() => useSearchHook());
+
+      act(() => {
+        result.current.setSearchValue("owner:jeremy");
+      });
+
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "a",
+        "d",
+        "e",
+      ]);
+
+      const header = result.current.SortableTH({
+        field: "dateCreated",
+        children: "Date Created",
+      }) as React.ReactElement;
+
+      act(() => {
+        clickHeader(header);
+      });
+
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "d",
+        "a",
+        "b",
+        "e",
+      ]);
+    });
+
+    it("allows overriding relevance sort and resets when free-text changes", () => {
+      const useSearchHook = () =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-relevance-override",
+          defaultSortField: "owner",
+          searchTermFilters: {
+            owner: (item) => item.owner,
+          },
+        });
+      const { result } = renderHook(() => useSearchHook());
+
+      act(() => {
+        result.current.setSearchValue("alpha");
+      });
+
+      const dateCreatedHeader = result.current.SortableTH({
+        field: "dateCreated",
+        children: "Date Created",
+      }) as React.ReactElement;
+      const ownerHeader = result.current.SortableTH({
+        field: "owner",
+        children: "Owner",
+      }) as React.ReactElement;
+
+      // While relevance sort is active, all headers appear unsorted.
+      expect(getSortLinkClass(dateCreatedHeader)).toBe("inactivesort");
+      expect(getSortLinkClass(ownerHeader)).toBe("inactivesort");
+
+      act(() => {
+        clickHeader(dateCreatedHeader);
+      });
+
+      // Clicking a header disables relevance sorting and applies manual sort.
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "c",
+        "a",
+      ]);
+      expect(
+        getSortLinkClass(
+          result.current.SortableTH({
+            field: "dateCreated",
+            children: "Date Created",
+          }) as React.ReactElement,
+        ),
+      ).toBe("activesort");
+
+      act(() => {
+        result.current.setSearchValue("alpha owner:jeremy");
+      });
+
+      // Adding syntax filters without changing free-text preserves manual sort.
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "a",
+      ]);
+
+      act(() => {
+        result.current.setSearchValue("beta owner:jeremy");
+      });
+
+      // Changing free-text re-enables relevance sorting.
+      expect(
+        getSortLinkClass(
+          result.current.SortableTH({
+            field: "dateCreated",
+            children: "Date Created",
+          }) as React.ReactElement,
+        ),
+      ).toBe("inactivesort");
+
+      act(() => {
+        result.current.setSearchValue("owner:jeremy");
+      });
+
+      // Removing free-text falls back to the last selected manual column sort.
+      expect(result.current.unpaginatedItems.map((item) => item.id)).toEqual([
+        "b",
+        "a",
+        "d",
+        "e",
+      ]);
+      expect(
+        getSortLinkClass(
+          result.current.SortableTH({
+            field: "dateCreated",
+            children: "Date Created",
+          }) as React.ReactElement,
+        ),
+      ).toBe("activesort");
+    });
+  });
+
+  describe("duplicate item ids", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+    };
+
+    it("searches all rows even when ids are duplicated", () => {
+      const items: SearchItem[] = [
+        { id: "dup", name: "first row token" },
+        { id: "dup", name: "second row token" },
+        { id: "unique", name: "other token" },
+      ];
+
+      const { result } = renderHook(() =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-duplicate-ids",
+          defaultSortField: "name",
+        }),
+      );
+
+      act(() => {
+        result.current.setSearchValue("second row token");
+      });
+      expect(result.current.filteredItems.length).toBe(3);
+      expect(result.current.filteredItems.map((i) => i.name)).toStrictEqual([
+        "second row token",
+        "first row token",
+        "other token",
+      ]);
+      expect(result.current.filteredItems.map((i) => i.id)).toStrictEqual([
+        "dup",
+        "dup",
+        "unique",
+      ]);
+
+      act(() => {
+        result.current.setSearchValue("second");
+      });
+      expect(result.current.filteredItems.length).toBe(1);
+      expect(result.current.filteredItems[0]?.id).toBe("dup");
+      expect(result.current.filteredItems[0]?.name).toBe("second row token");
+
+      act(() => {
+        result.current.setSearchValue("row");
+      });
+      expect(result.current.filteredItems.length).toBe(2);
+      expect(result.current.filteredItems.map((i) => i.name)).toStrictEqual([
+        "first row token",
+        "second row token",
+      ]);
+
+      act(() => {
+        result.current.setSearchValue("token");
+      });
+      expect(result.current.filteredItems.length).toBe(3);
+      expect(result.current.filteredItems.map((i) => i.name)).toStrictEqual([
+        "other token",
+        "first row token",
+        "second row token",
+      ]);
+    });
+  });
+
   describe("filterSearchTerm", () => {
     it("should filter with default operator", () => {
       // Strings (exact default)

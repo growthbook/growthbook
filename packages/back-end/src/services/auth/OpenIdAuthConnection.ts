@@ -1,4 +1,5 @@
-import { NextFunction, Request, Response } from "express";
+import crypto from "crypto";
+import { NextFunction, Request, RequestHandler, Response } from "express";
 import {
   Issuer,
   IssuerMetadata,
@@ -8,7 +9,8 @@ import {
   custom,
 } from "openid-client";
 
-import jwtExpress, { RequestHandler } from "express-jwt";
+import { expressjwt, GetVerificationKey } from "express-jwt";
+import type { Algorithm } from "jsonwebtoken";
 import jwks from "jwks-rsa";
 import { SSO_CONFIG } from "shared/enterprise";
 import {
@@ -55,7 +57,29 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   throw new Error("Could not find SSO connection - " + ssoConnectionId);
 }, 30);
 
-const clientMap: Map<SSOConnectionInterface, Client> = new Map();
+// A stable key for clientMap
+// Cache key must include all fields that affect the OpenID Client, so updates
+// (e.g. clientSecret rotation) invalidate the cache. Otherwise users could be
+// locked out until server restart.
+function getConnectionCacheKey(connection: SSOConnectionInterface): string {
+  const baseId =
+    connection.id ??
+    `${connection.clientId}:${connection.metadata?.issuer ?? ""}`;
+  const configHash = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret ?? "",
+        metadata: connection.metadata,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
+  return `${baseId}:${configHash}`;
+}
+
+const clientMap: Map<string, Client> = new Map();
 
 const jwksMiddlewareCache: { [key: string]: RequestHandler } = {};
 
@@ -163,7 +187,8 @@ export class OpenIdAuthConnection implements AuthConnection {
       const metadata = connection.metadata;
 
       const jwksUri = metadata.jwks_uri;
-      const algorithms = metadata.id_token_signing_alg_values_supported;
+      const algorithms =
+        metadata.id_token_signing_alg_values_supported as Algorithm[];
       const issuer = metadata.issuer;
 
       if (!jwksUri || !algorithms || !issuer) {
@@ -181,19 +206,37 @@ export class OpenIdAuthConnection implements AuthConnection {
 
       let middleware = jwksMiddlewareCache[cacheKey];
       if (!middleware) {
-        middleware = jwtExpress({
-          secret: jwks.expressJwtSecret({
-            cache: true,
-            cacheMaxEntries: 200,
-            cacheMaxAge: 10 * 60 * 60 * 1000,
-            rateLimit: false,
-            jwksRequestsPerMinute: 10,
-            jwksUri,
-            requestAgent: getHttpOptions().agent,
-          }),
+        const jwksClient = jwks.expressJwtSecret({
+          cache: true,
+          cacheMaxEntries: 200,
+          cacheMaxAge: 10 * 60 * 60 * 1000,
+          rateLimit: false,
+          jwksRequestsPerMinute: 10,
+          jwksUri,
+          requestAgent: getHttpOptions().agent,
+        });
+
+        const getKey: GetVerificationKey = (req, token) => {
+          return new Promise((resolve, reject) => {
+            const callback = (err: Error | null, key?: string) => {
+              if (err) return reject(err);
+              resolve(key);
+            };
+            jwksClient(
+              req,
+              token?.header,
+              token?.payload,
+              callback as (err: Error | null, secret?: unknown) => void,
+            );
+          });
+        };
+
+        middleware = expressjwt({
+          secret: getKey,
           audience: connection.clientId,
           issuer,
           algorithms,
+          requestProperty: "user",
         });
         jwksMiddlewareCache[cacheKey] = middleware;
       }
@@ -314,7 +357,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   // Then, get the corresponding OpenID Client
-  let client = clientMap.get(connection);
+  const cacheKey = getConnectionCacheKey(connection);
+  let client = clientMap.get(cacheKey);
   if (!client) {
     const issuer = new Issuer(connection.metadata as IssuerMetadata);
     client = new issuer.Client({
@@ -326,7 +370,7 @@ async function getConnectionFromRequest(req: Request, res: Response) {
         ? "client_secret_basic"
         : "none",
     });
-    clientMap.set(connection, client);
+    clientMap.set(cacheKey, client);
   }
 
   // If we've made it this far, the connection was found and we should persist it in a cookie
