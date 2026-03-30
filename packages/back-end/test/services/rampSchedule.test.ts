@@ -3,7 +3,7 @@
  *
  * Structure:
  *   1. Pure functions (no mocking): computeNextStepAt, computePhaseStartAfterApproval,
- *      makeAttribution, applyPatchToRule
+ *      applyPatchToRule
  *   2. featureEntityHandler: applyActions (mocked FeatureModel / FeatureRevisionModel)
  *   3. Orchestration: advanceStep, jumpAheadToStep, advanceUntilBlocked (mocked context)
  */
@@ -13,7 +13,6 @@ import type { FeatureRule } from "shared/types/feature";
 import {
   computeNextStepAt,
   computePhaseStartAfterApproval,
-  makeAttribution,
   applyPatchToRule,
   featureEntityHandler,
   advanceStep,
@@ -208,34 +207,6 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
 // 1. Pure functions
 // ---------------------------------------------------------------------------
 
-describe("makeAttribution", () => {
-  it("returns type=manual when userId is provided", () => {
-    const result = makeAttribution("user_1");
-    expect(result.type).toBe("manual");
-    expect(result.userId).toBe("user_1");
-  });
-
-  it("returns type=system when source='system'", () => {
-    const result = makeAttribution(undefined, undefined, "system");
-    expect(result.type).toBe("system");
-    expect(result.source).toBe("system");
-  });
-
-  it("returns type=schedule when no userId and no system source", () => {
-    const result = makeAttribution();
-    expect(result.type).toBe("schedule");
-  });
-
-  it("omits undefined fields from output", () => {
-    const result = makeAttribution();
-    expect("userId" in result).toBe(false);
-    expect("reason" in result).toBe(false);
-    expect("source" in result).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-
 describe("applyPatchToRule", () => {
   const base: FeatureRule = {
     id: "r1",
@@ -282,7 +253,6 @@ describe("applyPatchToRule", () => {
     );
   });
 });
-
 
 // ---------------------------------------------------------------------------
 
@@ -379,7 +349,6 @@ describe("computePhaseStartAfterApproval", () => {
   });
 });
 
-
 // ---------------------------------------------------------------------------
 // 2. featureEntityHandler.applyActions
 // ---------------------------------------------------------------------------
@@ -462,7 +431,6 @@ describe("featureEntityHandler.applyActions", () => {
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 });
-
 
 // ---------------------------------------------------------------------------
 // 3. advanceStep
@@ -555,7 +523,6 @@ describe("advanceStep — last step / completion", () => {
   });
 });
 
-
 // ---------------------------------------------------------------------------
 // jumpAheadToStep
 // ---------------------------------------------------------------------------
@@ -614,9 +581,7 @@ describe("advanceUntilBlocked", () => {
     });
     const now = new Date();
 
-    await advanceUntilBlocked(ctx as never, schedule, now, {
-      type: "schedule",
-    });
+    await advanceUntilBlocked(ctx as never, schedule, now);
 
     // No step should have been advanced — timer not due yet.
     expect(updateById).not.toHaveBeenCalled();
@@ -657,9 +622,7 @@ describe("advanceUntilBlocked", () => {
       },
     };
 
-    await advanceUntilBlocked(ctx as never, schedule, new Date(), {
-      type: "schedule",
-    });
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
 
     expect(callCount).toBe(1);
   });
@@ -718,9 +681,7 @@ describe("advanceUntilBlocked", () => {
       },
     };
 
-    await advanceUntilBlocked(ctx as never, scheduleWithApproval, new Date(), {
-      type: "schedule",
-    });
+    await advanceUntilBlocked(ctx as never, scheduleWithApproval, new Date());
 
     // Should only advance to step 0 (approval gate), then stop.
     expect(callCount).toBe(1);

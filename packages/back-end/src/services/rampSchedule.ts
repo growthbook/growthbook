@@ -333,15 +333,15 @@ export async function rollbackToStep(
   schedule: RampScheduleInterface,
   targetStepIndex: number,
 ): Promise<RampScheduleInterface> {
-  // Each step is a complete state — apply the target step's actions directly.
   const rollbackActions =
     targetStepIndex === -1
       ? (schedule.startCondition?.actions ?? [])
       : (schedule.steps[targetStepIndex]?.actions ?? []);
-  if (rollbackActions.length === 0) return schedule;
 
   const now = new Date();
-  await executeStepActions(ctx, schedule, targetStepIndex, rollbackActions);
+  if (rollbackActions.length > 0) {
+    await executeStepActions(ctx, schedule, targetStepIndex, rollbackActions);
+  }
 
   // Partial rollbacks pause; full rollback to -1 uses "rolled-back" as terminal signal.
   const newStatus = targetStepIndex === -1 ? "rolled-back" : "paused";
