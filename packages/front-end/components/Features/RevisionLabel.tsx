@@ -2,10 +2,10 @@ import Text from "@/ui/Text";
 
 export function revisionLabelText(
   version: number,
-  title: string,
+  title: string | null | undefined,
   numbered?: boolean,
 ): string {
-  return `${numbered ? `${version}. ` : ""}${title}`;
+  return `${numbered ? `${version}. ` : ""}${title ?? ""}`;
 }
 
 export default function RevisionLabel({
@@ -14,7 +14,7 @@ export default function RevisionLabel({
   numbered = true,
 }: {
   version: number;
-  title: string;
+  title: string | null | undefined;
   numbered?: boolean;
 }) {
   return (

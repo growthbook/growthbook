@@ -12,7 +12,7 @@ export const STATUS_CONFIG: Record<
   approved: { color: "gray", label: "Approved" },
   "changes-requested": { color: "amber", label: "Changes requested" },
   merged: { color: "gray", label: "Locked" },
-  closed: { color: "gray", label: "Closed" },
+  discarded: { color: "gray", label: "Discarded" },
 };
 
 export function getStatusBadge(

@@ -234,7 +234,7 @@ const SavedGroupForm: FC<{
 
   const ctaDisabledMessage = isEditBlocked
     ? isMetadataReviewRequired &&
-      (currentRevision?.status === "closed" ||
+      (currentRevision?.status === "discarded" ||
         currentRevision?.status === "merged")
       ? "This revision is discarded and cannot be edited."
       : "Cannot edit while there are open draft revisions."
@@ -432,7 +432,7 @@ const SavedGroupForm: FC<{
         <Callout status="warning" mb="4">
           <Text size="2">
             {isMetadataReviewRequired &&
-            (currentRevision?.status === "closed" ||
+            (currentRevision?.status === "discarded" ||
               currentRevision?.status === "merged")
               ? `This revision is ${currentRevision.status} and cannot be edited. You can view it here in read-only mode.`
               : "You cannot edit this saved group directly because there are open draft revisions. Please select a draft revision from the main page to edit, or wait for all drafts to be published or discarded."}

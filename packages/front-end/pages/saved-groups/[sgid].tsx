@@ -779,7 +779,7 @@ export default function EditSavedGroupPage() {
         >
           <Flex direction="column" gap="2">
             <Text>
-              Creating a <Text weight="bold">new draft</Text> based on{" "}
+              Creating a <Text weight="semibold">new draft</Text> based on{" "}
               <span
                 style={{
                   display: "inline-flex",
@@ -792,7 +792,7 @@ export default function EditSavedGroupPage() {
                   borderRadius: "var(--radius-2)",
                 }}
               >
-                <Text as="span" size="3" weight="bold">
+                <Text as="span" size="large" weight="semibold">
                   {selectedRevision ? (
                     <OverflowText
                       maxWidth={200}
@@ -822,7 +822,7 @@ export default function EditSavedGroupPage() {
                       flexShrink: 0,
                     }}
                   >
-                    <Text as="span" color="gray" size="2">
+                    <Text as="span" color="text-low" size="small">
                       {(displayRevision?.version ?? allRevisions.length) + 1}.
                     </Text>
                   </span>
@@ -856,7 +856,7 @@ export default function EditSavedGroupPage() {
                     }}
                   />
                 ) : (
-                  <Text weight="bold">
+                  <Text weight="semibold">
                     {newDraftTitle.trim() ||
                       `Revision ${(displayRevision?.version ?? allRevisions.length) + 1}`}
                   </Text>
@@ -890,7 +890,7 @@ export default function EditSavedGroupPage() {
       <div className="p-3 container-fluid pagecontents">
         <Flex align="center" justify="between" mb="4">
           <Flex align="center" gap="3">
-            <Heading size="7" as="h1">
+            <Heading size="2x-large" as="h1">
               {displayedSavedGroup?.groupName || savedGroup.groupName}
             </Heading>
             {displayedSavedGroup?.archived && (
@@ -923,7 +923,9 @@ export default function EditSavedGroupPage() {
             >
               <DropdownMenuGroup>
                 <DropdownMenuItem
-                  disabled={metadataReviewRequired && (isMerged || isDiscarded)}
+                  disabled={
+                    !!(metadataReviewRequired && (isMerged || isDiscarded))
+                  }
                   tooltip={
                     metadataReviewRequired && isMerged
                       ? "You cannot edit a merged revision."
@@ -1130,7 +1132,7 @@ export default function EditSavedGroupPage() {
                   <Flex align="start" gap="4" style={{ marginTop: 6 }}>
                     <Flex direction="column" gap="1">
                       {hasRevisions && (
-                        <Text as="span" size="2" color="gray">
+                        <Text as="span" size="small" color="text-low">
                           {selectedRevision?.title ||
                             `Revision ${revisionNumber}`}
                         </Text>
@@ -1295,7 +1297,7 @@ export default function EditSavedGroupPage() {
         {savedGroup.type === "condition" ? (
           <>
             <Flex align="center" justify="between" mb="3">
-              <Heading size="4" mb="0">
+              <Heading size="medium" as="h2" mb="0">
                 Condition
               </Heading>
               <Tooltip
@@ -1306,12 +1308,12 @@ export default function EditSavedGroupPage() {
                       ? "You cannot edit a discarded revision."
                       : !selectedRevision
                         ? "Create a new draft first."
-                        : undefined
+                        : ""
                 }
               >
                 <Button
                   variant="outline"
-                  disabled={!selectedRevision || isMerged || isDiscarded}
+                  disabled={!!(!selectedRevision || isMerged || isDiscarded)}
                   onClick={() => {
                     if (!selectedRevision && userOpenRevision) {
                       selectFlow(userOpenRevision);
@@ -1407,13 +1409,13 @@ export default function EditSavedGroupPage() {
                         ? "You cannot edit a discarded revision."
                         : !selectedRevision
                           ? "Create a new draft first."
-                          : undefined
+                          : ""
                   }
                 >
                   <Button
                     variant="ghost"
                     color="red"
-                    disabled={!selectedRevision || isMerged || isDiscarded}
+                    disabled={!!(!selectedRevision || isMerged || isDiscarded)}
                     onClick={() => {
                       // When viewing live, switch to/create draft first
                       if (!selectedRevision && userOpenRevision) {
@@ -1434,12 +1436,12 @@ export default function EditSavedGroupPage() {
                         ? "You cannot edit a discarded revision."
                         : !selectedRevision
                           ? "Create a new draft first."
-                          : undefined
+                          : ""
                   }
                 >
                   <Button
                     variant="outline"
-                    disabled={!selectedRevision || isMerged || isDiscarded}
+                    disabled={!!(!selectedRevision || isMerged || isDiscarded)}
                     onClick={() => {
                       // When viewing live, switch to/create draft first
                       if (!selectedRevision && userOpenRevision) {

@@ -55,7 +55,7 @@ export default function RevisionVersionSelector({
         new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
     )[0];
 
-  const liveLabel = liveRevision ? liveRevision.title : "Live";
+  const liveLabel = liveRevision ? (liveRevision.title ?? "Live") : "Live";
 
   const options = [
     { label: liveLabel, value: "live" },
@@ -66,7 +66,7 @@ export default function RevisionVersionSelector({
           (revisionNumberById.get(a.id) ?? 0),
       )
       .map((revision) => ({
-        label: revision.title,
+        label: revision.title ?? "",
         value: revision.id,
       })),
     ...(onCreateNewRevision
@@ -82,7 +82,7 @@ export default function RevisionVersionSelector({
                 (revisionNumberById.get(a.id) ?? 0),
             )
             .map((revision) => ({
-              label: revision.title,
+              label: revision.title ?? "",
               value: revision.id,
             })),
         ]

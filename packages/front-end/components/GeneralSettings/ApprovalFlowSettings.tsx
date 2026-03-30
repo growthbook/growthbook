@@ -30,8 +30,9 @@ export default function ApprovalFlowSettings() {
   const [showProjectScope, setShowProjectScope] = useState<
     Record<number, boolean>
   >(() => {
+    const raw = form.getValues("requireReviews");
     const rules: { projects?: string[]; environments?: string[] }[] =
-      form.getValues("requireReviews") ?? [];
+      Array.isArray(raw) ? raw : [];
     return Object.fromEntries(
       rules.map((r, i) => [i, !!(r.projects?.length ?? 0)]),
     );
@@ -39,8 +40,10 @@ export default function ApprovalFlowSettings() {
 
   const [showEnvScope, setShowEnvScope] = useState<Record<number, boolean>>(
     () => {
-      const rules: { environments?: string[] }[] =
-        form.getValues("requireReviews") ?? [];
+      const raw = form.getValues("requireReviews");
+      const rules: { environments?: string[] }[] = Array.isArray(raw)
+        ? raw
+        : [];
       return Object.fromEntries(
         rules.map((r, i) => [i, !!(r.environments?.length ?? 0)]),
       );
@@ -87,7 +90,7 @@ export default function ApprovalFlowSettings() {
               Features
             </Heading>
 
-            <Text as="p" size="2" mb="4" color="gray">
+            <Text as="p" size="small" mb="4" color="text-low">
               All changes to features are tracked as revisions. Kill switch
               changes always open a modal where you can choose to save to a
               draft or auto-publish.
@@ -196,7 +199,12 @@ export default function ApprovalFlowSettings() {
                           }
                         />
                         <Box mt="2">
-                          <Text as="label" size="2" weight="bold" mb="2">
+                          <Text
+                            as="label"
+                            size="small"
+                            weight="semibold"
+                            mb="2"
+                          >
                             Require approval for
                           </Text>
                           <Flex direction="column" gap="2" align="start">
@@ -241,7 +249,10 @@ export default function ApprovalFlowSettings() {
                         </Box>
                         {/* REST API bypass — global, shown after the last rule's options */}
                         {i ===
-                          (form.watch("requireReviews")?.length ?? 1) - 1 && (
+                          (Array.isArray(form.watch("requireReviews"))
+                            ? (form.watch("requireReviews") as unknown[]).length
+                            : 1) -
+                            1 && (
                           <Box mt="2">
                             <Checkbox
                               id="toggle-restApiBypassesReviews"
@@ -294,7 +305,7 @@ export default function ApprovalFlowSettings() {
                 {!!form.watch("approvalFlows.savedGroups.required") && (
                   <Flex direction="column" gap="3" mt="2" ml="5">
                     <Box mt="2">
-                      <Text as="label" size="2" weight="bold" mb="2">
+                      <Text as="label" size="small" weight="semibold" mb="2">
                         Require approval for
                       </Text>
                       <Flex direction="column" gap="2" align="start">

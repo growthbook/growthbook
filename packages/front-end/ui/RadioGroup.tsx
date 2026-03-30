@@ -81,7 +81,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                 renderOutsideItem = false,
               }) => {
                 const selected = value == selectedValue;
-                return (
+                const item = (
                   <Fragment key={value}>
                     <RadixRadioGroup.Item
                       value={value}

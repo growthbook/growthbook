@@ -50,3 +50,4 @@ charts/**/*.tgz
 preview/Dockerfile.generated
 
 next-env.d.ts
+.gstack/

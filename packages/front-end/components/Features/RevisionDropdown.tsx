@@ -26,6 +26,7 @@ export interface Props {
   draftsOnly?: boolean;
   // Show only previously-published revisions
   publishedOnly?: boolean;
+  showArchivedToggle?: boolean;
 }
 
 function RevisionRow({

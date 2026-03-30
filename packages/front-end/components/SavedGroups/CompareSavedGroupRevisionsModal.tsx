@@ -257,7 +257,7 @@ export default function CompareSavedGroupRevisionsModal({
   // Compute default comparison target
   const defaultAdjacentId = useMemo(() => {
     const allDesc = [...sortedRevisionsAsc]
-      .filter((r) => r.status !== "closed")
+      .filter((r) => r.status !== "discarded")
       .reverse()
       .map((r) => r.id);
     if (allDesc.length < 2) return null;
