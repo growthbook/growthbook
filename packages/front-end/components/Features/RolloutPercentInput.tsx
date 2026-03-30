@@ -25,6 +25,7 @@ export interface Props {
   label?: string;
   labelActions?: ReactNode;
   locked?: boolean;
+  lockedByRamp?: boolean;
   // Hash attribute selection
   hashAttribute?: string;
   setHashAttribute?: (v: string) => void;
@@ -44,6 +45,7 @@ export default function RolloutPercentInput({
   label = "Rollout Percentage",
   labelActions,
   locked,
+  lockedByRamp,
   hashAttribute,
   setHashAttribute,
   attributeSchema,
@@ -75,7 +77,12 @@ export default function RolloutPercentInput({
           {labelActions}
         </Flex>
       )}
-      <Flex align="center" gap="3" mb="1">
+      {lockedByRamp ? (
+        <Text as="div" fontStyle="italic" color="text-mid" mt="2" mb="3">
+          Controlled by ramp-up schedule
+        </Text>
+      ) : (
+        <Flex align="center" gap="3" mb="1">
         <Box flexGrow="1">
           <Slider
             value={[value]}
@@ -104,11 +111,12 @@ export default function RolloutPercentInput({
           />
           <span>%</span>
         </Box>
-      </Flex>
+        </Flex>
+      )}
 
       {(setHashAttribute && attributeSchema) ||
       (setSeed && setAdvancedOpen !== undefined) ? (
-        <Box px="2" style={{ borderLeft: "4px solid var(--gray-3)" }}>
+        <Box pl="5">
           {setHashAttribute && attributeSchema && (
             <Flex align="center" gap="2" mb={setSeed ? "2" : "0"}>
               <Text weight="medium">Sample using attribute</Text>

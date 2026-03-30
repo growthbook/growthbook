@@ -20,12 +20,15 @@ import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import RadioGroup from "@/ui/RadioGroup";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
-import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import RampScheduleSection, {
   type RampSectionState,
   defaultRampSectionState,
   activeFieldsFromState,
   rebuildStateWithActiveFields,
+  STEP_FIELD_LABELS,
   VALID_STEP_FIELDS,
   type StepField,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -33,6 +36,19 @@ import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 
 export type ScheduleType = "none" | "schedule" | "ramp";
+
+function RampControlledField({ label }: { label: string }) {
+  return (
+    <Box>
+      <Text as="div" size="medium" weight="semibold" mb="2">
+        {label}
+      </Text>
+      <Text as="div" fontStyle="italic" color="text-mid">
+        Controlled by ramp-up schedule
+      </Text>
+    </Box>
+  );
+}
 
 /** Derive the schedule type from existing state on first render. */
 export function deriveScheduleType(
@@ -116,32 +132,6 @@ export default function StandardRuleFields({
     () => activeFieldsFromState(rampSectionState),
     [rampSectionState],
   );
-
-  // Toggle a field into/out of ramp control. When enabled, the current baseline
-  // value is seeded into every step so the user can edit per-step from there.
-  // Coverage is special: when enabled, set the rule's coverage to 0% since the
-  // ramp will control it. When disabled, restore it to 100%.
-  function toggleRampField(field: StepField, enabled: boolean) {
-    const current = rampActiveFields;
-    const newFields: StepField[] = enabled
-      ? [...new Set([...current, field])]
-      : [...current].filter((f) => f !== field);
-
-    // When enabling coverage in a ramp, set the rule's coverage to 0%
-    // When disabling coverage from a ramp, restore it to 100%
-    if (field === "coverage") {
-      form.setValue("coverage", enabled ? 0 : 1);
-    }
-
-    setRampSectionState(
-      rebuildStateWithActiveFields(rampSectionState, newFields, {
-        condition: form.watch("condition") ?? "{}",
-        savedGroups: form.watch("savedGroups") ?? [],
-        prerequisites: form.watch("prerequisites") ?? [],
-        force: form.watch("value") ?? "",
-      }),
-    );
-  }
 
   const inRamp = scheduleType === "ramp";
 
@@ -238,25 +228,16 @@ export default function StandardRuleFields({
         placeholder="Short human-readable description of the rule"
       />
 
-      {inRamp && (
-        <label style={{ display: "block" }}>
-          <Flex justify="between" align="center" style={{ width: "100%" }}>
-            <span>{`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}</span>
-            <Checkbox
-              value={rampActiveFields.has("force")}
-              setValue={(v) => toggleRampField("force", v)}
-              label="Ramp up"
-              weight="regular"
-              disabled={!rampIsEditable}
-            />
-          </Flex>
-        </label>
-      )}
       <FeatureValueField
         label={
-          inRamp
-            ? undefined
-            : `Value to ${ruleType === "rollout" ? "roll out" : "force"}`
+          <>
+            {`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
+            {isRampControlled("force") && (
+              <Text as="div" fontStyle="italic" color="text-mid" mt="1">
+                Controlled by ramp-up schedule
+              </Text>
+            )}
+          </>
         }
         id="value"
         value={form.watch("value")}
@@ -273,18 +254,7 @@ export default function StandardRuleFields({
         <RolloutPercentInput
           value={form.watch("coverage") ?? 1}
           setValue={(coverage) => form.setValue("coverage", coverage)}
-          locked={isRampControlled("coverage")}
-          labelActions={
-            inRamp && VALID_STEP_FIELDS.includes("coverage") ? (
-              <Checkbox
-                value={rampActiveFields.has("coverage")}
-                setValue={(v) => toggleRampField("coverage", v)}
-                label="Ramp up"
-                weight="regular"
-                disabled={!rampIsEditable}
-              />
-            ) : undefined
-          }
+          lockedByRamp={isRampControlled("coverage")}
           hashAttribute={form.watch("hashAttribute")}
           setHashAttribute={(v) => form.setValue("hashAttribute", v)}
           attributeSchema={attributeSchema}
@@ -330,6 +300,84 @@ export default function StandardRuleFields({
               description:
                 "Define multiple steps with optional targeting conditions and approvals",
               disabled: !canUseRampSchedules,
+              renderOutsideItem: true,
+              renderOnSelect: (
+                <Box mt="3" ml="5">
+                  <Box mb="2">
+                    <Text as="div" size="medium" weight="medium" mb="1">
+                      Properties to ramp up
+                    </Text>
+                    <Text as="div" size="small">
+                      Will be controlled by the ramp-up schedule and cannot be
+                      globally set
+                    </Text>
+                  </Box>
+                  <MultiSelectField
+                    value={VALID_STEP_FIELDS.filter((f) =>
+                      rampActiveFields.has(f),
+                    )}
+                    options={VALID_STEP_FIELDS.map((f) => ({
+                      value: f,
+                      label: STEP_FIELD_LABELS[f],
+                    }))}
+                    onChange={(newValues) => {
+                      const newFields = newValues as StepField[];
+                      const wasActive = rampActiveFields.has("coverage");
+                      const willBeActive = newFields.includes("coverage");
+                      if (!wasActive && willBeActive)
+                        form.setValue("coverage", 0);
+                      if (wasActive && !willBeActive)
+                        form.setValue("coverage", 1);
+                      setRampSectionState(
+                        rebuildStateWithActiveFields(
+                          rampSectionState,
+                          newFields,
+                          {
+                            condition: form.watch("condition") ?? "{}",
+                            savedGroups: form.watch("savedGroups") ?? [],
+                            prerequisites: form.watch("prerequisites") ?? [],
+                            force: form.watch("value") ?? "",
+                          },
+                        ),
+                      );
+                    }}
+                    sort={false}
+                    showCopyButton={false}
+                    closeMenuOnSelect={false}
+                    containerClassName="mb-0"
+                  />
+                  {VALID_STEP_FIELDS.includes("coverage") &&
+                    !rampActiveFields.has("coverage") && (
+                      <Box mt="2">
+                        <Link
+                          onClick={() => {
+                            form.setValue("coverage", 0);
+                            setRampSectionState(
+                              rebuildStateWithActiveFields(
+                                rampSectionState,
+                                [
+                                  ...Array.from(rampActiveFields),
+                                  "coverage",
+                                ],
+                                {
+                                  condition:
+                                    form.watch("condition") ?? "{}",
+                                  savedGroups:
+                                    form.watch("savedGroups") ?? [],
+                                  prerequisites:
+                                    form.watch("prerequisites") ?? [],
+                                  force: form.watch("value") ?? "",
+                                },
+                              ),
+                            );
+                          }}
+                        >
+                          Add <strong>Rollout %</strong>
+                        </Link>
+                      </Box>
+                    )}
+                </Box>
+              ),
             },
           ]}
           value={scheduleType}
@@ -395,67 +443,43 @@ export default function StandardRuleFields({
       </div>
       <Separator size="4" my="5" />
 
-      <SavedGroupTargetingField
-        value={form.watch("savedGroups") || []}
-        setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
-        project={feature.project || ""}
-        label="Target by Saved Groups"
-        labelActions={
-          inRamp && VALID_STEP_FIELDS.includes("savedGroups") ? (
-            <Checkbox
-              value={rampActiveFields.has("savedGroups")}
-              setValue={(v) => toggleRampField("savedGroups", v)}
-              label="Ramp up"
-              weight="regular"
-              disabled={!rampIsEditable}
-            />
-          ) : undefined
-        }
-        locked={isRampControlled("savedGroups")}
-      />
+      {isRampControlled("savedGroups") ? (
+        <RampControlledField label="Target by Saved Groups" />
+      ) : (
+        <SavedGroupTargetingField
+          value={form.watch("savedGroups") || []}
+          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+          project={feature.project || ""}
+          label="Target by Saved Groups"
+        />
+      )}
       <Separator size="4" my="5" />
-      <ConditionInput
-        defaultValue={form.watch("condition") || ""}
-        onChange={(value) => form.setValue("condition", value)}
-        key={conditionKey}
-        project={feature.project || ""}
-        label="Target by Attributes"
-        labelActions={
-          inRamp && VALID_STEP_FIELDS.includes("condition") ? (
-            <Checkbox
-              value={rampActiveFields.has("condition")}
-              setValue={(v) => toggleRampField("condition", v)}
-              label="Ramp up"
-              weight="regular"
-              disabled={!rampIsEditable}
-            />
-          ) : undefined
-        }
-        locked={isRampControlled("condition")}
-      />
+      {isRampControlled("condition") ? (
+        <RampControlledField label="Target by Attributes" />
+      ) : (
+        <ConditionInput
+          defaultValue={form.watch("condition") || ""}
+          onChange={(value) => form.setValue("condition", value)}
+          key={conditionKey}
+          project={feature.project || ""}
+          label="Target by Attributes"
+        />
+      )}
       <Separator size="4" my="5" />
-      <PrerequisiteInput
-        value={form.watch("prerequisites") || []}
-        setValue={(prerequisites) =>
-          form.setValue("prerequisites", prerequisites)
-        }
-        feature={feature}
-        environments={environments}
-        setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
-        label="Target by Prerequisite Features"
-        labelActions={
-          inRamp ? (
-            <Checkbox
-              value={rampActiveFields.has("prerequisites")}
-              setValue={(v) => toggleRampField("prerequisites", v)}
-              label="Ramp up"
-              weight="regular"
-              disabled={!rampIsEditable}
-            />
-          ) : undefined
-        }
-        locked={isRampControlled("prerequisites")}
-      />
+      {isRampControlled("prerequisites") ? (
+        <RampControlledField label="Target by Prerequisite Features" />
+      ) : (
+        <PrerequisiteInput
+          value={form.watch("prerequisites") || []}
+          setValue={(prerequisites) =>
+            form.setValue("prerequisites", prerequisites)
+          }
+          feature={feature}
+          environments={environments}
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+          label="Target by Prerequisite Features"
+        />
+      )}
       {isCyclic && (
         <div className="alert alert-danger">
           <FaExclamationTriangle /> A prerequisite (

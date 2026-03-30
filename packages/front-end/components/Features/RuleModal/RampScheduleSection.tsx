@@ -35,7 +35,6 @@ import DatePicker from "@/components/DatePicker";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import Tooltip from "@/ui/Tooltip";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
@@ -568,7 +567,14 @@ interface Props {
   pendingDetach?: boolean;
 }
 
-type CopyTarget = "empty" | "all" | "start" | "end" | number;
+type CopyTarget =
+  | "empty"
+  | "all"
+  | "subsequent"
+  | "previous"
+  | "start"
+  | "end"
+  | number;
 
 interface CopyToDropdownProps {
   field: StepField;
@@ -624,6 +630,16 @@ function CopyToDropdown({
         <DropdownMenuItem onClick={() => pick("all")}>
           All steps
         </DropdownMenuItem>
+        {currentStepIndex !== "end" && (
+          <DropdownMenuItem onClick={() => pick("subsequent")}>
+            Future steps
+          </DropdownMenuItem>
+        )}
+        {currentStepIndex !== "start" && (
+          <DropdownMenuItem onClick={() => pick("previous")}>
+            Previous steps
+          </DropdownMenuItem>
+        )}
       </DropdownMenuGroup>
       <DropdownSubMenu trigger="Step">
         {currentStepIndex !== "start" && (
@@ -749,11 +765,6 @@ export default function RampScheduleSection({
     [state.steps, state.startPatch, state.endPatch],
   );
 
-  // Rebuild all patches to reflect a new active-field set.
-  function setActiveFields(newFields: StepField[]) {
-    setState(rebuildStateWithActiveFields(state, newFields, ruleBaseline));
-  }
-
   // ── Step mutations ──────────────────────────────────────────────────────────
 
   function updateStep(i: number, update: Partial<UIStep>) {
@@ -867,12 +878,17 @@ export default function RampScheduleSection({
       }
 
       // Helper to copy current patch field value to other steps
-      function copyFieldValue(
-        field: StepField,
-        target: "empty" | "all" | "start" | "end" | number,
-      ) {
+      function copyFieldValue(field: StepField, target: CopyTarget) {
         const sourceValue = patch[field];
         const newState = { ...state };
+
+        // Maps start/end/number to a comparable position in the step sequence.
+        const order = (idx: number | "start" | "end"): number => {
+          if (idx === "start") return -1;
+          if (idx === "end") return state.steps.length;
+          return idx;
+        };
+        const currentOrder = order(currentStepIndex);
 
         const shouldUpdatePatch = (
           targetPatch: UIStepPatch,
@@ -882,6 +898,8 @@ export default function RampScheduleSection({
 
           if (target === "all") return true;
           if (target === "empty") return isPatchFieldEmpty(targetPatch, field);
+          if (target === "subsequent") return order(targetIndex) > currentOrder;
+          if (target === "previous") return order(targetIndex) < currentOrder;
           if (target === "start") return targetIndex === "start";
           if (target === "end") return targetIndex === "end";
           if (typeof target === "number") return targetIndex === target;
@@ -1692,47 +1710,6 @@ export default function RampScheduleSection({
           </Flex>
         </Box>
       </Flex>
-
-      {/* Ramp properties — which fields each step controls.
-          Coverage is on by default; targeting, saved groups, prerequisites, and
-          feature value can be opted in. Identical to the per-field checkboxes
-          in the rule form. */}
-      {(() => {
-        const validFields = VALID_STEP_FIELDS;
-        if (validFields.length === 0) return null;
-        const activeForType = validFields.filter((f) => activeFields.has(f));
-        return (
-          <Box mb="4">
-            <MultiSelectField
-              label="Properties to ramp"
-              value={activeForType}
-              options={validFields.map((f) => ({
-                value: f,
-                label: STEP_FIELD_LABELS[f],
-              }))}
-              onChange={(newValues) => {
-                setActiveFields(newValues as StepField[]);
-              }}
-              sort={false}
-              showCopyButton={false}
-              closeMenuOnSelect={false}
-              containerClassName="mb-0"
-            />
-            {validFields.includes("coverage") &&
-              !activeFields.has("coverage") && (
-                <Box mt="2">
-                  <Link
-                    onClick={() =>
-                      setActiveFields([...Array.from(activeFields), "coverage"])
-                    }
-                  >
-                    Add <strong>Rollout %</strong>
-                  </Link>
-                </Box>
-              )}
-          </Box>
-        );
-      })()}
 
       {activeFields.size === 0 && (
         <Callout status="error" mb="4">
