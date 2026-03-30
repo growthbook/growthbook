@@ -16,7 +16,6 @@ import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   getAllVariations,
-  isVariationWeightsSumValid,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -145,6 +144,7 @@ import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/feature
 import {
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
+  validateExperimentFeatureVariations,
 } from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -3979,30 +3979,13 @@ export async function postExperimentFeatureValues(
     return;
   }
 
-  // Check that variations and variationWeights are the same length
-  if (variations.length !== variationWeights.length) {
-    res.status(400).json({
-      status: 400,
-      message: "variations and variationWeights must be the same length.",
-    });
-    return;
-  }
-  if (!isVariationWeightsSumValid(variationWeights)) {
-    res.status(400).json({
-      status: 400,
-      message: "variationWeights must add up to 1.",
-    });
-    return;
-  }
   validateVariationIds(variations);
-
-  if (Object.values(features).some((v) => v.length !== variations.length)) {
-    res.status(400).json({
-      status: 400,
-      message: "All features must specify values for all variations.",
-    });
-    return;
-  }
+  validateExperimentFeatureVariations({
+    variations,
+    variationWeights,
+    experiment,
+    features,
+  });
 
   const variationsChanged =
     JSON.stringify(variations) !== JSON.stringify(experiment.variations);
@@ -4025,10 +4008,6 @@ export async function postExperimentFeatureValues(
   });
 
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  if (linkedFeatures.length !== Object.keys(features).length) {
-    throw new Error("One or more features not found");
-  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,

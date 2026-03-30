@@ -3,8 +3,10 @@ import {
   MatchingRule,
   resetReviewOnChange,
 } from "shared/util";
+import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
+import { Variation } from "shared/types/experiment";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   ExperimentInterface,
@@ -25,6 +27,60 @@ export type ExperimentFeatureUpdatePlan = {
   revision: FeatureRevisionInterface;
   matchingRules: MatchingRule[];
 };
+
+export function validateExperimentFeatureVariations({
+  variations,
+  variationWeights,
+  experiment,
+  features,
+}: {
+  variations: Variation[];
+  variationWeights: number[];
+  experiment: ExperimentInterface;
+  features: Record<string, ExperimentRefVariation[]>;
+}) {
+  const existingVariations = experiment.variations;
+
+  if (variations.length !== variationWeights.length) {
+    throw new Error("variations and variationWeights must be the same length.");
+  }
+  if (!isVariationWeightsSumValid(variationWeights)) {
+    throw new Error("variationWeights must add up to 1.");
+  }
+  if (variations.length < existingVariations.length) {
+    throw new Error("Existing experiment variations cannot be removed.");
+  }
+  for (let i = 0; i < existingVariations.length; i++) {
+    const existingVariation = existingVariations[i];
+    const incomingVariation = variations[i];
+    if (
+      existingVariation?.id &&
+      (!incomingVariation || incomingVariation.id !== existingVariation.id)
+    ) {
+      throw new Error(
+        "Existing experiment variation IDs must remain unchanged. Only new variations can be added.",
+      );
+    }
+  }
+  if (Object.values(features).some((v) => v.length !== variations.length)) {
+    throw new Error("All features must specify values for all variations.");
+  }
+  for (const [featureId, refVariations] of Object.entries(features)) {
+    for (let i = 0; i < refVariations.length; i++) {
+      const expectedVariationId = variations[i]?.id;
+      if (!expectedVariationId) {
+        throw new Error(
+          `Variation at index ${i} is missing an id; ensure variations are normalized before validation.`,
+        );
+      }
+      if (refVariations[i].variationId !== expectedVariationId) {
+        throw new Error(
+          `Feature ${featureId}: experiment ref variation at index ${i} must use variationId "${expectedVariationId}".`,
+        );
+      }
+    }
+  }
+}
 
 export async function updateExperimentRefVariations({
   context,
