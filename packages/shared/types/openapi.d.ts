@@ -15887,6 +15887,8 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+            /** @description A direct link to view this exploration in the GrowthBook Application. */
+            explorationUrl?: string;
             /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
@@ -16077,6 +16079,8 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+            /** @description A direct link to view this exploration in the GrowthBook Application. */
+            explorationUrl?: string;
             /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
@@ -16277,6 +16281,8 @@ export interface operations {
               dependencies: (string)[];
               runAtEnd: boolean;
             }) | null;
+            /** @description A direct link to view this exploration in the GrowthBook Application. */
+            explorationUrl?: string;
             /** @description Present when `exploration` is null, explaining why no result was returned. */
             message?: string;
           };
