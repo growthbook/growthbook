@@ -24,7 +24,11 @@ import { useDashboards } from "@/hooks/useDashboards";
 import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
 import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
 import { getDocSectionsForCommandPalette } from "@/components/DocLink";
-import { buildCommandPaletteIndex, combinedSearch } from "./searchUtils";
+import {
+  buildCommandPaletteIndex,
+  partitionItemsForCommandPaletteSearch,
+  searchCommandPalette,
+} from "./searchUtils";
 import { getApiReferencePaletteRows } from "./apiReferencePalette";
 import styles from "./CommandPalette.module.scss";
 
@@ -337,14 +341,32 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     apiReferenceRows,
   ]);
 
-  // MiniSearch index
-  const miniSearch = useMemo(() => buildCommandPaletteIndex(items), [items]);
+  const { strictItems, fuzzyItems } = useMemo(
+    () => partitionItemsForCommandPaletteSearch(items),
+    [items],
+  );
+
+  const strictIndex = useMemo(
+    () => buildCommandPaletteIndex(strictItems, { fuzzy: false }),
+    [strictItems],
+  );
+
+  const fuzzyIndex = useMemo(
+    () => buildCommandPaletteIndex(fuzzyItems, { fuzzy: true }),
+    [fuzzyItems],
+  );
 
   // Search results grouped by section
   const groupedResults = useMemo(() => {
     if (!query.trim()) return null;
 
-    const ordered = combinedSearch(miniSearch, items, query.trim());
+    const ordered = searchCommandPalette(
+      strictIndex,
+      strictItems,
+      fuzzyIndex,
+      fuzzyItems,
+      query.trim(),
+    );
     const groups: Record<CommandPaletteItemType, CommandPaletteItem[]> = {
       navigation: [],
       feature: [],
@@ -363,7 +385,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
     }
 
     return groups;
-  }, [query, miniSearch, items]);
+  }, [query, strictIndex, strictItems, fuzzyIndex, fuzzyItems]);
 
   // Flat list for keyboard navigation (respects per-section "Show more" rows)
   const flatResults = useMemo(() => {
