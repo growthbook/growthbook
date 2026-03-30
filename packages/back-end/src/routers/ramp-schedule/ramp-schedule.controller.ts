@@ -224,6 +224,21 @@ export const putRampSchedule = async (
       };
     }
   }
+  if (body.endCondition !== undefined) {
+    const ec = body.endCondition;
+    if (!ec) {
+      updates.endCondition = undefined;
+    } else {
+      const rawTrigger = ec.trigger;
+      const trigger = rawTrigger
+        ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+        : undefined;
+      updates.endCondition = {
+        trigger,
+        actions: ec.actions ?? undefined,
+      };
+    }
+  }
   if (body.disableRuleBefore !== undefined) {
     updates.disableRuleBefore = body.disableRuleBefore;
   }
@@ -309,21 +324,6 @@ export const putRampSchedule = async (
   }
   if (body.endEarlyWhenStepsComplete !== undefined) {
     updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
-  }
-  if (body.endCondition !== undefined) {
-    const ec = body.endCondition;
-    if (!ec) {
-      updates.endCondition = undefined;
-    } else {
-      const rawTrigger = ec.trigger;
-      const trigger = rawTrigger
-        ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-        : undefined;
-      updates.endCondition = {
-        trigger,
-        actions: ec.actions ?? undefined,
-      };
-    }
   }
 
   const updated = await context.models.rampSchedules.updateById(
