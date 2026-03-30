@@ -146,8 +146,9 @@ This matters because large pre-exposure mean imbalances can bias results, leadin
 If SRM or multiple exposures fails, then these should be investigated first. If the pre-exposure mean imbalance is not caused by SRM or multiple exposures, then potential causes include:
 
 1. outliers in the pre-exposure metrics: if a few extreme values are causing the imbalance, then consider [capping](/app/metrics#capped-value) your metric.
-2. exposure latency: if there is a lag between when the exposure event happens and when it is recorded in the events table, then post-exposure metrics could be counted as pre-exposure. If your lag is large and cannot be reduced, then consider [metric delays](/app/metrics#metric-delays), which shift the pre-exposure window to exclude the lag period.
-3. mismatch between randomization unit and analysis unit causing unreliable inference: if you are randomizing on session_id but analyzing by user_id, then attribution of the metric outcomes to multiple sessions for the same user can imbalance results.
+2. incorrect timestamps for aggregated data: if you are using daily [pre-aggregated data](/app/metrics/examples#pre-aggregated-tables), please ensure your daily metric timestamps are at the end of the day, rather than the start. This ensures that metric data from the first day of exposure always comes after exposure timestamps.
+3. exposure latency: if there is a lag between when the exposure event happens and when it is recorded in the events table, then post-exposure metrics could be counted as pre-exposure. If your lag is large and cannot be reduced, then consider [metric delays](/app/metrics#metric-delays), which shift the pre-exposure window to exclude the lag period.
+4. mismatch between randomization unit and analysis unit causing unreliable inference: if you are randomizing on session_id but analyzing by user_id, then attribution of the metric outcomes to multiple sessions for the same user can imbalance results.
 
 We use the frequentist engine with sequential testing disabled to calculate the p-values for the pre-exposure mean imbalance, with a significance threshold of 0.001. We calculate the p-values for the pre-exposure mean imbalance using a two-sample t-test on the absolute difference in means. 
 
