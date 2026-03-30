@@ -3985,14 +3985,14 @@ export async function postExperimentFeatureValues(
     features,
   });
 
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+
   const variationsChanged =
     JSON.stringify(variations) !== JSON.stringify(experiment.variations);
 
   const variationWeightsChanged =
     JSON.stringify(variationWeights) !==
-    JSON.stringify(
-      experiment.phases[experiment.phases.length - 1].variationWeights,
-    );
+    JSON.stringify(latestPhase.variationWeights);
 
   const changes: Changeset = {};
 
