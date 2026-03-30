@@ -240,7 +240,7 @@ export function ExpandableConflict({
   );
 }
 
-export default function FixConflictsModal({
+export default function FeatureFixConflictsModal({
   feature,
   version,
   revisions,

@@ -69,7 +69,8 @@ export default function RequestReviewModal({
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const permissionsUtil = usePermissionsUtil();
-  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const canAdminPublish =
+    user?.role === "admin" || permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||

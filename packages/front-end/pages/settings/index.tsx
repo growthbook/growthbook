@@ -18,7 +18,6 @@ import {
 } from "shared/constants";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
-import Link from "next/link";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
@@ -46,6 +45,7 @@ import HelperText from "@/ui/HelperText";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
+import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -183,6 +183,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       postStratificationEnabled:
         settings.postStratificationEnabled ??
         DEFAULT_POST_STRATIFICATION_ENABLED,
+      approvalFlows: settings.approvalFlows,
     },
   });
   const { apiCall } = useAuth();
@@ -235,6 +236,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
+    approvalFlows: form.watch("approvalFlows"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -417,13 +419,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
             <TabsTrigger value="feature">Feature Settings</TabsTrigger>
             <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
-            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
-            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
-            <TabsTrigger value="custom">
-              <PremiumTooltip commercialFeature="custom-markdown">
-                Custom Markdown
+            <TabsTrigger value="approval-flow">
+              {/* TODO: Check if we want to reuse this feature flag or not */}
+              <PremiumTooltip commercialFeature="require-approvals">
+                Approval Flows
               </PremiumTooltip>
             </TabsTrigger>
+            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
+            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
             <TabsTrigger value="ai">
               <PremiumTooltip commercialFeature="ai-suggestions">
                 AI Settings
@@ -462,28 +465,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
               />
             </TabsContent>
 
-            <TabsContent value="custom">
-              <Frame>
-                <Flex>
-                  <Box width="300px">
-                    <PremiumTooltip commercialFeature="custom-markdown">
-                      Custom Markdown
-                    </PremiumTooltip>
-                  </Box>
-                  <Box>
-                    {hasCommercialFeature("custom-markdown") ? (
-                      <Link href="/settings/custom-markdown">
-                        View Custom Markdown Settings
-                      </Link>
-                    ) : (
-                      <span className="text-muted">
-                        View Custom Markdown Settings
-                      </span>
-                    )}
-                  </Box>
-                </Flex>
-              </Frame>
-            </TabsContent>
             <TabsContent value="ai">
               <AISettings promptForm={promptForm} />
             </TabsContent>
@@ -491,6 +472,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <>
                 <SavedGroupSettings />
               </>
+            </TabsContent>
+            <TabsContent value="approval-flow">
+              <ApprovalFlowSettings />
             </TabsContent>
           </Box>
         </Tabs>

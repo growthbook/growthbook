@@ -15,6 +15,7 @@ import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
+import { revisionRouter } from "back-end/src/routers/revision/revision.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -788,6 +789,8 @@ app.use("/saved-queries", savedQueriesRouter);
 app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
+
+app.use("/revision", revisionRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 

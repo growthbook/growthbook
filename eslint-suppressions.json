@@ -914,11 +914,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/saved-groups/[sgid].tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 2

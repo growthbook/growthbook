@@ -261,6 +261,11 @@ const navlinks: SidebarLinkProps[] = [
         path: /^settings\/customfields/,
       },
       {
+        name: "Custom Markdown",
+        href: "/settings/custom-markdown",
+        path: /^settings\/custom-markdown/,
+      },
+      {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,

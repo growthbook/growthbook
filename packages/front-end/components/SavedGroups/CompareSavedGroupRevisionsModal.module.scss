@@ -1,0 +1,107 @@
+.sidebar {
+  padding: var(--space-3);
+}
+
+.sidebarLeft {
+  border-right: 1px solid var(--gray-6);
+}
+
+.section {
+  margin-bottom: var(--space-3);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.rowWrapper {
+  width: 100%;
+}
+
+.row {
+  position: relative;
+  width: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+
+  .previewButtonWrapper {
+    opacity: 0;
+  }
+
+  &:hover {
+    background-color: var(--violet-2);
+    .previewButtonWrapper {
+      opacity: 1;
+    }
+  }
+}
+
+.rowSelected {
+  background-color: var(--violet-3);
+
+  &:hover {
+    background-color: var(--violet-4);
+  }
+}
+
+.rowPreviewDraft {
+  background-color: var(--teal-3);
+
+  &:hover {
+    background-color: var(--teal-4);
+  }
+}
+
+.rowLiveInPreview {
+  background-color: var(--gray-3);
+
+  &:hover {
+    background-color: var(--gray-4);
+  }
+}
+
+.previewButtonWrapper {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  background-color: var(--color-background) !important;
+  border-radius: var(--radius-2);
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  .previewButton {
+    background-color: var(--color-background) !important;
+    opacity: 0.5;
+
+    &:hover {
+      opacity: 1;
+      background-color: unset !important;
+    }
+  }
+}
+
+.rowSpacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.quickActionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.revisionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

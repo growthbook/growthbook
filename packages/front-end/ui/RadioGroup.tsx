@@ -2,6 +2,7 @@ import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, Fragment, ReactElement, ReactNode } from "react";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
+import Tooltip from "@/ui/Tooltip";
 
 export type RadioOptions = {
   value: string;
@@ -18,6 +19,7 @@ export type RadioOptions = {
    */
   renderOutsideItem?: boolean;
   disabled?: boolean;
+  disabledReason?: ReactNode;
 }[];
 
 export type Props = {
@@ -72,13 +74,14 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                 label,
                 description,
                 disabled,
+                disabledReason,
                 error,
                 errorLevel = "error",
                 renderOnSelect,
                 renderOutsideItem = false,
               }) => {
                 const selected = value == selectedValue;
-                return (
+                const item = (
                   <Fragment key={value}>
                     <RadixRadioGroup.Item
                       value={value}
@@ -114,6 +117,18 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                       ? renderOnSelect
                       : null}
                   </Fragment>
+                );
+
+                if (!disabledReason) return item;
+
+                return (
+                  <Tooltip
+                    key={value}
+                    content={disabledReason}
+                    enabled={!!disabled}
+                  >
+                    <span style={{ display: "block" }}>{item}</span>
+                  </Tooltip>
                 );
               },
             )}

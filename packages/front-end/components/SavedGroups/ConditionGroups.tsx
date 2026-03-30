@@ -6,7 +6,7 @@ import {
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
 import { isProjectListValidForProject, truncateString } from "shared/util";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -16,6 +16,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import Badge from "@/ui/Badge";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import TruncatedConditionDisplay from "./TruncatedConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -24,13 +26,21 @@ import SavedGroupRowMenu from "./SavedGroupRowMenu";
 export interface Props {
   groups: SavedGroupWithoutValues[];
   mutate: () => void;
+  openRevisionTargetIds?: Set<string>;
 }
 
-export default function ConditionGroups({ groups, mutate }: Props) {
+export default function ConditionGroups({
+  groups,
+  mutate,
+  openRevisionTargetIds,
+}: Props) {
   const [savedGroupForm, setSavedGroupForm] =
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
+  const settings = useOrgSettings();
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.required ?? false;
   const { project, projects } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
@@ -94,6 +104,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="condition"
+            approvalFlowRequired={approvalFlowRequired}
           />
         )}
         <div className="row align-items-center mb-1">
@@ -137,6 +148,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                       <th>Description</th>
                       <th className="col-2">Projects</th>
                       <SortableTH field="ownerNameDisplay">Owner</SortableTH>
+                      <th>Approval Flows</th>
                       <SortableTH field="dateUpdated">Date Updated</SortableTH>
                       <th />
                     </tr>
@@ -146,22 +158,24 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                       return (
                         <tr key={s.id}>
                           <td style={{ width: "250px" }}>
-                            <Link
-                              href={`/saved-groups/${s.id}`}
-                              className="link-purple"
-                              style={{
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
-                                textOverflow: "ellipsis",
-                                overflow: "hidden",
-                                lineHeight: "1.2em",
-                                wordBreak: "break-word",
-                                overflowWrap: "anywhere",
-                              }}
-                            >
-                              {s.groupName}
-                            </Link>
+                            <Flex align="center" gap="2">
+                              <Link
+                                href={`/saved-groups/${s.id}`}
+                                className="link-purple"
+                                style={{
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: "vertical",
+                                  textOverflow: "ellipsis",
+                                  overflow: "hidden",
+                                  lineHeight: "1.2em",
+                                  wordBreak: "break-word",
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                {s.groupName}
+                              </Link>
+                            </Flex>
                           </td>
                           <td style={{ width: 400 }}>
                             <TruncatedConditionDisplay
@@ -185,6 +199,15 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                             )}
                           </td>
                           <td>{s.ownerNameDisplay}</td>
+                          <td>
+                            {openRevisionTargetIds?.has(s.id) && (
+                              <Badge
+                                label="Pending review"
+                                color="blue"
+                                variant="soft"
+                              />
+                            )}
+                          </td>
                           <td>{ago(s.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
                             <SavedGroupRowMenu

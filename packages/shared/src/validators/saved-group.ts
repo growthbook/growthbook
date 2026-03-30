@@ -17,6 +17,7 @@ export const savedGroupValidator = z
     description: z.string().optional(),
     projects: z.array(z.string()).optional(),
     useEmptyListGroup: z.boolean().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -38,4 +39,5 @@ export const putSavedGroupBodyValidator = z.object({
   condition: z.string().optional(),
   description: z.string().optional(),
   projects: z.string().array().optional(),
+  archived: z.boolean().optional(),
 });

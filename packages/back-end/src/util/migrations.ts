@@ -4,6 +4,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { v4 as uuidv4 } from "uuid";
@@ -528,6 +529,11 @@ export function upgradeOrganizationDoc(
         !org.settings.postStratificationDisabled;
     }
     delete org.settings.postStratificationDisabled;
+  }
+
+  // Add default approval flow settings
+  if (!org.settings?.approvalFlows) {
+    org.settings.approvalFlows = DEFAULT_REVISION_CONFIGURATION;
   }
 
   return org;

@@ -240,6 +240,7 @@ const minimalFeatureRevisionInterface = z
     status: revisionStatusSchema,
     comment: z.string(),
     title: z.string().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 

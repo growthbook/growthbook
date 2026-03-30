@@ -13,9 +13,15 @@ import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
 } from "shared/types/saved-group";
+import { Revision } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  isRevisionRequired,
+  createOrUpdateSavedGroupRevision,
+  buildSavedGroupSnapshot,
+} from "back-end/src/revisions/util";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 
@@ -120,6 +126,26 @@ export const postSavedGroup = async (
     projects,
   });
 
+  // Create an initial "live" revision to represent the created state
+  const snapshot = buildSavedGroupSnapshot(savedGroup);
+  await context.models.revisions.create({
+    authorId: userId,
+    target: {
+      type: "saved-group",
+      id: savedGroup.id,
+      snapshot,
+      proposedChanges: {},
+    },
+    status: "merged",
+    resolution: {
+      action: "merged",
+      userId,
+      dateCreated: new Date(),
+    },
+    activityLog: [],
+    reviews: [],
+  });
+
   return res.status(200).json({
     status: 200,
     savedGroup,
@@ -175,9 +201,9 @@ type PostSavedGroupAddItemsRequest = AuthRequest<
   { id: string }
 >;
 
-type PostSavedGroupAddItemsResponse = {
-  status: 200;
-};
+type PostSavedGroupAddItemsResponse =
+  | { status: 200 }
+  | { status: 202; requiresApproval: boolean; revision: Revision };
 
 /**
  * POST /saved-groups/:id/add-items
@@ -232,20 +258,61 @@ export const postSavedGroupAddItems = async (
       "Cannot add items to this group. The attribute key's datatype is not supported.",
     );
   }
-  const newValues = [...new Set([...(savedGroup.values || []), ...items])];
-  // Check that the size is within the global limit as well as any limit imposed by the organization
+
+  const approvalRequired = isRevisionRequired(context, "saved-group", id);
+
+  // Check if this is the first draft for this saved group
+  const allRevisions = await context.models.revisions.getByTarget(
+    "saved-group",
+    savedGroup.id,
+  );
+
+  // If there are no revisions yet, create an initial "live" revision first
+  if (allRevisions.length === 0) {
+    const snapshot = buildSavedGroupSnapshot(savedGroup);
+    await context.models.revisions.create({
+      authorId: savedGroup.owner || context.userId,
+      target: {
+        type: "saved-group",
+        id: savedGroup.id,
+        snapshot,
+        proposedChanges: {},
+      },
+      status: "merged",
+      resolution: {
+        action: "merged",
+        userId: savedGroup.owner || context.userId,
+        dateCreated: savedGroup.dateCreated,
+      },
+      activityLog: [],
+      reviews: [],
+    });
+  }
+
+  // Always create a revision for add-items
+  const existingRevision =
+    await context.models.revisions.getOpenByTargetAndAuthor(
+      "saved-group",
+      id,
+      context.userId,
+    );
+  const baseValues =
+    existingRevision?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+  const newValues = [...new Set([...baseValues, ...items])];
   validateListSize(
     newValues,
     org.settings?.savedGroupSizeLimit,
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
 
-  await context.models.savedGroups.update(savedGroup, {
+  const revision = await createOrUpdateSavedGroupRevision(context, savedGroup, {
     values: newValues,
   });
 
-  return res.status(200).json({
-    status: 200,
+  return res.status(202).json({
+    status: 202,
+    requiresApproval: approvalRequired,
+    revision,
   });
 };
 
@@ -258,9 +325,9 @@ type PostSavedGroupRemoveItemsRequest = AuthRequest<
   { id: string }
 >;
 
-type PostSavedGroupRemoveItemsResponse = {
-  status: 200;
-};
+type PostSavedGroupRemoveItemsResponse =
+  | { status: 200 }
+  | { status: 202; requiresApproval: boolean; revision: Revision };
 
 /**
  * POST /saved-groups/:id/remove-items
@@ -315,22 +382,62 @@ export const postSavedGroupRemoveItems = async (
       "Cannot remove items from this group. The attribute key's datatype is not supported.",
     );
   }
-  const toRemove = new Set(items);
-  const newValues = (savedGroup.values || []).filter(
-    (value) => !toRemove.has(value),
+
+  const approvalRequired = isRevisionRequired(context, "saved-group", id);
+
+  // Check if this is the first draft for this saved group
+  const allRevisions = await context.models.revisions.getByTarget(
+    "saved-group",
+    savedGroup.id,
   );
-  // Check that the size is within the global limit as well as any limit imposed by the organization
+
+  // If there are no revisions yet, create an initial "live" revision first
+  if (allRevisions.length === 0) {
+    const snapshot = buildSavedGroupSnapshot(savedGroup);
+    await context.models.revisions.create({
+      authorId: savedGroup.owner || context.userId,
+      target: {
+        type: "saved-group",
+        id: savedGroup.id,
+        snapshot,
+        proposedChanges: {},
+      },
+      status: "merged",
+      resolution: {
+        action: "merged",
+        userId: savedGroup.owner || context.userId,
+        dateCreated: savedGroup.dateCreated,
+      },
+      activityLog: [],
+      reviews: [],
+    });
+  }
+
+  // Always create a revision for remove-items
+  const existingRevision =
+    await context.models.revisions.getOpenByTargetAndAuthor(
+      "saved-group",
+      id,
+      context.userId,
+    );
+  const baseValues =
+    existingRevision?.target.proposedChanges?.values ?? savedGroup.values ?? [];
+  const toRemove = new Set(items);
+  const newValues = baseValues.filter((value: string) => !toRemove.has(value));
   validateListSize(
     newValues,
     org.settings?.savedGroupSizeLimit,
     context.permissions.canBypassSavedGroupSizeLimit(savedGroup.projects),
   );
-  await context.models.savedGroups.update(savedGroup, {
+
+  const revision = await createOrUpdateSavedGroupRevision(context, savedGroup, {
     values: newValues,
   });
 
-  return res.status(200).json({
-    status: 200,
+  return res.status(202).json({
+    status: 202,
+    requiresApproval: approvalRequired,
+    revision,
   });
 };
 
@@ -341,12 +448,28 @@ export const postSavedGroupRemoveItems = async (
 type PutSavedGroupRequest = AuthRequest<
   UpdateSavedGroupProps,
   { id: string },
-  { skipCycleCheck?: string }
+  {
+    skipCycleCheck?: string;
+    bypassApproval?: string;
+    autoPublish?: string;
+    revisionId?: string;
+    forceCreateRevision?: string;
+    title?: string;
+    revertedFrom?: string;
+  }
 >;
 
-type PutSavedGroupResponse = {
-  status: 200;
-};
+type PutSavedGroupResponse =
+  | {
+      status: 200;
+      requiresApproval?: false;
+      revision?: Revision;
+    }
+  | {
+      status: 202;
+      requiresApproval: boolean;
+      revision: Revision;
+    };
 
 /**
  * PUT /saved-groups/:id
@@ -360,8 +483,15 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition, description, projects } =
-    req.body;
+  const {
+    groupName,
+    owner,
+    values,
+    condition,
+    description,
+    projects,
+    archived,
+  } = req.body;
   const skipCycleCheck = req.query.skipCycleCheck;
   const { id } = req.params;
 
@@ -375,22 +505,61 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
+  // Permission check always runs regardless of approval flow status
   if (!context.permissions.canUpdateSavedGroup(savedGroup, { ...req.body })) {
     context.permissions.throwPermissionError();
   }
 
+  const approvalRequired = isRevisionRequired(context, "saved-group", id);
+
+  // If updating a specific revision, fetch it to compare against merged state
+  const revisionId = req.query.revisionId;
+  let targetRevision: Revision | null = null;
+  let comparisonBase: SavedGroupInterface = savedGroup;
+
+  if (revisionId) {
+    targetRevision = await context.models.revisions.getById(revisionId);
+    if (targetRevision && targetRevision.target.type === "saved-group") {
+      // Merge snapshot with proposed changes to get the current state of this revision
+      comparisonBase = {
+        ...savedGroup,
+        ...(targetRevision.target.snapshot as SavedGroupInterface),
+        ...(targetRevision.target
+          .proposedChanges as Partial<SavedGroupInterface>),
+      };
+    }
+  }
+
+  // Helper to check if a value actually changed
+  // If newVal is null/undefined, don't treat it as a change (form sends null for untouched fields)
+  const hasChanged = (newVal: unknown, oldVal: unknown): boolean => {
+    // If new value is null/undefined, assume field wasn't intentionally changed
+    if (newVal == null) {
+      return false;
+    }
+    // If old value is null/undefined but new value exists, that's a change
+    if (oldVal == null) {
+      return true;
+    }
+    // Otherwise use deep equality
+    return !isEqual(newVal, oldVal);
+  };
+
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 
-  if (typeof groupName !== "undefined" && groupName !== savedGroup.groupName) {
+  if (
+    typeof groupName !== "undefined" &&
+    hasChanged(groupName, comparisonBase.groupName)
+  ) {
     fieldsToUpdate.groupName = groupName;
   }
-  if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+  if (typeof owner !== "undefined" && hasChanged(owner, comparisonBase.owner)) {
     fieldsToUpdate.owner = owner;
   }
   if (
     savedGroup.type === "list" &&
     values &&
-    !isEqual(values, savedGroup.values)
+    hasChanged(values, comparisonBase.values)
   ) {
     fieldsToUpdate.values = values;
     // Check that the size is within the global limit as well as any limit imposed by the organization
@@ -403,7 +572,7 @@ export const putSavedGroup = async (
   if (
     savedGroup.type === "condition" &&
     condition &&
-    condition !== savedGroup.condition
+    hasChanged(condition, comparisonBase.condition)
   ) {
     // Validate condition to make sure it's valid. When skipCycleCheck=1 (used by
     // importers), still validate general JSON/syntax but skip saved-group
@@ -432,28 +601,127 @@ export const putSavedGroup = async (
 
     fieldsToUpdate.condition = condition;
   }
-  if (description !== savedGroup.description) {
+  if (hasChanged(description, comparisonBase.description)) {
     if (typeof description === "string" && description.length > 100) {
       throw new Error("Description must be at most 100 characters");
     }
     fieldsToUpdate.description = description;
   }
-  if (!isEqual(savedGroup.projects, projects)) {
+  if (hasChanged(projects, comparisonBase.projects)) {
     if (projects) {
       await context.models.projects.ensureProjectsExist(projects);
     }
     fieldsToUpdate.projects = projects;
   }
+  if (hasChanged(archived, comparisonBase.archived)) {
+    fieldsToUpdate.archived = archived;
+  }
 
-  // If there are no changes, return early
-  if (Object.keys(fieldsToUpdate).length === 0) {
+  // Check if forcing creation of a new empty revision
+  const forceCreateRevision = req.query.forceCreateRevision === "1";
+  const bypassApproval = req.query.bypassApproval === "1";
+  const autoPublish = req.query.autoPublish === "1";
+  const title = req.query.title;
+  const revertedFrom = req.query.revertedFrom;
+
+  // If there are no changes and not creating a new empty revision, return early
+  if (
+    Object.keys(fieldsToUpdate).length === 0 &&
+    !forceCreateRevision &&
+    !autoPublish
+  ) {
     return res.status(200).json({
       status: 200,
     });
   }
 
-  await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+  // Always create/update revision when explicitly requested via revisionId, forceCreateRevision, bypassApproval, or autoPublish
+  // This allows revisions to be used independently of approval requirements
+  if (revisionId || forceCreateRevision || bypassApproval || autoPublish) {
+    // Check if this is the first draft for this saved group
+    const existingRevisions = await context.models.revisions.getByTarget(
+      "saved-group",
+      savedGroup.id,
+    );
 
+    // If there are no revisions yet, create an initial "live" revision first
+    if (existingRevisions.length === 0) {
+      const snapshot = buildSavedGroupSnapshot(savedGroup);
+      await context.models.revisions.create({
+        authorId: savedGroup.owner || context.userId,
+        target: {
+          type: "saved-group",
+          id: savedGroup.id,
+          snapshot,
+          proposedChanges: {},
+        },
+        status: "merged",
+        resolution: {
+          action: "merged",
+          userId: savedGroup.owner || context.userId,
+          dateCreated: savedGroup.dateCreated,
+        },
+        activityLog: [],
+        reviews: [],
+      });
+    }
+
+    // When updating a revision, merge changes (don't replace) to preserve other fields
+    let revision = await createOrUpdateSavedGroupRevision(
+      context,
+      savedGroup,
+      fieldsToUpdate,
+      false, // replaceChanges = false to merge with existing proposed changes
+      forceCreateRevision || bypassApproval || autoPublish, // forceCreate = true when creating new revision
+      title, // optional title for the revision
+      revertedFrom, // optional ID of the revision this is reverting
+      revisionId && !bypassApproval && !autoPublish ? revisionId : undefined, // optional specific revision ID to update
+    );
+
+    // If bypassing approval or auto-publishing, immediately merge the revision
+    if (bypassApproval || autoPublish) {
+      const canBypass =
+        (savedGroup.projects?.length ?? 0) === 0
+          ? context.permissions.canBypassApprovalChecks({ project: "" })
+          : savedGroup.projects!.every((p) =>
+              context.permissions.canBypassApprovalChecks({ project: p }),
+            );
+
+      // bypassApproval is an explicit admin override — enforce the permission server-side.
+      // autoPublish is used when metadata review is disabled; no bypass permission needed.
+      if (bypassApproval && !canBypass) {
+        context.permissions.throwPermissionError();
+      }
+
+      const isBypass = approvalRequired && bypassApproval && !canBypass;
+
+      // Apply entity update
+      await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+
+      // Mark revision as merged
+      revision = await context.models.revisions.merge(
+        revision.id,
+        context.userId,
+        {
+          bypass: isBypass,
+        },
+      );
+
+      return res.status(200).json({
+        status: 200,
+        revision,
+      });
+    }
+
+    return res.status(202).json({
+      status: 202,
+      requiresApproval: approvalRequired,
+      revision,
+    });
+  }
+
+  // Direct update (only used when no revision workflow is requested)
+  await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
   return res.status(200).json({
     status: 200,
   });

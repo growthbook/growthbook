@@ -1,7 +1,5 @@
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { GBCircleArrowLeft } from "@/components/Icons";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
@@ -84,12 +82,6 @@ const CustomMarkdown: React.FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <div className="mb-4">
-        <Link href="/settings">
-          <GBCircleArrowLeft className="mr-1" />
-          Back to General Settings
-        </Link>
-      </div>
       <h1>Add Custom Markdown</h1>
       <p>
         Custom markdown allows you to provide organization-specific guidance and
