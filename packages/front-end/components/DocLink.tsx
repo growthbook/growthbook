@@ -136,12 +136,44 @@ const docSections = {
 
 export type DocSection = keyof typeof docSections;
 
+/** Display-only titles for Cmd+K / search; keys stay aligned with `docSections`. */
+const docSectionDisplayTitles: Partial<Record<DocSection, string>> = {
+  growthbook_clickhouse: "Managed Warehouse",
+  buildYourOwn: "Build Your Own SDK",
+  ga4BigQuery: "GA4 BigQuery",
+  sdks: "SDKs",
+  javascript: "JavaScript SDK",
+  javascriptAutoAttributes: "JavaScript SDK (Auto Attributes)",
+  tsx: "React SDK",
+  nextjs: "Next.js SDK",
+  go: "Go SDK",
+  kotlin: "Kotlin SDK",
+  swift: "Swift SDK",
+  ruby: "Ruby SDK",
+  php: "PHP SDK",
+  python: "Python SDK",
+  java: "Java SDK",
+  csharp: "C# SDK",
+  elixir: "Elixir SDK",
+  flutter: "Flutter SDK",
+  rust: "Rust SDK",
+  nocode: "HTML Script Tag",
+  cloudflare: "Cloudflare SDK",
+  fastly: "Fastly SDK",
+  lambda: "AWS Lambda SDK",
+  edge: "Edge SDK (Other)",
+  roku: "Roku SDK",
+};
+
 /**
  * Human-readable title for search (e.g. Cmd+K). Handles camelCase (including
  * acronyms such as `SDK`), snake_case, and #anchors in keys (e.g.
  * `sdkWebhooks#payload-format`).
  */
 export function docTitleForSection(section: DocSection): string {
+  const titled = docSectionDisplayTitles[section];
+  if (titled !== undefined) return titled;
+
   const raw = section as string;
   const withSpaces = raw.replace(/#/g, " ").replace(/-/g, " ");
   const splitCamel = withSpaces
