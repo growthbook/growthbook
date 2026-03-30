@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
@@ -44,13 +44,13 @@ const isExperimentListTab = (value: string): value is ExperimentListTab => {
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
-  const initialHash = globalThis?.window ? window.location.hash.slice(1) : "";
-  const hasInitialValidHash = isExperimentListTab(initialHash);
+  const initialHashRef = useRef(
+    globalThis?.window ? window.location.hash.slice(1) : "",
+  );
+  const hasInitialValidHash = isExperimentListTab(initialHashRef.current);
   const [urlTab, setTab] = useURLHash<ExperimentListTab>(EXPERIMENT_LIST_TABS);
-  const normalizedURLTab = urlTab ?? "";
-  const tab: ExperimentListTab = isExperimentListTab(normalizedURLTab)
-    ? normalizedURLTab
-    : "all";
+  const tab: ExperimentListTab =
+    urlTab && isExperimentListTab(urlTab) ? urlTab : "all";
   const [storedTab, setStoredTab] = useLocalStorage<ExperimentListTab>(
     "experiments-list-tab",
     "all",
@@ -66,7 +66,7 @@ const ExperimentsPage = (): React.ReactElement => {
     }
 
     setDidInitializeTab(true);
-  }, [didInitializeTab, hasInitialValidHash, setTab, storedTab, tab]);
+  }, [didInitializeTab, setTab, storedTab, tab]);
 
   useEffect(() => {
     if (!didInitializeTab) return;
