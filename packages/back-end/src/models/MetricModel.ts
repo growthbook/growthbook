@@ -14,6 +14,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
   getCollection,
+  projectFilterQuery,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
@@ -354,25 +355,10 @@ export async function getMetricsByOrganization(
   context: ReqContext | ApiReqContext,
   options?: MetricFilterOptions,
 ) {
-  // Build query with optional filters
-  const query: FilterQuery<LegacyMetricInterface> = {};
-
-  if (options?.datasourceId) {
-    query.datasource = options.datasourceId;
-  }
-
-  if (options?.projectId) {
-    // Match if: projects array contains the projectId OR projects is empty/missing
-    // (empty projects means the metric is available to all projects)
-    // Use $in instead of implicit array element matching because
-    // evalCondition (used for config-file metrics) doesn't support
-    // MongoDB's implicit "array contains value" semantics.
-    query.$or = [
-      { projects: { $in: [options.projectId] } },
-      { projects: { $size: 0 } },
-      { projects: { $exists: false } },
-    ];
-  }
+  const query: FilterQuery<LegacyMetricInterface> = {
+    ...(options?.datasourceId && { datasource: options.datasourceId }),
+    ...(options?.projectId && projectFilterQuery(options.projectId)),
+  };
 
   return findMetrics(context, query);
 }

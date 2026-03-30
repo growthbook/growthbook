@@ -15,6 +15,7 @@ import { ApiFactTable, ApiFactTableFilter } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 
 const audit = createModelAuditLogger({
@@ -145,33 +146,18 @@ function createPropsToInterface(
   };
 }
 
-export interface FactTableFilterOptions {
-  datasourceId?: string;
-  projectId?: string;
-}
-
 export async function getAllFactTablesForOrganization(
   context: ReqContext | ApiReqContext,
-  options?: FactTableFilterOptions,
+  options?: {
+    datasourceId?: string;
+    projectId?: string;
+  },
 ) {
-  // Build query with optional filters
   const query: FilterQuery<FactTableInterface> = {
     organization: context.org.id,
+    ...(options?.datasourceId && { datasource: options.datasourceId }),
+    ...(options?.projectId && projectFilterQuery(options.projectId)),
   };
-
-  if (options?.datasourceId) {
-    query.datasource = options.datasourceId;
-  }
-
-  if (options?.projectId) {
-    // Match if: projects array contains the projectId OR projects is empty/missing
-    // (empty projects means the fact table is available to all projects)
-    query.$or = [
-      { projects: options.projectId },
-      { projects: { $size: 0 } },
-      { projects: { $exists: false } },
-    ];
-  }
 
   const docs = await FactTableModel.find(query).sort({ id: 1 });
   return docs

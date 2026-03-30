@@ -26,6 +26,7 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
+import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -164,23 +165,13 @@ export class FactMetricModel extends BaseClass {
     factTableId?: string;
     projectId?: string;
   }) {
-    const filter: FilterQuery<FactMetricInterface> = {};
-
-    if (options?.datasourceId) {
-      filter.datasource = options.datasourceId;
-    }
-
-    if (options?.factTableId) {
-      filter["numerator.factTableId"] = options.factTableId;
-    }
-
-    if (options?.projectId) {
-      filter.$or = [
-        { projects: options.projectId },
-        { projects: { $size: 0 } },
-        { projects: { $exists: false } },
-      ];
-    }
+    const filter: FilterQuery<FactMetricInterface> = {
+      ...(options?.datasourceId && { datasource: options.datasourceId }),
+      ...(options?.factTableId && {
+        "numerator.factTableId": options.factTableId,
+      }),
+      ...(options?.projectId && projectFilterQuery(options.projectId)),
+    };
 
     return this._find(filter, { sort: { id: 1 } });
   }
