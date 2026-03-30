@@ -321,7 +321,9 @@ export async function advanceStep(
     ? null
     : (computeNextStepAt(schedule, nextStepIndex, now) ?? now);
 
-  const newStatus = isApprovalStep ? ("pending-approval" as const) : ("running" as const);
+  const newStatus = isApprovalStep
+    ? ("pending-approval" as const)
+    : ("running" as const);
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: newStatus,
     currentStepIndex: nextStepIndex,
@@ -693,7 +695,9 @@ export async function approveAndPublishStep(
     }
   }
 
-  const approveStatus = isCompleting ? ("completed" as const) : ("running" as const);
+  const approveStatus = isCompleting
+    ? ("completed" as const)
+    : ("running" as const);
   await ctx.models.rampSchedules.updateById(schedule.id, {
     status: approveStatus,
     nextStepAt,

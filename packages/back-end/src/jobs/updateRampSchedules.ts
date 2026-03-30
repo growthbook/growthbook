@@ -41,7 +41,10 @@ export default async function addRampScheduleJob(agenda: Agenda) {
   const mongoose = await import("mongoose");
   await mongoose.default.connection.db
     .collection("rampschedules")
-    .createIndex({ nextProcessAt: 1 }, { sparse: true, name: "nextProcessAt_1" });
+    .createIndex(
+      { nextProcessAt: 1 },
+      { sparse: true, name: "nextProcessAt_1" },
+    );
 
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();

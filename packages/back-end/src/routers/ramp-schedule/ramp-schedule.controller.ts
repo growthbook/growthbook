@@ -174,7 +174,9 @@ export const postRampSchedule = async (
     currentStepIndex: -1,
     nextStepAt: null,
     nextProcessAt:
-      resolvedStartTrigger.type === "scheduled" ? resolvedStartTrigger.at : null,
+      resolvedStartTrigger.type === "scheduled"
+        ? resolvedStartTrigger.at
+        : null,
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"

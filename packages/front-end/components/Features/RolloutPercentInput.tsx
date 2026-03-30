@@ -83,34 +83,34 @@ export default function RolloutPercentInput({
         </Text>
       ) : (
         <Flex align="center" gap="3" mb="1">
-        <Box flexGrow="1">
-          <Slider
-            value={[value]}
-            min={0}
-            max={1}
-            step={0.01}
-            disabled={locked}
-            onValueChange={(e) => {
-              setValue(e[0]);
-            }}
-          />
-        </Box>
-        <Box position="relative" className={styles.percentInputWrap}>
-          <Field
-            style={{ width: 95 }}
-            disabled={locked}
-            value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
-            step={1}
-            onChange={(e) => {
-              let decimal = percentToDecimal(e.target.value);
-              if (decimal > 1) decimal = 1;
-              if (decimal < 0) decimal = 0;
-              setValue(decimal);
-            }}
-            type="number"
-          />
-          <span>%</span>
-        </Box>
+          <Box flexGrow="1">
+            <Slider
+              value={[value]}
+              min={0}
+              max={1}
+              step={0.01}
+              disabled={locked}
+              onValueChange={(e) => {
+                setValue(e[0]);
+              }}
+            />
+          </Box>
+          <Box position="relative" className={styles.percentInputWrap}>
+            <Field
+              style={{ width: 95 }}
+              disabled={locked}
+              value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
+              step={1}
+              onChange={(e) => {
+                let decimal = percentToDecimal(e.target.value);
+                if (decimal > 1) decimal = 1;
+                if (decimal < 0) decimal = 0;
+                setValue(decimal);
+              }}
+              type="number"
+            />
+            <span>%</span>
+          </Box>
         </Flex>
       )}
 

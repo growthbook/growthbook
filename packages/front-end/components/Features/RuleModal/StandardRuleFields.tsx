@@ -355,15 +355,10 @@ export default function StandardRuleFields({
                             setRampSectionState(
                               rebuildStateWithActiveFields(
                                 rampSectionState,
-                                [
-                                  ...Array.from(rampActiveFields),
-                                  "coverage",
-                                ],
+                                [...Array.from(rampActiveFields), "coverage"],
                                 {
-                                  condition:
-                                    form.watch("condition") ?? "{}",
-                                  savedGroups:
-                                    form.watch("savedGroups") ?? [],
+                                  condition: form.watch("condition") ?? "{}",
+                                  savedGroups: form.watch("savedGroups") ?? [],
                                   prerequisites:
                                     form.watch("prerequisites") ?? [],
                                   force: form.watch("value") ?? "",

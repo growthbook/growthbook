@@ -1617,7 +1617,6 @@ export async function putOrganization(
 
     await updateOrganization(org.id, updates);
 
-
     await req.audit({
       event: "organization.update",
       entity: {
