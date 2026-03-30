@@ -33,9 +33,16 @@ describe("parseIntWithDefault", () => {
     expect(parseIntWithDefault({}, 7)).toBe(7);
   });
 
-  it("truncates toward zero like parseInt", () => {
+  it("truncates finite numbers toward zero", () => {
     expect(parseIntWithDefault(3.9, 0)).toBe(3);
+    expect(parseIntWithDefault(-2.7, 0)).toBe(-2);
+    expect(parseIntWithDefault(0.0000005, 0)).toBe(0);
+  });
+
+  it("truncates decimal strings and rejects junk (Number, not parseInt partial parse)", () => {
     expect(parseIntWithDefault("3.9", 0)).toBe(3);
+    expect(parseIntWithDefault("123abc", 0)).toBe(0);
+    expect(parseIntWithDefault("1e3", 0)).toBe(1000);
   });
 
   it("supports NaN as fallback for invalid-only signaling", () => {
@@ -57,6 +64,20 @@ describe("parseOptionalInt", () => {
     expect(parseOptionalInt("0")).toBe(0);
     expect(parseOptionalInt("60")).toBe(60);
     expect(parseOptionalInt(42)).toBe(42);
+  });
+
+  it("matches Number() semantics for strings (no parseInt partial parse)", () => {
+    expect(parseOptionalInt("123abc")).toBeUndefined();
+    expect(parseOptionalInt("1e3")).toBe(1000);
+    expect(parseOptionalInt("3.9")).toBe(3);
+  });
+
+  it("truncates subnormals toward zero", () => {
+    expect(parseOptionalInt(0.0000005)).toBe(0);
+  });
+
+  it("returns undefined for integers outside safe range", () => {
+    expect(parseOptionalInt("9007199254740992")).toBeUndefined();
   });
 });
 
