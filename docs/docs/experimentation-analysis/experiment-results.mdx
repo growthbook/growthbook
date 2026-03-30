@@ -149,7 +149,9 @@ If SRM or multiple exposures fails, then these should be investigated first. If 
 2. exposure latency: if there is a lag between when the exposure event happens and when it is recorded in the events table, then post-exposure metrics could be counted as pre-exposure. If your lag is large and cannot be reduced, then consider [metric delays](/app/metrics#metric-delays), which shift the pre-exposure window to exclude the lag period.
 3. mismatch between randomization unit and analysis unit causing unreliable inference: if you are randomizing on session_id but analyzing by user_id, then attribution of the metric outcomes to multiple sessions for the same user can imbalance results.
 
-We use the frequentist engine with sequential testing disabled to calculate the p-values for the pre-exposure mean imbalance, with a significance threshold of 0.001. We adjust for testing multiple metrics using a Bonferroni correction. We calculate the p-values for the pre-exposure mean imbalance using a two-sample t-test on the absolute difference in means.
+We use the frequentist engine with sequential testing disabled to calculate the p-values for the pre-exposure mean imbalance, with a significance threshold of 0.001. We calculate the p-values for the pre-exposure mean imbalance using a two-sample t-test on the absolute difference in means. 
+
+We adjust for testing multiple metrics using a Bonferroni correction including all goal and guardrail metric-variation pairs as standalone tests. We exclude secondary metrics from causing the overall health status to fail as well as from contributing to the Bonferroni-corrected threshold. This means if you have 3 arms (2 variation test arms), 2 goal metrics, 35 secondary metrics, and 2 guardrail metrics, we will be correcting for a total of (2 goal * 2 arms + 2 guardrail * 2 arms = 8 total tests).
 
 ### Multiple Exposures
 
