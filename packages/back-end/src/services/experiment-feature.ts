@@ -26,7 +26,7 @@ export const validateExperimentFeatureUpdates = async ({
   features: Record<string, ExperimentRefVariation[]>;
   featureRevisionOptions: Record<
     string,
-    { targetVersion: number; autoPublish?: boolean }
+    { targetVersion?: number; autoPublish?: boolean; forceNewDraft?: boolean }
   >;
   linkedFeatures: FeatureInterface[];
   context: ReqContext;
@@ -34,8 +34,20 @@ export const validateExperimentFeatureUpdates = async ({
   const plans: ExperimentFeatureUpdatePlan[] = [];
 
   for (const feature of linkedFeatures) {
-    const { targetVersion, autoPublish } = featureRevisionOptions[feature.id];
-    const revision = await getDraftRevision(context, feature, targetVersion);
+    const { targetVersion, autoPublish, forceNewDraft } =
+      featureRevisionOptions[feature.id];
+
+    let effectiveTargetVersion = targetVersion;
+
+    if (forceNewDraft || autoPublish || !effectiveTargetVersion) {
+      effectiveTargetVersion = feature.version;
+    }
+
+    const revision = await getDraftRevision(
+      context,
+      feature,
+      effectiveTargetVersion,
+    );
     const matchingRules = getMatchingRules(
       feature,
       (r: FeatureRule) =>

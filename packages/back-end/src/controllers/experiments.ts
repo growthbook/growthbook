@@ -3938,7 +3938,11 @@ export async function postExperimentFeatureValues(
       features: Record<string, ExperimentRefVariation[]>;
       featureRevisionOptions: Record<
         string,
-        { targetVersion: number; autoPublish?: boolean }
+        {
+          targetVersion?: number;
+          autoPublish?: boolean;
+          forceNewDraft?: boolean;
+        }
       >;
     },
     { id: string }
