@@ -101,6 +101,7 @@ import {
   getSavedGroupMap,
   getLiveAndBaseRevisionsForFeature,
   getDraftRevision,
+  assertCanAutoPublish,
 } from "back-end/src/services/features";
 import {
   getSDKPayloadCacheLocation,
@@ -254,37 +255,6 @@ async function createOrUpdateDraftWithChanges(
     org,
   });
   return newRevision;
-}
-
-// Throws if the draft requires approval and the caller cannot bypass.
-async function assertCanAutoPublish(
-  context: ReqContext,
-  feature: FeatureInterface,
-  draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
-
-  const baseRevision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version: draft.baseVersion,
-  });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
-
-  const requiresReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision,
-    revision: draft,
-    allEnvironments,
-    settings: org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-  });
-
-  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
-    context.permissions.throwPermissionError();
-  }
 }
 
 export type SDKPayloadParams = Pick<

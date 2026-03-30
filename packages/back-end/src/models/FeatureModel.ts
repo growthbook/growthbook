@@ -935,31 +935,13 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
-  const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
-  };
-
-  changes.rules[environment] = changes.rules[environment] || [];
-  if (!changes.rules[environment][i]) {
-    throw new Error("Unknown rule");
-  }
-
-  changes.rules[environment][i] = {
-    ...changes.rules[environment][i],
-    ...updates,
-  } as FeatureRule;
-  await updateRevision(
+  await editFeatureRules(
     context,
     feature,
     revision,
-    changes,
-    {
-      user,
-      action: "edit rule",
-      subject: `in ${environment} (position ${i + 1})`,
-      value: JSON.stringify(updates),
-    },
+    [{ environmentId: environment, i }],
+    updates,
+    user,
     resetReview,
   );
 }
@@ -990,6 +972,11 @@ export async function editFeatureRules(
     } as FeatureRule;
   });
 
+  const subject =
+    matches.length === 1
+      ? `in ${matches[0].environmentId} (position ${matches[0].i + 1})`
+      : `in ${matches.map((m) => m.environmentId).join(", ")}`;
+
   const updatedRevision = await updateRevision(
     context,
     feature,
@@ -998,7 +985,7 @@ export async function editFeatureRules(
     {
       user,
       action: "edit rule",
-      subject: `in ${matches.map((m) => m.environmentId).join(", ")}`,
+      subject,
       value: JSON.stringify(updates),
     },
     resetReview,

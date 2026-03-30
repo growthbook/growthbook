@@ -20,6 +20,7 @@ import {
   getSavedGroupsValuesFromInterfaces,
   NodeHandler,
   recursiveWalk,
+  checkIfRevisionNeedsReview,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -2289,4 +2290,35 @@ export async function getLiveAndBaseRevisionsForFeature({
   }
 
   return { live, base };
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const { org } = context;
+  const allEnvironments = getEnvironmentIdsFromOrg(org);
+
+  const baseRevision = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: draft.baseVersion,
+  });
+  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision,
+    revision: draft,
+    allEnvironments,
+    settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+  });
+
+  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
+  }
 }

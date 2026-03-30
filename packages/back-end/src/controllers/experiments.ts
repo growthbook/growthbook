@@ -10,7 +10,6 @@ import {
   isDefined,
   resetReviewOnChange,
   autoMerge,
-  checkIfRevisionNeedsReview,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -144,7 +143,10 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import {
+  assertCanAutoPublish,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
 import { validateExperimentFeatureUpdates } from "back-end/src/services/experiment-feature";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -4127,15 +4129,9 @@ export async function postExperimentFeatureValues(
       baseVersion: revision.baseVersion,
     });
 
-    const requiresReview = checkIfRevisionNeedsReview({
-      feature,
-      baseRevision: base,
-      revision: updatedRevision,
-      allEnvironments: orgEnvIds,
-      settings: org.settings,
-    });
+    if (autoPublish) {
+      await assertCanAutoPublish(context, feature, updatedRevision);
 
-    if (!requiresReview && autoPublish) {
       const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
 
       if (!mergeResult.success) {
@@ -4145,13 +4141,6 @@ export async function postExperimentFeatureValues(
             "Unable to auto-publish feature values. Please resolve conflicts before publishing.",
         });
         return;
-      }
-
-      const changedEnvs = Object.keys(mergeResult.result.rules || {});
-      if (changedEnvs.length > 0) {
-        if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
-          context.permissions.throwPermissionError();
-        }
       }
 
       const updatedFeature = await publishRevision(
