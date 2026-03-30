@@ -17,8 +17,6 @@ import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
 const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
 export type FeatureTab = (typeof featureTabs)[number];
@@ -33,8 +31,6 @@ export default function FeaturePage() {
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
-
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 800 });
   // Clean state when feature id changes
   useEffect(() => {
     setDiagnosticsResults(null);
@@ -45,6 +41,8 @@ export default function FeaturePage() {
   const {
     data,
     error,
+    isValidating,
+    revisionLoading,
     refreshData,
     feature,
     baseFeature,
@@ -100,109 +98,94 @@ export default function FeaturePage() {
   }
 
   return (
-    <FeatureRevisionsContext.Provider
-      value={{
-        revisions: data.revisions,
-        baseFeature,
-        currentVersion: version ?? baseFeature.version,
-      }}
-    >
-      <FeatureUsageProvider feature={feature}>
-        <PageHead
-          breadcrumb={[
-            { display: "Features", href: "/features" },
-            { display: feature.id },
-          ]}
-        />
-        <FeaturesHeader
+    <FeatureUsageProvider feature={feature}>
+      <PageHead
+        breadcrumb={[
+          { display: "Features", href: "/features" },
+          { display: feature.id },
+        ]}
+      />
+      <FeaturesHeader
+        feature={feature}
+        mutate={refreshData}
+        tab={tab}
+        setTab={setTabAndScroll}
+        setEditFeatureInfoModal={setEditFeatureInfoModal}
+        holdout={holdout}
+      />
+
+      {tab === "overview" && (
+        <FeaturesOverview
+          baseFeature={baseFeature}
           feature={feature}
-          mutate={refreshData}
-          setVersion={setVersion}
-          version={version}
-          revisions={data.revisionList || []}
-          tab={tab}
-          setTab={setTabAndScroll}
-          setEditFeatureInfoModal={setEditFeatureInfoModal}
+          revision={revision}
+          revisionList={data.revisionList}
+          loading={isValidating}
+          revisionLoading={revisionLoading}
+          revisions={data.revisions}
+          experiments={experiments}
+          safeRollouts={safeRollouts}
           holdout={holdout}
-          isReadOnly={
-            revision.status === "discarded" ||
-            (revision.status === "published" &&
-              revision.version !== feature.version)
-          }
-          onCopyLink={() => {
-            const url =
-              window.location.href.replace(/[?#].*/, "") +
-              `?v=${version ?? feature.version}`;
-            performCopy(url);
-          }}
-          copyLinkSuccess={copySuccess}
+          mutate={refreshData}
+          editProjectModal={editProjectModal}
+          setEditProjectModal={setEditProjectModal}
+          version={version}
+          setVersion={setVersion}
         />
+      )}
 
-        {tab === "overview" && (
-          <FeaturesOverview
-            baseFeature={baseFeature}
-            feature={feature}
-            revision={revision}
-            revisionList={data.revisionList}
-            revisions={data.revisions}
-            experiments={experiments}
-            safeRollouts={safeRollouts}
-            holdout={holdout}
-            mutate={refreshData}
-            editProjectModal={editProjectModal}
-            setEditProjectModal={setEditProjectModal}
-            version={version}
-            setVersion={setVersion}
-          />
-        )}
+      {tab === "test" && (
+        <FeatureTest
+          baseFeature={baseFeature}
+          feature={feature}
+          revision={revision}
+          revisions={data.revisionList}
+          version={version}
+          setVersion={setVersion}
+        />
+      )}
 
-        {tab === "test" && (
-          <FeatureTest
-            baseFeature={baseFeature}
-            feature={feature}
-            revision={revision}
-            version={version}
-          />
-        )}
+      {tab === "stats" && (
+        <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
+      )}
 
-        {tab === "stats" && (
-          <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
-        )}
+      {tab === "diagnostics" && (
+        <FeatureDiagnostics
+          feature={feature}
+          results={diagnosticsResults}
+          setResults={setDiagnosticsResults}
+        />
+      )}
 
-        {tab === "diagnostics" && (
-          <FeatureDiagnostics
-            feature={feature}
-            results={diagnosticsResults}
-            setResults={setDiagnosticsResults}
-          />
-        )}
+      {editTagsModal && (
+        <EditTagsForm
+          tags={feature.tags || []}
+          save={async (tags) => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ tags }),
+            });
+          }}
+          cancel={() => setEditTagsModal(false)}
+          mutate={refreshData}
+        />
+      )}
 
-        {editTagsModal && (
-          <EditTagsForm
-            tags={feature.tags || []}
-            save={async (tags) => {
-              await apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ tags }),
-              });
-            }}
-            cancel={() => setEditTagsModal(false)}
-            mutate={refreshData}
-          />
-        )}
-
-        {editFeatureInfoModal && (
-          <EditFeatureInfoModal
-            source="feature-header"
-            dependents={dependents}
-            feature={feature}
-            revisionList={data.revisionList || []}
-            cancel={() => setEditFeatureInfoModal(false)}
-            mutate={refreshData}
-            setVersion={setVersion}
-          />
-        )}
-      </FeatureUsageProvider>
-    </FeatureRevisionsContext.Provider>
+      {editFeatureInfoModal && (
+        <EditFeatureInfoModal
+          source="feature-header"
+          dependents={dependents}
+          feature={feature}
+          save={async (updates) => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ ...updates }),
+            });
+          }}
+          cancel={() => setEditFeatureInfoModal(false)}
+          mutate={refreshData}
+        />
+      )}
+    </FeatureUsageProvider>
   );
 }

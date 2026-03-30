@@ -12,7 +12,7 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import { stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
@@ -144,14 +144,7 @@ if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
 
 // Some platforms set the PORT env var, causing the back-end and front-end to both try to listen on the same port.
 // BACKEND_PORT allows specifying a different port for the back-end to mitigate this conflict.
-app.set(
-  "port",
-  parseEnvInt(process.env.BACKEND_PORT || process.env.PORT, 3100, {
-    min: 0,
-    max: 65535,
-    name: "BACKEND_PORT/PORT",
-  }),
-);
+app.set("port", process.env.BACKEND_PORT || process.env.PORT || 3100);
 app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
@@ -796,7 +789,6 @@ app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
-app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
@@ -825,21 +817,15 @@ app.post(
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
-app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
 app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
 app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
-app.post(
-  "/feature/:id/:version/revert-draft",
-  featuresController.postFeatureRevertDraft,
-);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
-app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
   "/feature/:id/safeRollout/status",

@@ -182,6 +182,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
+      !locked &&
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
@@ -232,7 +233,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
               <Box>
-                {rules.length > 1 && canEdit && !locked && (
+                {rules.length > 1 && canEdit && (
                   <div
                     {...handle}
                     title="Drag and drop to re-order rules"
@@ -331,7 +332,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     </Heading>
                     {info.pill}
                   </Flex>
-                  {canEdit && !locked && (
+                  {canEdit && (
                     <DropdownMenu
                       trigger={
                         <IconButton
@@ -478,8 +479,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       ) : null}
                     </>
                   ) : null}
-                  <Box mb="3">
-                    {hasCondition && rule.type !== "experiment-ref" ? (
+                  {hasCondition && rule.type !== "experiment-ref" && (
+                    <Box mb="3">
                       <TruncatedConditionDisplay
                         condition={rule.condition || ""}
                         savedGroups={rule.savedGroups}
@@ -487,12 +488,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         maxLength={500}
                         prefix={<Text weight="medium">IF</Text>}
                       />
-                    ) : rule.type !== "experiment-ref" &&
-                      rule.type !== "rollout" &&
-                      rule.type !== "safe-rollout" ? (
-                      <em>No targeting (all traffic will be included)</em>
-                    ) : null}
-                  </Box>
+                    </Box>
+                  )}
                   {rule.type === "force" && (
                     <ForceSummary value={rule.value} feature={feature} />
                   )}
@@ -747,7 +744,7 @@ export function getRuleMetaInfo({
         />
       ),
       callout: (
-        <Callout status="warning" size="sm">
+        <Callout status="warning">
           Rules above will serve 100% of traffic and this rule will never be
           used
         </Callout>

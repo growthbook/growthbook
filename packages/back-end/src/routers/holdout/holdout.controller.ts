@@ -39,9 +39,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
+  validateVariationIds,
+} from "back-end/src/controllers/experiments";
+import {
   getChangesToStartExperiment,
   validateExperimentData,
-  validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { PrivateApiErrorResponse } from "back-end/types/api";

@@ -58,39 +58,28 @@ const Tooltip: FC<Props> = ({
   const [alreadyHovered, setAlreadyHovered] = useState(false);
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const nestedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const clearTimeouts = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    if (nestedTimeoutRef.current) {
-      clearTimeout(nestedTimeoutRef.current);
-      nestedTimeoutRef.current = null;
-    }
-  }, []);
+  }, [timeoutRef]);
 
   const handleMouseEnter = useCallback(() => {
     clearTimeouts();
     timeoutRef.current = setTimeout(() => {
       setOpen(true);
-      nestedTimeoutRef.current = setTimeout(() => setFadeIn(true), 50);
+      setTimeout(() => setFadeIn(true), 50);
     }, delay);
-  }, [clearTimeouts, delay]);
+  }, [clearTimeouts, timeoutRef, setOpen, setFadeIn, delay]);
 
   const handleMouseLeave = useCallback(() => {
     clearTimeouts();
     timeoutRef.current = setTimeout(() => {
       setFadeIn(false);
-      nestedTimeoutRef.current = setTimeout(() => setOpen(false), 300);
+      setTimeout(() => setOpen(false), 300);
     }, 200);
-  }, [clearTimeouts]);
-
-  useEffect(() => {
-    return () => {
-      clearTimeouts();
-    };
   }, [clearTimeouts]);
 
   useEffect(() => {

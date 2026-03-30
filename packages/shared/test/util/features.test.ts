@@ -11,7 +11,7 @@ import {
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
-  RevisionFields,
+  RulesAndValues,
   MergeConflict,
   validateCondition,
   checkEnvironmentsMatch,
@@ -114,7 +114,7 @@ const revision: FeatureRevisionInterface = {
 
 describe("autoMerge", () => {
   it("Auto merges when there are no conflicts", () => {
-    const base: RevisionFields = {
+    const base: RulesAndValues = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -122,7 +122,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const live: RevisionFields = {
+    const live: RulesAndValues = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -137,7 +137,7 @@ describe("autoMerge", () => {
       },
       version: 6,
     };
-    const revision: RevisionFields = {
+    const revision: RulesAndValues = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -165,7 +165,7 @@ describe("autoMerge", () => {
     });
   });
   it("Auto merges when live and base are the same revision", () => {
-    const base: RevisionFields = {
+    const base: RulesAndValues = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -173,7 +173,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const revision: RevisionFields = {
+    const revision: RulesAndValues = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -200,7 +200,7 @@ describe("autoMerge", () => {
     });
   });
   it("Handles merge conflicts", () => {
-    const base: RevisionFields = {
+    const base: RulesAndValues = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -208,7 +208,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const live: RevisionFields = {
+    const live: RulesAndValues = {
       defaultValue: "live",
       rules: {
         dev: [],
@@ -223,7 +223,7 @@ describe("autoMerge", () => {
       },
       version: 6,
     };
-    const revision: RevisionFields = {
+    const revision: RulesAndValues = {
       defaultValue: "revision",
       rules: {
         dev: [

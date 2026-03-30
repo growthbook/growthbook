@@ -53,7 +53,7 @@ import {
   findOrganizationsByDomain,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -99,20 +99,6 @@ export {
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
-}
-
-export async function setLicenseKey(
-  org: OrganizationInterface,
-  licenseKey: string,
-) {
-  if (!IS_CLOUD && IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites.",
-    );
-  }
-
-  org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export function validateLoginMethod(

@@ -3,10 +3,6 @@ parameters:
 tags:
   - features
 summary: Deletes a single feature
-description: |
-  Permanently deletes a feature and all of its revisions.
-
-  Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
 operationId: deleteFeature
 x-codeSamples:
   - lang: "cURL"

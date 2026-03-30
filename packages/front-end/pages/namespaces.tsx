@@ -1,4 +1,5 @@
 import { useState, FC } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -10,6 +11,13 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+} from "@/ui/Table";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -34,9 +42,9 @@ const NamespacesPage: FC = () => {
 
   if (error) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error" mb="3">
         An error occurred: {error.message}
-      </div>
+      </Callout>
     );
   }
   if (!data) {
@@ -44,7 +52,7 @@ const NamespacesPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <Box className="pagecontents">
       {modalOpen && (
         <NamespaceModal
           existing={editNamespace}
@@ -58,37 +66,35 @@ const NamespacesPage: FC = () => {
           }}
         />
       )}
-      <div className="row align-items-center mb-1">
-        <div className="col-auto">
-          <h1 className="mb-0">Experiment Namespaces</h1>
-        </div>
+      <Flex align="center" justify="between" mb="1">
+        <h1 style={{ margin: 0 }}>Experiment Namespaces</h1>
         {canCreate ? (
-          <div className="col-auto ml-auto">
-            <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
-          </div>
+          <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
         ) : null}
-      </div>
-      <p className="text-gray mb-3">
-        Namespaces allow you to run mutually exclusive experiments.{" "}
-        {namespaces.length > 0 &&
-          "Click a namespace below to see more details about its current usage."}
-      </p>
+      </Flex>
+      <Box mb="3" style={{ color: "var(--gray-11)" }}>
+        <p style={{ margin: 0 }}>
+          Namespaces allow you to run mutually exclusive experiments.{" "}
+          {namespaces.length > 0 &&
+            "Click a namespace below to see more details about its current usage."}
+        </p>
+      </Box>
       {namespaces.length > 0 && (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th>Namespace</th>
-              <th>
+        <Table variant="list" stickyHeader roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Namespace</TableColumnHeader>
+              <TableColumnHeader>
                 Namespace ID{" "}
                 <Tooltip body="This id is used as the namespace hash key and cannot be changed" />
-              </th>
-              <th>Description</th>
-              <th>Active experiments</th>
-              <th>Percent available</th>
-              <th style={{ width: 30 }}></th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableColumnHeader>
+              <TableColumnHeader>Description</TableColumnHeader>
+              <TableColumnHeader>Active experiments</TableColumnHeader>
+              <TableColumnHeader>Percent available</TableColumnHeader>
+              <TableColumnHeader style={{ width: 30 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {namespaces.map((ns, i) => {
               const experiments = data?.namespaces[ns.name] ?? [];
               return (
@@ -131,10 +137,10 @@ const NamespacesPage: FC = () => {
                 />
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </div>
+    </Box>
   );
 };
 export default NamespacesPage;

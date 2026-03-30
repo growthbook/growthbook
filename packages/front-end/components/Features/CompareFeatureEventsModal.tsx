@@ -9,8 +9,6 @@ import {
   getFeatureRulesBadges,
   renderFeatureMetadataSection,
   getFeatureMetadataBadges,
-  renderFeatureHoldoutSection,
-  getFeatureHoldoutBadges,
 } from "./FeatureDiffRenders";
 
 const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
@@ -54,17 +52,6 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
         return `${nowEnabled ? "Enabled" : "Disabled"} in ${changed}`;
       }
     }
-    // Holdout add / remove / value change
-    const preHoldout = entry.preSnapshot?.holdout;
-    const postHoldout = entry.postSnapshot?.holdout;
-    if (preHoldout?.id !== postHoldout?.id) {
-      if (!preHoldout && postHoldout) return "Added to holdout";
-      if (preHoldout && !postHoldout) return "Removed from holdout";
-      return "Changed holdout";
-    }
-    if (preHoldout && postHoldout && preHoldout.value !== postHoldout.value) {
-      return "Changed holdout value";
-    }
     return null;
   },
   defaultGroupBy: "minute",
@@ -89,12 +76,6 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       keys: ["archived", "description", "owner", "project", "tags"],
       render: renderFeatureMetadataSection,
       getBadges: getFeatureMetadataBadges,
-    },
-    {
-      label: "Holdout value",
-      keys: ["holdout"],
-      render: renderFeatureHoldoutSection,
-      getBadges: getFeatureHoldoutBadges,
     },
   ],
 };

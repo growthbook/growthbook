@@ -15,6 +15,7 @@ import { FeatureTestResult } from "shared/types/feature";
 import Link from "next/link";
 import { FaChevronRight, FaInfoCircle } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
+import { Box, Flex } from "@radix-ui/themes";
 import { useEnvironments } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
@@ -35,8 +36,21 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
+
+/** Aligns with features list feature-key column */
+const SIMULATE_FEATURE_NAME_COLUMN_MAX = 200;
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -78,7 +92,7 @@ export const SimulateFeatureValues: FC<{
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const hasSimulateFeature = hasCommercialFeature("simulate");
 
-  const { searchInputProps, items, SortableTH } = useSearch({
+  const { searchInputProps, items, SortableTableColumnHeader } = useSearch({
     items: allFeatures.filter((f) => !f.archived),
     searchFields: ["id^3", "description"],
     localStorageKey: "simulate-features",
@@ -163,7 +177,7 @@ export const SimulateFeatureValues: FC<{
     return <LoadingOverlay />;
   }
   if (!environments || environments.length === 0) {
-    return <div>No environments added</div>;
+    return <Box>No environments added</Box>;
   }
   let attributeText = (
     <>Select Archetype or edit user attributes to see feature results.</>
@@ -203,116 +217,140 @@ export const SimulateFeatureValues: FC<{
 
   const featureTableResults = (
     <>
-      <div className="mb-3">
-        <div className="row mb-3">
-          <div className="col">
-            <div className="border border-primary appbox p-3">
-              {attributeText} {attributeNodes}{" "}
-              <a
-                href="#"
-                className="ml-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditAttributesModalOpen(true);
-                }}
-              >
-                ({attributes && Object.keys(attributes).length ? "edit" : "set"}
-                )
-              </a>
-            </div>
-          </div>
-        </div>
+      <Box mb="3">
+        <Box mb="3" p="3" className="appbox border border-primary">
+          {attributeText} {attributeNodes}{" "}
+          <a
+            href="#"
+            className="ml-2"
+            onClick={(e) => {
+              e.preventDefault();
+              setEditAttributesModalOpen(true);
+            }}
+          >
+            ({attributes && Object.keys(attributes).length ? "edit" : "set"})
+          </a>
+        </Box>
 
-        <div
+        <Box
           style={{
             opacity: featureResults.length > 0 ? 1 : 0.75,
           }}
         >
-          <div className="mb-2 d-flex">
-            <div className="mr-2">
+          <Flex align="center" gap="2" wrap="wrap" mb="2">
+            <Box style={{ minWidth: "200px", flex: "1 1 200px" }}>
               <Field
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
               />
-            </div>
-            <div className="align-self-center">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            <div className="ml-auto">
-              {showEnvDropdown && (
-                <div className="d-flex flex-nowrap">
-                  <div className="mr-1 align-self-center small">
-                    Environment:
-                  </div>
-                  <SelectField
-                    value={!selectedEnvironment ? "all" : selectedEnvironment}
-                    options={environmentOptions}
-                    onChange={(e) => {
-                      setSelectedEnvironment(e);
-                      refreshResults();
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+            </Box>
+            <TagsFilter filter={tagsFilter} items={items} />
+            {showEnvDropdown ? (
+              <Flex
+                align="center"
+                gap="1"
+                wrap="nowrap"
+                ml="auto"
+                style={{ flexShrink: 0 }}
+              >
+                <Box
+                  className="small"
+                  style={{ alignSelf: "center", whiteSpace: "nowrap" }}
+                >
+                  Environment:
+                </Box>
+                <SelectField
+                  value={!selectedEnvironment ? "all" : selectedEnvironment}
+                  options={environmentOptions}
+                  onChange={(e) => {
+                    setSelectedEnvironment(e);
+                    refreshResults();
+                  }}
+                />
+              </Flex>
+            ) : null}
+          </Flex>
 
-          <table className="table gbtable table-hover appbox">
-            <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
-            >
-              <tr>
-                <th>Feature Name</th>
-                <SortableTH field="tags">Tags</SortableTH>
+          <Table variant="list" stickyHeader roundedCorners className="appbox">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader
+                  style={{ maxWidth: SIMULATE_FEATURE_NAME_COLUMN_MAX }}
+                >
+                  Feature Name
+                </TableColumnHeader>
+                <SortableTableColumnHeader field="tags">
+                  Tags
+                </SortableTableColumnHeader>
                 {selectedEnvironment !== "all" ? (
-                  <th>{selectedEnvironment}</th>
+                  <TableColumnHeader>{selectedEnvironment}</TableColumnHeader>
                 ) : (
                   <>
                     {environments.slice(0, maxEnvironments).map((en) => (
-                      <th key={en.id + "head"} className="">
+                      <TableColumnHeader key={en.id + "head"}>
                         {en.id}
-                      </th>
+                      </TableColumnHeader>
                     ))}
                   </>
                 )}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {featureItems.map((feature) => {
                 return (
                   <Fragment key={feature.id + "results"}>
-                    <tr className={feature.archived ? "text-muted" : ""}>
-                      <td>
+                    <TableRow className={feature.archived ? "text-muted" : ""}>
+                      <TableCell
+                        style={{
+                          padding: "var(--space-0)",
+                          maxWidth: SIMULATE_FEATURE_NAME_COLUMN_MAX,
+                        }}
+                      >
                         <Link
                           href={`/features/${feature.id}`}
-                          className={feature.archived ? "text-muted" : ""}
+                          className="featurename"
+                          style={{
+                            padding: "var(--space-3)",
+                            display: "block",
+                            color: feature.archived
+                              ? "var(--gray-11)"
+                              : undefined,
+                          }}
                         >
-                          {feature.id}
+                          <TruncateMiddleWithTooltip
+                            text={feature.id}
+                            maxChars={23}
+                            maxWidth={SIMULATE_FEATURE_NAME_COLUMN_MAX}
+                            flipTheme={false}
+                          />
                         </Link>
-                      </td>
-                      <td>
-                        <SortedTags tags={feature?.tags || []} />
-                      </td>
+                      </TableCell>
+                      <TableCell>
+                        <SortedTags
+                          tags={feature?.tags || []}
+                          maxVisibleTags={1}
+                          truncateTagChars={15}
+                        />
+                      </TableCell>
                       {selectedEnvironment !== "all" ? (
                         (() => {
                           const res = featureResultsMap.get(
                             feature.id + selectedEnvironment,
                           );
                           if (!res) {
-                            return <td>-</td>;
+                            return <TableCell>-</TableCell>;
                           }
                           return (
-                            <td>
+                            <TableCell>
                               <div>
                                 {ArchetypeValueDisplay({
                                   result: res,
                                   feature,
                                 })}
                               </div>
-                            </td>
-                          ); // Replace this with what you want to render
+                            </TableCell>
+                          );
                         })()
                       ) : (
                         <>
@@ -322,13 +360,17 @@ export const SimulateFeatureValues: FC<{
                             );
                             if (!res) {
                               return (
-                                <td key={"unknown-" + en.id + feature.id}>-</td>
+                                <TableCell
+                                  key={"unknown-" + en.id + feature.id}
+                                >
+                                  -
+                                </TableCell>
                               );
                             }
                             return (
-                              <td
+                              <TableCell
                                 key={feature.id + en.id + "row"}
-                                className="position-relative  cursor-pointer"
+                                className="position-relative cursor-pointer"
                               >
                                 <div>
                                   {ArchetypeValueDisplay({
@@ -336,22 +378,24 @@ export const SimulateFeatureValues: FC<{
                                     feature,
                                   })}
                                 </div>
-                              </td>
+                              </TableCell>
                             );
                           })}
                         </>
                       )}
-                    </tr>
+                    </TableRow>
                   </Fragment>
                 );
               })}
               {!items.length && (
-                <tr>
-                  <td colSpan={numColumns}>No matching features</td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={numColumns}>
+                    No matching features
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
             <Pagination
               numItemsTotal={items.length}
@@ -362,46 +406,50 @@ export const SimulateFeatureValues: FC<{
               }}
             />
           )}
-        </div>
-      </div>
-      <div className="alert-info mt-5 mb-5 p-3 cursor-pointer align-items-center">
-        <div
-          className="d-flex"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpenWarning(!openWarning);
-          }}
-        >
-          <div className="p-2 pr-3">
-            <FiAlertTriangle />
-          </div>
-          <div>
-            These results use the JS SDK, which supports the V2 hashing
-            algorithm. If you use one of the older or unsupported SDKs, you may
-            want to change the hashing algorithm of the experiment to v1 to
-            ensure accurate results. Click for more info.
-          </div>
-          <div className="p-2">
-            <FaChevronRight
-              style={{
-                transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
-              }}
-            />
-          </div>
-        </div>
-        {openWarning && (
-          <div className="p-3">
-            The following SDK versions support V2 hashing:
-            <MinSDKVersionsList capability="bucketingV2" />
-          </div>
-        )}
-      </div>
+        </Box>
+      </Box>
+      <Box mt="5" mb="5">
+        <Callout status="info" contentsAs="div" icon={null}>
+          <Box
+            onClick={(e) => {
+              e.preventDefault();
+              setOpenWarning(!openWarning);
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            <Flex align="start" gap="2">
+              <Box p="2" style={{ flexShrink: 0 }}>
+                <FiAlertTriangle />
+              </Box>
+              <Box style={{ flex: 1 }}>
+                These results use the JS SDK, which supports the V2 hashing
+                algorithm. If you use one of the older or unsupported SDKs, you
+                may want to change the hashing algorithm of the experiment to v1
+                to ensure accurate results. Click for more info.
+              </Box>
+              <Box p="2" style={{ flexShrink: 0 }}>
+                <FaChevronRight
+                  style={{
+                    transform: `rotate(${openWarning ? "90deg" : "0deg"})`,
+                  }}
+                />
+              </Box>
+            </Flex>
+          </Box>
+          {openWarning && (
+            <Box p="3" mt="2">
+              The following SDK versions support V2 hashing:
+              <MinSDKVersionsList capability="bucketingV2" />
+            </Box>
+          )}
+        </Callout>
+      </Box>
     </>
   );
 
   if (!hasSimulateFeature) {
     return (
-      <div className="mb-3">
+      <Box mb="3">
         <PremiumEmptyState
           title="Simulate feature/experiment states for Users"
           description=" For any set of attributes or archetype, simulate what feature
@@ -410,7 +458,7 @@ export const SimulateFeatureValues: FC<{
           commercialFeature="simulate"
           learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
         />
-      </div>
+      </Box>
     );
   }
 
@@ -432,22 +480,20 @@ export const SimulateFeatureValues: FC<{
           }}
         />
       )}
-      <div className="">
-        <div className="row mb-3">
-          <div className="col">
-            <h1>Simulate Features</h1>
-          </div>
-          <div className="col-auto">
-            <Button
-              onClick={() => {
-                setEditAttributesModalOpen(true);
-              }}
-            >
-              {attributes && Object.keys(attributes).length ? "Edit" : "Set"}{" "}
-              Attributes
-            </Button>
-          </div>
-        </div>
+      <Box>
+        <Flex align="center" justify="between" mb="3" gap="3" wrap="wrap">
+          <Heading as="h1" size="2x-large">
+            Simulate Features
+          </Heading>
+          <Button
+            onClick={() => {
+              setEditAttributesModalOpen(true);
+            }}
+          >
+            {attributes && Object.keys(attributes).length ? "Edit" : "Set"}{" "}
+            Attributes
+          </Button>
+        </Flex>
 
         {!canCreate ? (
           <PremiumTooltip
@@ -486,7 +532,7 @@ export const SimulateFeatureValues: FC<{
         ) : (
           <>{featureTableResults}</>
         )}
-      </div>
+      </Box>
     </>
   );
 };

@@ -213,6 +213,7 @@ export default function FeatureDiagnostics({
 
   return (
     <Box className="contents container-fluid pagecontents">
+      <h2>Feature Evaluation Diagnostics</h2>
       <p>
         View recent feature evaluations along with any custom metadata
         you&apos;ve added.

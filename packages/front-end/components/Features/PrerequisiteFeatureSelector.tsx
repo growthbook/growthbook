@@ -16,7 +16,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 
 export interface FeatureOptionMeta {
   conditional: boolean;
@@ -181,12 +180,7 @@ export default function PrerequisiteFeatureSelector({
               )}
               {meta?.wouldBeCyclic && (
                 <Tooltip
-                  flipTheme={false}
-                  body={
-                    <Text size="small" color="text-high">
-                      Selecting this feature would create a cyclic dependency.
-                    </Text>
-                  }
+                  body="Selecting this feature would create a cyclic dependency."
                   style={{
                     position: "relative",
                     zIndex: 1000,
@@ -194,81 +188,16 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRecycle style={{ color: featureStatusColors.offMuted }} />
+                  <FaRecycle className="text-muted" />
                 </Tooltip>
               )}
               {meta?.deterministicLive && (
                 <Tooltip
-                  flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <>
                       This feature is{" "}
-                      <strong style={{ color: featureStatusColors.on }}>
+                      <span className="text-success font-weight-bold">
                         live
-                      </strong>{" "}
-                      {environments.length === 1
-                        ? "in this environment"
-                        : environments.includes("production") ||
-                            environments.includes("prod")
-                          ? "in production"
-                          : "in this environment"}
-                      .
-                    </Text>
-                  }
-                  style={{
-                    position: "relative",
-                    zIndex: 1000,
-                    display: "inline-flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <FaRegCircleCheck style={{ color: featureStatusColors.on }} />
-                </Tooltip>
-              )}
-              {meta?.deterministicNotLive && (
-                <Tooltip
-                  flipTheme={false}
-                  body={
-                    <Text as="div" size="small" color="text-high">
-                      This feature is{" "}
-                      <strong style={{ color: featureStatusColors.off }}>
-                        not live
-                      </strong>{" "}
-                      {environments.length === 1
-                        ? "in this environment"
-                        : environments.includes("production") ||
-                            environments.includes("prod")
-                          ? "in production"
-                          : "in this environment"}
-                      .
-                    </Text>
-                  }
-                  style={{
-                    position: "relative",
-                    zIndex: 1000,
-                    display: "inline-flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <FaRegCircleXmark
-                    style={{ color: featureStatusColors.offMuted }}
-                  />
-                </Tooltip>
-              )}
-              {meta?.deterministicFalse && (
-                <Tooltip
-                  flipTheme={false}
-                  body={
-                    <Text as="div" size="small" color="text-high">
-                      This feature is currently serving{" "}
-                      <span
-                        style={{
-                          borderRadius: "var(--radius-2)",
-                          padding: "0 var(--space-1)",
-                          backgroundColor: "var(--gray-a3)",
-                        }}
-                      >
-                        false
                       </span>{" "}
                       {environments.length === 1
                         ? "in this environment"
@@ -277,7 +206,7 @@ export default function PrerequisiteFeatureSelector({
                           ? "in production"
                           : "in this environment"}
                       .
-                    </Text>
+                    </>
                   }
                   style={{
                     position: "relative",
@@ -286,20 +215,69 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRegCircleXmark
-                    style={{ color: featureStatusColors.offMuted }}
-                  />
+                  <FaRegCircleCheck className="text-success" />
+                </Tooltip>
+              )}
+              {meta?.deterministicNotLive && (
+                <Tooltip
+                  body={
+                    <>
+                      This feature is{" "}
+                      <span className="text-gray font-weight-bold">
+                        not live
+                      </span>{" "}
+                      {environments.length === 1
+                        ? "in this environment"
+                        : environments.includes("production") ||
+                            environments.includes("prod")
+                          ? "in production"
+                          : "in this environment"}
+                      .
+                    </>
+                  }
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaRegCircleXmark className="text-muted" />
+                </Tooltip>
+              )}
+              {meta?.deterministicFalse && (
+                <Tooltip
+                  body={
+                    <>
+                      This feature is currently serving{" "}
+                      <span className="rounded px-1 bg-light">false</span>{" "}
+                      {environments.length === 1
+                        ? "in this environment"
+                        : environments.includes("production") ||
+                            environments.includes("prod")
+                          ? "in production"
+                          : "in this environment"}
+                      .
+                    </>
+                  }
+                  style={{
+                    position: "relative",
+                    zIndex: 1000,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <FaRegCircleXmark className="text-muted" />
                 </Tooltip>
               )}
               {meta?.conditional && (
                 <Tooltip
-                  flipTheme={false}
                   body={
-                    <Text as="div" size="small" color="text-high">
+                    <>
                       This feature is in a{" "}
-                      <strong style={{ color: featureStatusColors.warning }}>
+                      <span className="text-warning-orange font-weight-bold">
                         Schrödinger state
-                      </strong>
+                      </span>
                       {environments.length > 1 && " in some environments"}.
                       {!hasSDKWithPrerequisites && (
                         <>
@@ -308,7 +286,7 @@ export default function PrerequisiteFeatureSelector({
                           evaluating Schrödinger states.
                         </>
                       )}
-                    </Text>
+                    </>
                   }
                   style={{
                     position: "relative",
@@ -317,19 +295,12 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaRegCircleQuestion
-                    style={{ color: featureStatusColors.warning }}
-                  />
+                  <FaRegCircleQuestion className="text-warning-orange" />
                 </Tooltip>
               )}
               {meta?.cyclic && (
                 <Tooltip
-                  flipTheme={false}
-                  body={
-                    <Text size="small" color="text-high">
-                      This feature has a cyclic dependency.
-                    </Text>
-                  }
+                  body="This feature has a cyclic dependency."
                   style={{
                     position: "relative",
                     zIndex: 1000,
@@ -337,9 +308,7 @@ export default function PrerequisiteFeatureSelector({
                     alignItems: "center",
                   }}
                 >
-                  <FaExclamationCircle
-                    style={{ color: featureStatusColors.danger }}
-                  />
+                  <FaExclamationCircle className="text-danger" />
                 </Tooltip>
               )}
             </div>

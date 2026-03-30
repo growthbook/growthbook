@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
 import { rowFilterValidator } from "./fact-table";
 
@@ -149,7 +148,7 @@ export const dateRangePredefined = [
 export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 
 export const baseExplorationConfigValidator = z.object({
-  datasource: z.string().describe("ID of the datasource to query"),
+  datasource: z.string(),
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
   dateRange: z.object({
@@ -227,20 +226,6 @@ export const productAnalyticsExplorationValidator = z.object({
   queries: z.array(queryPointerValidator),
 });
 
-export const explorationCacheQuerySchema = z.object({
-  cache: z
-    .enum(["preferred", "required", "never"])
-    .describe(
-      "Controls cache behavior for this exploration: " +
-        "`preferred` (default) returns a cached result if one exists, otherwise runs a new query; " +
-        "`never` always runs a new query, ignoring any cached results; " +
-        "`required` only returns a cached result, if none exists returns exploration: null with a message",
-    )
-    .optional(),
-});
-
-export type ExplorationCacheQuery = z.infer<typeof explorationCacheQuerySchema>;
-
 export type BaseExplorationConfig = z.infer<
   typeof baseExplorationConfigValidator
 >;
@@ -279,37 +264,4 @@ export type ProductAnalyticsResultRow = z.infer<
 >;
 export type ProductAnalyticsExploration = z.infer<
   typeof productAnalyticsExplorationValidator
->;
-
-export const apiExplorationBaseValidator = apiBaseSchema.safeExtend({
-  datasource: z.string(),
-  status: z.enum(["running", "success", "error"]),
-  dateStart: z.string(),
-  dateEnd: z.string(),
-  error: z.string().nullable().optional(),
-  result: productAnalyticsResultValidator,
-});
-
-export const apiMetricExplorationValidator =
-  apiExplorationBaseValidator.safeExtend({
-    config: metricExplorationConfigValidator,
-  });
-
-export const apiFactTableExplorationValidator =
-  apiExplorationBaseValidator.safeExtend({
-    config: factTableExplorationConfigValidator,
-  });
-
-export const apiDataSourceExplorationValidator =
-  apiExplorationBaseValidator.safeExtend({
-    config: dataSourceExplorationConfigValidator,
-  });
-
-export const apiAnalyticsExplorationValidator =
-  apiExplorationBaseValidator.safeExtend({
-    config: explorationConfigValidator,
-  });
-
-export type ApiAnalyticsExploration = z.infer<
-  typeof apiAnalyticsExplorationValidator
 >;

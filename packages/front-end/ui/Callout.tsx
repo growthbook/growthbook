@@ -39,7 +39,6 @@ export default forwardRef<
   {
     children: ReactNode;
     status: Status;
-    color?: RadixCallout.RootProps["color"]; // Use status instead of color whenever possible
     size?: "sm" | "md";
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
@@ -50,7 +49,6 @@ export default forwardRef<
   {
     children,
     status,
-    color,
     size = "md",
     icon,
     contentsAs = "text",
@@ -85,7 +83,7 @@ export default forwardRef<
     <RadixCallout.Root
       ref={ref}
       className={styles.callout}
-      color={color || getRadixColor(status)}
+      color={getRadixColor(status)}
       role={status === "error" ? "alert" : undefined}
       size={getRadixSize(size)}
       {...containerProps}

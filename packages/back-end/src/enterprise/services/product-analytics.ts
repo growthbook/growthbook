@@ -2,7 +2,6 @@ import {
   ExplorationConfig,
   explorationConfigValidator,
   ProductAnalyticsExploration,
-  ExplorationCacheQuery,
 } from "shared/validators";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
 import {
@@ -24,7 +23,7 @@ import { ReqContext } from "back-end/types/request";
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
-  options: ExplorationCacheQuery,
+  options: { cache?: "preferred" | "required" | "never" },
 ): Promise<ProductAnalyticsExploration | null> {
   config = explorationConfigValidator.parse(config);
 

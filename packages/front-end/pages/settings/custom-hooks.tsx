@@ -42,6 +42,7 @@ const dummyFeature: FeatureInterface = {
   owner: "",
   project: "",
   version: 1,
+  hasDrafts: false,
   prerequisites: [],
   customFields: {},
 };

@@ -2,10 +2,6 @@ parameters:
   - $ref: "../parameters.yaml#/id"
 post:
   summary: Toggle a feature in one or more environments
-  description: |
-    Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
-
-    Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
   tags:
     - features
   operationId: toggleFeature

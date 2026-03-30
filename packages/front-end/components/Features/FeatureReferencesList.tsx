@@ -46,14 +46,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
               }}
             >
               {features.map((featureId) => (
-                <li
-                  key={featureId}
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <li key={featureId}>
                   <Link href={`/features/${featureId}`} target="_blank">
                     {featureId}
                   </Link>
@@ -93,14 +86,7 @@ const FeatureReferencesList: FC<FeatureReferencesListProps> = ({
               }}
             >
               {experiments.map((experiment) => (
-                <li
-                  key={experiment.id}
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <li key={experiment.id}>
                   <Link href={`/experiment/${experiment.id}`} target="_blank">
                     {experiment.name ?? experiment.id}
                   </Link>

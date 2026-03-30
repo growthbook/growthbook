@@ -1,6 +1,8 @@
 import { FC } from "react";
+import { Box } from "@radix-ui/themes";
 import ApiKeys from "@/components/Settings/ApiKeys";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const ApiKeysPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
@@ -9,18 +11,18 @@ const ApiKeysPage: FC = () => {
     !permissionsUtils.canDeleteApiKey()
   ) {
     return (
-      <div className="container pagecontents">
-        <div className="alert alert-danger">
+      <Box className="container pagecontents">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
-      </div>
+        </Callout>
+      </Box>
     );
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <Box className="container-fluid pagecontents">
       <ApiKeys />
-    </div>
+    </Box>
   );
 };
 export default ApiKeysPage;

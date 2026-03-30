@@ -117,7 +117,7 @@ export function createApiRequestHandler<
           );
           return res.status(200).json(result);
         } catch (e) {
-          return res.status(e.status || 400).json({
+          return res.status(400).json({
             message: e.message,
           });
         }

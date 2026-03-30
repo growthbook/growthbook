@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { parseIntWithDefault, parseIntWithDefaultCapped } from "shared/util";
 import { EventInterface } from "shared/types/events/event";
 import * as Event from "back-end/src/models/EventModel";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -32,9 +31,9 @@ export const getEvents = async (
 
   const eventTypes = JSON.parse(type || "[]");
 
-  const cappedPerPage = parseIntWithDefaultCapped(perPage, 30, 100);
+  const cappedPerPage = Math.min(parseInt(perPage), 100);
   const events = await Event.getEventsForOrganization(context.org.id, {
-    page: parseIntWithDefault(page, 1),
+    page: parseInt(page),
     perPage: cappedPerPage,
     eventTypes,
     from,

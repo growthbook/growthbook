@@ -49,7 +49,6 @@ type Props = {
   onSkip?: () => Promise<void>;
   skipped?: Set<number>;
   hideNav?: boolean;
-  bodyPrefix?: ReactNode;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -84,7 +83,6 @@ const PagedModal: FC<Props> = (props) => {
     onSkip,
     skipped,
     hideNav,
-    bodyPrefix,
     loading,
     trackingEventModalType,
     trackingEventModalSource,
@@ -352,7 +350,6 @@ const PagedModal: FC<Props> = (props) => {
       modalUuid={modalUuid}
       aboveBodyContent={stepper}
     >
-      {bodyPrefix}
       <div className="mt-2">{content}</div>
     </Modal>
   );

@@ -7,12 +7,6 @@ import formatRelative from "date-fns/formatRelative";
 import previousMonday from "date-fns/previousMonday";
 import { formatInTimeZone } from "date-fns-tz";
 
-export function dateNoYear(date: string | Date): string {
-  if (!date) return "";
-  const d = getValidDate(date);
-  const isCurrentYear = d.getFullYear() === new Date().getFullYear();
-  return format(d, isCurrentYear ? "MMM d" : "MMM d, yyyy");
-}
 export function date(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
   const d = getValidDate(date);

@@ -74,26 +74,14 @@ export default forwardRef<
     children: string | string[] | ReactNode;
     status: Status;
     size?: "sm" | "md";
-    icon?: ReactNode | null;
   } & MarginProps
->(function HelperText(
-  { children, status, size = "md", icon, ...otherProps },
-  ref,
-) {
-  const renderedIcon = (() => {
-    if (icon === null) return null;
-    if (icon !== undefined) return icon;
-    return <RadixStatusIcon status={status} size={size} />;
-  })();
-
+>(function HelperText({ children, status, size = "md", ...otherProps }, ref) {
   return (
     <Text color={getRadixColor(status)} size={getRadixSize(size)}>
       <Flex gap="1" {...otherProps} ref={ref}>
-        {renderedIcon && (
-          <div style={{ flex: "0 0 auto", position: "relative", top: -1.5 }}>
-            {renderedIcon}
-          </div>
-        )}
+        <div style={{ flex: "0 0 auto", position: "relative", top: -1.5 }}>
+          <RadixStatusIcon status={status} size={size} />
+        </div>
         {children}
       </Flex>
     </Text>

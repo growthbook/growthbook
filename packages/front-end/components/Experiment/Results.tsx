@@ -197,7 +197,7 @@ const Results: FC<{
     experiment.guardrailMetrics.length > 0;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const hasQueries = queryStrings.length > 0;
+
   return (
     <>
       {!draftMode ? null : (
@@ -227,18 +227,9 @@ const Results: FC<{
 
       {status === "failed" && !hasData && !snapshotLoading ? (
         <Callout status="error" mx="3" my="4">
-          The most recent update failed.
-          {hasQueries ? (
-            <>
-              {" "}
-              <Link onClick={() => setQueriesModalOpen(true)}>
-                View queries
-              </Link>
-              {" to see what went wrong."}
-            </>
-          ) : (
-            ""
-          )}
+          The most recent update failed.{" "}
+          <Link onClick={() => setQueriesModalOpen(true)}>View queries</Link> to
+          see what went wrong.
         </Callout>
       ) : null}
 
@@ -503,7 +494,7 @@ const Results: FC<{
           ) : null}
         </MetricDrilldownProvider>
       )}
-      {queriesModalOpen && hasQueries && (
+      {queriesModalOpen && queryStrings.length > 0 && (
         <AsyncQueriesModal
           close={() => setQueriesModalOpen(false)}
           queries={queryStrings}

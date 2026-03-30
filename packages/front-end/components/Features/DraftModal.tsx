@@ -1,12 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
-  fillRevisionFromFeature,
-  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
@@ -50,16 +48,12 @@ export function ExpandableDiff({
   b,
   defaultOpen = false,
   styles,
-  leftTitle,
-  rightTitle,
 }: {
   title: string;
   a: string;
   b: string;
   defaultOpen?: boolean;
   styles?: object;
-  leftTitle?: string | React.ReactElement;
-  rightTitle?: string | React.ReactElement;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -87,8 +81,6 @@ export function ExpandableDiff({
             newValue={b}
             compareMethod={DiffMethod.LINES}
             styles={styles ?? { contentText: { wordBreak: "break-all" } }}
-            leftTitle={leftTitle}
-            rightTitle={rightTitle}
           />
         </div>
       )}
@@ -116,18 +108,12 @@ export default function DraftModal({
     (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
-  const envIds = environments.map((e) => e.id);
 
+  const envIds = environments.map((e) => e.id);
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(
-      liveRevisionFromFeature(liveRevision, feature),
-      fillRevisionFromFeature(baseRevision, feature),
-      revision,
-      envIds,
-      {},
-    );
-  }, [revision, baseRevision, liveRevision, envIds, feature]);
+    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
+  }, [revision, baseRevision, liveRevision, envIds]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -151,24 +137,6 @@ export default function DraftModal({
           defaultValue:
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
-          // Only include envelope fields if they were part of the merge result
-          ...(mergeResult.result.environmentsEnabled !== undefined
-            ? { environmentsEnabled: mergeResult.result.environmentsEnabled }
-            : {}),
-          ...(mergeResult.result.prerequisites !== undefined
-            ? { prerequisites: mergeResult.result.prerequisites }
-            : {}),
-          ...("holdout" in mergeResult.result
-            ? { holdout: mergeResult.result.holdout }
-            : {}),
-          ...(mergeResult.result.metadata !== undefined
-            ? {
-                metadata: {
-                  ...currentRevisionData.metadata,
-                  ...mergeResult.result.metadata,
-                },
-              }
-            : {}),
         }
       : currentRevisionData,
   });
@@ -384,7 +352,7 @@ export default function DraftModal({
             </div>
             {hasPermission ? (
               <Field
-                label="Notes (optional)"
+                label="Add a Comment (optional)"
                 textarea
                 placeholder="Summary of changes..."
                 value={comment}

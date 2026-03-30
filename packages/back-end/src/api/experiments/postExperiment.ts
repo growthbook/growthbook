@@ -15,11 +15,11 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
-  validateVariationIds,
 } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
 
 const TEMPLATE_FIELDS_TO_OMIT = [
@@ -107,7 +107,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       };
     }
 
-    if (payload.assignmentQueryId === undefined) {
+    if (!payload.assignmentQueryId) {
       throw new Error(
         "assignmentQueryId is required unless provided by the template",
       );

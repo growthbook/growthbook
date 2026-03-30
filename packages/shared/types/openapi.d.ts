@@ -24,28 +24,13 @@ export interface paths {
   "/features/{id}": {
     /** Get a single feature */
     get: operations["getFeature"];
-    /**
-     * Partially update a feature 
-     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
-     * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     */
+    /** Partially update a feature */
     post: operations["updateFeature"];
-    /**
-     * Deletes a single feature 
-     * @description Permanently deletes a feature and all of its revisions.
-     * 
-     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
-     */
+    /** Deletes a single feature */
     delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
-    /**
-     * Toggle a feature in one or more environments 
-     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
-     * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     */
+    /** Toggle a feature in one or more environments */
     post: operations["toggleFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -55,12 +40,7 @@ export interface paths {
     };
   };
   "/features/{id}/revert": {
-    /**
-     * Revert a feature to a specific revision 
-     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
-     * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     */
+    /** Revert a feature to a specific revision */
     post: operations["revertFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -422,18 +402,6 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
-  "/product-analytics/metric-exploration": {
-    /** Create a Metric based visualization */
-    post: operations["postMetricExploration"];
-  };
-  "/product-analytics/fact-table-exploration": {
-    /** Run a Fact Table based visualization */
-    post: operations["postFactTableExploration"];
-  };
-  "/product-analytics/data-source-exploration": {
-    /** Create a Data Source based visualization */
-    post: operations["postDataSourceExploration"];
-  };
   "/custom-fields": {
     /** Get all custom fields */
     get: operations["listCustomFields"];
@@ -512,225 +480,6 @@ export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
-    AnalyticsExploration: {
-      id: string;
-      /** Format: date-time */
-      dateCreated: string;
-      /** Format: date-time */
-      dateUpdated: string;
-      datasource: string;
-      /** @enum {string} */
-      status: "running" | "success" | "error";
-      dateStart: string;
-      dateEnd: string;
-      error?: string | null;
-      result: {
-        rows: ({
-            dimensions: (string | null)[];
-            values: ({
-                metricId: string;
-                numerator: number | null;
-                denominator: number | null;
-              })[];
-          })[];
-      };
-      config: ({
-        /** @description ID of the datasource to query */
-        datasource: string;
-        dimensions: (({
-            /** @constant */
-            dimensionType: "date";
-            column: string | null;
-            /** @enum {string} */
-            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-          }) | ({
-            /** @constant */
-            dimensionType: "dynamic";
-            column: string | null;
-            maxValues: number;
-          }) | {
-            /** @constant */
-            dimensionType: "static";
-            column: string;
-            values: (string)[];
-          } | ({
-            /** @constant */
-            dimensionType: "slice";
-            slices: ({
-                name: string;
-                filters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-              })[];
-          }))[];
-        /** @enum {string} */
-        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-        dateRange: {
-          /** @enum {string} */
-          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
-        };
-        /** @constant */
-        type: "metric";
-        dataset: {
-          /** @constant */
-          type: "metric";
-          values: ({
-              name: string;
-              rowFilters: ({
-                  /** @enum {string} */
-                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                  column?: string;
-                  values?: (string)[];
-                })[];
-              /** @constant */
-              type: "metric";
-              metricId: string;
-              unit: string | null;
-              denominatorUnit: string | null;
-            })[];
-        };
-      }) | ({
-        /** @description ID of the datasource to query */
-        datasource: string;
-        dimensions: (({
-            /** @constant */
-            dimensionType: "date";
-            column: string | null;
-            /** @enum {string} */
-            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-          }) | ({
-            /** @constant */
-            dimensionType: "dynamic";
-            column: string | null;
-            maxValues: number;
-          }) | {
-            /** @constant */
-            dimensionType: "static";
-            column: string;
-            values: (string)[];
-          } | ({
-            /** @constant */
-            dimensionType: "slice";
-            slices: ({
-                name: string;
-                filters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-              })[];
-          }))[];
-        /** @enum {string} */
-        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-        dateRange: {
-          /** @enum {string} */
-          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
-        };
-        /** @constant */
-        type: "fact_table";
-        dataset: {
-          /** @constant */
-          type: "fact_table";
-          factTableId: string | null;
-          values: ({
-              name: string;
-              rowFilters: ({
-                  /** @enum {string} */
-                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                  column?: string;
-                  values?: (string)[];
-                })[];
-              /** @constant */
-              type: "fact_table";
-              /** @enum {string} */
-              valueType: "unit_count" | "count" | "sum";
-              valueColumn: string | null;
-              unit: string | null;
-            })[];
-        };
-      }) | ({
-        /** @description ID of the datasource to query */
-        datasource: string;
-        dimensions: (({
-            /** @constant */
-            dimensionType: "date";
-            column: string | null;
-            /** @enum {string} */
-            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-          }) | ({
-            /** @constant */
-            dimensionType: "dynamic";
-            column: string | null;
-            maxValues: number;
-          }) | {
-            /** @constant */
-            dimensionType: "static";
-            column: string;
-            values: (string)[];
-          } | ({
-            /** @constant */
-            dimensionType: "slice";
-            slices: ({
-                name: string;
-                filters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-              })[];
-          }))[];
-        /** @enum {string} */
-        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-        dateRange: {
-          /** @enum {string} */
-          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-          lookbackValue: number | null;
-          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-          startDate: string | null;
-          endDate: string | null;
-        };
-        /** @constant */
-        type: "data_source";
-        dataset: {
-          /** @constant */
-          type: "data_source";
-          table: string;
-          path: string;
-          timestampColumn: string;
-          columnTypes: {
-            [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
-          };
-          values: ({
-              name: string;
-              rowFilters: ({
-                  /** @enum {string} */
-                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                  column?: string;
-                  values?: (string)[];
-                })[];
-              /** @constant */
-              type: "data_source";
-              /** @enum {string} */
-              valueType: "unit_count" | "count" | "sum";
-              valueColumn: string | null;
-              unit: string | null;
-            })[];
-        };
-      });
-    };
     CustomField: {
       id: string;
       /** Format: date-time */
@@ -929,7 +678,6 @@ export interface components {
           snapshotId?: string;
           explorerAnalysisId: string;
           config: {
-            /** @description ID of the datasource to query */
             datasource: string;
             dimensions: (({
                 /** @constant */
@@ -1002,7 +750,6 @@ export interface components {
           snapshotId?: string;
           explorerAnalysisId: string;
           config: {
-            /** @description ID of the datasource to query */
             datasource: string;
             dimensions: (({
                 /** @constant */
@@ -1077,7 +824,6 @@ export interface components {
           snapshotId?: string;
           explorerAnalysisId: string;
           config: {
-            /** @description ID of the datasource to query */
             datasource: string;
             dimensions: (({
                 /** @constant */
@@ -1898,12 +1644,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      holdout?: {
-        /** @description Holdout ID */
-        id: string;
-        /** @description The feature value assigned to users in the holdout treatment group */
-        value: string;
-      } | null;
     };
     FeatureWithRevisions: ({
       id: string;
@@ -2354,12 +2094,6 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      holdout?: {
-        /** @description Holdout ID */
-        id: string;
-        /** @description The feature value assigned to users in the holdout treatment group */
-        value: string;
-      } | null;
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -2370,8 +2104,6 @@ export interface components {
           status: string;
           createdBy?: string;
           publishedBy?: string;
-          /** @description The default value at the time this revision was created */
-          defaultValue?: string;
           rules: {
             [key: string]: ((({
                 description: string;
@@ -2580,47 +2312,6 @@ export interface components {
           };
           definitions?: {
             [key: string]: string | undefined;
-          };
-          /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
-          environmentsEnabled?: {
-            [key: string]: boolean | undefined;
-          };
-          /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-          envPrerequisites?: {
-            [key: string]: ({
-                /** @description Feature ID */
-                id: string;
-                condition: string;
-              })[] | undefined;
-          };
-          /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-          prerequisites?: ({
-              /** @description Feature ID */
-              id: string;
-              condition: string;
-            })[];
-          /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
-          metadata?: {
-            description?: string;
-            owner?: string;
-            project?: string;
-            tags?: (string)[];
-            neverStale?: boolean;
-            valueType?: string;
-            jsonSchema?: {
-              /** @enum {string} */
-              schemaType?: "schema" | "simple";
-              schema?: string;
-              simple?: {
-                [key: string]: unknown | undefined;
-              };
-              /** Format: date-time */
-              date?: string;
-              enabled?: boolean;
-            };
-            customFields?: {
-              [key: string]: unknown | undefined;
-            };
           };
         })[];
     });
@@ -3480,8 +3171,6 @@ export interface components {
       status: string;
       createdBy?: string;
       publishedBy?: string;
-      /** @description The default value at the time this revision was created */
-      defaultValue?: string;
       rules: {
         [key: string]: ((({
             description: string;
@@ -3690,47 +3379,6 @@ export interface components {
       };
       definitions?: {
         [key: string]: string | undefined;
-      };
-      /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
-      environmentsEnabled?: {
-        [key: string]: boolean | undefined;
-      };
-      /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-      envPrerequisites?: {
-        [key: string]: ({
-            /** @description Feature ID */
-            id: string;
-            condition: string;
-          })[] | undefined;
-      };
-      /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-      prerequisites?: ({
-          /** @description Feature ID */
-          id: string;
-          condition: string;
-        })[];
-      /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
-      metadata?: {
-        description?: string;
-        owner?: string;
-        project?: string;
-        tags?: (string)[];
-        neverStale?: boolean;
-        valueType?: string;
-        jsonSchema?: {
-          /** @enum {string} */
-          schemaType?: "schema" | "simple";
-          schema?: string;
-          simple?: {
-            [key: string]: unknown | undefined;
-          };
-          /** Format: date-time */
-          date?: string;
-          enabled?: boolean;
-        };
-        customFields?: {
-          [key: string]: unknown | undefined;
-        };
       };
     };
     SdkConnection: {
@@ -4825,17 +4473,12 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
-      /** @enum {string} */
-      featureKillSwitchBehavior?: "off" | "warn";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
-          featureRequireEnvironmentReview?: boolean;
-          featureRequireMetadataReview?: boolean;
         })[];
-      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -5403,12 +5046,6 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                holdout?: {
-                  /** @description Holdout ID */
-                  id: string;
-                  /** @description The feature value assigned to users in the holdout treatment group */
-                  value: string;
-                } | null;
               })[];
           }) & {
             limit: number;
@@ -6290,12 +5927,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              holdout?: {
-                /** @description Holdout ID */
-                id: string;
-                /** @description The feature value assigned to users in the holdout treatment group */
-                value: string;
-              } | null;
             };
           };
         };
@@ -6767,12 +6398,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              holdout?: {
-                /** @description Holdout ID */
-                id: string;
-                /** @description The feature value assigned to users in the holdout treatment group */
-                value: string;
-              } | null;
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -6783,8 +6408,6 @@ export interface operations {
                   status: string;
                   createdBy?: string;
                   publishedBy?: string;
-                  /** @description The default value at the time this revision was created */
-                  defaultValue?: string;
                   rules: {
                     [key: string]: ((({
                         description: string;
@@ -6994,47 +6617,6 @@ export interface operations {
                   definitions?: {
                     [key: string]: string | undefined;
                   };
-                  /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
-                  environmentsEnabled?: {
-                    [key: string]: boolean | undefined;
-                  };
-                  /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-                  envPrerequisites?: {
-                    [key: string]: ({
-                        /** @description Feature ID */
-                        id: string;
-                        condition: string;
-                      })[] | undefined;
-                  };
-                  /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-                  prerequisites?: ({
-                      /** @description Feature ID */
-                      id: string;
-                      condition: string;
-                    })[];
-                  /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
-                  metadata?: {
-                    description?: string;
-                    owner?: string;
-                    project?: string;
-                    tags?: (string)[];
-                    neverStale?: boolean;
-                    valueType?: string;
-                    jsonSchema?: {
-                      /** @enum {string} */
-                      schemaType?: "schema" | "simple";
-                      schema?: string;
-                      simple?: {
-                        [key: string]: unknown | undefined;
-                      };
-                      /** Format: date-time */
-                      date?: string;
-                      enabled?: boolean;
-                    };
-                    customFields?: {
-                      [key: string]: unknown | undefined;
-                    };
-                  };
                 })[];
             });
           };
@@ -7043,12 +6625,7 @@ export interface operations {
     };
   };
   updateFeature: {
-    /**
-     * Partially update a feature 
-     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
-     * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     */
+    /** Partially update a feature */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7455,13 +7032,6 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
-          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
-          holdout?: {
-            /** @description Holdout ID */
-            id: string;
-            /** @description The feature value assigned to users in the holdout treatment group */
-            value: string;
-          } | null;
         };
       };
     };
@@ -7918,12 +7488,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              holdout?: {
-                /** @description Holdout ID */
-                id: string;
-                /** @description The feature value assigned to users in the holdout treatment group */
-                value: string;
-              } | null;
             };
           };
         };
@@ -7931,12 +7495,7 @@ export interface operations {
     };
   };
   deleteFeature: {
-    /**
-     * Deletes a single feature 
-     * @description Permanently deletes a feature and all of its revisions.
-     * 
-     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
-     */
+    /** Deletes a single feature */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7958,12 +7517,7 @@ export interface operations {
     };
   };
   toggleFeature: {
-    /**
-     * Toggle a feature in one or more environments 
-     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
-     * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     */
+    /** Toggle a feature in one or more environments */
     requestBody: {
       content: {
         "application/json": {
@@ -8427,12 +7981,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              holdout?: {
-                /** @description Holdout ID */
-                id: string;
-                /** @description The feature value assigned to users in the holdout treatment group */
-                value: string;
-              } | null;
             };
           };
         };
@@ -8440,12 +7988,7 @@ export interface operations {
     };
   };
   revertFeature: {
-    /**
-     * Revert a feature to a specific revision 
-     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
-     * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     */
+    /** Revert a feature to a specific revision */
     requestBody: {
       content: {
         "application/json": {
@@ -8907,12 +8450,6 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              holdout?: {
-                /** @description Holdout ID */
-                id: string;
-                /** @description The feature value assigned to users in the holdout treatment group */
-                value: string;
-              } | null;
             };
           };
         };
@@ -8946,8 +8483,6 @@ export interface operations {
                 status: string;
                 createdBy?: string;
                 publishedBy?: string;
-                /** @description The default value at the time this revision was created */
-                defaultValue?: string;
                 rules: {
                   [key: string]: ((({
                       description: string;
@@ -9156,47 +8691,6 @@ export interface operations {
                 };
                 definitions?: {
                   [key: string]: string | undefined;
-                };
-                /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
-                environmentsEnabled?: {
-                  [key: string]: boolean | undefined;
-                };
-                /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-                envPrerequisites?: {
-                  [key: string]: ({
-                      /** @description Feature ID */
-                      id: string;
-                      condition: string;
-                    })[] | undefined;
-                };
-                /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
-                prerequisites?: ({
-                    /** @description Feature ID */
-                    id: string;
-                    condition: string;
-                  })[];
-                /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
-                metadata?: {
-                  description?: string;
-                  owner?: string;
-                  project?: string;
-                  tags?: (string)[];
-                  neverStale?: boolean;
-                  valueType?: string;
-                  jsonSchema?: {
-                    /** @enum {string} */
-                    schemaType?: "schema" | "simple";
-                    schema?: string;
-                    simple?: {
-                      [key: string]: unknown | undefined;
-                    };
-                    /** Format: date-time */
-                    date?: string;
-                    enabled?: boolean;
-                  };
-                  customFields?: {
-                    [key: string]: unknown | undefined;
-                  };
                 };
               })[];
           }) & {
@@ -15679,17 +15173,12 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
-              /** @enum {string} */
-              featureKillSwitchBehavior?: "off" | "warn";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
-                  featureRequireEnvironmentReview?: boolean;
-                  featureRequireMetadataReview?: boolean;
                 })[];
-              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;
@@ -15703,582 +15192,6 @@ export interface operations {
               preferredEnvironment?: string | null;
               maxMetricSliceLevels?: number;
             };
-          };
-        };
-      };
-    };
-  };
-  postMetricExploration: {
-    /** Create a Metric based visualization */
-    parameters: {
-      query: {
-        cache?: "preferred" | "required" | "never";
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description ID of the datasource to query */
-          datasource: string;
-          dimensions: (({
-              /** @constant */
-              dimensionType: "date";
-              column: string | null;
-              /** @enum {string} */
-              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-            }) | ({
-              /** @constant */
-              dimensionType: "dynamic";
-              column: string | null;
-              maxValues: number;
-            }) | {
-              /** @constant */
-              dimensionType: "static";
-              column: string;
-              values: (string)[];
-            } | ({
-              /** @constant */
-              dimensionType: "slice";
-              slices: ({
-                  name: string;
-                  filters: ({
-                      /** @enum {string} */
-                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                      column?: string;
-                      values?: (string)[];
-                    })[];
-                })[];
-            }))[];
-          /** @enum {string} */
-          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-          dateRange: {
-            /** @enum {string} */
-            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
-          };
-          /** @constant */
-          type: "metric";
-          dataset: {
-            /** @constant */
-            type: "metric";
-            values: ({
-                name: string;
-                rowFilters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-                /** @constant */
-                type: "metric";
-                metricId: string;
-                unit: string | null;
-                denominatorUnit: string | null;
-              })[];
-          };
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            exploration: ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              datasource: string;
-              /** @enum {string} */
-              status: "running" | "success" | "error";
-              dateStart: string;
-              dateEnd: string;
-              error?: string | null;
-              result: {
-                rows: ({
-                    dimensions: (string | null)[];
-                    values: ({
-                        metricId: string;
-                        numerator: number | null;
-                        denominator: number | null;
-                      })[];
-                  })[];
-              };
-              config: {
-                /** @description ID of the datasource to query */
-                datasource: string;
-                dimensions: (({
-                    /** @constant */
-                    dimensionType: "date";
-                    column: string | null;
-                    /** @enum {string} */
-                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-                  }) | ({
-                    /** @constant */
-                    dimensionType: "dynamic";
-                    column: string | null;
-                    maxValues: number;
-                  }) | {
-                    /** @constant */
-                    dimensionType: "static";
-                    column: string;
-                    values: (string)[];
-                  } | ({
-                    /** @constant */
-                    dimensionType: "slice";
-                    slices: ({
-                        name: string;
-                        filters: ({
-                            /** @enum {string} */
-                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                            column?: string;
-                            values?: (string)[];
-                          })[];
-                      })[];
-                  }))[];
-                /** @enum {string} */
-                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-                dateRange: {
-                  /** @enum {string} */
-                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
-                };
-                /** @constant */
-                type: "metric";
-                dataset: {
-                  /** @constant */
-                  type: "metric";
-                  values: ({
-                      name: string;
-                      rowFilters: ({
-                          /** @enum {string} */
-                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                          column?: string;
-                          values?: (string)[];
-                        })[];
-                      /** @constant */
-                      type: "metric";
-                      metricId: string;
-                      unit: string | null;
-                      denominatorUnit: string | null;
-                    })[];
-                };
-              };
-            }) | null;
-            query: ({
-              id: string;
-              organization: string;
-              datasource: string;
-              language: string;
-              query: string;
-              queryType: string;
-              createdAt: string;
-              startedAt: string;
-              /** @enum {string} */
-              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
-              externalId: string;
-              dependencies: (string)[];
-              runAtEnd: boolean;
-            }) | null;
-            /** @description Present when `exploration` is null, explaining why no result was returned. */
-            message?: string;
-          };
-        };
-      };
-    };
-  };
-  postFactTableExploration: {
-    /** Run a Fact Table based visualization */
-    parameters: {
-      query: {
-        cache?: "preferred" | "required" | "never";
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description ID of the datasource to query */
-          datasource: string;
-          dimensions: (({
-              /** @constant */
-              dimensionType: "date";
-              column: string | null;
-              /** @enum {string} */
-              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-            }) | ({
-              /** @constant */
-              dimensionType: "dynamic";
-              column: string | null;
-              maxValues: number;
-            }) | {
-              /** @constant */
-              dimensionType: "static";
-              column: string;
-              values: (string)[];
-            } | ({
-              /** @constant */
-              dimensionType: "slice";
-              slices: ({
-                  name: string;
-                  filters: ({
-                      /** @enum {string} */
-                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                      column?: string;
-                      values?: (string)[];
-                    })[];
-                })[];
-            }))[];
-          /** @enum {string} */
-          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-          dateRange: {
-            /** @enum {string} */
-            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
-          };
-          /** @constant */
-          type: "fact_table";
-          dataset: {
-            /** @constant */
-            type: "fact_table";
-            factTableId: string | null;
-            values: ({
-                name: string;
-                rowFilters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-                /** @constant */
-                type: "fact_table";
-                /** @enum {string} */
-                valueType: "unit_count" | "count" | "sum";
-                valueColumn: string | null;
-                unit: string | null;
-              })[];
-          };
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            exploration: ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              datasource: string;
-              /** @enum {string} */
-              status: "running" | "success" | "error";
-              dateStart: string;
-              dateEnd: string;
-              error?: string | null;
-              result: {
-                rows: ({
-                    dimensions: (string | null)[];
-                    values: ({
-                        metricId: string;
-                        numerator: number | null;
-                        denominator: number | null;
-                      })[];
-                  })[];
-              };
-              config: {
-                /** @description ID of the datasource to query */
-                datasource: string;
-                dimensions: (({
-                    /** @constant */
-                    dimensionType: "date";
-                    column: string | null;
-                    /** @enum {string} */
-                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-                  }) | ({
-                    /** @constant */
-                    dimensionType: "dynamic";
-                    column: string | null;
-                    maxValues: number;
-                  }) | {
-                    /** @constant */
-                    dimensionType: "static";
-                    column: string;
-                    values: (string)[];
-                  } | ({
-                    /** @constant */
-                    dimensionType: "slice";
-                    slices: ({
-                        name: string;
-                        filters: ({
-                            /** @enum {string} */
-                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                            column?: string;
-                            values?: (string)[];
-                          })[];
-                      })[];
-                  }))[];
-                /** @enum {string} */
-                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-                dateRange: {
-                  /** @enum {string} */
-                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
-                };
-                /** @constant */
-                type: "fact_table";
-                dataset: {
-                  /** @constant */
-                  type: "fact_table";
-                  factTableId: string | null;
-                  values: ({
-                      name: string;
-                      rowFilters: ({
-                          /** @enum {string} */
-                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                          column?: string;
-                          values?: (string)[];
-                        })[];
-                      /** @constant */
-                      type: "fact_table";
-                      /** @enum {string} */
-                      valueType: "unit_count" | "count" | "sum";
-                      valueColumn: string | null;
-                      unit: string | null;
-                    })[];
-                };
-              };
-            }) | null;
-            query: ({
-              id: string;
-              organization: string;
-              datasource: string;
-              language: string;
-              query: string;
-              queryType: string;
-              createdAt: string;
-              startedAt: string;
-              /** @enum {string} */
-              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
-              externalId: string;
-              dependencies: (string)[];
-              runAtEnd: boolean;
-            }) | null;
-            /** @description Present when `exploration` is null, explaining why no result was returned. */
-            message?: string;
-          };
-        };
-      };
-    };
-  };
-  postDataSourceExploration: {
-    /** Create a Data Source based visualization */
-    parameters: {
-      query: {
-        cache?: "preferred" | "required" | "never";
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description ID of the datasource to query */
-          datasource: string;
-          dimensions: (({
-              /** @constant */
-              dimensionType: "date";
-              column: string | null;
-              /** @enum {string} */
-              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-            }) | ({
-              /** @constant */
-              dimensionType: "dynamic";
-              column: string | null;
-              maxValues: number;
-            }) | {
-              /** @constant */
-              dimensionType: "static";
-              column: string;
-              values: (string)[];
-            } | ({
-              /** @constant */
-              dimensionType: "slice";
-              slices: ({
-                  name: string;
-                  filters: ({
-                      /** @enum {string} */
-                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                      column?: string;
-                      values?: (string)[];
-                    })[];
-                })[];
-            }))[];
-          /** @enum {string} */
-          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-          dateRange: {
-            /** @enum {string} */
-            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-            lookbackValue: number | null;
-            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-            startDate: string | null;
-            endDate: string | null;
-          };
-          /** @constant */
-          type: "data_source";
-          dataset: {
-            /** @constant */
-            type: "data_source";
-            table: string;
-            path: string;
-            timestampColumn: string;
-            columnTypes: {
-              [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
-            };
-            values: ({
-                name: string;
-                rowFilters: ({
-                    /** @enum {string} */
-                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                    column?: string;
-                    values?: (string)[];
-                  })[];
-                /** @constant */
-                type: "data_source";
-                /** @enum {string} */
-                valueType: "unit_count" | "count" | "sum";
-                valueColumn: string | null;
-                unit: string | null;
-              })[];
-          };
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            exploration: ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              datasource: string;
-              /** @enum {string} */
-              status: "running" | "success" | "error";
-              dateStart: string;
-              dateEnd: string;
-              error?: string | null;
-              result: {
-                rows: ({
-                    dimensions: (string | null)[];
-                    values: ({
-                        metricId: string;
-                        numerator: number | null;
-                        denominator: number | null;
-                      })[];
-                  })[];
-              };
-              config: {
-                /** @description ID of the datasource to query */
-                datasource: string;
-                dimensions: (({
-                    /** @constant */
-                    dimensionType: "date";
-                    column: string | null;
-                    /** @enum {string} */
-                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
-                  }) | ({
-                    /** @constant */
-                    dimensionType: "dynamic";
-                    column: string | null;
-                    maxValues: number;
-                  }) | {
-                    /** @constant */
-                    dimensionType: "static";
-                    column: string;
-                    values: (string)[];
-                  } | ({
-                    /** @constant */
-                    dimensionType: "slice";
-                    slices: ({
-                        name: string;
-                        filters: ({
-                            /** @enum {string} */
-                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                            column?: string;
-                            values?: (string)[];
-                          })[];
-                      })[];
-                  }))[];
-                /** @enum {string} */
-                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
-                dateRange: {
-                  /** @enum {string} */
-                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
-                  lookbackValue: number | null;
-                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
-                  startDate: string | null;
-                  endDate: string | null;
-                };
-                /** @constant */
-                type: "data_source";
-                dataset: {
-                  /** @constant */
-                  type: "data_source";
-                  table: string;
-                  path: string;
-                  timestampColumn: string;
-                  columnTypes: {
-                    [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
-                  };
-                  values: ({
-                      name: string;
-                      rowFilters: ({
-                          /** @enum {string} */
-                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
-                          column?: string;
-                          values?: (string)[];
-                        })[];
-                      /** @constant */
-                      type: "data_source";
-                      /** @enum {string} */
-                      valueType: "unit_count" | "count" | "sum";
-                      valueColumn: string | null;
-                      unit: string | null;
-                    })[];
-                };
-              };
-            }) | null;
-            query: ({
-              id: string;
-              organization: string;
-              datasource: string;
-              language: string;
-              query: string;
-              queryType: string;
-              createdAt: string;
-              startedAt: string;
-              /** @enum {string} */
-              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
-              externalId: string;
-              dependencies: (string)[];
-              runAtEnd: boolean;
-            }) | null;
-            /** @description Present when `exploration` is null, explaining why no result was returned. */
-            message?: string;
           };
         };
       };
@@ -16682,7 +15595,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -16755,7 +15667,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -16830,7 +15741,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17197,7 +16107,6 @@ export interface operations {
               snapshotId?: string;
               explorerAnalysisId: string;
               config: {
-                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -17270,7 +16179,6 @@ export interface operations {
               snapshotId?: string;
               explorerAnalysisId: string;
               config: {
-                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -17345,7 +16253,6 @@ export interface operations {
               snapshotId?: string;
               explorerAnalysisId: string;
               config: {
-                /** @description ID of the datasource to query */
                 datasource: string;
                 dimensions: (({
                     /** @constant */
@@ -17599,7 +16506,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17672,7 +16578,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -17747,7 +16652,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18023,7 +16927,6 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
-                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -18096,7 +16999,6 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
-                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -18171,7 +17073,6 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
-                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -18575,7 +17476,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18648,7 +17548,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18723,7 +17622,6 @@ export interface operations {
                   snapshotId?: string;
                   explorerAnalysisId: string;
                   config: {
-                    /** @description ID of the datasource to query */
                     datasource: string;
                     dimensions: (({
                         /** @constant */
@@ -18987,7 +17885,6 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
-                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -19060,7 +17957,6 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
-                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */
@@ -19135,7 +18031,6 @@ export interface operations {
                     snapshotId?: string;
                     explorerAnalysisId: string;
                     config: {
-                      /** @description ID of the datasource to query */
                       datasource: string;
                       dimensions: (({
                           /** @constant */

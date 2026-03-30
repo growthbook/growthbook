@@ -604,12 +604,8 @@ export default function FeaturesPage() {
       {featureToToggleStaleDetection && (
         <StaleDetectionModal
           close={() => setFeatureToToggleStaleDetection(null)}
-          feature={featureToToggleStaleDetection as FeatureInterface}
-          revisionList={[]}
-          mutate={async () => {
-            mutate();
-          }}
-          setVersion={() => {}}
+          feature={featureToToggleStaleDetection}
+          mutate={mutate}
           onEnable={async () => {
             const id = featureToToggleStaleDetection.id;
             staleHook.invalidate([id]);

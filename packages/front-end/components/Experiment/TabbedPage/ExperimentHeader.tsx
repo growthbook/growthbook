@@ -705,9 +705,10 @@ export default function ExperimentHeader({
       ) : null}
 
       <div
-        className={
-          "container-fluid pagecontents position-relative px-3 pt-3 pb-0"
-        }
+        className={clsx(
+          "container-fluid pagecontents position-relative px-3 pt-3",
+          { "pb-0": showDashboardView },
+        )}
       >
         <Flex direction="row" align="start" justify="between" gap="5">
           <Box>

@@ -75,6 +75,7 @@ describe("isFeatureStale", () => {
 
   beforeEach(() => {
     feature = {
+      hasDrafts: false,
       version: 1,
       dateCreated: new Date("2020-04-20"),
       dateUpdated: new Date("2020-04-20"),
@@ -102,10 +103,11 @@ describe("isFeatureStale", () => {
   });
 
   describe("if the feature has a draft revision", () => {
+    beforeEach(() => {
+      feature.hasDrafts = true;
+    });
     it("is not stale", () => {
-      expect(
-        isFeatureStale({ feature, mostRecentDraftDate: new Date() }),
-      ).toMatchObject({ stale: false });
+      expect(isFeatureStale({ feature })).toMatchObject({ stale: false });
     });
   });
 

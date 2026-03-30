@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import { stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable" | "enable-with-debug";
@@ -136,11 +136,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
     build,
     environment: NODE_ENV || "development",
-    defaultConversionWindowHours: parseEnvInt(
-      DEFAULT_CONVERSION_WINDOW_HOURS,
-      72,
-      { min: 1, name: "DEFAULT_CONVERSION_WINDOW_HOURS" },
-    ),
+    defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
+      ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
+      : 72,
     telemetry:
       DISABLE_TELEMETRY === "debug"
         ? "debug"
@@ -155,15 +153,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
-    experimentRefreshFrequency: parseEnvInt(EXPERIMENT_REFRESH_FREQUENCY, 6, {
-      min: 1,
-      name: "EXPERIMENT_REFRESH_FREQUENCY",
-    }),
-    autoSliceUpdateFrequencyHours: parseEnvInt(
-      AUTO_SLICE_UPDATE_FREQUENCY_HOURS,
-      168,
-      { min: 1, name: "AUTO_SLICE_UPDATE_FREQUENCY_HOURS" },
-    ), // Default: 168 hours (7 days)
+    experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
+      ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
+      : 6,
+    autoSliceUpdateFrequencyHours: AUTO_SLICE_UPDATE_FREQUENCY_HOURS
+      ? parseInt(AUTO_SLICE_UPDATE_FREQUENCY_HOURS)
+      : 168, // Default: 7 days
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasAnthropicKey: !!ANTHROPIC_API_KEY || false,
     hasXaiKey: !!XAI_API_KEY || false,

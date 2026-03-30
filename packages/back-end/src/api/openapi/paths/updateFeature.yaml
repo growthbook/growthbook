@@ -1,8 +1,4 @@
 summary: Partially update a feature
-description: |
-  Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
-
-  Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
 parameters:
   - $ref: "../parameters.yaml#/id"
 tags:

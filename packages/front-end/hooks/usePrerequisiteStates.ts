@@ -17,9 +17,6 @@ interface UsePrerequisiteStatesOptions {
   enabled?: boolean;
   // Skip feature's own rules, only evaluate prerequisites (for summary row)
   skipRootConditions?: boolean;
-  // When provided, the backend merges this revision before evaluating so that
-  // draft prerequisites and kill-switch states are properly reflected.
-  version?: number | null;
 }
 
 interface PrerequisiteStatesResponse {
@@ -40,7 +37,6 @@ export function usePrerequisiteStates({
   environments,
   enabled = true,
   skipRootConditions = false,
-  version,
 }: UsePrerequisiteStatesOptions): UsePrerequisiteStatesReturn {
   const params = new URLSearchParams();
   if (environments?.length) {
@@ -48,9 +44,6 @@ export function usePrerequisiteStates({
   }
   if (skipRootConditions) {
     params.set("skipRootConditions", "true");
-  }
-  if (version != null) {
-    params.set("version", String(version));
   }
   const queryString = params.toString();
   const url = `/feature/${featureId}/prerequisite-states${queryString ? `?${queryString}` : ""}`;

@@ -6,11 +6,12 @@ import {
   SavedGroupInterface,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LargeSavedGroupPerformanceWarning, {
@@ -20,6 +21,13 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 import SavedGroupRowMenu from "./SavedGroupRowMenu";
@@ -68,21 +76,26 @@ export default function IdLists({ groups, mutate }: Props) {
     [getOwnerDisplay],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
-    useSearch({
-      items: idListsWithOwners,
-      localStorageKey: "savedGroups",
-      defaultSortField: "dateCreated",
-      defaultSortDir: -1,
-      searchFields: [
-        "groupName^3",
-        "attributeKey^2",
-        "ownerNameDisplay",
-        "description^2",
-      ],
-      pageSize: 50,
-      updateSearchQueryOnChange: true,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+  } = useSearch({
+    items: idListsWithOwners,
+    localStorageKey: "savedGroups",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: [
+      "groupName^3",
+      "attributeKey^2",
+      "ownerNameDisplay",
+      "description^2",
+    ],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+  });
 
   if (!idLists) return <LoadingOverlay />;
 
@@ -116,20 +129,24 @@ export default function IdLists({ groups, mutate }: Props) {
           />
         )}
         <Flex align="center" justify="between" mb="1">
-          <Heading size="6" mb="0">
+          <Heading as="h2" size="x-large">
             ID Lists
           </Heading>
           {canCreate ? (
             <Button onClick={() => setSavedGroupForm({})}>Add ID List</Button>
           ) : null}
         </Flex>
-        <p className="text-gray mb-1">
-          Specify a list of values to include for an attribute.
-        </p>
-        <p className="text-gray">
-          For example, create a &quot;Beta Testers&quot; group identified by a
-          specific set of <code>device_id</code> values.
-        </p>
+        <Box mb="1" style={{ color: "var(--gray-11)" }}>
+          <p style={{ margin: 0 }}>
+            Specify a list of values to include for an attribute.
+          </p>
+        </Box>
+        <Box style={{ color: "var(--gray-11)" }}>
+          <p style={{ margin: 0 }}>
+            For example, create a &quot;Beta Testers&quot; group identified by a
+            specific set of <code>device_id</code> values.
+          </p>
+        </Box>
 
         {unsupportedConnections.length > 0 ? (
           <Box mt="4">
@@ -150,34 +167,45 @@ export default function IdLists({ groups, mutate }: Props) {
                 {...searchInputProps}
               />
             </Box>
-            <table className="table gbtable table-valign-top">
-              <thead>
-                <tr>
-                  <SortableTH field={"groupName"}>Name</SortableTH>
-                  <SortableTH field="attributeKey">Attribute</SortableTH>
-                  <th>Description</th>
-                  <th>Projects</th>
-                  <SortableTH field={"ownerNameDisplay"}>Owner</SortableTH>
-                  <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
+            <Table variant="list" stickyHeader={false} roundedCorners>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader field="groupName">
+                    Name
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="attributeKey">
+                    Attribute
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader>Description</TableColumnHeader>
+                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <SortableTableColumnHeader field="ownerNameDisplay">
+                    Owner
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="dateUpdated">
+                    Date Updated
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader style={{ width: 30 }} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((s) => {
                   return (
-                    <tr key={s.id}>
-                      <td>
+                    <TableRow key={s.id}>
+                      <TableCell style={{ verticalAlign: "top" }}>
                         <Link
                           className="link-purple"
-                          key={s.id}
                           href={`/saved-groups/${s.id}`}
                         >
                           {s.groupName}
                         </Link>
-                      </td>
-                      <td>{s.attributeKey}</td>
-                      <td>{truncateString(s.description || "", 40)}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell style={{ verticalAlign: "top" }}>
+                        {s.attributeKey}
+                      </TableCell>
+                      <TableCell style={{ verticalAlign: "top" }}>
+                        {truncateString(s.description || "", 40)}
+                      </TableCell>
+                      <TableCell style={{ verticalAlign: "top" }}>
                         {(s?.projects?.length || 0) > 0 ? (
                           <ProjectBadges
                             resourceType="saved group"
@@ -186,29 +214,33 @@ export default function IdLists({ groups, mutate }: Props) {
                         ) : (
                           <ProjectBadges resourceType="saved group" />
                         )}
-                      </td>
-                      <td>{s.ownerNameDisplay}</td>
-                      <td>{ago(s.dateUpdated)}</td>
-                      <td style={{ width: 30 }}>
+                      </TableCell>
+                      <TableCell style={{ verticalAlign: "top" }}>
+                        {s.ownerNameDisplay}
+                      </TableCell>
+                      <TableCell style={{ verticalAlign: "top" }}>
+                        {ago(s.dateUpdated)}
+                      </TableCell>
+                      <TableCell style={{ width: 30, verticalAlign: "top" }}>
                         <SavedGroupRowMenu
                           canUpdate={canUpdate(s)}
                           canDelete={canDeleteSavedGroup(s)}
                           onEdit={() => setSavedGroupForm(s)}
                           onDelete={() => setDeleteModal(s)}
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
                 {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={7} align={"center"}>
+                  <TableRow>
+                    <TableCell colSpan={7} style={{ textAlign: "center" }}>
                       No matching saved groups
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {pagination}
           </>
         )}

@@ -1,5 +1,4 @@
 import { date } from "shared/dates";
-import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
@@ -54,7 +53,7 @@ export default function PhaseSelector({
       );
     }
 
-    const phaseIndex = parseIntWithDefault(value, 0);
+    const phaseIndex = parseInt(value) || 0;
     const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
 
@@ -159,7 +158,7 @@ export default function PhaseSelector({
                 editPhases();
                 return;
               }
-              (setPhase ?? setSnapshotPhase)(parseIntWithDefault(value, 0));
+              (setPhase ?? setSnapshotPhase)(parseInt(value) || 0);
             }}
             sort={false}
             containerClassName="select-dropdown-no-underline"
@@ -197,7 +196,7 @@ export default function PhaseSelector({
               editPhases();
               return;
             }
-            (setPhase ?? setSnapshotPhase)(parseIntWithDefault(value, 0));
+            (setPhase ?? setSnapshotPhase)(parseInt(value) || 0);
           }}
           sort={false}
           label={isHoldout ? "Date Range" : "Phase"}

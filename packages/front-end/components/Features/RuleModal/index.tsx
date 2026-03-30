@@ -12,7 +12,6 @@ import {
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
-  getReviewSetting,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -29,7 +28,6 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -62,10 +60,6 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
@@ -74,6 +68,7 @@ import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSel
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
+  version: number;
   setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
@@ -81,7 +76,6 @@ export interface Props {
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
-  revisionList?: MinimalFeatureRevisionInterface[];
 }
 
 type RadioSelectorRuleType =
@@ -110,10 +104,10 @@ export default function RuleModal({
   mutate,
   environment,
   defaultType = "",
+  version,
   setVersion,
   mode,
   safeRolloutsMap,
-  revisionList = [],
 }: Props) {
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
@@ -139,31 +133,6 @@ export default function RuleModal({
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
-
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [draftMode, setDraftMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
-  );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
-  );
-
-  // Determines which draft/revision to target in the API call.
-  const targetVersion =
-    draftMode === "existing" && selectedDraft != null
-      ? selectedDraft
-      : feature.version;
-
-  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
-    const raw = settings?.requireReviews;
-    if (raw === true) return "all";
-    if (!Array.isArray(raw)) return "none";
-    const reviewSetting = getReviewSetting(raw, feature);
-    if (!reviewSetting?.requireReviewOn) return "none";
-    const envList = reviewSetting.environments ?? [];
-    return envList.length === 0 ? "all" : new Set(envList);
-  }, [settings?.requireReviews, feature]);
 
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
@@ -703,7 +672,7 @@ export default function RuleModal({
             safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
         ) {
           res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${targetVersion}/rule`,
+            `/feature/${feature.id}/${version}/rule`,
             {
               method: "PUT",
               body: JSON.stringify({
@@ -716,7 +685,7 @@ export default function RuleModal({
         }
       } else {
         res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${targetVersion}/rule`,
+          `/feature/${feature.id}/${version}/rule`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -732,7 +701,9 @@ export default function RuleModal({
       }
 
       await mutate();
-      setVersion(res?.version ?? targetVersion);
+      if (res && res?.version) {
+        setVersion(res.version);
+      }
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,
@@ -766,19 +737,10 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
         header={`New Rule`}
+        subHeader="You will have a chance to review new rules as a draft before publishing changes."
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
-        <DraftSelectorForChanges
-          feature={feature}
-          revisionList={revisionList}
-          mode={draftMode}
-          setMode={setDraftMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={false}
-          gatedEnvSet={gatedEnvSet}
-        />
         <div className="bg-highlight rounded p-3 mb-3">
           <Text size="4" weight="bold" as="div" mb="4">
             Select Implementation
@@ -1002,7 +964,7 @@ export default function RuleModal({
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save to Draft"
+        cta="Save"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         header={headerText}
         docSection={
@@ -1018,18 +980,6 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
-        bodyPrefix={
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={draftMode}
-            setMode={setDraftMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
-        }
       >
         {ruleType === "force" && (
           <ForceValueFields

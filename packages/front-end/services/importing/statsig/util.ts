@@ -60,6 +60,7 @@ export function transformPayloadForDiffDisplay(
         "dateCreated",
         "dateUpdated",
         "version",
+        "hasDrafts",
         "jsonSchema",
         "linkedExperiments",
       ]) as Record<string, unknown>;

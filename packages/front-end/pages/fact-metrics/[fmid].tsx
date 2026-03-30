@@ -14,7 +14,6 @@ import {
   quantileMetricType,
   getRowFilterSQL,
 } from "shared/experiments";
-import { formatAIRateLimitRetryMessage } from "shared/ai";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -705,8 +704,11 @@ export default function FactMetricPage() {
                   },
                   (responseData) => {
                     if (responseData.status === 429) {
+                      const retryAfter = parseInt(responseData.retryAfter);
+                      const hours = Math.floor(retryAfter / 3600);
+                      const minutes = Math.floor((retryAfter % 3600) / 60);
                       throw new Error(
-                        formatAIRateLimitRetryMessage(responseData.retryAfter),
+                        `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
                       );
                     } else if (responseData.message) {
                       throw new Error(responseData.message);

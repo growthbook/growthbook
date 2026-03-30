@@ -3,8 +3,6 @@ import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
-  fillRevisionFromFeature,
-  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
@@ -25,15 +23,12 @@ import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
-  mergeResultToDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
-import HelperText from "@/ui/HelperText";
 import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
@@ -85,18 +80,16 @@ export default function RequestReviewModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
-  const envIds = environments.map((e) => e.id);
-
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      liveRevisionFromFeature(liveRevision, feature),
-      fillRevisionFromFeature(baseRevision, feature),
+      liveRevision,
+      baseRevision,
       revision,
-      envIds,
+      environments.map((e) => e.id),
       {},
     );
-  }, [revision, baseRevision, liveRevision, envIds, feature]);
+  }, [revision, baseRevision, liveRevision, environments]);
 
   const [comment, setComment] = useState("");
 
@@ -112,12 +105,16 @@ export default function RequestReviewModal({
   const [experimentsStep, setExperimentsStep] = useState(false);
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
-  const draftDiffInput = mergeResult?.success
-    ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
-    : currentRevisionData;
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
-    draft: draftDiffInput,
+    draft: mergeResult?.success
+      ? {
+          // Use current values as fallback when merge result doesn't have changes
+          defaultValue:
+            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
+          rules: mergeResult.result.rules ?? currentRevisionData.rules,
+        }
+      : currentRevisionData,
   });
 
   // Exclude no-op diffs (e.g. semantic equality but different raw strings)
@@ -188,6 +185,7 @@ export default function RequestReviewModal({
   };
 
   if (!revision || !mergeResult) return null;
+
   const hasChanges = mergeResultHasChanges(mergeResult);
   let ctaCopy = "Request Review";
   if (approved && !hasNextStep) {
@@ -353,45 +351,22 @@ export default function RequestReviewModal({
                 )}
                 <h4 className="mb-3">Change details</h4>
                 <div className="list-group mb-4">
-                  {resultDiffsWithChanges.length > 0 ? (
-                    resultDiffsWithChanges.map((diff) => (
-                      <ExpandableDiff
-                        key={diff.title}
-                        title={diff.title}
-                        a={diff.a}
-                        b={diff.b}
-                        styles={COMPACT_DIFF_STYLES}
-                      />
-                    ))
-                  ) : (
-                    <HelperText status="info">
-                      No material changes detected
-                    </HelperText>
-                  )}
+                  {resultDiffsWithChanges.map((diff) => (
+                    <ExpandableDiff
+                      key={diff.title}
+                      title={diff.title}
+                      a={diff.a}
+                      b={diff.b}
+                      styles={COMPACT_DIFF_STYLES}
+                    />
+                  ))}
                 </div>
-                {(isPendingReview || revision.status === "approved") && (
-                  <div className="mb-4">
-                    <Tabs defaultValue="review">
-                      <TabsList size="2" mb="2">
-                        <TabsTrigger value="review">
-                          Review Activity
-                        </TabsTrigger>
-                        <TabsTrigger value="full">Change Log</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="review">
-                        <Revisionlog
-                          feature={feature}
-                          revision={revision}
-                          ref={revisionLogRef}
-                          reviewOnly
-                        />
-                      </TabsContent>
-                      <TabsContent value="full">
-                        <Revisionlog feature={feature} revision={revision} />
-                      </TabsContent>
-                    </Tabs>
-                  </div>
-                )}
+                <h4 className="mb-3"> Change Request Log</h4>
+                <Revisionlog
+                  feature={feature}
+                  revision={revision}
+                  ref={revisionLogRef}
+                />
                 {(!canReview || approved) && (
                   <div className="mt-3" id="comment-section">
                     <Field

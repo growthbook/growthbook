@@ -14,12 +14,12 @@ import {
 import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
-  validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { validateVariationIds } from "back-end/src/controllers/experiments";
 import { validateCustomFields } from "./validations";
 
 export const updateExperiment = createApiRequestHandler(

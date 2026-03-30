@@ -1,32 +1,20 @@
-import { useMemo, useState } from "react";
 import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
-import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
-import DraftSelectorForChanges, {
-  DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({
   feature,
-  revisionList,
   close,
   mutate,
-  setVersion,
 }: {
   feature: FeatureInterface;
-  revisionList: MinimalFeatureRevisionInterface[];
   close: () => void;
   mutate: () => void;
-  setVersion: (version: number) => void;
 }) => {
   const form = useForm({
     defaultValues: {
@@ -36,25 +24,6 @@ const AddToHoldoutModal = ({
 
   const { apiCall } = useAuth();
   const { experimentsMap } = useExperiments();
-
-  const settings = useOrgSettings();
-  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
-    const raw = settings?.requireReviews;
-    if (raw === true) return "all";
-    if (!Array.isArray(raw)) return "none";
-    const reviewSetting = getReviewSetting(raw, feature);
-    if (!reviewSetting?.requireReviewOn) return "none";
-    const envList = reviewSetting.environments ?? [];
-    return envList.length === 0 ? "all" : new Set(envList);
-  }, [settings?.requireReviews, feature]);
-
-  const defaultDraft = useDefaultDraft(revisionList);
-  const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
-  );
-  const [selectedDraft, setSelectedDraft] = useState<number | null>(
-    defaultDraft,
-  );
 
   // Only allow adding to holdout if all experiments are in draft status and don't have a holdoutId or have the same holdoutId as the feature
   const experimentsAreInDraft = feature.linkedExperiments?.every(
@@ -84,27 +53,12 @@ const AddToHoldoutModal = ({
       submit={
         showHoldoutSelect
           ? form.handleSubmit(async (value) => {
-              const isPublish = mode === "publish";
-              const res = await apiCall<{
-                feature: FeatureInterface;
-                draftVersion?: number;
-              }>(`/feature/${feature.id}`, {
+              await apiCall(`/feature/${feature.id}`, {
                 method: "PUT",
-                body: JSON.stringify({
-                  ...value,
-                  ...(isPublish
-                    ? { autoPublish: true }
-                    : mode === "existing" && selectedDraft != null
-                      ? { targetDraftVersion: selectedDraft }
-                      : { forceNewDraft: true }),
-                }),
+                body: JSON.stringify(value),
               });
 
-              await mutate();
-              const resolvedVersion =
-                res.draftVersion ??
-                (mode === "existing" ? selectedDraft : null);
-              if (resolvedVersion != null) setVersion(resolvedVersion);
+              mutate();
               close();
             })
           : undefined
@@ -120,29 +74,17 @@ const AddToHoldoutModal = ({
       )}
 
       {showHoldoutSelect && (
-        <>
-          <DraftSelectorForChanges
-            feature={feature}
-            revisionList={revisionList}
-            mode={mode}
-            setMode={setMode}
-            selectedDraft={selectedDraft}
-            setSelectedDraft={setSelectedDraft}
-            canAutoPublish={false}
-            gatedEnvSet={gatedEnvSet}
-          />
-          <HoldoutSelect
-            selectedProject={feature.project}
-            setHoldout={(holdoutId) => {
-              form.setValue("holdout", {
-                id: holdoutId,
-                value: feature.defaultValue,
-              });
-            }}
-            selectedHoldoutId={form.watch("holdout")?.id}
-            formType="feature"
-          />
-        </>
+        <HoldoutSelect
+          selectedProject={feature.project}
+          setHoldout={(holdoutId) => {
+            form.setValue("holdout", {
+              id: holdoutId,
+              value: feature.defaultValue,
+            });
+          }}
+          selectedHoldoutId={form.watch("holdout")?.id}
+          formType="feature"
+        />
       )}
     </Modal>
   );

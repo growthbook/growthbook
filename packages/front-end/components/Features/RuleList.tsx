@@ -17,7 +17,6 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -30,7 +29,6 @@ import { HoldoutRule } from "./HoldoutRule";
 
 export default function RuleList({
   feature,
-  baseFeature,
   mutate,
   environment,
   setRuleModal,
@@ -43,12 +41,9 @@ export default function RuleList({
   isDraft,
   safeRolloutsMap,
   holdout,
-  holdoutIsDeleted,
   openHoldoutModal,
-  revisionList,
 }: {
   feature: FeatureInterface;
-  baseFeature: FeatureInterface;
   environment: string;
   mutate: () => void;
   setRuleModal: (args: {
@@ -69,9 +64,7 @@ export default function RuleList({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
-  holdoutIsDeleted: boolean;
   openHoldoutModal: () => void;
-  revisionList: MinimalFeatureRevisionInterface[];
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -91,7 +84,7 @@ export default function RuleList({
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout && !holdoutIsDeleted) {
+  if (!items.length && !holdout) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -112,6 +105,7 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
+    !locked &&
     permissionsUtil.canViewFeatureModal(feature.project) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 
@@ -162,16 +156,12 @@ export default function RuleList({
           <em>No Active Rules</em>
         </div>
       )}
-      {(holdout || holdoutIsDeleted) && (
+      {holdout && (
         <HoldoutRule
-          feature={holdoutIsDeleted ? baseFeature : feature}
-          isDeleted={holdoutIsDeleted}
+          feature={feature}
           setRuleModal={openHoldoutModal}
           mutate={mutate}
           ruleCount={items.length}
-          revisionList={revisionList}
-          setVersion={setVersion}
-          isLocked={locked}
         />
       )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>

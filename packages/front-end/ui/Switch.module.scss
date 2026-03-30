@@ -20,13 +20,4 @@
       transparent 60%
     );
   }
-
-  // When disabled, render in gray regardless of checked state.
-  &:disabled::before {
-    background-image: linear-gradient(
-      to right,
-      var(--gray-a8) 40%,
-      transparent 60%
-    );
-  }
 }

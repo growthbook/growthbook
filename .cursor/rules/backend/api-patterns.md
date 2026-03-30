@@ -61,16 +61,32 @@ app.get("/api/my-resource", myController.getMyResource);
 
 The external REST API is for customers to integrate with GrowthBook programmatically.
 
+### Location & Structure
+
+- All external API routes: `packages/back-end/src/api/`
+- Each resource has its own directory with a `*.router.ts` file
 - Mounted at: `/api/v1/` prefix
-- BaseModel resources can provide `apiConfig` to define their API endpoints
-- OpenAPI docs are auto-generated from Zod schemas in `src/api/specs/*.spec.ts`
-- Legacy definitions for API routes are in `packages/back-end/src/api/` with corresponding yaml specs in `packages/back-end/src/api/openapi/`
+- Documented in OpenAPI spec at `src/api/openapi/`
 
-> **⚠️ Avoid creating new hand-written YAML files** in `src/api/openapi/paths/`, `src/api/openapi/payload-schemas/`, or `src/api/openapi/schemas/`. These directories contain legacy definitions that have not yet been migrated. New endpoints should use the spec-based approach described below whenever possible.
+**Example structure:**
 
-### Spec-Based Pattern (for BaseModel-compatible endpoints)
+```
+src/api/
+  features/
+    features.router.ts
+    getFeature.ts
+    postFeature.ts
+    putFeature.ts
+    deleteFeature.ts
+  experiments/
+    experiments.router.ts
+    getExperiments.ts
+    ...
+```
 
-Any endpoint backed by a `BaseModel` should use the `apiConfig` + spec pattern. This can be used to auto-generate standard CRUD endpoints, OpenAPI documentation, and routing from minimal definitions in Zod. If an endpoint uses a legacy (non-BaseModel) resource or isn't directly related to any models, then use the legacy pattern defined below.
+### API Model Pattern
+
+Models that use `BaseModel` can expose external REST API endpoints via the `apiConfig` option in `MakeModelClass`. This auto-generates standard CRUD endpoints and OpenAPI documentation.
 
 The configuration is split into two parts:
 
@@ -178,31 +194,6 @@ const BaseClass = MakeModelClass({
 ```
 
 Note how the endpoint spec (metadata for docs) is spread into `defineCustomApiHandler` which adds the runtime `reqHandler`. This keeps doc-generation concerns separate from runtime code.
-
-### Legacy Pattern (Non-BaseModel or Resourceless Endpoints Only)
-
-Some external API endpoints are not backed by a `BaseModel` — for example, ad-hoc RPC-style actions, query/exploration endpoints, or endpoints that orchestrate across multiple models without a single owning resource. For these cases, the older manual pattern is still acceptable:
-
-- Create a resource directory under `src/api/` with a `*.router.ts` and individual handler files
-- Define yaml files for each endpoint and payload schema in `src/api/openapi/`. Running `generate-api-types` will add exported validators to `shared/src/validators/openapi.ts` for each.
-- Use `createApiRequestHandler()` with Zod validators (imported from `shared/validators`) in each handler
-- Register the router manually in `src/api/api.router.ts`
-
-**Example structure:**
-
-```
-src/api/
-  features/
-    features.router.ts
-    getFeature.ts
-    postFeature.ts
-    putFeature.ts
-    deleteFeature.ts
-  experiments/
-    experiments.router.ts
-    getExperiments.ts
-    ...
-```
 
 ### Authentication (External API)
 

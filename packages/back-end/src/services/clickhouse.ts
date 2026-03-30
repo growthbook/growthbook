@@ -11,7 +11,6 @@ import {
 } from "shared/types/datasource";
 import { DailyUsage } from "shared/types/organization";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { parseIntWithDefault } from "shared/util";
 import {
   CLICKHOUSE_HOST,
   CLICKHOUSE_ADMIN_USER,
@@ -408,7 +407,7 @@ export async function createClickhouseUser(
   const url = new URL(CLICKHOUSE_HOST);
 
   const params = {
-    port: parseIntWithDefault(url.port, 9000),
+    port: parseInt(url.port) || 9000,
     url: url.toString(),
     user: user,
     password: password,
@@ -669,9 +668,9 @@ WITH FILL
   // Convert strings to numbers for all metrics
   return data.map((d) => ({
     date: d.date,
-    requests: parseIntWithDefault(d.requests, 0),
-    bandwidth: parseIntWithDefault(d.bandwidth, 0),
-    managedClickhouseEvents: parseIntWithDefault(d.managedClickhouseEvents, 0),
+    requests: parseInt(d.requests) || 0,
+    bandwidth: parseInt(d.bandwidth) || 0,
+    managedClickhouseEvents: parseInt(d.managedClickhouseEvents) || 0,
   }));
 }
 

@@ -180,15 +180,12 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 flipTheme={false}
               >
                 <IconButton
-                  type="button"
                   variant="solid"
                   color="tomato"
                   size="2"
                   style={{ width: 20, height: 20, padding: 2 }}
                   radius="full"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  onClick={async () => {
                     resetFilters?.();
                     try {
                       await apiCall(cancelEndpoint, { method: "POST" });

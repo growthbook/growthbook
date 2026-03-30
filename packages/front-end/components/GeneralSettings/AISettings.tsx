@@ -6,7 +6,6 @@ import {
   AIPromptInterface,
   AIModel,
   EmbeddingModel,
-  formatAIRateLimitRetryMessage,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
 } from "shared/ai";
@@ -298,7 +297,12 @@ export default function AISettings({
         },
         (responseData) => {
           if (responseData.status === 429) {
-            setError(formatAIRateLimitRetryMessage(responseData.retryAfter));
+            const retryAfter = parseInt(responseData.retryAfter);
+            const hours = Math.floor(retryAfter / 3600);
+            const minutes = Math.floor((retryAfter % 3600) / 60);
+            setError(
+              `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+            );
           } else if (responseData.message) {
             throw new Error(responseData.message);
           } else {

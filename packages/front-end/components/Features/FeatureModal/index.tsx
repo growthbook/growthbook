@@ -4,10 +4,9 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement } from "react";
+import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { Box } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -34,7 +33,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/ui/Callout";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -101,7 +99,6 @@ const genFormDefaultValues = ({
   | "environmentSettings"
   | "customFields"
   | "holdout"
-  | "jsonSchema"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -131,7 +128,6 @@ const genFormDefaultValues = ({
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
           : undefined,
-        jsonSchema: featureToDuplicate.jsonSchema,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -195,6 +191,12 @@ export default function FeatureModal({
     selectedProject,
   );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
+
+  const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
+  const [showDescription, setShowDescription] = useState(
+    !!featureToDuplicate?.description?.length,
+  );
+
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
@@ -243,13 +245,8 @@ export default function FeatureModal({
           throw new Error("Please select a value type");
         }
 
-        // When duplicating, skip JSON schema validation since the value is
-        // copied verbatim from an existing feature and the user cannot edit it.
-        const featureForValidation = featureToDuplicate
-          ? { valueType: feature.valueType }
-          : feature;
         const newDefaultValue = validateFeatureValue(
-          featureForValidation,
+          feature,
           defaultValue,
           "Value",
         );
@@ -292,25 +289,70 @@ export default function FeatureModal({
     >
       <FormProvider {...form}>
         {currentProjectIsDemo && (
-          <Callout status="warning" mb="3">
+          <div className="alert alert-warning">
             You are creating a feature under the demo datasource project.
-          </Callout>
+          </div>
         )}
 
         <FeatureKeyField keyField={form.register("id")} />
 
+        {showTags ? (
+          <TagsField
+            value={form.watch("tags") || []}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
+        ) : (
+          <a
+            href="#"
+            className="badge badge-light badge-pill mr-3 mb-3"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowTags(true);
+            }}
+          >
+            + tags
+          </a>
+        )}
+
+        {showDescription ? (
+          <div className="form-group">
+            <label>Description</label>
+            <MarkdownInput
+              value={form.watch("description") || ""}
+              setValue={(value) => form.setValue("description", value)}
+              autofocus={!featureToDuplicate?.description?.length}
+            />
+          </div>
+        ) : (
+          <a
+            href="#"
+            className="badge badge-light badge-pill mb-3"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowDescription(true);
+            }}
+          >
+            + description
+          </a>
+        )}
+
         {projectOptions.length > 0 && (
           <>
             {selectedProject === demoProjectId && (
-              <Callout status="warning" mb="3">
+              <div className="alert alert-warning">
                 You are creating a feature under the demo datasource project.
-              </Callout>
+              </div>
             )}
             <SelectField
               label={
                 <>
+                  {" "}
                   Project{" "}
-                  <Tooltip body="The dropdown below has been filtered to only include projects where you have permission to update Features" />
+                  <Tooltip
+                    body={
+                      "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                    }
+                  />{" "}
                 </>
               }
               value={selectedProject || ""}
@@ -324,11 +366,6 @@ export default function FeatureModal({
           </>
         )}
 
-        <TagsField
-          value={form.watch("tags") || []}
-          onChange={(tags) => form.setValue("tags", tags)}
-        />
-
         <HoldoutSelect
           selectedProject={selectedProject}
           selectedHoldoutId={form.watch("holdout")?.id}
@@ -337,6 +374,22 @@ export default function FeatureModal({
           }}
           formType="feature"
         />
+
+        {hasCommercialFeature("custom-metadata") &&
+          customFields &&
+          customFields?.length > 0 && (
+            <div>
+              <CustomFieldInput
+                customFields={customFields}
+                setCustomFields={(value) => {
+                  form.setValue("customFields", value);
+                }}
+                currentCustomFields={form.watch("customFields") || {}}
+                section={"feature"}
+                project={selectedProject}
+              />
+            </div>
+          )}
 
         {!featureToDuplicate && (
           <ValueTypeField
@@ -353,7 +406,7 @@ export default function FeatureModal({
           We hide rule configuration when duplicating a feature since the
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
-        */}
+      */}
         {!featureToDuplicate && valueType && (
           <FeatureValueField
             label={
@@ -390,33 +443,6 @@ export default function FeatureModal({
             form.setValue("environmentSettings", environmentSettings);
           }}
         />
-
-        <div className="mb-4">
-          <label>Description</label>
-          <Box mt="1">
-            <MarkdownInput
-              value={form.watch("description") || ""}
-              setValue={(value) => form.setValue("description", value)}
-              autofocus={!featureToDuplicate?.description?.length}
-            />
-          </Box>
-        </div>
-
-        {hasCommercialFeature("custom-metadata") &&
-          customFields &&
-          customFields?.length > 0 && (
-            <div>
-              <CustomFieldInput
-                customFields={customFields}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                currentCustomFields={form.watch("customFields") || {}}
-                section={"feature"}
-                project={selectedProject}
-              />
-            </div>
-          )}
       </FormProvider>
     </Modal>
   );

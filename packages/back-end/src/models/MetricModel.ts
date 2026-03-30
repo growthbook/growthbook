@@ -1,5 +1,4 @@
-import mongoose, { FilterQuery } from "mongoose";
-import { evalCondition } from "@growthbook/growthbook";
+import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
   InsertMetricProps,
@@ -14,7 +13,6 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ToInterface,
   getCollection,
-  projectFilterQuery,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
@@ -146,8 +144,6 @@ const metricSchema = new mongoose.Schema({
 });
 
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
-// Compound indexes for API list filtering
-metricSchema.index({ organization: 1, datasource: 1 });
 
 const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",
@@ -299,15 +295,28 @@ export async function getMetricMap(
 
 async function findMetrics(
   context: ReqContext | ApiReqContext,
-  additionalQuery?: FilterQuery<LegacyMetricInterface>,
+  additionalQuery?: Partial<MetricInterface>,
 ) {
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
 
   // If using config.yml, first check there
   if (usingFileConfig()) {
+    const filter = additionalQuery
+      ? (m: MetricInterface) => {
+          for (const key in additionalQuery) {
+            if (
+              m[key as keyof MetricInterface] !==
+              additionalQuery[key as keyof MetricInterface]
+            ) {
+              return false;
+            }
+          }
+          return true;
+        }
+      : false;
     getConfigMetrics(context)
-      .filter((m) => !additionalQuery || evalCondition(m, additionalQuery))
+      .filter((m) => !filter || filter(m))
       .forEach((m) => {
         metrics.push(m);
         metricIds.add(m.id);
@@ -347,17 +356,8 @@ async function findMetrics(
 
 export async function getMetricsByOrganization(
   context: ReqContext | ApiReqContext,
-  options?: {
-    datasourceId?: string;
-    projectId?: string;
-  },
 ) {
-  const query: FilterQuery<LegacyMetricInterface> = {
-    ...(options?.datasourceId && { datasource: options.datasourceId }),
-    ...(options?.projectId && projectFilterQuery(options.projectId)),
-  };
-
-  return findMetrics(context, query);
+  return findMetrics(context);
 }
 
 export async function getMetricsByDatasource(

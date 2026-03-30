@@ -2,10 +2,6 @@ parameters:
   - $ref: "../parameters.yaml#/id"
 post:
   summary: Revert a feature to a specific revision
-  description: |
-    Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
-
-    Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
   tags:
     - features
   operationId: revertFeature

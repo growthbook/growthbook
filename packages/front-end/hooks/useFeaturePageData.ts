@@ -39,13 +39,11 @@ function toMinimalRevision(
     dateUpdated: r.dateUpdated,
     createdBy: r.createdBy,
     status: r.status,
-    comment: r.comment || "",
-    ...(r.title ? { title: r.title } : {}),
   };
 }
 
-// Fetches feature page data. Initial response includes full revisions for the top-5 recent,
-// all active drafts, and their base versions. Auto-fetches and caches additional full revisions as needed.
+// Fetches features and revisions. Loads 5 full revisions + 200 minimal revisions.
+// Auto-fetches and caches additional full revisions as needed.
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
@@ -82,33 +80,6 @@ export function useFeaturePageData(
     !requestedVersionInBaseSet &&
     !requestedVersionInCache;
 
-  // Also fetch the baseVersion of the currently-selected revision when it's
-  // missing from the cache. This is needed for autoMerge (and thus the
-  // publish/review CTAs) when the selected draft was based on an old revision
-  // that fell outside the top-5 window returned by getLatestRevisions.
-  const selectedRevisionBaseVersion: number | null = useMemo(() => {
-    if (!selectedVersion) return null;
-    const full =
-      cachedRevisions[selectedVersion] ??
-      baseData?.revisions?.find((r) => r.version === selectedVersion);
-    return full?.baseVersion ?? null;
-  }, [selectedVersion, cachedRevisions, baseData]);
-
-  const baseVersionInCache =
-    selectedRevisionBaseVersion != null &&
-    !!cachedRevisions[selectedRevisionBaseVersion];
-  const baseVersionInBaseSet =
-    selectedRevisionBaseVersion != null &&
-    (baseData?.revisions?.some(
-      (r) => r.version === selectedRevisionBaseVersion,
-    ) ??
-      false);
-  const shouldFetchBaseVersion =
-    !!fid &&
-    selectedRevisionBaseVersion != null &&
-    !baseVersionInCache &&
-    !baseVersionInBaseSet;
-
   const {
     data: selectedVersionRevisionsData,
     error: selectedVersionError,
@@ -120,13 +91,6 @@ export function useFeaturePageData(
       shouldRun: () => shouldFetchFromRevisionsEndpoint,
     },
   );
-
-  const { data: baseVersionRevisionsData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(`/feature/${fid}/revisions?versions=${selectedRevisionBaseVersion}`, {
-    shouldRun: () => shouldFetchBaseVersion,
-  });
 
   // Clean up everything if fid changes
   useEffect(() => {
@@ -170,21 +134,6 @@ export function useFeaturePageData(
       return next;
     });
   }, [selectedVersionRevisionsData, fid]);
-
-  // Append base-version revision to cache when lazily fetched
-  useEffect(() => {
-    if (!baseVersionRevisionsData?.revisions?.length || !fid) {
-      return;
-    }
-
-    setCachedRevisions((prev) => {
-      const next = { ...prev };
-      baseVersionRevisionsData.revisions.forEach((r) => {
-        if (r.featureId === fid) next[r.version] = r;
-      });
-      return next;
-    });
-  }, [baseVersionRevisionsData, fid]);
 
   const data = useMemo<FeaturePageResponse | undefined>(() => {
     if (!baseData) return undefined;

@@ -1,5 +1,4 @@
 import format from "date-fns/format";
-import { dateNoYear } from "shared/dates";
 import {
   AuditDiffConfig,
   AuditEventMarker,
@@ -80,7 +79,8 @@ export function getSeparatorBucketKey(date: Date): string {
 
 // Display text for a date separator, e.g. "Jan 25" or "Jan 25, 2024".
 export function getSeparatorLabel(date: Date): string {
-  return dateNoYear(date);
+  const isCurrentYear = date.getFullYear() === new Date().getFullYear();
+  return format(date, isCurrentYear ? "MMM d" : "MMM d, yyyy");
 }
 
 // Expand [endpointA, endpointB] to the full ordered slice of all entries between them.

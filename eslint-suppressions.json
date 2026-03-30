@@ -169,6 +169,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Experiment/MetricsSelector.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -325,6 +330,11 @@
     }
   },
   "packages/front-end/components/Features/FeaturesHeader.tsx": {
+    "no-restricted-imports": {
+      "count": 2
+    }
+  },
+  "packages/front-end/components/Features/FeaturesOverview.tsx": {
     "no-restricted-imports": {
       "count": 2
     }
@@ -639,11 +649,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/IdLists.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/SavedGroupDeleteModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -930,11 +935,6 @@
     }
   },
   "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/tags.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

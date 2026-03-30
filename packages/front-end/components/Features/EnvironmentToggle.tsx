@@ -1,90 +1,113 @@
 import { useState } from "react";
 import { Tooltip } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Modal from "@/components/Modal";
 import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import KillSwitchModal from "@/components/Features/KillSwitchModal";
 
 export interface Props {
-  /** Merged feature (may reflect draft state) — used for the toggle value. */
   feature: FeatureInterface;
-  /** Live base feature document — used for the live-state row in the modal. */
-  baseFeature?: FeatureInterface;
   environment: string;
-  mutate: () => Promise<unknown>;
-  setVersion: (version: number) => void;
-  /** The revision currently being viewed — used to pre-select in the draft dropdown. */
-  currentVersion: number;
-  /** All known revisions (sparse) — used to populate the draft dropdown. */
-  revisionList: MinimalFeatureRevisionInterface[];
+  mutate: () => void;
   id?: string;
-  /** When true, the toggle is disabled with a tooltip. */
-  isLocked?: boolean;
+  size?: "1" | "2" | "3";
 }
 
 export default function EnvironmentToggle({
   feature,
-  baseFeature,
   environment,
   mutate,
-  setVersion,
-  currentVersion,
-  revisionList,
   id = "",
-  isLocked = false,
+  size = "3",
 }: Props) {
   const [toggling, setToggling] = useState(false);
-  const [confirmingState, setConfirmingState] = useState<boolean | null>(null);
 
+  const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
 
   id = id || feature.id + "__" + environment;
 
-  const env = feature.environmentSettings?.[environment];
+  const envs = feature.environmentSettings;
+  const env = envs?.[environment];
+
+  const [desiredState, setDesiredState] = useState(env?.enabled ?? false);
+  const [confirming, setConfirming] = useState(false);
+
+  const settings = useOrgSettings();
+  const showConfirmation = !!settings?.killswitchConfirmation;
+
+  const submit = async (
+    feature: FeatureInterface,
+    environment: string,
+    state: boolean,
+  ) => {
+    setToggling(true);
+    try {
+      await apiCall(`/feature/${feature.id}/toggle`, {
+        method: "POST",
+        body: JSON.stringify({
+          environment,
+          state,
+        }),
+      });
+      track("Feature Environment Toggle", {
+        environment,
+        enabled: state,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    setToggling(false);
+    mutate();
+  };
+
   const isDisabled = !permissionsUtil.canPublishFeature(feature, [environment]);
 
   const switchElement = (
     <Switch
       id={id}
-      disabled={isDisabled || isLocked || toggling}
+      disabled={isDisabled}
       value={env?.enabled ?? false}
-      onChange={(on) => {
+      onChange={async (on) => {
         if (toggling) return;
-        if (on === (env?.enabled ?? false)) return;
-        setConfirmingState(on);
+        if (on && env?.enabled) return;
+        if (!on && !env?.enabled) return;
+
+        if (showConfirmation) {
+          setDesiredState(on);
+          setConfirming(true);
+        } else {
+          await submit(feature, environment, on);
+        }
       }}
-      size="3"
+      size={size}
     />
   );
 
   return (
     <>
-      {confirmingState !== null && (
-        <KillSwitchModal
-          feature={feature}
-          baseFeature={baseFeature}
-          environment={environment}
-          desiredState={confirmingState}
-          currentVersion={currentVersion}
-          revisionList={revisionList}
-          mutate={async () => {
-            setToggling(false);
-            await mutate();
-          }}
-          setVersion={setVersion}
+      {confirming ? (
+        <Modal
+          trackingEventModalType=""
+          header="Toggle environment"
           close={() => {
-            setConfirmingState(null);
+            setConfirming(false);
             setToggling(false);
           }}
-        />
-      )}
+          open={true}
+          cta="Confirm"
+          submit={() => submit(feature, environment, desiredState)}
+        >
+          You are about to set the <strong>{environment}</strong> environment to{" "}
+          <strong>{desiredState ? "enabled" : "disabled"}</strong>.
+        </Modal>
+      ) : null}
 
-      {isLocked ? (
-        <Tooltip content="Switch to an active draft to toggle this environment">
-          {switchElement}
-        </Tooltip>
-      ) : isDisabled ? (
+      {isDisabled ? (
         <Tooltip content="You don't have permission to change features in this environment">
           {switchElement}
         </Tooltip>

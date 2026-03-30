@@ -5,6 +5,13 @@ import ClickToReveal from "@/components/Settings/ClickToReveal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useUser } from "@/services/UserContext";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
@@ -23,20 +30,22 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
 }) => {
   const { organization } = useUser();
   return (
-    <table className="table mb-3 appbox gbtable">
-      <thead>
-        <tr>
-          <th style={{ width: 150 }}>Description</th>
-          <th>Key</th>
-          <th>Role</th>
-          {canDeleteKeys && <th style={{ width: 30 }}></th>}
-        </tr>
-      </thead>
-      <tbody>
+    <Table variant="list" stickyHeader roundedCorners className="mb-3">
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader style={{ width: 150 }}>
+            Description
+          </TableColumnHeader>
+          <TableColumnHeader>Key</TableColumnHeader>
+          <TableColumnHeader>Role</TableColumnHeader>
+          {canDeleteKeys ? <TableColumnHeader style={{ width: 30 }} /> : null}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {keys.map((key) => (
-          <tr key={key.id}>
-            <td>{key.description}</td>
-            <td style={{ minWidth: 295 }}>
+          <TableRow key={key.id}>
+            <TableCell>{key.description}</TableCell>
+            <TableCell style={{ minWidth: 295 }}>
               {canCreateKeys ? (
                 <ClickToReveal
                   valueWhenHidden="secret_abcdefghijklmnop123"
@@ -45,12 +54,15 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               ) : (
                 <em>hidden</em>
               )}
-            </td>
-            <td>
+            </TableCell>
+            <TableCell>
               {key.role ? getRoleDisplayName(key.role, organization) : "-"}
-            </td>
-            {canDeleteKeys && (
-              <td>
+            </TableCell>
+            {canDeleteKeys ? (
+              <TableCell
+                style={{ cursor: "initial" }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreMenu>
                   <DeleteButton
                     onClick={onDelete(key.id)}
@@ -59,11 +71,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     text="Delete key"
                   />
                 </MoreMenu>
-              </td>
-            )}
-          </tr>
+              </TableCell>
+            ) : null}
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 };

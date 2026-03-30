@@ -3,11 +3,7 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
-import {
-  AISuggestionType,
-  computeAIUsageData,
-  formatAIRateLimitRetryMessage,
-} from "shared/ai";
+import { AISuggestionType, computeAIUsageData } from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -81,7 +77,12 @@ export default function EditHypothesisModal({
           },
           (responseData) => {
             if (responseData.status === 429) {
-              setError(formatAIRateLimitRetryMessage(responseData.retryAfter));
+              const retryAfter = parseInt(responseData.retryAfter);
+              const hours = Math.floor(retryAfter / 3600);
+              const minutes = Math.floor((retryAfter % 3600) / 60);
+              setError(
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+              );
             } else if (responseData.message) {
               setError(responseData.message);
             } else {

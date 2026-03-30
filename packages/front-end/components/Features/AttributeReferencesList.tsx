@@ -84,29 +84,17 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
             >
               {featuresPageItems.map((feature) => (
                 <li key={feature.id}>
-                  <Flex align="center" gap="2" my="1">
-                    <Box
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <Link href={`/features/${feature.id}`} target="_blank">
-                        {feature.name ?? feature.id}
-                      </Link>
-                    </Box>
-                    <Box flexShrink="0">
-                      <ProjectBadges
-                        resourceType="feature"
-                        projectIds={
-                          feature.project ? [feature.project] : undefined
-                        }
-                        skipMargin
-                      />
-                    </Box>
+                  <Flex justify="between" align="center" gap="2" my="1">
+                    <Link href={`/features/${feature.id}`} target="_blank">
+                      {feature.name ?? feature.id}
+                    </Link>
+                    <ProjectBadges
+                      resourceType="feature"
+                      projectIds={
+                        feature.project ? [feature.project] : undefined
+                      }
+                      skipMargin
+                    />
                   </Flex>
                 </li>
               ))}
@@ -154,36 +142,21 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
             >
               {experimentsPageItems.map((experiment) => (
                 <li key={experiment.id}>
-                  <Flex align="center" gap="2" my="1">
-                    <Box
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <Link
-                        href={`/experiment/${experiment.id}`}
-                        target="_blank"
-                      >
-                        {experiment.name ?? experiment.id}
-                      </Link>
-                    </Box>
-                    <Box flexShrink="0">
-                      <ProjectBadges
-                        resourceType="experiment"
-                        projectIds={
-                          experiment.project
-                            ? [experiment.project]
-                            : experiment.projects?.length
-                              ? experiment.projects
-                              : undefined
-                        }
-                        skipMargin
-                      />
-                    </Box>
+                  <Flex justify="between" align="center" gap="2" my="1">
+                    <Link href={`/experiment/${experiment.id}`} target="_blank">
+                      {experiment.name ?? experiment.id}
+                    </Link>
+                    <ProjectBadges
+                      resourceType="experiment"
+                      projectIds={
+                        experiment.project
+                          ? [experiment.project]
+                          : experiment.projects?.length
+                            ? experiment.projects
+                            : undefined
+                      }
+                      skipMargin
+                    />
                   </Flex>
                 </li>
               ))}
@@ -234,34 +207,19 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
             >
               {conditionGroupsPageItems.map((savedGroup) => (
                 <li key={savedGroup.id}>
-                  <Flex align="center" gap="2" my="1">
-                    <Box
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <Link
-                        href="/saved-groups#conditionGroups"
-                        target="_blank"
-                      >
-                        {savedGroup.groupName ?? savedGroup.id}
-                      </Link>
-                    </Box>
-                    <Box flexShrink="0">
-                      <ProjectBadges
-                        resourceType="saved group"
-                        projectIds={
-                          savedGroup.projects?.length
-                            ? savedGroup.projects
-                            : undefined
-                        }
-                        skipMargin
-                      />
-                    </Box>
+                  <Flex justify="between" align="center" gap="2" my="1">
+                    <Link href="/saved-groups#conditionGroups" target="_blank">
+                      {savedGroup.groupName ?? savedGroup.id}
+                    </Link>
+                    <ProjectBadges
+                      resourceType="saved group"
+                      projectIds={
+                        savedGroup.projects?.length
+                          ? savedGroup.projects
+                          : undefined
+                      }
+                      skipMargin
+                    />
                   </Flex>
                 </li>
               ))}

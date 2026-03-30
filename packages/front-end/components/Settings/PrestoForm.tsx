@@ -238,20 +238,13 @@ const PrestoForm: FC<{
           type="number"
           className="form-control"
           name="requestTimeout"
-          value={
-            params.requestTimeout === undefined ||
-            params.requestTimeout === null
-              ? ""
-              : String(params.requestTimeout)
-          }
+          value={params.requestTimeout || ""}
           onChange={onParamChange}
-          placeholder="Optional — seconds (default 3600 if unset)"
+          placeholder="(optional - in seconds. If empty or 0, there will be no limit)"
         />
         <div className="form-text text-muted small">
-          Seconds GrowthBook waits for each query (including the connection test
-          when you save). If empty, default is 3600 (one hour). Set to 0 to turn
-          off this client-side limit only; Trino/Presto may still enforce
-          server-side timeouts.
+          The number of seconds before a request will timeout. Set to 0 to
+          disable timeout.
         </div>
       </div>
       <div className="form-group col-md-12">
