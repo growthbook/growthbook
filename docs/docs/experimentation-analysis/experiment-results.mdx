@@ -137,7 +137,7 @@ Like the warning says, you shouldn't trust the results since they are likely mis
 
 Under the hood, we are conducting a standard chi-squared test for Sample Ratio Mismatch, which compares the distribution of observed units to the expected units and computes a p-value for the probability of observing this traffic split if the traffic split were truly unbiased.
 
-### Pre-Exposure Mean Imbalance
+### Pre-Exposure Bias Check
 
 This alert indicates that there is a large difference between the pre-exposure mean of the baseline variation and the pre-exposure mean of the treatment variation. This means that the control and treatment groups were substantially different with respect to a goal or guardrail metric before the experiment started. While some degree of imbalance is expected, this alert is raised if the imbalance is statistically significant.
 
