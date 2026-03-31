@@ -67,7 +67,30 @@ vi.mock("@/components/Auth/InAppHelp", () => ({
 }));
 
 describe("ProtectedPage error handling", () => {
-  it("shows loading overlay for transient failed-to-fetch errors", () => {
+  it("shows loading overlay for startup failed-to-fetch errors", () => {
+    mockUseUser.mockReturnValue({
+      error: "failed to fetch",
+      ready: false,
+      organization: {},
+      effectiveAccountPlan: "",
+    });
+    mockUseAuth.mockReturnValue({
+      organizations: [],
+      orgId: "org_123",
+      initialPlanSelection: "",
+    });
+
+    render(
+      <ProtectedPage organizationRequired={true}>
+        <div>child content</div>
+      </ProtectedPage>,
+    );
+
+    expect(screen.getByTestId("loading-overlay")).toBeInTheDocument();
+    expect(screen.queryByText("Error Signing In")).not.toBeInTheDocument();
+  });
+
+  it("shows API connection error when failed-to-fetch persists after ready", () => {
     mockUseUser.mockReturnValue({
       error: "failed to fetch",
       ready: true,
@@ -86,7 +109,10 @@ describe("ProtectedPage error handling", () => {
       </ProtectedPage>,
     );
 
-    expect(screen.getByTestId("loading-overlay")).toBeInTheDocument();
+    expect(screen.getByText("Connection Error")).toBeInTheDocument();
+    expect(
+      screen.getByText(/could not connect to the growthbook api/i),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Error Signing In")).not.toBeInTheDocument();
   });
 
