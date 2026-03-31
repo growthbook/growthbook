@@ -92,14 +92,14 @@ FROM
   users
 ```
 
-It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it yourself if you want more control. Here's an example for a "country" dimension:
+It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it yourself if you want more control. Here's an example using the "first_country" dimension:
 
 ```sql
 SELECT
   user_id,
   (
-    CASE WHEN country = 'us' THEN 'US'
-    WHEN country = 'uk' THEN 'UK'
+    CASE WHEN first_country = 'us' THEN 'US'
+    WHEN first_country = 'uk' THEN 'UK'
     ELSE 'Other' END
   ) as value
 FROM
