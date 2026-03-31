@@ -20,16 +20,11 @@ import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import RadioGroup from "@/ui/RadioGroup";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import RampScheduleSection, {
   type RampSectionState,
   defaultRampSectionState,
   activeFieldsFromState,
-  rebuildStateWithActiveFields,
-  STEP_FIELD_LABELS,
-  VALID_STEP_FIELDS,
   type StepField,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
@@ -83,7 +78,6 @@ export default function StandardRuleFields({
   scheduleType,
   setScheduleType,
   pendingDetach,
-  onChangeRuleType,
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
@@ -102,7 +96,6 @@ export default function StandardRuleFields({
   scheduleType: ScheduleType;
   setScheduleType: (t: ScheduleType) => void;
   pendingDetach?: boolean;
-  onChangeRuleType?: (v: string) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -171,7 +164,7 @@ export default function StandardRuleFields({
           form.setValue("coverage", 0);
         }
       } else {
-        // Always reset to preset[0] when entering ramp fresh.
+        // Reset to default ramp state when entering ramp fresh.
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
           : null;
@@ -265,11 +258,11 @@ export default function StandardRuleFields({
               value: "schedule",
               label: (
                 <Flex align="center" gap="2">
-                  Schedule
+                  Start and end date
                   <PaidFeatureBadge commercialFeature="schedule-feature-flag" />
                 </Flex>
               ),
-              description: "Define a start and end date",
+              description: "Enable or disable the rule on specific dates",
               disabled: !canScheduleFeatureFlags,
             },
             {
@@ -281,81 +274,8 @@ export default function StandardRuleFields({
                 </Flex>
               ),
               description:
-                "Define multiple steps with optional targeting conditions and approvals",
+                "Increase traffic over multiple steps, with optional targeting conditions and approvals",
               disabled: !canUseRampSchedules,
-              renderOutsideItem: true,
-              renderOnSelect: (
-                <Box mt="3" ml="5">
-                  <Box mb="2">
-                    <Text as="div" size="medium" weight="medium" mb="1">
-                      Properties to ramp up
-                    </Text>
-                    <Text as="div" size="small">
-                      Will be controlled by the ramp-up schedule and cannot be
-                      globally set
-                    </Text>
-                  </Box>
-                  <MultiSelectField
-                    value={VALID_STEP_FIELDS.filter((f) =>
-                      rampActiveFields.has(f),
-                    )}
-                    options={VALID_STEP_FIELDS.map((f) => ({
-                      value: f,
-                      label: STEP_FIELD_LABELS[f],
-                    }))}
-                    onChange={(newValues) => {
-                      const newFields = newValues as StepField[];
-                      const wasActive = rampActiveFields.has("coverage");
-                      const willBeActive = newFields.includes("coverage");
-                      if (!wasActive && willBeActive)
-                        form.setValue("coverage", 0);
-                      if (wasActive && !willBeActive)
-                        form.setValue("coverage", 1);
-                      setRampSectionState(
-                        rebuildStateWithActiveFields(
-                          rampSectionState,
-                          newFields,
-                          {
-                            condition: form.watch("condition") ?? "{}",
-                            savedGroups: form.watch("savedGroups") ?? [],
-                            prerequisites: form.watch("prerequisites") ?? [],
-                            force: form.watch("value") ?? "",
-                          },
-                        ),
-                      );
-                    }}
-                    sort={false}
-                    showCopyButton={false}
-                    closeMenuOnSelect={false}
-                    containerClassName="mb-0"
-                  />
-                  {VALID_STEP_FIELDS.includes("coverage") &&
-                    !rampActiveFields.has("coverage") && (
-                      <Box mt="2">
-                        <Link
-                          onClick={() => {
-                            form.setValue("coverage", 0);
-                            setRampSectionState(
-                              rebuildStateWithActiveFields(
-                                rampSectionState,
-                                [...Array.from(rampActiveFields), "coverage"],
-                                {
-                                  condition: form.watch("condition") ?? "{}",
-                                  savedGroups: form.watch("savedGroups") ?? [],
-                                  prerequisites:
-                                    form.watch("prerequisites") ?? [],
-                                  force: form.watch("value") ?? "",
-                                },
-                              ),
-                            );
-                          }}
-                        >
-                          Add <strong>Rollout %</strong>
-                        </Link>
-                      </Box>
-                    )}
-                </Box>
-              ),
             },
           ]}
           value={scheduleType}
@@ -401,19 +321,6 @@ export default function StandardRuleFields({
                 hideNameField={true}
                 feature={feature}
                 environments={environments}
-                onSetRuleCoverage={(v) => form.setValue("coverage", v)}
-                ruleBaseline={{
-                  condition: form.watch("condition") ?? "{}",
-                  savedGroups: form.watch("savedGroups") ?? [],
-                  prerequisites: form.watch("prerequisites") ?? [],
-                  force: form.watch("value") ?? "",
-                }}
-                ruleType={ruleType}
-                onConvertToRollout={
-                  ruleType === "force" && onChangeRuleType
-                    ? () => onChangeRuleType("rollout")
-                    : undefined
-                }
               />
             )}
           </>

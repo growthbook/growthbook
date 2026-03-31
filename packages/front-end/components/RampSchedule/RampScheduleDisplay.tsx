@@ -2,7 +2,7 @@
 // When targetId is set, only actions for that target are shown.
 
 import { type ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import {
   RampScheduleInterface,
@@ -12,11 +12,12 @@ import {
 import Text from "@/ui/Text";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { formatTrigger } from "@/components/RampSchedule/RampTimeline";
 
 // ─── Effect row ──────────────────────────────────────────────────────────────
 
-const EFFECT_LABEL_W = 100;
+const EFFECT_LABEL_W = 120;
 
 function EffectRow({
   label,
@@ -64,9 +65,13 @@ function PatchDisplay({
       );
     }
 
-    if (p.force !== undefined && p.force !== null) {
+    if ("force" in p && p.force !== undefined) {
       const forceStr =
-        typeof p.force === "string" ? p.force : stringify(p.force as object);
+        p.force === null
+          ? "null"
+          : typeof p.force === "string"
+            ? p.force
+            : stringify(p.force as object);
       items.push(
         <EffectRow key={k("force")} label="Feature value">
           <InlineCode language="json" code={forceStr} />
@@ -74,26 +79,38 @@ function PatchDisplay({
       );
     }
 
-    if (p.condition && p.condition !== "{}") {
+    if ("condition" in p) {
       items.push(
         <EffectRow key={k("cond")} label="Attribute targeting">
-          <ConditionDisplay condition={p.condition} />
+          {p.condition && p.condition !== "{}" ? (
+            <ConditionDisplay condition={p.condition} />
+          ) : (
+            <Text size="small" fontStyle="italic">None</Text>
+          )}
         </EffectRow>,
       );
     }
 
-    if (p.savedGroups && p.savedGroups.length > 0) {
+    if ("savedGroups" in p) {
       items.push(
         <EffectRow key={k("sg")} label="Saved groups">
-          <ConditionDisplay savedGroups={p.savedGroups} />
+          {p.savedGroups && p.savedGroups.length > 0 ? (
+            <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
+          ) : (
+            <Text size="small" fontStyle="italic">None</Text>
+          )}
         </EffectRow>,
       );
     }
 
-    if (p.prerequisites && p.prerequisites.length > 0) {
+    if ("prerequisites" in p) {
       items.push(
         <EffectRow key={k("prereq")} label="Prerequisites">
-          <ConditionDisplay prerequisites={p.prerequisites} />
+          {p.prerequisites && p.prerequisites.length > 0 ? (
+            <ConditionDisplay prerequisites={p.prerequisites} />
+          ) : (
+            <Text size="small" fontStyle="italic">None</Text>
+          )}
         </EffectRow>,
       );
     }
@@ -186,12 +203,8 @@ function Row({
     <Flex
       align="start"
       gap="3"
-      my="3"
-      pl="2"
-      style={{
-        borderLeft: "2px solid var(--gray-4)",
-        opacity: dimmed ? 0.5 : 1,
-      }}
+      pt="2"
+      style={{ opacity: dimmed ? 0.5 : 1 }}
     >
       <Box style={{ width: LABEL_W, flexShrink: 0 }}>
         <Text size="small" weight="medium" color={labelColor}>
@@ -240,12 +253,7 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
   return (
     <Box mx="2">
       {/* Column headers */}
-      <Flex
-        gap="3"
-        mb="1"
-        pl="2"
-        style={{ borderLeft: "2px solid transparent" }}
-      >
+      <Flex gap="3" mb="1">
         <Box style={{ width: LABEL_W, flexShrink: 0 }}>
           <Text size="small" color="text-low" weight="medium">
             Step
@@ -263,6 +271,7 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
         </Box>
       </Flex>
 
+      <Separator size="4" my="2" />
       <Row
         label="start"
         trigger={<StartTriggerLabel trigger={rs.startCondition.trigger} />}
@@ -271,15 +280,19 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
 
       {/* Steps */}
       {rs.steps.map((step, i) => (
-        <Row
-          key={i}
-          label={i + 1}
-          trigger={formatTrigger(step.trigger)}
-          actions={filterActions(step.actions, targetId)}
-          isActive={i === current}
-        />
+        <>
+          <Separator key={`sep-${i}`} size="4" my="2" />
+          <Row
+            key={i}
+            label={i + 1}
+            trigger={formatTrigger(step.trigger)}
+            actions={filterActions(step.actions, targetId)}
+            isActive={i === current}
+          />
+        </>
       ))}
 
+      <Separator size="4" my="2" />
       {(() => {
         const hasExplicitEnd = !!rs.endCondition;
         const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;

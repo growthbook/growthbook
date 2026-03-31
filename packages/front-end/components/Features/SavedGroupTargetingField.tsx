@@ -25,6 +25,7 @@ export interface Props {
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
   project: string;
   slimMode?: boolean;
+  emptyText?: string;
   label?: string;
   labelActions?: React.ReactNode;
   locked?: boolean;
@@ -35,6 +36,7 @@ export default function SavedGroupTargetingField({
   setValue,
   project,
   slimMode,
+  emptyText,
   label = "Target by Saved Groups",
   labelActions,
   locked,
@@ -47,7 +49,7 @@ export default function SavedGroupTargetingField({
   const savedGroupsLabel =
     label &&
     (slimMode ? (
-      <Text as="div" size="small" weight="medium" color="text-low">
+      <Text as="div" size="small" weight="semibold" color="text-mid">
         {label}
       </Text>
     ) : (
@@ -92,9 +94,14 @@ export default function SavedGroupTargetingField({
         )}
         {!label && !labelActions && savedGroupsLabel}
         <Box>
-          {!slimMode && (
-            <Text color="text-low" fontStyle="italic" mb="2">
-              No saved group targeting applied.
+          {(emptyText || !slimMode) && (
+            <Text
+              color="text-low"
+              fontStyle="italic"
+              mb="2"
+              size={slimMode ? "small" : undefined}
+            >
+              {emptyText || "No saved group targeting applied."}
             </Text>
           )}
           <Box mt={slimMode ? "0" : "2"}>

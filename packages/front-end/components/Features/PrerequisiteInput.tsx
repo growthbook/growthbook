@@ -66,6 +66,7 @@ interface Props {
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
   slimMode?: boolean;
+  emptyText?: string;
   label?: string;
   labelActions?: ReactNode;
   locked?: boolean;
@@ -79,6 +80,7 @@ export default function PrerequisiteInput({
   environments,
   setPrerequisiteTargetingSdkIssues,
   slimMode,
+  emptyText,
   label = "Target by Prerequisite Features",
   labelActions,
   locked,
@@ -341,7 +343,7 @@ export default function PrerequisiteInput({
         premiumText="Prerequisite targeting is available for Enterprise customers"
       >
         {slimMode ? (
-          <Text as="div" size="small" weight="medium" color="text-low">
+          <Text as="div" size="small" weight="semibold" color="text-mid">
             {label}
           </Text>
         ) : (
@@ -380,9 +382,14 @@ export default function PrerequisiteInput({
 
   const content = (
     <Box mb={slimMode ? "1" : "2"}>
-      {value.length === 0 && !slimMode && (
-        <Text color="text-low" fontStyle="italic" mb="2">
-          No prerequisite targeting applied
+      {value.length === 0 && (emptyText || !slimMode) && (
+        <Text
+          color="text-low"
+          fontStyle="italic"
+          mb="2"
+          size={slimMode ? "small" : undefined}
+        >
+          {emptyText || "No prerequisite targeting applied"}
         </Text>
       )}
       {value.length > 0 ? (

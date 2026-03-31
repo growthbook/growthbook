@@ -252,7 +252,7 @@ export default function ConditionInput({
           <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
             <Flex gap="2" align="center">
               {slimMode ? (
-                <Text as="div" size="small" weight="medium" color="text-low">
+                <Text as="div" size="small" weight="semibold" color="text-mid">
                   {label}
                 </Text>
               ) : (
@@ -287,7 +287,7 @@ export default function ConditionInput({
           <Flex gap="2" mb={slimMode ? "0" : "1"}>
             <Box flexGrow="1">
               {slimMode ? (
-                <Text as="div" size="small" weight="medium" color="text-low">
+                <Text as="div" size="small" weight="semibold" color="text-mid">
                   Target by Attributes
                 </Text>
               ) : (
@@ -359,7 +359,7 @@ export default function ConditionInput({
         {(label || labelActions) && (
           <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
             {slimMode ? (
-              <Text as="div" size="small" weight="medium" color="text-low">
+              <Text as="div" size="small" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
@@ -373,7 +373,7 @@ export default function ConditionInput({
         {!label &&
           !labelActions &&
           (slimMode ? (
-            <Text as="div" size="small" weight="medium" color="text-low">
+            <Text as="div" size="small" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
@@ -382,11 +382,14 @@ export default function ConditionInput({
             </Text>
           ))}
         <Box>
-          {!slimMode && (
-            <Text color="text-low" fontStyle="italic" mb="2">
-              {emptyText}
-            </Text>
-          )}
+          <Text
+            color="text-low"
+            fontStyle="italic"
+            mb="2"
+            size={slimMode ? "small" : undefined}
+          >
+            {emptyText}
+          </Text>
           <Box mt={slimMode ? "0" : "2"}>
             <Link
               onClick={() => {
@@ -427,7 +430,7 @@ export default function ConditionInput({
         <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
           <Flex gap="2" align="center">
             {slimMode ? (
-              <Text as="div" size="small" weight="medium" color="text-low">
+              <Text as="div" size="small" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
@@ -461,7 +464,7 @@ export default function ConditionInput({
       {!label && !labelActions && (
         <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
           {slimMode ? (
-            <Text as="div" size="small" weight="medium" color="text-low">
+            <Text as="div" size="small" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (

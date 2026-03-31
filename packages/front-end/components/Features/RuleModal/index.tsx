@@ -88,7 +88,6 @@ import {
   validateRampSectionState,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
-  activeFieldsFromState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 export interface Props {
   close: () => void;
@@ -197,12 +196,11 @@ export default function RuleModal({
       if (pendingCreateActionTyped) {
         return createActionToSectionState(pendingCreateActionTyped);
       }
-      const baseState = defaultRampSectionState(ruleRampSchedule);
-      // In duplicate mode, convert "edit" mode to "create" to clone the ramp
-      if (mode === "duplicate" && baseState.mode === "edit") {
-        return { ...baseState, mode: "create", linkedRampId: "" };
+      // Duplicate starts fresh — no schedule carried over
+      if (mode === "duplicate") {
+        return defaultRampSectionState(undefined);
       }
-      return baseState;
+      return defaultRampSectionState(ruleRampSchedule);
     },
   );
   const { datasources, project: currentProject } = useDefinitions();
@@ -556,10 +554,6 @@ export default function RuleModal({
     if (mode === "create" && !rule) {
       form.setValue("id", pregenRuleId);
     }
-  }
-
-  function scrubAndChangeRuleType(v: string) {
-    changeRuleType(v);
   }
 
   const submitOverview = () => {
@@ -941,13 +935,6 @@ export default function RuleModal({
           "Ramp schedule requires either steps or scheduled start or end dates.",
         );
       }
-      if (
-        scheduleType === "ramp" &&
-        rampSectionState.mode !== "off" &&
-        activeFieldsFromState(rampSectionState).size === 0
-      ) {
-        throw new Error("Select at least one property to ramp before saving.");
-      }
 
       // Rollout rules with sub-100% coverage and ramp-up schedules that control
       // coverage both require a bucketing attribute to be set.
@@ -1091,7 +1078,6 @@ export default function RuleModal({
                     : endActions.length
                       ? { actions: endActions }
                       : undefined,
-                  controlledFields: [...activeFieldsFromState(rampState)],
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1147,7 +1133,6 @@ export default function RuleModal({
                     : endActions.length
                       ? { actions: endActions }
                       : null,
-                  controlledFields: [...activeFieldsFromState(rampState)],
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1263,7 +1248,6 @@ export default function RuleModal({
                 : endActions.length
                   ? { actions: endActions }
                   : undefined,
-              controlledFields: [...activeFieldsFromState(rampState)],
             };
           }
         }
@@ -1552,7 +1536,6 @@ export default function RuleModal({
             scheduleType={scheduleType}
             setScheduleType={setScheduleType}
             pendingDetach={hasPendingDetach}
-            onChangeRuleType={scrubAndChangeRuleType}
           />
         )}
 

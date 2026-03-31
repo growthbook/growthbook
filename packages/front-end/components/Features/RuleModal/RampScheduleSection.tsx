@@ -3,12 +3,7 @@
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import pick from "lodash/pick";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
-import {
-  PiPlusBold,
-  PiXBold,
-  PiCaretRightFill,
-  PiCaretDownFill,
-} from "react-icons/pi";
+import { PiPlusBold, PiCaretRightFill, PiInfo } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import type {
   FeatureInterface,
@@ -22,6 +17,7 @@ import {
   type FeatureRulePatch,
 } from "shared/validators";
 import type { RevisionRampCreateAction } from "shared/src/validators/features";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   getRampBadgeColor,
   getRampStatusLabel,
@@ -34,19 +30,19 @@ import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
-import Tooltip from "@/ui/Tooltip";
 import Checkbox from "@/ui/Checkbox";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import Text from "@/ui/Text";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Callout from "@/ui/Callout";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuGroup,
-  DropdownSubMenu,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import styles from "./RampScheduleSection.module.scss";
 
@@ -85,6 +81,7 @@ export type UIStep = {
   intervalUnit: IntervalUnit;
   approvalNotes: string;
   notesOpen: boolean; // UI-only: whether the notes field is expanded
+  additionalEffectsOpen: boolean; // UI-only: whether the effects sub-rows are expanded
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
@@ -104,6 +101,10 @@ export interface RampSectionState {
   endScheduleAt: string; // "" = automatic end; non-empty = specific time
   endPatch: UIStepPatch;
   linkedRampId: string;
+  // Per-row "additional effects" expansion state (force / condition / savedGroups / prerequisites).
+  startAdditionalEffectsOpen: boolean;
+  endAdditionalEffectsOpen: boolean;
+  // Note: per-step open state lives on UIStep.additionalEffectsOpen
 }
 
 const UNIT_MULT: Record<IntervalUnit, number> = {
@@ -113,18 +114,26 @@ const UNIT_MULT: Record<IntervalUnit, number> = {
 };
 
 export const VALID_STEP_FIELDS: StepField[] = [
-  "coverage",
-  "force",
-  "condition",
   "savedGroups",
+  "condition",
   "prerequisites",
+  "force",
 ];
+
+// Empty sentinel values used when a user opts a field into a step for the first time.
+// These represent "explicitly clear this field at this step" — distinct from absent (inherit).
+export const FIELD_DEFAULTS: Partial<UIStepPatch> = {
+  condition: "{}",
+  savedGroups: [],
+  prerequisites: [],
+  force: "",
+};
 
 export function scrubRampStateForRuleType(
   state: RampSectionState,
 ): RampSectionState {
   const scrub = (p: UIStepPatch): UIStepPatch =>
-    pick(p, VALID_STEP_FIELDS) as UIStepPatch;
+    pick(p, ["coverage", ...VALID_STEP_FIELDS]) as UIStepPatch; // coverage is always ramp-controlled
   return {
     ...state,
     startPatch: scrub(state.startPatch),
@@ -171,6 +180,22 @@ export function buildPatch(
     }
   }
   return out;
+}
+
+// Immutably sets or removes a field from a patch.
+// value === undefined → delete key (step inherits from previous step).
+// any other value → set key (step explicitly controls this field).
+function setPatchField(
+  patch: UIStepPatch,
+  field: StepField,
+  value: unknown,
+): UIStepPatch {
+  if (value === undefined) {
+    const next = { ...(patch as Record<string, unknown>) };
+    delete next[field];
+    return next as UIStepPatch;
+  }
+  return { ...patch, [field]: value };
 }
 
 export function buildRampSteps(
@@ -239,14 +264,9 @@ export function validateRampSectionState(
   // endScheduleAt non-empty means the end trigger type is "specific-time".
   // If it's empty but was intended to be set (user has not filled it in), we can't
   // detect that from state alone — instead, the DatePicker simply won't submit a date,
-  // which leaves endScheduleAt="". We therefore block only when a specific-time end
-  // was expected: treat endScheduleAt="" + disableRuleAfter=true as incomplete
-  // because all three scheduled presets that require an end date also set disableRuleAfter.
-  // (A plain ramp with disableRuleAfter=true and automatic end is valid — only the
-  // scheduled "Disable rule on specific date" presets set both together.)
-  // More precisely: if the end SelectField shows "Specific time" (endScheduleAt non-empty)
-  // we're fine. If it's empty and disableRuleAfter is true AND there are no steps, that
-  // means it's a pure scheduled rule that needs an end date.
+  // which leaves endScheduleAt="". Block only when a specific-time end was expected:
+  // if disableRuleAfter is true with no steps and no end date, there's nothing to trigger
+  // the end action and an end date is required.
   if (
     state.disableRuleAfter &&
     state.endScheduleAt === "" &&
@@ -277,263 +297,22 @@ function ColHeader({
   );
 }
 
-// ─── Presets ─────────────────────────────────────────────────────────────────
-
-// Presets use apply-first semantics: each step's effects are applied immediately,
-// then the step holds for its own interval before advancing. The initial 0% state
-// is applied by startCondition.actions; steps start from the first non-zero coverage.
-// Step counts do NOT include the start anchor (step 0).
-const RAMP_PRESETS: {
-  label: string;
-  name: string;
-  defaultDurationValue: number;
-  defaultDurationUnit: IntervalUnit;
-  coverages: number[];
-  triggerType: "interval" | "approval";
-  // Approval-gated presets start manually so the user confirms before anything fires
-  manualStart?: boolean;
-}[] = [
-  {
-    label: "Standard (1, 5, 10, 25, 50, 100)",
-    name: "standard ramp-up",
-    defaultDurationValue: 1,
-    defaultDurationUnit: "hours",
-    coverages: [1, 5, 10, 25, 50, 100],
-    triggerType: "interval",
-  },
-  {
-    label: "Safe (Standard, with approval steps)",
-    name: "safe standard ramp-up",
-    defaultDurationValue: 1,
-    defaultDurationUnit: "hours",
-    coverages: [1, 5, 10, 25, 50, 100],
-    triggerType: "approval",
-    manualStart: true,
-  },
-  {
-    label: "Quick (10, 50, 100)",
-    name: "quick ramp-up",
-    defaultDurationValue: 10,
-    defaultDurationUnit: "minutes",
-    coverages: [10, 50, 100],
-    triggerType: "interval",
-  },
-  {
-    label: "Quick safe (Quick, with approval steps)",
-    name: "quick safe ramp-up",
-    defaultDurationValue: 10,
-    defaultDurationUnit: "minutes",
-    coverages: [10, 50, 100],
-    triggerType: "approval",
-    manualStart: true,
-  },
-  {
-    label: "Linear (5 steps)",
-    name: "linear 5-step ramp-up",
-    defaultDurationValue: 1,
-    defaultDurationUnit: "hours",
-    coverages: [20, 40, 60, 80, 100],
-    triggerType: "interval",
-  },
-  {
-    label: "Linear (10 steps)",
-    name: "linear 10-step ramp-up",
-    defaultDurationValue: 1,
-    defaultDurationUnit: "hours",
-    coverages: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-    triggerType: "interval",
-  },
-];
-
-/**
- * Detect which preset (if any) matches the given steps + start configuration.
- *
- * Returns the preset label string if a match is found, "custom" if steps exist
- * but don't match any preset, or "" (empty) if there are no steps yet.
- *
- * Matching rules:
- *  - Step count must equal preset.coverages.length
- *  - Every step's triggerType must match preset.triggerType
- *  - Every step's patch.coverage must equal the corresponding preset coverage value
- *  - Each step's patch must contain ONLY coverage (no extra effects)
- *  - manualStart flag must match (preset.manualStart ↔ startMode === "manual")
- *  - disableRuleBefore / disableRuleAfter must both be false (presets don't set these)
- */
-function detectPreset(
-  steps: UIStep[],
-  startMode: StartMode,
-  disableRuleBefore: boolean,
-  disableRuleAfter: boolean,
-): string {
-  if (steps.length === 0) return "";
-  // Presets never enable disableRuleBefore/After — any such config is custom.
-  if (disableRuleBefore || disableRuleAfter) return "custom";
-
-  for (const preset of RAMP_PRESETS) {
-    if (steps.length !== preset.coverages.length) continue;
-
-    const triggerMatches = steps.every(
-      (s) => s.triggerType === preset.triggerType,
-    );
-    if (!triggerMatches) continue;
-
-    const manualStartExpected = !!preset.manualStart;
-    if (manualStartExpected !== (startMode === "manual")) continue;
-
-    const coveragesMatch = steps.every(
-      (s, i) => s.patch.coverage === preset.coverages[i],
-    );
-    if (!coveragesMatch) continue;
-
-    // Reject if any step has effects beyond just coverage.
-    const hasExtraEffects = steps.some((s) => {
-      const keys = (Object.keys(s.patch) as StepField[]).filter(
-        (k) => k !== "coverage" && s.patch[k] !== undefined,
-      );
-      return keys.length > 0;
-    });
-    if (hasExtraEffects) continue;
-
-    return preset.label;
-  }
-
-  return "custom";
-}
-
-// Divide total duration evenly across interval steps. Approval steps use 10 min
-// as a placeholder (trigger type controls advancement, not the interval value).
-// Respects activeFields so every step is pre-populated with baseline values.
-function buildPresetSteps(
-  coverages: number[],
-  triggerType: "interval" | "approval",
-  totalDurationValue: number,
-  totalDurationUnit: IntervalUnit,
-  activeFields: Set<StepField>,
-  ruleBaseline: Partial<UIStepPatch>,
-): UIStep[] {
-  const totalSeconds = totalDurationValue * UNIT_MULT[totalDurationUnit];
-  const intervalCount = triggerType === "interval" ? coverages.length : 1;
-  const perStepSeconds = Math.max(1, Math.ceil(totalSeconds / intervalCount));
-  const intervalUnit: IntervalUnit =
-    perStepSeconds % 86400 === 0 && perStepSeconds >= 86400
-      ? "days"
-      : perStepSeconds % 3600 === 0 && perStepSeconds >= 3600
-        ? "hours"
-        : "minutes";
-  const intervalValue =
-    intervalUnit === "days"
-      ? perStepSeconds / 86400
-      : intervalUnit === "hours"
-        ? perStepSeconds / 3600
-        : Math.ceil(perStepSeconds / 60);
-
-  return coverages.map((coverage) => {
-    const patch: UIStepPatch = {};
-    if (activeFields.has("coverage")) patch.coverage = coverage;
-    if (activeFields.has("condition"))
-      patch.condition = ruleBaseline.condition ?? "{}";
-    if (activeFields.has("savedGroups"))
-      patch.savedGroups = ruleBaseline.savedGroups ?? [];
-    if (activeFields.has("prerequisites"))
-      patch.prerequisites = ruleBaseline.prerequisites ?? [];
-    if (activeFields.has("force")) patch.force = ruleBaseline.force ?? "";
-    return {
-      patch,
-      triggerType,
-      intervalValue,
-      intervalUnit,
-      approvalNotes: "",
-      notesOpen: false,
-    };
-  });
-}
-
-// Apply a total duration to existing interval steps by dividing evenly.
-function applyTotalDuration(
-  steps: UIStep[],
-  totalDurationValue: number,
-  totalDurationUnit: IntervalUnit,
-): UIStep[] {
-  const intervalSteps = steps.filter((s) => s.triggerType === "interval");
-  if (intervalSteps.length === 0) return steps;
-  const totalSeconds = totalDurationValue * UNIT_MULT[totalDurationUnit];
-  const perStepSeconds = Math.max(
-    1,
-    Math.ceil(totalSeconds / intervalSteps.length),
-  );
-  const intervalUnit: IntervalUnit =
-    perStepSeconds % 86400 === 0 && perStepSeconds >= 86400
-      ? "days"
-      : perStepSeconds % 3600 === 0 && perStepSeconds >= 3600
-        ? "hours"
-        : "minutes";
-  const intervalValue =
-    intervalUnit === "days"
-      ? perStepSeconds / 86400
-      : intervalUnit === "hours"
-        ? perStepSeconds / 3600
-        : Math.ceil(perStepSeconds / 60);
-  return steps.map((s) =>
-    s.triggerType === "interval" ? { ...s, intervalValue, intervalUnit } : s,
-  );
-}
-
 // ─── Active-field helpers (exported for use in parent forms) ─────────────────
 
+// Returns the set of fields actively controlled by this ramp schedule.
+// Coverage is always included. Other fields are inferred from whatever is set
+// across all patches — if any step defines condition, condition is "controlled".
 export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
-  const fields = new Set<StepField>();
-  state.steps.forEach((s) => {
-    (Object.keys(s.patch) as StepField[]).forEach((k) => fields.add(k));
-  });
-  (Object.keys(state.startPatch) as StepField[]).forEach((k) => fields.add(k));
-  (Object.keys(state.endPatch) as StepField[]).forEach((k) => fields.add(k));
+  const fields = new Set<StepField>(["coverage"]);
+  const scan = (p: UIStepPatch) => {
+    for (const f of VALID_STEP_FIELDS) {
+      if (p[f] !== undefined) fields.add(f);
+    }
+  };
+  scan(state.startPatch);
+  state.steps.forEach((s) => scan(s.patch));
+  scan(state.endPatch);
   return fields;
-}
-
-// Rebuild all patches to include exactly newFields; new fields are seeded from baseline.
-export function rebuildStateWithActiveFields(
-  state: RampSectionState,
-  newFields: StepField[],
-  baseline: Partial<UIStepPatch>,
-): RampSectionState {
-  const newSet = new Set(newFields);
-  const n = state.steps.length;
-
-  const baselineFor = (f: StepField): unknown => {
-    if (baseline[f] !== undefined) return baseline[f];
-    if (f === "savedGroups" || f === "prerequisites") return [];
-    if (f === "coverage") return 0;
-    return "";
-  };
-
-  const rebuildPatch = (existing: UIStepPatch, idx?: number): UIStepPatch => {
-    const p: UIStepPatch = {};
-    newSet.forEach((f) => {
-      if (existing[f] !== undefined) {
-        (p as Record<string, unknown>)[f] = existing[f];
-      } else if (f === "coverage" && idx !== undefined) {
-        p.coverage = Math.round(((idx + 1) / Math.max(n, 1)) * 100);
-      } else {
-        (p as Record<string, unknown>)[f] = baselineFor(f);
-      }
-    });
-    return p;
-  };
-
-  return {
-    ...state,
-    startPatch: rebuildPatch(state.startPatch),
-    // Pre-seed coverage: 100 so newly-activated coverage on the end patch
-    // defaults to 100% rather than 0. Explicitly-set values are preserved.
-    endPatch: rebuildPatch({
-      coverage: 100,
-      ...state.endPatch,
-    }),
-    steps: state.steps.map((s, i) => ({
-      ...s,
-      patch: rebuildPatch(s.patch, i),
-    })),
-  };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -546,16 +325,8 @@ interface Props {
   hideOuterToggle?: boolean;
   feature: FeatureInterface;
   environments: string[];
-  onSetRuleCoverage?: (coverage: number) => void;
-  // Live rule values used as defaults when a new field is first added to the schedule.
-  ruleBaseline?: UIStepPatch;
-  // The rule type this schedule is attached to. Used to hide unsupported fields
-  // (e.g. coverage on force rules) and auto-convert when a coverage preset is chosen.
-  ruleType?: "force" | "rollout";
-  // Called when a coverage-based preset is selected while ruleType === "force".
-  onConvertToRollout?: () => void;
-  // When true, wraps the step grid + more options in an appbox card,
-  // leaving the preset/duration controls outside. Used by the standalone modal.
+  // When true, wraps the step grid + more options in an appbox card.
+  // Used by the standalone modal.
   boxStepGrid?: boolean;
   // When true, hides the name field from the UI. Used in standalone modal to hide
   // the naming concept from the editor. Name is still stored/managed but not editable.
@@ -563,101 +334,6 @@ interface Props {
   // When true, a draft detach action is pending for this rule. Shows a "pending removal"
   // badge in place of the normal status badge.
   pendingDetach?: boolean;
-}
-
-type CopyTarget =
-  | "empty"
-  | "all"
-  | "subsequent"
-  | "previous"
-  | "start"
-  | "end"
-  | number;
-
-interface CopyToDropdownProps {
-  field: StepField;
-  currentStepIndex: number | "start" | "end";
-  state: RampSectionState;
-  isPatchFieldEmpty: (p: UIStepPatch, field: StepField) => boolean;
-  onCopy: (field: StepField, target: CopyTarget) => void;
-}
-
-function CopyToDropdown({
-  field,
-  currentStepIndex,
-  state,
-  isPatchFieldEmpty,
-  onCopy,
-}: CopyToDropdownProps) {
-  const [open, setOpen] = useState(false);
-
-  function pick(target: CopyTarget) {
-    onCopy(field, target);
-    setOpen(false);
-  }
-
-  const hasEmptyTargets =
-    (currentStepIndex !== "start" &&
-      isPatchFieldEmpty(state.startPatch, field)) ||
-    state.steps.some(
-      (s, i) => i !== currentStepIndex && isPatchFieldEmpty(s.patch, field),
-    ) ||
-    (currentStepIndex !== "end" && isPatchFieldEmpty(state.endPatch, field));
-
-  return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={setOpen}
-      trigger={
-        <Link
-          type="button"
-          style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
-        >
-          Copy to... <PiCaretDownFill style={{ fontSize: "9px" }} />
-        </Link>
-      }
-      menuPlacement="end"
-      variant="soft"
-    >
-      <DropdownMenuGroup>
-        {hasEmptyTargets && (
-          <DropdownMenuItem onClick={() => pick("empty")}>
-            Empty steps
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onClick={() => pick("all")}>
-          All steps
-        </DropdownMenuItem>
-        {currentStepIndex !== "end" && (
-          <DropdownMenuItem onClick={() => pick("subsequent")}>
-            Future steps
-          </DropdownMenuItem>
-        )}
-        {currentStepIndex !== "start" && (
-          <DropdownMenuItem onClick={() => pick("previous")}>
-            Previous steps
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuGroup>
-      <DropdownSubMenu trigger="Step">
-        {currentStepIndex !== "start" && (
-          <DropdownMenuItem onClick={() => pick("start")}>
-            Start
-          </DropdownMenuItem>
-        )}
-        {state.steps.map((_, i) =>
-          i === currentStepIndex ? null : (
-            <DropdownMenuItem key={i} onClick={() => pick(i)}>
-              Step {i + 1}
-            </DropdownMenuItem>
-          ),
-        )}
-        {currentStepIndex !== "end" && (
-          <DropdownMenuItem onClick={() => pick("end")}>End</DropdownMenuItem>
-        )}
-      </DropdownSubMenu>
-    </DropdownMenu>
-  );
 }
 
 export default function RampScheduleSection({
@@ -668,10 +344,6 @@ export default function RampScheduleSection({
   hideOuterToggle = false,
   feature,
   environments,
-  onSetRuleCoverage,
-  ruleBaseline = {},
-  ruleType,
-  onConvertToRollout,
   boxStepGrid = false,
   hideNameField = false,
   pendingDetach = false,
@@ -681,9 +353,10 @@ export default function RampScheduleSection({
   // Per-step version counters for ConditionInput (uncontrolled) — incremented
   // when a copy operation writes a new condition value into a step so the
   // component remounts and picks up the new defaultValue.
-  const [conditionVersions, setConditionVersions] = useState<
-    Record<string, number>
-  >({});
+  const [conditionVersions] = useState<Record<string, number>>({});
+  const [openMenuIndex, setOpenMenuIndex] = useState<
+    number | "start" | "end" | null
+  >(null);
 
   // Auto-switch to "create" mode when opening a ramp editor with no existing ramp
   useEffect(() => {
@@ -707,46 +380,13 @@ export default function RampScheduleSection({
     (Object.keys(state.endPatch) as StepField[]).forEach((k) => fields.add(k));
     return fields.size > 1 || (fields.size === 1 && !fields.has("coverage"));
   });
-  const [durationValue, setDurationValue] = useState<string>(() => {
-    const detected = detectPreset(
-      state.steps,
-      state.startMode,
-      state.disableRuleBefore,
-      state.disableRuleAfter,
-    );
-    return String(
-      RAMP_PRESETS.find((p) => p.label === detected)?.defaultDurationValue ??
-        10,
-    );
-  });
-  const [durationUnit, setDurationUnit] = useState<IntervalUnit>(() => {
-    const detected = detectPreset(
-      state.steps,
-      state.startMode,
-      state.disableRuleBefore,
-      state.disableRuleAfter,
-    );
-    return (
-      RAMP_PRESETS.find((p) => p.label === detected)?.defaultDurationUnit ??
-      "minutes"
-    );
-  });
-  const [durationDirty, setDurationDirty] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState(() =>
-    detectPreset(
-      state.steps,
-      state.startMode,
-      state.disableRuleBefore,
-      state.disableRuleAfter,
-    ),
-  );
   const pollIntervalSeconds = 60;
 
   function patchState(partial: Partial<RampSectionState>) {
     setState({ ...state, ...partial });
   }
 
-  // Active fields are derived from all patches (start, steps, end).
+  // Active fields: coverage always + any field set in any step/start/end patch.
   const activeFields = useMemo<Set<StepField>>(
     () => activeFieldsFromState(state),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -756,44 +396,55 @@ export default function RampScheduleSection({
   // ── Step mutations ──────────────────────────────────────────────────────────
 
   function updateStep(i: number, update: Partial<UIStep>) {
-    setSelectedPreset("custom");
     patchState({
       steps: state.steps.map((s, idx) => (idx === i ? { ...s, ...update } : s)),
     });
   }
 
   function updateStepPatch(i: number, field: StepField, value: unknown) {
-    setSelectedPreset("custom");
     patchState({
       steps: state.steps.map((s, idx) =>
-        idx === i ? { ...s, patch: { ...s.patch, [field]: value } } : s,
+        idx === i ? { ...s, patch: setPatchField(s.patch, field, value) } : s,
       ),
     });
   }
 
   function removeStep(i: number) {
-    setSelectedPreset("custom");
     patchState({ steps: state.steps.filter((_, idx) => idx !== i) });
   }
 
-  function addStep() {
-    setSelectedPreset("custom");
-    const last = state.steps[state.steps.length - 1];
-    const newPatch: UIStepPatch = {};
-    if (activeFields.has("coverage")) {
-      newPatch.coverage =
-        last?.patch.coverage !== undefined
-          ? Math.min(100, last.patch.coverage + 20)
-          : 50;
-    }
-    if (activeFields.has("condition"))
-      newPatch.condition = ruleBaseline.condition ?? "";
-    if (activeFields.has("savedGroups"))
-      newPatch.savedGroups = ruleBaseline.savedGroups ?? [];
-    if (activeFields.has("prerequisites"))
-      newPatch.prerequisites = ruleBaseline.prerequisites ?? [];
-    if (activeFields.has("force")) newPatch.force = ruleBaseline.force ?? "";
+  function addStepAfter(afterIndex: number | "start") {
+    const prev = afterIndex === "start" ? undefined : state.steps[afterIndex];
+    const prevCoverage =
+      afterIndex === "start" ? state.startPatch.coverage : prev?.patch.coverage;
+    const newStep: UIStep = {
+      patch: {
+        coverage:
+          prevCoverage !== undefined ? Math.min(100, prevCoverage + 10) : 10,
+      },
+      triggerType: prev?.triggerType ?? "interval",
+      intervalValue: prev?.intervalValue ?? 10,
+      intervalUnit: prev?.intervalUnit ?? "minutes",
+      approvalNotes: "",
+      notesOpen: false,
+      additionalEffectsOpen: false,
+    };
+    const insertAt = afterIndex === "start" ? 0 : afterIndex + 1;
+    const steps = [...state.steps];
+    steps.splice(insertAt, 0, newStep);
+    patchState({ steps });
+  }
 
+  function addStep() {
+    const last = state.steps[state.steps.length - 1];
+    // New steps only seed coverage (always-on); other controlled fields start empty
+    // so each step only defines what actually changes at that point.
+    const newPatch: UIStepPatch = {
+      coverage:
+        last?.patch.coverage !== undefined
+          ? Math.min(100, last.patch.coverage + 10)
+          : 10,
+    };
     patchState({
       steps: [
         ...state.steps,
@@ -804,6 +455,7 @@ export default function RampScheduleSection({
           intervalUnit: last?.intervalUnit ?? "minutes",
           approvalNotes: "",
           notesOpen: false,
+          additionalEffectsOpen: false,
         },
       ],
     });
@@ -830,20 +482,10 @@ export default function RampScheduleSection({
         ? "on-or-before"
         : "on"
       : "automatic";
-    const hasTargeting = (
-      ["condition", "savedGroups", "prerequisites"] as StepField[]
-    ).some((f) => activeFields.has(f));
-    const hasEffects = activeFields.has("force") || hasTargeting;
-    const rowBorder: React.CSSProperties = hasEffects
-      ? { borderBottom: "1px solid var(--gray-a6)" }
-      : {};
+    const rowBorder: React.CSSProperties = {
+      borderBottom: "1px solid var(--gray-a6)",
+    };
     const subRowIndent = COL.num + 16;
-    const effectsHeader = activeFields.has("coverage")
-      ? "Other effects"
-      : "Effects";
-    const effectsCount = (
-      ["force", "condition", "savedGroups", "prerequisites"] as StepField[]
-    ).filter((f) => activeFields.has(f)).length;
 
     // Sub-row renderer for feature value + targeting fields.
     // Force value is shown as the first sub-row (above targeting).
@@ -852,196 +494,148 @@ export default function RampScheduleSection({
       patch: UIStepPatch,
       setPatchFn: (field: StepField, value: unknown) => void,
       currentStepIndex: number | "start" | "end",
+      open: boolean,
     ) {
-      if (!hasEffects) return null;
+      if (!open) return null;
 
-      // A patch field counts as "empty" when it hasn't been meaningfully filled in.
-      function isPatchFieldEmpty(p: UIStepPatch, field: StepField): boolean {
-        const v = p[field];
-        if (v === undefined) return true;
-        if (field === "condition") return v === "" || v === "{}";
-        if (field === "savedGroups" || field === "prerequisites")
-          return Array.isArray(v) && v.length === 0;
-        return false;
-      }
+      const fieldsNotInPatch = VALID_STEP_FIELDS.filter((f) => !(f in patch));
 
-      // Helper to copy current patch field value to other steps
-      function copyFieldValue(field: StepField, target: CopyTarget) {
-        const sourceValue = patch[field];
-        const newState = { ...state };
-
-        // Maps start/end/number to a comparable position in the step sequence.
-        const order = (idx: number | "start" | "end"): number => {
-          if (idx === "start") return -1;
-          if (idx === "end") return state.steps.length;
-          return idx;
-        };
-        const currentOrder = order(currentStepIndex);
-
-        const shouldUpdatePatch = (
-          targetPatch: UIStepPatch,
-          targetIndex: number | "start" | "end",
-        ): boolean => {
-          if (targetIndex === currentStepIndex) return false;
-
-          if (target === "all") return true;
-          if (target === "empty") return isPatchFieldEmpty(targetPatch, field);
-          if (target === "subsequent") return order(targetIndex) > currentOrder;
-          if (target === "previous") return order(targetIndex) < currentOrder;
-          if (target === "start") return targetIndex === "start";
-          if (target === "end") return targetIndex === "end";
-          if (typeof target === "number") return targetIndex === target;
-          return false;
-        };
-
-        if (shouldUpdatePatch(newState.startPatch, "start")) {
-          newState.startPatch = {
-            ...newState.startPatch,
-            [field]: sourceValue,
-          };
-        }
-
-        newState.steps = newState.steps.map((step, i) => {
-          if (shouldUpdatePatch(step.patch, i)) {
-            return { ...step, patch: { ...step.patch, [field]: sourceValue } };
-          }
-          return step;
-        });
-
-        if (shouldUpdatePatch(newState.endPatch, "end")) {
-          newState.endPatch = { ...newState.endPatch, [field]: sourceValue };
-        }
-
-        setState(newState);
-
-        // ConditionInput is uncontrolled (useState(defaultValue)), so we must
-        // bump the version for each affected step to force a remount.
-        if (field === "condition") {
-          setConditionVersions((prev) => {
-            const next = { ...prev };
-            if (shouldUpdatePatch(newState.startPatch, "start")) {
-              next["start"] = (next["start"] ?? 0) + 1;
-            }
-            newState.steps.forEach((_, i) => {
-              if (shouldUpdatePatch(newState.steps[i].patch, i)) {
-                next[String(i)] = (next[String(i)] ?? 0) + 1;
-              }
-            });
-            if (shouldUpdatePatch(newState.endPatch, "end")) {
-              next["end"] = (next["end"] ?? 0) + 1;
-            }
-            return next;
-          });
-        }
-      }
-
-      const trigger = (
-        <Flex
-          align="center"
-          gap="1"
-          style={{ cursor: "pointer", userSelect: "none" }}
-        >
-          <PiCaretRightFill
-            className="chevron"
-            style={{ flexShrink: 0, color: "var(--color-text-low)" }}
-          />
-          <Text as="div" size="small" weight="medium" color="text-low" my="1">
-            {effectsHeader} ({effectsCount} total)
-          </Text>
-        </Flex>
-      );
       return (
-        <Box pb="1" style={{ paddingLeft: subRowIndent }}>
-          <Collapsible
-            trigger={trigger}
-            open={state.mode === "create"}
-            transitionTime={100}
+        <Box pb="3" style={{ paddingLeft: subRowIndent }}>
+          <Flex
+            direction="column"
+            gap="5"
+            pt="2"
+            pb="3"
+            px="2"
+            className="bg-highlight rounded"
           >
-            <Box pt="2">
-              {activeFields.has("force") && (
-                <Box mb="4">
+            <Flex wrap="wrap" gap="3" align="start" justify="between">
+              <Flex as="div" align="center" gap="1">
+                <Text weight="medium" color="text-mid">
+                  Additional effects
+                </Text>
+                <Tooltip
+                  tipPosition="top"
+                  body="Effects are applied incrementally. Each change made in this step remains in effect until overridden in a future step."
+                >
+                  <PiInfo style={{ color: "var(--accent-11)" }} />
+                </Tooltip>
+              </Flex>
+
+              <Flex wrap="wrap" gap="5" align="start">
+                {fieldsNotInPatch.map((f) => (
+                  <Link
+                    key={f}
+                    size="1"
+                    onClick={() => setPatchFn(f, FIELD_DEFAULTS[f])}
+                  >
+                    <PiPlusBold
+                      style={{ marginRight: 3, verticalAlign: "middle" }}
+                    />
+                    {STEP_FIELD_LABELS[f]}
+                  </Link>
+                ))}
+              </Flex>
+            </Flex>
+
+            {"force" in patch && (
+              <Box>
+                <Flex align="center" justify="between" mb="1">
                   <Text
                     as="div"
                     size="small"
-                    weight="medium"
-                    color="text-low"
-                    my="1"
+                    weight="semibold"
+                    color="text-mid"
                   >
                     Feature value
                   </Text>
-                  <FeatureValueField
-                    id={`${currentStepIndex}-force`}
-                    valueType={feature.valueType}
-                    value={String(patch.force ?? "")}
-                    setValue={(v) => setPatchFn("force", v)}
-                    feature={feature}
-                    useDropdown={feature.valueType === "boolean"}
-                    hideCopyButton
-                  />
-                </Box>
-              )}
-              {activeFields.has("condition") && (
-                <Box mb="4">
-                  <ConditionInput
-                    key={`${currentStepIndex}-condition-${conditionVersions[String(currentStepIndex)] ?? 0}`}
-                    defaultValue={patch.condition ?? "{}"}
-                    onChange={(v) => setPatchFn("condition", v)}
-                    project={feature.project ?? ""}
-                    slimMode
-                    labelActions={
-                      <CopyToDropdown
-                        field="condition"
-                        currentStepIndex={currentStepIndex}
-                        state={state}
-                        isPatchFieldEmpty={isPatchFieldEmpty}
-                        onCopy={copyFieldValue}
-                      />
-                    }
-                  />
-                </Box>
-              )}
-              {activeFields.has("savedGroups") && (
-                <Box mb="4">
-                  <SavedGroupTargetingField
-                    value={patch.savedGroups ?? []}
-                    setValue={(v) => setPatchFn("savedGroups", v)}
-                    project={feature.project ?? ""}
-                    slimMode
-                    labelActions={
-                      <CopyToDropdown
-                        field="savedGroups"
-                        currentStepIndex={currentStepIndex}
-                        state={state}
-                        isPatchFieldEmpty={isPatchFieldEmpty}
-                        onCopy={copyFieldValue}
-                      />
-                    }
-                  />
-                </Box>
-              )}
-              {activeFields.has("prerequisites") && (
-                <Box mb="4">
-                  <PrerequisiteInput
-                    value={patch.prerequisites ?? []}
-                    setValue={(v) => setPatchFn("prerequisites", v)}
-                    feature={feature}
-                    environments={environments}
-                    setPrerequisiteTargetingSdkIssues={() => {}}
-                    slimMode
-                    labelActions={
-                      <CopyToDropdown
-                        field="prerequisites"
-                        currentStepIndex={currentStepIndex}
-                        state={state}
-                        isPatchFieldEmpty={isPatchFieldEmpty}
-                        onCopy={copyFieldValue}
-                      />
-                    }
-                  />
-                </Box>
-              )}
-            </Box>
-          </Collapsible>
+                  <Link
+                    size="1"
+                    color="red"
+                    onClick={() => setPatchFn("force", undefined)}
+                  >
+                    Remove effect
+                  </Link>
+                </Flex>
+                <FeatureValueField
+                  id={`${currentStepIndex}-force`}
+                  valueType={feature.valueType}
+                  value={String(patch.force ?? "")}
+                  setValue={(v) => setPatchFn("force", v)}
+                  feature={feature}
+                  useDropdown={feature.valueType === "boolean"}
+                  hideCopyButton
+                />
+              </Box>
+            )}
+
+            {"condition" in patch && (
+              <Box>
+                <ConditionInput
+                  key={`${currentStepIndex}-condition-${conditionVersions[String(currentStepIndex)] ?? 0}`}
+                  defaultValue={patch.condition ?? "{}"}
+                  onChange={(v) => setPatchFn("condition", v)}
+                  project={feature.project ?? ""}
+                  slimMode
+                  emptyText="No targeting applied"
+                  labelActions={
+                    <Link
+                      size="1"
+                      color="red"
+                      onClick={() => setPatchFn("condition", undefined)}
+                    >
+                      Remove effect
+                    </Link>
+                  }
+                />
+              </Box>
+            )}
+
+            {"savedGroups" in patch && (
+              <Box>
+                <SavedGroupTargetingField
+                  value={patch.savedGroups ?? []}
+                  setValue={(v) => setPatchFn("savedGroups", v)}
+                  project={feature.project ?? ""}
+                  slimMode
+                  emptyText="No targeting applied"
+                  labelActions={
+                    <Link
+                      size="1"
+                      color="red"
+                      onClick={() => setPatchFn("savedGroups", undefined)}
+                    >
+                      Remove effect
+                    </Link>
+                  }
+                />
+              </Box>
+            )}
+
+            {"prerequisites" in patch && (
+              <Box>
+                <PrerequisiteInput
+                  value={patch.prerequisites ?? []}
+                  setValue={(v) => setPatchFn("prerequisites", v)}
+                  feature={feature}
+                  environments={environments}
+                  setPrerequisiteTargetingSdkIssues={() => {}}
+                  slimMode
+                  emptyText="No targeting applied"
+                  labelActions={
+                    <Link
+                      size="1"
+                      color="red"
+                      onClick={() => setPatchFn("prerequisites", undefined)}
+                    >
+                      Remove effect
+                    </Link>
+                  }
+                />
+              </Box>
+            )}
+          </Flex>
         </Box>
       );
     }
@@ -1159,12 +753,57 @@ export default function RampScheduleSection({
               </Box>
             )}
           </Flex>
+          <Box flexGrow="1" />
+          <DropdownMenu
+            open={openMenuIndex === "start"}
+            onOpenChange={(o) => setOpenMenuIndex(o ? "start" : null)}
+            trigger={
+              <IconButton
+                type="button"
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            variant="soft"
+            menuPlacement="end"
+          >
+            {!state.startAdditionalEffectsOpen ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpenMenuIndex(null);
+                    patchState({ startAdditionalEffectsOpen: true });
+                  }}
+                >
+                  Add additional effects
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            ) : null}
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenMenuIndex(null);
+                  addStepAfter("start");
+                }}
+              >
+                Add step after
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenu>
         </Flex>
         {renderPatchSubRows(
           state.startPatch,
           (field, value) =>
-            patchState({ startPatch: { ...state.startPatch, [field]: value } }),
+            patchState({
+              startPatch: setPatchField(state.startPatch, field, value),
+            }),
           "start",
+          state.startAdditionalEffectsOpen,
         )}
       </div>
     );
@@ -1288,14 +927,48 @@ export default function RampScheduleSection({
             <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
             Add step
           </Link>
+          <DropdownMenu
+            open={openMenuIndex === "end"}
+            onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
+            disabled={state.endAdditionalEffectsOpen}
+            trigger={
+              <IconButton
+                type="button"
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+                disabled={state.endAdditionalEffectsOpen}
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            variant="soft"
+            menuPlacement="end"
+          >
+            {!state.endAdditionalEffectsOpen ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpenMenuIndex(null);
+                    patchState({ endAdditionalEffectsOpen: true });
+                  }}
+                >
+                  Add additional effects
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            ) : null}
+          </DropdownMenu>
         </Flex>
         {renderPatchSubRows(
           state.endPatch,
           (field, value) =>
             patchState({
-              endPatch: { ...state.endPatch, [field]: value },
+              endPatch: setPatchField(state.endPatch, field, value),
             }),
           "end",
+          state.endAdditionalEffectsOpen,
         )}
       </div>
     );
@@ -1320,12 +993,7 @@ export default function RampScheduleSection({
 
         {state.steps.map((step, i) => {
           return (
-            <div
-              key={i}
-              style={
-                hasEffects ? { borderBottom: "1px solid var(--gray-a6)" } : {}
-              }
-            >
+            <div key={i} style={rowBorder}>
               {/* Main grid row */}
               <Flex align="center" gap="4" py="2">
                 {/* Step number */}
@@ -1355,6 +1023,13 @@ export default function RampScheduleSection({
                         onFocus={(e) => e.target.select()}
                         value={String(step.patch.coverage ?? 0)}
                         onChange={(e) =>
+                          updateStepPatch(
+                            i,
+                            "coverage",
+                            parseInt(e.target.value) || 0,
+                          )
+                        }
+                        onBlur={(e) =>
                           updateStepPatch(
                             i,
                             "coverage",
@@ -1436,6 +1111,11 @@ export default function RampScheduleSection({
                         value={String(step.intervalValue)}
                         onChange={(e) =>
                           updateStep(i, {
+                            intervalValue: parseInt(e.target.value) || 1,
+                          })
+                        }
+                        onBlur={(e) =>
+                          updateStep(i, {
                             intervalValue: Math.max(
                               1,
                               parseInt(e.target.value) || 1,
@@ -1506,26 +1186,67 @@ export default function RampScheduleSection({
                 </Flex>
 
                 {step.triggerType !== "approval" && <Box flexGrow="1" />}
-                {/* Remove button — pushed to far right */}
-                <Tooltip content="Remove step">
-                  <IconButton
-                    type="button"
-                    color="gray"
-                    variant="ghost"
-                    radius="full"
-                    size="1"
-                    style={{ margin: 0, flexShrink: 0 }}
-                    onClick={() => removeStep(i)}
-                  >
-                    <PiXBold size={16} />
-                  </IconButton>
-                </Tooltip>
+                {/* Three-dot menu — pushed to far right */}
+                <DropdownMenu
+                  open={openMenuIndex === i}
+                  onOpenChange={(o) => setOpenMenuIndex(o ? i : null)}
+                  trigger={
+                    <IconButton
+                      type="button"
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={18} />
+                    </IconButton>
+                  }
+                  variant="soft"
+                  menuPlacement="end"
+                >
+                  {!step.additionalEffectsOpen ? (
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setOpenMenuIndex(null);
+                          updateStep(i, { additionalEffectsOpen: true });
+                        }}
+                      >
+                        Add additional effects
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  ) : null}
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setOpenMenuIndex(null);
+                        addStepAfter(i);
+                      }}
+                    >
+                      Add step after
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setOpenMenuIndex(null);
+                        removeStep(i);
+                      }}
+                    >
+                      Remove step
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenu>
               </Flex>
 
               {renderPatchSubRows(
                 step.patch,
                 (field, value) => updateStepPatch(i, field, value),
                 i,
+                step.additionalEffectsOpen,
               )}
             </div>
           );
@@ -1573,159 +1294,22 @@ export default function RampScheduleSection({
 
   const createContent = (
     <>
-      {/* Presets + Duration */}
-      <Flex gap="6" mb="4" align="start">
-        {/* Left: preset selector */}
-        <Box style={{ flex: "1 1 0", minWidth: 0 }}>
-          <SelectField
-            label="Preset"
-            value={selectedPreset}
-            placeholder="Choose a preset..."
-            options={[
-              ...RAMP_PRESETS.map((p) => ({
-                value: p.label,
-                label: p.label,
-              })),
-              { value: "custom", label: "Custom..." },
-            ]}
-            onChange={(v) => {
-              if (v === "custom") {
-                setSelectedPreset("custom");
-                return;
-              }
-
-              const ramp = RAMP_PRESETS.find((p) => p.label === v);
-              if (ramp) {
-                if (ruleType === "force") {
-                  onConvertToRollout?.();
-                }
-                setSelectedPreset(v);
-                const effectiveDurationValue = durationDirty
-                  ? Math.max(1, parseInt(durationValue) || 1)
-                  : ramp.defaultDurationValue;
-                const effectiveDurationUnit = durationDirty
-                  ? durationUnit
-                  : ramp.defaultDurationUnit;
-                if (!durationDirty) {
-                  setDurationValue(String(ramp.defaultDurationValue));
-                  setDurationUnit(ramp.defaultDurationUnit);
-                }
-                patchState({
-                  steps: buildPresetSteps(
-                    ramp.coverages,
-                    ramp.triggerType,
-                    effectiveDurationValue,
-                    effectiveDurationUnit,
-                    activeFields,
-                    ruleBaseline,
-                  ),
-                  name: ramp.name,
-                  endScheduleAt: "",
-                  endPatch: { coverage: 100 },
-                  disableRuleBefore: false,
-                  disableRuleAfter: false,
-                  endEarlyWhenStepsComplete: true,
-                  startMode: ramp.manualStart ? "manual" : "immediately",
-                  startTime: "",
-                });
-                if ((state.startPatch.coverage ?? 0) === 0) {
-                  onSetRuleCoverage?.(0);
-                }
-                return;
-              }
-            }}
-            sort={false}
-            containerClassName="mb-0"
-          />
-        </Box>
-
-        {/* Right: Total duration field + Apply */}
-        <Box style={{ flexShrink: 0 }}>
-          <label>Total duration</label>
-          <Flex align="center" gap="2">
-            <Field
-              type="number"
-              min="1"
-              value={durationValue}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => {
-                setDurationValue(e.target.value);
-                setDurationDirty(true);
-              }}
-              onBlur={(e) => {
-                const v = Math.max(1, parseInt(e.target.value) || 1);
-                setDurationValue(String(v));
-                patchState({
-                  steps: applyTotalDuration(state.steps, v, durationUnit),
-                });
-              }}
-              containerStyle={{ width: 75, flexShrink: 0 }}
-              containerClassName="mb-0"
-              style={{ minHeight: 38 }}
-            />
-            <SelectField
-              value={durationUnit}
-              options={[
-                { value: "minutes", label: "minutes" },
-                { value: "hours", label: "hours" },
-                { value: "days", label: "days" },
-              ]}
-              onChange={(v) => {
-                const unit = v as IntervalUnit;
-                setDurationUnit(unit);
-                setDurationDirty(true);
-                patchState({
-                  steps: applyTotalDuration(
-                    state.steps,
-                    Math.max(1, parseInt(durationValue) || 1),
-                    unit,
-                  ),
-                });
-              }}
-              containerClassName="mb-0"
-              containerStyle={{ width: 100, minHeight: 38 }}
-            />
-          </Flex>
-        </Box>
-      </Flex>
-
-      {activeFields.size === 0 && (
-        <Callout status="error" mb="4">
-          Select at least one property to ramp.
+      {state.steps.some(
+        (s) =>
+          s.triggerType === "interval" &&
+          s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
+      ) && (
+        <Callout status="warning" mb="3">
+          One or more steps are shorter than the minimum check interval (1 min).
+          Short steps may be applied together rather than at their exact
+          scheduled times.
         </Callout>
       )}
 
       {boxStepGrid ? (
-        <div className="appbox px-3 pt-3 pb-2 bg-light">
-          {state.steps.some(
-            (s) =>
-              s.triggerType === "interval" &&
-              s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
-          ) && (
-            <Callout status="warning" mb="3">
-              One or more steps are shorter than the minimum check interval (1
-              min). Short steps may be applied together rather than at their
-              exact scheduled times.
-            </Callout>
-          )}
-          {renderStepGrid()}
-        </div>
+        <div className="appbox px-3 pt-3 pb-2 bg-light">{renderStepGrid()}</div>
       ) : (
-        <>
-          {/* Granularity warning */}
-          {state.steps.some(
-            (s) =>
-              s.triggerType === "interval" &&
-              s.intervalValue * UNIT_MULT[s.intervalUnit] < pollIntervalSeconds,
-          ) && (
-            <Callout status="warning" mb="3">
-              One or more steps are shorter than the minimum check interval (1
-              min). Short steps may be applied together rather than at their
-              exact scheduled times.
-            </Callout>
-          )}
-          {renderStepGrid()}
-        </>
+        renderStepGrid()
       )}
     </>
   );
@@ -1852,6 +1436,10 @@ export function reconstructUIPatch(
 // Converts a stored RampStep back to a UIStep.
 export function reconstructUIStep(step: RampStep): UIStep {
   const patch = reconstructUIPatch(step.actions[0]?.patch);
+  // Open additional effects if the stored patch already has any effect fields set.
+  const additionalEffectsOpen = VALID_STEP_FIELDS.some(
+    (f) => patch[f] !== undefined,
+  );
   if (step.trigger.type === "approval" || step.trigger.type === "scheduled") {
     const approvalNotes = step.approvalNotes ?? "";
     return {
@@ -1861,6 +1449,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
       intervalUnit: "minutes",
       approvalNotes,
       notesOpen: approvalNotes.trim().length > 0,
+      additionalEffectsOpen,
     };
   }
   const seconds = step.trigger.seconds;
@@ -1882,6 +1471,7 @@ export function reconstructUIStep(step: RampStep): UIStep {
           : seconds / 60,
     approvalNotes: "",
     notesOpen: false,
+    additionalEffectsOpen,
   };
 }
 
@@ -1890,6 +1480,8 @@ export function rampScheduleToSectionState(
   rs: RampScheduleInterface,
 ): RampSectionState {
   const trigger = rs.startCondition?.trigger;
+  const startPatch = reconstructUIPatch(rs.startCondition?.actions?.[0]?.patch);
+  const endPatch = reconstructUIPatch(rs.endCondition?.actions?.[0]?.patch);
   return {
     mode: "edit",
     name: rs.name,
@@ -1901,7 +1493,7 @@ export function rampScheduleToSectionState(
           : "immediately",
     startTime:
       trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    startPatch: reconstructUIPatch(rs.startCondition?.actions?.[0]?.patch),
+    startPatch,
     disableRuleBefore: rs.disableRuleBefore ?? false,
     disableRuleAfter: rs.disableRuleAfter ?? false,
     endEarlyWhenStepsComplete: rs.endEarlyWhenStepsComplete ?? true,
@@ -1910,8 +1502,14 @@ export function rampScheduleToSectionState(
       rs.endCondition?.trigger?.type === "scheduled"
         ? new Date(rs.endCondition.trigger.at).toISOString()
         : "",
-    endPatch: reconstructUIPatch(rs.endCondition?.actions?.[0]?.patch),
+    endPatch,
     linkedRampId: rs.id,
+    startAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
+      (f) => startPatch[f] !== undefined,
+    ),
+    endAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
+      (f) => endPatch[f] !== undefined,
+    ),
   };
 }
 
@@ -1921,28 +1519,31 @@ export function defaultRampSectionState(
   if (ruleRampSchedule) {
     return rampScheduleToSectionState(ruleRampSchedule);
   }
-  // Pre-seed with the first preset so the step table is populated on first open.
-  const preset = RAMP_PRESETS[0];
   return {
     mode: "off",
-    name: preset.name,
+    name: "ramp-up",
     startMode: "immediately" as StartMode,
     startTime: "",
     startPatch: { coverage: 0 },
     disableRuleBefore: false,
     disableRuleAfter: false,
     endEarlyWhenStepsComplete: true,
-    steps: buildPresetSteps(
-      preset.coverages,
-      preset.triggerType,
-      preset.defaultDurationValue,
-      preset.defaultDurationUnit,
-      new Set<StepField>(["coverage"]),
-      {},
-    ),
+    steps: [
+      {
+        patch: { coverage: 10 },
+        triggerType: "interval",
+        intervalValue: 1,
+        intervalUnit: "hours",
+        approvalNotes: "",
+        notesOpen: false,
+        additionalEffectsOpen: false,
+      },
+    ],
     endScheduleAt: "",
     endPatch: { coverage: 100 },
     linkedRampId: "",
+    startAdditionalEffectsOpen: false,
+    endAdditionalEffectsOpen: false,
   };
 }
 
@@ -1961,13 +1562,17 @@ export function createActionToSectionState(
       : trigger?.type === "manual"
         ? "manual"
         : "immediately";
+  const startPatch = reconstructUIPatch(
+    action.startCondition?.actions?.[0]?.patch,
+  );
+  const endPatch = reconstructUIPatch(action.endCondition?.actions?.[0]?.patch);
   return {
     mode: "create",
     name: action.name,
     startMode,
     startTime:
       trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    startPatch: reconstructUIPatch(action.startCondition?.actions?.[0]?.patch),
+    startPatch,
     disableRuleBefore: action.disableRuleBefore ?? false,
     disableRuleAfter: action.disableRuleAfter ?? false,
     endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete ?? true,
@@ -1976,7 +1581,13 @@ export function createActionToSectionState(
       action.endCondition?.trigger?.type === "scheduled"
         ? new Date(action.endCondition.trigger.at).toISOString()
         : "",
-    endPatch: reconstructUIPatch(action.endCondition?.actions?.[0]?.patch),
+    endPatch,
     linkedRampId: "",
+    startAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
+      (f) => startPatch[f] !== undefined,
+    ),
+    endAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
+      (f) => endPatch[f] !== undefined,
+    ),
   };
 }

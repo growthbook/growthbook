@@ -29,6 +29,44 @@ interface EntityHandler {
   ): Promise<void>;
 }
 
+// Accumulates patches from startCondition through stepIndex for each targetId.
+// Steps are sparse — fields absent from a step are inherited from prior steps.
+// startCondition is the fully-qualified baseline; every controlled field should appear there.
+// stepIndex=-1 → startCondition only; stepIndex >= steps.length → also include endCondition.
+export function computeEffectivePatch(
+  schedule: Pick<RampScheduleInterface, "startCondition" | "steps" | "endCondition">,
+  stepIndex: number,
+): Map<string, FeatureRulePatch> {
+  const byTarget = new Map<string, FeatureRulePatch>();
+
+  const merge = (act: RampStepAction) => {
+    if (act.targetType !== "feature-rule") return;
+    const { ruleId, ...fields } = act.patch;
+    const existing = byTarget.get(act.targetId);
+    if (existing) {
+      // Only assign keys explicitly present in this action's patch (absent = inherit).
+      for (const [k, v] of Object.entries(fields)) {
+        (existing as Record<string, unknown>)[k] = v;
+      }
+    } else {
+      byTarget.set(act.targetId, { ruleId, ...fields } as FeatureRulePatch);
+    }
+  };
+
+  for (const a of schedule.startCondition?.actions ?? []) merge(a);
+
+  const lastStepIdx = Math.min(stepIndex, schedule.steps.length - 1);
+  for (let i = 0; i <= lastStepIdx; i++) {
+    for (const a of schedule.steps[i]?.actions ?? []) merge(a);
+  }
+
+  if (stepIndex >= schedule.steps.length) {
+    for (const a of schedule.endCondition?.actions ?? []) merge(a);
+  }
+
+  return byTarget;
+}
+
 // Apply a patch to a rule. Uses "in" checks so injected undefined values clear the field.
 // null clears most fields, but force allows null (valid JSON feature value).
 export function applyPatchToRule(
@@ -214,26 +252,6 @@ async function executeStepActions(
     const target = schedule.targets.find((t) => t.id === action.targetId);
     if (!target || target.status !== "active") continue;
 
-    // Whitelist: only controlled fields pass through; absent ones become undefined (clear).
-    // "enabled" is always passed through if present (system-managed by disableRuleBefore/disableRuleAfter).
-    let normalizedAction = action;
-    if (target.controlledFields?.length) {
-      const allowed = new Set(target.controlledFields);
-      const { ruleId, ...patchFields } = action.patch;
-      const normalized: Record<string, unknown> = { ruleId };
-      if ("enabled" in patchFields) normalized.enabled = patchFields.enabled;
-      for (const field of allowed) {
-        normalized[field] =
-          field in patchFields
-            ? (patchFields as Record<string, unknown>)[field]
-            : undefined;
-      }
-      normalizedAction = {
-        ...action,
-        patch: normalized as typeof action.patch,
-      };
-    }
-
     const key = `${target.entityType}:${target.entityId}`;
     if (!byEntity.has(key)) {
       byEntity.set(key, {
@@ -242,7 +260,7 @@ async function executeStepActions(
         actions: [],
       });
     }
-    byEntity.get(key)!.actions.push(normalizedAction);
+    byEntity.get(key)!.actions.push(action);
   }
 
   const user: EventUser = {
@@ -313,9 +331,13 @@ export async function advanceStep(
   const now = new Date();
   const isApprovalStep = step.trigger.type === "approval";
 
-  // Apply-first: each step is a complete state — apply its actions directly.
+  // Apply the accumulated effective state for this step (sparse patches accumulate from start).
   // Approval steps go live right away; the user's approval is the signal to advance.
-  await executeStepActions(ctx, schedule, nextStepIndex, step.actions);
+  const effective = computeEffectivePatch(schedule, nextStepIndex);
+  const effectiveActions: RampStepAction[] = [...effective.entries()].map(
+    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+  );
+  await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
   const nextStepAt = isApprovalStep
     ? null
@@ -371,10 +393,12 @@ export async function rollbackToStep(
   schedule: RampScheduleInterface,
   targetStepIndex: number,
 ): Promise<RampScheduleInterface> {
-  const rollbackActions =
-    targetStepIndex === -1
-      ? (schedule.startCondition?.actions ?? [])
-      : (schedule.steps[targetStepIndex]?.actions ?? []);
+  // Apply the fully accumulated effective state at the target step so the rule matches
+  // what it would look like if the ramp had run sequentially to that point.
+  const effective = computeEffectivePatch(schedule, targetStepIndex);
+  const rollbackActions: RampStepAction[] = [...effective.entries()].map(
+    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+  );
 
   const now = new Date();
   if (rollbackActions.length > 0) {
@@ -406,13 +430,16 @@ export async function rollbackToStep(
   return updated;
 }
 
-// Jump forward to jumpTarget, applying that step's actions as complete state.
+// Jump to jumpTarget (forward or backward), applying the accumulated effective state.
 export async function jumpAheadToStep(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   jumpTarget: number,
 ): Promise<RampScheduleInterface> {
-  const jumpActions = schedule.steps[jumpTarget]?.actions ?? [];
+  const effective = computeEffectivePatch(schedule, jumpTarget);
+  const jumpActions: RampStepAction[] = [...effective.entries()].map(
+    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+  );
   const now = new Date();
 
   if (jumpActions.length > 0) {

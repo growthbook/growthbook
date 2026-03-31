@@ -3,9 +3,16 @@
  *
  * Structure:
  *   1. Pure functions (no mocking): computeNextStepAt, computePhaseStartAfterApproval,
- *      applyPatchToRule
+ *      applyPatchToRule, computeEffectivePatch
  *   2. featureEntityHandler: applyActions (mocked FeatureModel / FeatureRevisionModel)
- *   3. Orchestration: advanceStep, jumpAheadToStep, advanceUntilBlocked (mocked context)
+ *   3. Orchestration: advanceStep, jumpAheadToStep, rollbackToStep, advanceUntilBlocked (mocked context)
+ *
+ * computeEffectivePatch — accumulation model:
+ *   Steps are sparse; each step only defines fields that *change* at that point.
+ *   Fields absent from a step are inherited from the most-recent step that defined them.
+ *   startCondition is the fully-qualified baseline — every controlled field must appear there.
+ *   rollbackToStep and jumpAheadToStep apply the effective accumulated patch so that
+ *   arriving at step N from any direction yields the same rule state.
  */
 
 import type { RampScheduleInterface } from "shared/validators";
@@ -14,9 +21,11 @@ import {
   computeNextStepAt,
   computePhaseStartAfterApproval,
   applyPatchToRule,
+  computeEffectivePatch,
   featureEntityHandler,
   advanceStep,
   jumpAheadToStep,
+  rollbackToStep,
   advanceUntilBlocked,
 } from "back-end/src/services/rampSchedule";
 
@@ -242,6 +251,349 @@ describe("applyPatchToRule", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeEffectivePatch
+// ---------------------------------------------------------------------------
+
+// Helpers — build minimal schedule fragments for patch-accumulation tests.
+
+function action(
+  targetId: string,
+  patch: Record<string, unknown>,
+): { targetType: "feature-rule"; targetId: string; patch: { ruleId: string } & Record<string, unknown> } {
+  return {
+    targetType: "feature-rule",
+    targetId,
+    patch: { ruleId: RULE_ID, ...patch },
+  };
+}
+
+function sparseSchedule(
+  startActions: ReturnType<typeof action>[],
+  stepActions: ReturnType<typeof action>[][],
+  endActions: ReturnType<typeof action>[] = [],
+): Pick<RampScheduleInterface, "startCondition" | "steps" | "endCondition"> {
+  return {
+    startCondition: {
+      trigger: { type: "immediately" },
+      actions: startActions as RampScheduleInterface["startCondition"]["actions"],
+    },
+    steps: stepActions.map((acts) => ({
+      trigger: { type: "interval", seconds: 300 },
+      actions: acts as RampScheduleInterface["steps"][0]["actions"],
+    })),
+    endCondition: endActions.length
+      ? {
+          trigger: { type: "scheduled", at: new Date("2030-01-01") },
+          actions: endActions as RampScheduleInterface["endCondition"]["actions"],
+        }
+      : undefined,
+  };
+}
+
+describe("computeEffectivePatch", () => {
+  // Returns the accumulated patch for TARGET_ID at the given stepIndex, as a plain object.
+  function eff(
+    sched: ReturnType<typeof sparseSchedule>,
+    stepIndex: number,
+  ): Record<string, unknown> {
+    const map = computeEffectivePatch(sched, stepIndex);
+    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
+    return fields as Record<string, unknown>;
+  }
+
+  it("startCondition only (stepIndex=-1) returns its fields", () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: "" })],
+      [],
+    );
+    expect(eff(sched, -1)).toEqual({ coverage: 0.0, condition: "" });
+  });
+
+  it("single step accumulates with startCondition", () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0 })],
+      [[action(TARGET_ID, { coverage: 0.5 })]],
+    );
+    expect(eff(sched, 0)).toMatchObject({ coverage: 0.5 });
+  });
+
+  it("sparse step: absent field is inherited from startCondition", () => {
+    // Step 0 only changes coverage; condition lives only in start.
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"country":"US"}' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3 })], // no condition
+        [action(TARGET_ID, { coverage: 0.6 })], // no condition
+      ],
+    );
+    // At step 1, condition should still be from startCondition.
+    expect(eff(sched, 1)).toMatchObject({
+      coverage: 0.6,
+      condition: '{"country":"US"}',
+    });
+  });
+
+  it("explicit null clears a field at that step", () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"a":"1"}' })],
+      [[action(TARGET_ID, { coverage: 0.5, condition: null })]],
+    );
+    const result = computeEffectivePatch(sched, 0).get(TARGET_ID);
+    expect(result).toHaveProperty("condition", null);
+  });
+
+  it("later step overrides earlier step value", () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"a":"1"}' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, condition: '{"b":"2"}' })],
+        [action(TARGET_ID, { coverage: 0.6, condition: '{"c":"3"}' })],
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ condition: '{"c":"3"}' });
+  });
+
+  it("rollback semantics: stepIndex=0 includes only start+step0, not step1", () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"a":"1"}' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, condition: '{"b":"2"}' })],
+        [action(TARGET_ID, { coverage: 0.6, condition: '{"c":"3"}' })],
+      ],
+    );
+    expect(eff(sched, 0)).toMatchObject({
+      coverage: 0.3,
+      condition: '{"b":"2"}',
+    });
+  });
+
+  it("jump-ahead semantics: sparse intermediate steps are still accumulated", () => {
+    // Step 0 sets condition; steps 1+2 are coverage-only (sparse).
+    // Jumping from -1 to step 2 should carry condition from step 0 forward.
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0 })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, condition: '{"a":"1"}' })],
+        [action(TARGET_ID, { coverage: 0.6 })],
+        [action(TARGET_ID, { coverage: 1.0 })],
+      ],
+    );
+    expect(eff(sched, 2)).toMatchObject({
+      coverage: 1.0,
+      condition: '{"a":"1"}',
+    });
+  });
+
+  it("multiple targets accumulate independently", () => {
+    const TARGET_B = "target_b";
+    const sched = sparseSchedule(
+      [
+        action(TARGET_ID, { coverage: 0.0 }),
+        action(TARGET_B, { coverage: 0.0, condition: '{"x":"1"}' }),
+      ],
+      [
+        [action(TARGET_ID, { coverage: 0.5 })], // no target_B action
+        [action(TARGET_B, { condition: '{"y":"2"}' })], // no target_A action
+      ],
+    );
+    const map = computeEffectivePatch(sched, 1);
+
+    // target_A: coverage from step 0, no condition (never set)
+    const patchA = map.get(TARGET_ID);
+    expect(patchA).toHaveProperty("coverage", 0.5);
+    expect(patchA).not.toHaveProperty("condition");
+
+    // target_B: condition updated in step 1, coverage from start
+    const patchB = map.get(TARGET_B);
+    expect(patchB).toHaveProperty("condition", '{"y":"2"}');
+    expect(patchB).toHaveProperty("coverage", 0.0);
+  });
+
+  it("endCondition included when stepIndex >= steps.length", () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0 })],
+      [[action(TARGET_ID, { coverage: 0.5 })]],
+      [action(TARGET_ID, { coverage: 1.0, enabled: false })],
+    );
+    // stepIndex=1 (= steps.length=1) should include endCondition
+    expect(eff(sched, 1)).toMatchObject({ coverage: 1.0, enabled: false });
+  });
+
+  it("target not in startCondition starts accumulating from first step that mentions it", () => {
+    const sched = sparseSchedule(
+      [], // no startCondition actions
+      [[action(TARGET_ID, { coverage: 0.3 })]],
+    );
+    expect(eff(sched, 0)).toMatchObject({ coverage: 0.3 });
+  });
+
+  it("returns empty map when no actions anywhere", () => {
+    const sched = sparseSchedule([], []);
+    expect(computeEffectivePatch(sched, -1).size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sparse vs. explicit-clear semantics
+// ---------------------------------------------------------------------------
+// Key invariant:
+//   absent key in a step's patch  → field is inherited from the previous step that set it
+//   present key with empty value  → field is explicitly set to empty at this step,
+//                                   and that empty value propagates to later sparse steps
+// ---------------------------------------------------------------------------
+
+describe("sparse inherit vs explicit clear", () => {
+  function eff(
+    sched: ReturnType<typeof sparseSchedule>,
+    stepIndex: number,
+  ): Record<string, unknown> {
+    const map = computeEffectivePatch(sched, stepIndex);
+    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
+    return fields as Record<string, unknown>;
+  }
+
+  // ── condition ────────────────────────────────────────────────────────────
+
+  it('absent condition in step inherits the previously-set value', () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"country":"US"}' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3 })], // no condition key → inherit
+        [action(TARGET_ID, { coverage: 0.6 })], // no condition key → inherit
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ condition: '{"country":"US"}' });
+  });
+
+  it('condition: "{}" in a step overrides and propagates to later sparse steps', () => {
+    // Step 0 explicitly clears targeting. Step 1 is sparse — it should inherit
+    // the cleared "{}" rather than restoring the startCondition value.
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"country":"US"}' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, condition: '{}' })], // explicit clear
+        [action(TARGET_ID, { coverage: 0.6 })],                  // sparse
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ condition: '{}' });
+  });
+
+  it('absent condition never appears in the effective patch if never set', () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0 })], // no condition in start
+      [[action(TARGET_ID, { coverage: 0.5 })]],
+    );
+    expect(eff(sched, 0)).not.toHaveProperty('condition');
+  });
+
+  // ── savedGroups ──────────────────────────────────────────────────────────
+
+  it('absent savedGroups in step inherits the previously-set value', () => {
+    const groups = [{ match: 'any', ids: ['g1'] }];
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, savedGroups: groups })],
+      [
+        [action(TARGET_ID, { coverage: 0.3 })], // no savedGroups key → inherit
+        [action(TARGET_ID, { coverage: 0.6 })],
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ savedGroups: groups });
+  });
+
+  it('savedGroups: [] in a step overrides and propagates to later sparse steps', () => {
+    const groups = [{ match: 'any', ids: ['g1'] }];
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, savedGroups: groups })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, savedGroups: [] })], // explicit clear
+        [action(TARGET_ID, { coverage: 0.6 })],                  // sparse
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ savedGroups: [] });
+  });
+
+  it('absent savedGroups never appears in the effective patch if never set', () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0 })],
+      [[action(TARGET_ID, { coverage: 0.5 })]],
+    );
+    expect(eff(sched, 0)).not.toHaveProperty('savedGroups');
+  });
+
+  // ── prerequisites ────────────────────────────────────────────────────────
+
+  it('absent prerequisites in step inherits the previously-set value', () => {
+    const prereqs = [{ id: 'feat_x', condition: '{"value": true}' }];
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, prerequisites: prereqs })],
+      [
+        [action(TARGET_ID, { coverage: 0.3 })], // no prerequisites key → inherit
+        [action(TARGET_ID, { coverage: 0.6 })],
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ prerequisites: prereqs });
+  });
+
+  it('prerequisites: [] in a step overrides and propagates to later sparse steps', () => {
+    const prereqs = [{ id: 'feat_x', condition: '{"value": true}' }];
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, prerequisites: prereqs })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, prerequisites: [] })], // explicit clear
+        [action(TARGET_ID, { coverage: 0.6 })],                    // sparse
+      ],
+    );
+    expect(eff(sched, 1)).toMatchObject({ prerequisites: [] });
+  });
+
+  it('absent prerequisites never appears in the effective patch if never set', () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0 })],
+      [[action(TARGET_ID, { coverage: 0.5 })]],
+    );
+    expect(eff(sched, 0)).not.toHaveProperty('prerequisites');
+  });
+
+  // ── force (null is a valid value, not a clear signal) ────────────────────
+
+  it('absent force in step inherits the previously-set value', () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, force: 'blue' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3 })], // no force key → inherit
+      ],
+    );
+    expect(eff(sched, 0)).toMatchObject({ force: 'blue' });
+  });
+
+  it('force: null in a step is a valid value and propagates to later sparse steps', () => {
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, force: 'blue' })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, force: null })], // null is valid
+        [action(TARGET_ID, { coverage: 0.6 })],              // sparse
+      ],
+    );
+    expect(eff(sched, 1)).toHaveProperty('force', null);
+  });
+
+  // ── cross-field independence ──────────────────────────────────────────────
+
+  it('clearing one field does not affect unrelated fields', () => {
+    const groups = [{ match: 'any', ids: ['g1'] }];
+    const sched = sparseSchedule(
+      [action(TARGET_ID, { coverage: 0.0, condition: '{"a":"1"}', savedGroups: groups })],
+      [
+        [action(TARGET_ID, { coverage: 0.3, condition: '{}' })], // clears condition only
+        [action(TARGET_ID, { coverage: 0.6 })],                  // sparse
+      ],
+    );
+    // condition was explicitly cleared; savedGroups was never touched → still inherited
+    expect(eff(sched, 1)).toMatchObject({ condition: '{}', savedGroups: groups });
   });
 });
 
@@ -526,8 +878,9 @@ describe("jumpAheadToStep", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("publishes a single merged revision with last-write-wins patch", async () => {
-    // Steps 0=coverage 0.3, 1=coverage 0.6, 2=coverage 1.0
+  it("applies accumulated effective patch when jumping forward", async () => {
+    // startCondition: coverage 0.0; steps 0=coverage 0.3, 1=coverage 0.6, 2=coverage 1.0.
+    // Jumping to step 2 should apply the effective state: coverage 1.0.
     const schedule = makeSchedule({ currentStepIndex: -1 });
     const { ctx } = makeContext();
     await jumpAheadToStep(ctx as never, schedule, 2);
@@ -536,14 +889,191 @@ describe("jumpAheadToStep", () => {
     const [, , , forceResult] = mockPublishRevision.mock.calls[0];
     const rules: FeatureRule[] = forceResult.rules?.production ?? [];
     const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
-    // Last-write-wins: step 2 sets coverage 1.0
     expect((patched as { coverage?: number })?.coverage).toBe(1.0);
+  });
+
+  it("carries fields from sparse intermediate steps when jumping", async () => {
+    // Step 0 sets condition; steps 1 and 2 are coverage-only (sparse).
+    // Jumping to step 2 from -1 should deliver condition from step 0 + coverage from step 2.
+    const sparseSchedule = makeSchedule({
+      currentStepIndex: -1,
+      startCondition: {
+        trigger: { type: "immediately" },
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.0 },
+          },
+        ],
+      },
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.3, condition: '{"a":"1"}' },
+            },
+          ],
+        },
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.6 }, // sparse — no condition
+            },
+          ],
+        },
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0 }, // sparse — no condition
+            },
+          ],
+        },
+      ],
+    });
+
+    const { ctx } = makeContext();
+    await jumpAheadToStep(ctx as never, sparseSchedule, 2);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect((patched as { coverage?: number })?.coverage).toBe(1.0);
+    expect(patched?.condition).toBe('{"a":"1"}');
   });
 
   it("sets status to paused at the target step", async () => {
     const schedule = makeSchedule({ currentStepIndex: -1 });
     const { ctx, updateById } = makeContext();
     await jumpAheadToStep(ctx as never, schedule, 1);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.currentStepIndex).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rollbackToStep
+// ---------------------------------------------------------------------------
+
+describe("rollbackToStep", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("applies accumulated effective patch when rolling back — excludes steps after target", async () => {
+    // Schedule at step 2 with condition that was set in step 0 and overridden in step 2.
+    // Rolling back to step 0 should apply the step-0 effective state, not step-2's condition.
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      startCondition: {
+        trigger: { type: "immediately" },
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.0, condition: '{"baseline":"true"}' },
+          },
+        ],
+      },
+      steps: [
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.3, condition: '{"step":"0"}' },
+            },
+          ],
+        },
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.6 }, // sparse — no condition
+            },
+          ],
+        },
+        {
+          trigger: { type: "interval", seconds: 300 },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0, condition: '{"step":"2"}' },
+            },
+          ],
+        },
+      ],
+    });
+
+    const { ctx } = makeContext({ currentStepIndex: 2 });
+    await rollbackToStep(ctx as never, schedule, 0);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    // Effective at step 0: start + step0 → coverage 0.3, condition from step 0
+    expect((patched as { coverage?: number })?.coverage).toBe(0.3);
+    expect(patched?.condition).toBe('{"step":"0"}');
+  });
+
+  it("rolling back to -1 applies startCondition effective state", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      startCondition: {
+        trigger: { type: "immediately" },
+        actions: [
+          {
+            targetType: "feature-rule" as const,
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.0 },
+          },
+        ],
+      },
+    });
+
+    const { ctx } = makeContext({ currentStepIndex: 1 });
+    await rollbackToStep(ctx as never, schedule, -1);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect((patched as { coverage?: number })?.coverage).toBe(0.0);
+  });
+
+  it("sets status to rolled-back for full rollback (targetStepIndex=-1)", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 1 });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
+    await rollbackToStep(ctx as never, schedule, -1);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("rolled-back");
+  });
+
+  it("sets status to paused for partial rollback", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 2 });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 2 });
+    await rollbackToStep(ctx as never, schedule, 1);
 
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("paused");

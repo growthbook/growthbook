@@ -16,6 +16,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import styles from "./RampTimeline.module.scss";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -106,61 +107,80 @@ function PopoverEffectRow({
 function PopoverPatchDisplay({
   actions,
   syntheticEnabled,
+  afterCoverage,
 }: {
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
+  afterCoverage?: ReactNode;
 }) {
-  const items: ReactNode[] = [];
+  const coverageItems: ReactNode[] = [];
+  const additionalItems: ReactNode[] = [];
 
   actions.forEach((action, ai) => {
     const p = action.patch;
     const k = (s: string) => `${ai}-${s}`;
 
     if (p.coverage !== null && p.coverage !== undefined) {
-      items.push(
+      coverageItems.push(
         <PopoverEffectRow key={k("cov")} label="Rollout %">
           {Math.round(p.coverage * 100)}%
         </PopoverEffectRow>,
       );
     }
-    if (p.force !== undefined && p.force !== null) {
+    if ("force" in p && p.force !== undefined) {
       const forceStr =
-        typeof p.force === "string" ? p.force : stringify(p.force as object);
-      items.push(
+        p.force === null
+          ? "null"
+          : typeof p.force === "string"
+            ? p.force
+            : stringify(p.force as object);
+      additionalItems.push(
         <PopoverEffectRow key={k("force")} label="Value">
           <InlineCode language="json" code={forceStr} />
         </PopoverEffectRow>,
       );
     }
-    if (p.condition && p.condition !== "{}") {
-      items.push(
-        <PopoverEffectRow key={k("cond")} label="Targeting">
-          <ConditionDisplay condition={p.condition} />
+    if ("condition" in p) {
+      additionalItems.push(
+        <PopoverEffectRow key={k("cond")} label="Attribute targeting">
+          {p.condition && p.condition !== "{}" ? (
+            <ConditionDisplay condition={p.condition} />
+          ) : (
+            <Text size="small" fontStyle="italic">None</Text>
+          )}
         </PopoverEffectRow>,
       );
     }
-    if (p.savedGroups && p.savedGroups.length > 0) {
-      items.push(
+    if ("savedGroups" in p) {
+      additionalItems.push(
         <PopoverEffectRow key={k("sg")} label="Saved groups">
-          <ConditionDisplay savedGroups={p.savedGroups} />
+          {p.savedGroups && p.savedGroups.length > 0 ? (
+            <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
+          ) : (
+            <Text size="small" fontStyle="italic">None</Text>
+          )}
         </PopoverEffectRow>,
       );
     }
-    if (p.prerequisites && p.prerequisites.length > 0) {
-      items.push(
+    if ("prerequisites" in p) {
+      additionalItems.push(
         <PopoverEffectRow key={k("prereq")} label="Prerequisites">
-          <ConditionDisplay prerequisites={p.prerequisites} />
+          {p.prerequisites && p.prerequisites.length > 0 ? (
+            <ConditionDisplay prerequisites={p.prerequisites} />
+          ) : (
+            <Text size="small" fontStyle="italic">None</Text>
+          )}
         </PopoverEffectRow>,
       );
     }
     if (p.enabled === false && syntheticEnabled === undefined) {
-      items.push(
+      additionalItems.push(
         <PopoverEffectRow key={k("enabled")} label="Rule">
           disabled
         </PopoverEffectRow>,
       );
     } else if (p.enabled === true && syntheticEnabled === undefined) {
-      items.push(
+      additionalItems.push(
         <PopoverEffectRow key={k("enabled")} label="Rule">
           enabled
         </PopoverEffectRow>,
@@ -169,18 +189,32 @@ function PopoverPatchDisplay({
   });
 
   if (syntheticEnabled === false) {
-    items.push(
+    additionalItems.push(
       <PopoverEffectRow key="syn-enabled" label="Rule">
         disabled
       </PopoverEffectRow>,
     );
   } else if (syntheticEnabled === true) {
-    items.push(
+    additionalItems.push(
       <PopoverEffectRow key="syn-enabled" label="Rule">
         enabled
       </PopoverEffectRow>,
     );
   }
+
+  const hasAdditional = additionalItems.length > 0;
+  const items: ReactNode[] = [
+    ...coverageItems,
+    ...(afterCoverage ? [<Box key="cov-cta">{afterCoverage}</Box>] : []),
+    ...(hasAdditional
+      ? [
+          <Text key="additional-header" as="div" weight="semibold" color="text-mid" mt="4" mb="2" size="small">
+            Additional Effects
+          </Text>,
+          ...additionalItems,
+        ]
+      : []),
+  ];
 
   if (items.length === 0) {
     return (
@@ -267,32 +301,30 @@ function NodePopoverContent({
       return { label: "Completed", color: "var(--violet-9)" };
     if (nodeState === "active") {
       if (status === "pending-approval")
-        return { label: "Current: needs approval", color: "var(--orange-9)" };
+        return { label: "Needs Approval", color: "var(--orange-9)" };
       if (status === "paused")
-        return { label: "Current: paused", color: "var(--amber-11)" };
-      return { label: "Current", color: "var(--green-9)" };
+        return { label: "Paused", color: "var(--amber-11)" };
+      return { label: "Running", color: "var(--green-9)" };
     }
-    return { label: "Upcoming", color: "var(--gray-10)" };
+    return { label: "Upcoming", color: "var(--gray-12)" };
   })();
 
   return (
     <Box className={styles.popoverBox}>
       {/* Header */}
       <Flex align="center" gap="2" mb="2">
-        {/* Fixed-width area keeps status text consistently aligned */}
-        <Flex align="center" gap="2" className={styles.popoverHeaderLeft}>
-          <NodeDot state={nodeState} color={nodeColor} status={status} />
-          <span style={{ color: headingColor }}>
-            <Text weight="medium" size="small">
-              {heading}
-            </Text>
-          </span>
-        </Flex>
-        <span
-          className={styles.popoverStatusLabel}
-          style={{ color: statusMeta.color }}
-        >
-          {statusMeta.label}
+        <NodeDot state={nodeState} color={nodeColor} status={status} />
+        <span style={{ color: headingColor }}>
+          <Text weight="medium">
+            {heading}
+            {nodeState === "active" && (
+              <Text as="span" weight="regular"> (current)</Text>
+            )}
+            {" "}—{" "}
+            <span className={styles.popoverStatusLabel}>
+              {statusMeta.label}
+            </span>
+          </Text>
         </span>
       </Flex>
 
@@ -320,21 +352,21 @@ function NodePopoverContent({
       <PopoverPatchDisplay
         actions={actions}
         syntheticEnabled={syntheticEnabled}
+        afterCoverage={
+          ctaLabel && hasCtaHandler ? (
+            <Box mt="2" mb="1">
+              <Button
+                size="xs"
+                variant="outline"
+                loading={loading}
+                onClick={handleCta}
+              >
+                {ctaLabel}
+              </Button>
+            </Box>
+          ) : undefined
+        }
       />
-
-      {/* CTA */}
-      {ctaLabel && hasCtaHandler && (
-        <Flex mt="2" justify="center">
-          <Button
-            size="xs"
-            variant="ghost"
-            loading={loading}
-            onClick={handleCta}
-          >
-            {ctaLabel}
-          </Button>
-        </Flex>
-      )}
     </Box>
   );
 }
@@ -377,7 +409,7 @@ function dotColor(state: NodeState, status: RampScheduleStatus): string {
 
 function nodeLabelColor(state: NodeState, status: RampScheduleStatus): string {
   if (state === "completed") return "var(--violet-12)";
-  if (state === "future") return "var(--gray-9)";
+  if (state === "future") return "var(--gray-12)";
   return activeLabelColor(status);
 }
 
@@ -478,7 +510,7 @@ function Node({
         flipTheme={false}
         usePortal
         tipMinWidth="150px"
-        popperStyle={{ maxWidth: 280 }}
+        popperStyle={{ maxWidth: 500 }}
         delay={200}
       >
         <div className={styles.nodeHoverable}>{nodeContent}</div>

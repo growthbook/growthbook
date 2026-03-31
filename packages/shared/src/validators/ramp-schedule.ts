@@ -2,7 +2,8 @@ import { z } from "zod";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { baseSchema } from "./base-model";
 
-// Patch applied to a feature rule by a ramp step. Each step defines a complete state, not a delta.
+// Patch applied to a feature rule by a ramp step. Only fields present in the patch are applied;
+// absent fields are inherited from the previous step's accumulated state.
 export const featureRulePatch = z.object({
   ruleId: z.string(),
   coverage: z.number().min(0).max(1).nullish(),
@@ -22,7 +23,7 @@ export const rampStepAction = z.object({
 });
 export type RampStepAction = z.infer<typeof rampStepAction>;
 
-// Fields a ramp can manage on a feature rule. Absent controlled fields in any step are cleared.
+// Fields a ramp can manage on a feature rule.
 export const rampControlledField = z.enum([
   "coverage",
   "condition",
@@ -68,7 +69,7 @@ export const rampTrigger = z.discriminatedUnion("type", [
 ]);
 export type RampTrigger = z.infer<typeof rampTrigger>;
 
-// actions is a complete state spec per step — not a delta. Applied directly on jump/rollback.
+// Sparse patch per step — only fields present are applied; absent fields accumulate from previous steps.
 export const rampStep = z.object({
   trigger: rampTrigger,
   actions: z.array(rampStepAction),
@@ -95,7 +96,7 @@ export const rampScheduleValidator = baseSchema
     entityId: z.string(),
     targets: z.array(rampTarget),
     steps: z.array(rampStep),
-    // Baseline actions applied on start; same complete-state semantics as rampStep.actions.
+    // Baseline actions applied on start — the fully-qualified initial state; all subsequent steps accumulate from here.
     startCondition: z.object({
       trigger: rampStartTrigger,
       actions: z.array(rampStepAction).nullish(),

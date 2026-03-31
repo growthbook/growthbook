@@ -333,12 +333,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         (action) => action.mode === "detach" && action.ruleId === rule.id,
       );
 
-    const hasPendingCreate =
-      isDraft &&
-      draftRevision?.rampActions?.some(
-        (action) => action.mode === "create" && action.ruleId === rule.id,
-      );
-
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
 
@@ -896,67 +890,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       <Flex align="center" gap="2">
                                         <PiRewind /> Restart ramp
                                       </Flex>
-                                    </DropdownMenuItem>
-                                  )}
-                                  {/* Remove from ramp schedule — draft mode only */}
-                                  {isDraft && hasPendingCreate && (
-                                    /* Synthetic schedule (not yet published) — remove instantly */
-                                    <DropdownMenuItem
-                                      color="red"
-                                      onClick={async () => {
-                                        const res = await apiCall<{
-                                          version: number;
-                                        }>(
-                                          `/feature/${feature.id}/${version}/rule`,
-                                          {
-                                            method: "PUT",
-                                            body: JSON.stringify({
-                                              environment,
-                                              rule,
-                                              i,
-                                              rampSchedule: { mode: "clear" },
-                                            }),
-                                          },
-                                        );
-                                        if (res.version)
-                                          setVersion(res.version);
-                                        await mutate();
-                                        setDropdownOpen(false);
-                                      }}
-                                    >
-                                      Remove ramp schedule
-                                    </DropdownMenuItem>
-                                  )}
-                                  {isDraft && !hasPendingCreate && (
-                                    <DropdownMenuItem
-                                      color="red"
-                                      onClick={async () => {
-                                        const res = await apiCall<{
-                                          version: number;
-                                        }>(
-                                          `/feature/${feature.id}/${version}/rule`,
-                                          {
-                                            method: "PUT",
-                                            body: JSON.stringify({
-                                              environment,
-                                              rule,
-                                              i,
-                                              rampSchedule: {
-                                                mode: "detach",
-                                                rampScheduleId:
-                                                  rampSchedule!.id,
-                                                deleteScheduleWhenEmpty: true,
-                                              },
-                                            }),
-                                          },
-                                        );
-                                        if (res.version)
-                                          setVersion(res.version);
-                                        await mutate();
-                                        setDropdownOpen(false);
-                                      }}
-                                    >
-                                      Remove ramp schedule
                                     </DropdownMenuItem>
                                   )}
                                 </>
