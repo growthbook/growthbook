@@ -56,6 +56,8 @@ const ExperimentsPage = (): React.ReactElement => {
     "all",
   );
   const [didInitializeTab, setDidInitializeTab] = useState(false);
+  const activeTab: ExperimentListTab =
+    !hasInitialValidHash && !didInitializeTab ? storedTab : tab;
 
   useEffect(() => {
     if (didInitializeTab) return;
@@ -82,7 +84,7 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tab === "archived", "standard");
+  } = useExperiments(project, activeTab === "archived", "standard");
   const { watchedExperiments } = useWatching();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
@@ -113,8 +115,10 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [items]);
 
   const filtered = useMemo(() => {
-    return tab !== "all" ? items.filter((item) => item.tab === tab) : items;
-  }, [tab, items]);
+    return activeTab !== "all"
+      ? items.filter((item) => item.tab === activeTab)
+      : items;
+  }, [activeTab, items]);
 
   if (error) {
     return (
@@ -236,7 +240,7 @@ const ExperimentsPage = (): React.ReactElement => {
             hasExperiments && (
               <>
                 <Tabs
-                  value={tab}
+                  value={activeTab}
                   onValueChange={(value) => {
                     if (isExperimentListTab(value)) {
                       setTab(value);
