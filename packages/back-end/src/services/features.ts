@@ -2250,6 +2250,22 @@ export async function getDraftRevision(
   return revision;
 }
 
+export async function getLiveRevisionForFeature(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface> {
+  const live = await getRevision({
+    context,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!live) {
+    throw new Error(`Could not find live revision for feature ${feature.id}`);
+  }
+  return live;
+}
+
 export async function getLiveAndBaseRevisionsForFeature({
   context,
   feature,
@@ -2262,15 +2278,7 @@ export async function getLiveAndBaseRevisionsForFeature({
   live: FeatureRevisionInterface;
   base: FeatureRevisionInterface;
 }> {
-  const live = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version: feature.version,
-  });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
+  const live = await getLiveRevisionForFeature(context, feature);
 
   const base =
     revision.baseVersion === live.version

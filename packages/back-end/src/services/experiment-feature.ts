@@ -20,11 +20,12 @@ import { ReqContext } from "back-end/types/request";
 import {
   assertCanAutoPublish,
   getDraftRevision,
+  getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
+  existingRevision?: FeatureRevisionInterface;
   matchingRules: MatchingRule[];
 };
 
@@ -151,17 +152,12 @@ export async function validateExperimentFeatureUpdates({
     const { targetVersion, autoPublish, forceNewDraft } =
       featureRevisionOptions[feature.id];
 
-    let effectiveTargetVersion = targetVersion;
+    const useExistingRevision = targetVersion && !forceNewDraft && !autoPublish;
 
-    if (forceNewDraft || autoPublish || !effectiveTargetVersion) {
-      effectiveTargetVersion = feature.version;
-    }
+    const revision = useExistingRevision
+      ? await getDraftRevision(context, feature, targetVersion)
+      : await getLiveRevisionForFeature(context, feature);
 
-    const revision = await getDraftRevision(
-      context,
-      feature,
-      effectiveTargetVersion,
-    );
     const matchingRules = getMatchingRules(
       feature,
       (r: FeatureRule) =>
@@ -170,6 +166,8 @@ export async function validateExperimentFeatureUpdates({
       revision,
     );
 
+    // TODO: Should we allow this to happen and continue?
+    // A linked feature may no longer have any experiment-ref rules, which would cause the update to fail.
     if (!matchingRules.length)
       throw new Error(
         `No experiment-ref rules found for this experiment on feature ${feature.id}`,
@@ -208,7 +206,11 @@ export async function validateExperimentFeatureUpdates({
       await assertCanAutoPublish(context, feature, projectedRevision);
     }
 
-    plans.push({ feature, revision, matchingRules });
+    plans.push({
+      feature,
+      existingRevision: useExistingRevision ? revision : undefined,
+      matchingRules,
+    });
   }
 
   return plans;

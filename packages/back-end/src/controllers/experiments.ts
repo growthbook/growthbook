@@ -132,7 +132,10 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import {
+  getDraftRevision,
+  getLiveAndBaseRevisionsForFeature,
+} from "back-end/src/services/features";
 import {
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
@@ -3821,10 +3824,18 @@ export async function postExperimentFeatureValues(
   }
 
   // Apply draft updates for features that need them (same revision + rules as preflight)
-  for (const { feature, revision, matchingRules } of featureUpdatePlans) {
+  for (const {
+    feature,
+    existingRevision,
+    matchingRules,
+  } of featureUpdatePlans) {
     const { autoPublish } = featureRevisionOptions[feature.id];
     const orgEnvIds = context.environments;
     const updatedVariationValues = features[feature.id];
+
+    const revision = existingRevision
+      ? existingRevision
+      : await getDraftRevision(context, feature, feature.version);
 
     const updatedRevision = await updateExperimentRefVariations({
       context,
@@ -3836,17 +3847,16 @@ export async function postExperimentFeatureValues(
       orgSettings: org.settings,
     });
 
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision,
-    });
-
     if (autoPublish) {
+      const { live, base } = await getLiveAndBaseRevisionsForFeature({
+        context,
+        feature,
+        revision: updatedRevision,
+      });
       // Auto publish permission check is in validateExperimentFeatureUpdates
       const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
 
-      // This should never happen, but guard against it just in case
+      // This should never happen since we only allow auto-publising new revisions, but guard against it just in case
       if (!mergeResult.success) {
         res.status(400).json({
           status: 400,
@@ -3858,7 +3868,7 @@ export async function postExperimentFeatureValues(
       const updatedFeature = await publishRevision(
         context,
         feature,
-        revision,
+        updatedRevision,
         mergeResult.result,
         "auto-publish experiment variation values change",
       );
@@ -3870,7 +3880,7 @@ export async function postExperimentFeatureValues(
           id: feature.id,
         },
         details: auditDetailsUpdate(feature, updatedFeature, {
-          revision: revision.version,
+          revision: updatedRevision.version,
           comment: "auto-publish experiment variation values change",
         }),
       });
