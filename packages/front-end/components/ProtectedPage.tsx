@@ -11,6 +11,11 @@ import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
 
+function isTransientNetworkError(error: string) {
+  const normalized = error.trim().toLowerCase();
+  return normalized === "failed to fetch" || normalized.includes("networkerror");
+}
+
 const LoggedInPageGuard = ({
   children,
   organizationRequired,
@@ -21,7 +26,7 @@ const LoggedInPageGuard = ({
   const { error, ready, organization } = useUser();
   const { organizations } = useAuth();
 
-  if (error) {
+  if (error && !isTransientNetworkError(error)) {
     return (
       <div>
         <TopNavLite />
@@ -58,6 +63,12 @@ const LoggedInPageGuard = ({
         </main>
       </div>
     );
+  }
+
+  // Temporary transport failures can occur while navigating/revalidating;
+  // keep showing loading state instead of surfacing an auth error flash.
+  if (error && isTransientNetworkError(error)) {
+    return <LoadingOverlay />;
   }
 
   // Waiting for initial authentication
