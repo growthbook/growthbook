@@ -72,6 +72,14 @@ export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
 
+function getUrlOrgId(routerOrgQuery: string | string[] | undefined): string | null {
+  if (typeof routerOrgQuery === "string" && routerOrgQuery) {
+    return routerOrgQuery;
+  }
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("org");
+}
+
 // Only run one refresh operation at a time
 let _currentRefreshOperation: null | Promise<
   UnauthenticatedResponse | IdTokenResponse | { error: Error }
@@ -223,7 +231,6 @@ export const AuthProvider: React.FC<{
       "",
     );
   const router = useRouter();
-  const initialOrgId = router.query.org ? router.query.org + "" : null;
 
   const [, setProject] = useProject();
 
@@ -409,17 +416,24 @@ export const AuthProvider: React.FC<{
 
   const wrappedSetOrganizations = useCallback(
     (orgs: UserOrganizations, superAdmin: boolean) => {
+      const requestedOrgId = getUrlOrgId(router.query.org);
+      const orgIds = new Set(orgs.map((o) => o.id));
       setOrganizations(orgs);
-      if (orgId && orgs.map((o) => o.id).includes(orgId)) {
+
+      // Prefer explicit org from URL to avoid hydration races where router.query.org
+      // is briefly undefined on first render.
+      if (requestedOrgId && orgIds.has(requestedOrgId)) {
+        if (orgId !== requestedOrgId) {
+          setOrgId(requestedOrgId);
+        }
         return;
-      } else if (specialOrg?.id === orgId) {
+      }
+
+      if (orgId && orgIds.has(orgId)) {
         return;
-      } else if (
-        !orgId &&
-        initialOrgId &&
-        orgs.map((o) => o.id).includes(initialOrgId)
-      ) {
-        setOrgId(initialOrgId);
+      }
+
+      if (specialOrg?.id === orgId) {
         return;
       }
 
@@ -428,9 +442,8 @@ export const AuthProvider: React.FC<{
           const pickedOrg = localStorage.getItem("gb-last-picked-org");
           if (
             pickedOrg &&
-            !router.query.org &&
-            (superAdmin ||
-              orgs.map((o) => o.id).includes(JSON.parse(pickedOrg)))
+            !requestedOrgId &&
+            (superAdmin || orgIds.has(JSON.parse(pickedOrg)))
           ) {
             setOrgId(JSON.parse(pickedOrg));
           } else {
@@ -441,7 +454,7 @@ export const AuthProvider: React.FC<{
         }
       }
     },
-    [initialOrgId, orgId, router.query.org, specialOrg?.id],
+    [orgId, router.query.org, specialOrg?.id],
   );
 
   if (initError) {
