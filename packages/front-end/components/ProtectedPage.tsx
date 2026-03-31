@@ -13,7 +13,9 @@ import TopNavLite from "./Layout/TopNavLite";
 
 function isTransientNetworkError(error: string) {
   const normalized = error.trim().toLowerCase();
-  return normalized === "failed to fetch" || normalized.includes("networkerror");
+  return (
+    normalized === "failed to fetch" || normalized.includes("networkerror")
+  );
 }
 
 const LoggedInPageGuard = ({
