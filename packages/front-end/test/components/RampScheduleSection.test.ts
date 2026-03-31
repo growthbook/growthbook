@@ -88,7 +88,7 @@ describe("formatRampStepSummary", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. buildTemplatePayload — only steps are persisted (no start/end conditions)
+// 2. buildTemplatePayload — steps and endPatch are persisted (no start/end timing)
 // ---------------------------------------------------------------------------
 
 describe("buildTemplatePayload", () => {

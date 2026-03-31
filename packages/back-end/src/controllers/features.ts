@@ -1681,7 +1681,6 @@ export async function postFeatureRule(
   const environmentIds = environments.map((e) => e.id);
 
   if (!selectedEnvironments.length) {
-    // Temporary so this new back-end continues to work with old front-end
     if (
       "environment" in req.body &&
       typeof req.body.environment === "string" &&
@@ -1826,7 +1825,8 @@ export async function postFeatureRule(
         name: rampSchedulePayload.name,
         environment: rampSchedulePayload.environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions: rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        endActions:
+          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
@@ -2662,7 +2662,8 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         environment: rampSchedulePayload.environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        endActions: rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        endActions:
+          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
         startDate:
           rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??

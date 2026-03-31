@@ -319,7 +319,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         <RampScheduleBadge
           key="ramp-badge"
           rs={rampSchedule}
-          withIcon
           pendingDetach={!!hasPendingDetach}
           simpleSchedule={isSimpleSchedule}
         />,

@@ -9,13 +9,11 @@ import {
 } from "@/components/RampSchedule/RampTimeline";
 export default function RampScheduleBadge({
   rs,
-  withIcon: _withIcon = false,
   featureRuleContext = false,
   pendingDetach = false,
   simpleSchedule = false,
 }: {
   rs: RampScheduleInterface;
-  withIcon?: boolean;
   featureRuleContext?: boolean;
   /** When true, the draft contains a pending removal for this schedule. */
   pendingDetach?: boolean;

@@ -468,7 +468,6 @@ interface NodeMeta {
   sublabel: ReactNode;
   /** Trigger label rendered underneath the connector that leads INTO this node. */
   connectorLabel?: ReactNode;
-  isApproval: boolean;
   dotColorOverride?: string;
   labelColorOverride?: string;
   /** Pre-built popover content — when present, wraps node in a hover popover. */
@@ -644,7 +643,6 @@ export default function RampTimeline({
       label: "start",
       // Show the start date under the node when a scheduled start is set.
       sublabel: startDate ? formatScheduledDate(startDate) : null,
-      isApproval: false,
       popoverContent: (
         <NodePopoverContent
           heading="Start"
@@ -676,7 +674,6 @@ export default function RampTimeline({
         ) : (
           formatTrigger(steps[i - 1].trigger)
         ),
-      isApproval: step.trigger.type === "approval",
       popoverContent: (
         <NodePopoverContent
           heading={`Step ${i + 1}`}
@@ -703,7 +700,6 @@ export default function RampTimeline({
         steps.length > 0
           ? formatTrigger(steps[steps.length - 1].trigger)
           : undefined,
-      isApproval: false,
       popoverContent: (() => {
         const endNodeIndex = steps.length + 1;
         return (
@@ -754,7 +750,6 @@ export default function RampTimeline({
                   key: "pending-removal",
                   label: "removal",
                   sublabel: revisionSublabel,
-                  isApproval: false,
                   dotColorOverride: "var(--red-9)",
                   labelColorOverride: "var(--red-11)",
                 }}
@@ -772,7 +767,6 @@ export default function RampTimeline({
                     key: "pre-indicator",
                     label: "pending",
                     sublabel: revisionSublabel,
-                    isApproval: false,
                   }}
                   state="active"
                   status={status}

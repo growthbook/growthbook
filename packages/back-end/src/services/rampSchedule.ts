@@ -636,7 +636,7 @@ export async function advanceUntilBlocked(
   }
 }
 
-export type ApproveStepError =
+type ApproveStepError =
   | { code: "feature_not_found" }
   | { code: "permission_denied"; detail: string }
   | { code: "error"; detail: string };

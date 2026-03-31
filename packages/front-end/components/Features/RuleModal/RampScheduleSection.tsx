@@ -259,22 +259,6 @@ export function buildRampSteps(
   });
 }
 
-export const buildEndScheduleActions = (
-  patch: UIStepPatch,
-  targetId: string,
-  ruleId: string,
-): RampStepAction[] => {
-  const hasAny = Object.values(patch).some((v) => v !== undefined);
-  if (!hasAny) return [];
-  return [
-    {
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: buildPatch(patch, ruleId) as RampStepAction["patch"],
-    },
-  ];
-};
-
 // ── Template structural comparison helpers ────────────────────────────────────
 
 function normalizeActionPatch(patch: Record<string, unknown>) {
@@ -300,9 +284,12 @@ function normalizeActions(
 // Start and end node configuration is intentionally excluded — templates only define intermediate
 // steps, and start/end timing or actions are always configured per-instance.
 function normalizeStructural(p: Record<string, unknown>) {
-  const steps = ((p.steps as { actions: unknown[] }[]) ?? []).map((s) => ({
+  type StepShape = {
+    actions: { patch: Record<string, unknown>; [k: string]: unknown }[];
+  };
+  const steps = ((p.steps as StepShape[]) ?? []).map((s) => ({
     ...s,
-    actions: normalizeActions(s.actions as never) ?? [],
+    actions: normalizeActions(s.actions) ?? [],
   }));
   return JSON.stringify({ steps });
 }
@@ -318,14 +305,6 @@ export function findMatchingTemplate(
       (t) => normalizeStructural(pick(t, TEMPLATE_STRUCTURAL_KEYS)) === current,
     )?.id ?? ""
   );
-}
-
-// Returns a validation error message if any required date fields are missing, or null if valid.
-export function validateRampSectionState(
-  state: RampSectionState,
-): string | null {
-  if (state.mode === "off" || state.mode === "link") return null;
-  return null;
 }
 
 // ─── Small reusable sub-components ──────────────────────────────────────────
@@ -1239,7 +1218,7 @@ export default function RampScheduleSection({
   );
 
   const templateControls =
-  templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave ? (
+    templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave ? (
       <Flex direction="column" gap="1" mt="5" mb="5">
         <Text as="div" weight="semibold" mb="1">
           Use template
@@ -1397,7 +1376,8 @@ export default function RampScheduleSection({
       {state.steps.some(
         (s) =>
           s.triggerType === "interval" &&
-          Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] < POLL_INTERVAL_SECONDS,
+          Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] <
+            POLL_INTERVAL_SECONDS,
       ) && (
         <Callout status="warning" mb="3">
           One or more steps are shorter than the minimum check interval (1 min).
@@ -1664,24 +1644,6 @@ export function createActionToSectionState(
       VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
       (endPatch.coverage !== undefined && endPatch.coverage !== 100),
   };
-}
-
-/**
- * Returns true if the JSON-parsed type of `value` matches `valueType`.
- * Used to filter `force` values from templates that don't match the feature type.
- */
-export function forceValueMatchesFeatureType(
-  value: unknown,
-  valueType: FeatureInterface["valueType"],
-): boolean {
-  if (value === null || value === undefined) return false;
-  const type = typeof value;
-  if (valueType === "boolean") return type === "boolean";
-  if (valueType === "number") return type === "number";
-  if (valueType === "string") return type === "string";
-  // json covers object and array
-  if (valueType === "json") return type === "object";
-  return false;
 }
 
 /**

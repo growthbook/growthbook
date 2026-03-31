@@ -95,7 +95,11 @@ export const rampScheduleValidator = baseSchema
     elapsedMs: z.number().int().nullish(), // computed at response time; never stored
   })
   .superRefine((data, ctx) => {
-    if (data.steps.length === 0 && !data.startDate && !data.endCondition?.trigger) {
+    if (
+      data.steps.length === 0 &&
+      !data.startDate &&
+      !data.endCondition?.trigger
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
@@ -115,12 +119,9 @@ export const TEMPLATE_PATCH_FIELDS = [
   "savedGroups",
   "prerequisites",
 ] as const;
-export type TemplatePatchField = (typeof TEMPLATE_PATCH_FIELDS)[number];
-
 // Top-level behavioral keys of a template (excludes metadata: id, name, org, dates).
 // Start/end timing is not stored in templates; endPatch (final coverage/effects) is.
 export const TEMPLATE_STRUCTURAL_KEYS = ["steps", "endPatch"] as const;
-export type TemplateStructuralKey = (typeof TEMPLATE_STRUCTURAL_KEYS)[number];
 
 // Template patches never store force — it is feature-type-specific and not portable.
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });

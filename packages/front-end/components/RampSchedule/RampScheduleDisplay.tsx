@@ -243,7 +243,7 @@ interface Props {
 export default function RampScheduleDisplay({ rs, targetId }: Props) {
   const current = rs.currentStepIndex;
 
-  const endActions: ReturnType<typeof filterActions> = [];
+  const endActions = filterActions(rs.endActions ?? [], targetId);
 
   return (
     <Box mx="2">

@@ -131,15 +131,19 @@ export default function RuleList({
               },
             ],
             steps: action.steps,
-            startDate: action.startDate ? new Date(action.startDate) : undefined,
-            endCondition: action.endCondition?.trigger?.type === "scheduled"
-              ? {
-                  trigger: {
-                    type: "scheduled",
-                    at: new Date(action.endCondition.trigger.at),
-                  },
-                }
+            endActions: action.endActions,
+            startDate: action.startDate
+              ? new Date(action.startDate)
               : undefined,
+            endCondition:
+              action.endCondition?.trigger?.type === "scheduled"
+                ? {
+                    trigger: {
+                      type: "scheduled",
+                      at: new Date(action.endCondition.trigger.at),
+                    },
+                  }
+                : undefined,
             status: "pending",
             dateCreated: new Date(),
             dateUpdated: new Date(),

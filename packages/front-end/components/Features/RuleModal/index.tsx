@@ -84,7 +84,6 @@ import {
   createActionToSectionState,
   buildRampSteps,
   buildEndActions,
-  validateRampSectionState,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -920,10 +919,6 @@ export default function RuleModal({
         );
       }
 
-      const rampValidationError = validateRampSectionState(rampSectionState);
-      if (rampValidationError) {
-        throw new Error(rampValidationError);
-      }
       if (
         (values.type === "rollout" || values.type === "force") &&
         rampSectionState.mode !== "off" &&
