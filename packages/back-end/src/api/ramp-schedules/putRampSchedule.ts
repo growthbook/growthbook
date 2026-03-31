@@ -50,12 +50,12 @@ export const putRampSchedule = createApiRequestHandler(
   if (body.steps !== undefined) updates.steps = body.steps;
   if (body.endActions !== undefined) updates.endActions = body.endActions;
   if ("startDate" in body) {
-    updates.startDate = body.startDate ? new Date(body.startDate) : undefined;
+    updates.startDate = body.startDate ? new Date(body.startDate) : null;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;
     if (!ec) {
-      updates.endCondition = undefined;
+      updates.endCondition = null;
     } else {
       const rawTrigger = ec.trigger;
       const trigger = rawTrigger
