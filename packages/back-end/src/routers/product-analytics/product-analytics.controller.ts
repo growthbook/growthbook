@@ -1,6 +1,10 @@
 import type { Response } from "express";
 import { z } from "zod";
-import type { RichMessage } from "shared";
+import {
+  tryParseToolResultJson,
+  type AIChatMessage,
+  type AIChatToolResultPart,
+} from "shared/ai-chat";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -15,7 +19,6 @@ import { NotFoundError } from "back-end/src/util/errors";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
 import { aiTool } from "back-end/src/enterprise/services/ai";
-import { setPendingToolArtifact } from "back-end/src/enterprise/services/pending-tool-artifacts";
 import {
   getPendingSnapshot,
   registerPendingSnapshot,
@@ -240,21 +243,35 @@ function buildResultCsv(
 
 function nextSnapshotId(conversationId: string): string {
   const msgs = getConversation(conversationId);
-  const persisted = msgs.filter(
-    (m) => m.kind === "tool-result" && m.toolName === "runExploration",
-  ).length;
+  let persisted = 0;
+  for (const m of msgs) {
+    if (m.role !== "tool") continue;
+    for (const part of m.content) {
+      if (part.toolName === "runExploration") persisted++;
+    }
+  }
   const slot = nextSnapshotSlot(conversationId);
   return `snap_${conversationId.slice(0, 8)}_${persisted + slot}`;
 }
 
 function explorationConfigFromLatestRun(
-  msg: RichMessage | undefined,
+  part: AIChatToolResultPart | undefined,
 ): ExplorationConfig | null {
-  if (!msg || msg.kind !== "tool-result" || msg.toolName !== "runExploration") {
+  if (!part || part.toolName !== "runExploration") {
     return null;
   }
-  const c = msg.data.config;
-  if (c && typeof c === "object") return c as ExplorationConfig;
+  const r = tryParseToolResultJson(part.result);
+  if (!r || typeof r !== "object" || Array.isArray(r)) {
+    return null;
+  }
+  const data = r as Record<string, unknown>;
+  const ex = data.exploration;
+  if (ex && typeof ex === "object" && ex !== null && "config" in ex) {
+    const c = (ex as { config: unknown }).config;
+    if (c && typeof c === "object") return c as ExplorationConfig;
+  }
+  const legacy = data.config;
+  if (legacy && typeof legacy === "object") return legacy as ExplorationConfig;
   return null;
 }
 
@@ -300,8 +317,9 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       "When switching between timeseries and cumulative chart types, add or remove the date dimension accordingly.\n" +
       "When the user does not specify a chart style, default to chartType line for timeseries and chartType bar for cumulative.\n" +
       "The runExploration tool will execute the query and automatically display the chart to the user — you do not need to embed config in your text response.\n" +
+      "runExploration returns the full exploration payload (including structured result data) plus resultCsv: use that return value for analysis, insights, and answering questions about the run you just executed.\n" +
       'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
-      "Use the getSnapshot tool whenever you need to analyze result data — including right after calling runExploration if the user wants insights or questions answered about the data.\n" +
+      "Use getSnapshot only when you need rows or CSV for a snapshot whose tool result is no longer fully available in the conversation — e.g. older runs after prior tool outputs were compacted, or when the user references a specific snapshotId from history.\n" +
       "When selecting metrics, prefer using the searchMetrics tool instead of guessing metric IDs.\n" +
       "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
       "If asked about metrics that don't exist, let the user know.\n" +
@@ -309,7 +327,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
     );
   },
 
-  buildTools: (ctx, conversationId, { datasourceId }, emit) => {
+  buildTools: (ctx, conversationId, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
     const getMetrics = async (): Promise<FactMetricInterface[]> => {
       if (metricsCache) return metricsCache;
@@ -399,7 +417,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
           "Execute a product analytics exploration with the given config. " +
           "Use this when the user asks to build, change, or rerun a chart. " +
           "The chart will be automatically displayed to the user after execution. " +
-          "The result includes a snapshotId — call getSnapshot with that ID if you need to analyze the data or provide insights.",
+          "Returns exploration (full result rows and config), resultCsv for tabular analysis, rowCount, snapshotId, and summary — use this return value for insights on the current run; call getSnapshot only for older or compacted snapshots.",
         inputSchema: z.object({
           config: explorationConfigValidator,
         }),
@@ -429,14 +447,6 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
 
             setSessionLatestExplorationConfig(conversationId, config);
 
-            setPendingToolArtifact(conversationId, options.toolCallId, {
-              summary,
-              snapshotId,
-              config,
-              exploration: exploration ?? null,
-              resultCsv,
-            });
-
             registerPendingSnapshot(conversationId, {
               summary,
               snapshotId,
@@ -445,33 +455,28 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
               resultCsv,
             });
 
-            emit("chart-result", {
-              toolCallId: options.toolCallId,
-              snapshotId,
-              config,
-              exploration: exploration ?? null,
-            });
-
-            return JSON.stringify({
-              status: "success",
+            return {
+              summary,
+              status: "success" as const,
               snapshotId,
               rowCount: exploration?.result?.rows?.length ?? 0,
-              summary,
-            });
+              exploration: exploration ?? null,
+              resultCsv,
+            };
           } catch (err) {
-            return JSON.stringify({
-              status: "error",
+            return {
+              status: "error" as const,
               message: err instanceof Error ? err.message : "Unknown error",
-            });
+            };
           }
         },
       }),
 
       getSnapshot: aiTool({
         description:
-          "Retrieve the full configuration and result data for any snapshot, including one just created by runExploration. " +
-          "Use this whenever you need to analyze result data — e.g. to provide insights, answer questions about values, compare configurations, or explain why data changed. " +
-          "Pass the snapshotId returned by runExploration to access data from the most recent chart run.",
+          "Retrieve configuration and result CSV for a snapshot by snapshotId from conversation history. " +
+          "Prefer using the runExploration return value (especially resultCsv) for the run you just executed. " +
+          "Use getSnapshot when tool results for that snapshot are compacted or missing from the visible conversation, or when the user points to an older snapshotId.",
         inputSchema: z.object({
           snapshotId: z
             .string()
@@ -480,16 +485,29 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
             ),
         }),
         execute: async ({ snapshotId }: { snapshotId: string }) => {
-          const msg = findSnapshot(conversationId, snapshotId);
-          if (msg?.kind === "tool-result") {
-            const cfg = msg.data.config as ExplorationConfig | undefined;
+          const part = findSnapshot(conversationId, snapshotId);
+          if (part) {
+            const r = tryParseToolResultJson(part.result);
+            const rec =
+              r && typeof r === "object" && !Array.isArray(r)
+                ? (r as Record<string, unknown>)
+                : {};
+            const cfg = explorationConfigFromLatestRun(part) ?? undefined;
             const csv =
-              typeof msg.data.resultCsv === "string"
-                ? msg.data.resultCsv
-                : null;
+              typeof rec.resultCsv === "string" ? rec.resultCsv : null;
+            const summaryLine =
+              typeof rec.summary === "string"
+                ? rec.summary
+                : (() => {
+                    try {
+                      return JSON.stringify(r);
+                    } catch {
+                      return String(r);
+                    }
+                  })();
             return (
-              `Snapshot ${snapshotId} (${new Date(msg.ts).toISOString()}):\n` +
-              `Summary: ${msg.summary}\n` +
+              `Snapshot ${snapshotId}:\n` +
+              `Summary: ${summaryLine}\n` +
               `Config: ${JSON.stringify(cfg ?? {}, null, 2)}\n` +
               (csv ? `Result data (CSV):\n${csv}` : "No result data.")
             );
@@ -529,7 +547,7 @@ export const getChat = async (
     status: 200;
     isStreaming: boolean;
     lastStreamedAt: number;
-    messages: RichMessage[];
+    messages: AIChatMessage[];
   }>,
 ) => {
   const { conversationId } = req.params;

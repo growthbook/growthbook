@@ -11,6 +11,21 @@ function prettyJson(value: unknown): string {
   }
 }
 
+/** Format persisted tool result (JSON string) or live stream output for display. */
+function formatToolOutputForPre(toolOutput: unknown): string {
+  if (toolOutput === undefined || toolOutput === null) {
+    return "";
+  }
+  if (typeof toolOutput === "string") {
+    try {
+      return prettyJson(JSON.parse(toolOutput) as unknown);
+    } catch {
+      return toolOutput;
+    }
+  }
+  return prettyJson(toolOutput);
+}
+
 export interface ToolTransparencyBlockProps {
   toolInput?: Record<string, unknown>;
   argsTextPreview?: string;
@@ -80,7 +95,9 @@ export default function ToolTransparencyBlock({
                 Output
               </Text>
             </Box>
-            <pre className={styles.pre}>{prettyJson(toolOutput)}</pre>
+            <pre className={styles.pre}>
+              {formatToolOutputForPre(toolOutput)}
+            </pre>
           </>
         ) : null}
       </details>

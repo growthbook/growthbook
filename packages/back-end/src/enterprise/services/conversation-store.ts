@@ -1,7 +1,11 @@
-import type { RichMessage } from "shared";
+import {
+  toolResultSnapshotId,
+  type AIChatMessage,
+  type AIChatToolResultPart,
+} from "shared/ai-chat";
 
 interface ConversationEntry {
-  messages: RichMessage[];
+  messages: AIChatMessage[];
   lastAccessedAt: number;
   isStreaming: boolean;
   lastStreamedAt: number;
@@ -41,7 +45,7 @@ function getOrCreate(conversationId: string): ConversationEntry {
   return entry;
 }
 
-export function getConversation(conversationId: string): RichMessage[] {
+export function getConversation(conversationId: string): AIChatMessage[] {
   const entry = store.get(conversationId);
   if (!entry) return [];
   entry.lastAccessedAt = now();
@@ -73,7 +77,7 @@ export function initConversation(
 
 export function appendMessages(
   conversationId: string,
-  messages: RichMessage[],
+  messages: AIChatMessage[],
 ): void {
   if (!messages.length) return;
   const entry = getOrCreate(conversationId);
@@ -113,7 +117,7 @@ export function touchStreamedAt(conversationId: string): void {
 export interface ConversationStatus {
   isStreaming: boolean;
   lastStreamedAt: number;
-  messages: RichMessage[];
+  messages: AIChatMessage[];
 }
 
 export interface ConversationSummary {
@@ -142,32 +146,39 @@ export function getConversationStatus(
 }
 
 /**
- * Find a persisted tool-result whose data includes the given snapshotId.
+ * Find a persisted tool-result part whose result includes the given snapshotId.
  */
 export function findSnapshot(
   conversationId: string,
   snapshotId: string,
-): RichMessage | undefined {
+): AIChatToolResultPart | undefined {
   const messages = getConversation(conversationId);
   for (const m of messages) {
-    if (m.kind !== "tool-result") continue;
-    const sid = m.data.snapshotId;
-    if (sid === snapshotId) return m;
+    if (m.role !== "tool") continue;
+    for (const part of m.content) {
+      if (toolResultSnapshotId(part.result) === snapshotId) {
+        return part;
+      }
+    }
   }
   return undefined;
 }
 
 /**
- * Most recent tool-result for the given tool name, or undefined.
+ * Most recent tool-result part for the given tool name, or undefined.
  */
 export function getLatestToolResult(
   conversationId: string,
   toolName: string,
-): RichMessage | undefined {
+): AIChatToolResultPart | undefined {
   const messages = getConversation(conversationId);
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (m.kind === "tool-result" && m.toolName === toolName) return m;
+    if (m.role !== "tool") continue;
+    for (let j = m.content.length - 1; j >= 0; j--) {
+      const part = m.content[j]!;
+      if (part.toolName === toolName) return part;
+    }
   }
   return undefined;
 }

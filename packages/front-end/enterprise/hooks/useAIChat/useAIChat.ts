@@ -3,10 +3,16 @@ import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
   ConversationLoadResponse,
-  RichMessage,
+  AIChatMessage,
   UseAIChatOptions,
   UseAIChatReturn,
 } from "./types";
+import {
+  stringifyToolResultForStorage,
+  type AIChatTextPart,
+  type AIChatToolCallPart,
+  type AIChatToolResultPart,
+} from "shared/ai-chat";
 import {
   REMOTE_STREAM_POLL_INTERVAL_MS,
   REMOTE_STREAM_STALE_MS,
@@ -43,7 +49,7 @@ export function useAIChat({
     return newId;
   });
 
-  const [messages, setMessages] = useState<RichMessage[]>([]);
+  const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [activeTurnItems, setActiveTurnItems] = useState<ActiveTurnItem[]>([]);
   const activeTurnItemsRef = useRef<ActiveTurnItem[]>([]);
 
@@ -155,94 +161,79 @@ export function useAIChat({
   }, [apiCall, clearRemotePoll, conversationId]);
 
   // ---------------------------------------------------------------------------
-  // finalizeTurn: convert active items to persisted RichMessages (fallback)
+  // finalizeTurn: convert active items to persisted AIChatMessages (fallback)
   // ---------------------------------------------------------------------------
 
   const finalizeTurn = useCallback(() => {
     const items = activeTurnItemsRef.current;
     if (!items.length) return;
 
-    const toolOutputToData = (output: unknown): Record<string, unknown> => {
-      if (output && typeof output === "object" && !Array.isArray(output)) {
-        return { ...(output as Record<string, unknown>) };
-      }
-      return { value: output as unknown };
-    };
+    const assistantParts: (AIChatTextPart | AIChatToolCallPart)[] = [];
+    const toolResultParts: AIChatToolResultPart[] = [];
+    const now = Date.now();
 
-    const summaryFromOutput = (output: unknown, fallback: string): string => {
-      if (typeof output === "string") {
-        return output;
-      }
-      try {
-        return JSON.stringify(output);
-      } catch {
-        return fallback;
-      }
-    };
-
-    const newMessages: RichMessage[] = [];
-    const ts = () => Date.now();
     for (const item of items) {
-      if (item.kind === "thinking") {
-        continue;
-      } else if (item.kind === "text" && item.content.trim()) {
-        newMessages.push({
-          kind: "assistant-text",
-          id: `msg_${messageCounterRef.current++}`,
-          content: item.content,
-          ts: ts(),
-        });
+      if (item.kind === "thinking") continue;
+
+      if (item.kind === "text" && item.content.trim()) {
+        assistantParts.push({ type: "text", text: item.content });
       } else if (item.kind === "tool-status") {
         const args =
           item.toolInput && Object.keys(item.toolInput).length > 0
             ? item.toolInput
             : undefined;
-        newMessages.push({
-          kind: "tool-call",
-          id: `msg_${messageCounterRef.current++}`,
-          toolName: item.toolName,
+        assistantParts.push({
+          type: "tool-call",
           toolCallId: item.toolCallId,
-          ...(args ? { args } : {}),
-          ts: ts(),
+          toolName: item.toolName,
+          args: args ?? {},
         });
-        if (
-          item.toolResultData &&
-          Object.keys(item.toolResultData).length > 0
-        ) {
-          newMessages.push({
-            kind: "tool-result",
-            id: `msg_${messageCounterRef.current++}`,
-            toolName: item.toolName,
+
+        if (item.status === "error") {
+          toolResultParts.push({
+            type: "tool-result",
             toolCallId: item.toolCallId,
-            summary: item.label,
-            data: item.toolResultData,
-            ts: ts(),
-          });
-        } else if (item.status === "done" && item.toolOutput !== undefined) {
-          newMessages.push({
-            kind: "tool-result",
-            id: `msg_${messageCounterRef.current++}`,
             toolName: item.toolName,
-            toolCallId: item.toolCallId,
-            summary: summaryFromOutput(item.toolOutput, item.label),
-            data: toolOutputToData(item.toolOutput),
-            ts: ts(),
-          });
-        } else if (item.status === "error") {
-          newMessages.push({
-            kind: "tool-result",
-            id: `msg_${messageCounterRef.current++}`,
-            toolName: item.toolName,
-            toolCallId: item.toolCallId,
-            summary: item.errorMessage ?? "Tool error",
-            data: {
+            isError: true,
+            result: stringifyToolResultForStorage({
               error: true,
               message: item.errorMessage ?? "Tool error",
-            },
-            ts: ts(),
+            }),
+          });
+        } else if (item.status === "done" && item.toolOutput !== undefined) {
+          toolResultParts.push({
+            type: "tool-result",
+            toolCallId: item.toolCallId,
+            toolName: item.toolName,
+            result: stringifyToolResultForStorage(item.toolOutput),
+          });
+        } else if (item.toolResultData && Object.keys(item.toolResultData).length > 0) {
+          toolResultParts.push({
+            type: "tool-result",
+            toolCallId: item.toolCallId,
+            toolName: item.toolName,
+            result: stringifyToolResultForStorage(item.toolResultData),
           });
         }
       }
+    }
+
+    const newMessages: AIChatMessage[] = [];
+    if (assistantParts.length > 0) {
+      newMessages.push({
+        role: "assistant",
+        id: `msg_${messageCounterRef.current++}`,
+        ts: now,
+        content: assistantParts,
+      });
+    }
+    if (toolResultParts.length > 0) {
+      newMessages.push({
+        role: "tool",
+        id: `msg_${messageCounterRef.current++}`,
+        ts: now,
+        content: toolResultParts,
+      });
     }
 
     if (newMessages.length) {
@@ -278,8 +269,8 @@ export function useAIChat({
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
-    const userMessage: RichMessage = {
-      kind: "user-text",
+    const userMessage: AIChatMessage = {
+      role: "user",
       id: `msg_${messageCounterRef.current++}`,
       content: trimmed,
       ts: Date.now(),

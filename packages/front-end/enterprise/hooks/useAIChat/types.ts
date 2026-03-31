@@ -2,9 +2,9 @@
 // Public types for useAIChat
 // ---------------------------------------------------------------------------
 
-import type { RichMessage } from "shared";
+import type { AIChatMessage } from "shared/ai-chat";
 
-export type { RichMessage };
+export type { AIChatMessage };
 
 export type ActiveTurnItem =
   | { kind: "text"; id: string; content: string }
@@ -22,7 +22,7 @@ export type ActiveTurnItem =
       /** Serialized tool return value from tool-call-end SSE. */
       toolOutput?: unknown;
       errorMessage?: string;
-      /** Populated from chart-result SSE for runExploration. */
+      /** Chart payload derived from runExploration tool output on tool-call-end. */
       toolResultData?: Record<string, unknown>;
     }
   | { kind: "thinking"; id: string };
@@ -45,7 +45,7 @@ export interface UseAIChatOptions {
 
   /**
    * Called for every parsed SSE event. Use this to react to domain-specific
-   * events (e.g. "chart-result") and manage your own artifact state.
+   * events and manage your own artifact state.
    */
   onSSEEvent?: (event: SSEEvent) => void;
 
@@ -84,13 +84,13 @@ export interface ConversationSummary {
 
 /** GET /chat/:id — messages plus whether the agent is still generating. */
 export interface ConversationLoadResponse {
-  messages: RichMessage[];
+  messages: AIChatMessage[];
   isStreaming: boolean;
   lastStreamedAt: number;
 }
 
 export interface UseAIChatReturn {
-  messages: RichMessage[];
+  messages: AIChatMessage[];
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
   sendMessage: () => void;

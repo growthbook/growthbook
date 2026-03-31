@@ -14,18 +14,16 @@ import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
+import { toolResultPreviewLabel } from "shared/ai-chat";
 import {
   useAIChat,
   useChatListBackgroundPoll,
   type UseAIChatOptions,
   type ActiveTurnItem,
-  type RichMessage,
+  type AIChatMessage,
   type ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
-import {
-  pairedToolCallForResult,
-  toolCallHasPairedResult,
-} from "@/enterprise/hooks/useAIChat/pairRichToolMessages";
+import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import ConversationSidebar from "./ConversationSidebar";
 import ToolTransparencyBlock from "./ToolTransparencyBlock";
 import styles from "./AIChat.module.scss";
@@ -172,60 +170,67 @@ export default function AIChat({
     return null;
   };
 
-  const renderMessage = (msg: RichMessage, index: number) => {
-    if (msg.kind === "tool-call" && toolCallHasPairedResult(messages, index)) {
-      return null;
-    }
-
-    if (msg.kind === "user-text") {
+  const renderMessage = (msg: AIChatMessage) => {
+    if (msg.role === "user") {
+      const userText =
+        typeof msg.content === "string"
+          ? msg.content
+          : msg.content
+              .filter((p): p is { type: "text"; text: string } => p.type === "text")
+              .map((p) => p.text)
+              .join("\n");
       return (
         <Box key={msg.id} className={styles.userMessage}>
-          <Text size="small">{msg.content}</Text>
+          <Text size="small">{userText}</Text>
         </Box>
       );
     }
-    if (msg.kind === "assistant-text") {
-      return (
-        <Box key={msg.id} className={styles.assistantMessage}>
-          <Markdown>{msg.content}</Markdown>
-        </Box>
-      );
+
+    if (msg.role === "assistant") {
+      const { content } = msg;
+      if (typeof content === "string") {
+        return (
+          <Box key={msg.id} className={styles.assistantMessage}>
+            <Markdown>{content}</Markdown>
+          </Box>
+        );
+      }
+      return content.map((part, i) => {
+        if (part.type === "text") {
+          return (
+            <Box key={`${msg.id}-t${i}`} className={styles.assistantMessage}>
+              <Markdown>{part.text}</Markdown>
+            </Box>
+          );
+        }
+        // tool-call parts are rendered via the matching tool-result below
+        return null;
+      });
     }
-    if (msg.kind === "tool-call") {
-      const label =
-        hookOptions.toolStatusLabels?.[msg.toolName] ??
-        msg.toolName ??
-        "Tool call";
-      return (
-        <Box key={msg.id} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <PiCheckCircle size={12} color="var(--green-9)" />
-            <Text size="small" color="text-low">
-              {label}
-            </Text>
-          </Flex>
-          <ToolTransparencyBlock toolInput={msg.args} />
-        </Box>
-      );
+
+    if (msg.role === "tool") {
+      return msg.content.map((part, i) => {
+        const pairedCall = findToolCallPart(messages, part);
+        const label =
+          hookOptions.toolStatusLabels?.[part.toolName] ??
+          toolResultPreviewLabel(part.result, part.toolName);
+        return (
+          <Box key={`${msg.id}-r${i}`} className={styles.assistantMessage}>
+            <Flex align="center" gap="2">
+              <PiCheckCircle size={12} color="var(--green-9)" />
+              <Text size="small" color="text-low">
+                {label}
+              </Text>
+            </Flex>
+            <ToolTransparencyBlock
+              toolInput={pairedCall?.args}
+              toolOutput={part.result}
+            />
+          </Box>
+        );
+      });
     }
-    if (msg.kind === "tool-result") {
-      const label = hookOptions.toolStatusLabels?.[msg.toolName] ?? msg.summary;
-      const pairedCall = pairedToolCallForResult(messages, index);
-      return (
-        <Box key={msg.id} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <PiCheckCircle size={12} color="var(--green-9)" />
-            <Text size="small" color="text-low">
-              {label}
-            </Text>
-          </Flex>
-          <ToolTransparencyBlock
-            toolInput={pairedCall?.args}
-            toolOutput={{ summary: msg.summary, data: msg.data }}
-          />
-        </Box>
-      );
-    }
+
     return null;
   };
 
@@ -297,7 +302,7 @@ export default function AIChat({
         )}
 
         {[
-          ...messages.map((m, i) => renderMessage(m, i)),
+          ...messages.map((m) => renderMessage(m)),
           ...activeTurnItems.map(renderActiveTurnItem),
         ]}
 

@@ -2,7 +2,7 @@ export { useAIChat } from "./useAIChat";
 export { useChatListBackgroundPoll } from "./useChatListBackgroundPoll";
 export { parseSSEEvents } from "./parseSSE";
 export type {
-  RichMessage,
+  AIChatMessage,
   ActiveTurnItem,
   SSEEvent,
   UseAIChatOptions,

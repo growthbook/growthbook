@@ -18,17 +18,15 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
+import { toolResultPreviewLabel } from "shared/ai-chat";
 import {
   useAIChat,
   useChatListBackgroundPoll,
   type ActiveTurnItem,
-  type RichMessage,
+  type AIChatMessage,
   type ConversationSummary,
 } from "@/enterprise/hooks/useAIChat";
-import {
-  pairedToolCallForResult,
-  toolCallHasPairedResult,
-} from "@/enterprise/hooks/useAIChat/pairRichToolMessages";
+import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import ToolTransparencyBlock from "@/enterprise/components/AIChat/ToolTransparencyBlock";
 import { useExplorerContext } from "./ExplorerContext";
@@ -54,12 +52,35 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   getConfigSchema: "Loading config schema...",
 };
 
+function chartDataFromToolResult(result: unknown): ChartData | null {
+  if (typeof result === "string") {
+    try {
+      const parsed = JSON.parse(result) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return chartDataFromRecord(parsed as Record<string, unknown>);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return null;
+  }
+  return chartDataFromRecord(result as Record<string, unknown>);
+}
+
 function chartDataFromRecord(data: Record<string, unknown>): ChartData | null {
-  const config = data.config as ExplorationConfig | undefined;
+  const exploration =
+    (data.exploration as ProductAnalyticsExploration | null) ?? null;
+  let config = data.config as ExplorationConfig | undefined;
+  if ((!config || typeof config !== "object") && exploration?.config) {
+    config = exploration.config as ExplorationConfig;
+  }
   if (!config || typeof config !== "object") return null;
   return {
     config,
-    exploration: (data.exploration as ProductAnalyticsExploration) ?? null,
+    exploration,
   };
 }
 
@@ -261,78 +282,83 @@ export default function ExplorerAIChat() {
     return null;
   };
 
-  const renderMessage = (msg: RichMessage, index: number) => {
-    if (msg.kind === "tool-call" && toolCallHasPairedResult(messages, index)) {
-      return null;
-    }
-
-    if (msg.kind === "user-text") {
+  const renderMessage = (msg: AIChatMessage) => {
+    if (msg.role === "user") {
+      const userText =
+        typeof msg.content === "string"
+          ? msg.content
+          : msg.content
+              .filter((p): p is { type: "text"; text: string } => p.type === "text")
+              .map((p) => p.text)
+              .join("\n");
       return (
         <Box key={msg.id} className={styles.userMessage}>
-          <Text size="small">{msg.content}</Text>
+          <Text size="small">{userText}</Text>
         </Box>
       );
     }
 
-    if (msg.kind === "assistant-text") {
-      return (
-        <Box key={msg.id} className={styles.assistantMessage}>
-          <Markdown>{msg.content}</Markdown>
-        </Box>
-      );
-    }
-
-    if (msg.kind === "tool-call") {
-      const label =
-        TOOL_STATUS_LABELS[msg.toolName] ?? msg.toolName ?? "Tool call";
-      return (
-        <Box key={msg.toolCallId} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <PiCheckCircle size={12} color="var(--green-9)" />
-            <Text size="small" color="text-low">
-              {label}
-            </Text>
-          </Flex>
-          <ToolTransparencyBlock toolInput={msg.args} />
-        </Box>
-      );
-    }
-
-    if (msg.kind === "tool-result") {
-      const pairedCall = pairedToolCallForResult(messages, index);
-
-      if (msg.toolName === "runExploration") {
-        const chartData = chartDataFromRecord(msg.data);
-        if (chartData) {
+    if (msg.role === "assistant") {
+      const { content } = msg;
+      if (typeof content === "string") {
+        return (
+          <Box key={msg.id} className={styles.assistantMessage}>
+            <Markdown>{content}</Markdown>
+          </Box>
+        );
+      }
+      return content.map((part, i) => {
+        if (part.type === "text") {
           return (
-            <Box key={msg.toolCallId}>
-              {renderChart(
-                chartData,
-                <ToolTransparencyBlock
-                  embedded
-                  summaryLabel="Query & tool response"
-                  toolInput={pairedCall?.args}
-                  toolOutput={{ summary: msg.summary, data: msg.data }}
-                />,
-              )}
+            <Box key={`${msg.id}-t${i}`} className={styles.assistantMessage}>
+              <Markdown>{part.text}</Markdown>
             </Box>
           );
         }
-      }
-      return (
-        <Box key={msg.toolCallId} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <PiCheckCircle size={12} color="var(--green-9)" />
-            <Text size="small" color="text-low">
-              {TOOL_STATUS_LABELS[msg.toolName] ?? msg.summary}
-            </Text>
-          </Flex>
-          <ToolTransparencyBlock
-            toolInput={pairedCall?.args}
-            toolOutput={{ summary: msg.summary, data: msg.data }}
-          />
-        </Box>
-      );
+        // tool-call parts are rendered via their matching tool-result below
+        return null;
+      });
+    }
+
+    if (msg.role === "tool") {
+      return msg.content.map((part, i) => {
+        const pairedCall = findToolCallPart(messages, part);
+
+        if (part.toolName === "runExploration") {
+          const chartData = chartDataFromToolResult(part.result);
+          if (chartData) {
+            return (
+              <Box key={`${msg.id}-r${i}`}>
+                {renderChart(
+                  chartData,
+                  <ToolTransparencyBlock
+                    embedded
+                    summaryLabel="Query & tool response"
+                    toolInput={pairedCall?.args}
+                    toolOutput={part.result}
+                  />,
+                )}
+              </Box>
+            );
+          }
+        }
+
+        return (
+          <Box key={`${msg.id}-r${i}`} className={styles.assistantMessage}>
+            <Flex align="center" gap="2">
+              <PiCheckCircle size={12} color="var(--green-9)" />
+              <Text size="small" color="text-low">
+                {TOOL_STATUS_LABELS[part.toolName] ??
+                  toolResultPreviewLabel(part.result, part.toolName)}
+              </Text>
+            </Flex>
+            <ToolTransparencyBlock
+              toolInput={pairedCall?.args}
+              toolOutput={part.result}
+            />
+          </Box>
+        );
+      });
     }
 
     return null;
@@ -418,7 +444,7 @@ export default function ExplorerAIChat() {
           )}
 
           {[
-            ...messages.map((m, i) => renderMessage(m, i)),
+            ...messages.map((m) => renderMessage(m)),
             ...activeTurnItems.map(renderActiveTurnItem),
           ]}
 

@@ -190,6 +190,8 @@ export function processSSEEvent(
     case "tool-call-end": {
       const toolCallId =
         typeof event.data.toolCallId === "string" ? event.data.toolCallId : "";
+      const toolName =
+        typeof event.data.toolName === "string" ? event.data.toolName : "";
       const preliminary = event.data.preliminary === true;
       const hasOutput = "output" in event.data;
       const output = hasOutput ? event.data.output : undefined;
@@ -202,6 +204,38 @@ export function processSSEEvent(
           ? (rawIn as Record<string, unknown>)
           : undefined;
 
+      const toolResultData =
+        toolName === "runExploration" &&
+        output &&
+        typeof output === "object" &&
+        !Array.isArray(output) &&
+        output !== null &&
+        (output as Record<string, unknown>).status === "success" &&
+        (() => {
+          const ex = (output as Record<string, unknown>).exploration;
+          const cfg =
+            ex &&
+            typeof ex === "object" &&
+            ex !== null &&
+            "config" in ex &&
+            typeof (ex as Record<string, unknown>).config === "object"
+              ? (ex as Record<string, unknown>).config
+              : undefined;
+          return cfg !== undefined;
+        })()
+          ? (() => {
+              const o = output as Record<string, unknown>;
+              const data: Record<string, unknown> = {};
+              if (typeof o.snapshotId === "string") {
+                data.snapshotId = o.snapshotId;
+              }
+              if (o.exploration !== undefined) {
+                data.exploration = o.exploration;
+              }
+              return data;
+            })()
+          : undefined;
+
       return {
         waitingForNextStep: !preliminary,
         activeTurnItems: currentItems.map((item) =>
@@ -210,6 +244,7 @@ export function processSSEEvent(
                 ...item,
                 ...(inputPatch ? { toolInput: inputPatch } : {}),
                 ...(hasOutput ? { toolOutput: output } : {}),
+                ...(toolResultData ? { toolResultData } : {}),
                 ...(!preliminary ? { status: "done" as const } : {}),
               }
             : item,
@@ -235,30 +270,6 @@ export function processSSEEvent(
                 status: "error" as const,
                 errorMessage: message,
               }
-            : item,
-        ),
-      };
-    }
-
-    case "chart-result": {
-      const toolCallId = event.data.toolCallId;
-      if (typeof toolCallId !== "string") return {};
-
-      const toolResultData: Record<string, unknown> = {};
-      if (typeof event.data.snapshotId === "string") {
-        toolResultData.snapshotId = event.data.snapshotId;
-      }
-      if (event.data.config !== undefined) {
-        toolResultData.config = event.data.config;
-      }
-      if (event.data.exploration !== undefined) {
-        toolResultData.exploration = event.data.exploration;
-      }
-
-      return {
-        activeTurnItems: currentItems.map((item) =>
-          item.kind === "tool-status" && item.toolCallId === toolCallId
-            ? { ...item, toolResultData }
             : item,
         ),
       };

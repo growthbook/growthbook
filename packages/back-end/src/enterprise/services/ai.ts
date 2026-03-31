@@ -250,64 +250,6 @@ export const simpleCompletion = async ({
   return result;
 };
 
-export const streamingCompletion = async ({
-  context,
-  instructions,
-  prompt,
-  temperature,
-  type,
-  isDefaultPrompt,
-  overrideModel,
-  tools,
-  maxSteps = 1,
-}: {
-  context: ReqContext | ApiReqContext;
-  instructions?: string;
-  prompt: string;
-  temperature?: number;
-  type: AIPromptType;
-  isDefaultPrompt: boolean;
-  overrideModel?: AIModel;
-  tools?: ToolSet;
-  maxSteps?: number;
-}) => {
-  const { defaultAIModel } = getAISettingsForOrg(context, true);
-  const model = overrideModel || defaultAIModel;
-  const aiProvider = getAIProviderClass(context, model);
-
-  if (aiProvider == null) {
-    throw new Error("AI provider not enabled or key not set");
-  }
-
-  const messages = constructMessages(prompt, instructions);
-
-  const result = streamText({
-    model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
-    messages,
-    ...(temperature != null ? { temperature } : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
-    onFinish: async ({ usage }) => {
-      if (IS_CLOUD) {
-        const numTokensUsed =
-          usage?.totalTokens ?? numTokensFromMessages(messages, model);
-        await updateTokenUsage({ numTokensUsed, organization: context.org });
-
-        logCloudAIUsage({
-          organization: context.org.id,
-          type,
-          model,
-          numPromptTokensUsed: usage?.inputTokens,
-          numCompletionTokensUsed: usage?.outputTokens,
-          temperature,
-          usedDefaultPrompt: isDefaultPrompt,
-        });
-      }
-    },
-  });
-
-  return result;
-};
-
 export const streamingChatCompletion = async ({
   context,
   system,

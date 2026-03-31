@@ -2,7 +2,12 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIPromptType } from "shared/ai";
-import type { RichMessage } from "shared";
+import type {
+  AIChatMessage,
+  AIChatTextPart,
+  AIChatToolCallPart,
+  AIChatToolResultPart,
+} from "shared/ai-chat";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -21,11 +26,8 @@ import {
   touchStreamedAt,
   initConversation,
 } from "back-end/src/enterprise/services/conversation-store";
-import {
-  peekToolOutputToRich,
-  stripForLLM,
-} from "back-end/src/enterprise/services/rich-message";
-import { clearPendingToolArtifactsForConversation } from "back-end/src/enterprise/services/pending-tool-artifacts";
+import { stripForLLM } from "back-end/src/enterprise/services/ai-chat-for-llm";
+import { stringifyToolResultForStorage } from "shared/ai-chat";
 import {
   clearSessionLatestExplorationConfig,
   resetSnapshotSlotCounter,
@@ -55,7 +57,7 @@ export interface AgentConfig<TParams = unknown> {
     ctx: ReqContext,
     conversationId: string,
     params: TParams,
-    emit: AgentEmit,
+    emit?: AgentEmit,
   ) => ToolSet;
 
   temperature?: number;
@@ -71,6 +73,400 @@ export interface AgentConfig<TParams = unknown> {
 }
 
 type FlushableResponse = Response & { flush?: () => void };
+type AgentStreamPart = TextStreamPart<ToolSet>;
+type ToolInputStartPart = Extract<AgentStreamPart, { type: "tool-input-start" }>;
+type ToolInputDeltaPart = Extract<AgentStreamPart, { type: "tool-input-delta" }>;
+type ToolCallPart = Extract<AgentStreamPart, { type: "tool-call" }>;
+type ToolResultPart = Extract<AgentStreamPart, { type: "tool-result" }>;
+type ToolErrorPart = Extract<AgentStreamPart, { type: "tool-error" }>;
+type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
+type AgentRequestBody = {
+  message: string;
+  conversationId: string;
+} & Record<string, unknown>;
+type OrgAIPromptConfig = Awaited<
+  ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
+>;
+
+function getStringProperty(
+  value: unknown,
+  key: string,
+): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = (value as Record<string, unknown>)[key];
+  return typeof raw === "string" ? raw : undefined;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error == null) return fallback;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return fallback;
+  }
+}
+
+async function runAccessGates(
+  context: ReqContext,
+  res: Response,
+): Promise<boolean> {
+  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
+    res.status(403).json({
+      status: 403,
+      message: "Your plan does not support AI features.",
+    });
+    return false;
+  }
+
+  const { aiEnabled } = getAISettingsForOrg(context);
+  if (!aiEnabled) {
+    res.status(404).json({
+      status: 404,
+      message: "AI configuration not set or enabled",
+    });
+    return false;
+  }
+
+  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
+  if (secondsUntilReset > 0) {
+    res.status(429).json({
+      status: 429,
+      message: "Over AI usage limits",
+      retryAfter: secondsUntilReset,
+    });
+    return false;
+  }
+
+  return true;
+}
+
+async function buildSystemPromptForRequest<TParams>(
+  context: ReqContext,
+  config: AgentConfig<TParams>,
+  params: TParams,
+): Promise<{
+  system: string;
+  orgAdditionalPrompt: OrgAIPromptConfig["prompt"];
+  overrideModel: OrgAIPromptConfig["overrideModel"];
+}> {
+  const agentSystemPrompt = await config.buildSystemPrompt(context, params);
+  const { prompt: orgAdditionalPrompt, overrideModel } =
+    await context.models.aiPrompts.getAIPrompt(config.promptType);
+  return {
+    system: orgAdditionalPrompt
+      ? agentSystemPrompt + "\n" + orgAdditionalPrompt
+      : agentSystemPrompt,
+    orgAdditionalPrompt,
+    overrideModel,
+  };
+}
+
+function prepareConversationMessages(
+  conversationId: string,
+  context: ReqContext,
+  message: string,
+): ReturnType<typeof stripForLLM> {
+  const history = getConversation(conversationId);
+
+  if (history.length === 0) {
+    initConversation(
+      conversationId,
+      context.userId,
+      context.org.id,
+      message.slice(0, 80),
+    );
+  }
+
+  const userMessage: AIChatMessage = {
+    role: "user",
+    id: randomUUID(),
+    content: message,
+    ts: Date.now(),
+  };
+  appendMessages(conversationId, [userMessage]);
+  return stripForLLM(getConversation(conversationId));
+}
+
+function setSseHeaders(res: Response): void {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  (res as FlushableResponse).flushHeaders?.();
+}
+
+function createEmit(
+  flushableRes: FlushableResponse,
+  conversationId: string,
+): AgentEmit {
+  return (event, data): void => {
+    flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    flushableRes.flush?.();
+    touchStreamedAt(conversationId);
+  };
+}
+
+async function streamAgentResponse(
+  stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
+  config: AgentConfig,
+  conversationId: string,
+  emit: AgentEmit,
+): Promise<void> {
+  // Per-step accumulators: batched into one assistant message + one tool message per step.
+  const assistantParts: (AIChatTextPart | AIChatToolCallPart)[] = [];
+  const pendingToolResults: AIChatToolResultPart[] = [];
+  let textBuffer = "";
+
+  const flushTextToAssistantParts = (): void => {
+    const trimmed = textBuffer.trim();
+    if (trimmed) {
+      assistantParts.push({ type: "text", text: trimmed });
+    }
+    textBuffer = "";
+  };
+
+  const flushAssistantMessage = (): void => {
+    flushTextToAssistantParts();
+    if (assistantParts.length > 0) {
+      appendMessages(conversationId, [
+        {
+          role: "assistant",
+          id: randomUUID(),
+          ts: Date.now(),
+          content: assistantParts.splice(0),
+        },
+      ]);
+    }
+  };
+
+  const flushToolMessage = (): void => {
+    if (pendingToolResults.length > 0) {
+      appendMessages(conversationId, [
+        {
+          role: "tool",
+          id: randomUUID(),
+          ts: Date.now(),
+          content: pendingToolResults.splice(0),
+        },
+      ]);
+    }
+  };
+
+  try {
+    for await (const part of stream.fullStream) {
+      debugNonTextPart(part, conversationId, config.promptType);
+
+      switch (part.type) {
+        case "text-delta":
+          // Tool results from the previous step are now finalized — flush them.
+          if (pendingToolResults.length > 0) {
+            flushToolMessage();
+          }
+          textBuffer += part.text;
+          emit("text-delta", { content: part.text });
+          break;
+
+        case "tool-input-start":
+          emitToolInputStart(part, emit);
+          break;
+
+        case "tool-input-delta":
+          emitToolInputDelta(part, emit);
+          break;
+
+        case "tool-call":
+          emitToolCall(
+            part,
+            emit,
+            flushTextToAssistantParts,
+            assistantParts,
+            flushToolMessage,
+            pendingToolResults,
+          );
+          break;
+
+        case "tool-result":
+          emitToolResult(
+            part,
+            emit,
+            flushAssistantMessage,
+            assistantParts,
+            pendingToolResults,
+          );
+          break;
+
+        case "tool-error":
+          emitToolError(part, emit);
+          break;
+
+        case "reasoning-delta":
+          emit("reasoning-delta", { text: part.text });
+          break;
+
+        case "error":
+          emit("error", {
+            message: getErrorMessage(
+              (part as ErrorPart).error,
+              "An error occurred",
+            ),
+          });
+          break;
+
+        default:
+          break;
+      }
+
+      config.onLLMEvent?.(part, emit);
+    }
+  } catch (err) {
+    emit("error", { message: getErrorMessage(err, "An error occurred") });
+  }
+
+  // Flush whatever remains after the stream ends.
+  flushAssistantMessage();
+  flushToolMessage();
+}
+
+function cleanupConversationArtifacts(conversationId: string): void {
+  clearSessionLatestExplorationConfig(conversationId);
+  clearPendingSnapshotsForConversation(conversationId);
+}
+
+function emitToolInputStart(part: ToolInputStartPart, emit: AgentEmit): void {
+  emit("tool-call-start", {
+    toolName: part.toolName,
+    toolCallId: part.id,
+  });
+}
+
+function emitToolInputDelta(part: ToolInputDeltaPart, emit: AgentEmit): void {
+  const toolCallId = getStringProperty(part, "id");
+  const delta = getStringProperty(part, "delta");
+  if (!toolCallId || !delta) return;
+
+  emit("tool-call-args-delta", {
+    toolCallId,
+    inputTextDelta: delta,
+  });
+}
+
+function emitToolCall(
+  part: ToolCallPart,
+  emit: AgentEmit,
+  flushText: () => void,
+  assistantParts: (AIChatTextPart | AIChatToolCallPart)[],
+  flushToolMessage: () => void,
+  pendingToolResults: AIChatToolResultPart[],
+): void {
+  const toolCallId = getStringProperty(part, "toolCallId");
+  const toolName = getStringProperty(part, "toolName");
+  if (!toolCallId || !toolName) return;
+
+  const rawInput = "input" in part ? part.input : undefined;
+  const invalid = "invalid" in part && Boolean(part.invalid);
+  const rawError = "error" in part ? part.error : undefined;
+  const errorText =
+    invalid && rawError != null
+      ? getErrorMessage(rawError, "Invalid tool input")
+      : undefined;
+
+  emit("tool-call-input", {
+    toolCallId,
+    toolName,
+    input: serializeUnknownForSSE(rawInput),
+    ...(invalid ? { invalid: true as const } : {}),
+    ...(errorText != null ? { errorText } : {}),
+  });
+
+  // If there are pending tool results from the previous step (no text-delta arrived
+  // to flush them), do it now so we don't mix results from different assistant turns.
+  if (pendingToolResults.length > 0) {
+    flushToolMessage();
+  }
+
+  flushText();
+
+  const args =
+    rawInput &&
+    typeof rawInput === "object" &&
+    rawInput !== null &&
+    !invalid
+      ? (rawInput as Record<string, unknown>)
+      : undefined;
+
+  assistantParts.push({
+    type: "tool-call",
+    toolCallId,
+    toolName,
+    args: args ?? {},
+  });
+}
+
+function emitToolResult(
+  part: ToolResultPart,
+  emit: AgentEmit,
+  flushAssistantMessage: () => void,
+  assistantParts: (AIChatTextPart | AIChatToolCallPart)[],
+  pendingToolResults: AIChatToolResultPart[],
+): void {
+  const preliminary = "preliminary" in part && Boolean(part.preliminary);
+  const rawInput = "input" in part ? part.input : undefined;
+
+  emit("tool-call-end", {
+    toolName: part.toolName,
+    toolCallId: part.toolCallId,
+    output: serializeUnknownForSSE(part.output),
+    ...(rawInput !== undefined
+      ? { input: serializeUnknownForSSE(rawInput) }
+      : {}),
+    ...(preliminary ? { preliminary: true as const } : {}),
+  });
+
+  if (preliminary) return;
+
+  // First real result of this batch: flush the assistant message (tool calls + any text).
+  if (pendingToolResults.length === 0 && assistantParts.length > 0) {
+    flushAssistantMessage();
+  }
+
+  pendingToolResults.push({
+    type: "tool-result",
+    toolCallId: part.toolCallId,
+    toolName: part.toolName,
+    result: stringifyToolResultForStorage(part.output),
+  });
+}
+
+function emitToolError(part: ToolErrorPart, emit: AgentEmit): void {
+  const toolCallId = getStringProperty(part, "toolCallId");
+  if (!toolCallId) return;
+
+  const toolName = getStringProperty(part, "toolName");
+  const message = getErrorMessage(
+    "error" in part ? part.error : undefined,
+    "Tool execution failed",
+  );
+  emit("tool-call-error", {
+    toolCallId,
+    ...(toolName ? { toolName } : {}),
+    message,
+  });
+}
+
+function debugNonTextPart(
+  part: AgentStreamPart,
+  conversationId: string,
+  promptType: AIPromptType,
+): void {
+  if (part.type === "text-delta" || part.type === "reasoning-delta") return;
+
+  logger.debug(`[AI agent stream] part.type=${part.type}`, {
+    conversationId,
+    promptType,
+    part: JSON.stringify(part),
+  });
+}
 
 /**
  * Creates an Express request handler from an AgentConfig. The returned handler
@@ -82,331 +478,68 @@ type FlushableResponse = Response & { flush?: () => void };
  */
 export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
   return async (
-    req: AuthRequest<
-      { message: string; conversationId: string } & Record<string, unknown>
-    >,
+    req: AuthRequest<AgentRequestBody>,
     res: Response,
   ): Promise<void> => {
     const flushableRes = res as FlushableResponse;
-    const body = req.body as {
-      message: string;
-      conversationId: string;
-    } & Record<string, unknown>;
+    const body = req.body as AgentRequestBody;
     const { message, conversationId } = body;
     const context = getContextFromReq(req);
 
     resetSnapshotSlotCounter(conversationId);
 
-    // --- Gate: commercial feature ---
-    if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-      res.status(403).json({
-        status: 403,
-        message: "Your plan does not support AI features.",
-      });
+    if (!(await runAccessGates(context, res))) {
       return;
     }
 
-    // --- Gate: AI enabled ---
-    const { aiEnabled } = getAISettingsForOrg(context);
-    if (!aiEnabled) {
-      res.status(404).json({
-        status: 404,
-        message: "AI configuration not set or enabled",
-      });
-      return;
-    }
-
-    // --- Gate: rate limit ---
-    const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-    if (secondsUntilReset > 0) {
-      res.status(429).json({
-        status: 429,
-        message: "Over AI usage limits",
-        retryAfter: secondsUntilReset,
-      });
-      return;
-    }
-
-    // --- Parse agent-specific params ---
     const params = config.parseParams(body);
-
-    // --- Build system prompt ---
-    const agentSystemPrompt = await config.buildSystemPrompt(context, params);
-    const { prompt: orgAdditionalPrompt, overrideModel } =
-      await context.models.aiPrompts.getAIPrompt(config.promptType);
-    const system = orgAdditionalPrompt
-      ? agentSystemPrompt + "\n" + orgAdditionalPrompt
-      : agentSystemPrompt;
-
-    // --- Load conversation history and append user message ---
-    const history = getConversation(conversationId);
-
-    // Initialise metadata for brand-new conversations (no-op on subsequent turns)
-    if (history.length === 0) {
-      initConversation(
-        conversationId,
-        context.userId,
-        context.org.id,
-        message.slice(0, 80),
-      );
-    }
-
-    const userMessage: RichMessage = {
-      kind: "user-text",
-      id: randomUUID(),
-      content: message,
-      ts: Date.now(),
-    };
-    appendMessages(conversationId, [userMessage]);
-    const fullRich = getConversation(conversationId);
-    const messagesForLLM = stripForLLM(fullRich);
-
-    // --- Set SSE response headers ---
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    flushableRes.flushHeaders?.();
-
-    // --- SSE emit helper ---
-    const emit: AgentEmit = (event, data) => {
-      flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      flushableRes.flush?.();
-      touchStreamedAt(conversationId);
-    };
-
-    // --- Build tools (tools can call emit directly during execute) ---
+    const { system, orgAdditionalPrompt, overrideModel } =
+      await buildSystemPromptForRequest(context, config, params);
+    const messagesForLLM = prepareConversationMessages(
+      conversationId,
+      context,
+      message,
+    );
+    setSseHeaders(res);
+    const emit = createEmit(flushableRes, conversationId);
     const tools = config.buildTools(context, conversationId, params, emit);
 
-    // --- Mark stream as active ---
     setStreaming(conversationId, true);
-
-    // --- Start streaming ---
-    const stream = await streamingChatCompletion({
-      context,
-      system,
-      messages: messagesForLLM,
-      temperature: config.temperature,
-      type: config.promptType,
-      isDefaultPrompt: !orgAdditionalPrompt,
-      overrideModel,
-      tools,
-      maxSteps: config.maxSteps,
-    });
-
-    let assistantTextBuffer = "";
-
     try {
-      for await (const part of stream.fullStream) {
-        if (part.type !== "text-delta" && part.type !== "reasoning-delta") {
-          logger.debug(`[AI agent stream] part.type=${part.type}`, {
-            conversationId,
-            promptType: config.promptType,
-            part: JSON.stringify(part),
-          });
-        }
-
-        // Default event mapping — always emitted
-        switch (part.type) {
-          case "text-delta":
-            assistantTextBuffer += part.text;
-            emit("text-delta", { content: part.text });
-            break;
-          case "tool-input-start":
-            emit("tool-call-start", {
-              toolName: part.toolName,
-              toolCallId: part.id,
-            });
-            break;
-          case "tool-input-delta": {
-            const toolCallId =
-              "id" in part && typeof part.id === "string" ? part.id : "";
-            const delta =
-              "delta" in part && typeof part.delta === "string"
-                ? part.delta
-                : "";
-            if (toolCallId && delta) {
-              emit("tool-call-args-delta", {
-                toolCallId,
-                inputTextDelta: delta,
-              });
-            }
-            break;
-          }
-          case "tool-call": {
-            const toolCallId =
-              "toolCallId" in part && typeof part.toolCallId === "string"
-                ? part.toolCallId
-                : "";
-            const toolName =
-              "toolName" in part && typeof part.toolName === "string"
-                ? part.toolName
-                : "";
-            if (!toolCallId || !toolName) break;
-
-            const rawInput = "input" in part ? part.input : undefined;
-            const invalid = "invalid" in part && Boolean(part.invalid);
-            let errorText: string | undefined;
-            if (invalid && "error" in part && part.error != null) {
-              errorText =
-                part.error instanceof Error
-                  ? part.error.message
-                  : typeof part.error === "string"
-                    ? part.error
-                    : JSON.stringify(part.error);
-            }
-
-            emit("tool-call-input", {
-              toolCallId,
-              toolName,
-              input: serializeUnknownForSSE(rawInput),
-              ...(invalid ? { invalid: true as const } : {}),
-              ...(errorText != null ? { errorText } : {}),
-            });
-
-            const trimmed = assistantTextBuffer.trim();
-            if (trimmed) {
-              appendMessages(conversationId, [
-                {
-                  kind: "assistant-text",
-                  id: randomUUID(),
-                  content: trimmed,
-                  ts: Date.now(),
-                },
-              ]);
-              assistantTextBuffer = "";
-            }
-
-            const args =
-              rawInput &&
-              typeof rawInput === "object" &&
-              rawInput !== null &&
-              !invalid
-                ? (rawInput as Record<string, unknown>)
-                : undefined;
-            appendMessages(conversationId, [
-              {
-                kind: "tool-call",
-                id: randomUUID(),
-                toolName,
-                toolCallId,
-                ...(args ? { args } : {}),
-                ts: Date.now(),
-              },
-            ]);
-            break;
-          }
-          case "tool-result": {
-            const preliminary =
-              "preliminary" in part && Boolean(part.preliminary);
-            const rawInput = "input" in part ? part.input : undefined;
-            emit("tool-call-end", {
-              toolName: part.toolName,
-              toolCallId: part.toolCallId,
-              output: serializeUnknownForSSE(part.output),
-              ...(rawInput !== undefined
-                ? { input: serializeUnknownForSSE(rawInput) }
-                : {}),
-              ...(preliminary ? { preliminary: true as const } : {}),
-            });
-
-            if (!preliminary) {
-              const { summary, data } = peekToolOutputToRich(
-                conversationId,
-                part.toolName,
-                part.toolCallId,
-                part.output,
-              );
-              appendMessages(conversationId, [
-                {
-                  kind: "tool-result",
-                  id: randomUUID(),
-                  toolName: part.toolName,
-                  toolCallId: part.toolCallId,
-                  summary,
-                  data,
-                  ts: Date.now(),
-                },
-              ]);
-            }
-            break;
-          }
-          case "tool-error": {
-            const toolCallId =
-              "toolCallId" in part && typeof part.toolCallId === "string"
-                ? part.toolCallId
-                : "";
-            const toolName =
-              "toolName" in part && typeof part.toolName === "string"
-                ? part.toolName
-                : "";
-            const message =
-              "error" in part && part.error instanceof Error
-                ? part.error.message
-                : "error" in part && typeof part.error === "string"
-                  ? part.error
-                  : "Tool execution failed";
-            if (toolCallId) {
-              emit("tool-call-error", {
-                toolCallId,
-                ...(toolName ? { toolName } : {}),
-                message,
-              });
-            }
-            break;
-          }
-          case "reasoning-delta":
-            emit("reasoning-delta", { text: part.text });
-            break;
-          case "error":
-            emit("error", {
-              message:
-                part.error instanceof Error
-                  ? part.error.message
-                  : "An error occurred",
-            });
-            break;
-          default:
-            break;
-        }
-
-        // Agent hook for additional/custom events
-        config.onLLMEvent?.(part, emit);
-      }
-    } catch (err) {
-      emit("error", {
-        message: err instanceof Error ? err.message : "An error occurred",
+      const stream = await streamingChatCompletion({
+        context,
+        system,
+        messages: messagesForLLM,
+        temperature: config.temperature,
+        type: config.promptType,
+        isDefaultPrompt: !orgAdditionalPrompt,
+        overrideModel,
+        tools,
+        maxSteps: config.maxSteps,
       });
-    }
 
-    const tail = assistantTextBuffer.trim();
-    if (tail) {
-      appendMessages(conversationId, [
-        {
-          kind: "assistant-text",
-          id: randomUUID(),
-          content: tail,
-          ts: Date.now(),
-        },
-      ]);
-    }
+      await streamAgentResponse(
+        stream,
+        config,
+        conversationId,
+        emit,
+      );
 
-    try {
-      await stream.response;
-    } catch {
-      // Stream may already be settled; ignore
-    }
+      try {
+        await stream.response;
+      } catch {
+        // Stream may already be settled; ignore
+      }
+    } finally {
+      try {
+        cleanupConversationArtifacts(conversationId);
+      } catch {
+        // ignore cleanup errors
+      }
 
-    try {
-      clearSessionLatestExplorationConfig(conversationId);
-      clearPendingSnapshotsForConversation(conversationId);
-      clearPendingToolArtifactsForConversation(conversationId);
-    } catch {
-      // ignore cleanup errors
+      setStreaming(conversationId, false);
+      emit("done", {});
+      flushableRes.end();
     }
-
-    // --- Clear streaming flag and finalize ---
-    setStreaming(conversationId, false);
-    emit("done", {});
-    flushableRes.end();
   };
 }
