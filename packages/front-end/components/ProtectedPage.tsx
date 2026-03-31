@@ -4,9 +4,7 @@ import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import {
-  getProtectedPageErrorState,
-} from "@/services/protectedPageError";
+import { getProtectedPageErrorState } from "@/services/protectedPageError";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
