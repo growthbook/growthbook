@@ -106,9 +106,21 @@ FROM
   users
 ```
 
+If you need to use a dimension that can change over time, you should use the `{{ startDate }}` template variable to pin it to the value the user had before the experiment started:
+
+```sql
+SELECT
+  user_id,
+  plan_type as value
+FROM
+  subscriptions
+WHERE
+  timestamp < '{{ startDate }}'
+```
+
 :::tip SQL template variables
 
-You can use SQL template variables in dimension queries just like you can with metrics. See the [SQL Templates](/app/sql-templates) page for more details.
+You can use `{{ startDate }}`, `{{ endDate }}`, and `{{ experimentId }}` in dimension queries to scope your data to the experiment's time window. See the [SQL Templates](/app/sql-templates) page for more details.
 
 :::
 
