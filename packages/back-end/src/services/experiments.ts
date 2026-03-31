@@ -3075,69 +3075,117 @@ type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 >;
 
+function toActivePhaseVariations(
+  canonicalVariations: ExperimentInterface["variations"],
+): ExperimentPhase["variations"] {
+  return canonicalVariations.map((v) => ({
+    id: v.id,
+    status: "active",
+  }));
+}
+
+// If there is no variations payload, this returns the existing phase variations
+// If there is a variations payload, this returns the will return the "all active"
+// status for those variations to be set on the phase
+function resolvePhaseVariationsForPayloadPhase({
+  hasVariationPayload,
+  canonicalVariations,
+  existingPhaseVariations,
+}: {
+  hasVariationPayload: boolean;
+  canonicalVariations: ExperimentInterface["variations"];
+  existingPhaseVariations: ExperimentPhase["variations"] | undefined;
+}): ExperimentPhase["variations"] {
+  const experimentLevelVariationsForPhase =
+    toActivePhaseVariations(canonicalVariations);
+
+  if (hasVariationPayload) {
+    return experimentLevelVariationsForPhase;
+  }
+
+  return existingPhaseVariations || experimentLevelVariationsForPhase;
+}
+
 function resolveExperimentUpdateVariationsAndPhases(
   phases: UpdateExperimentApiPayload["phases"],
   variations: UpdateExperimentApiPayload["variations"],
   experiment: ExperimentInterface,
 ): Partial<ExperimentInterface> {
+  const hasPhasePayload = phases !== undefined;
+  const hasVariationPayload = variations !== undefined;
+
   const resolvedVariations: ExperimentInterface["variations"] | undefined =
-    variations
+    hasVariationPayload
       ? variations.map((v) => ({
           id: v.id || generateVariationId(),
           screenshots: v.screenshots || [],
           ...v,
         }))
       : undefined;
+  const canonicalVariations = resolvedVariations ?? experiment.variations;
+  let resolvedPhases: ExperimentInterface["phases"] | undefined;
 
-  const resolvedPhases: ExperimentInterface["phases"] | undefined = phases
-    ? phases.map((p) => {
-        const conditionRes = validateCondition(p.condition);
+  if (hasPhasePayload) {
+    resolvedPhases = phases.map((p, phaseIndex) => {
+      const conditionRes = validateCondition(p.condition);
+      if (!conditionRes.success) {
+        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+      }
+      p.prerequisites?.forEach((prerequisite) => {
+        const conditionRes = validateCondition(prerequisite.condition);
         if (!conditionRes.success) {
-          throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+          throw new Error(
+            `Invalid prerequisite condition: ${conditionRes.error}`,
+          );
         }
-        p.prerequisites?.forEach((prerequisite) => {
-          const conditionRes = validateCondition(prerequisite.condition);
-          if (!conditionRes.success) {
-            throw new Error(
-              `Invalid prerequisite condition: ${conditionRes.error}`,
-            );
-          }
-        });
+      });
 
-        return {
-          ...p,
-          dateStarted: new Date(p.dateStarted),
-          dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-          reason: p.reason || "",
-          coverage: p.coverage != null ? p.coverage : 1,
-          condition: p.condition || "{}",
-          prerequisites: p.prerequisites || [],
-          savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-            match: s.matchType,
-            ids: s.savedGroups,
-          })),
-          namespace: {
-            name: p.namespace?.namespaceId || "",
-            range: toNamespaceRange(p.namespace?.range),
-            enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-          },
-          variationWeights:
-            p.variationWeights ||
-            (variations || getLatestPhaseVariations(experiment))?.map(
-              (_v, _i, arr) => 1 / arr.length,
-            ),
-          variations: resolvedVariations
-            ? resolvedVariations.map((v) => ({
-                id: v.id,
-                status: "active" as const,
-              }))
-            : experiment.variations.map((v) => ({
-                id: v.id,
-                status: "active" as const,
-              })),
-        };
-      })
-    : undefined;
+      // Update phase variations to match new variations payload if it exists
+      // otherwise, use the existing phase variations
+      const phaseVariations = resolvePhaseVariationsForPayloadPhase({
+        hasVariationPayload,
+        canonicalVariations,
+        existingPhaseVariations: experiment.phases[phaseIndex]?.variations,
+      });
+
+      const variationWeights =
+        p.variationWeights ||
+        phaseVariations.map((_) => 1 / phaseVariations.length);
+      return {
+        ...p,
+        dateStarted: new Date(p.dateStarted),
+        dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+        reason: p.reason || "",
+        coverage: p.coverage != null ? p.coverage : 1,
+        condition: p.condition || "{}",
+        prerequisites: p.prerequisites || [],
+        savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+          match: s.matchType,
+          ids: s.savedGroups,
+        })),
+        namespace: {
+          name: p.namespace?.namespaceId || "",
+          range: toNamespaceRange(p.namespace?.range),
+          enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+        },
+        variationWeights,
+        variations: phaseVariations,
+      };
+    });
+  } else if (hasVariationPayload) {
+    // If user is not explicitly updating the phases, but they are updating the variations,
+    // then only update the last phase to have the new variations
+    const syncedPhaseVariations = toActivePhaseVariations(canonicalVariations);
+
+    resolvedPhases = experiment.phases.map((phase, i, arr) =>
+      i === arr.length - 1
+        ? {
+            ...phase,
+            variations: syncedPhaseVariations,
+          }
+        : phase,
+    );
+  }
 
   return {
     ...(resolvedVariations ? { variations: resolvedVariations } : {}),
@@ -3153,7 +3201,7 @@ function resolveExperimentUpdateVariationsAndPhases(
  * @param userId
  */
 export function updateExperimentApiPayloadToInterface(
-  payload: z.infer<typeof updateExperimentValidator.bodySchema>,
+  payload: UpdateExperimentApiPayload,
   experiment: ExperimentInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
   organization: OrganizationInterface,
@@ -3278,7 +3326,7 @@ export function updateExperimentApiPayloadToInterface(
     organization,
   });
 
-  // TODO validate variations?
+  // Validate that phase variations are the same as the variations coming in via the request body
 
   // Clean up some vars for bandits, but only if safe to do so...
   // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:

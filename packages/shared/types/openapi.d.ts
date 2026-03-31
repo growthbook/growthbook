@@ -10925,6 +10925,10 @@ export interface operations {
               reasonForStopping?: string;
               seed?: string;
               coverage?: number;
+              /**
+               * @deprecated 
+               * @description Deprecated and unused. Use variationWeights instead.
+               */
               trafficSplit?: ({
                   variationId: string;
                   weight: number;
