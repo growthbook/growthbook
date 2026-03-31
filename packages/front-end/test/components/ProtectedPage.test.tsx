@@ -6,7 +6,7 @@ import ProtectedPage from "@/components/ProtectedPage";
 const mockUseFeatureIsOn = vi.fn(() => false);
 const mockUseAuth = vi.fn(() => ({
   organizations: [],
-  orgId: null,
+  orgId: null as string | null,
   initialPlanSelection: "",
 }));
 const mockUseUser = vi.fn(() => ({
