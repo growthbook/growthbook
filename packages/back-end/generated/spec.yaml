@@ -904,6 +904,52 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  '/features/{id}/rule/delete':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Delete a rule from a feature in a specific environment
+      description: |
+        Removes a single rule from a feature's environment by its rule ID.
+        This creates a new published revision with the rule removed.
+      tags:
+        - features
+      operationId: deleteFeatureRule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/my-feature/rule/delete \
+              -d '{ "environment": "production", "ruleId": "fr_abc123" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environment
+                - ruleId
+              properties:
+                environment:
+                  type: string
+                  description: The environment the rule belongs to
+                  example: production
+                ruleId:
+                  type: string
+                  description: The ID of the rule to delete
+                  example: fr_abc123
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
   '/features/{id}/revisions':
     get:
       parameters:

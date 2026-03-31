@@ -1099,4 +1099,183 @@ describe("features API", () => {
       );
     });
   });
+
+  describe("deleteFeatureRule", () => {
+    const featureWithRules: FeatureInterface = {
+      organization: "org",
+      defaultValue: "false",
+      valueType: "boolean",
+      owner: "owner",
+      description: "description",
+      project: "",
+      id: "feature-with-rules",
+      archived: false,
+      tags: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      version: 5,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "rule_1",
+              type: "force",
+              description: "first rule",
+              condition: "",
+              value: "true",
+              savedGroups: [],
+            },
+            {
+              id: "rule_2",
+              type: "force",
+              description: "second rule",
+              condition: "",
+              value: "false",
+              savedGroups: [],
+            },
+          ],
+        },
+      },
+      prerequisites: [],
+    };
+
+    it("deletes a rule by ruleId and returns the updated feature", async () => {
+      setReqContext({
+        org,
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
+        permissions: {
+          canUpdateFeature: () => true,
+          canPublishFeature: () => true,
+          canBypassApprovalChecks: () => true,
+        },
+      });
+
+      (getFeature as jest.Mock).mockResolvedValue(featureWithRules);
+      (createRevision as jest.Mock).mockResolvedValue({ version: 6 });
+      (updateFeature as jest.Mock).mockImplementation((ctx, feature, updates) =>
+        Promise.resolve({ ...feature, ...updates }),
+      );
+
+      const response = await request(app)
+        .post("/api/v1/features/feature-with-rules/rule/delete")
+        .send({ environment: "production", ruleId: "rule_1" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(200);
+      expect(createRevision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({
+            rules: expect.objectContaining({
+              production: [expect.objectContaining({ id: "rule_2" })],
+            }),
+          }),
+          publish: true,
+          comment: "Rule deleted via REST API",
+        }),
+      );
+      expect(updateFeature).toHaveBeenCalled();
+    });
+
+    it("returns 400 when feature is not found", async () => {
+      setReqContext({
+        org,
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
+        permissions: {
+          canUpdateFeature: () => true,
+          canPublishFeature: () => true,
+        },
+      });
+
+      (getFeature as jest.Mock).mockResolvedValue(null);
+
+      const response = await request(app)
+        .post("/api/v1/features/nonexistent/rule/delete")
+        .send({ environment: "production", ruleId: "rule_1" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain("Could not find a feature");
+    });
+
+    it("returns 400 when environment is invalid", async () => {
+      setReqContext({
+        org,
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
+        permissions: {
+          canUpdateFeature: () => true,
+          canPublishFeature: () => true,
+        },
+      });
+
+      (getFeature as jest.Mock).mockResolvedValue(featureWithRules);
+
+      const response = await request(app)
+        .post("/api/v1/features/feature-with-rules/rule/delete")
+        .send({ environment: "nonexistent-env", ruleId: "rule_1" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain("Unknown environment");
+    });
+
+    it("returns 400 when ruleId is not found", async () => {
+      setReqContext({
+        org,
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
+        permissions: {
+          canUpdateFeature: () => true,
+          canPublishFeature: () => true,
+        },
+      });
+
+      (getFeature as jest.Mock).mockResolvedValue(featureWithRules);
+
+      const response = await request(app)
+        .post("/api/v1/features/feature-with-rules/rule/delete")
+        .send({ environment: "production", ruleId: "nonexistent_rule" })
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain("not found in environment");
+    });
+
+    it("returns 400 when required body fields are missing", async () => {
+      setReqContext({
+        org,
+        models: {
+          safeRollout: {
+            getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
+          },
+        },
+        permissions: {
+          canUpdateFeature: () => true,
+          canPublishFeature: () => true,
+        },
+      });
+
+      const response = await request(app)
+        .post("/api/v1/features/feature-with-rules/rule/delete")
+        .send({})
+        .set("Authorization", "Bearer foo");
+
+      expect(response.status).toBe(400);
+    });
+  });
 });
