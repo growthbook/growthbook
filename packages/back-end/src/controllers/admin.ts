@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { parseIntWithDefault } from "shared/util";
 import { OrganizationInterface } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
@@ -46,7 +47,7 @@ export async function _dangerousAdminGetOrganizations(
   const { page, search } = req.query;
 
   const { organizations, total } = await findAllOrganizations(
-    parseInt(page || "") || 1,
+    parseIntWithDefault(page, 1),
     search || "",
   );
 
@@ -265,7 +266,7 @@ export async function _dangerousAdminGetMembers(
 
   const organizationInfo: Record<string, object> = {};
   const filteredUsers = await getAllUsersFiltered(
-    parseInt(page ?? "1"),
+    parseIntWithDefault(page, 1),
     search,
   );
   if (filteredUsers?.length > 0) {
