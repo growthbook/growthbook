@@ -1092,22 +1092,20 @@ export default function RampScheduleSection({
                       Add step after
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {i > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          color="red"
-                          onClick={() => {
-                            setOpenMenuIndex(null);
-                            removeStep(i);
-                          }}
-                        >
-                          Remove step
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </>
-                  )}
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        color="red"
+                        onClick={() => {
+                          setOpenMenuIndex(null);
+                          removeStep(i);
+                        }}
+                      >
+                        Remove step
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
                 </DropdownMenu>
               </Flex>
 
@@ -1594,15 +1592,6 @@ export function defaultRampSectionState(
     name: `ramp-up ${formatDate(new Date())}`,
     startDate: "",
     steps: [
-      {
-        patch: { coverage: 0 },
-        triggerType: "approval",
-        intervalValue: 1,
-        intervalUnit: "hours",
-        approvalNotes: "",
-        notesOpen: false,
-        additionalEffectsOpen: false,
-      },
       {
         patch: { coverage: 50 },
         triggerType: "interval",

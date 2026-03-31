@@ -2,6 +2,7 @@ import { Slider, Flex, Box } from "@radix-ui/themes";
 import { ReactNode } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
+import { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import Field from "@/components/Forms/Field";
@@ -28,6 +29,8 @@ export interface Props {
   featureId?: string;
   advancedOpen?: boolean;
   setAdvancedOpen?: (v: boolean) => void;
+  /** When provided, the advanced section is also shown if any ramp step or end action has coverage < 100%. */
+  rampSchedule?: RampScheduleInterface;
 }
 
 export default function RolloutPercentInput({
@@ -46,10 +49,22 @@ export default function RolloutPercentInput({
   featureId,
   advancedOpen,
   setAdvancedOpen,
+  rampSchedule,
 }: Props) {
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
   );
+
+  const rampHasSubMaxCoverage =
+    rampSchedule != null &&
+    [
+      ...rampSchedule.steps.flatMap((s) => s.actions),
+      ...(rampSchedule.endActions ?? []),
+    ].some(
+      (a) => a.patch.coverage !== undefined && (a.patch.coverage ?? 1) < 1,
+    );
+
+  const showAdvancedSection = value < 1 || rampHasSubMaxCoverage;
 
   return (
     <Box>
@@ -98,8 +113,9 @@ export default function RolloutPercentInput({
         </Flex>
       )}
 
-      {(setHashAttribute && attributeSchema) ||
-      (setSeed && setAdvancedOpen !== undefined) ? (
+      {showAdvancedSection &&
+      ((setHashAttribute && attributeSchema) ||
+        (setSeed && setAdvancedOpen !== undefined)) ? (
         <Box px="4" py="2" mt="2" className="bg-highlight rounded">
           {setHashAttribute && attributeSchema && (
             <SelectField
