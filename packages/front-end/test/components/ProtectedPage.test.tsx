@@ -111,7 +111,7 @@ describe("ProtectedPage error handling", () => {
 
     expect(screen.getByText("Connection Error")).toBeInTheDocument();
     expect(
-      screen.getByText(/could not connect to the growthbook api/i),
+      screen.getByText(/couldn'?t reach the growthbook api/i),
     ).toBeInTheDocument();
     expect(screen.queryByText("Error Signing In")).not.toBeInTheDocument();
   });
