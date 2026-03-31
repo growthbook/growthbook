@@ -2252,38 +2252,34 @@ export async function getDraftRevision(
 
 export async function getLiveAndBaseRevisionsForFeature({
   context,
-  organizationId,
-  featureId,
-  liveVersion,
-  baseVersion,
+  feature,
+  revision,
 }: {
   context: ReqContext | ApiReqContext;
-  organizationId: string;
-  featureId: string;
-  liveVersion: number;
-  baseVersion: number;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
 }): Promise<{
   live: FeatureRevisionInterface;
   base: FeatureRevisionInterface;
 }> {
   const live = await getRevision({
     context,
-    organization: organizationId,
-    featureId,
-    version: liveVersion,
+    organization: feature.organization,
+    featureId: feature.id,
+    version: feature.version,
   });
   if (!live) {
     throw new Error("Could not lookup feature history");
   }
 
   const base =
-    baseVersion === live.version
+    revision.baseVersion === live.version
       ? live
       : await getRevision({
           context,
-          organization: organizationId,
-          featureId,
-          version: baseVersion,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: revision.baseVersion,
         });
   if (!base) {
     throw new Error("Could not lookup feature history");

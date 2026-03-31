@@ -784,10 +784,8 @@ export async function postFeatureRebase(
   }
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organizationId: org.id,
-    featureId: feature.id,
-    liveVersion: feature.version,
-    baseVersion: revision.baseVersion,
+    feature,
+    revision,
   });
 
   const mergeResult = autoMerge(
@@ -1024,10 +1022,8 @@ export async function postFeaturePublish(
   }
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organizationId: org.id,
-    featureId: feature.id,
-    liveVersion: feature.version,
-    baseVersion: revision.baseVersion,
+    feature,
+    revision,
   });
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -2259,10 +2255,8 @@ export async function putSafeRolloutStatus(
 
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organizationId: org.id,
-    featureId: feature.id,
-    liveVersion: feature.version,
-    baseVersion: revision.baseVersion,
+    feature,
+    revision,
   });
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);

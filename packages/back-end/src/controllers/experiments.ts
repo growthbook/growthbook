@@ -3838,10 +3838,8 @@ export async function postExperimentFeatureValues(
 
     const { live, base } = await getLiveAndBaseRevisionsForFeature({
       context,
-      organizationId: org.id,
-      featureId: feature.id,
-      liveVersion: feature.version,
-      baseVersion: revision.baseVersion,
+      feature,
+      revision,
     });
 
     if (autoPublish) {
