@@ -154,7 +154,7 @@ export default function WatchingPage() {
                     <td>
                       {feature.project ? (
                         <ProjectBadges
-                          resourceType="feature"
+                          resourceType={feature.type}
                           projectIds={[feature.project]}
                         />
                       ) : null}
@@ -185,7 +185,7 @@ export default function WatchingPage() {
   }
 
   // If "All Projects" is selected and some features are in a project, show the project column
-  const showProjectColumn = !project && allFeatures.some((f) => f.project);
+  const showProjectColumn = !project && allItems.some((f) => f.project);
 
   return (
     <div className="contents container pagecontents">
