@@ -1406,7 +1406,8 @@ async function createRampSchedulesForRevision(
       // immediate → "running" transition inline when the revision publishes.
       status: "pending",
       currentStepIndex: -1,
-      nextStepAt: !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
+      nextStepAt:
+        !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
       startedAt: null,
       phaseStartedAt: null,
     });

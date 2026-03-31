@@ -232,9 +232,7 @@ describe("rampScheduleValidator — invalid documents", () => {
   });
 
   it("rejects a zero-step schedule with no startDate and no endCondition trigger", () => {
-    const result = rampScheduleValidator.safeParse(
-      makeSchedule({ steps: [] }),
-    );
+    const result = rampScheduleValidator.safeParse(makeSchedule({ steps: [] }));
     expect(result.success).toBe(false);
   });
 

@@ -298,7 +298,9 @@ describe("computeEffectivePatch", () => {
   }
 
   it("stepIndex=-1 returns empty map (no steps applied yet)", () => {
-    const sched = sparseSchedule([[action(TARGET_ID, { coverage: 0.0, condition: "" })]]);
+    const sched = sparseSchedule([
+      [action(TARGET_ID, { coverage: 0.0, condition: "" })],
+    ]);
     expect(eff(sched, -1)).toEqual({});
   });
 

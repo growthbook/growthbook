@@ -1,7 +1,3 @@
-// Shared form body for both force and rollout rules.
-// ruleType="rollout" enables the coverage/bucketing box and sets the correct
-// ramp baseline; ruleType="force" hides it and sets the feature-value baseline.
-
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -131,7 +127,6 @@ export default function StandardRuleFields({
     Partial<Record<ScheduleType, RampSectionState>>
   >({});
 
-  // Derive which fields the ramp is currently controlling.
   const rampActiveFields = useMemo(
     () => activeFieldsFromState(rampSectionState),
     [rampSectionState],
@@ -143,13 +138,10 @@ export default function StandardRuleFields({
     inRamp && rampActiveFields.has(field);
 
   function applyScheduleType(type: ScheduleType) {
-    // Snapshot the current state for the type we're leaving so we can restore it.
     setSavedStates((prev) => ({ ...prev, [scheduleType]: rampSectionState }));
 
-    // If leaving ramp mode and coverage was controlled, restore coverage to 100%
     if (scheduleType === "ramp" && type !== "ramp") {
-      const currentActiveFields = rampActiveFields;
-      if (currentActiveFields.has("coverage")) {
+      if (rampActiveFields.has("coverage")) {
         form.setValue("coverage", 1);
       }
     }
@@ -162,47 +154,34 @@ export default function StandardRuleFields({
       return;
     }
 
-    // Restore a previously saved state for this type if one exists.
     const saved = savedStates[type];
 
     if (type === "ramp") {
       setScheduleToggleEnabled(false);
       if (saved && saved.steps.length > 0) {
         setRampSectionState(saved);
-        // If coverage is in the active fields, set rule coverage to 0
-        const savedActiveFields = activeFieldsFromState(saved);
-        if (savedActiveFields.has("coverage")) {
+        if (activeFieldsFromState(saved).has("coverage")) {
           form.setValue("coverage", 0);
         }
       } else {
-        // Reset to default ramp state when entering ramp fresh.
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
           : null;
-        const nextMode = ruleRampSchedule ? "edit" : "create";
         const newState: RampSectionState = {
           ...(ruleRampSchedule
             ? rampSectionState
             : defaultRampSectionState(undefined)),
-          mode: nextMode,
-          ...(seed
-            ? {
-                steps: seed.steps,
-                name: seed.name,
-              }
-            : {}),
+          mode: ruleRampSchedule ? "edit" : "create",
+          ...(seed ? { steps: seed.steps, name: seed.name } : {}),
         };
         setRampSectionState(newState);
-        // If coverage is in the active fields, set rule coverage to 0
-        const newActiveFields = activeFieldsFromState(newState);
-        if (newActiveFields.has("coverage")) {
+        if (activeFieldsFromState(newState).has("coverage")) {
           form.setValue("coverage", 0);
         }
       }
       return;
     }
 
-    // "schedule" — restore saved state or reset to blank.
     setScheduleToggleEnabled(false);
     if (saved) {
       setRampSectionState(saved);
@@ -249,7 +228,6 @@ export default function StandardRuleFields({
         disabled={isRampControlled("force")}
       />
 
-      {/* Scheduling section */}
       <div className="mb-3">
         <Heading as="h3" size="small" mb="4">
           Release plan

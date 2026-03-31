@@ -34,7 +34,6 @@ const GENERIC_FEATURE: Pick<FeatureInterface, "id" | "valueType" | "project"> =
     project: "",
   };
 
-
 interface EditModalProps {
   template?: RampScheduleTemplateInterface;
   onClose: () => void;
