@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
-import { baseSchema } from "./base-model";
+import { apiBaseSchema, baseSchema } from "./base-model";
 
 // Patch applied to a feature rule by a ramp step. Only fields present in the patch are applied;
 // absent fields are inherited from the previous step's accumulated state.
@@ -103,12 +103,12 @@ export const rampScheduleValidator = baseSchema
     }),
     disableRuleBefore: z.boolean().optional(), // hides rule before start; injects enabled:true
     disableRuleAfter: z.boolean().optional(), // hides rule after end; injects enabled:false
-    // true = complete when steps finish (ramp-up); false = hold until endCondition.trigger (scheduled rule)
-    endEarlyWhenStepsComplete: z.boolean().optional(),
     endCondition: z
       .object({
         trigger: rampEndTrigger.optional(),
         actions: z.array(rampStepAction).nullish(),
+        // true = complete when steps finish (ramp-up); false = hold until trigger (scheduled rule)
+        endEarlyWhenStepsComplete: z.boolean().optional(),
       })
       .nullish(),
     status: z.enum(rampScheduleStatusArray),
@@ -137,6 +137,82 @@ export const rampScheduleValidator = baseSchema
   });
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
+
+// Patch fields that are portable across features and can be stored in a template.
+// Excludes `force` (feature-type-specific) and `enabled`/`ruleId` (system-injected).
+export const TEMPLATE_PATCH_FIELDS = [
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+] as const;
+export type TemplatePatchField = (typeof TEMPLATE_PATCH_FIELDS)[number];
+
+// Top-level behavioral keys of a template (excludes metadata: id, name, org, dates).
+export const TEMPLATE_STRUCTURAL_KEYS = [
+  "steps",
+  "startCondition",
+  "endCondition",
+  "disableRuleBefore",
+  "disableRuleAfter",
+] as const;
+export type TemplateStructuralKey = (typeof TEMPLATE_STRUCTURAL_KEYS)[number];
+
+// Template patches never store force — it is feature-type-specific and not portable.
+const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
+const templateRampStepAction = rampStepAction.extend({
+  patch: templateFeatureRulePatch,
+});
+const templateRampStep = rampStep.extend({
+  actions: z.array(templateRampStepAction),
+});
+
+// Template: same shape as a ramp schedule, minus stateful and target-specific fields.
+export const rampScheduleTemplateValidator = baseSchema
+  .extend({
+    name: z.string(),
+    steps: z.array(templateRampStep),
+    startCondition: z.object({
+      trigger: rampStartTrigger,
+      actions: z.array(templateRampStepAction).nullish(),
+    }),
+    disableRuleBefore: z.boolean().optional(),
+    disableRuleAfter: z.boolean().optional(),
+    endCondition: z
+      .object({
+        trigger: rampEndTrigger.optional(),
+        actions: z.array(templateRampStepAction).nullish(),
+        endEarlyWhenStepsComplete: z.boolean().optional(),
+      })
+      .nullish(),
+    official: z.boolean().optional(),
+  })
+  .strict();
+export type RampScheduleTemplateInterface = z.infer<
+  typeof rampScheduleTemplateValidator
+>;
+
+// API-facing variant — uses ISO strings for dates (for OpenApiModelSpec compatibility).
+export const apiRampScheduleTemplateValidator = apiBaseSchema
+  .extend({
+    name: z.string(),
+    steps: z.array(z.any()),
+    startCondition: z.object({
+      trigger: z.any(),
+      actions: z.array(z.any()).nullish(),
+    }),
+    disableRuleBefore: z.boolean().optional(),
+    disableRuleAfter: z.boolean().optional(),
+    endCondition: z
+      .object({
+        trigger: z.any().optional(),
+        actions: z.array(z.any()).nullish(),
+        endEarlyWhenStepsComplete: z.boolean().optional(),
+      })
+      .nullish(),
+    official: z.boolean().optional(),
+  })
+  .strict();
 
 // Minimal type for pending/draft ramp schedules before full data is available.
 export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {

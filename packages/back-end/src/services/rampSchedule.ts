@@ -709,7 +709,8 @@ export async function approveAndPublishStep(
     schedule.endCondition?.trigger?.type === "scheduled" &&
     schedule.endCondition.trigger.at > now;
   const holdForEndDate =
-    hasFutureEndDate && schedule.endEarlyWhenStepsComplete === false;
+    hasFutureEndDate &&
+    schedule.endCondition?.endEarlyWhenStepsComplete === false;
   const isCompleting = !nextStepAt && !holdForEndDate;
 
   if (isCompleting) {

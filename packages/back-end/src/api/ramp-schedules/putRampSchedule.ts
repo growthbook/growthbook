@@ -43,13 +43,13 @@ const putRampScheduleValidator = {
       .nullable(),
     disableRuleBefore: z.boolean().optional(),
     disableRuleAfter: z.boolean().optional(),
-    endEarlyWhenStepsComplete: z.boolean().optional(),
     endCondition: z
       .object({
         trigger: z
           .object({ type: z.literal("scheduled"), at: z.string().datetime() })
           .optional(),
         actions: actionSchema.optional(),
+        endEarlyWhenStepsComplete: z.boolean().optional(),
       })
       .optional()
       .nullable(),
@@ -103,9 +103,6 @@ export const putRampSchedule = createApiRequestHandler(
   if (body.disableRuleAfter !== undefined) {
     updates.disableRuleAfter = body.disableRuleAfter;
   }
-  if (body.endEarlyWhenStepsComplete !== undefined) {
-    updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
-  }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;
     if (!ec) {
@@ -115,7 +112,11 @@ export const putRampSchedule = createApiRequestHandler(
       const trigger = rawTrigger
         ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
         : undefined;
-      updates.endCondition = { trigger, actions: ec.actions ?? undefined };
+      updates.endCondition = {
+        trigger,
+        actions: ec.actions ?? undefined,
+        endEarlyWhenStepsComplete: ec.endEarlyWhenStepsComplete,
+      };
     }
   }
 

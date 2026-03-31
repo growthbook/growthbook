@@ -317,7 +317,7 @@ export default function StandardRuleFields({
                 state={rampSectionState}
                 setState={setRampSectionState}
                 pendingDetach={pendingDetach}
-                hideOuterToggle={true}
+                embedded
                 hideNameField={true}
                 feature={feature}
                 environments={environments}

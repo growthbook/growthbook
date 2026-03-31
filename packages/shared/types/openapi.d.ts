@@ -484,6 +484,20 @@ export interface paths {
     /** Create a single metricGroup */
     post: operations["createMetricGroup"];
   };
+  "/ramp-schedule-templates/{id}": {
+    /** Get a single rampScheduleTemplate */
+    get: operations["getRampScheduleTemplate"];
+    /** Update a single rampScheduleTemplate */
+    put: operations["updateRampScheduleTemplate"];
+    /** Delete a single rampScheduleTemplate */
+    delete: operations["deleteRampScheduleTemplate"];
+  };
+  "/ramp-schedule-templates": {
+    /** Get all rampScheduleTemplates */
+    get: operations["listRampScheduleTemplates"];
+    /** Create a single rampScheduleTemplate */
+    post: operations["createRampScheduleTemplate"];
+  };
   "/teams/{id}": {
     /** Get a single team */
     get: operations["getTeam"];
@@ -1216,6 +1230,27 @@ export interface components {
       datasource: string;
       archived: boolean;
     };
+    RampScheduleTemplate: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      steps: (any)[];
+      startCondition: {
+        trigger: any;
+        actions?: (any)[] | null;
+      };
+      disableRuleBefore?: boolean;
+      disableRuleAfter?: boolean;
+      endCondition?: ({
+        trigger?: any;
+        actions?: (any)[] | null;
+        endEarlyWhenStepsComplete?: boolean;
+      }) | null;
+      official?: boolean;
+    };
     Team: {
       id: string;
       /** Format: date-time */
@@ -1326,13 +1361,13 @@ export interface components {
           at?: string;
         };
         actions?: (any)[];
+        /** @description Complete immediately when all steps finish (true) or hold until trigger fires (false) */
+        endEarlyWhenStepsComplete?: boolean;
       };
       /** @description Hide the rule from SDK before the schedule starts */
       disableRuleBefore?: boolean;
       /** @description Hide the rule from SDK after the schedule ends */
       disableRuleAfter?: boolean;
-      /** @description Complete immediately when all steps finish (true) or hold until endCondition.trigger fires (false) */
-      endEarlyWhenStepsComplete?: boolean;
       /** @enum {string} */
       status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
       /** @description Index of current step; -1 = not yet started */
@@ -19537,6 +19572,319 @@ export interface operations {
               metrics: (string)[];
               datasource: string;
               archived: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getRampScheduleTemplate: {
+    /** Get a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: (any)[];
+              startCondition: {
+                trigger: any;
+                actions?: (any)[] | null;
+              };
+              disableRuleBefore?: boolean;
+              disableRuleAfter?: boolean;
+              endCondition?: ({
+                trigger?: any;
+                actions?: (any)[] | null;
+                endEarlyWhenStepsComplete?: boolean;
+              }) | null;
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateRampScheduleTemplate: {
+    /** Update a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          steps?: ({
+              trigger: {
+                /** @constant */
+                type: "interval";
+                seconds: number;
+              } | {
+                /** @constant */
+                type: "approval";
+              } | {
+                /** @constant */
+                type: "scheduled";
+                /** Format: date-time */
+                at: string;
+              };
+              actions: ({
+                  /** @constant */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                  };
+                })[];
+              approvalNotes?: string;
+            })[];
+          startCondition?: {
+            trigger: {
+              /** @constant */
+              type: "immediately";
+            } | {
+              /** @constant */
+              type: "manual";
+            } | {
+              /** @constant */
+              type: "scheduled";
+              /** Format: date-time */
+              at: string;
+            };
+            actions?: ({
+                /** @constant */
+                targetType: "feature-rule";
+                targetId: string;
+                patch: {
+                  ruleId: string;
+                  coverage?: number;
+                  condition?: string;
+                };
+              })[];
+          };
+          disableRuleBefore?: boolean;
+          disableRuleAfter?: boolean;
+          endCondition?: {
+            trigger?: {
+              /** @constant */
+              type: "scheduled";
+              /** Format: date-time */
+              at: string;
+            };
+            actions?: ({
+                /** @constant */
+                targetType: "feature-rule";
+                targetId: string;
+                patch: {
+                  ruleId: string;
+                  coverage?: number;
+                  condition?: string;
+                };
+              })[];
+            endEarlyWhenStepsComplete?: boolean;
+          } | null;
+          official?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: (any)[];
+              startCondition: {
+                trigger: any;
+                actions?: (any)[] | null;
+              };
+              disableRuleBefore?: boolean;
+              disableRuleAfter?: boolean;
+              endCondition?: ({
+                trigger?: any;
+                actions?: (any)[] | null;
+                endEarlyWhenStepsComplete?: boolean;
+              }) | null;
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteRampScheduleTemplate: {
+    /** Delete a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listRampScheduleTemplates: {
+    /** Get all rampScheduleTemplates */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                steps: (any)[];
+                startCondition: {
+                  trigger: any;
+                  actions?: (any)[] | null;
+                };
+                disableRuleBefore?: boolean;
+                disableRuleAfter?: boolean;
+                endCondition?: ({
+                  trigger?: any;
+                  actions?: (any)[] | null;
+                  endEarlyWhenStepsComplete?: boolean;
+                }) | null;
+                official?: boolean;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createRampScheduleTemplate: {
+    /** Create a single rampScheduleTemplate */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          steps: ({
+              trigger: {
+                /** @constant */
+                type: "interval";
+                seconds: number;
+              } | {
+                /** @constant */
+                type: "approval";
+              } | {
+                /** @constant */
+                type: "scheduled";
+                /** Format: date-time */
+                at: string;
+              };
+              actions: ({
+                  /** @constant */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                  };
+                })[];
+              approvalNotes?: string;
+            })[];
+          startCondition: {
+            trigger: {
+              /** @constant */
+              type: "immediately";
+            } | {
+              /** @constant */
+              type: "manual";
+            } | {
+              /** @constant */
+              type: "scheduled";
+              /** Format: date-time */
+              at: string;
+            };
+            actions?: ({
+                /** @constant */
+                targetType: "feature-rule";
+                targetId: string;
+                patch: {
+                  ruleId: string;
+                  coverage?: number;
+                  condition?: string;
+                };
+              })[];
+          };
+          disableRuleBefore?: boolean;
+          disableRuleAfter?: boolean;
+          endCondition?: {
+            trigger?: {
+              /** @constant */
+              type: "scheduled";
+              /** Format: date-time */
+              at: string;
+            };
+            actions?: ({
+                /** @constant */
+                targetType: "feature-rule";
+                targetId: string;
+                patch: {
+                  ruleId: string;
+                  coverage?: number;
+                  condition?: string;
+                };
+              })[];
+            endEarlyWhenStepsComplete?: boolean;
+          } | null;
+          official?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: (any)[];
+              startCondition: {
+                trigger: any;
+                actions?: (any)[] | null;
+              };
+              disableRuleBefore?: boolean;
+              disableRuleAfter?: boolean;
+              endCondition?: ({
+                trigger?: any;
+                actions?: (any)[] | null;
+                endEarlyWhenStepsComplete?: boolean;
+              }) | null;
+              official?: boolean;
             };
           };
         };

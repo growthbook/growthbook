@@ -65,6 +65,7 @@ import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
@@ -113,7 +114,8 @@ export type ModelName =
   | "presentationThemes"
   | "watch"
   | "apiKeys"
-  | "rampSchedules";
+  | "rampSchedules"
+  | "rampScheduleTemplates";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -149,6 +151,7 @@ export const modelClasses = {
   watch: WatchModel,
   apiKeys: ApiKeyModel,
   rampSchedules: RampScheduleModel,
+  rampScheduleTemplates: RampScheduleTemplateModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -193,6 +196,7 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       apiKeys: new ApiKeyModel(this),
       rampSchedules: new RampScheduleModel(this),
+      rampScheduleTemplates: new RampScheduleTemplateModel(this),
     };
   }
 

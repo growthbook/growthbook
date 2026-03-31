@@ -1408,9 +1408,17 @@ async function createRampSchedulesForRevision(
       rawEndTrigger?.type === "scheduled"
         ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
         : undefined;
-    const endCondition =
+    const endConditionBase =
       endTrigger || endConditionActions.length
         ? { trigger: endTrigger, actions: endConditionActions }
+        : undefined;
+    const endCondition = endConditionBase
+      ? {
+          ...endConditionBase,
+          endEarlyWhenStepsComplete: action.endCondition?.endEarlyWhenStepsComplete,
+        }
+      : action.endCondition?.endEarlyWhenStepsComplete !== undefined
+        ? { endEarlyWhenStepsComplete: action.endCondition.endEarlyWhenStepsComplete }
         : undefined;
 
     const steps = action.steps.map((step) => ({
@@ -1445,7 +1453,6 @@ async function createRampSchedulesForRevision(
       },
       disableRuleBefore: disableBefore || undefined,
       disableRuleAfter: disableAfter || undefined,
-      endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
       endCondition,
       // Start as "pending" — onActivatingRevisionPublished handles the
       // "immediately" → "running" transition inline when the revision publishes.

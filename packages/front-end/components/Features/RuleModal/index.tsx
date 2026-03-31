@@ -1065,8 +1065,6 @@ export default function RuleModal({
                   },
                   disableRuleBefore: rampState.disableRuleBefore || undefined,
                   disableRuleAfter: rampState.disableRuleAfter || undefined,
-                  endEarlyWhenStepsComplete:
-                    rampState.endEarlyWhenStepsComplete,
                   endCondition: rampState.endScheduleAt
                     ? {
                         trigger: {
@@ -1074,10 +1072,21 @@ export default function RuleModal({
                           at: rampState.endScheduleAt,
                         },
                         actions: endActions.length ? endActions : undefined,
+                        endEarlyWhenStepsComplete:
+                          rampState.endEarlyWhenStepsComplete,
                       }
                     : endActions.length
-                      ? { actions: endActions }
-                      : undefined,
+                      ? {
+                          actions: endActions,
+                          endEarlyWhenStepsComplete:
+                            rampState.endEarlyWhenStepsComplete,
+                        }
+                      : rampState.endEarlyWhenStepsComplete !== true
+                        ? {
+                            endEarlyWhenStepsComplete:
+                              rampState.endEarlyWhenStepsComplete,
+                          }
+                        : undefined,
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1120,8 +1129,6 @@ export default function RuleModal({
                   },
                   disableRuleBefore: rampState.disableRuleBefore || undefined,
                   disableRuleAfter: rampState.disableRuleAfter || undefined,
-                  endEarlyWhenStepsComplete:
-                    rampState.endEarlyWhenStepsComplete,
                   endCondition: rampState.endScheduleAt
                     ? {
                         trigger: {
@@ -1129,10 +1136,21 @@ export default function RuleModal({
                           at: rampState.endScheduleAt,
                         },
                         actions: endActions.length ? endActions : undefined,
+                        endEarlyWhenStepsComplete:
+                          rampState.endEarlyWhenStepsComplete,
                       }
                     : endActions.length
-                      ? { actions: endActions }
-                      : null,
+                      ? {
+                          actions: endActions,
+                          endEarlyWhenStepsComplete:
+                            rampState.endEarlyWhenStepsComplete,
+                        }
+                      : rampState.endEarlyWhenStepsComplete !== true
+                        ? {
+                            endEarlyWhenStepsComplete:
+                              rampState.endEarlyWhenStepsComplete,
+                          }
+                        : null,
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1236,7 +1254,6 @@ export default function RuleModal({
               },
               disableRuleBefore: rampState.disableRuleBefore || undefined,
               disableRuleAfter: rampState.disableRuleAfter || undefined,
-              endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
               endCondition: rampState.endScheduleAt
                 ? {
                     trigger: {
@@ -1244,10 +1261,21 @@ export default function RuleModal({
                       at: rampState.endScheduleAt,
                     },
                     actions: endActions.length ? endActions : undefined,
+                    endEarlyWhenStepsComplete:
+                      rampState.endEarlyWhenStepsComplete,
                   }
                 : endActions.length
-                  ? { actions: endActions }
-                  : undefined,
+                  ? {
+                      actions: endActions,
+                      endEarlyWhenStepsComplete:
+                        rampState.endEarlyWhenStepsComplete,
+                    }
+                  : rampState.endEarlyWhenStepsComplete !== true
+                    ? {
+                        endEarlyWhenStepsComplete:
+                          rampState.endEarlyWhenStepsComplete,
+                      }
+                    : undefined,
             };
           }
         }

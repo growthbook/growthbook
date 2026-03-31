@@ -39,8 +39,7 @@ type CreateBody = Pick<
   startCondition?: StartCondition;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
-  endEarlyWhenStepsComplete?: boolean;
-  endCondition?: EndCondition;
+  endCondition?: EndCondition & { endEarlyWhenStepsComplete?: boolean };
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
@@ -48,8 +47,7 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   startCondition?: StartCondition | null;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
-  endEarlyWhenStepsComplete?: boolean;
-  endCondition?: EndCondition | null;
+  endCondition?: (EndCondition & { endEarlyWhenStepsComplete?: boolean }) | null;
 };
 
 type ActionBody = {
@@ -150,9 +148,17 @@ export const postRampSchedule = async (
     ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
     : undefined;
 
-  const endCondition =
+  const endConditionBase =
     resolvedEndTrigger || endConditionActions.length
       ? { trigger: resolvedEndTrigger, actions: endConditionActions }
+      : undefined;
+  const endCondition = endConditionBase
+    ? {
+        ...endConditionBase,
+        endEarlyWhenStepsComplete: body.endCondition?.endEarlyWhenStepsComplete,
+      }
+    : body.endCondition?.endEarlyWhenStepsComplete !== undefined
+      ? { endEarlyWhenStepsComplete: body.endCondition.endEarlyWhenStepsComplete }
       : undefined;
 
   const schedule = await context.models.rampSchedules.create({
@@ -167,7 +173,6 @@ export const postRampSchedule = async (
     },
     disableRuleBefore: disableBefore || undefined,
     disableRuleAfter: disableAfter || undefined,
-    endEarlyWhenStepsComplete: body.endEarlyWhenStepsComplete,
     endCondition,
     // Standalone ramps have no activating revision — they're immediately eligible to start.
     status: "ready",
@@ -252,6 +257,7 @@ export const putRampSchedule = async (
       updates.endCondition = {
         trigger,
         actions: ec.actions ?? undefined,
+        endEarlyWhenStepsComplete: ec.endEarlyWhenStepsComplete,
       };
     }
   }
@@ -346,10 +352,6 @@ export const putRampSchedule = async (
       }
     }
   }
-  if (body.endEarlyWhenStepsComplete !== undefined) {
-    updates.endEarlyWhenStepsComplete = body.endEarlyWhenStepsComplete;
-  }
-
   updates.nextProcessAt = computeNextProcessAt({
     status: schedule.status,
     nextStepAt: schedule.nextStepAt,

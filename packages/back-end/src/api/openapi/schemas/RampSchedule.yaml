@@ -159,15 +159,15 @@ properties:
         type: array
         items:
           type: object
+      endEarlyWhenStepsComplete:
+        type: boolean
+        description: "Complete immediately when all steps finish (true) or hold until trigger fires (false)"
   disableRuleBefore:
     type: boolean
     description: "Hide the rule from SDK before the schedule starts"
   disableRuleAfter:
     type: boolean
     description: "Hide the rule from SDK after the schedule ends"
-  endEarlyWhenStepsComplete:
-    type: boolean
-    description: "Complete immediately when all steps finish (true) or hold until endCondition.trigger fires (false)"
   status:
     type: string
     enum:

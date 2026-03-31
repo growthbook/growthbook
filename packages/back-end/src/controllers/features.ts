@@ -1830,8 +1830,6 @@ export async function postFeatureRule(
           rampSchedulePayload.startCondition as RevisionRampCreateAction["startCondition"],
         disableRuleBefore: rampSchedulePayload.disableRuleBefore,
         disableRuleAfter: rampSchedulePayload.disableRuleAfter,
-        endEarlyWhenStepsComplete:
-          rampSchedulePayload.endEarlyWhenStepsComplete,
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
         controlledFields: rampSchedulePayload.controlledFields,
@@ -2670,8 +2668,6 @@ export async function putFeatureRule(
           rampSchedulePayload.startCondition as RevisionRampCreateAction["startCondition"],
         disableRuleBefore: rampSchedulePayload.disableRuleBefore,
         disableRuleAfter: rampSchedulePayload.disableRuleAfter,
-        endEarlyWhenStepsComplete:
-          rampSchedulePayload.endEarlyWhenStepsComplete,
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
         controlledFields: rampSchedulePayload.controlledFields,
@@ -2799,9 +2795,6 @@ export async function putFeatureRule(
       if (rampSchedulePayload.disableRuleAfter !== undefined)
         updates.disableRuleAfter =
           rampSchedulePayload.disableRuleAfter ?? undefined;
-      if (rampSchedulePayload.endEarlyWhenStepsComplete !== undefined)
-        updates.endEarlyWhenStepsComplete =
-          rampSchedulePayload.endEarlyWhenStepsComplete;
       if (rampSchedulePayload.endCondition !== undefined) {
         const ec = rampSchedulePayload.endCondition;
         if (!ec) {
@@ -2815,6 +2808,7 @@ export async function putFeatureRule(
           updates.endCondition = {
             trigger,
             actions: remappedActions.length ? remappedActions : undefined,
+            endEarlyWhenStepsComplete: ec.endEarlyWhenStepsComplete,
           };
         }
       }

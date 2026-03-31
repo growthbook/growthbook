@@ -28,11 +28,11 @@ export type InlineRampScheduleCreate = {
   };
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
-  // true = complete when steps finish; false = hold until end date
-  endEarlyWhenStepsComplete?: boolean;
   endCondition?: {
     trigger?: RampEndTrigger;
     actions?: RampStepAction[];
+    // true = complete when steps finish; false = hold until trigger
+    endEarlyWhenStepsComplete?: boolean;
   };
   // fields this schedule manages; absent controlled fields in any step are cleared; excludes "enabled" (system-managed)
   controlledFields?: Exclude<RampControlledField, "enabled">[];
@@ -63,11 +63,12 @@ export type InlineRampScheduleUpdate = {
   } | null;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
-  endEarlyWhenStepsComplete?: boolean;
   endCondition?: {
     // null clears the end condition
     trigger?: RampEndTrigger;
     actions?: RampStepAction[];
+    // true = complete when steps finish; false = hold until trigger
+    endEarlyWhenStepsComplete?: boolean;
   } | null;
   // fields this schedule manages; updates all targets
   controlledFields?: Exclude<RampControlledField, "enabled">[];

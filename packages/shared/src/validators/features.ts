@@ -290,6 +290,9 @@ const revisionRampConditionSchema = z.object({
     .optional(),
   actions: z.array(rampStepAction).optional(),
 });
+const revisionRampEndConditionSchema = revisionRampConditionSchema.extend({
+  endEarlyWhenStepsComplete: z.boolean().optional(),
+});
 
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
@@ -299,8 +302,7 @@ export const revisionRampCreateAction = z.object({
   startCondition: revisionRampConditionSchema.optional(),
   disableRuleBefore: z.boolean().optional(),
   disableRuleAfter: z.boolean().optional(),
-  endEarlyWhenStepsComplete: z.boolean().optional(),
-  endCondition: revisionRampConditionSchema.optional(),
+  endCondition: revisionRampEndConditionSchema.optional(),
   /** Which feature rule fields this schedule manages. Absent controlled fields in any step are cleared. Does not include "enabled" (system-managed). */
   controlledFields: z
     .array(rampControlledField.exclude(["enabled"]))

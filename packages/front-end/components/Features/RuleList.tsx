@@ -151,11 +151,12 @@ export default function RuleList({
                         }
                       : undefined,
                   actions: action.endCondition.actions,
+                  endEarlyWhenStepsComplete:
+                    action.endCondition.endEarlyWhenStepsComplete,
                 }
               : undefined,
             disableRuleBefore: action.disableRuleBefore,
             disableRuleAfter: action.disableRuleAfter,
-            endEarlyWhenStepsComplete: action.endEarlyWhenStepsComplete,
             status: "pending",
             dateCreated: new Date(),
             dateUpdated: new Date(),

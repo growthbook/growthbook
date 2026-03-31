@@ -166,7 +166,6 @@ export default function RampScheduleModal({
           },
           disableRuleBefore: rampState.disableRuleBefore || undefined,
           disableRuleAfter: rampState.disableRuleAfter || undefined,
-          endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
           endCondition: rampState.endScheduleAt
             ? {
                 trigger: {
@@ -174,10 +173,16 @@ export default function RampScheduleModal({
                   at: rampState.endScheduleAt,
                 },
                 actions: endActions ?? undefined,
+                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
               }
             : endActions
-              ? { actions: endActions }
-              : undefined,
+              ? {
+                  actions: endActions,
+                  endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
+                }
+              : rampState.endEarlyWhenStepsComplete !== true
+                ? { endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete }
+                : undefined,
         }),
       });
     } else {
@@ -209,15 +214,17 @@ export default function RampScheduleModal({
           },
           disableRuleBefore: rampState.disableRuleBefore || undefined,
           disableRuleAfter: rampState.disableRuleAfter || undefined,
-          endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
           endCondition: rampState.endScheduleAt
             ? {
                 trigger: {
                   type: "scheduled" as const,
                   at: rampState.endScheduleAt,
                 },
+                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
               }
-            : undefined,
+            : rampState.endEarlyWhenStepsComplete !== true
+              ? { endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete }
+              : undefined,
         }),
       });
     }
@@ -256,7 +263,7 @@ export default function RampScheduleModal({
         ruleRampSchedule={rs}
         state={rampState}
         setState={setRampState}
-        hideOuterToggle
+        embedded
         boxStepGrid
         hideNameField
         feature={feature}
