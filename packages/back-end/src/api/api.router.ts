@@ -45,6 +45,7 @@ import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
+import informationSchemaTablesRouter from "./information-schema-tables/information-schema-tables.router";
 import { defineRouterForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
@@ -155,6 +156,7 @@ router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
+router.use("/information-schema-tables", informationSchemaTablesRouter);
 router.post("/transform-copy", postCopyTransform);
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;

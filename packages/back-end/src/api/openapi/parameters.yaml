@@ -48,6 +48,20 @@ factTableId:
   description: Specify a specific fact table
   schema:
     type: string
+dataSourceId:
+  name: dataSourceId
+  in: path
+  required: true
+  description: The id of the data source
+  schema:
+    type: string
+tableId:
+  name: tableId
+  in: path
+  required: true
+  description: The id of the information schema table
+  schema:
+    type: string
 repo:
   name: repo
   in: query

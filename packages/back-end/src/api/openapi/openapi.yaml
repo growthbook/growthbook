@@ -68,7 +68,7 @@ tags:
     description: Control your feature flags programatically
   - name: data-sources
     x-displayName: Data Sources
-    description: How GrowthBook connects and queries your data
+    description: How GrowthBook connects and queries your data, including cached database schema metadata (information schemas) for tables and columns.
   - name: fact-tables
     x-displayName: Fact Tables
     description: Fact Tables describe the shape of your data warehouse tables
@@ -370,6 +370,10 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
+  /data-sources/{dataSourceId}/information-schema:
+    $ref: "./paths/getInformationSchema.yaml"
+  /information-schema-tables/{tableId}:
+    $ref: "./paths/getInformationSchemaTable.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

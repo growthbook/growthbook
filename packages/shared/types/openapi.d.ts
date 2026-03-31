@@ -422,6 +422,32 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/data-sources/{dataSourceId}/information-schema": {
+    /**
+     * Get a Data Source's Information Schema 
+     * @description Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.
+     */
+    get: operations["getInformationSchema"];
+    parameters: {
+        /** @description The id of the data source */
+      path: {
+        dataSourceId: string;
+      };
+    };
+  };
+  "/information-schema-tables/{tableId}": {
+    /**
+     * Get a single Information Schema Table by id 
+     * @description Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.
+     */
+    get: operations["getInformationSchemaTable"];
+    parameters: {
+        /** @description The id of the information schema table */
+      path: {
+        tableId: string;
+      };
+    };
+  };
   "/product-analytics/metric-exploration": {
     /** Create a Metric based visualization */
     post: operations["postMetricExploration"];
@@ -4365,6 +4391,7 @@ export interface components {
           identifierTypes: (string)[];
           sql: string;
         })[];
+      informationSchemaId?: string;
       mixpanelSettings?: {
         viewedExperimentEventName: string;
         experimentIdProperty: string;
@@ -4879,6 +4906,62 @@ export interface components {
           flagKey: string;
         })[];
     };
+    InformationSchema: {
+      id: string;
+      datasourceId: string;
+      /** @enum {string} */
+      status: "PENDING" | "COMPLETE";
+      refreshMS: number;
+      error?: {
+        /** @enum {string} */
+        errorType: "generic" | "not_supported" | "missing_params";
+        message: string;
+      };
+      databases: ({
+          databaseName: string;
+          /** Format: date-time */
+          dateCreated: string;
+          /** Format: date-time */
+          dateUpdated: string;
+          schemas: ({
+              schemaName: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              tables: ({
+                  tableName: string;
+                  id: string;
+                  numOfColumns: number;
+                  /** Format: date-time */
+                  dateCreated: string;
+                  /** Format: date-time */
+                  dateUpdated: string;
+                })[];
+            })[];
+        })[];
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
+    InformationSchemaTable: {
+      id: string;
+      datasourceId: string;
+      informationSchemaId: string;
+      tableName: string;
+      tableSchema: string;
+      databaseName: string;
+      columns: ({
+          columnName: string;
+          dataType: string;
+        })[];
+      refreshMS: number;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
   };
   responses: {
     Error: never;
@@ -4898,6 +4981,10 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
+    /** @description The id of the data source */
+    dataSourceId: string;
+    /** @description The id of the information schema table */
+    tableId: string;
     /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
     repo: string;
     /** @description Name of branch for git repo. */
@@ -10244,6 +10331,7 @@ export interface operations {
                     identifierTypes: (string)[];
                     sql: string;
                   })[];
+                informationSchemaId?: string;
                 mixpanelSettings?: {
                   viewedExperimentEventName: string;
                   experimentIdProperty: string;
@@ -10297,6 +10385,7 @@ export interface operations {
                   identifierTypes: (string)[];
                   sql: string;
                 })[];
+              informationSchemaId?: string;
               mixpanelSettings?: {
                 viewedExperimentEventName: string;
                 experimentIdProperty: string;
@@ -15708,6 +15797,90 @@ export interface operations {
       };
     };
   };
+  getInformationSchema: {
+    /**
+     * Get a Data Source's Information Schema 
+     * @description Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            informationSchema: {
+              id: string;
+              datasourceId: string;
+              /** @enum {string} */
+              status: "PENDING" | "COMPLETE";
+              refreshMS: number;
+              error?: {
+                /** @enum {string} */
+                errorType: "generic" | "not_supported" | "missing_params";
+                message: string;
+              };
+              databases: ({
+                  databaseName: string;
+                  /** Format: date-time */
+                  dateCreated: string;
+                  /** Format: date-time */
+                  dateUpdated: string;
+                  schemas: ({
+                      schemaName: string;
+                      /** Format: date-time */
+                      dateCreated: string;
+                      /** Format: date-time */
+                      dateUpdated: string;
+                      tables: ({
+                          tableName: string;
+                          id: string;
+                          numOfColumns: number;
+                          /** Format: date-time */
+                          dateCreated: string;
+                          /** Format: date-time */
+                          dateUpdated: string;
+                        })[];
+                    })[];
+                })[];
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getInformationSchemaTable: {
+    /**
+     * Get a single Information Schema Table by id 
+     * @description Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            informationSchemaTable: {
+              id: string;
+              datasourceId: string;
+              informationSchemaId: string;
+              tableName: string;
+              tableSchema: string;
+              databaseName: string;
+              columns: ({
+                  columnName: string;
+                  dataType: string;
+                })[];
+              refreshMS: number;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
   postMetricExploration: {
     /** Create a Metric based visualization */
     parameters: {
@@ -19783,6 +19956,8 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiInformationSchema = z.infer<typeof openApiValidators.apiInformationSchemaValidator>;
+export type ApiInformationSchemaTable = z.infer<typeof openApiValidators.apiInformationSchemaTableValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -19885,3 +20060,5 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
+export type GetInformationSchemaResponse = operations["getInformationSchema"]["responses"]["200"]["content"]["application/json"];
+export type GetInformationSchemaTableResponse = operations["getInformationSchemaTable"]["responses"]["200"]["content"]["application/json"];
