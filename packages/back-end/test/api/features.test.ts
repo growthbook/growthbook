@@ -6,7 +6,10 @@ import {
   updateFeature,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getRevision,
+  createRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import {
@@ -36,6 +39,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
+  createRevision: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
@@ -1014,7 +1018,10 @@ describe("features API", () => {
 
     it("deletes a rule by ruleId and returns the updated feature", async () => {
       setReqContext({
-        org,
+        org: {
+          ...org,
+          settings: { ...org.settings, restApiBypassesReviews: true },
+        },
         models: {
           safeRollout: {
             getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
@@ -1023,7 +1030,6 @@ describe("features API", () => {
         permissions: {
           canUpdateFeature: () => true,
           canPublishFeature: () => true,
-          canBypassApprovalChecks: () => true,
         },
       });
 

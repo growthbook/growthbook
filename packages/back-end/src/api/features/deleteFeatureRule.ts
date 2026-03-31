@@ -1,5 +1,5 @@
 import { cloneDeep, isEqual } from "lodash";
-import { featureRequiresReview } from "shared/util";
+import { checkIfRevisionNeedsReview, PermissionError } from "shared/util";
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { deleteFeatureRuleValidator } from "shared/validators";
 import {
@@ -60,16 +60,35 @@ export const deleteFeatureRule = createApiRequestHandler(
   revisedRules[environment] = updatedRules;
 
   // Check if review is required for this change
-  const reviewRequired = featureRequiresReview(
-    feature,
-    [environment],
-    false,
-    req.organization.settings,
-  );
-  if (reviewRequired) {
-    if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-      throw new Error(
-        "This feature requires a review and the API key being used does not have permission to bypass reviews.",
+  const apiBypassesReviews = !!req.context.org.settings?.restApiBypassesReviews;
+
+  if (!apiBypassesReviews) {
+    const liveRevision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!liveRevision) {
+      throw new Error("Could not load live revision for feature");
+    }
+    const fakeRevision = {
+      ...liveRevision,
+      rules: revisedRules,
+    };
+    const reviewRequired = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: liveRevision,
+      revision: fakeRevision,
+      allEnvironments: orgEnvs,
+      settings: req.organization.settings,
+      requireApprovalsLicensed:
+        req.context.hasPremiumFeature("require-approvals"),
+    });
+    if (reviewRequired) {
+      throw new PermissionError(
+        "This feature requires a review before publishing changes. " +
+          "Enable 'REST API always bypasses approval requirements' in organization settings.",
       );
     }
   }
@@ -85,7 +104,7 @@ export const deleteFeatureRule = createApiRequestHandler(
     publish: true,
     changes: { rules: revisedRules },
     org: req.organization,
-    canBypassApprovalChecks: true,
+    canBypassApprovalChecks: apiBypassesReviews,
   });
 
   // Apply the updated rules to the feature's environmentSettings
