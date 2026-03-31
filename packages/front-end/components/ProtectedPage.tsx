@@ -4,19 +4,15 @@ import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import {
+  getProtectedPageErrorState,
+} from "@/services/protectedPageError";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
-
-function isTransientNetworkError(error: string) {
-  const normalized = error.trim().toLowerCase();
-  return (
-    normalized === "failed to fetch" || normalized.includes("networkerror")
-  );
-}
 
 const LoggedInPageGuard = ({
   children,
@@ -27,8 +23,9 @@ const LoggedInPageGuard = ({
 }) => {
   const { error, ready, organization } = useUser();
   const { organizations } = useAuth();
+  const errorState = getProtectedPageErrorState({ error, ready: !!ready });
 
-  if (error && !isTransientNetworkError(error)) {
+  if (errorState === "sign_in_error") {
     return (
       <div>
         <TopNavLite />
@@ -69,11 +66,11 @@ const LoggedInPageGuard = ({
 
   // During startup, transient transport failures can happen while the app revalidates.
   // Keep showing loading instead of surfacing a misleading auth error flash.
-  if (error && isTransientNetworkError(error) && !ready) {
+  if (errorState === "startup_network_error") {
     return <LoadingOverlay />;
   }
 
-  if (error && isTransientNetworkError(error)) {
+  if (errorState === "connection_error") {
     return (
       <div>
         <TopNavLite />
