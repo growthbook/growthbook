@@ -333,7 +333,6 @@ function NodePopoverContent({
         </span>
       </Flex>
 
-      {/* Hold / trigger label — start and end nodes have no hold interval */}
       {stepIndex === "start" ? (
         triggerLabel && (
           <Box mb="2">
@@ -346,7 +345,6 @@ function NodePopoverContent({
         </Box>
       ) : null}
 
-      {/* Remaining hold — only for active interval steps */}
       {isActive &&
         trigger?.type === "interval" &&
         (() => {
@@ -361,7 +359,6 @@ function NodePopoverContent({
           );
         })()}
 
-      {/* Effects */}
       <PopoverPatchDisplay
         actions={actions}
         syntheticEnabled={syntheticEnabled}
@@ -639,7 +636,6 @@ export default function RampTimeline({
     {
       key: "start",
       label: "start",
-      // Show the start date under the node when a scheduled start is set.
       sublabel: startDate ? formatScheduledDate(startDate) : null,
       popoverContent: (
         <NodePopoverContent
@@ -663,7 +659,6 @@ export default function RampTimeline({
       key: `step-${i}`,
       label: String(i + 1),
       sublabel: null,
-      // connector to the left shows the hold that preceded this node
       connectorLabel:
         i === 0 ? (
           !startDate ? (

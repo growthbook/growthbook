@@ -27,6 +27,7 @@ import RampScheduleSection, {
   activeFieldsFromState,
   type StepField,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+import Callout from "@/ui/Callout";
 import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 
@@ -109,6 +110,18 @@ export default function StandardRuleFields({
   const rampIsEditable =
     !ruleRampSchedule ||
     !["running", "pending-approval"].includes(ruleRampSchedule.status);
+
+  // Ramp is configured but the activating revision hasn't been published yet (or no DB
+  // record at all). Targeting is locked out but hash/seed remain editable.
+  const preRampPublish =
+    scheduleType === "ramp" &&
+    (!ruleRampSchedule || ruleRampSchedule.status === "pending");
+
+  // Ramp exists in the DB and is not yet in a terminal state. Everything ramp-related
+  // is locked — including the coverage/hash/seed widget.
+  const rampNotComplete =
+    !!ruleRampSchedule &&
+    !["completed", "rolled-back", "pending"].includes(ruleRampSchedule.status);
 
   const hasLegacySchedule = (
     "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
@@ -323,60 +336,84 @@ export default function StandardRuleFields({
       </div>
       <Separator size="4" my="6" />
 
-      <RolloutPercentInput
-        value={form.watch("coverage") ?? 1}
-        setValue={(coverage) => form.setValue("coverage", coverage)}
-        lockedByRamp={isRampControlled("coverage")}
-        hashAttribute={form.watch("hashAttribute")}
-        setHashAttribute={(v) => form.setValue("hashAttribute", v)}
-        attributeSchema={attributeSchema}
-        hasHashAttributes={hasHashAttributes}
-        seed={form.watch("seed")}
-        setSeed={(v) => form.setValue("seed", v)}
-        featureId={feature.id}
-        advancedOpen={advancedOptionsOpen}
-        setAdvancedOpen={setadvancedOptionsOpen}
-      />
-      <Separator size="4" my="5" />
-
-      {isRampControlled("savedGroups") ? (
-        <RampControlledField label="Target by Saved Groups" />
-      ) : (
-        <SavedGroupTargetingField
-          value={form.watch("savedGroups") || []}
-          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
-          project={feature.project || ""}
-          label="Target by Saved Groups"
-        />
+      {!rampNotComplete && (
+        <>
+          <RolloutPercentInput
+            value={form.watch("coverage") ?? 1}
+            setValue={(coverage) => form.setValue("coverage", coverage)}
+            lockedByRamp={preRampPublish}
+            rampSchedule={ruleRampSchedule}
+            hashAttribute={form.watch("hashAttribute")}
+            setHashAttribute={(v: string) => form.setValue("hashAttribute", v)}
+            attributeSchema={attributeSchema}
+            hasHashAttributes={hasHashAttributes}
+            seed={form.watch("seed")}
+            setSeed={(v: string) => form.setValue("seed", v)}
+            featureId={feature.id}
+            advancedOpen={advancedOptionsOpen}
+            setAdvancedOpen={setadvancedOptionsOpen}
+          />
+          <Separator size="4" my="5" />
+        </>
       )}
-      <Separator size="4" my="5" />
 
-      {isRampControlled("condition") ? (
-        <RampControlledField label="Target by Attributes" />
+      {preRampPublish || rampNotComplete ? (
+        <Box>
+          <Text as="div" size="medium" weight="semibold" mb="2">
+            Targeting is controlled by ramp-up
+          </Text>
+          <Callout status="info" my="4">
+            You can add targeting conditions to individual steps in your ramp-up
+            schedule by going to the step&apos;s menu and choosing &ldquo;Add
+            additional effects&rdquo;
+          </Callout>
+        </Box>
       ) : (
-        <ConditionInput
-          defaultValue={form.watch("condition") || ""}
-          onChange={(value) => form.setValue("condition", value)}
-          key={conditionKey}
-          project={feature.project || ""}
-          label="Target by Attributes"
-        />
-      )}
-      <Separator size="4" my="5" />
+        <>
+          {isRampControlled("savedGroups") ? (
+            <RampControlledField label="Target by Saved Groups" />
+          ) : (
+            <SavedGroupTargetingField
+              value={form.watch("savedGroups") || []}
+              setValue={(savedGroups) =>
+                form.setValue("savedGroups", savedGroups)
+              }
+              project={feature.project || ""}
+              label="Target by Saved Groups"
+            />
+          )}
+          <Separator size="4" my="5" />
 
-      {isRampControlled("prerequisites") ? (
-        <RampControlledField label="Target by Prerequisite Features" />
-      ) : (
-        <PrerequisiteInput
-          value={form.watch("prerequisites") || []}
-          setValue={(prerequisites) =>
-            form.setValue("prerequisites", prerequisites)
-          }
-          feature={feature}
-          environments={environments}
-          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
-          label="Target by Prerequisite Features"
-        />
+          {isRampControlled("condition") ? (
+            <RampControlledField label="Target by Attributes" />
+          ) : (
+            <ConditionInput
+              defaultValue={form.watch("condition") || ""}
+              onChange={(value) => form.setValue("condition", value)}
+              key={conditionKey}
+              project={feature.project || ""}
+              label="Target by Attributes"
+            />
+          )}
+          <Separator size="4" my="5" />
+
+          {isRampControlled("prerequisites") ? (
+            <RampControlledField label="Target by Prerequisite Features" />
+          ) : (
+            <PrerequisiteInput
+              value={form.watch("prerequisites") || []}
+              setValue={(prerequisites) =>
+                form.setValue("prerequisites", prerequisites)
+              }
+              feature={feature}
+              environments={environments}
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
+              label="Target by Prerequisite Features"
+            />
+          )}
+        </>
       )}
       {isCyclic && (
         <div className="alert alert-danger">
