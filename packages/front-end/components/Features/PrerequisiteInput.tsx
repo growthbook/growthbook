@@ -901,7 +901,10 @@ export default function PrerequisiteInput({
                 : "not-allowed",
             }}
           >
-            <PiPlusCircleBold /> Add prerequisite targeting
+            <Text weight="bold">
+              <PiPlusCircleBold className="mr-1" />
+              Add prerequisite targeting
+            </Text>
           </Link>
         </PremiumTooltip>
       )}
