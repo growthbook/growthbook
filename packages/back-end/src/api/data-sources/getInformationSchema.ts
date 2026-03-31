@@ -1,9 +1,46 @@
+import {
+  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
+} from "shared/types/integrations";
 import { GetInformationSchemaResponse } from "shared/types/openapi";
 import { getInformationSchemaValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import { getInformationSchemaWithPaths } from "back-end/src/services/informationSchema";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+
+type ApiInformationSchema = GetInformationSchemaResponse["informationSchema"];
+
+function toApiInformationSchema(
+  schema: InformationSchemaInterface | InformationSchemaInterfaceWithPaths,
+): ApiInformationSchema {
+  return {
+    id: schema.id,
+    datasourceId: schema.datasourceId,
+    status: schema.status,
+    refreshMS: schema.refreshMS,
+    error: schema.error ?? undefined,
+    databases: schema.databases.map((db) => ({
+      databaseName: db.databaseName,
+      dateCreated: db.dateCreated.toISOString(),
+      dateUpdated: db.dateUpdated.toISOString(),
+      schemas: db.schemas.map((s) => ({
+        schemaName: s.schemaName,
+        dateCreated: s.dateCreated.toISOString(),
+        dateUpdated: s.dateUpdated.toISOString(),
+        tables: s.tables.map((t) => ({
+          tableName: t.tableName,
+          id: t.id,
+          numOfColumns: t.numOfColumns,
+          dateCreated: t.dateCreated.toISOString(),
+          dateUpdated: t.dateUpdated.toISOString(),
+        })),
+      })),
+    })),
+    dateCreated: schema.dateCreated.toISOString(),
+    dateUpdated: schema.dateUpdated.toISOString(),
+  };
+}
 
 export const getInformationSchema = createApiRequestHandler(
   getInformationSchemaValidator,
@@ -21,9 +58,16 @@ export const getInformationSchema = createApiRequestHandler(
     req.context.org.id,
   );
 
+  if (!informationSchema) {
+    throw new Error("No information schema found for this data source");
+  }
+
+  const enriched = getInformationSchemaWithPaths(
+    informationSchema,
+    dataSource.type,
+  );
+
   return {
-    informationSchema: informationSchema
-      ? getInformationSchemaWithPaths(informationSchema, dataSource.type)
-      : null,
+    informationSchema: toApiInformationSchema(enriched),
   };
 });

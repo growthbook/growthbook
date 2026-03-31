@@ -16,6 +16,17 @@ export const getInformationSchemaTable = createApiRequestHandler(
   }
 
   return {
-    informationSchemaTable: table,
+    informationSchemaTable: {
+      id: table.id,
+      datasourceId: table.datasourceId,
+      informationSchemaId: table.informationSchemaId,
+      tableName: table.tableName,
+      tableSchema: table.tableSchema,
+      databaseName: table.databaseName,
+      columns: table.columns,
+      refreshMS: table.refreshMS,
+      dateCreated: table.dateCreated.toISOString(),
+      dateUpdated: table.dateUpdated.toISOString(),
+    },
   };
 });
