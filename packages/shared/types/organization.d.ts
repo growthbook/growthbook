@@ -68,6 +68,8 @@ export type RequireReview = {
   resetReviewOnChange: boolean;
   environments: string[];
   projects: string[];
+  featureRequireEnvironmentReview?: boolean;
+  featureRequireMetadataReview?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -96,6 +98,12 @@ export type DefaultMemberRole =
   | "experimenter"
   | "gbDefault_projectAdmin"
   | "admin";
+
+/** Custom role IDs defined by orgs in org.customRoles */
+export type CustomRole = string;
+
+/** A member's role is either a built-in default or a custom role ID */
+export type MemberRole = DefaultMemberRole | CustomRole;
 
 export type Role = {
   id: string;
@@ -215,8 +223,10 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
@@ -281,6 +291,7 @@ export type OrganizationMessage = {
 // The type used to get member data to calculate usage counts for licenses
 export type OrgMemberInfo = {
   id: string;
+  licenseKey?: string;
   invites: { email: string }[];
   members: {
     id: string;

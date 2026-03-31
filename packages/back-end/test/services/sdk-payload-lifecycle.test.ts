@@ -10,118 +10,18 @@
 
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/validators";
-import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { OrganizationInterface } from "shared/types/organization";
-import {
-  FeatureDefinition,
-  FeatureDefinitionWithProject,
-} from "shared/types/sdk";
-import { SDKCapability } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
+  buildSDKPayloadForConnection,
   getFeatureDefinitions,
-  getFeatureDefinitionsResponse,
-  generateFeaturesPayload,
-  generateAutoExperimentsPayload,
   isSDKConnectionAffectedByPayloadKey,
   queueSDKPayloadRefresh,
   refreshSDKPayloadCache,
-  type VisualExperiment,
-  type URLRedirectExperiment,
+  type SDKPayloadRawData,
+  type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
-
-// todo: SDKPayloadRawData and ConnectionPayloadOptions are feature-branch types not yet on main;
-// these local definitions mirror the feature branch — remove after bryce/single-pass-payload-generation merges
-type SDKPayloadRawData = {
-  features: FeatureInterface[];
-  experimentMap: Map<string, ExperimentInterface>;
-  groupMap: GroupMap;
-  safeRolloutMap: Map<string, SafeRolloutInterface>;
-  savedGroups: SavedGroupInterface[];
-  holdoutsMap: Map<
-    string,
-    { holdout: HoldoutInterface; experiment: ExperimentInterface }
-  >;
-  visualExperiments?: VisualExperiment[];
-  urlRedirectExperiments?: URLRedirectExperiment[];
-};
-type ConnectionPayloadOptions = {
-  capabilities: SDKCapability[];
-  environment: string;
-  projects: string[] | null;
-  includeRuleIds?: boolean;
-  includeExperimentNames?: boolean;
-  encryptPayload?: boolean;
-  encryptionKey?: string;
-  savedGroupReferencesEnabled?: boolean;
-  hashSecureAttributes?: boolean;
-  includeVisualExperiments?: boolean;
-  includeDraftExperiments?: boolean;
-  includeRedirectExperiments?: boolean;
-};
-
-// todo: shim for buildSDKPayloadForConnection — not yet on main; chains generateFeaturesPayload +
-// generateAutoExperimentsPayload + getFeatureDefinitionsResponse to produce equivalent output.
-// Remove after bryce/single-pass-payload-generation merges.
-async function buildSDKPayloadForConnectionShim({
-  context,
-  connection,
-  data,
-}: {
-  context: ApiReqContext;
-  connection: ConnectionPayloadOptions;
-  data: SDKPayloadRawData;
-}) {
-  if (connection.projects === null) {
-    return {
-      features: {} as Record<string, FeatureDefinition>,
-      experiments: [] as unknown[],
-      dateUpdated: new Date(),
-    };
-  }
-
-  const features = generateFeaturesPayload({
-    features: data.features,
-    environment: connection.environment,
-    groupMap: data.groupMap,
-    experimentMap: data.experimentMap,
-    safeRolloutMap: data.safeRolloutMap,
-    holdoutsMap: data.holdoutsMap,
-  }) as Record<string, FeatureDefinitionWithProject>;
-
-  const experiments = generateAutoExperimentsPayload({
-    visualExperiments: data.visualExperiments ?? [],
-    urlRedirectExperiments: data.urlRedirectExperiments ?? [],
-    groupMap: data.groupMap,
-    features: data.features,
-    environment: connection.environment,
-  });
-
-  return getFeatureDefinitionsResponse({
-    features,
-    experiments,
-    holdouts: {},
-    projects: connection.projects,
-    dateUpdated: new Date(),
-    encryptionKey: connection.encryptPayload
-      ? connection.encryptionKey
-      : undefined,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
-    capabilities: connection.capabilities,
-    usedSavedGroups: data.savedGroups ?? [],
-    organization: context.org as OrganizationInterface,
-  });
-}
 import {
   getFeatureDefinitionsWithCache,
   getPayloadParamsFromApiKey,
@@ -135,8 +35,10 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   markSDKConnectionUsed: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("back-end/src/models/OrganizationModel", () => ({}));
-jest.mock("back-end/src/models/ApiKeyModel", () => ({
-  lookupOrganizationByApiKey: jest.fn(),
+jest.mock("back-end/src/models/ApiKeyModel", () => ({}));
+jest.mock("back-end/src/util/api-key.util", () => ({
+  ...jest.requireActual("back-end/src/util/api-key.util"),
+  dangerousLookupOrganizationByApiKey: jest.fn(),
 }));
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
   ...jest.requireActual("back-end/src/models/SdkConnectionCacheModel"),
@@ -177,8 +79,8 @@ const findSDKConnectionByKey = jest.requireMock(
   "back-end/src/models/SdkConnectionModel",
 ).findSDKConnectionByKey as jest.Mock;
 const lookupOrganizationByApiKey = jest.requireMock(
-  "back-end/src/models/ApiKeyModel",
-).lookupOrganizationByApiKey as jest.Mock;
+  "back-end/src/util/api-key.util",
+).dangerousLookupOrganizationByApiKey as jest.Mock;
 const getSDKPayloadCacheLocationMock = jest.requireMock(
   "back-end/src/models/SdkConnectionCacheModel",
 ).getSDKPayloadCacheLocation as jest.Mock;
@@ -433,8 +335,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       expect(params.languages).toEqual(["javascript"]);
     });
 
-    // todo: getPayloadParamsFromApiKey calls dangerousLookupOrganizationByApiKey (not mocked); will align after bryce/single-pass-payload-generation merges
-    it.skip("non-sdk key uses lookupOrganizationByApiKey and formatLegacyCacheKey", async () => {
+    it("non-sdk key uses lookupOrganizationByApiKey and formatLegacyCacheKey", async () => {
       lookupOrganizationByApiKey.mockResolvedValue({
         organization: "org-1",
         secret: false,
@@ -454,8 +355,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
   });
 
   describe("refreshSDKPayloadCache", () => {
-    // todo: refreshSDKPayloadCache bulk path requires buildSDKPayloadForConnection not yet on main; unskip after bryce/single-pass-payload-generation merges
-    it.skip("bulk path: deleteAllLegacyCacheEntries, load rawData once, findSDKConnectionsByOrganization, build+upsert per connection, triggerWebhookJobs", async () => {
+    it("bulk path: deleteAllLegacyCacheEntries, load rawData once, findSDKConnectionsByOrganization, build+upsert per connection, triggerWebhookJobs", async () => {
       getSDKPayloadCacheLocationMock.mockReturnValue("mongo");
       const deleteAllLegacy = jest.fn().mockResolvedValue(undefined);
       const upsert = jest.fn().mockResolvedValue(undefined);
@@ -617,8 +517,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         projects: [],
       };
 
-      // todo: using shim for buildSDKPayloadForConnection — remove after bryce/single-pass-payload-generation merges
-      await buildSDKPayloadForConnectionShim({
+      await buildSDKPayloadForConnection({
         context: ctx,
         connection: conn1,
         data: rawData,
@@ -627,7 +526,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         length: rawData.features.length,
         id: rawData.features[0]?.id,
       };
-      await buildSDKPayloadForConnectionShim({
+      await buildSDKPayloadForConnection({
         context: ctx,
         connection: conn2,
         data: rawData,
