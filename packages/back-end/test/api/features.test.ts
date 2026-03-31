@@ -5,6 +5,7 @@ import {
   getFeature,
   updateFeature,
   createAndPublishRevision,
+  applyRevisionChanges,
 } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -25,6 +26,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   createFeature: jest.fn(),
   updateFeature: jest.fn(),
+  applyRevisionChanges: jest.fn(),
   createAndPublishRevision: jest.fn(),
 }));
 
@@ -1035,8 +1037,8 @@ describe("features API", () => {
 
       (getFeature as jest.Mock).mockResolvedValue(featureWithRules);
       (createRevision as jest.Mock).mockResolvedValue({ version: 6 });
-      (updateFeature as jest.Mock).mockImplementation((ctx, feature, updates) =>
-        Promise.resolve({ ...feature, ...updates }),
+      (applyRevisionChanges as jest.Mock).mockImplementation((ctx, feature) =>
+        Promise.resolve({ ...feature, version: 6 }),
       );
 
       const response = await request(app)
@@ -1056,7 +1058,7 @@ describe("features API", () => {
           comment: "Rule deleted via REST API",
         }),
       );
-      expect(updateFeature).toHaveBeenCalled();
+      expect(applyRevisionChanges).toHaveBeenCalled();
     });
 
     it("returns 400 when feature is not found", async () => {
