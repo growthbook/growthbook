@@ -72,12 +72,70 @@ export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
 
-function getUrlOrgId(routerOrgQuery: string | string[] | undefined): string | null {
+export function getUrlOrgId(
+  routerOrgQuery: string | string[] | undefined,
+): string | null {
   if (typeof routerOrgQuery === "string" && routerOrgQuery) {
     return routerOrgQuery;
   }
+  if (Array.isArray(routerOrgQuery)) {
+    const first = routerOrgQuery.find((v) => !!v);
+    if (first) return first;
+  }
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("org");
+}
+
+export function getNextOrgIdForOrganizationsUpdate({
+  requestedOrgId,
+  orgs,
+  currentOrgId,
+  specialOrgId,
+  superAdmin,
+  pickedOrgId,
+}: {
+  requestedOrgId: string | null;
+  orgs: UserOrganizations;
+  currentOrgId: string | null;
+  specialOrgId?: string;
+  superAdmin: boolean;
+  pickedOrgId?: string;
+}): string | undefined {
+  const orgIds = new Set(orgs.map((o) => o.id));
+
+  if (requestedOrgId && orgIds.has(requestedOrgId)) {
+    if (currentOrgId !== requestedOrgId) {
+      return requestedOrgId;
+    }
+    return;
+  }
+
+  if (currentOrgId && orgIds.has(currentOrgId)) {
+    return;
+  }
+
+  if (specialOrgId === currentOrgId) {
+    return;
+  }
+
+  if (!orgs.length) {
+    return;
+  }
+
+  if (
+    pickedOrgId &&
+    !requestedOrgId &&
+    (superAdmin || orgIds.has(pickedOrgId))
+  ) {
+    if (pickedOrgId !== currentOrgId) {
+      return pickedOrgId;
+    }
+    return;
+  }
+
+  if (orgs[0].id !== currentOrgId) {
+    return orgs[0].id;
+  }
 }
 
 // Only run one refresh operation at a time
@@ -417,41 +475,29 @@ export const AuthProvider: React.FC<{
   const wrappedSetOrganizations = useCallback(
     (orgs: UserOrganizations, superAdmin: boolean) => {
       const requestedOrgId = getUrlOrgId(router.query.org);
-      const orgIds = new Set(orgs.map((o) => o.id));
       setOrganizations(orgs);
-
-      // Prefer explicit org from URL to avoid hydration races where router.query.org
-      // is briefly undefined on first render.
-      if (requestedOrgId && orgIds.has(requestedOrgId)) {
-        if (orgId !== requestedOrgId) {
-          setOrgId(requestedOrgId);
-        }
-        return;
-      }
-
-      if (orgId && orgIds.has(orgId)) {
-        return;
-      }
-
-      if (specialOrg?.id === orgId) {
-        return;
-      }
-
+      let pickedOrgId: string | undefined;
       if (orgs.length > 0) {
         try {
           const pickedOrg = localStorage.getItem("gb-last-picked-org");
-          if (
-            pickedOrg &&
-            !requestedOrgId &&
-            (superAdmin || orgIds.has(JSON.parse(pickedOrg)))
-          ) {
-            setOrgId(JSON.parse(pickedOrg));
-          } else {
-            setOrgId(orgs[0].id);
+          if (pickedOrg) {
+            pickedOrgId = JSON.parse(pickedOrg);
           }
         } catch (e) {
-          setOrgId(orgs[0].id);
+          // ignore localStorage parse errors and fallback to default org
         }
+      }
+
+      const nextOrgId = getNextOrgIdForOrganizationsUpdate({
+        requestedOrgId,
+        orgs,
+        currentOrgId: orgId,
+        specialOrgId: specialOrg?.id,
+        superAdmin,
+        pickedOrgId,
+      });
+      if (nextOrgId) {
+        setOrgId(nextOrgId);
       }
     },
     [orgId, router.query.org, specialOrg?.id],
