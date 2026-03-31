@@ -7,9 +7,9 @@ import {
   RampScheduleTemplateInterface,
   RampStepAction,
 } from "shared/validators";
+import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import type { FeatureInterface } from "shared/types/feature";
 
 const startTriggerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("immediately") }),
@@ -26,7 +26,9 @@ const postRampScheduleValidator = {
     ruleId: z.string(),
     environment: z.string(),
     steps: z.array(rampStep).min(0).optional(),
-    controlledFields: z.array(rampControlledField.exclude(["enabled"])).optional(),
+    controlledFields: z
+      .array(rampControlledField.exclude(["enabled"]))
+      .optional(),
     startCondition: z.object({ trigger: startTriggerSchema }).optional(),
     disableRuleBefore: z.boolean().optional(),
     disableRuleAfter: z.boolean().optional(),
@@ -141,7 +143,10 @@ export const postRampSchedule = createApiRequestHandler(
     body.startCondition?.trigger ?? template?.startCondition?.trigger;
   const startTrigger =
     rawStartTrigger?.type === "scheduled"
-      ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at as string | Date) }
+      ? {
+          type: "scheduled" as const,
+          at: new Date(rawStartTrigger.at as string | Date),
+        }
       : (rawStartTrigger ?? { type: "immediately" as const });
 
   const resolvedSteps = body.steps
@@ -187,9 +192,7 @@ export const postRampSchedule = createApiRequestHandler(
   const endTrigger = rawEndTrigger
     ? {
         type: "scheduled" as const,
-        at: new Date(
-          (rawEndTrigger as { type: string; at: string | Date }).at,
-        ),
+        at: new Date((rawEndTrigger as { type: string; at: string | Date }).at),
       }
     : undefined;
 

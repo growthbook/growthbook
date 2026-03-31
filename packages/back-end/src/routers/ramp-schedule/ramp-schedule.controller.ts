@@ -47,7 +47,9 @@ type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
   startCondition?: StartCondition | null;
   disableRuleBefore?: boolean;
   disableRuleAfter?: boolean;
-  endCondition?: (EndCondition & { endEarlyWhenStepsComplete?: boolean }) | null;
+  endCondition?:
+    | (EndCondition & { endEarlyWhenStepsComplete?: boolean })
+    | null;
 };
 
 type ActionBody = {
@@ -158,7 +160,10 @@ export const postRampSchedule = async (
         endEarlyWhenStepsComplete: body.endCondition?.endEarlyWhenStepsComplete,
       }
     : body.endCondition?.endEarlyWhenStepsComplete !== undefined
-      ? { endEarlyWhenStepsComplete: body.endCondition.endEarlyWhenStepsComplete }
+      ? {
+          endEarlyWhenStepsComplete:
+            body.endCondition.endEarlyWhenStepsComplete,
+        }
       : undefined;
 
   const schedule = await context.models.rampSchedules.create({

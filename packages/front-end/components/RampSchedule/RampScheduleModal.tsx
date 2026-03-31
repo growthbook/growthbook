@@ -178,10 +178,14 @@ export default function RampScheduleModal({
             : endActions
               ? {
                   actions: endActions,
-                  endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
+                  endEarlyWhenStepsComplete:
+                    rampState.endEarlyWhenStepsComplete,
                 }
               : rampState.endEarlyWhenStepsComplete !== true
-                ? { endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete }
+                ? {
+                    endEarlyWhenStepsComplete:
+                      rampState.endEarlyWhenStepsComplete,
+                  }
                 : undefined,
         }),
       });
@@ -223,7 +227,10 @@ export default function RampScheduleModal({
                 endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
               }
             : rampState.endEarlyWhenStepsComplete !== true
-              ? { endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete }
+              ? {
+                  endEarlyWhenStepsComplete:
+                    rampState.endEarlyWhenStepsComplete,
+                }
               : undefined,
         }),
       });

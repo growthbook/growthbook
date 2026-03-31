@@ -1415,10 +1415,14 @@ async function createRampSchedulesForRevision(
     const endCondition = endConditionBase
       ? {
           ...endConditionBase,
-          endEarlyWhenStepsComplete: action.endCondition?.endEarlyWhenStepsComplete,
+          endEarlyWhenStepsComplete:
+            action.endCondition?.endEarlyWhenStepsComplete,
         }
       : action.endCondition?.endEarlyWhenStepsComplete !== undefined
-        ? { endEarlyWhenStepsComplete: action.endCondition.endEarlyWhenStepsComplete }
+        ? {
+            endEarlyWhenStepsComplete:
+              action.endCondition.endEarlyWhenStepsComplete,
+          }
         : undefined;
 
     const steps = action.steps.map((step) => ({
