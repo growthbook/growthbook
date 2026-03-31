@@ -41,23 +41,11 @@ export const postRampScheduleTemplate = async (
   const context = getContextFromReq(req);
   const body = req.body;
 
-  const {
-    startCondition,
-    steps,
-    name,
-    disableRuleBefore,
-    disableRuleAfter,
-    endCondition,
-    official,
-  } = body;
+  const { steps, name, official } = body;
 
   const created = await context.models.rampScheduleTemplates.create({
     name,
     steps: steps ?? [],
-    startCondition,
-    disableRuleBefore,
-    disableRuleAfter,
-    endCondition,
     official,
   });
   res.status(201).json({ status: 201, rampScheduleTemplate: created });
@@ -80,13 +68,6 @@ export const putRampScheduleTemplate = async (
   const updates: Partial<RampScheduleTemplateInterface> = {};
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.startCondition !== undefined)
-    updates.startCondition = body.startCondition;
-  if (body.disableRuleBefore !== undefined)
-    updates.disableRuleBefore = body.disableRuleBefore;
-  if (body.disableRuleAfter !== undefined)
-    updates.disableRuleAfter = body.disableRuleAfter;
-  if ("endCondition" in body) updates.endCondition = body.endCondition;
   if (body.official !== undefined) updates.official = body.official;
 
   const updated = await context.models.rampScheduleTemplates.updateById(

@@ -87,26 +87,30 @@ function buildStepsForAllTargets(
   });
 }
 
-// Build start/end condition actions for ALL targets from a shared UIStepPatch,
-// preserving savedGroups/prerequisites from each existing action when absent.
-function buildConditionActionsForAllTargets(
-  patch: UIStepPatch,
+// Build endActions for ALL existing targets from the endPatch UI state.
+function buildEndActionsForAllTargets(
+  endPatch: UIStepPatch,
   targets: RampScheduleInterface["targets"],
-  existingActions: RampScheduleInterface["startCondition"]["actions"],
+  existingEndActions: RampScheduleInterface["endActions"],
 ) {
-  const hasAny = Object.values(patch).some((v) => v !== undefined);
-  if (!hasAny) return undefined;
   return targets.map((t) => {
     const ruleId = t.ruleId ?? "";
-    const base = buildPatch(patch, ruleId) as Record<string, unknown>;
-    const existing = existingActions?.find((a) => a.targetId === t.id);
-    if (base.savedGroups === undefined && existing?.patch.savedGroups) {
-      base.savedGroups = existing.patch.savedGroups;
+    const base = buildPatch(endPatch, ruleId) as Record<string, unknown>;
+    const existingAction = existingEndActions?.find((a) => a.targetId === t.id);
+    if (base.savedGroups === undefined && existingAction?.patch.savedGroups) {
+      base.savedGroups = existingAction.patch.savedGroups;
     }
-    if (base.prerequisites === undefined && existing?.patch.prerequisites) {
-      base.prerequisites = existing.patch.prerequisites;
+    if (
+      base.prerequisites === undefined &&
+      existingAction?.patch.prerequisites
+    ) {
+      base.prerequisites = existingAction.patch.prerequisites;
     }
-    return { targetType: "feature-rule" as const, targetId: t.id, patch: base };
+    return {
+      targetType: "feature-rule" as const,
+      targetId: t.id,
+      patch: base,
+    };
   });
 }
 
@@ -136,62 +140,27 @@ export default function RampScheduleModal({
   async function handleSubmit() {
     if (!rampState.name.trim()) throw new Error("Ramp name is required");
 
-    const startTrigger =
-      rampState.startMode === "manual"
-        ? ({ type: "manual" } as const)
-        : rampState.startMode === "specific-time" && rampState.startTime
-          ? ({ type: "scheduled", at: rampState.startTime } as const)
-          : ({ type: "immediately" } as const);
+    // Ramp schedules always complete when steps finish — no end trigger needed.
+    const endCondition = undefined;
 
     if (isEdit) {
-      const startActions = buildConditionActionsForAllTargets(
-        rampState.startPatch,
-        rs.targets,
-        rs.startCondition?.actions ?? [],
-      );
-      const endActions = buildConditionActionsForAllTargets(
-        rampState.endPatch,
-        rs.targets,
-        rs.endCondition?.actions ?? [],
-      );
-
       await apiCall(`/ramp-schedule/${rs.id}`, {
         method: "PUT",
         body: JSON.stringify({
           name: rampState.name.trim(),
           steps: buildStepsForAllTargets(rampState.steps, rs.targets, rs.steps),
-          startCondition: {
-            trigger: startTrigger,
-            actions: startActions ?? undefined,
-          },
-          disableRuleBefore: rampState.disableRuleBefore || undefined,
-          disableRuleAfter: rampState.disableRuleAfter || undefined,
-          endCondition: rampState.endScheduleAt
-            ? {
-                trigger: {
-                  type: "scheduled" as const,
-                  at: rampState.endScheduleAt,
-                },
-                actions: endActions ?? undefined,
-                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
-              }
-            : endActions
-              ? {
-                  actions: endActions,
-                  endEarlyWhenStepsComplete:
-                    rampState.endEarlyWhenStepsComplete,
-                }
-              : rampState.endEarlyWhenStepsComplete !== true
-                ? {
-                    endEarlyWhenStepsComplete:
-                      rampState.endEarlyWhenStepsComplete,
-                  }
-                : undefined,
+          endActions: buildEndActionsForAllTargets(
+            rampState.endPatch,
+            rs.targets,
+            rs.endActions,
+          ),
+          startDate: rampState.startDate || null,
+          endCondition,
         }),
       });
     } else {
       // Create with no targets — store triggers and empty action arrays.
-      // Action patches are populated when implementations are attached via RuleModal.
+      // endActions also empty until implementations are attached via RuleModal.
       const UNIT_MULT = { minutes: 60, hours: 3600, days: 86400 } as const;
       await apiCall("/ramp-schedule", {
         method: "POST",
@@ -213,25 +182,9 @@ export default function RampScheduleModal({
               ? { approvalNotes: s.approvalNotes }
               : {}),
           })),
-          startCondition: {
-            trigger: startTrigger,
-          },
-          disableRuleBefore: rampState.disableRuleBefore || undefined,
-          disableRuleAfter: rampState.disableRuleAfter || undefined,
-          endCondition: rampState.endScheduleAt
-            ? {
-                trigger: {
-                  type: "scheduled" as const,
-                  at: rampState.endScheduleAt,
-                },
-                endEarlyWhenStepsComplete: rampState.endEarlyWhenStepsComplete,
-              }
-            : rampState.endEarlyWhenStepsComplete !== true
-              ? {
-                  endEarlyWhenStepsComplete:
-                    rampState.endEarlyWhenStepsComplete,
-                }
-              : undefined,
+          endActions: [],
+          startDate: rampState.startDate || null,
+          endCondition,
         }),
       });
     }
@@ -266,7 +219,6 @@ export default function RampScheduleModal({
       )}
 
       <RampScheduleSection
-        featureRampSchedules={[]}
         ruleRampSchedule={rs}
         state={rampState}
         setState={setRampState}

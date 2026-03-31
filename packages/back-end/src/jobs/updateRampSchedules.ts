@@ -3,7 +3,7 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import {
   advanceUntilBlocked,
-  applyStartConditionActions,
+  applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
   onActivatingRevisionPublished,
@@ -131,8 +131,8 @@ export const advanceSingleRampSchedule = async (
 
     if (
       current.status === "ready" &&
-      current.startCondition?.trigger.type === "scheduled" &&
-      current.startCondition.trigger.at <= now
+      current.startDate &&
+      current.startDate <= now
     ) {
       const initialNextStepAt = current.steps.length > 0 ? now : null;
       current = await context.models.rampSchedules.updateById(current.id, {
@@ -146,7 +146,7 @@ export const advanceSingleRampSchedule = async (
           endCondition: current.endCondition,
         }),
       });
-      await applyStartConditionActions(context, current);
+      await applyRampStartActions(context, current);
     }
 
     await advanceUntilBlocked(context, current, now);

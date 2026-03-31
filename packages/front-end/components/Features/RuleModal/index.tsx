@@ -83,8 +83,7 @@ import {
   rampScheduleToSectionState,
   createActionToSectionState,
   buildRampSteps,
-  buildStartActions,
-  buildEndScheduleActions,
+  buildEndActions,
   validateRampSectionState,
   isRampSectionConfigured,
   scrubRampStateForRuleType,
@@ -463,7 +462,6 @@ export default function RuleModal({
       (rampSectionState.steps.some(
         (step) => step.patch.coverage !== undefined,
       ) ||
-        rampSectionState.startPatch.coverage !== undefined ||
         rampSectionState.endPatch.coverage !== undefined);
 
     // Determine target rule type and coverage based on current state
@@ -941,8 +939,7 @@ export default function RuleModal({
       const rampHasCoverage =
         scheduleType === "ramp" &&
         rampSectionState.mode !== "off" &&
-        (rampSectionState.steps.some((s) => s.patch.coverage !== undefined) ||
-          rampSectionState.startPatch.coverage !== undefined);
+        rampSectionState.steps.some((s) => s.patch.coverage !== undefined);
       if (
         (values.type === "rollout" || rampHasCoverage) &&
         !(values as Record<string, unknown>).hashAttribute
@@ -1011,47 +1008,18 @@ export default function RuleModal({
               // Driven by the RadioGroup selection — reliable regardless of step count in state.
               const isScheduleMode = scheduleType === "schedule";
 
-              // A "schedule" type with both start=immediately and end=never is a no-op —
+              // A "schedule" type with no start date and no end date is a no-op —
               // no schedule should be created or updated in this case.
               const isNoOpSchedule =
                 isScheduleMode &&
-                rampState.startMode !== "specific-time" &&
+                !rampState.startDate &&
                 !rampState.endScheduleAt;
-
-              // For simple schedules, patches are irrelevant — the schedule only
-              // controls enable/disable via disableRuleBefore/disableRuleAfter.
-              const effectiveStartPatch = isScheduleMode
-                ? {}
-                : rampState.startPatch;
-              const effectiveEndPatch = isScheduleMode
-                ? {}
-                : rampState.endPatch;
 
               if (
                 rampState.mode === "create" &&
                 !isNoOpSchedule &&
                 rampState.name.trim()
               ) {
-                const startActions = buildStartActions(
-                  effectiveStartPatch,
-                  "t1",
-                  ruleId,
-                );
-                const endActions = buildEndScheduleActions(
-                  effectiveEndPatch,
-                  "t1",
-                  ruleId,
-                );
-                const startTrigger =
-                  rampState.startMode === "manual"
-                    ? ({ type: "manual" } as const)
-                    : rampState.startMode === "specific-time" &&
-                        rampState.startTime
-                      ? ({
-                          type: "scheduled",
-                          at: rampState.startTime,
-                        } as const)
-                      : ({ type: "immediately" } as const);
                 rampScheduleInline = {
                   mode: "create",
                   name: isScheduleMode
@@ -1059,34 +1027,19 @@ export default function RuleModal({
                     : rampState.name.trim(),
                   environment,
                   steps: buildRampSteps(rampState.steps, "t1", ruleId),
-                  startCondition: {
-                    trigger: startTrigger,
-                    actions: startActions.length ? startActions : undefined,
-                  },
-                  disableRuleBefore: rampState.disableRuleBefore || undefined,
-                  disableRuleAfter: rampState.disableRuleAfter || undefined,
-                  endCondition: rampState.endScheduleAt
-                    ? {
-                        trigger: {
-                          type: "scheduled",
-                          at: rampState.endScheduleAt,
-                        },
-                        actions: endActions.length ? endActions : undefined,
-                        endEarlyWhenStepsComplete:
-                          rampState.endEarlyWhenStepsComplete,
-                      }
-                    : endActions.length
+                  endActions: !isScheduleMode
+                    ? buildEndActions(rampState.endPatch, ruleId)
+                    : undefined,
+                  startDate: rampState.startDate || null,
+                  endCondition:
+                    isScheduleMode && rampState.endScheduleAt
                       ? {
-                          actions: endActions,
-                          endEarlyWhenStepsComplete:
-                            rampState.endEarlyWhenStepsComplete,
+                          trigger: {
+                            type: "scheduled",
+                            at: rampState.endScheduleAt,
+                          },
                         }
-                      : rampState.endEarlyWhenStepsComplete !== true
-                        ? {
-                            endEarlyWhenStepsComplete:
-                              rampState.endEarlyWhenStepsComplete,
-                          }
-                        : undefined,
+                      : undefined,
                 };
               } else if (
                 !isNoOpSchedule &&
@@ -1096,26 +1049,6 @@ export default function RuleModal({
                   ruleRampSchedule.status,
                 )
               ) {
-                const startActions = buildStartActions(
-                  effectiveStartPatch,
-                  "t1",
-                  ruleId,
-                );
-                const endActions = buildEndScheduleActions(
-                  effectiveEndPatch,
-                  "t1",
-                  ruleId,
-                );
-                const startTrigger =
-                  rampState.startMode === "manual"
-                    ? ({ type: "manual" } as const)
-                    : rampState.startMode === "specific-time" &&
-                        rampState.startTime
-                      ? ({
-                          type: "scheduled",
-                          at: rampState.startTime,
-                        } as const)
-                      : ({ type: "immediately" } as const);
                 rampScheduleInline = {
                   mode: "update",
                   rampScheduleId: ruleRampSchedule.id,
@@ -1123,34 +1056,19 @@ export default function RuleModal({
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim() || undefined,
                   steps: buildRampSteps(rampState.steps, "t1", ruleId),
-                  startCondition: {
-                    trigger: startTrigger,
-                    actions: startActions.length ? startActions : undefined,
-                  },
-                  disableRuleBefore: rampState.disableRuleBefore || undefined,
-                  disableRuleAfter: rampState.disableRuleAfter || undefined,
-                  endCondition: rampState.endScheduleAt
-                    ? {
-                        trigger: {
-                          type: "scheduled",
-                          at: rampState.endScheduleAt,
-                        },
-                        actions: endActions.length ? endActions : undefined,
-                        endEarlyWhenStepsComplete:
-                          rampState.endEarlyWhenStepsComplete,
-                      }
-                    : endActions.length
+                  endActions: !isScheduleMode
+                    ? buildEndActions(rampState.endPatch, ruleId)
+                    : undefined,
+                  startDate: rampState.startDate || null,
+                  endCondition:
+                    isScheduleMode && rampState.endScheduleAt
                       ? {
-                          actions: endActions,
-                          endEarlyWhenStepsComplete:
-                            rampState.endEarlyWhenStepsComplete,
+                          trigger: {
+                            type: "scheduled",
+                            at: rampState.endScheduleAt,
+                          },
                         }
-                      : rampState.endEarlyWhenStepsComplete !== true
-                        ? {
-                            endEarlyWhenStepsComplete:
-                              rampState.endEarlyWhenStepsComplete,
-                          }
-                        : null,
+                      : null,
                 };
               } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
                 // User unchecked the ramp schedule checkbox — detach this rule from the ramp
@@ -1171,15 +1089,12 @@ export default function RuleModal({
             }
           }
 
-          // Fix 5a: if disableRuleBefore is set with a non-immediate start,
-          // publish the rule as disabled in this revision so the draft includes
-          // the enabled:false state from the start.
+          // If the ramp has a future start date, publish the rule as disabled
+          // so it remains hidden until the ramp activates.
           if (
             rampScheduleInline &&
-            "disableRuleBefore" in rampScheduleInline &&
-            rampScheduleInline.disableRuleBefore &&
-            "startCondition" in rampScheduleInline &&
-            rampScheduleInline.startCondition?.trigger?.type !== "immediately"
+            "startDate" in rampScheduleInline &&
+            rampScheduleInline.startDate
           ) {
             values = { ...values, enabled: false };
           }
@@ -1214,33 +1129,8 @@ export default function RuleModal({
               : rampSectionState;
           const isScheduleMode = scheduleType === "schedule";
           const isNoOpSchedule =
-            isScheduleMode &&
-            rampState.startMode !== "specific-time" &&
-            !rampState.endScheduleAt;
-          const effectiveStartPatch = isScheduleMode
-            ? {}
-            : rampState.startPatch;
-          const effectiveEndPatch = isScheduleMode ? {} : rampState.endPatch;
+            isScheduleMode && !rampState.startDate && !rampState.endScheduleAt;
           if (rampState.mode === "create" && !isNoOpSchedule) {
-            const startActions = buildStartActions(
-              effectiveStartPatch,
-              "t1",
-              effectiveRuleId,
-            );
-            const endActions = buildEndScheduleActions(
-              effectiveEndPatch,
-              "t1",
-              effectiveRuleId,
-            );
-            const startTrigger =
-              rampState.startMode === "manual"
-                ? ({ type: "manual" } as const)
-                : rampState.startMode === "specific-time" && rampState.startTime
-                  ? ({
-                      type: "scheduled",
-                      at: rampState.startTime,
-                    } as const)
-                  : ({ type: "immediately" } as const);
             rampScheduleInline = {
               mode: "create",
               name: isScheduleMode
@@ -1248,47 +1138,29 @@ export default function RuleModal({
                 : rampState.name.trim(),
               environment,
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
-              startCondition: {
-                trigger: startTrigger,
-                actions: startActions.length ? startActions : undefined,
-              },
-              disableRuleBefore: rampState.disableRuleBefore || undefined,
-              disableRuleAfter: rampState.disableRuleAfter || undefined,
-              endCondition: rampState.endScheduleAt
-                ? {
-                    trigger: {
-                      type: "scheduled",
-                      at: rampState.endScheduleAt,
-                    },
-                    actions: endActions.length ? endActions : undefined,
-                    endEarlyWhenStepsComplete:
-                      rampState.endEarlyWhenStepsComplete,
-                  }
-                : endActions.length
+              endActions: !isScheduleMode
+                ? buildEndActions(rampState.endPatch, effectiveRuleId)
+                : undefined,
+              startDate: rampState.startDate || null,
+              endCondition:
+                isScheduleMode && rampState.endScheduleAt
                   ? {
-                      actions: endActions,
-                      endEarlyWhenStepsComplete:
-                        rampState.endEarlyWhenStepsComplete,
+                      trigger: {
+                        type: "scheduled",
+                        at: rampState.endScheduleAt,
+                      },
                     }
-                  : rampState.endEarlyWhenStepsComplete !== true
-                    ? {
-                        endEarlyWhenStepsComplete:
-                          rampState.endEarlyWhenStepsComplete,
-                      }
-                    : undefined,
+                  : undefined,
             };
           }
         }
 
-        // Fix 5a: if disableRuleBefore is set with a non-immediate start,
-        // include enabled:false directly in the rule payload so the revision
-        // publishes with the rule disabled from the outset.
+        // If the ramp has a future start date, publish the rule as disabled
+        // so it remains hidden until the ramp activates.
         if (
           rampScheduleInline &&
-          "disableRuleBefore" in rampScheduleInline &&
-          rampScheduleInline.disableRuleBefore &&
-          "startCondition" in rampScheduleInline &&
-          rampScheduleInline.startCondition?.trigger?.type !== "immediately"
+          "startDate" in rampScheduleInline &&
+          rampScheduleInline.startDate
         ) {
           values = { ...values, enabled: false };
         }
@@ -1370,7 +1242,7 @@ export default function RuleModal({
             options={[
               {
                 value: "force",
-                label: "Rule",
+                label: "Targeted release",
                 description:
                   "Assign a specific feature value to groups of users or control the rollout percentage",
               },
@@ -1557,7 +1429,6 @@ export default function RuleModal({
             conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
-            featureRampSchedules={rampSchedules}
             ruleRampSchedule={ruleRampSchedule}
             rampSectionState={rampSectionState}
             setRampSectionState={setRampSectionState}

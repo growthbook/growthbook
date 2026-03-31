@@ -44,26 +44,16 @@ export default function RampScheduleBadge({
   }
 
   const now = new Date();
-  const startTrigger = rs.startCondition?.trigger;
-  const endTrigger = rs.endCondition?.trigger;
-  const startAt =
-    startTrigger?.type === "scheduled" ? new Date(startTrigger.at) : null;
-  const endAt =
-    endTrigger?.type === "scheduled" ? new Date(endTrigger.at) : null;
+  const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
-  const futureEnd = endAt && endAt > now;
 
   // Simple schedule: show only timing, no status prefix, no tooltip.
   if (simpleSchedule) {
     let label: string;
     if (rs.status === "running") {
       label = "Running";
-    } else if (futureStart && futureEnd) {
-      label = `Starts ${abbreviateAgo(startAt)} · ends ${abbreviateAgo(endAt)}`;
     } else if (futureStart) {
       label = `Starts ${abbreviateAgo(startAt)}`;
-    } else if (futureEnd) {
-      label = `Ends ${abbreviateAgo(endAt)}`;
     } else {
       label = "Active";
     }
@@ -88,20 +78,9 @@ export default function RampScheduleBadge({
 
   let timingLabel: string | null = null;
   let timingTooltip: ReactNode = null;
-  if (futureStart && futureEnd) {
-    timingLabel = `Starts ${abbreviateAgo(startAt)} · ends ${abbreviateAgo(endAt)}`;
-    timingTooltip = (
-      <>
-        {dateRow("Starts", startAt)}
-        {dateRow("Ends", endAt)}
-      </>
-    );
-  } else if (futureStart) {
+  if (futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
     timingTooltip = dateRow("Starts", startAt);
-  } else if (futureEnd) {
-    timingLabel = `Ends ${abbreviateAgo(endAt)}`;
-    timingTooltip = dateRow("Ends", endAt);
   }
 
   const baseLabel = getRampStatusLabel(rs);

@@ -1,55 +1,25 @@
 import { z } from "zod";
 import {
-  rampControlledField,
   rampStep,
+  rampStepAction,
   RampScheduleInterface,
 } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { computeNextProcessAt } from "back-end/src/services/rampSchedule";
-
-const startTriggerSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("immediately") }),
-  z.object({ type: z.literal("manual") }),
-  z.object({ type: z.literal("scheduled"), at: z.string().datetime() }),
-]);
-
-const actionSchema = z.array(
-  z.object({
-    targetType: z.literal("feature-rule"),
-    targetId: z.string(),
-    patch: z.object({
-      ruleId: z.string(),
-      coverage: z.number().min(0).max(1).optional(),
-      condition: z.string().optional(),
-      force: z.unknown().optional(),
-    }),
-  }),
-);
 
 const putRampScheduleValidator = {
   paramsSchema: z.object({ id: z.string() }),
   bodySchema: z.object({
     name: z.string().optional(),
     steps: z.array(rampStep).min(0).optional(),
-    controlledFields: z
-      .array(rampControlledField.exclude(["enabled"]))
-      .optional(),
-    startCondition: z
-      .object({
-        trigger: startTriggerSchema.optional(),
-        actions: actionSchema.optional(),
-      })
-      .optional()
-      .nullable(),
-    disableRuleBefore: z.boolean().optional(),
-    disableRuleAfter: z.boolean().optional(),
+    endActions: z.array(rampStepAction).optional(),
+    // ISO datetime string; null clears startDate (immediate start).
+    startDate: z.string().datetime().optional().nullable(),
     endCondition: z
       .object({
         trigger: z
           .object({ type: z.literal("scheduled"), at: z.string().datetime() })
           .optional(),
-        actions: actionSchema.optional(),
-        endEarlyWhenStepsComplete: z.boolean().optional(),
       })
       .optional()
       .nullable(),
@@ -78,30 +48,9 @@ export const putRampSchedule = createApiRequestHandler(
 
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.controlledFields !== undefined) {
-    updates.targets = schedule.targets.map((t) => ({
-      ...t,
-      controlledFields: body.controlledFields,
-    }));
-  }
-  if (body.startCondition !== undefined) {
-    const sc = body.startCondition;
-    if (!sc) {
-      updates.startCondition = { trigger: { type: "immediately" } };
-    } else {
-      const rawTrigger = sc.trigger;
-      const trigger =
-        rawTrigger?.type === "scheduled"
-          ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-          : (rawTrigger ?? { type: "immediately" as const });
-      updates.startCondition = { trigger, actions: sc.actions ?? undefined };
-    }
-  }
-  if (body.disableRuleBefore !== undefined) {
-    updates.disableRuleBefore = body.disableRuleBefore;
-  }
-  if (body.disableRuleAfter !== undefined) {
-    updates.disableRuleAfter = body.disableRuleAfter;
+  if (body.endActions !== undefined) updates.endActions = body.endActions;
+  if ("startDate" in body) {
+    updates.startDate = body.startDate ? new Date(body.startDate) : undefined;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;
@@ -112,11 +61,7 @@ export const putRampSchedule = createApiRequestHandler(
       const trigger = rawTrigger
         ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
         : undefined;
-      updates.endCondition = {
-        trigger,
-        actions: ec.actions ?? undefined,
-        endEarlyWhenStepsComplete: ec.endEarlyWhenStepsComplete,
-      };
+      updates.endCondition = { trigger };
     }
   }
 
@@ -126,9 +71,9 @@ export const putRampSchedule = createApiRequestHandler(
     endCondition: ("endCondition" in updates
       ? updates.endCondition
       : schedule.endCondition) as RampScheduleInterface["endCondition"],
-    startCondition: ("startCondition" in updates
-      ? updates.startCondition
-      : schedule.startCondition) as RampScheduleInterface["startCondition"],
+    startDate: ("startDate" in updates
+      ? updates.startDate
+      : schedule.startDate) as RampScheduleInterface["startDate"],
   });
 
   const updated = await req.context.models.rampSchedules.updateById(

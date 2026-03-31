@@ -71,7 +71,6 @@ export default function StandardRuleFields({
   conditionKey,
   scheduleToggleEnabled: _scheduleToggleEnabled,
   setScheduleToggleEnabled,
-  featureRampSchedules,
   ruleRampSchedule,
   rampSectionState,
   setRampSectionState,
@@ -89,7 +88,6 @@ export default function StandardRuleFields({
   conditionKey: number;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
-  featureRampSchedules: RampScheduleInterface[];
   ruleRampSchedule: RampScheduleInterface | undefined;
   rampSectionState: RampSectionState;
   setRampSectionState: (s: RampSectionState) => void;
@@ -178,7 +176,6 @@ export default function StandardRuleFields({
             ? {
                 steps: seed.steps,
                 name: seed.name,
-                startPatch: seed.startPatch,
               }
             : {}),
         };
@@ -201,12 +198,8 @@ export default function StandardRuleFields({
         ...rampSectionState,
         mode: ruleRampSchedule ? "edit" : "create",
         steps: [],
-        endEarlyWhenStepsComplete: false,
-        startMode: "immediately",
-        startTime: "",
+        startDate: "",
         endScheduleAt: "",
-        disableRuleBefore: false,
-        disableRuleAfter: false,
       });
     }
   }
@@ -245,13 +238,16 @@ export default function StandardRuleFields({
 
       {/* Scheduling section */}
       <div className="mb-3">
+        <Heading as="h3" size="small" mb="4">
+          Release plan
+        </Heading>
         <RadioGroup
           mb="3"
           gap="2"
           options={[
             {
               value: "none",
-              label: "No schedule",
+              label: "Live immediately",
               description: "Rule is always on when enabled",
             },
             {
@@ -312,7 +308,6 @@ export default function StandardRuleFields({
               <RampScheduleDisplay rs={ruleRampSchedule} />
             ) : (
               <RampScheduleSection
-                featureRampSchedules={featureRampSchedules}
                 ruleRampSchedule={ruleRampSchedule}
                 state={rampSectionState}
                 setState={setRampSectionState}
@@ -326,7 +321,7 @@ export default function StandardRuleFields({
           </>
         )}
       </div>
-      <Separator size="4" my="5" />
+      <Separator size="4" my="6" />
 
       <RolloutPercentInput
         value={form.watch("coverage") ?? 1}

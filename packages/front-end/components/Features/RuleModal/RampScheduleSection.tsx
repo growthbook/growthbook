@@ -9,12 +9,10 @@ import pick from "lodash/pick";
 import { Box, Flex, Separator, IconButton } from "@radix-ui/themes";
 import {
   PiPlusBold,
-  PiCaretRightFill,
   PiInfo,
   PiCaretDownBold,
   PiBookmarkSimple,
 } from "react-icons/pi";
-import Collapsible from "react-collapsible";
 import type {
   FeatureInterface,
   SavedGroupTargeting,
@@ -28,6 +26,7 @@ import {
   TEMPLATE_STRUCTURAL_KEYS,
   type RampStep,
   type FeatureRulePatch,
+  type TemplateEndPatch,
 } from "shared/validators";
 import type { RevisionRampCreateAction } from "shared/src/validators/features";
 import { date as formatDate } from "shared/src/dates";
@@ -46,7 +45,6 @@ import DatePicker from "@/components/DatePicker";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
-import Checkbox from "@/ui/Checkbox";
 import ConditionInput from "@/components/Features/ConditionInput";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
@@ -105,24 +103,17 @@ export type UIStep = {
 };
 
 export type RampMode = "off" | "create" | "edit" | "link";
-export type StartMode = "immediately" | "manual" | "specific-time";
 
 export interface RampSectionState {
   mode: RampMode;
   name: string;
-  startMode: StartMode;
-  startTime: string; // ISO datetime, only used when startMode === "specific-time"
-  startPatch: UIStepPatch; // patch applied when the ramp starts (e.g. coverage: 0)
-  disableRuleBefore: boolean;
-  disableRuleAfter: boolean;
-  // true = complete when steps finish (ramp-up); false = hold until end date (scheduled rule)
-  endEarlyWhenStepsComplete: boolean;
+  // ISO datetime string — "" means start immediately; non-empty means delayed start.
+  startDate: string;
   steps: UIStep[];
-  endScheduleAt: string; // "" = automatic end; non-empty = specific time
+  endScheduleAt: string; // "" = no end date; non-empty = specific end time (standard schedules only)
   endPatch: UIStepPatch;
   linkedRampId: string;
   // Per-row "additional effects" expansion state (force / condition / savedGroups / prerequisites).
-  startAdditionalEffectsOpen: boolean;
   endAdditionalEffectsOpen: boolean;
   // Note: per-step open state lives on UIStep.additionalEffectsOpen
 }
@@ -156,7 +147,6 @@ export function scrubRampStateForRuleType(
     pick(p, ["coverage", ...VALID_STEP_FIELDS]) as UIStepPatch; // coverage is always ramp-controlled
   return {
     ...state,
-    startPatch: scrub(state.startPatch),
     endPatch: scrub(state.endPatch),
     steps: state.steps.map((s) => ({ ...s, patch: scrub(s.patch) })),
   };
@@ -166,7 +156,7 @@ export function isRampSectionConfigured(state: RampSectionState): boolean {
   return (
     state.mode !== "create" ||
     state.steps.length > 0 ||
-    state.startMode === "specific-time" ||
+    !!state.startDate ||
     !!state.endScheduleAt
   );
 }
@@ -213,6 +203,23 @@ export function buildPatch(
   return out;
 }
 
+// Builds the endActions array for a single inline target using the "t1" placeholder.
+export function buildEndActions(
+  endPatch: UIStepPatch,
+  ruleId: string,
+): RampStepAction[] {
+  const patch = buildPatch(endPatch, ruleId);
+  const isEmpty = Object.keys(patch).length <= 1; // only ruleId
+  if (isEmpty) return [];
+  return [
+    {
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch,
+    },
+  ];
+}
+
 // Immutably sets or removes a field from a patch.
 // value === undefined → delete key (step inherits from previous step).
 // any other value → set key (step explicitly controls this field).
@@ -241,7 +248,7 @@ export function buildRampSteps(
         s.triggerType === "interval"
           ? {
               type: "interval" as const,
-              seconds: s.intervalValue * UNIT_MULT[s.intervalUnit],
+              seconds: Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit],
             }
           : { type: "approval" as const },
       actions: [{ targetType: "feature-rule" as const, targetId, patch }],
@@ -252,11 +259,11 @@ export function buildRampSteps(
   });
 }
 
-export function buildStartActions(
+export const buildEndScheduleActions = (
   patch: UIStepPatch,
   targetId: string,
   ruleId: string,
-): RampStepAction[] {
+): RampStepAction[] => {
   const hasAny = Object.values(patch).some((v) => v !== undefined);
   if (!hasAny) return [];
   return [
@@ -266,9 +273,7 @@ export function buildStartActions(
       patch: buildPatch(patch, ruleId) as RampStepAction["patch"],
     },
   ];
-}
-
-export const buildEndScheduleActions = buildStartActions;
+};
 
 // ── Template structural comparison helpers ────────────────────────────────────
 
@@ -292,34 +297,14 @@ function normalizeActions(
 }
 
 // Normalize structural fields so null/undefined/[] and legacy extra patch fields compare equally.
+// Start and end node configuration is intentionally excluded — templates only define intermediate
+// steps, and start/end timing or actions are always configured per-instance.
 function normalizeStructural(p: Record<string, unknown>) {
   const steps = ((p.steps as { actions: unknown[] }[]) ?? []).map((s) => ({
     ...s,
     actions: normalizeActions(s.actions as never) ?? [],
   }));
-  const sc = p.startCondition as
-    | { trigger: unknown; actions?: unknown[] }
-    | null
-    | undefined;
-  const ec = p.endCondition as
-    | {
-        trigger?: unknown;
-        actions?: unknown[];
-        endEarlyWhenStepsComplete?: boolean;
-      }
-    | null
-    | undefined;
-  return JSON.stringify({
-    steps,
-    startCondition: sc
-      ? { ...sc, actions: normalizeActions(sc.actions as never) }
-      : undefined,
-    endCondition: ec
-      ? { ...ec, actions: normalizeActions(ec.actions as never) }
-      : undefined,
-    disableRuleBefore: p.disableRuleBefore || undefined,
-    disableRuleAfter: p.disableRuleAfter || undefined,
-  });
+  return JSON.stringify({ steps });
 }
 
 export function findMatchingTemplate(
@@ -340,22 +325,6 @@ export function validateRampSectionState(
   state: RampSectionState,
 ): string | null {
   if (state.mode === "off" || state.mode === "link") return null;
-  if (state.startMode === "specific-time" && !state.startTime) {
-    return "A start date is required.";
-  }
-  // endScheduleAt non-empty means the end trigger type is "specific-time".
-  // If it's empty but was intended to be set (user has not filled it in), we can't
-  // detect that from state alone — instead, the DatePicker simply won't submit a date,
-  // which leaves endScheduleAt="". Block only when a specific-time end was expected:
-  // if disableRuleAfter is true with no steps and no end date, there's nothing to trigger
-  // the end action and an end date is required.
-  if (
-    state.disableRuleAfter &&
-    state.endScheduleAt === "" &&
-    state.steps.length === 0
-  ) {
-    return "An end date is required.";
-  }
   return null;
 }
 
@@ -391,7 +360,6 @@ export function activeFieldsFromState(state: RampSectionState): Set<StepField> {
       if (p[f] !== undefined) fields.add(f);
     }
   };
-  scan(state.startPatch);
   state.steps.forEach((s) => scan(s.patch));
   scan(state.endPatch);
   return fields;
@@ -402,7 +370,6 @@ const POLL_INTERVAL_SECONDS = 60;
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface Props {
-  featureRampSchedules: RampScheduleInterface[];
   ruleRampSchedule: RampScheduleInterface | undefined;
   state: RampSectionState;
   setState: (s: RampSectionState) => void;
@@ -424,7 +391,6 @@ interface Props {
 }
 
 export default function RampScheduleSection({
-  featureRampSchedules: _featureRampSchedules,
   ruleRampSchedule,
   state,
   setState,
@@ -438,9 +404,9 @@ export default function RampScheduleSection({
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
 
-  const [openMenuIndex, setOpenMenuIndex] = useState<
-    number | "start" | "end" | null
-  >(null);
+  const [openMenuIndex, setOpenMenuIndex] = useState<number | "end" | null>(
+    null,
+  );
 
   // Auto-switch to "create" mode when opening a ramp editor with no existing ramp
   useEffect(() => {
@@ -451,10 +417,6 @@ export default function RampScheduleSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ruleRampSchedule, state.mode]);
 
-  const [moreOptionsOpen, setMoreOptionsOpen] = useState(() => {
-    if (state.disableRuleBefore || state.disableRuleAfter) return true;
-    return activeFieldsFromState(state).size > 1;
-  });
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
   const hasRampSchedulesFeature = hasCommercialFeature("ramp-schedules");
@@ -492,15 +454,21 @@ export default function RampScheduleSection({
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   function patchState(partial: Partial<RampSectionState>) {
-    setSelectedTemplateId("");
-    setState({ ...state, ...partial });
+    const newState = { ...state, ...partial };
+    if (
+      selectedTemplateId &&
+      findMatchingTemplate(newState, templates) !== selectedTemplateId
+    ) {
+      setSelectedTemplateId("");
+    }
+    setState(newState);
   }
 
   // Active fields: coverage always + any field set in any step/start/end patch.
   const activeFields = useMemo<Set<StepField>>(
     () => activeFieldsFromState(state),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.steps, state.startPatch, state.endPatch],
+    [state.steps, state.endPatch],
   );
 
   // ── Step mutations ──────────────────────────────────────────────────────────
@@ -538,11 +506,10 @@ export default function RampScheduleSection({
     return { intervalValue: 10, intervalUnit: "minutes" };
   }
 
-  function addStepAfter(afterIndex: number | "start") {
-    const prev = afterIndex === "start" ? undefined : state.steps[afterIndex];
-    const prevCoverage =
-      afterIndex === "start" ? state.startPatch.coverage : prev?.patch.coverage;
-    const insertAt = afterIndex === "start" ? 0 : afterIndex + 1;
+  function addStepAfter(afterIndex: number) {
+    const prev = state.steps[afterIndex];
+    const prevCoverage = prev?.patch.coverage;
+    const insertAt = afterIndex + 1;
     const interval =
       prev?.triggerType === "interval"
         ? { intervalValue: prev.intervalValue, intervalUnit: prev.intervalUnit }
@@ -605,11 +572,6 @@ export default function RampScheduleSection({
   // ── Step grid ─────────────────────────────────────────────────────────────
 
   function renderStepGrid() {
-    const endTriggerType = state.endScheduleAt
-      ? state.endEarlyWhenStepsComplete
-        ? "on-or-before"
-        : "on"
-      : "automatic";
     const hasAdditionalEffects = activeFields.size > 1;
     const rowBorder: React.CSSProperties = hasAdditionalEffects
       ? { borderBottom: "1px solid var(--gray-a6)" }
@@ -627,7 +589,11 @@ export default function RampScheduleSection({
     ) {
       if (!open) return null;
 
-      const fieldsNotInPatch = VALID_STEP_FIELDS.filter((f) => !(f in patch));
+      // Exclude "force" in template mode — it is feature-type-specific and not portable.
+      const templateSafeFields = hideTemplateSave
+        ? VALID_STEP_FIELDS.filter((f) => f !== "force")
+        : VALID_STEP_FIELDS;
+      const fieldsNotInPatch = templateSafeFields.filter((f) => !(f in patch));
 
       return (
         <Box pb="3" style={{ paddingLeft: subRowIndent }}>
@@ -668,7 +634,7 @@ export default function RampScheduleSection({
               </Flex>
             </Flex>
 
-            {"force" in patch && (
+            {"force" in patch && !hideTemplateSave && (
               <Box>
                 <Flex align="center" justify="between" mb="1">
                   <Text
@@ -769,174 +735,6 @@ export default function RampScheduleSection({
       );
     }
 
-    // ── Start anchor row — always visible ────────────────────────────────────
-
-    const START_OPTIONS = [
-      {
-        value: "immediately",
-        label: "Auto start",
-        tooltip: "Starts as soon as the draft is published",
-      },
-      {
-        value: "manual",
-        label: "Manual start",
-        tooltip: "Starts after user confirmation",
-      },
-      {
-        value: "specific-time",
-        label: "Start date",
-        tooltip: "Starts at a specific time after draft is published",
-      },
-    ];
-
-    const startRow = (
-      <div style={rowBorder}>
-        <Flex align="center" gap="4" py="2">
-          <Box style={{ width: COL.num, flexShrink: 0 }}>
-            <Text size="small" weight="medium" color="text-low">
-              start
-            </Text>
-          </Box>
-          {activeFields.has("coverage") && (
-            <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-              <div className={`position-relative ${styles.percentInputWrap}`}>
-                <Field
-                  style={{ width: COL.coverage, minHeight: 38 }}
-                  type="number"
-                  min="0"
-                  max="100"
-                  onFocus={(e) => e.target.select()}
-                  value={String(state.startPatch.coverage ?? 0)}
-                  onChange={(e) =>
-                    patchState({
-                      startPatch: {
-                        ...state.startPatch,
-                        coverage: Math.min(
-                          100,
-                          Math.max(0, parseInt(e.target.value) || 0),
-                        ),
-                      },
-                    })
-                  }
-                />
-                <span>%</span>
-              </div>
-            </Box>
-          )}
-          <Flex
-            align="center"
-            gap="2"
-            style={{ width: COL.trigger + COL.duration, flexShrink: 0 }}
-          >
-            <Box style={{ width: COL.trigger, flexShrink: 0 }}>
-              <SelectField
-                value={state.startMode}
-                options={START_OPTIONS}
-                onChange={(v) => {
-                  const mode = v as StartMode;
-                  if (mode === "immediately" || mode === "manual") {
-                    patchState({ startMode: mode, startTime: "" });
-                  } else {
-                    const d = new Date();
-                    d.setSeconds(0, 0);
-                    patchState({
-                      startMode: mode,
-                      startTime: d.toISOString().slice(0, 16),
-                    });
-                  }
-                }}
-                containerClassName="mb-0"
-                containerStyle={{ minHeight: 38 }}
-                useMultilineLabels
-                formatOptionLabel={(option, meta) => {
-                  if (meta.context === "value") return <>{option.label}</>;
-                  return (
-                    <div>
-                      <div>{option.label}</div>
-                      {option.tooltip && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "var(--color-text-low)",
-                            marginTop: 1,
-                          }}
-                        >
-                          {option.tooltip}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }}
-              />
-            </Box>
-            {state.startMode === "specific-time" && (
-              <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <DatePicker
-                  date={state.startTime || undefined}
-                  setDate={(d) =>
-                    patchState({ startTime: d ? d.toISOString() : "" })
-                  }
-                  precision="datetime"
-                  containerClassName="mb-0"
-                />
-              </Box>
-            )}
-          </Flex>
-          <Box flexGrow="1" />
-          <DropdownMenu
-            open={openMenuIndex === "start"}
-            onOpenChange={(o) => setOpenMenuIndex(o ? "start" : null)}
-            trigger={
-              <IconButton
-                type="button"
-                variant="ghost"
-                color="gray"
-                radius="full"
-                size="2"
-                highContrast
-              >
-                <BsThreeDotsVertical size={18} />
-              </IconButton>
-            }
-            variant="soft"
-            menuPlacement="end"
-          >
-            {!state.startAdditionalEffectsOpen ? (
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOpenMenuIndex(null);
-                    patchState({ startAdditionalEffectsOpen: true });
-                  }}
-                >
-                  Add additional effects
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            ) : null}
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenMenuIndex(null);
-                  addStepAfter("start");
-                }}
-              >
-                Add step after
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenu>
-        </Flex>
-        {renderPatchSubRows(
-          state.startPatch,
-          (field, value) =>
-            patchState({
-              startPatch: setPatchField(state.startPatch, field, value),
-            }),
-          "start",
-          state.startAdditionalEffectsOpen,
-        )}
-      </div>
-    );
-
     // ── End anchor row — always visible ──────────────────────────────────────
 
     const endRow = (
@@ -973,89 +771,7 @@ export default function RampScheduleSection({
               </div>
             </Box>
           )}
-          <Flex
-            align="center"
-            gap="2"
-            style={{ width: COL.trigger + COL.duration, flexShrink: 0 }}
-          >
-            <Box style={{ width: COL.trigger, flexShrink: 0 }}>
-              <SelectField
-                value={endTriggerType}
-                options={[
-                  {
-                    value: "automatic",
-                    label: "Complete",
-                    tooltip: "Ends after all steps complete",
-                  },
-                  {
-                    value: "on",
-                    label: "End date",
-                    tooltip: "Ends at a specific time",
-                  },
-                  {
-                    value: "on-or-before",
-                    label: "On or before",
-                    tooltip:
-                      "Ends either when all steps finish or at a specific time",
-                  },
-                ]}
-                onChange={(v) => {
-                  if (v === "automatic") {
-                    patchState({
-                      endScheduleAt: "",
-                      endEarlyWhenStepsComplete: false,
-                    });
-                  } else {
-                    const d = new Date();
-                    d.setSeconds(0, 0);
-                    patchState({
-                      endScheduleAt: d.toISOString().slice(0, 16),
-                      endEarlyWhenStepsComplete: v === "on-or-before",
-                    });
-                  }
-                }}
-                containerClassName="mb-0"
-                containerStyle={{ minHeight: 38 }}
-                useMultilineLabels
-                formatOptionLabel={(option, meta) => {
-                  if (meta.context === "value") return <>{option.label}</>;
-                  return (
-                    <div>
-                      <div>{option.label}</div>
-                      {option.tooltip && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "var(--color-text-low)",
-                            marginTop: 1,
-                          }}
-                        >
-                          {option.tooltip}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }}
-              />
-            </Box>
-            {(endTriggerType === "on" || endTriggerType === "on-or-before") && (
-              <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <DatePicker
-                  date={state.endScheduleAt || undefined}
-                  setDate={(d) =>
-                    patchState({ endScheduleAt: d ? d.toISOString() : "" })
-                  }
-                  precision="datetime"
-                  containerClassName="mb-0"
-                />
-              </Box>
-            )}
-          </Flex>
           <Box flexGrow="1" />
-          <Link size="2" onClick={addStep}>
-            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-            Add step
-          </Link>
           <DropdownMenu
             open={openMenuIndex === "end"}
             onOpenChange={(o) => setOpenMenuIndex(o ? "end" : null)}
@@ -1102,8 +818,49 @@ export default function RampScheduleSection({
       </div>
     );
 
+    const START_OPTIONS = [
+      { value: "immediately", label: "Immediately" },
+      { value: "on-date", label: "On date" },
+    ];
+
     return (
       <Box>
+        {/* Start ramp-up control — hidden for templates (no startDate on templates) */}
+        {!hideTemplateSave && (
+          <Flex align="center" gap="3" my="5">
+            <Box style={{ width: 34 }}>
+              <Text size="small" weight="medium" color="text-low">
+                Start
+              </Text>
+            </Box>
+            <SelectField
+              value={state.startDate ? "on-date" : "immediately"}
+              options={START_OPTIONS}
+              onChange={(v) => {
+                if (v === "immediately") {
+                  patchState({ startDate: "" });
+                } else {
+                  const d = new Date();
+                  d.setSeconds(0, 0);
+                  patchState({ startDate: d.toISOString().slice(0, 16) });
+                }
+              }}
+              containerClassName="mb-0"
+              containerStyle={{ minHeight: 34, width: 150 }}
+            />
+            {state.startDate && (
+              <DatePicker
+                date={state.startDate || undefined}
+                setDate={(d) =>
+                  patchState({ startDate: d ? d.toISOString() : "" })
+                }
+                precision="datetime"
+                containerClassName="mb-0"
+              />
+            )}
+          </Flex>
+        )}
+
         {/* Header row — no label for details column (datetime / interval / text) */}
         <Flex
           align="center"
@@ -1115,12 +872,10 @@ export default function RampScheduleSection({
           {activeFields.has("coverage") && (
             <ColHeader width={COL.coverage}>Rollout %</ColHeader>
           )}
-          <ColHeader width={COL.trigger}>Wait for</ColHeader>
+          <ColHeader width={COL.trigger}>Action</ColHeader>
           <Box flexGrow="1" />
           {saveTemplateButton}
         </Flex>
-
-        {startRow}
 
         {state.steps.map((step, i) => {
           return (
@@ -1242,7 +997,7 @@ export default function RampScheduleSection({
                         value={String(step.intervalValue)}
                         onChange={(e) =>
                           updateStep(i, {
-                            intervalValue: parseInt(e.target.value) || 1,
+                            intervalValue: parseInt(e.target.value) || 0,
                           })
                         }
                         onBlur={(e) =>
@@ -1358,18 +1113,22 @@ export default function RampScheduleSection({
                       Add step after
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => {
-                        setOpenMenuIndex(null);
-                        removeStep(i);
-                      }}
-                    >
-                      Remove step
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
+                  {i > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setOpenMenuIndex(null);
+                            removeStep(i);
+                          }}
+                        >
+                          Remove step
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
                 </DropdownMenu>
               </Flex>
 
@@ -1383,40 +1142,14 @@ export default function RampScheduleSection({
           );
         })}
 
-        {endRow}
-
-        <Box mt="4" mb="2">
-          <Collapsible
-            open={moreOptionsOpen}
-            transitionTime={100}
-            trigger={
-              <a
-                className="link-purple"
-                onClick={() => setMoreOptionsOpen(!moreOptionsOpen)}
-              >
-                <PiCaretRightFill className="chevron mr-1" />
-                More options
-              </a>
-            }
-          >
-            <Box mt="3">
-              <Box display="inline-block">
-                <Flex direction="column" gap="2">
-                  <Checkbox
-                    value={state.disableRuleBefore ?? false}
-                    setValue={(v) => patchState({ disableRuleBefore: v })}
-                    label="Hide rule before start"
-                  />
-                  <Checkbox
-                    value={state.disableRuleAfter ?? false}
-                    setValue={(v) => patchState({ disableRuleAfter: v })}
-                    label="Hide rule at end"
-                  />
-                </Flex>
-              </Box>
-            </Box>
-          </Collapsible>
+        <Box py="1">
+          <Link size="2" onClick={addStep}>
+            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+            Add step
+          </Link>
         </Box>
+
+        {endRow}
       </Box>
     );
   }
@@ -1443,7 +1176,6 @@ export default function RampScheduleSection({
       state.mode === "off" && !ruleRampSchedule ? "create" : state.mode;
     const newState = templateToSectionState(
       tmpl,
-      feature,
       resolvedMode === "edit" ? "edit" : "create",
     );
     // Preserve force values — templates never carry force values, so applying
@@ -1459,7 +1191,8 @@ export default function RampScheduleSection({
       ...newState,
       mode: resolvedMode,
       linkedRampId: state.linkedRampId,
-      startPatch: mergeForce(newState.startPatch, state.startPatch),
+      // Preserve start date — templates don't carry timing info
+      startDate: state.startDate,
       endPatch: mergeForce(newState.endPatch, state.endPatch),
       steps: newState.steps.map((s, i) => ({
         ...s,
@@ -1506,7 +1239,7 @@ export default function RampScheduleSection({
   );
 
   const templateControls =
-    hasRampSchedulesFeature && !hideTemplateSave ? (
+  templates.length > 0 && hasRampSchedulesFeature && !hideTemplateSave ? (
       <Flex direction="column" gap="1" mt="5" mb="5">
         <Text as="div" weight="semibold" mb="1">
           Use template
@@ -1530,7 +1263,7 @@ export default function RampScheduleSection({
           >
             Custom...
           </DropdownMenuItem>
-          {templates.length > 0 && <DropdownMenuSeparator />}
+          <DropdownMenuSeparator />
           {[...templates]
             .sort((a, b) => (b.official ? 1 : 0) - (a.official ? 1 : 0))
             .map((t) => (
@@ -1664,7 +1397,7 @@ export default function RampScheduleSection({
       {state.steps.some(
         (s) =>
           s.triggerType === "interval" &&
-          s.intervalValue * UNIT_MULT[s.intervalUnit] < POLL_INTERVAL_SECONDS,
+          Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit] < POLL_INTERVAL_SECONDS,
       ) && (
         <Callout status="warning" mb="3">
           One or more steps are shorter than the minimum check interval (1 min).
@@ -1840,29 +1573,23 @@ export function reconstructUIStep(step: RampStep): UIStep {
   };
 }
 
+// Reconstructs the endPatch UIStepPatch from stored endActions (first action of the list).
+export function reconstructUIEndPatch(
+  endActions: RampScheduleInterface["endActions"],
+): UIStepPatch {
+  if (!endActions?.length) return { coverage: 100 };
+  return reconstructUIPatch(endActions[0]?.patch);
+}
+
 // Builds a RampSectionState from an existing RampScheduleInterface for editing.
 export function rampScheduleToSectionState(
   rs: RampScheduleInterface,
 ): RampSectionState {
-  const trigger = rs.startCondition?.trigger;
-  const startPatch = reconstructUIPatch(rs.startCondition?.actions?.[0]?.patch);
-  const endPatch = reconstructUIPatch(rs.endCondition?.actions?.[0]?.patch);
+  const endPatch = reconstructUIEndPatch(rs.endActions);
   return {
     mode: "edit",
     name: rs.name,
-    startMode:
-      trigger?.type === "scheduled"
-        ? "specific-time"
-        : trigger?.type === "manual"
-          ? "manual"
-          : "immediately",
-    startTime:
-      trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    startPatch,
-    disableRuleBefore: rs.disableRuleBefore ?? false,
-    disableRuleAfter: rs.disableRuleAfter ?? false,
-    endEarlyWhenStepsComplete:
-      rs.endCondition?.endEarlyWhenStepsComplete ?? true,
+    startDate: rs.startDate ? new Date(rs.startDate).toISOString() : "",
     steps: rs.steps.map(reconstructUIStep),
     endScheduleAt:
       rs.endCondition?.trigger?.type === "scheduled"
@@ -1870,12 +1597,9 @@ export function rampScheduleToSectionState(
         : "",
     endPatch,
     linkedRampId: rs.id,
-    startAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
-      (f) => startPatch[f] !== undefined,
-    ),
-    endAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
-      (f) => endPatch[f] !== undefined,
-    ),
+    endAdditionalEffectsOpen:
+      VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
+      (endPatch.coverage !== undefined && endPatch.coverage !== 100),
   };
 }
 
@@ -1888,15 +1612,19 @@ export function defaultRampSectionState(
   return {
     mode: "off",
     name: `ramp-up ${formatDate(new Date())}`,
-    startMode: "immediately" as StartMode,
-    startTime: "",
-    startPatch: { coverage: 0 },
-    disableRuleBefore: false,
-    disableRuleAfter: false,
-    endEarlyWhenStepsComplete: true,
+    startDate: "",
     steps: [
       {
-        patch: { coverage: 10 },
+        patch: { coverage: 0 },
+        triggerType: "approval",
+        intervalValue: 1,
+        intervalUnit: "hours",
+        approvalNotes: "",
+        notesOpen: false,
+        additionalEffectsOpen: false,
+      },
+      {
+        patch: { coverage: 50 },
         triggerType: "interval",
         intervalValue: 1,
         intervalUnit: "hours",
@@ -1908,7 +1636,6 @@ export function defaultRampSectionState(
     endScheduleAt: "",
     endPatch: { coverage: 100 },
     linkedRampId: "",
-    startAdditionalEffectsOpen: false,
     endAdditionalEffectsOpen: false,
   };
 }
@@ -1921,28 +1648,11 @@ export function defaultRampSectionState(
 export function createActionToSectionState(
   action: RevisionRampCreateAction,
 ): RampSectionState {
-  const trigger = action.startCondition?.trigger;
-  const startMode: StartMode =
-    trigger?.type === "scheduled"
-      ? "specific-time"
-      : trigger?.type === "manual"
-        ? "manual"
-        : "immediately";
-  const startPatch = reconstructUIPatch(
-    action.startCondition?.actions?.[0]?.patch,
-  );
-  const endPatch = reconstructUIPatch(action.endCondition?.actions?.[0]?.patch);
+  const endPatch = reconstructUIEndPatch(action.endActions);
   return {
     mode: "create",
     name: action.name,
-    startMode,
-    startTime:
-      trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    startPatch,
-    disableRuleBefore: action.disableRuleBefore ?? false,
-    disableRuleAfter: action.disableRuleAfter ?? false,
-    endEarlyWhenStepsComplete:
-      action.endCondition?.endEarlyWhenStepsComplete ?? true,
+    startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
     steps: action.steps.map(reconstructUIStep),
     endScheduleAt:
       action.endCondition?.trigger?.type === "scheduled"
@@ -1950,12 +1660,9 @@ export function createActionToSectionState(
         : "",
     endPatch,
     linkedRampId: "",
-    startAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
-      (f) => startPatch[f] !== undefined,
-    ),
-    endAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
-      (f) => endPatch[f] !== undefined,
-    ),
+    endAdditionalEffectsOpen:
+      VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
+      (endPatch.coverage !== undefined && endPatch.coverage !== 100),
   };
 }
 
@@ -1979,67 +1686,26 @@ export function forceValueMatchesFeatureType(
 
 /**
  * Converts a `RampScheduleTemplateInterface` into a `RampSectionState`.
- * Filters out `force` values that are incompatible with the feature's valueType.
  */
 export function templateToSectionState(
   template: RampScheduleTemplateInterface,
-  feature: FeatureInterface,
   mode: "create" | "edit" = "create",
 ): RampSectionState {
-  function filterPatch(
-    actions: RampScheduleTemplateInterface["steps"][number]["actions"],
-  ): UIStepPatch {
-    const patch = actions[0]?.patch;
-    if (!patch) return {};
-    const p = reconstructUIPatch(patch);
-    if (p.force !== undefined) {
-      let parsedForce: unknown = p.force;
-      try {
-        parsedForce = JSON.parse(p.force as string);
-      } catch {
-        // keep raw string value
-      }
-      if (!forceValueMatchesFeatureType(parsedForce, feature.valueType)) {
-        delete p.force;
-      }
-    }
-    return p;
-  }
-
-  const trigger = template.startCondition?.trigger;
-  const startMode: StartMode =
-    trigger?.type === "scheduled"
-      ? "specific-time"
-      : trigger?.type === "manual"
-        ? "manual"
-        : "immediately";
-  const startPatch = filterPatch(template.startCondition?.actions ?? []);
-  const endPatch = filterPatch(template.endCondition?.actions ?? []);
-
+  const rawEndPatch = template.endPatch;
+  const endPatch: UIStepPatch = rawEndPatch
+    ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
+    : { coverage: 100 };
   return {
     mode,
     name: template.name,
-    startMode,
-    startTime:
-      trigger?.type === "scheduled" ? new Date(trigger.at).toISOString() : "",
-    startPatch,
-    disableRuleBefore: template.disableRuleBefore ?? false,
-    disableRuleAfter: template.disableRuleAfter ?? false,
-    endEarlyWhenStepsComplete:
-      template.endCondition?.endEarlyWhenStepsComplete ?? true,
+    startDate: "",
     steps: template.steps.map(reconstructUIStep),
-    endScheduleAt:
-      template.endCondition?.trigger?.type === "scheduled"
-        ? new Date(template.endCondition.trigger.at).toISOString()
-        : "",
+    endScheduleAt: "",
     endPatch,
     linkedRampId: "",
-    startAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
-      (f) => startPatch[f] !== undefined,
-    ),
-    endAdditionalEffectsOpen: VALID_STEP_FIELDS.some(
-      (f) => endPatch[f] !== undefined,
-    ),
+    endAdditionalEffectsOpen:
+      VALID_STEP_FIELDS.some((f) => endPatch[f] !== undefined) ||
+      (endPatch.coverage !== undefined && endPatch.coverage !== 100),
   };
 }
 
@@ -2076,51 +1742,17 @@ export function buildTemplatePayload(
     actions: stripIds(s.actions),
   }));
 
-  const startActions = stripIds(
-    buildStartActions(state.startPatch, PLACEHOLDER_TARGET, PLACEHOLDER_RULE),
-  );
-  const endActions = stripIds(
-    buildEndScheduleActions(
-      state.endPatch,
-      PLACEHOLDER_TARGET,
-      PLACEHOLDER_RULE,
-    ),
-  );
-
-  const startTrigger =
-    state.startMode === "manual"
-      ? { type: "manual" as const }
-      : state.startMode === "specific-time" && state.startTime
-        ? { type: "scheduled" as const, at: new Date(state.startTime) }
-        : { type: "immediately" as const };
-
-  const endCondition = state.endScheduleAt
-    ? {
-        trigger: {
-          type: "scheduled" as const,
-          at: new Date(state.endScheduleAt),
-        },
-        actions: endActions.length ? endActions : undefined,
-        endEarlyWhenStepsComplete: state.endEarlyWhenStepsComplete,
-      }
-    : endActions.length
-      ? {
-          actions: endActions,
-          endEarlyWhenStepsComplete: state.endEarlyWhenStepsComplete,
-        }
-      : state.endEarlyWhenStepsComplete !== true
-        ? { endEarlyWhenStepsComplete: state.endEarlyWhenStepsComplete }
-        : undefined;
+  // Build end patch: convert UI scale (0-100) → stored scale (0-1), strip ruleId.
+  const rawEndPatch = buildPatch(state.endPatch, PLACEHOLDER_RULE);
+  const { ruleId: _ruleId, enabled: _enabled, ...endPatchFields } = rawEndPatch;
+  const endPatch: TemplateEndPatch =
+    Object.keys(endPatchFields).length > 0
+      ? (endPatchFields as TemplateEndPatch)
+      : undefined!;
 
   return {
     name: state.name || "template",
     steps,
-    startCondition: {
-      trigger: startTrigger,
-      actions: startActions.length ? startActions : undefined,
-    },
-    disableRuleBefore: state.disableRuleBefore || undefined,
-    disableRuleAfter: state.disableRuleAfter || undefined,
-    endCondition,
+    ...(endPatch ? { endPatch } : {}),
   };
 }

@@ -18,10 +18,6 @@ const VALID_APPROVAL_STEP = {
   actions: [],
 };
 
-const VALID_START_CONDITION = {
-  trigger: { type: "immediately" as const },
-};
-
 function makeSchedule(overrides: Record<string, unknown> = {}) {
   return {
     id: "rs_test",
@@ -33,7 +29,6 @@ function makeSchedule(overrides: Record<string, unknown> = {}) {
     entityId: "feat_1",
     targets: [],
     steps: [VALID_INTERVAL_STEP],
-    startCondition: VALID_START_CONDITION,
     status: "pending",
     currentStepIndex: -1,
     nextStepAt: null,
@@ -156,50 +151,18 @@ describe("rampScheduleValidator — valid documents", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts a schedule with zero steps when a scheduled start trigger is present", () => {
+  it("accepts a schedule with zero steps when startDate is set", () => {
     const at = new Date(Date.now() + 86400_000);
     const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        steps: [],
-        startCondition: { trigger: { type: "scheduled", at } },
-      }),
+      makeSchedule({ steps: [], startDate: at }),
     );
     expect(result.success).toBe(true);
   });
 
-  it("accepts a manual start trigger", () => {
-    const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        startCondition: { trigger: { type: "manual" } },
-      }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts a scheduled start trigger", () => {
+  it("accepts a startDate", () => {
     const at = new Date(Date.now() + 86400_000);
     const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        startCondition: { trigger: { type: "scheduled", at } },
-      }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts startCondition.actions", () => {
-    const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        startCondition: {
-          trigger: { type: "immediately" },
-          actions: [
-            {
-              targetType: "feature-rule",
-              targetId: "t1",
-              patch: { ruleId: "r1", enabled: true },
-            },
-          ],
-        },
-      }),
+      makeSchedule({ startDate: at }),
     );
     expect(result.success).toBe(true);
   });
@@ -210,22 +173,8 @@ describe("rampScheduleValidator — valid documents", () => {
       makeSchedule({
         endCondition: {
           trigger: { type: "scheduled", at },
-          actions: [
-            {
-              targetType: "feature-rule",
-              targetId: "t1",
-              patch: { ruleId: "r1", enabled: false },
-            },
-          ],
         },
       }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it("accepts disableRuleBefore and disableRuleAfter flags", () => {
-    const result = rampScheduleValidator.safeParse(
-      makeSchedule({ disableRuleBefore: true, disableRuleAfter: true }),
     );
     expect(result.success).toBe(true);
   });
@@ -282,11 +231,9 @@ describe("rampScheduleValidator — invalid documents", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects startCondition with an invalid trigger type", () => {
+  it("rejects a zero-step schedule with no startDate and no endCondition trigger", () => {
     const result = rampScheduleValidator.safeParse(
-      makeSchedule({
-        startCondition: { trigger: { type: "on-event", event: "deploy" } },
-      }),
+      makeSchedule({ steps: [] }),
     );
     expect(result.success).toBe(false);
   });
@@ -294,10 +241,7 @@ describe("rampScheduleValidator — invalid documents", () => {
   it("rejects endCondition trigger that is not 'scheduled'", () => {
     const result = rampScheduleValidator.safeParse(
       makeSchedule({
-        endCondition: {
-          trigger: { type: "immediately" },
-          actions: [],
-        },
+        endCondition: { trigger: { type: "immediately" } },
       }),
     );
     expect(result.success).toBe(false);

@@ -1876,6 +1876,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
+            onPublish={() => setVersion(revision.version)}
             experimentsMap={experimentsMap}
             rampSchedules={rampSchedules}
           />
@@ -1887,6 +1888,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
+            onPublish={() => setVersion(revision.version)}
             experimentsMap={experimentsMap}
             rampSchedules={rampSchedules}
           />

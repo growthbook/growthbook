@@ -131,32 +131,15 @@ export default function RuleList({
               },
             ],
             steps: action.steps,
-            startCondition: {
-              trigger:
-                action.startCondition?.trigger?.type === "scheduled"
-                  ? {
-                      type: "scheduled",
-                      at: new Date(action.startCondition.trigger.at),
-                    }
-                  : (action.startCondition?.trigger ?? { type: "immediately" }),
-              actions: action.startCondition?.actions,
-            },
-            endCondition: action.endCondition
+            startDate: action.startDate ? new Date(action.startDate) : undefined,
+            endCondition: action.endCondition?.trigger?.type === "scheduled"
               ? {
-                  trigger:
-                    action.endCondition.trigger?.type === "scheduled"
-                      ? {
-                          type: "scheduled",
-                          at: new Date(action.endCondition.trigger.at),
-                        }
-                      : undefined,
-                  actions: action.endCondition.actions,
-                  endEarlyWhenStepsComplete:
-                    action.endCondition.endEarlyWhenStepsComplete,
+                  trigger: {
+                    type: "scheduled",
+                    at: new Date(action.endCondition.trigger.at),
+                  },
                 }
               : undefined,
-            disableRuleBefore: action.disableRuleBefore,
-            disableRuleAfter: action.disableRuleAfter,
             status: "pending",
             dateCreated: new Date(),
             dateUpdated: new Date(),

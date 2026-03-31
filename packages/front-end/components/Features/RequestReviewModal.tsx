@@ -62,6 +62,7 @@ export default function RequestReviewModal({
   mutate,
   experimentsMap,
   rampSchedules,
+  onPublish,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -183,6 +184,7 @@ export default function RequestReviewModal({
         throw e;
       }
       await mutate();
+      onPublish && onPublish();
       close();
     } else if (canReview) {
       setShowSumbmitReview(true);
@@ -207,19 +209,13 @@ export default function RequestReviewModal({
       const rampConfig = {
         name: ramp.name,
         targets: ramp.targets,
-        startCondition: ramp.startCondition,
+        startDate: ramp.startDate,
         steps: ramp.steps,
         endCondition: ramp.endCondition,
-        disableRuleBefore: ramp.disableRuleBefore,
-        disableRuleAfter: ramp.disableRuleAfter,
       };
-      const startTriggerType = ramp.startCondition?.trigger.type;
-      const startDescription =
-        startTriggerType === "immediately"
-          ? "Starts automatically on publish."
-          : startTriggerType === "manual"
-            ? "Requires manual start after publish."
-            : "Starts at a scheduled date/time.";
+      const startDescription = ramp.startDate
+        ? "Starts at a scheduled date/time."
+        : "Starts automatically on publish.";
       return {
         title: `Ramp Schedule – ${ramp.name}`,
         a: "",
@@ -242,11 +238,9 @@ export default function RequestReviewModal({
             name: action.name,
             environment: action.environment,
             ruleId: action.ruleId,
-            startCondition: action.startCondition,
+            startDate: action.startDate,
             steps: action.steps,
             endCondition: action.endCondition,
-            disableRuleBefore: action.disableRuleBefore,
-            disableRuleAfter: action.disableRuleAfter,
           };
           return {
             title: `Ramp Schedule – ${action.name} (pending creation)`,

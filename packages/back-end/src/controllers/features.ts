@@ -1826,13 +1826,11 @@ export async function postFeatureRule(
         name: rampSchedulePayload.name,
         environment: rampSchedulePayload.environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        startCondition:
-          rampSchedulePayload.startCondition as RevisionRampCreateAction["startCondition"],
-        disableRuleBefore: rampSchedulePayload.disableRuleBefore,
-        disableRuleAfter: rampSchedulePayload.disableRuleAfter,
+        endActions: rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        startDate:
+          rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
-        controlledFields: rampSchedulePayload.controlledFields,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -2664,13 +2662,11 @@ export async function putFeatureRule(
         name: rampSchedulePayload.name,
         environment: rampSchedulePayload.environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
-        startCondition:
-          rampSchedulePayload.startCondition as RevisionRampCreateAction["startCondition"],
-        disableRuleBefore: rampSchedulePayload.disableRuleBefore,
-        disableRuleAfter: rampSchedulePayload.disableRuleAfter,
+        endActions: rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        startDate:
+          rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
         endCondition: (rampSchedulePayload.endCondition ??
           undefined) as RevisionRampCreateAction["endCondition"],
-        controlledFields: rampSchedulePayload.controlledFields,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -2772,29 +2768,11 @@ export async function putFeatureRule(
           actions: (step.actions ?? []).map(remapT1),
         }));
       }
-      if (rampSchedulePayload.startCondition !== undefined) {
-        const sc = rampSchedulePayload.startCondition;
-        if (!sc) {
-          updates.startCondition = { trigger: { type: "immediately" } };
-        } else {
-          const rawTrigger = sc.trigger;
-          const trigger =
-            rawTrigger?.type === "scheduled"
-              ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-              : (rawTrigger ?? { type: "immediately" as const });
-          const remappedActions = (sc.actions ?? []).map(remapT1);
-          updates.startCondition = {
-            trigger,
-            actions: remappedActions.length ? remappedActions : undefined,
-          };
-        }
+      if ("startDate" in rampSchedulePayload) {
+        updates.startDate = rampSchedulePayload.startDate
+          ? new Date(rampSchedulePayload.startDate)
+          : undefined;
       }
-      if (rampSchedulePayload.disableRuleBefore !== undefined)
-        updates.disableRuleBefore =
-          rampSchedulePayload.disableRuleBefore ?? undefined;
-      if (rampSchedulePayload.disableRuleAfter !== undefined)
-        updates.disableRuleAfter =
-          rampSchedulePayload.disableRuleAfter ?? undefined;
       if (rampSchedulePayload.endCondition !== undefined) {
         const ec = rampSchedulePayload.endCondition;
         if (!ec) {
@@ -2804,19 +2782,11 @@ export async function putFeatureRule(
           const trigger = rawTrigger
             ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
             : undefined;
-          const remappedActions = (ec.actions ?? []).map(remapT1);
-          updates.endCondition = {
-            trigger,
-            actions: remappedActions.length ? remappedActions : undefined,
-            endEarlyWhenStepsComplete: ec.endEarlyWhenStepsComplete,
-          };
+          updates.endCondition = { trigger };
         }
       }
-      if (rampSchedulePayload.controlledFields !== undefined) {
-        updates.targets = existing.targets.map((t) => ({
-          ...t,
-          controlledFields: rampSchedulePayload.controlledFields,
-        }));
+      if (rampSchedulePayload.endActions !== undefined) {
+        updates.endActions = rampSchedulePayload.endActions;
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }

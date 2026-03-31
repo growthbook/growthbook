@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import {
-  rampControlledField,
   rampStep,
+  rampStepAction,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
@@ -10,12 +10,6 @@ import {
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-
-const startTriggerSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("immediately") }),
-  z.object({ type: z.literal("manual") }),
-  z.object({ type: z.literal("scheduled"), at: z.string().datetime() }),
-]);
 
 const postRampScheduleValidator = {
   bodySchema: z.object({
@@ -26,18 +20,15 @@ const postRampScheduleValidator = {
     ruleId: z.string(),
     environment: z.string(),
     steps: z.array(rampStep).min(0).optional(),
-    controlledFields: z
-      .array(rampControlledField.exclude(["enabled"]))
-      .optional(),
-    startCondition: z.object({ trigger: startTriggerSchema }).optional(),
-    disableRuleBefore: z.boolean().optional(),
-    disableRuleAfter: z.boolean().optional(),
+    endActions: z.array(rampStepAction).optional(),
+    // ISO datetime string. If set, the rule stays disabled until this date, then Step 1 fires.
+    // Absent/null means start immediately when the schedule transitions to "ready".
+    startDate: z.string().datetime().optional().nullable(),
     endCondition: z
       .object({
         trigger: z
           .object({ type: z.literal("scheduled"), at: z.string().datetime() })
           .optional(),
-        endEarlyWhenStepsComplete: z.boolean().optional(),
       })
       .optional(),
     // Optional: load and apply a template as defaults; explicit body fields take precedence.
@@ -130,24 +121,8 @@ export const postRampSchedule = createApiRequestHandler(
   }
 
   const targetId = uuidv4();
-  const enabledPatch = { ruleId: body.ruleId, enabled: true as const };
-  const disabledPatch = { ruleId: body.ruleId, enabled: false as const };
 
-  // Merge template defaults with explicit body fields (body takes precedence)
-  const resolvedDisableBefore =
-    body.disableRuleBefore ?? template?.disableRuleBefore;
-  const resolvedDisableAfter =
-    body.disableRuleAfter ?? template?.disableRuleAfter;
-
-  const rawStartTrigger =
-    body.startCondition?.trigger ?? template?.startCondition?.trigger;
-  const startTrigger =
-    rawStartTrigger?.type === "scheduled"
-      ? {
-          type: "scheduled" as const,
-          at: new Date(rawStartTrigger.at as string | Date),
-        }
-      : (rawStartTrigger ?? { type: "immediately" as const });
+  const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
   const resolvedSteps = body.steps
     ? body.steps
@@ -161,34 +136,8 @@ export const postRampSchedule = createApiRequestHandler(
         ),
       }));
 
-  const resolvedControlledFields = body.controlledFields ?? [];
-
-  // Template start condition actions (may include force values needing filtering)
-  const templateStartActions = template?.startCondition?.actions
-    ? remapTemplateActions(
-        template.startCondition.actions,
-        targetId,
-        body.ruleId,
-        feature.valueType,
-      )
-    : undefined;
-
-  const startActions = resolvedDisableBefore
-    ? [{ targetType: "feature-rule" as const, targetId, patch: enabledPatch }]
-    : templateStartActions?.length
-      ? templateStartActions
-      : undefined;
-
-  const endActions = resolvedDisableAfter
-    ? [{ targetType: "feature-rule" as const, targetId, patch: disabledPatch }]
-    : undefined;
-
   // Resolve end condition from body or template
-  const rawEndTrigger =
-    body.endCondition?.trigger ??
-    (template?.endCondition?.trigger?.type === "scheduled"
-      ? template.endCondition.trigger
-      : undefined);
+  const rawEndTrigger = body.endCondition?.trigger;
   const endTrigger = rawEndTrigger
     ? {
         type: "scheduled" as const,
@@ -196,34 +145,7 @@ export const postRampSchedule = createApiRequestHandler(
       }
     : undefined;
 
-  const resolvedEndEarlyWhenStepsComplete =
-    body.endCondition?.endEarlyWhenStepsComplete ??
-    template?.endCondition?.endEarlyWhenStepsComplete;
-
-  // Template end condition actions
-  const templateEndActions = template?.endCondition?.actions
-    ? remapTemplateActions(
-        template.endCondition.actions,
-        targetId,
-        body.ruleId,
-        feature.valueType,
-      )
-    : undefined;
-
-  const mergedEndActions = endActions ?? templateEndActions;
-
-  const endConditionBase =
-    endTrigger || mergedEndActions?.length
-      ? { trigger: endTrigger, actions: mergedEndActions }
-      : undefined;
-  const endCondition = endConditionBase
-    ? {
-        ...endConditionBase,
-        endEarlyWhenStepsComplete: resolvedEndEarlyWhenStepsComplete,
-      }
-    : resolvedEndEarlyWhenStepsComplete !== undefined
-      ? { endEarlyWhenStepsComplete: resolvedEndEarlyWhenStepsComplete }
-      : undefined;
+  const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name,
@@ -237,19 +159,17 @@ export const postRampSchedule = createApiRequestHandler(
         ruleId: body.ruleId,
         environment: body.environment,
         status: "active",
-        controlledFields: resolvedControlledFields,
       },
     ],
     steps: resolvedSteps,
-    startCondition: { trigger: startTrigger, actions: startActions },
-    disableRuleBefore: resolvedDisableBefore,
-    disableRuleAfter: resolvedDisableAfter,
+    endActions: body.endActions,
+    startDate,
     endCondition,
     // Rule is already published — schedule is immediately eligible to start
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
-    nextProcessAt: startTrigger.type === "scheduled" ? startTrigger.at : null,
+    nextProcessAt: startDate ?? null,
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"

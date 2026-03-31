@@ -59,12 +59,36 @@ properties:
         activatingRevisionVersion:
           type: integer
           description: "Feature revision version that activates this ramp; cleared once published"
-        controlledFields:
-          type: array
-          items:
-            type: string
-            enum: ["coverage", "condition", "savedGroups", "prerequisites", "force"]
-          description: "Rule fields this ramp manages. Absent controlled fields in any step's patch are cleared when that step applies. The 'enabled' field is managed automatically via disableRuleBefore/disableRuleAfter."
+  endActions:
+    type: array
+    description: "Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state."
+    items:
+      type: object
+      required:
+        - targetType
+        - targetId
+        - patch
+      properties:
+        targetType:
+          type: string
+          enum: ["feature-rule"]
+        targetId:
+          type: string
+        patch:
+          type: object
+          required:
+            - ruleId
+          properties:
+            ruleId:
+              type: string
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            condition:
+              type: string
+            force:
+              description: "Force value (any JSON type)"
   steps:
     type: array
     description: "Ordered ramp steps"
@@ -120,31 +144,14 @@ properties:
                     description: "Force value (any JSON type)"
         approvalNotes:
           type: string
-  startCondition:
-    type: object
-    description: "When and how the ramp starts"
-    required:
-      - trigger
-    properties:
-      trigger:
-        type: object
-        required:
-          - type
-        properties:
-          type:
-            type: string
-            enum: ["immediately", "manual", "scheduled"]
-          at:
-            type: string
-            format: date-time
-      actions:
-        type: array
-        description: "Baseline state applied on ramp start"
-        items:
-          type: object
+  startDate:
+    type: string
+    format: date-time
+    nullable: true
+    description: "When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time."
   endCondition:
     type: object
-    description: "Optional hard deadline and teardown actions"
+    description: "Optional hard deadline for standard (no-step) schedules"
     properties:
       trigger:
         type: object
@@ -155,19 +162,6 @@ properties:
           at:
             type: string
             format: date-time
-      actions:
-        type: array
-        items:
-          type: object
-      endEarlyWhenStepsComplete:
-        type: boolean
-        description: "Complete immediately when all steps finish (true) or hold until trigger fires (false)"
-  disableRuleBefore:
-    type: boolean
-    description: "Hide the rule from SDK before the schedule starts"
-  disableRuleAfter:
-    type: boolean
-    description: "Hide the rule from SDK after the schedule ends"
   status:
     type: string
     enum:

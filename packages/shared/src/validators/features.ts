@@ -7,7 +7,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { rampControlledField, rampStep, rampStepAction } from "./ramp-schedule";
+import { rampStep, rampStepAction } from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -272,26 +272,12 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // These are deferred and only executed when the revision is published.
 // Only create and detach are revision-bound; state changes (pause, resume, etc.)
 // are real-time and operate directly on the live ramp schedule.
-//
-// Triggers use ISO string dates (wire format from frontend) rather than Date objects —
-// conversion to Date happens in applyRevisionRampActions at publish time.
-const revisionRampStartTrigger = z.union([
-  z.object({ type: z.literal("immediately") }),
-  z.object({ type: z.literal("manual") }),
-  z.object({ type: z.literal("scheduled"), at: z.string() }),
-]);
 const revisionRampEndTrigger = z.object({
   type: z.literal("scheduled"),
   at: z.string(),
 });
-const revisionRampConditionSchema = z.object({
-  trigger: z
-    .union([revisionRampStartTrigger, revisionRampEndTrigger])
-    .optional(),
-  actions: z.array(rampStepAction).optional(),
-});
-const revisionRampEndConditionSchema = revisionRampConditionSchema.extend({
-  endEarlyWhenStepsComplete: z.boolean().optional(),
+const revisionRampEndConditionSchema = z.object({
+  trigger: revisionRampEndTrigger.optional(),
 });
 
 export const revisionRampCreateAction = z.object({
@@ -299,14 +285,11 @@ export const revisionRampCreateAction = z.object({
   name: z.string(),
   environment: z.string(),
   steps: z.array(rampStep),
-  startCondition: revisionRampConditionSchema.optional(),
-  disableRuleBefore: z.boolean().optional(),
-  disableRuleAfter: z.boolean().optional(),
+  // Actions applied when the ramp completes (merged on top of accumulated step patches).
+  endActions: z.array(rampStepAction).optional(),
+  // ISO datetime string — absent/empty means start immediately on publish.
+  startDate: z.string().optional().nullable(),
   endCondition: revisionRampEndConditionSchema.optional(),
-  /** Which feature rule fields this schedule manages. Absent controlled fields in any step are cleared. Does not include "enabled" (system-managed). */
-  controlledFields: z
-    .array(rampControlledField.exclude(["enabled"]))
-    .optional(),
   /** Rule ID this ramp is being created for. Used at publish time to build the target. */
   ruleId: z.string(),
 });

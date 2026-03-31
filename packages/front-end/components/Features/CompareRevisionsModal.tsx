@@ -460,19 +460,13 @@ function rampDiffsForRevision(
     }
 
     const alreadyStarted = ramp.status !== "pending";
-    const startTriggerType = ramp.startCondition?.trigger.type;
-    const startDescription =
-      startTriggerType === "immediately"
-        ? alreadyStarted
-          ? "Started automatically on publish."
-          : "Starts automatically on publish."
-        : startTriggerType === "manual"
-          ? alreadyStarted
-            ? "Required manual start after publish."
-            : "Requires manual start after publish."
-          : alreadyStarted
-            ? "Started at a scheduled date/time."
-            : "Starts at a scheduled date/time.";
+    const startDescription = ramp.startDate
+      ? alreadyStarted
+        ? "Started at a scheduled date/time."
+        : "Starts at a scheduled date/time."
+      : alreadyStarted
+        ? "Started automatically on publish."
+        : "Starts automatically on publish.";
 
     diffs.push({
       title: `Ramp Schedule – ${ramp.name}`,
@@ -481,11 +475,9 @@ function rampDiffsForRevision(
         {
           name: ramp.name,
           targets: ramp.targets,
-          startCondition: ramp.startCondition,
+          startDate: ramp.startDate,
           steps: ramp.steps,
           endCondition: ramp.endCondition,
-          disableRuleBefore: ramp.disableRuleBefore,
-          disableRuleAfter: ramp.disableRuleAfter,
         },
         null,
         2,
@@ -513,11 +505,9 @@ function rampDiffsForRevision(
               name: action.name,
               environment: action.environment,
               ruleId: action.ruleId,
-              startCondition: action.startCondition,
+              startDate: action.startDate,
               steps: action.steps,
               endCondition: action.endCondition,
-              disableRuleBefore: action.disableRuleBefore,
-              disableRuleAfter: action.disableRuleAfter,
             },
             null,
             2,

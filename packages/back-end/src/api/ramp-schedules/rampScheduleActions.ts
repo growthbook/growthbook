@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   advanceStep,
   advanceUntilBlocked,
-  applyStartConditionActions,
+  applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
   dispatchRampEvent,
@@ -44,7 +44,7 @@ export const startRampSchedule = createApiRequestHandler({
     }),
   });
 
-  await applyStartConditionActions(req.context, current);
+  await applyRampStartActions(req.context, current);
   await advanceUntilBlocked(req.context, current, now);
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
@@ -142,7 +142,7 @@ export const resumeRampSchedule = createApiRequestHandler({
     status: resumeUpdates.status as "running" | "pending-approval",
     nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
     endCondition: schedule.endCondition,
-    startCondition: schedule.startCondition,
+    startDate: schedule.startDate,
   });
 
   let updated = await req.context.models.rampSchedules.updateById(

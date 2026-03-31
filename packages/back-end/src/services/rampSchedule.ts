@@ -29,15 +29,12 @@ interface EntityHandler {
   ): Promise<void>;
 }
 
-// Accumulates patches from startCondition through stepIndex for each targetId.
+// Accumulates patches from step 0 through stepIndex for each targetId.
 // Steps are sparse — fields absent from a step are inherited from prior steps.
-// startCondition is the fully-qualified baseline; every controlled field should appear there.
-// stepIndex=-1 → startCondition only; stepIndex >= steps.length → also include endCondition.
+// stepIndex < 0 → empty map (pre-start state).
+// stepIndex >= steps.length → all steps accumulated + endActions merged on top.
 export function computeEffectivePatch(
-  schedule: Pick<
-    RampScheduleInterface,
-    "startCondition" | "steps" | "endCondition"
-  >,
+  schedule: Pick<RampScheduleInterface, "steps" | "endActions">,
   stepIndex: number,
 ): Map<string, FeatureRulePatch> {
   const byTarget = new Map<string, FeatureRulePatch>();
@@ -56,15 +53,14 @@ export function computeEffectivePatch(
     }
   };
 
-  for (const a of schedule.startCondition?.actions ?? []) merge(a);
-
   const lastStepIdx = Math.min(stepIndex, schedule.steps.length - 1);
   for (let i = 0; i <= lastStepIdx; i++) {
     for (const a of schedule.steps[i]?.actions ?? []) merge(a);
   }
 
+  // If we've gone past the last step, also apply the end actions on top.
   if (stepIndex >= schedule.steps.length) {
-    for (const a of schedule.endCondition?.actions ?? []) merge(a);
+    for (const a of schedule.endActions ?? []) merge(a);
   }
 
   return byTarget;
@@ -201,7 +197,7 @@ export function computeNextProcessAt(schedule: {
   status: RampScheduleInterface["status"];
   nextStepAt?: Date | null;
   endCondition?: RampScheduleInterface["endCondition"];
-  startCondition?: RampScheduleInterface["startCondition"];
+  startDate?: RampScheduleInterface["startDate"];
 }): Date | null {
   const endAt =
     schedule.endCondition?.trigger?.type === "scheduled"
@@ -217,9 +213,7 @@ export function computeNextProcessAt(schedule: {
     case "pending-approval":
       return endAt;
     case "ready":
-      return schedule.startCondition?.trigger.type === "scheduled"
-        ? schedule.startCondition.trigger.at
-        : null;
+      return schedule.startDate ?? null;
     default:
       return null;
   }
@@ -297,13 +291,20 @@ async function executeStepActions(
   }
 }
 
-export async function applyStartConditionActions(
+// Injects enabled:true for each active target so the rule becomes visible when the ramp fires.
+export async function applyRampStartActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
-  const actions = schedule.startCondition?.actions ?? [];
-  if (!actions.length) return;
-  await executeStepActions(ctx, schedule, -1, actions);
+  const enableActions: RampStepAction[] = schedule.targets
+    .filter((t) => t.status === "active" && t.entityType === "feature")
+    .map((t) => ({
+      targetType: "feature-rule" as const,
+      targetId: t.id,
+      patch: { ruleId: t.ruleId ?? "", enabled: true as const },
+    }));
+  if (!enableActions.length) return;
+  await executeStepActions(ctx, schedule, -1, enableActions);
 }
 
 export async function advanceStep(
@@ -314,16 +315,7 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
-    // No more steps — apply endCondition and complete.
-    const endActions = schedule.endCondition?.actions ?? [];
-    if (endActions.length) {
-      await executeStepActions(
-        ctx,
-        schedule,
-        schedule.steps.length,
-        endActions,
-      );
-    }
+    // No more steps — complete.
     return ctx.models.rampSchedules.updateById(schedule.id, {
       status: "completed",
       nextStepAt: null,
@@ -459,7 +451,7 @@ export async function jumpAheadToStep(
 }
 
 // Fast-forwards to the terminal state, bypassing timing and approval gates.
-// Applies the fully-accumulated effective patch (startCondition + all steps + endCondition)
+// Applies the fully-accumulated effective patch (all steps through endCondition)
 // so any skipped intermediate steps are included. Used by REST "complete" and endCondition deadlines.
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
@@ -505,19 +497,17 @@ export async function completeRollout(
 }
 
 // Transitions a ramp from "pending" once its activating revision is published.
-// "immediately" → auto-start; "manual"/"scheduled" → "ready".
+// No startDate (immediate) → auto-start; startDate set → transition to "ready".
 export async function onActivatingRevisionPublished(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<void> {
   if (schedule.status !== "pending") return;
 
-  const trigger = schedule.startCondition?.trigger ?? {
-    type: "immediately" as const,
-  };
+  const now = new Date();
+  const isImmediate = !schedule.startDate || schedule.startDate <= now;
 
-  if (trigger.type === "immediately") {
-    const now = new Date();
+  if (isImmediate) {
     const initialNextStepAt = schedule.steps.length > 0 ? now : null;
 
     let current = await ctx.models.rampSchedules.updateById(schedule.id, {
@@ -532,7 +522,7 @@ export async function onActivatingRevisionPublished(
       }),
     });
 
-    await applyStartConditionActions(ctx, current);
+    await applyRampStartActions(ctx, current);
 
     if (current.steps.length > 0) {
       await advanceUntilBlocked(ctx, current, now);
@@ -704,26 +694,8 @@ export async function approveAndPublishStep(
       )
     : null;
 
-  const hasFutureEndDate =
-    !nextStepAt &&
-    schedule.endCondition?.trigger?.type === "scheduled" &&
-    schedule.endCondition.trigger.at > now;
-  const holdForEndDate =
-    hasFutureEndDate &&
-    schedule.endCondition?.endEarlyWhenStepsComplete === false;
-  const isCompleting = !nextStepAt && !holdForEndDate;
-
-  if (isCompleting) {
-    const endActions = schedule.endCondition?.actions ?? [];
-    if (endActions.length) {
-      await executeStepActions(
-        ctx,
-        schedule,
-        schedule.steps.length,
-        endActions,
-      );
-    }
-  }
+  // Ramp schedules always complete when all steps finish — no holdForEndDate.
+  const isCompleting = !nextStepAt;
 
   const approveStatus = isCompleting
     ? ("completed" as const)

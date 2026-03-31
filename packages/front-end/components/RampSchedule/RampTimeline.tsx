@@ -7,7 +7,6 @@ import {
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
-  RampStartTrigger,
   RampTrigger,
 } from "shared/src/validators/ramp-schedule";
 import stringify from "json-stringify-pretty-compact";
@@ -43,7 +42,7 @@ export function formatTrigger(trigger: RampTrigger): ReactNode {
 }
 
 // Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
-function formatScheduledDate(d: Date | string): ReactNode {
+export function formatScheduledDate(d: Date | string): ReactNode {
   const parsed = new Date(d);
   const now = new Date();
   const sameYear = parsed.getFullYear() === now.getFullYear();
@@ -61,15 +60,14 @@ function formatScheduledDate(d: Date | string): ReactNode {
   );
 }
 
-function formatStartTrigger(trigger?: RampStartTrigger | null): ReactNode {
-  if (!trigger || trigger.type === "immediately")
+function formatStartDate(startDate?: Date | string | null): ReactNode {
+  if (!startDate)
     return (
       <Text size="small" color="text-low">
         —
       </Text>
     );
-  if (trigger.type === "manual") return <Text size="small">manual</Text>;
-  return formatTrigger({ type: "scheduled", at: trigger.at });
+  return formatScheduledDate(startDate);
 }
 
 function formatRemaining(ms: number): ReactNode {
@@ -253,7 +251,7 @@ interface NodePopoverContentProps {
   nodeColor: string;
   nodeState: NodeState;
   status: RampScheduleStatus;
-  trigger: RampTrigger | RampStartTrigger | null;
+  trigger: RampTrigger | null;
   triggerLabel: ReactNode;
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
@@ -420,20 +418,20 @@ function activeLabelColor(status: RampScheduleStatus): string {
 
 function dotColor(state: NodeState, status: RampScheduleStatus): string {
   if (state === "completed") return "var(--violet-9)";
-  if (state === "future") return "var(--gray-4)";
+  if (state === "future") return "var(--ramp-future-dot)";
   return activeDotColor(status);
 }
 
 function nodeLabelColor(state: NodeState, status: RampScheduleStatus): string {
   if (state === "completed") return "var(--violet-12)";
-  if (state === "future") return "var(--gray-12)";
+  if (state === "future") return "var(--ramp-future-label)";
   return activeLabelColor(status);
 }
 
 function connectorColor(left: NodeState, status: RampScheduleStatus): string {
   if (left === "completed") return "var(--violet-9)";
   if (left === "active") return activeDotColor(status);
-  return "var(--gray-4)";
+  return "var(--ramp-future-connector)";
 }
 
 // ─── NodeDot ─────────────────────────────────────────────────────────────────
@@ -575,9 +573,7 @@ interface Props {
 
 export function getRampStatusLabel(rs: RampScheduleInterface): string {
   if (rs.status === "ready") {
-    return rs.startCondition?.trigger.type === "manual"
-      ? "Ready to Start"
-      : "Scheduled";
+    return "Scheduled";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
     pending: "Schedule Start is Pending",
@@ -622,8 +618,7 @@ export default function RampTimeline({
   onJump,
   onComplete,
 }: Props) {
-  const { steps, status, startCondition, endCondition, targets } = rs;
-  const startTrigger = startCondition?.trigger;
+  const { steps, status, startDate, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
   const activatingRevisionVersion = targets.find(
     (t) => t.activatingRevisionVersion != null,
@@ -635,7 +630,7 @@ export default function RampTimeline({
     if (i < doneCount) return "completed";
     if (status === "pending") return "future";
     if (status === "ready") {
-      if (startTrigger?.type === "scheduled" && i === 0) return "active";
+      if (startDate && i === 0) return "active";
       return "future";
     }
     if (i === doneCount && status !== "completed" && status !== "rolled-back")
@@ -647,12 +642,8 @@ export default function RampTimeline({
     {
       key: "start",
       label: "start",
-      // Only show a sublabel for scheduled starts — the date belongs under the node.
-      // "auto" and "manual" labels move to the connector between start and [1].
-      sublabel:
-        startTrigger?.type === "scheduled"
-          ? formatScheduledDate(startTrigger.at)
-          : null,
+      // Show the start date under the node when a scheduled start is set.
+      sublabel: startDate ? formatScheduledDate(startDate) : null,
       isApproval: false,
       popoverContent: (
         <NodePopoverContent
@@ -661,9 +652,9 @@ export default function RampTimeline({
           nodeColor={dotColor(getState(0), status)}
           nodeState={getState(0)}
           status={status}
-          trigger={startTrigger ?? null}
-          triggerLabel={formatStartTrigger(startTrigger)}
-          actions={startCondition?.actions ?? []}
+          trigger={null}
+          triggerLabel={formatStartDate(startDate)}
+          actions={[]}
           stepIndex="start"
           isActive={getState(0) === "active"}
           rs={rs}
@@ -679,10 +670,8 @@ export default function RampTimeline({
       // connector to the left shows the hold that preceded this node
       connectorLabel:
         i === 0 ? (
-          startTrigger?.type === "immediately" || !startTrigger ? (
+          !startDate ? (
             <Text size="small">auto</Text>
-          ) : startTrigger?.type === "manual" ? (
-            <Text size="small">manual</Text>
           ) : undefined
         ) : (
           formatTrigger(steps[i - 1].trigger)
@@ -709,10 +698,7 @@ export default function RampTimeline({
     {
       key: "end",
       label: "end",
-      sublabel:
-        endCondition?.trigger?.type === "scheduled"
-          ? formatScheduledDate(endCondition.trigger.at)
-          : null,
+      sublabel: null,
       connectorLabel:
         steps.length > 0
           ? formatTrigger(steps[steps.length - 1].trigger)
@@ -720,8 +706,6 @@ export default function RampTimeline({
       isApproval: false,
       popoverContent: (() => {
         const endNodeIndex = steps.length + 1;
-        const hasExplicitEnd = !!endCondition;
-        const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
         return (
           <NodePopoverContent
             heading="End"
@@ -729,16 +713,9 @@ export default function RampTimeline({
             nodeColor={dotColor(getState(endNodeIndex), status)}
             nodeState={getState(endNodeIndex)}
             status={status}
-            trigger={endCondition?.trigger ?? null}
-            triggerLabel={
-              endCondition?.trigger ? (
-                formatTrigger(endCondition.trigger)
-              ) : (
-                <Text size="small">auto</Text>
-              )
-            }
-            actions={endCondition?.actions ?? []}
-            syntheticEnabled={implicitDisable ? false : undefined}
+            trigger={null}
+            triggerLabel={<Text size="small">auto</Text>}
+            actions={[]}
             stepIndex="end"
             isActive={getState(endNodeIndex) === "active"}
             rs={rs}
@@ -788,20 +765,13 @@ export default function RampTimeline({
             </>
           ) : (
             /* Normal pre-timeline indicator node for states where the ramp hasn't started yet */
-            (status === "pending" ||
-              (status === "ready" &&
-                startCondition?.trigger.type === "manual")) && (
+            status === "pending" && (
               <>
                 <Node
                   node={{
                     key: "pre-indicator",
-                    label: status === "pending" ? "pending" : "ready",
-                    sublabel:
-                      status === "pending" ? (
-                        revisionSublabel
-                      ) : (
-                        <Text size="small">awaiting start</Text>
-                      ),
+                    label: "pending",
+                    sublabel: revisionSublabel,
                     isApproval: false,
                   }}
                   state="active"

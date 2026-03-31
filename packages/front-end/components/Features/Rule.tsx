@@ -75,19 +75,8 @@ function fmtScheduleDate(d: Date | string): string {
 }
 
 function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
-  const startTrigger = rs.startCondition?.trigger;
-  const endTrigger = rs.endCondition?.trigger;
-  const hasStart = startTrigger?.type === "scheduled";
-  const hasEnd = endTrigger?.type === "scheduled";
-
-  if (hasStart && hasEnd) {
-    return `SCHEDULED to start ${fmtScheduleDate((startTrigger as { type: "scheduled"; at: Date }).at)} and end ${fmtScheduleDate((endTrigger as { type: "scheduled"; at: Date }).at)}`;
-  }
-  if (hasStart) {
-    return `SCHEDULED to start ${fmtScheduleDate((startTrigger as { type: "scheduled"; at: Date }).at)}`;
-  }
-  if (hasEnd) {
-    return `SCHEDULED to end ${fmtScheduleDate((endTrigger as { type: "scheduled"; at: Date }).at)}`;
+  if (rs.startDate) {
+    return `SCHEDULED to start ${fmtScheduleDate(rs.startDate)}`;
   }
   return "USING SCHEDULE";
 }
@@ -138,17 +127,6 @@ function computeRemainingTime(
       manualApprovals++;
     } else if (trigger.type === "scheduled") {
       seconds += Math.max(0, (new Date(trigger.at).getTime() - now) / 1000);
-    }
-  }
-
-  const endTrigger = rs.endCondition?.trigger;
-  if (endTrigger?.type === "scheduled") {
-    const endRemaining = Math.max(
-      0,
-      (new Date(endTrigger.at).getTime() - now) / 1000,
-    );
-    if (rs.steps.length === 0 || endRemaining < seconds) {
-      seconds = endRemaining;
     }
   }
 

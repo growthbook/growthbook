@@ -5,7 +5,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   advanceStep,
   advanceUntilBlocked,
-  applyStartConditionActions,
+  applyRampStartActions,
   approveAndPublishStep,
   completeRollout,
   computeNextProcessAt,
@@ -15,41 +15,25 @@ import {
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
 
-type StartTrigger =
-  | { type: "immediately" }
-  | { type: "manual" }
-  | { type: "scheduled"; at: Date | string };
-
 type EndTrigger = { type: "scheduled"; at: Date | string };
-
-type StartCondition = {
-  trigger: StartTrigger;
-  actions?: RampScheduleInterface["steps"][number]["actions"];
-};
 
 type EndCondition = {
   trigger?: EndTrigger;
-  actions?: RampScheduleInterface["steps"][number]["actions"];
 };
 
 type CreateBody = Pick<
   RampScheduleInterface,
   "name" | "entityType" | "entityId" | "targets" | "steps"
 > & {
-  startCondition?: StartCondition;
-  disableRuleBefore?: boolean;
-  disableRuleAfter?: boolean;
-  endCondition?: EndCondition & { endEarlyWhenStepsComplete?: boolean };
+  endActions?: RampScheduleInterface["endActions"];
+  startDate?: string | null;
+  endCondition?: EndCondition;
 };
 
 type UpdateBody = Partial<Pick<RampScheduleInterface, "name" | "steps">> & {
-  controlledFields?: string[];
-  startCondition?: StartCondition | null;
-  disableRuleBefore?: boolean;
-  disableRuleAfter?: boolean;
-  endCondition?:
-    | (EndCondition & { endEarlyWhenStepsComplete?: boolean })
-    | null;
+  endActions?: RampScheduleInterface["endActions"];
+  startDate?: string | null;
+  endCondition?: EndCondition | null;
 };
 
 type ActionBody = {
@@ -101,70 +85,15 @@ export const postRampSchedule = async (
   const context = getContextFromReq(req);
   const body = req.body;
 
-  const disableBefore = !!body.disableRuleBefore;
-  const disableAfter = !!body.disableRuleAfter;
-  const firstTarget = body.targets[0];
-  const enabledPatch = firstTarget
-    ? { ruleId: firstTarget.ruleId ?? "", enabled: true }
-    : undefined;
-  const disabledPatch = firstTarget
-    ? { ruleId: firstTarget.ruleId ?? "", enabled: false }
-    : undefined;
-
-  const rawStartTrigger = body.startCondition?.trigger;
-  const resolvedStartTrigger: RampScheduleInterface["startCondition"]["trigger"] =
-    rawStartTrigger
-      ? rawStartTrigger.type === "scheduled"
-        ? { type: "scheduled", at: new Date(rawStartTrigger.at) }
-        : rawStartTrigger
-      : { type: "immediately" };
-
-  const baseStartActions = body.startCondition?.actions ?? [];
-  const startConditionActions =
-    disableBefore && enabledPatch
-      ? [
-          {
-            targetType: "feature-rule" as const,
-            targetId: firstTarget!.id,
-            patch: enabledPatch,
-          },
-          ...baseStartActions,
-        ]
-      : baseStartActions;
-
-  const baseEndActions = body.endCondition?.actions ?? [];
-  const endConditionActions =
-    disableAfter && disabledPatch
-      ? [
-          ...baseEndActions,
-          {
-            targetType: "feature-rule" as const,
-            targetId: firstTarget!.id,
-            patch: disabledPatch,
-          },
-        ]
-      : baseEndActions;
+  const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
   const rawEndTrigger = body.endCondition?.trigger;
   const resolvedEndTrigger = rawEndTrigger
     ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
     : undefined;
-
-  const endConditionBase =
-    resolvedEndTrigger || endConditionActions.length
-      ? { trigger: resolvedEndTrigger, actions: endConditionActions }
-      : undefined;
-  const endCondition = endConditionBase
-    ? {
-        ...endConditionBase,
-        endEarlyWhenStepsComplete: body.endCondition?.endEarlyWhenStepsComplete,
-      }
-    : body.endCondition?.endEarlyWhenStepsComplete !== undefined
-      ? {
-          endEarlyWhenStepsComplete:
-            body.endCondition.endEarlyWhenStepsComplete,
-        }
-      : undefined;
+  const endCondition = resolvedEndTrigger
+    ? { trigger: resolvedEndTrigger }
+    : undefined;
 
   const schedule = await context.models.rampSchedules.create({
     name: body.name,
@@ -172,21 +101,14 @@ export const postRampSchedule = async (
     entityId: body.entityId,
     targets: body.targets,
     steps: body.steps,
-    startCondition: {
-      trigger: resolvedStartTrigger,
-      actions: startConditionActions.length ? startConditionActions : undefined,
-    },
-    disableRuleBefore: disableBefore || undefined,
-    disableRuleAfter: disableAfter || undefined,
+    endActions: body.endActions,
+    startDate,
     endCondition,
     // Standalone ramps have no activating revision — they're immediately eligible to start.
     status: "ready",
     currentStepIndex: -1,
     nextStepAt: null,
-    nextProcessAt:
-      resolvedStartTrigger.type === "scheduled"
-        ? resolvedStartTrigger.at
-        : null,
+    nextProcessAt: startDate ?? null,
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -228,27 +150,9 @@ export const putRampSchedule = async (
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.controlledFields !== undefined) {
-    updates.targets = schedule.targets.map((t) => ({
-      ...t,
-      controlledFields: body.controlledFields,
-    }));
-  }
-  if (body.startCondition !== undefined) {
-    const sc = body.startCondition;
-    if (!sc) {
-      updates.startCondition = { trigger: { type: "immediately" } };
-    } else {
-      const rawTrigger = sc.trigger;
-      const trigger =
-        rawTrigger?.type === "scheduled"
-          ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
-          : (rawTrigger ?? { type: "immediately" as const });
-      updates.startCondition = {
-        trigger,
-        actions: sc.actions ?? undefined,
-      };
-    }
+  if (body.endActions !== undefined) updates.endActions = body.endActions;
+  if ("startDate" in body) {
+    updates.startDate = body.startDate ? new Date(body.startDate) : undefined;
   }
   if (body.endCondition !== undefined) {
     const ec = body.endCondition;
@@ -259,102 +163,7 @@ export const putRampSchedule = async (
       const trigger = rawTrigger
         ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
         : undefined;
-      updates.endCondition = {
-        trigger,
-        actions: ec.actions ?? undefined,
-        endEarlyWhenStepsComplete: ec.endEarlyWhenStepsComplete,
-      };
-    }
-  }
-  if (body.disableRuleBefore !== undefined) {
-    updates.disableRuleBefore = body.disableRuleBefore;
-  }
-  if (body.disableRuleAfter !== undefined) {
-    updates.disableRuleAfter = body.disableRuleAfter;
-  }
-
-  // Recompute injected enabled patches when disableRuleBefore/After flags change.
-  const effectiveDisableBefore =
-    body.disableRuleBefore !== undefined
-      ? body.disableRuleBefore
-      : (schedule.disableRuleBefore ?? false);
-  const effectiveDisableAfter =
-    body.disableRuleAfter !== undefined
-      ? body.disableRuleAfter
-      : (schedule.disableRuleAfter ?? false);
-
-  if (
-    body.disableRuleBefore !== undefined ||
-    body.disableRuleAfter !== undefined ||
-    body.startCondition !== undefined ||
-    body.endCondition !== undefined
-  ) {
-    const primaryTarget = schedule.targets.find(
-      (t) => t.entityType === "feature" && t.entityId === schedule.entityId,
-    );
-    if (primaryTarget) {
-      const enabledPatch = {
-        ruleId: primaryTarget.ruleId,
-        enabled: true as const,
-      };
-      const disabledPatch = {
-        ruleId: primaryTarget.ruleId,
-        enabled: false as const,
-      };
-
-      const currentSc =
-        (updates.startCondition as typeof schedule.startCondition) ??
-        schedule.startCondition;
-      if (currentSc) {
-        const baseStartActions = (currentSc.actions ?? []).filter(
-          (a) => !("enabled" in a.patch),
-        );
-        updates.startCondition = {
-          ...currentSc,
-          actions: effectiveDisableBefore
-            ? [
-                {
-                  targetType: "feature-rule" as const,
-                  targetId: primaryTarget.id,
-                  patch: enabledPatch,
-                },
-                ...baseStartActions,
-              ]
-            : baseStartActions.length
-              ? baseStartActions
-              : undefined,
-        };
-      }
-
-      const currentEc = (
-        "endCondition" in updates ? updates.endCondition : schedule.endCondition
-      ) as typeof schedule.endCondition;
-      if (currentEc || effectiveDisableAfter) {
-        const baseEndActions = (currentEc?.actions ?? []).filter(
-          (a) => !("enabled" in a.patch),
-        );
-        updates.endCondition = currentEc
-          ? {
-              ...currentEc,
-              actions: effectiveDisableAfter
-                ? [
-                    ...baseEndActions,
-                    {
-                      targetType: "feature-rule" as const,
-                      targetId: primaryTarget.id,
-                      patch: disabledPatch,
-                    },
-                  ]
-                : baseEndActions.length
-                  ? baseEndActions
-                  : undefined,
-            }
-          : effectiveDisableAfter
-            ? {
-                actions: [{ targetId: primaryTarget.id, patch: disabledPatch }],
-              }
-            : undefined;
-      }
+      updates.endCondition = { trigger };
     }
   }
   updates.nextProcessAt = computeNextProcessAt({
@@ -363,9 +172,9 @@ export const putRampSchedule = async (
     endCondition: ("endCondition" in updates
       ? updates.endCondition
       : schedule.endCondition) as RampScheduleInterface["endCondition"],
-    startCondition: ("startCondition" in updates
-      ? updates.startCondition
-      : schedule.startCondition) as RampScheduleInterface["startCondition"],
+    startDate: ("startDate" in updates
+      ? updates.startDate
+      : schedule.startDate) as RampScheduleInterface["startDate"],
   });
 
   const updated = await context.models.rampSchedules.updateById(
@@ -442,7 +251,7 @@ export const postRampScheduleAction = async (
           endCondition: schedule.endCondition,
         }),
       });
-      await applyStartConditionActions(context, updated);
+      await applyRampStartActions(context, updated);
       await advanceUntilBlocked(context, updated, now);
       updated =
         (await context.models.rampSchedules.getById(schedule.id)) ?? updated;
@@ -543,7 +352,7 @@ export const postRampScheduleAction = async (
         status: resumeUpdates.status as RampScheduleInterface["status"],
         nextStepAt: resumeUpdates.nextStepAt as Date | null | undefined,
         endCondition: schedule.endCondition,
-        startCondition: schedule.startCondition,
+        startDate: schedule.startDate,
       });
 
       updated = await context.models.rampSchedules.updateById(

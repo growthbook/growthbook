@@ -1237,18 +1237,54 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
-      steps: (any)[];
-      startCondition: {
-        trigger: any;
-        actions?: (any)[] | null;
+      steps: ({
+          trigger: {
+            /** @constant */
+            type: "interval";
+            seconds: number;
+          } | {
+            /** @constant */
+            type: "approval";
+          } | {
+            /** @constant */
+            type: "scheduled";
+            at: string;
+          };
+          actions: ({
+              /** @constant */
+              targetType: "feature-rule";
+              targetId: string;
+              patch: {
+                ruleId: string;
+                coverage?: number | null;
+                condition?: string | null;
+                savedGroups?: (({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[]) | null;
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[] | null;
+                enabled?: boolean | null;
+              };
+            })[];
+          approvalNotes?: string | null;
+        })[];
+      endPatch?: {
+        coverage?: number;
+        condition?: string;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
       };
-      disableRuleBefore?: boolean;
-      disableRuleAfter?: boolean;
-      endCondition?: ({
-        trigger?: any;
-        actions?: (any)[] | null;
-        endEarlyWhenStepsComplete?: boolean;
-      }) | null;
       official?: boolean;
     };
     Team: {
@@ -1311,8 +1347,19 @@ export interface components {
           status: "pending-join" | "active";
           /** @description Feature revision version that activates this ramp; cleared once published */
           activatingRevisionVersion?: number;
-          /** @description Rule fields this ramp manages. Absent controlled fields in any step's patch are cleared when that step applies. The 'enabled' field is managed automatically via disableRuleBefore/disableRuleAfter. */
-          controlledFields?: ("coverage" | "condition" | "savedGroups" | "prerequisites" | "force")[];
+        })[];
+      /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+      endActions?: ({
+          /** @enum {string} */
+          targetType: "feature-rule";
+          targetId: string;
+          patch: {
+            ruleId: string;
+            coverage?: number;
+            condition?: string;
+            /** @description Force value (any JSON type) */
+            force?: any;
+          };
         })[];
       /** @description Ordered ramp steps */
       steps: ({
@@ -1341,18 +1388,12 @@ export interface components {
             })[];
           approvalNotes?: string;
         })[];
-      /** @description When and how the ramp starts */
-      startCondition?: {
-        trigger: {
-          /** @enum {string} */
-          type: "immediately" | "manual" | "scheduled";
-          /** Format: date-time */
-          at?: string;
-        };
-        /** @description Baseline state applied on ramp start */
-        actions?: (any)[];
-      };
-      /** @description Optional hard deadline and teardown actions */
+      /**
+       * Format: date-time 
+       * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+       */
+      startDate?: string | null;
+      /** @description Optional hard deadline for standard (no-step) schedules */
       endCondition?: {
         trigger?: {
           /** @enum {string} */
@@ -1360,14 +1401,7 @@ export interface components {
           /** Format: date-time */
           at?: string;
         };
-        actions?: (any)[];
-        /** @description Complete immediately when all steps finish (true) or hold until trigger fires (false) */
-        endEarlyWhenStepsComplete?: boolean;
       };
-      /** @description Hide the rule from SDK before the schedule starts */
-      disableRuleBefore?: boolean;
-      /** @description Hide the rule from SDK after the schedule ends */
-      disableRuleAfter?: boolean;
       /** @enum {string} */
       status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
       /** @description Index of current step; -1 = not yet started */
@@ -19596,18 +19630,54 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              steps: (any)[];
-              startCondition: {
-                trigger: any;
-                actions?: (any)[] | null;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
               };
-              disableRuleBefore?: boolean;
-              disableRuleAfter?: boolean;
-              endCondition?: ({
-                trigger?: any;
-                actions?: (any)[] | null;
-                endEarlyWhenStepsComplete?: boolean;
-              }) | null;
               official?: boolean;
             };
           };
@@ -19637,7 +19707,6 @@ export interface operations {
               } | {
                 /** @constant */
                 type: "scheduled";
-                /** Format: date-time */
                 at: string;
               };
               actions: ({
@@ -19646,57 +19715,35 @@ export interface operations {
                   targetId: string;
                   patch: {
                     ruleId: string;
-                    coverage?: number;
-                    condition?: string;
+                    coverage?: number | null;
+                    condition?: string | null;
+                    savedGroups?: (({
+                        /** @enum {string} */
+                        match: "all" | "none" | "any";
+                        ids: (string)[];
+                      })[]) | null;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[] | null;
+                    enabled?: boolean | null;
                   };
                 })[];
-              approvalNotes?: string;
+              approvalNotes?: string | null;
             })[];
-          startCondition?: {
-            trigger: {
-              /** @constant */
-              type: "immediately";
-            } | {
-              /** @constant */
-              type: "manual";
-            } | {
-              /** @constant */
-              type: "scheduled";
-              /** Format: date-time */
-              at: string;
-            };
-            actions?: ({
-                /** @constant */
-                targetType: "feature-rule";
-                targetId: string;
-                patch: {
-                  ruleId: string;
-                  coverage?: number;
-                  condition?: string;
-                };
+          endPatch?: {
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
               })[];
           };
-          disableRuleBefore?: boolean;
-          disableRuleAfter?: boolean;
-          endCondition?: {
-            trigger?: {
-              /** @constant */
-              type: "scheduled";
-              /** Format: date-time */
-              at: string;
-            };
-            actions?: ({
-                /** @constant */
-                targetType: "feature-rule";
-                targetId: string;
-                patch: {
-                  ruleId: string;
-                  coverage?: number;
-                  condition?: string;
-                };
-              })[];
-            endEarlyWhenStepsComplete?: boolean;
-          } | null;
           official?: boolean;
         };
       };
@@ -19712,18 +19759,54 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              steps: (any)[];
-              startCondition: {
-                trigger: any;
-                actions?: (any)[] | null;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
               };
-              disableRuleBefore?: boolean;
-              disableRuleAfter?: boolean;
-              endCondition?: ({
-                trigger?: any;
-                actions?: (any)[] | null;
-                endEarlyWhenStepsComplete?: boolean;
-              }) | null;
               official?: boolean;
             };
           };
@@ -19761,18 +19844,54 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
-                steps: (any)[];
-                startCondition: {
-                  trigger: any;
-                  actions?: (any)[] | null;
+                steps: ({
+                    trigger: {
+                      /** @constant */
+                      type: "interval";
+                      seconds: number;
+                    } | {
+                      /** @constant */
+                      type: "approval";
+                    } | {
+                      /** @constant */
+                      type: "scheduled";
+                      at: string;
+                    };
+                    actions: ({
+                        /** @constant */
+                        targetType: "feature-rule";
+                        targetId: string;
+                        patch: {
+                          ruleId: string;
+                          coverage?: number | null;
+                          condition?: string | null;
+                          savedGroups?: (({
+                              /** @enum {string} */
+                              match: "all" | "none" | "any";
+                              ids: (string)[];
+                            })[]) | null;
+                          prerequisites?: ({
+                              id: string;
+                              condition: string;
+                            })[] | null;
+                          enabled?: boolean | null;
+                        };
+                      })[];
+                    approvalNotes?: string | null;
+                  })[];
+                endPatch?: {
+                  coverage?: number;
+                  condition?: string;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                 };
-                disableRuleBefore?: boolean;
-                disableRuleAfter?: boolean;
-                endCondition?: ({
-                  trigger?: any;
-                  actions?: (any)[] | null;
-                  endEarlyWhenStepsComplete?: boolean;
-                }) | null;
                 official?: boolean;
               })[];
           };
@@ -19797,7 +19916,6 @@ export interface operations {
               } | {
                 /** @constant */
                 type: "scheduled";
-                /** Format: date-time */
                 at: string;
               };
               actions: ({
@@ -19806,57 +19924,35 @@ export interface operations {
                   targetId: string;
                   patch: {
                     ruleId: string;
-                    coverage?: number;
-                    condition?: string;
+                    coverage?: number | null;
+                    condition?: string | null;
+                    savedGroups?: (({
+                        /** @enum {string} */
+                        match: "all" | "none" | "any";
+                        ids: (string)[];
+                      })[]) | null;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[] | null;
+                    enabled?: boolean | null;
                   };
                 })[];
-              approvalNotes?: string;
+              approvalNotes?: string | null;
             })[];
-          startCondition: {
-            trigger: {
-              /** @constant */
-              type: "immediately";
-            } | {
-              /** @constant */
-              type: "manual";
-            } | {
-              /** @constant */
-              type: "scheduled";
-              /** Format: date-time */
-              at: string;
-            };
-            actions?: ({
-                /** @constant */
-                targetType: "feature-rule";
-                targetId: string;
-                patch: {
-                  ruleId: string;
-                  coverage?: number;
-                  condition?: string;
-                };
+          endPatch?: {
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
               })[];
           };
-          disableRuleBefore?: boolean;
-          disableRuleAfter?: boolean;
-          endCondition?: {
-            trigger?: {
-              /** @constant */
-              type: "scheduled";
-              /** Format: date-time */
-              at: string;
-            };
-            actions?: ({
-                /** @constant */
-                targetType: "feature-rule";
-                targetId: string;
-                patch: {
-                  ruleId: string;
-                  coverage?: number;
-                  condition?: string;
-                };
-              })[];
-            endEarlyWhenStepsComplete?: boolean;
-          } | null;
           official?: boolean;
         };
       };
@@ -19872,18 +19968,54 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              steps: (any)[];
-              startCondition: {
-                trigger: any;
-                actions?: (any)[] | null;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
               };
-              disableRuleBefore?: boolean;
-              disableRuleAfter?: boolean;
-              endCondition?: ({
-                trigger?: any;
-                actions?: (any)[] | null;
-                endEarlyWhenStepsComplete?: boolean;
-              }) | null;
               official?: boolean;
             };
           };

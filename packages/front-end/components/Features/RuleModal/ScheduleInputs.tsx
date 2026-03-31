@@ -2,22 +2,13 @@
 // Exposes only a start trigger and an end trigger — no ramp steps, no coverage,
 // no presets. Under the hood it writes into RampSectionState so the save path is
 // identical to the ramp schedule path.
-//
-// Wiring (automatic — not exposed as checkboxes to the user):
-//   • Start = "On date" (specific-time) → disableRuleBefore = true
-//   • Start = "Immediately"        → disableRuleBefore = false
-//   • End   = "On date" (specific-time) → disableRuleAfter  = true
-//   • End   = "Never"              → disableRuleAfter  = false
 
 import { Box, Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
-import type {
-  RampSectionState,
-  StartMode,
-} from "@/components/Features/RuleModal/RampScheduleSection";
+import type { RampSectionState } from "@/components/Features/RuleModal/RampScheduleSection";
 
 interface Props {
   state: RampSectionState;
@@ -34,12 +25,12 @@ export function scheduleAutoName(state: RampSectionState): string {
       year: "numeric",
     });
   };
-  const hasStart = state.startMode === "specific-time" && !!state.startTime;
+  const hasStart = !!state.startDate;
   const hasEnd = !!state.endScheduleAt;
   if (hasStart && hasEnd) {
-    return `enable on ${fmt(state.startTime)}, disable on ${fmt(state.endScheduleAt)}`;
+    return `enable on ${fmt(state.startDate)}, disable on ${fmt(state.endScheduleAt)}`;
   }
-  if (hasStart) return `enable on ${fmt(state.startTime)}`;
+  if (hasStart) return `enable on ${fmt(state.startDate)}`;
   if (hasEnd) return `disable on ${fmt(state.endScheduleAt)}`;
   return "schedule";
 }
@@ -95,34 +86,23 @@ export default function ScheduleInputs({ state, setState }: Props) {
   }
 
   function handleStartChange(v: string) {
-    const mode = v as StartMode;
-    if (mode === "immediately") {
-      patchState({
-        startMode: "immediately",
-        startTime: "",
-        disableRuleBefore: false,
-      });
+    if (v === "immediately") {
+      patchState({ startDate: "" });
     } else {
       const d = new Date();
       d.setSeconds(0, 0);
-      patchState({
-        startMode: "specific-time",
-        startTime: d.toISOString().slice(0, 16),
-        disableRuleBefore: true,
-      });
+      patchState({ startDate: d.toISOString().slice(0, 16) });
     }
   }
 
   function handleEndChange(v: string) {
     if (v === "never") {
-      patchState({ endScheduleAt: "", disableRuleAfter: false });
+      patchState({ endScheduleAt: "" });
     } else {
       const d = new Date();
       d.setSeconds(0, 0);
       patchState({
         endScheduleAt: d.toISOString().slice(0, 16),
-        disableRuleAfter: true,
-        endEarlyWhenStepsComplete: false,
       });
     }
   }
@@ -141,11 +121,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
           </Text>
         </Box>
         <SelectField
-          value={
-            state.startMode === "specific-time"
-              ? "specific-time"
-              : "immediately"
-          }
+          value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
           containerClassName="mb-0"
@@ -153,10 +129,10 @@ export default function ScheduleInputs({ state, setState }: Props) {
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
-        {state.startMode === "specific-time" && (
+        {state.startDate && (
           <DatePicker
-            date={state.startTime || undefined}
-            setDate={(d) => patchState({ startTime: d ? d.toISOString() : "" })}
+            date={state.startDate || undefined}
+            setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
             precision="datetime"
             containerClassName="mb-0"
             scheduleEndDate={state.endScheduleAt || undefined}
@@ -188,9 +164,9 @@ export default function ScheduleInputs({ state, setState }: Props) {
             }
             precision="datetime"
             containerClassName="mb-0"
-            scheduleStartDate={state.startTime || undefined}
+            scheduleStartDate={state.startDate || undefined}
             disableBefore={
-              state.startTime ? new Date(state.startTime) : new Date()
+              state.startDate ? new Date(state.startDate) : new Date()
             }
           />
         )}

@@ -34,18 +34,6 @@ const GENERIC_FEATURE: Pick<FeatureInterface, "id" | "valueType" | "project"> =
     project: "",
   };
 
-function triggerSummary(template: RampScheduleTemplateInterface): string {
-  const parts: string[] = [];
-  const trigger = template.startCondition?.trigger;
-  if (trigger?.type === "immediately") parts.push("starts immediately");
-  else if (trigger?.type === "manual") parts.push("manual start");
-  else if (trigger?.type === "scheduled") parts.push("scheduled start");
-
-  if (template.endCondition?.trigger?.type === "scheduled") {
-    parts.push("scheduled end");
-  }
-  return parts.join(", ");
-}
 
 interface EditModalProps {
   template?: RampScheduleTemplateInterface;
@@ -60,11 +48,7 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
   const [saving, setSaving] = useState(false);
   const [rampState, setRampState] = useState<RampSectionState>(() => {
     if (template) {
-      return templateToSectionState(
-        template,
-        GENERIC_FEATURE as FeatureInterface,
-        "edit",
-      );
+      return templateToSectionState(template, "edit");
     }
     const s = defaultRampSectionState(undefined);
     return { ...s, mode: "create" };
@@ -122,7 +106,6 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
         />
       </Box>
       <RampScheduleSection
-        featureRampSchedules={[]}
         ruleRampSchedule={undefined}
         state={rampState}
         setState={setRampState}
@@ -224,9 +207,7 @@ export default function RampScheduleTemplates() {
                     )}
                   </Flex>
                   <Text color="text-low" size="small" as="div">
-                    {[formatRampStepSummary(tmpl.steps), triggerSummary(tmpl)]
-                      .filter(Boolean)
-                      .join(", ")}
+                    {formatRampStepSummary(tmpl.steps)}
                   </Text>
                 </Box>
                 {canDelete && (

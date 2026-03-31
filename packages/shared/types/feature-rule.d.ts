@@ -1,16 +1,9 @@
 import {
   CreateSafeRolloutInterface,
   FeatureRule,
-  RampControlledField,
   RampStep,
   RampStepAction,
 } from "shared/validators";
-
-/** Wire-format start trigger (dates as ISO strings). */
-export type RampStartTrigger =
-  | { type: "immediately" }
-  | { type: "manual" }
-  | { type: "scheduled"; at: string };
 
 /** Wire-format end trigger (dates as ISO strings). */
 export type RampEndTrigger = { type: "scheduled"; at: string };
@@ -22,20 +15,14 @@ export type InlineRampScheduleCreate = {
   // environment the rule lives in (used to build the ramp target)
   environment: string;
   steps: RampStep[];
-  startCondition?: {
-    trigger: RampStartTrigger;
-    actions?: RampStepAction[];
-  };
-  disableRuleBefore?: boolean;
-  disableRuleAfter?: boolean;
+  // Actions applied when the ramp completes (merged on top of accumulated step patches).
+  endActions?: RampStepAction[];
+  // ISO datetime string; if set, rule stays disabled until this date, then Step 1 fires.
+  // Absent/null means start immediately when the activating revision is published.
+  startDate?: string | null;
   endCondition?: {
     trigger?: RampEndTrigger;
-    actions?: RampStepAction[];
-    // true = complete when steps finish; false = hold until trigger
-    endEarlyWhenStepsComplete?: boolean;
   };
-  // fields this schedule manages; absent controlled fields in any step are cleared; excludes "enabled" (system-managed)
-  controlledFields?: Exclude<RampControlledField, "enabled">[];
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -56,22 +43,13 @@ export type InlineRampScheduleUpdate = {
   rampScheduleId: string;
   name?: string;
   steps: RampStep[];
-  startCondition?: {
-    // null resets to { trigger: "immediately" }
-    trigger?: RampStartTrigger;
-    actions?: RampStepAction[];
-  } | null;
-  disableRuleBefore?: boolean;
-  disableRuleAfter?: boolean;
+  // Actions applied when the ramp completes (merged on top of accumulated step patches).
+  endActions?: RampStepAction[];
+  // ISO datetime string; null clears startDate (immediate start).
+  startDate?: string | null;
   endCondition?: {
-    // null clears the end condition
     trigger?: RampEndTrigger;
-    actions?: RampStepAction[];
-    // true = complete when steps finish; false = hold until trigger
-    endEarlyWhenStepsComplete?: boolean;
   } | null;
-  // fields this schedule manages; updates all targets
-  controlledFields?: Exclude<RampControlledField, "enabled">[];
 };
 
 export type PostFeatureRuleBody = {

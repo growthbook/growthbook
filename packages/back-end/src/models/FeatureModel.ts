@@ -1360,75 +1360,26 @@ async function createRampSchedulesForRevision(
     if (action.mode !== "create") continue;
 
     const targetId = uuidv4();
-    const enabledPatch = { ruleId: action.ruleId, enabled: true };
-    const disabledPatch = { ruleId: action.ruleId, enabled: false };
-    const disableBefore = !!action.disableRuleBefore;
-    const disableAfter = !!action.disableRuleAfter;
 
     // Remap "t1" placeholder targetId to the real UUID.
     const remapTargetId = (a: RampStepAction): RampStepAction =>
       a.targetId === "t1" ? { ...a, targetId } : a;
 
-    const baseStartActions = (action.startCondition?.actions ?? []).map(
-      remapTargetId,
-    );
-    const startConditionActions = disableBefore
-      ? [
-          {
-            targetType: "feature-rule" as const,
-            targetId,
-            patch: enabledPatch,
-          },
-          ...baseStartActions,
-        ]
-      : baseStartActions;
-
-    const rawStartTrigger = action.startCondition?.trigger;
-    const startTrigger =
-      rawStartTrigger?.type === "scheduled"
-        ? { type: "scheduled" as const, at: new Date(rawStartTrigger.at) }
-        : (rawStartTrigger ?? { type: "immediately" as const });
-
-    const baseEndActions = (action.endCondition?.actions ?? []).map(
-      remapTargetId,
-    );
-    const endConditionActions = disableAfter
-      ? [
-          ...baseEndActions,
-          {
-            targetType: "feature-rule" as const,
-            targetId,
-            patch: disabledPatch,
-          },
-        ]
-      : baseEndActions;
+    const startDate = action.startDate ? new Date(action.startDate) : undefined;
 
     const rawEndTrigger = action.endCondition?.trigger;
     const endTrigger =
       rawEndTrigger?.type === "scheduled"
         ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
         : undefined;
-    const endConditionBase =
-      endTrigger || endConditionActions.length
-        ? { trigger: endTrigger, actions: endConditionActions }
-        : undefined;
-    const endCondition = endConditionBase
-      ? {
-          ...endConditionBase,
-          endEarlyWhenStepsComplete:
-            action.endCondition?.endEarlyWhenStepsComplete,
-        }
-      : action.endCondition?.endEarlyWhenStepsComplete !== undefined
-        ? {
-            endEarlyWhenStepsComplete:
-              action.endCondition.endEarlyWhenStepsComplete,
-          }
-        : undefined;
+    const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 
     const steps = action.steps.map((step) => ({
       ...step,
       actions: step.actions.map(remapTargetId),
     }));
+
+    const endActions = (action.endActions ?? []).map(remapTargetId);
 
     const created = await context.models.rampSchedules.create({
       name: action.name,
@@ -1442,32 +1393,20 @@ async function createRampSchedulesForRevision(
           ruleId: action.ruleId,
           environment: action.environment,
           status: "active",
-          controlledFields: action.controlledFields,
           // Link this target to the activating revision so onRevisionPublished
           // (and the Agenda recovery path) can transition "pending" → "running".
           activatingRevisionVersion: revision.version,
         },
       ],
       steps,
-      startCondition: {
-        trigger: startTrigger,
-        actions: startConditionActions.length
-          ? startConditionActions
-          : undefined,
-      },
-      disableRuleBefore: disableBefore || undefined,
-      disableRuleAfter: disableAfter || undefined,
+      endActions: endActions.length > 0 ? endActions : undefined,
+      startDate,
       endCondition,
       // Start as "pending" — onActivatingRevisionPublished handles the
-      // "immediately" → "running" transition inline when the revision publishes.
+      // immediate → "running" transition inline when the revision publishes.
       status: "pending",
       currentStepIndex: -1,
-      nextStepAt:
-        startTrigger.type === "immediately" && steps.length > 0
-          ? new Date()
-          : startTrigger.type === "scheduled"
-            ? new Date(startTrigger.at)
-            : null,
+      nextStepAt: !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
       startedAt: null,
       phaseStartedAt: null,
     });

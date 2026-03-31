@@ -19438,37 +19438,165 @@ paths:
                         type: string
                       steps:
                         type: array
-                        items: {}
-                      startCondition:
+                        items:
+                          type: object
+                          properties:
+                            trigger:
+                              anyOf:
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: interval
+                                    seconds:
+                                      type: number
+                                      exclusiveMinimum: 0
+                                  required:
+                                    - type
+                                    - seconds
+                                  additionalProperties: false
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: approval
+                                  required:
+                                    - type
+                                  additionalProperties: false
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: scheduled
+                                    at:
+                                      type: string
+                                  required:
+                                    - type
+                                    - at
+                                  additionalProperties: false
+                            actions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  targetType:
+                                    type: string
+                                    const: feature-rule
+                                  targetId:
+                                    type: string
+                                  patch:
+                                    type: object
+                                    properties:
+                                      ruleId:
+                                        type: string
+                                      coverage:
+                                        anyOf:
+                                          - type: number
+                                            minimum: 0
+                                            maximum: 1
+                                          - type: 'null'
+                                      condition:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      savedGroups:
+                                        anyOf:
+                                          - type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                match:
+                                                  type: string
+                                                  enum:
+                                                    - all
+                                                    - none
+                                                    - any
+                                                ids:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                              required:
+                                                - match
+                                                - ids
+                                              additionalProperties: false
+                                          - type: 'null'
+                                      prerequisites:
+                                        anyOf:
+                                          - type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                id:
+                                                  type: string
+                                                condition:
+                                                  type: string
+                                              required:
+                                                - id
+                                                - condition
+                                              additionalProperties: false
+                                          - type: 'null'
+                                      enabled:
+                                        anyOf:
+                                          - type: boolean
+                                          - type: 'null'
+                                    required:
+                                      - ruleId
+                                    additionalProperties: false
+                                required:
+                                  - targetType
+                                  - targetId
+                                  - patch
+                                additionalProperties: false
+                            approvalNotes:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - trigger
+                            - actions
+                          additionalProperties: false
+                      endPatch:
                         type: object
                         properties:
-                          trigger: {}
-                          actions:
-                            anyOf:
-                              - type: array
-                                items: {}
-                              - type: 'null'
-                        required:
-                          - trigger
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
                         additionalProperties: false
-                      disableRuleBefore:
-                        type: boolean
-                      disableRuleAfter:
-                        type: boolean
-                      endCondition:
-                        anyOf:
-                          - type: object
-                            properties:
-                              trigger: {}
-                              actions:
-                                anyOf:
-                                  - type: array
-                                    items: {}
-                                  - type: 'null'
-                              endEarlyWhenStepsComplete:
-                                type: boolean
-                            additionalProperties: false
-                          - type: 'null'
                       official:
                         type: boolean
                     required:
@@ -19477,7 +19605,6 @@ paths:
                       - dateUpdated
                       - name
                       - steps
-                      - startCondition
                     additionalProperties: false
     delete:
       $skipValidatorGeneration: true
@@ -19564,8 +19691,6 @@ paths:
                                 const: scheduled
                               at:
                                 type: string
-                                format: date-time
-                                pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                             required:
                               - type
                               - at
@@ -19586,11 +19711,55 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
-                                  type: number
-                                  minimum: 0
-                                  maximum: 1
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
                                 condition:
-                                  type: string
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
                               required:
                                 - ruleId
                               additionalProperties: false
@@ -19600,132 +19769,55 @@ paths:
                             - patch
                           additionalProperties: false
                       approvalNotes:
-                        type: string
+                        anyOf:
+                          - type: string
+                          - type: 'null'
                     required:
                       - trigger
                       - actions
                     additionalProperties: false
-                startCondition:
+                endPatch:
                   type: object
                   properties:
-                    trigger:
-                      anyOf:
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: immediately
-                          required:
-                            - type
-                          additionalProperties: false
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: manual
-                          required:
-                            - type
-                          additionalProperties: false
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at:
-                              type: string
-                              format: date-time
-                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
-                    actions:
+                    coverage:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    condition:
+                      type: string
+                    savedGroups:
                       type: array
                       items:
                         type: object
                         properties:
-                          targetType:
+                          match:
                             type: string
-                            const: feature-rule
-                          targetId:
-                            type: string
-                          patch:
-                            type: object
-                            properties:
-                              ruleId:
-                                type: string
-                              coverage:
-                                type: number
-                                minimum: 0
-                                maximum: 1
-                              condition:
-                                type: string
-                            required:
-                              - ruleId
-                            additionalProperties: false
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
                         required:
-                          - targetType
-                          - targetId
-                          - patch
+                          - match
+                          - ids
                         additionalProperties: false
-                  required:
-                    - trigger
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
                   additionalProperties: false
-                disableRuleBefore:
-                  type: boolean
-                disableRuleAfter:
-                  type: boolean
-                endCondition:
-                  anyOf:
-                    - type: object
-                      properties:
-                        trigger:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at:
-                              type: string
-                              format: date-time
-                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
-                        actions:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              targetType:
-                                type: string
-                                const: feature-rule
-                              targetId:
-                                type: string
-                              patch:
-                                type: object
-                                properties:
-                                  ruleId:
-                                    type: string
-                                  coverage:
-                                    type: number
-                                    minimum: 0
-                                    maximum: 1
-                                  condition:
-                                    type: string
-                                required:
-                                  - ruleId
-                                additionalProperties: false
-                            required:
-                              - targetType
-                              - targetId
-                              - patch
-                            additionalProperties: false
-                        endEarlyWhenStepsComplete:
-                          type: boolean
-                      additionalProperties: false
-                    - type: 'null'
                 official:
                   type: boolean
               additionalProperties: false
@@ -19756,37 +19848,165 @@ paths:
                         type: string
                       steps:
                         type: array
-                        items: {}
-                      startCondition:
+                        items:
+                          type: object
+                          properties:
+                            trigger:
+                              anyOf:
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: interval
+                                    seconds:
+                                      type: number
+                                      exclusiveMinimum: 0
+                                  required:
+                                    - type
+                                    - seconds
+                                  additionalProperties: false
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: approval
+                                  required:
+                                    - type
+                                  additionalProperties: false
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: scheduled
+                                    at:
+                                      type: string
+                                  required:
+                                    - type
+                                    - at
+                                  additionalProperties: false
+                            actions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  targetType:
+                                    type: string
+                                    const: feature-rule
+                                  targetId:
+                                    type: string
+                                  patch:
+                                    type: object
+                                    properties:
+                                      ruleId:
+                                        type: string
+                                      coverage:
+                                        anyOf:
+                                          - type: number
+                                            minimum: 0
+                                            maximum: 1
+                                          - type: 'null'
+                                      condition:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      savedGroups:
+                                        anyOf:
+                                          - type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                match:
+                                                  type: string
+                                                  enum:
+                                                    - all
+                                                    - none
+                                                    - any
+                                                ids:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                              required:
+                                                - match
+                                                - ids
+                                              additionalProperties: false
+                                          - type: 'null'
+                                      prerequisites:
+                                        anyOf:
+                                          - type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                id:
+                                                  type: string
+                                                condition:
+                                                  type: string
+                                              required:
+                                                - id
+                                                - condition
+                                              additionalProperties: false
+                                          - type: 'null'
+                                      enabled:
+                                        anyOf:
+                                          - type: boolean
+                                          - type: 'null'
+                                    required:
+                                      - ruleId
+                                    additionalProperties: false
+                                required:
+                                  - targetType
+                                  - targetId
+                                  - patch
+                                additionalProperties: false
+                            approvalNotes:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - trigger
+                            - actions
+                          additionalProperties: false
+                      endPatch:
                         type: object
                         properties:
-                          trigger: {}
-                          actions:
-                            anyOf:
-                              - type: array
-                                items: {}
-                              - type: 'null'
-                        required:
-                          - trigger
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
                         additionalProperties: false
-                      disableRuleBefore:
-                        type: boolean
-                      disableRuleAfter:
-                        type: boolean
-                      endCondition:
-                        anyOf:
-                          - type: object
-                            properties:
-                              trigger: {}
-                              actions:
-                                anyOf:
-                                  - type: array
-                                    items: {}
-                                  - type: 'null'
-                              endEarlyWhenStepsComplete:
-                                type: boolean
-                            additionalProperties: false
-                          - type: 'null'
                       official:
                         type: boolean
                     required:
@@ -19795,7 +20015,6 @@ paths:
                       - dateUpdated
                       - name
                       - steps
-                      - startCondition
                     additionalProperties: false
   /ramp-schedule-templates:
     post:
@@ -19852,8 +20071,6 @@ paths:
                                 const: scheduled
                               at:
                                 type: string
-                                format: date-time
-                                pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                             required:
                               - type
                               - at
@@ -19874,11 +20091,55 @@ paths:
                                 ruleId:
                                   type: string
                                 coverage:
-                                  type: number
-                                  minimum: 0
-                                  maximum: 1
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
                                 condition:
-                                  type: string
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
                               required:
                                 - ruleId
                               additionalProperties: false
@@ -19888,138 +20149,60 @@ paths:
                             - patch
                           additionalProperties: false
                       approvalNotes:
-                        type: string
+                        anyOf:
+                          - type: string
+                          - type: 'null'
                     required:
                       - trigger
                       - actions
                     additionalProperties: false
-                startCondition:
+                endPatch:
                   type: object
                   properties:
-                    trigger:
-                      anyOf:
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: immediately
-                          required:
-                            - type
-                          additionalProperties: false
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: manual
-                          required:
-                            - type
-                          additionalProperties: false
-                        - type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at:
-                              type: string
-                              format: date-time
-                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
-                    actions:
+                    coverage:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    condition:
+                      type: string
+                    savedGroups:
                       type: array
                       items:
                         type: object
                         properties:
-                          targetType:
+                          match:
                             type: string
-                            const: feature-rule
-                          targetId:
-                            type: string
-                          patch:
-                            type: object
-                            properties:
-                              ruleId:
-                                type: string
-                              coverage:
-                                type: number
-                                minimum: 0
-                                maximum: 1
-                              condition:
-                                type: string
-                            required:
-                              - ruleId
-                            additionalProperties: false
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
                         required:
-                          - targetType
-                          - targetId
-                          - patch
+                          - match
+                          - ids
                         additionalProperties: false
-                  required:
-                    - trigger
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
                   additionalProperties: false
-                disableRuleBefore:
-                  type: boolean
-                disableRuleAfter:
-                  type: boolean
-                endCondition:
-                  anyOf:
-                    - type: object
-                      properties:
-                        trigger:
-                          type: object
-                          properties:
-                            type:
-                              type: string
-                              const: scheduled
-                            at:
-                              type: string
-                              format: date-time
-                              pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
-                          required:
-                            - type
-                            - at
-                          additionalProperties: false
-                        actions:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              targetType:
-                                type: string
-                                const: feature-rule
-                              targetId:
-                                type: string
-                              patch:
-                                type: object
-                                properties:
-                                  ruleId:
-                                    type: string
-                                  coverage:
-                                    type: number
-                                    minimum: 0
-                                    maximum: 1
-                                  condition:
-                                    type: string
-                                required:
-                                  - ruleId
-                                additionalProperties: false
-                            required:
-                              - targetType
-                              - targetId
-                              - patch
-                            additionalProperties: false
-                        endEarlyWhenStepsComplete:
-                          type: boolean
-                      additionalProperties: false
-                    - type: 'null'
                 official:
                   type: boolean
               required:
                 - name
                 - steps
-                - startCondition
               additionalProperties: false
       responses:
         '200':
@@ -20048,37 +20231,165 @@ paths:
                         type: string
                       steps:
                         type: array
-                        items: {}
-                      startCondition:
+                        items:
+                          type: object
+                          properties:
+                            trigger:
+                              anyOf:
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: interval
+                                    seconds:
+                                      type: number
+                                      exclusiveMinimum: 0
+                                  required:
+                                    - type
+                                    - seconds
+                                  additionalProperties: false
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: approval
+                                  required:
+                                    - type
+                                  additionalProperties: false
+                                - type: object
+                                  properties:
+                                    type:
+                                      type: string
+                                      const: scheduled
+                                    at:
+                                      type: string
+                                  required:
+                                    - type
+                                    - at
+                                  additionalProperties: false
+                            actions:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  targetType:
+                                    type: string
+                                    const: feature-rule
+                                  targetId:
+                                    type: string
+                                  patch:
+                                    type: object
+                                    properties:
+                                      ruleId:
+                                        type: string
+                                      coverage:
+                                        anyOf:
+                                          - type: number
+                                            minimum: 0
+                                            maximum: 1
+                                          - type: 'null'
+                                      condition:
+                                        anyOf:
+                                          - type: string
+                                          - type: 'null'
+                                      savedGroups:
+                                        anyOf:
+                                          - type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                match:
+                                                  type: string
+                                                  enum:
+                                                    - all
+                                                    - none
+                                                    - any
+                                                ids:
+                                                  type: array
+                                                  items:
+                                                    type: string
+                                              required:
+                                                - match
+                                                - ids
+                                              additionalProperties: false
+                                          - type: 'null'
+                                      prerequisites:
+                                        anyOf:
+                                          - type: array
+                                            items:
+                                              type: object
+                                              properties:
+                                                id:
+                                                  type: string
+                                                condition:
+                                                  type: string
+                                              required:
+                                                - id
+                                                - condition
+                                              additionalProperties: false
+                                          - type: 'null'
+                                      enabled:
+                                        anyOf:
+                                          - type: boolean
+                                          - type: 'null'
+                                    required:
+                                      - ruleId
+                                    additionalProperties: false
+                                required:
+                                  - targetType
+                                  - targetId
+                                  - patch
+                                additionalProperties: false
+                            approvalNotes:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                          required:
+                            - trigger
+                            - actions
+                          additionalProperties: false
+                      endPatch:
                         type: object
                         properties:
-                          trigger: {}
-                          actions:
-                            anyOf:
-                              - type: array
-                                items: {}
-                              - type: 'null'
-                        required:
-                          - trigger
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
                         additionalProperties: false
-                      disableRuleBefore:
-                        type: boolean
-                      disableRuleAfter:
-                        type: boolean
-                      endCondition:
-                        anyOf:
-                          - type: object
-                            properties:
-                              trigger: {}
-                              actions:
-                                anyOf:
-                                  - type: array
-                                    items: {}
-                                  - type: 'null'
-                              endEarlyWhenStepsComplete:
-                                type: boolean
-                            additionalProperties: false
-                          - type: 'null'
                       official:
                         type: boolean
                     required:
@@ -20087,7 +20398,6 @@ paths:
                       - dateUpdated
                       - name
                       - steps
-                      - startCondition
                     additionalProperties: false
     get:
       $skipValidatorGeneration: true
@@ -20128,37 +20438,165 @@ paths:
                           type: string
                         steps:
                           type: array
-                          items: {}
-                        startCondition:
+                          items:
+                            type: object
+                            properties:
+                              trigger:
+                                anyOf:
+                                  - type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: interval
+                                      seconds:
+                                        type: number
+                                        exclusiveMinimum: 0
+                                    required:
+                                      - type
+                                      - seconds
+                                    additionalProperties: false
+                                  - type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: approval
+                                    required:
+                                      - type
+                                    additionalProperties: false
+                                  - type: object
+                                    properties:
+                                      type:
+                                        type: string
+                                        const: scheduled
+                                      at:
+                                        type: string
+                                    required:
+                                      - type
+                                      - at
+                                    additionalProperties: false
+                              actions:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    targetType:
+                                      type: string
+                                      const: feature-rule
+                                    targetId:
+                                      type: string
+                                    patch:
+                                      type: object
+                                      properties:
+                                        ruleId:
+                                          type: string
+                                        coverage:
+                                          anyOf:
+                                            - type: number
+                                              minimum: 0
+                                              maximum: 1
+                                            - type: 'null'
+                                        condition:
+                                          anyOf:
+                                            - type: string
+                                            - type: 'null'
+                                        savedGroups:
+                                          anyOf:
+                                            - type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  match:
+                                                    type: string
+                                                    enum:
+                                                      - all
+                                                      - none
+                                                      - any
+                                                  ids:
+                                                    type: array
+                                                    items:
+                                                      type: string
+                                                required:
+                                                  - match
+                                                  - ids
+                                                additionalProperties: false
+                                            - type: 'null'
+                                        prerequisites:
+                                          anyOf:
+                                            - type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  id:
+                                                    type: string
+                                                  condition:
+                                                    type: string
+                                                required:
+                                                  - id
+                                                  - condition
+                                                additionalProperties: false
+                                            - type: 'null'
+                                        enabled:
+                                          anyOf:
+                                            - type: boolean
+                                            - type: 'null'
+                                      required:
+                                        - ruleId
+                                      additionalProperties: false
+                                  required:
+                                    - targetType
+                                    - targetId
+                                    - patch
+                                  additionalProperties: false
+                              approvalNotes:
+                                anyOf:
+                                  - type: string
+                                  - type: 'null'
+                            required:
+                              - trigger
+                              - actions
+                            additionalProperties: false
+                        endPatch:
                           type: object
                           properties:
-                            trigger: {}
-                            actions:
-                              anyOf:
-                                - type: array
-                                  items: {}
-                                - type: 'null'
-                          required:
-                            - trigger
+                            coverage:
+                              type: number
+                              minimum: 0
+                              maximum: 1
+                            condition:
+                              type: string
+                            savedGroups:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  match:
+                                    type: string
+                                    enum:
+                                      - all
+                                      - none
+                                      - any
+                                  ids:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - match
+                                  - ids
+                                additionalProperties: false
+                            prerequisites:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  condition:
+                                    type: string
+                                required:
+                                  - id
+                                  - condition
+                                additionalProperties: false
                           additionalProperties: false
-                        disableRuleBefore:
-                          type: boolean
-                        disableRuleAfter:
-                          type: boolean
-                        endCondition:
-                          anyOf:
-                            - type: object
-                              properties:
-                                trigger: {}
-                                actions:
-                                  anyOf:
-                                    - type: array
-                                      items: {}
-                                    - type: 'null'
-                                endEarlyWhenStepsComplete:
-                                  type: boolean
-                              additionalProperties: false
-                            - type: 'null'
                         official:
                           type: boolean
                       required:
@@ -20167,7 +20605,6 @@ paths:
                         - dateUpdated
                         - name
                         - steps
-                        - startCondition
                       additionalProperties: false
   '/teams/{id}':
     get:
@@ -23647,37 +24084,165 @@ components:
           type: string
         steps:
           type: array
-          items: {}
-        startCondition:
+          items:
+            type: object
+            properties:
+              trigger:
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: interval
+                      seconds:
+                        type: number
+                        exclusiveMinimum: 0
+                    required:
+                      - type
+                      - seconds
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: approval
+                    required:
+                      - type
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: scheduled
+                      at:
+                        type: string
+                    required:
+                      - type
+                      - at
+                    additionalProperties: false
+              actions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    targetType:
+                      type: string
+                      const: feature-rule
+                    targetId:
+                      type: string
+                    patch:
+                      type: object
+                      properties:
+                        ruleId:
+                          type: string
+                        coverage:
+                          anyOf:
+                            - type: number
+                              minimum: 0
+                              maximum: 1
+                            - type: 'null'
+                        condition:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        savedGroups:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: object
+                                properties:
+                                  match:
+                                    type: string
+                                    enum:
+                                      - all
+                                      - none
+                                      - any
+                                  ids:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - match
+                                  - ids
+                                additionalProperties: false
+                            - type: 'null'
+                        prerequisites:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  condition:
+                                    type: string
+                                required:
+                                  - id
+                                  - condition
+                                additionalProperties: false
+                            - type: 'null'
+                        enabled:
+                          anyOf:
+                            - type: boolean
+                            - type: 'null'
+                      required:
+                        - ruleId
+                      additionalProperties: false
+                  required:
+                    - targetType
+                    - targetId
+                    - patch
+                  additionalProperties: false
+              approvalNotes:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+            required:
+              - trigger
+              - actions
+            additionalProperties: false
+        endPatch:
           type: object
           properties:
-            trigger: {}
-            actions:
-              anyOf:
-                - type: array
-                  items: {}
-                - type: 'null'
-          required:
-            - trigger
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            condition:
+              type: string
+            savedGroups:
+              type: array
+              items:
+                type: object
+                properties:
+                  match:
+                    type: string
+                    enum:
+                      - all
+                      - none
+                      - any
+                  ids:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - match
+                  - ids
+                additionalProperties: false
+            prerequisites:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  condition:
+                    type: string
+                required:
+                  - id
+                  - condition
+                additionalProperties: false
           additionalProperties: false
-        disableRuleBefore:
-          type: boolean
-        disableRuleAfter:
-          type: boolean
-        endCondition:
-          anyOf:
-            - type: object
-              properties:
-                trigger: {}
-                actions:
-                  anyOf:
-                    - type: array
-                      items: {}
-                    - type: 'null'
-                endEarlyWhenStepsComplete:
-                  type: boolean
-              additionalProperties: false
-            - type: 'null'
         official:
           type: boolean
       required:
@@ -23686,7 +24251,6 @@ components:
         - dateUpdated
         - name
         - steps
-        - startCondition
       additionalProperties: false
       $skipValidatorGeneration: true
     Team:
@@ -23868,17 +24432,37 @@ components:
               activatingRevisionVersion:
                 type: integer
                 description: Feature revision version that activates this ramp; cleared once published
-              controlledFields:
-                type: array
-                items:
-                  type: string
-                  enum:
-                    - coverage
-                    - condition
-                    - savedGroups
-                    - prerequisites
-                    - force
-                description: Rule fields this ramp manages. Absent controlled fields in any step's patch are cleared when that step applies. The 'enabled' field is managed automatically via disableRuleBefore/disableRuleAfter.
+        endActions:
+          type: array
+          description: Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state.
+          items:
+            type: object
+            required:
+              - targetType
+              - targetId
+              - patch
+            properties:
+              targetType:
+                type: string
+                enum:
+                  - feature-rule
+              targetId:
+                type: string
+              patch:
+                type: object
+                required:
+                  - ruleId
+                properties:
+                  ruleId:
+                    type: string
+                  coverage:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                  condition:
+                    type: string
+                  force:
+                    description: Force value (any JSON type)
         steps:
           type: array
           description: Ordered ramp steps
@@ -23938,34 +24522,14 @@ components:
                           description: Force value (any JSON type)
               approvalNotes:
                 type: string
-        startCondition:
-          type: object
-          description: When and how the ramp starts
-          required:
-            - trigger
-          properties:
-            trigger:
-              type: object
-              required:
-                - type
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - immediately
-                    - manual
-                    - scheduled
-                at:
-                  type: string
-                  format: date-time
-            actions:
-              type: array
-              description: Baseline state applied on ramp start
-              items:
-                type: object
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
         endCondition:
           type: object
-          description: Optional hard deadline and teardown actions
+          description: Optional hard deadline for standard (no-step) schedules
           properties:
             trigger:
               type: object
@@ -23977,19 +24541,6 @@ components:
                 at:
                   type: string
                   format: date-time
-            actions:
-              type: array
-              items:
-                type: object
-            endEarlyWhenStepsComplete:
-              type: boolean
-              description: Complete immediately when all steps finish (true) or hold until trigger fires (false)
-        disableRuleBefore:
-          type: boolean
-          description: Hide the rule from SDK before the schedule starts
-        disableRuleAfter:
-          type: boolean
-          description: Hide the rule from SDK after the schedule ends
         status:
           type: string
           enum:

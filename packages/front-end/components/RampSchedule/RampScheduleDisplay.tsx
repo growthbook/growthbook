@@ -6,14 +6,16 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import {
   RampScheduleInterface,
-  RampStartTrigger,
   RampStepAction,
 } from "shared/src/validators/ramp-schedule";
 import Text from "@/ui/Text";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { formatTrigger } from "@/components/RampSchedule/RampTimeline";
+import {
+  formatTrigger,
+  formatScheduledDate,
+} from "@/components/RampSchedule/RampTimeline";
 
 // ─── Effect row ──────────────────────────────────────────────────────────────
 
@@ -167,18 +169,14 @@ function PatchDisplay({
 
 // ─── Trigger label ────────────────────────────────────────────────────────────
 
-function StartTriggerLabel({ trigger }: { trigger: RampStartTrigger }) {
-  if (trigger.type === "immediately") {
+function StartDateLabel({ startDate }: { startDate?: Date | string | null }) {
+  if (!startDate)
     return (
       <Text size="small" color="text-low">
         —
       </Text>
     );
-  }
-  if (trigger.type === "manual") {
-    return <Text size="small">Manual</Text>;
-  }
-  return <>{formatTrigger({ type: "scheduled", at: trigger.at })}</>;
+  return <>{formatScheduledDate(startDate)}</>;
 }
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
@@ -245,11 +243,7 @@ interface Props {
 export default function RampScheduleDisplay({ rs, targetId }: Props) {
   const current = rs.currentStepIndex;
 
-  const startActions = filterActions(
-    rs.startCondition?.actions ?? [],
-    targetId,
-  );
-  const endActions = filterActions(rs.endCondition?.actions ?? [], targetId);
+  const endActions: ReturnType<typeof filterActions> = [];
 
   return (
     <Box mx="2">
@@ -275,8 +269,8 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
       <Separator size="4" my="2" />
       <Row
         label="start"
-        trigger={<StartTriggerLabel trigger={rs.startCondition.trigger} />}
-        actions={startActions}
+        trigger={<StartDateLabel startDate={rs.startDate} />}
+        actions={[]}
       />
 
       {/* Steps */}
@@ -293,27 +287,16 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
       ))}
 
       <Separator size="4" my="2" />
-      {(() => {
-        const hasExplicitEnd = !!rs.endCondition;
-        const implicitDisable = !hasExplicitEnd && !!rs.disableRuleAfter;
-        return (
-          <Row
-            label="end"
-            trigger={
-              hasExplicitEnd && rs.endCondition?.trigger ? (
-                formatTrigger(rs.endCondition.trigger)
-              ) : (
-                <Text size="small" color="text-low">
-                  Complete
-                </Text>
-              )
-            }
-            actions={endActions}
-            syntheticEnabled={implicitDisable ? false : undefined}
-            dimmed={!hasExplicitEnd && !implicitDisable}
-          />
-        );
-      })()}
+      <Row
+        label="end"
+        trigger={
+          <Text size="small" color="text-low">
+            Complete
+          </Text>
+        }
+        actions={endActions}
+        dimmed
+      />
     </Box>
   );
 }

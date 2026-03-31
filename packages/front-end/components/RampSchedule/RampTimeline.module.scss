@@ -1,3 +1,18 @@
+// ─── Theme-aware color tokens ────────────────────────────────────────────────
+// --gray-4 collapses to near-black in dark mode; define intentional overrides.
+
+:global(.light-theme) {
+  --ramp-future-dot: var(--gray-4);
+  --ramp-future-connector: var(--gray-4);
+  --ramp-future-label: var(--gray-12);
+}
+
+:global(.dark-theme) {
+  --ramp-future-dot: var(--gray-9);
+  --ramp-future-connector: var(--gray-7);
+  --ramp-future-label: var(--gray-11);
+}
+
 // ─── constants (mirrored from TSX) ──────────────────────────────────────────
 // DOT_CONTAINER = 15px, DOT_SIZE = 15px
 // CONNECTOR_MARGIN_TOP = DOT_CONTAINER/2 - 1 + 4 = 10.5px
@@ -78,13 +93,13 @@
 }
 
 .nodeSublabel {
-  color: var(--gray-9);
+  color: var(--color-text-low);
 }
 
 // ─── Connector ───────────────────────────────────────────────────────────────
 
 .connector {
-  width: 44px;
+  width: 50px;
   flex-shrink: 0;
   align-self: flex-start;
 }
@@ -98,12 +113,12 @@
 .connectorLabel {
   text-align: center;
   margin-top: 2px;
-  color: var(--gray-9);
+  color: var(--color-text-low);
   white-space: nowrap;
 }
 
 .connectorSpacer {
-  width: 44px;
+  width: 50px;
   flex-shrink: 0;
   margin-top: 10.5px;
   align-self: flex-start;
