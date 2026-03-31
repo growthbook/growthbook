@@ -266,12 +266,16 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
         </Box>
       </Flex>
 
-      <Separator size="4" my="2" />
-      <Row
-        label="start"
-        trigger={<StartDateLabel startDate={rs.startDate} />}
-        actions={[]}
-      />
+      {rs.startDate && (
+        <>
+          <Separator size="4" my="2" />
+          <Row
+            label="start"
+            trigger={<StartDateLabel startDate={rs.startDate} />}
+            actions={[]}
+          />
+        </>
+      )}
 
       {/* Steps */}
       {rs.steps.map((step, i) => (

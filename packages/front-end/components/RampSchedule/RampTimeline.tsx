@@ -60,16 +60,6 @@ export function formatScheduledDate(d: Date | string): ReactNode {
   );
 }
 
-function formatStartDate(startDate?: Date | string | null): ReactNode {
-  if (!startDate)
-    return (
-      <Text size="small" color="text-low">
-        —
-      </Text>
-    );
-  return formatScheduledDate(startDate);
-}
-
 function formatRemaining(ms: number): ReactNode {
   if (ms <= 0) return <Text size="small">any moment</Text>;
   const future = new Date(Date.now() + ms);
@@ -343,10 +333,18 @@ function NodePopoverContent({
         </span>
       </Flex>
 
-      {/* Hold / trigger label */}
-      <Box mb="2">
-        <PopoverEffectRow label="Hold">{triggerLabel}</PopoverEffectRow>
-      </Box>
+      {/* Hold / trigger label — start and end nodes have no hold interval */}
+      {stepIndex === "start" ? (
+        triggerLabel && (
+          <Box mb="2">
+            <PopoverEffectRow label="Starts">{triggerLabel}</PopoverEffectRow>
+          </Box>
+        )
+      ) : stepIndex !== "end" ? (
+        <Box mb="2">
+          <PopoverEffectRow label="Hold">{triggerLabel}</PopoverEffectRow>
+        </Box>
+      ) : null}
 
       {/* Remaining hold — only for active interval steps */}
       {isActive &&
@@ -651,7 +649,7 @@ export default function RampTimeline({
           nodeState={getState(0)}
           status={status}
           trigger={null}
-          triggerLabel={formatStartDate(startDate)}
+          triggerLabel={startDate ? formatScheduledDate(startDate) : null}
           actions={[]}
           stepIndex="start"
           isActive={getState(0) === "active"}
@@ -710,8 +708,8 @@ export default function RampTimeline({
             nodeState={getState(endNodeIndex)}
             status={status}
             trigger={null}
-            triggerLabel={<Text size="small">auto</Text>}
-            actions={[]}
+            triggerLabel={null}
+            actions={rs.endActions ?? []}
             stepIndex="end"
             isActive={getState(endNodeIndex) === "active"}
             rs={rs}
