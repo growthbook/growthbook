@@ -237,21 +237,7 @@ export function buildStartActions(
   ];
 }
 
-export function buildEndScheduleActions(
-  patch: UIStepPatch,
-  targetId: string,
-  ruleId: string,
-): RampStepAction[] {
-  const hasAny = Object.values(patch).some((v) => v !== undefined);
-  if (!hasAny) return [];
-  return [
-    {
-      targetType: "feature-rule" as const,
-      targetId,
-      patch: buildPatch(patch, ruleId) as RampStepAction["patch"],
-    },
-  ];
-}
+export const buildEndScheduleActions = buildStartActions;
 
 // Returns a validation error message if any required date fields are missing, or null if valid.
 export function validateRampSectionState(
@@ -350,10 +336,6 @@ export default function RampScheduleSection({
 }: Props) {
   const [open, setOpen] = useState(hideOuterToggle || state.mode !== "off");
 
-  // Per-step version counters for ConditionInput (uncontrolled) — incremented
-  // when a copy operation writes a new condition value into a step so the
-  // component remounts and picks up the new defaultValue.
-  const [conditionVersions] = useState<Record<string, number>>({});
   const [openMenuIndex, setOpenMenuIndex] = useState<
     number | "start" | "end" | null
   >(null);
@@ -573,7 +555,7 @@ export default function RampScheduleSection({
             {"condition" in patch && (
               <Box>
                 <ConditionInput
-                  key={`${currentStepIndex}-condition-${conditionVersions[String(currentStepIndex)] ?? 0}`}
+                  key={`${currentStepIndex}-condition`}
                   defaultValue={patch.condition ?? "{}"}
                   onChange={(v) => setPatchFn("condition", v)}
                   project={feature.project ?? ""}

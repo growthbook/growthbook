@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
@@ -146,7 +146,9 @@ function PopoverPatchDisplay({
           {p.condition && p.condition !== "{}" ? (
             <ConditionDisplay condition={p.condition} />
           ) : (
-            <Text size="small" fontStyle="italic">None</Text>
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
           )}
         </PopoverEffectRow>,
       );
@@ -157,7 +159,9 @@ function PopoverPatchDisplay({
           {p.savedGroups && p.savedGroups.length > 0 ? (
             <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
           ) : (
-            <Text size="small" fontStyle="italic">None</Text>
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
           )}
         </PopoverEffectRow>,
       );
@@ -168,7 +172,9 @@ function PopoverPatchDisplay({
           {p.prerequisites && p.prerequisites.length > 0 ? (
             <ConditionDisplay prerequisites={p.prerequisites} />
           ) : (
-            <Text size="small" fontStyle="italic">None</Text>
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
           )}
         </PopoverEffectRow>,
       );
@@ -208,7 +214,15 @@ function PopoverPatchDisplay({
     ...(afterCoverage ? [<Box key="cov-cta">{afterCoverage}</Box>] : []),
     ...(hasAdditional
       ? [
-          <Text key="additional-header" as="div" weight="semibold" color="text-mid" mt="4" mb="2" size="small">
+          <Text
+            key="additional-header"
+            as="div"
+            weight="semibold"
+            color="text-mid"
+            mt="4"
+            mb="2"
+            size="small"
+          >
             Additional Effects
           </Text>,
           ...additionalItems,
@@ -318,9 +332,12 @@ function NodePopoverContent({
           <Text weight="medium">
             {heading}
             {nodeState === "active" && (
-              <Text as="span" weight="regular"> (current)</Text>
-            )}
-            {" "}—{" "}
+              <Text as="span" weight="regular">
+                {" "}
+                (current)
+              </Text>
+            )}{" "}
+            —{" "}
             <span className={styles.popoverStatusLabel}>
               {statusMeta.label}
             </span>
@@ -796,10 +813,9 @@ export default function RampTimeline({
           )}
 
           {nodes.map((node, i) => (
-            <>
+            <Fragment key={node.key}>
               {i > 0 && (
                 <Connector
-                  key={`conn-${i}`}
                   left={getState(i - 1)}
                   status={status}
                   triggerLabel={
@@ -807,13 +823,8 @@ export default function RampTimeline({
                   }
                 />
               )}
-              <Node
-                key={node.key}
-                node={node}
-                state={getState(i)}
-                status={status}
-              />
-            </>
+              <Node node={node} state={getState(i)} status={status} />
+            </Fragment>
           ))}
         </Flex>
       </Box>

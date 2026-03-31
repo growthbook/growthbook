@@ -34,7 +34,10 @@ interface EntityHandler {
 // startCondition is the fully-qualified baseline; every controlled field should appear there.
 // stepIndex=-1 → startCondition only; stepIndex >= steps.length → also include endCondition.
 export function computeEffectivePatch(
-  schedule: Pick<RampScheduleInterface, "startCondition" | "steps" | "endCondition">,
+  schedule: Pick<
+    RampScheduleInterface,
+    "startCondition" | "steps" | "endCondition"
+  >,
   stepIndex: number,
 ): Map<string, FeatureRulePatch> {
   const byTarget = new Map<string, FeatureRulePatch>();
@@ -456,17 +459,16 @@ export async function jumpAheadToStep(
 }
 
 // Fast-forwards to the terminal state, bypassing timing and approval gates.
-// endCondition.actions define the final state if present; otherwise the last step does.
-// No merging — each is applied as complete state. Used by REST "complete" and endCondition deadlines.
+// Applies the fully-accumulated effective patch (startCondition + all steps + endCondition)
+// so any skipped intermediate steps are included. Used by REST "complete" and endCondition deadlines.
 export async function completeRollout(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<RampScheduleInterface> {
-  const endConditionActions = schedule.endCondition?.actions ?? [];
-  const lastStepActions =
-    schedule.steps[schedule.steps.length - 1]?.actions ?? [];
-  const actionsToApply =
-    endConditionActions.length > 0 ? endConditionActions : lastStepActions;
+  const effective = computeEffectivePatch(schedule, schedule.steps.length);
+  const actionsToApply: RampStepAction[] = [...effective.entries()].map(
+    ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
+  );
 
   if (actionsToApply.length > 0) {
     await executeStepActions(

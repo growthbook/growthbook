@@ -1,7 +1,7 @@
 // Read-only view of a ramp schedule's steps and effects.
 // When targetId is set, only actions for that target are shown.
 
-import { type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import {
@@ -85,7 +85,9 @@ function PatchDisplay({
           {p.condition && p.condition !== "{}" ? (
             <ConditionDisplay condition={p.condition} />
           ) : (
-            <Text size="small" fontStyle="italic">None</Text>
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
           )}
         </EffectRow>,
       );
@@ -97,7 +99,9 @@ function PatchDisplay({
           {p.savedGroups && p.savedGroups.length > 0 ? (
             <SavedGroupTargetingDisplay savedGroups={p.savedGroups} />
           ) : (
-            <Text size="small" fontStyle="italic">None</Text>
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
           )}
         </EffectRow>,
       );
@@ -109,7 +113,9 @@ function PatchDisplay({
           {p.prerequisites && p.prerequisites.length > 0 ? (
             <ConditionDisplay prerequisites={p.prerequisites} />
           ) : (
-            <Text size="small" fontStyle="italic">None</Text>
+            <Text size="small" fontStyle="italic">
+              None
+            </Text>
           )}
         </EffectRow>,
       );
@@ -200,12 +206,7 @@ function Row({
     : "text-low";
 
   return (
-    <Flex
-      align="start"
-      gap="3"
-      pt="2"
-      style={{ opacity: dimmed ? 0.5 : 1 }}
-    >
+    <Flex align="start" gap="3" pt="2" style={{ opacity: dimmed ? 0.5 : 1 }}>
       <Box style={{ width: LABEL_W, flexShrink: 0 }}>
         <Text size="small" weight="medium" color={labelColor}>
           {label}
@@ -280,16 +281,15 @@ export default function RampScheduleDisplay({ rs, targetId }: Props) {
 
       {/* Steps */}
       {rs.steps.map((step, i) => (
-        <>
-          <Separator key={`sep-${i}`} size="4" my="2" />
+        <Fragment key={i}>
+          <Separator size="4" my="2" />
           <Row
-            key={i}
             label={i + 1}
             trigger={formatTrigger(step.trigger)}
             actions={filterActions(step.actions, targetId)}
             isActive={i === current}
           />
-        </>
+        </Fragment>
       ))}
 
       <Separator size="4" my="2" />

@@ -315,9 +315,9 @@ export const putRampSchedule = async (
         };
       }
 
-      const currentEc =
-        (updates.endCondition as typeof schedule.endCondition) ??
-        schedule.endCondition;
+      const currentEc = (
+        "endCondition" in updates ? updates.endCondition : schedule.endCondition
+      ) as typeof schedule.endCondition;
       if (currentEc || effectiveDisableAfter) {
         const baseEndActions = (currentEc?.actions ?? []).filter(
           (a) => !("enabled" in a.patch),
@@ -353,12 +353,12 @@ export const putRampSchedule = async (
   updates.nextProcessAt = computeNextProcessAt({
     status: schedule.status,
     nextStepAt: schedule.nextStepAt,
-    endCondition:
-      (updates.endCondition as RampScheduleInterface["endCondition"]) ??
-      schedule.endCondition,
-    startCondition:
-      (updates.startCondition as RampScheduleInterface["startCondition"]) ??
-      schedule.startCondition,
+    endCondition: ("endCondition" in updates
+      ? updates.endCondition
+      : schedule.endCondition) as RampScheduleInterface["endCondition"],
+    startCondition: ("startCondition" in updates
+      ? updates.startCondition
+      : schedule.startCondition) as RampScheduleInterface["startCondition"],
   });
 
   const updated = await context.models.rampSchedules.updateById(

@@ -122,12 +122,12 @@ export const putRampSchedule = createApiRequestHandler(
   updates.nextProcessAt = computeNextProcessAt({
     status: schedule.status,
     nextStepAt: schedule.nextStepAt,
-    endCondition:
-      (updates.endCondition as RampScheduleInterface["endCondition"]) ??
-      schedule.endCondition,
-    startCondition:
-      (updates.startCondition as RampScheduleInterface["startCondition"]) ??
-      schedule.startCondition,
+    endCondition: ("endCondition" in updates
+      ? updates.endCondition
+      : schedule.endCondition) as RampScheduleInterface["endCondition"],
+    startCondition: ("startCondition" in updates
+      ? updates.startCondition
+      : schedule.startCondition) as RampScheduleInterface["startCondition"],
   });
 
   const updated = await req.context.models.rampSchedules.updateById(
