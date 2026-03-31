@@ -1070,11 +1070,14 @@ export async function cancelDataSourceQuery(
   const cancelledBy =
     req.email || req.currentUser?.email || req.userId || "unknown";
 
-  await updateQuery(context, query, {
+  const updated = await updateQueryIfRunning(context, query, {
     status: "failed",
     finishedAt: new Date(),
     error: `Query cancelled by user (${cancelledBy})`,
   });
+  if (!updated) {
+    throw new Error("Query is no longer in running state and cannot be cancelled");
+  }
 
   res.status(200).json({ status: 200 });
 }
