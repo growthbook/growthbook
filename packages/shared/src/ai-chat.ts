@@ -188,11 +188,3 @@ export type AIChatMessage =
   | AIChatUserMessage
   | AIChatAssistantMessage
   | AIChatToolMessage;
-
-/** GET /chat/:conversationId response body (messages slice). */
-export interface AIChatConversationStatus {
-  status: 200;
-  isStreaming: boolean;
-  lastStreamedAt: number;
-  messages: AIChatMessage[];
-}

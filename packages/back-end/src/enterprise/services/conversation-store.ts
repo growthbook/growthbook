@@ -1,8 +1,4 @@
-import {
-  toolResultSnapshotId,
-  type AIChatMessage,
-  type AIChatToolResultPart,
-} from "shared/ai-chat";
+import type { AIChatMessage, AIChatToolResultPart } from "shared/ai-chat";
 
 interface ConversationEntry {
   messages: AIChatMessage[];
@@ -86,10 +82,6 @@ export function appendMessages(
   );
 }
 
-export function clearConversation(conversationId: string): void {
-  store.delete(conversationId);
-}
-
 /**
  * Mark a conversation as actively streaming. Call with `true` when a stream
  * starts and `false` when it completes (or errors/aborts).
@@ -143,25 +135,6 @@ export function getConversationStatus(
     lastStreamedAt: entry.lastStreamedAt,
     messages: entry.messages,
   };
-}
-
-/**
- * Find a persisted tool-result part whose result includes the given snapshotId.
- */
-export function findSnapshot(
-  conversationId: string,
-  snapshotId: string,
-): AIChatToolResultPart | undefined {
-  const messages = getConversation(conversationId);
-  for (const m of messages) {
-    if (m.role !== "tool") continue;
-    for (const part of m.content) {
-      if (toolResultSnapshotId(part.result) === snapshotId) {
-        return part;
-      }
-    }
-  }
-  return undefined;
 }
 
 /**

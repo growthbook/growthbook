@@ -8,6 +8,7 @@ import type {
   AIChatToolCallPart,
   AIChatToolResultPart,
 } from "shared/ai-chat";
+import { stringifyToolResultForStorage } from "shared/ai-chat";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -27,14 +28,12 @@ import {
   initConversation,
 } from "back-end/src/enterprise/services/conversation-store";
 import { stripForLLM } from "back-end/src/enterprise/services/ai-chat-for-llm";
-import { stringifyToolResultForStorage } from "shared/ai-chat";
-import {
-  clearSessionLatestExplorationConfig,
-  resetSnapshotSlotCounter,
-} from "back-end/src/enterprise/services/exploration-session-config";
-import { clearPendingSnapshotsForConversation } from "back-end/src/enterprise/services/pending-snapshot-lookup";
 import { logger } from "back-end/src/util/logger";
 import { serializeUnknownForSSE } from "back-end/src/enterprise/services/sse-tool-payload";
+
+// =============================================================================
+// Public types
+// =============================================================================
 
 export type AgentEmit = (event: string, data: unknown) => void;
 
@@ -64,6 +63,18 @@ export interface AgentConfig<TParams = unknown> {
   maxSteps?: number;
 
   /**
+   * Called at the start of each request, before streaming begins.
+   * Use this for per-request state initialization (e.g. resetting slot counters).
+   */
+  onStreamStart?: (conversationId: string) => void;
+
+  /**
+   * Called after the stream completes (or errors), before the response is closed.
+   * Use this to clean up per-request in-memory state.
+   */
+  onCleanup?: (conversationId: string) => void;
+
+  /**
    * Called after the default SSE mapping for every AI SDK stream part.
    * Use this to emit additional events. Default events (text-delta,
    * tool-call-start, tool-call-args-delta, tool-call-input, tool-call-end with
@@ -72,10 +83,21 @@ export interface AgentConfig<TParams = unknown> {
   onLLMEvent?: (part: TextStreamPart<ToolSet>, emit: AgentEmit) => void;
 }
 
+// =============================================================================
+// Internal types (AI SDK stream parts + request shape)
+// =============================================================================
+
 type FlushableResponse = Response & { flush?: () => void };
 type AgentStreamPart = TextStreamPart<ToolSet>;
-type ToolInputStartPart = Extract<AgentStreamPart, { type: "tool-input-start" }>;
-type ToolInputDeltaPart = Extract<AgentStreamPart, { type: "tool-input-delta" }>;
+type TextDeltaPart = Extract<AgentStreamPart, { type: "text-delta" }>;
+type ToolInputStartPart = Extract<
+  AgentStreamPart,
+  { type: "tool-input-start" }
+>;
+type ToolInputDeltaPart = Extract<
+  AgentStreamPart,
+  { type: "tool-input-delta" }
+>;
 type ToolCallPart = Extract<AgentStreamPart, { type: "tool-call" }>;
 type ToolResultPart = Extract<AgentStreamPart, { type: "tool-result" }>;
 type ToolErrorPart = Extract<AgentStreamPart, { type: "tool-error" }>;
@@ -88,25 +110,87 @@ type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
 >;
 
-function getStringProperty(
-  value: unknown,
-  key: string,
-): string | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const raw = (value as Record<string, unknown>)[key];
-  return typeof raw === "string" ? raw : undefined;
+// =============================================================================
+// Main entry — Express handler factory
+// =============================================================================
+//
+// Creates a POST handler from AgentConfig: premium/AI gates, conversation
+// history, system prompt, streaming completion, SSE mapping, and persistence.
+// Body must include `message` and `conversationId`; extra fields go through
+// `config.parseParams`.
+//
+// Helpers below are plain `function` declarations so they can live after this
+// export without forward references issues at runtime.
+
+export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
+  return async (
+    req: AuthRequest<AgentRequestBody>,
+    res: Response,
+  ): Promise<void> => {
+    const flushableRes = res as FlushableResponse;
+    const body = req.body as AgentRequestBody;
+    const { message, conversationId } = body;
+    const context = getContextFromReq(req);
+
+    config.onStreamStart?.(conversationId);
+
+    if (!(await runAccessGates(context, res))) {
+      return;
+    }
+
+    const params = config.parseParams(body);
+    const { system, orgAdditionalPrompt, overrideModel } =
+      await buildSystemPromptForRequest(context, config, params);
+    const messagesForLLM = prepareConversationMessages(
+      conversationId,
+      context,
+      message,
+    );
+    setSseHeaders(res);
+    const emit = createEmit(flushableRes, conversationId);
+    const tools = config.buildTools(context, conversationId, params, emit);
+
+    setStreaming(conversationId, true);
+    try {
+      const stream = await streamingChatCompletion({
+        context,
+        system,
+        messages: messagesForLLM,
+        temperature: config.temperature,
+        type: config.promptType,
+        isDefaultPrompt: !orgAdditionalPrompt,
+        overrideModel,
+        tools,
+        maxSteps: config.maxSteps,
+      });
+
+      await streamAgentResponse(stream, config, conversationId, emit);
+
+      // Awaiting stream.response drains any buffered provider errors that
+      // surface after the fullStream async iterator completes. Errors here
+      // are safe to ignore since streamAgentResponse already handled them.
+      try {
+        await stream.response;
+      } catch {
+        // ignore
+      }
+    } finally {
+      try {
+        config.onCleanup?.(conversationId);
+      } catch {
+        // ignore cleanup errors
+      }
+
+      setStreaming(conversationId, false);
+      emit("done", {});
+      flushableRes.end();
+    }
+  };
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error == null) return fallback;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return fallback;
-  }
-}
+// =============================================================================
+// Access gates & org AI settings
+// =============================================================================
 
 async function runAccessGates(
   context: ReqContext,
@@ -142,6 +226,10 @@ async function runAccessGates(
   return true;
 }
 
+// =============================================================================
+// System prompt + org prompt overlay
+// =============================================================================
+
 async function buildSystemPromptForRequest<TParams>(
   context: ReqContext,
   config: AgentConfig<TParams>,
@@ -162,6 +250,10 @@ async function buildSystemPromptForRequest<TParams>(
     overrideModel,
   };
 }
+
+// =============================================================================
+// Conversation store: init, append user message, messages for the model
+// =============================================================================
 
 function prepareConversationMessages(
   conversationId: string,
@@ -189,6 +281,10 @@ function prepareConversationMessages(
   return stripForLLM(getConversation(conversationId));
 }
 
+// =============================================================================
+// SSE response helpers
+// =============================================================================
+
 function setSseHeaders(res: Response): void {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -207,251 +303,179 @@ function createEmit(
   };
 }
 
-async function streamAgentResponse(
-  stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
-  config: AgentConfig,
-  conversationId: string,
-  emit: AgentEmit,
-): Promise<void> {
-  // Per-step accumulators: batched into one assistant message + one tool message per step.
-  const assistantParts: (AIChatTextPart | AIChatToolCallPart)[] = [];
-  const pendingToolResults: AIChatToolResultPart[] = [];
-  let textBuffer = "";
+// =============================================================================
+// Stream processing: AI SDK fullStream → SSE + persisted assistant/tool rows
+// =============================================================================
 
-  const flushTextToAssistantParts = (): void => {
-    const trimmed = textBuffer.trim();
+/**
+ * Accumulates AI SDK stream parts into assistant/tool messages and flushes them
+ * to the conversation store at step boundaries. Holds all mutable accumulator
+ * state so it does not leak into the stream loop or callers.
+ */
+class StreamProcessor {
+  private assistantParts: (AIChatTextPart | AIChatToolCallPart)[] = [];
+  private pendingToolResults: AIChatToolResultPart[] = [];
+  private textBuffer = "";
+
+  constructor(
+    private readonly conversationId: string,
+    private readonly emit: AgentEmit,
+  ) {}
+
+  private flushTextToAssistantParts(): void {
+    const trimmed = this.textBuffer.trim();
     if (trimmed) {
-      assistantParts.push({ type: "text", text: trimmed });
+      this.assistantParts.push({ type: "text", text: trimmed });
     }
-    textBuffer = "";
-  };
+    this.textBuffer = "";
+  }
 
-  const flushAssistantMessage = (): void => {
-    flushTextToAssistantParts();
-    if (assistantParts.length > 0) {
-      appendMessages(conversationId, [
+  private flushAssistantMessage(): void {
+    this.flushTextToAssistantParts();
+    if (this.assistantParts.length > 0) {
+      appendMessages(this.conversationId, [
         {
           role: "assistant",
           id: randomUUID(),
           ts: Date.now(),
-          content: assistantParts.splice(0),
+          content: this.assistantParts.splice(0),
         },
       ]);
     }
-  };
+  }
 
-  const flushToolMessage = (): void => {
-    if (pendingToolResults.length > 0) {
-      appendMessages(conversationId, [
+  private flushToolMessage(): void {
+    if (this.pendingToolResults.length > 0) {
+      appendMessages(this.conversationId, [
         {
           role: "tool",
           id: randomUUID(),
           ts: Date.now(),
-          content: pendingToolResults.splice(0),
+          content: this.pendingToolResults.splice(0),
         },
       ]);
     }
-  };
+  }
 
-  try {
-    for await (const part of stream.fullStream) {
-      debugNonTextPart(part, conversationId, config.promptType);
-
-      switch (part.type) {
-        case "text-delta":
-          // Tool results from the previous step are now finalized — flush them.
-          if (pendingToolResults.length > 0) {
-            flushToolMessage();
-          }
-          textBuffer += part.text;
-          emit("text-delta", { content: part.text });
-          break;
-
-        case "tool-input-start":
-          emitToolInputStart(part, emit);
-          break;
-
-        case "tool-input-delta":
-          emitToolInputDelta(part, emit);
-          break;
-
-        case "tool-call":
-          emitToolCall(
-            part,
-            emit,
-            flushTextToAssistantParts,
-            assistantParts,
-            flushToolMessage,
-            pendingToolResults,
-          );
-          break;
-
-        case "tool-result":
-          emitToolResult(
-            part,
-            emit,
-            flushAssistantMessage,
-            assistantParts,
-            pendingToolResults,
-          );
-          break;
-
-        case "tool-error":
-          emitToolError(part, emit);
-          break;
-
-        case "reasoning-delta":
-          emit("reasoning-delta", { text: part.text });
-          break;
-
-        case "error":
-          emit("error", {
-            message: getErrorMessage(
-              (part as ErrorPart).error,
-              "An error occurred",
-            ),
-          });
-          break;
-
-        default:
-          break;
-      }
-
-      config.onLLMEvent?.(part, emit);
+  handleTextDelta(part: TextDeltaPart): void {
+    // Tool results from the previous step are now finalized — flush them.
+    if (this.pendingToolResults.length > 0) {
+      this.flushToolMessage();
     }
-  } catch (err) {
-    emit("error", { message: getErrorMessage(err, "An error occurred") });
+    this.textBuffer += part.text;
+    this.emit("text-delta", { content: part.text });
   }
 
-  // Flush whatever remains after the stream ends.
-  flushAssistantMessage();
-  flushToolMessage();
-}
-
-function cleanupConversationArtifacts(conversationId: string): void {
-  clearSessionLatestExplorationConfig(conversationId);
-  clearPendingSnapshotsForConversation(conversationId);
-}
-
-function emitToolInputStart(part: ToolInputStartPart, emit: AgentEmit): void {
-  emit("tool-call-start", {
-    toolName: part.toolName,
-    toolCallId: part.id,
-  });
-}
-
-function emitToolInputDelta(part: ToolInputDeltaPart, emit: AgentEmit): void {
-  const toolCallId = getStringProperty(part, "id");
-  const delta = getStringProperty(part, "delta");
-  if (!toolCallId || !delta) return;
-
-  emit("tool-call-args-delta", {
-    toolCallId,
-    inputTextDelta: delta,
-  });
-}
-
-function emitToolCall(
-  part: ToolCallPart,
-  emit: AgentEmit,
-  flushText: () => void,
-  assistantParts: (AIChatTextPart | AIChatToolCallPart)[],
-  flushToolMessage: () => void,
-  pendingToolResults: AIChatToolResultPart[],
-): void {
-  const toolCallId = getStringProperty(part, "toolCallId");
-  const toolName = getStringProperty(part, "toolName");
-  if (!toolCallId || !toolName) return;
-
-  const rawInput = "input" in part ? part.input : undefined;
-  const invalid = "invalid" in part && Boolean(part.invalid);
-  const rawError = "error" in part ? part.error : undefined;
-  const errorText =
-    invalid && rawError != null
-      ? getErrorMessage(rawError, "Invalid tool input")
-      : undefined;
-
-  emit("tool-call-input", {
-    toolCallId,
-    toolName,
-    input: serializeUnknownForSSE(rawInput),
-    ...(invalid ? { invalid: true as const } : {}),
-    ...(errorText != null ? { errorText } : {}),
-  });
-
-  // If there are pending tool results from the previous step (no text-delta arrived
-  // to flush them), do it now so we don't mix results from different assistant turns.
-  if (pendingToolResults.length > 0) {
-    flushToolMessage();
+  handleToolInputStart(part: ToolInputStartPart): void {
+    this.emit("tool-call-start", {
+      toolName: part.toolName,
+      toolCallId: part.id,
+    });
   }
 
-  flushText();
+  handleToolInputDelta(part: ToolInputDeltaPart): void {
+    const toolCallId = getStringProperty(part, "id");
+    const delta = getStringProperty(part, "delta");
+    if (!toolCallId || !delta) return;
 
-  const args =
-    rawInput &&
-    typeof rawInput === "object" &&
-    rawInput !== null &&
-    !invalid
-      ? (rawInput as Record<string, unknown>)
-      : undefined;
-
-  assistantParts.push({
-    type: "tool-call",
-    toolCallId,
-    toolName,
-    args: args ?? {},
-  });
-}
-
-function emitToolResult(
-  part: ToolResultPart,
-  emit: AgentEmit,
-  flushAssistantMessage: () => void,
-  assistantParts: (AIChatTextPart | AIChatToolCallPart)[],
-  pendingToolResults: AIChatToolResultPart[],
-): void {
-  const preliminary = "preliminary" in part && Boolean(part.preliminary);
-  const rawInput = "input" in part ? part.input : undefined;
-
-  emit("tool-call-end", {
-    toolName: part.toolName,
-    toolCallId: part.toolCallId,
-    output: serializeUnknownForSSE(part.output),
-    ...(rawInput !== undefined
-      ? { input: serializeUnknownForSSE(rawInput) }
-      : {}),
-    ...(preliminary ? { preliminary: true as const } : {}),
-  });
-
-  if (preliminary) return;
-
-  // First real result of this batch: flush the assistant message (tool calls + any text).
-  if (pendingToolResults.length === 0 && assistantParts.length > 0) {
-    flushAssistantMessage();
+    this.emit("tool-call-args-delta", { toolCallId, inputTextDelta: delta });
   }
 
-  pendingToolResults.push({
-    type: "tool-result",
-    toolCallId: part.toolCallId,
-    toolName: part.toolName,
-    result: stringifyToolResultForStorage(part.output),
-  });
-}
+  handleToolCall(part: ToolCallPart): void {
+    const toolCallId = getStringProperty(part, "toolCallId");
+    const toolName = getStringProperty(part, "toolName");
+    if (!toolCallId || !toolName) return;
 
-function emitToolError(part: ToolErrorPart, emit: AgentEmit): void {
-  const toolCallId = getStringProperty(part, "toolCallId");
-  if (!toolCallId) return;
+    const rawInput = "input" in part ? part.input : undefined;
+    const invalid = "invalid" in part && Boolean(part.invalid);
+    const rawError = "error" in part ? part.error : undefined;
+    const errorText =
+      invalid && rawError != null
+        ? getErrorMessage(rawError, "Invalid tool input")
+        : undefined;
 
-  const toolName = getStringProperty(part, "toolName");
-  const message = getErrorMessage(
-    "error" in part ? part.error : undefined,
-    "Tool execution failed",
-  );
-  emit("tool-call-error", {
-    toolCallId,
-    ...(toolName ? { toolName } : {}),
-    message,
-  });
+    this.emit("tool-call-input", {
+      toolCallId,
+      toolName,
+      input: serializeUnknownForSSE(rawInput),
+      ...(invalid ? { invalid: true as const } : {}),
+      ...(errorText != null ? { errorText } : {}),
+    });
+
+    // If there are pending tool results from the previous step (no text-delta arrived
+    // to flush them), do it now so we don't mix results from different assistant turns.
+    if (this.pendingToolResults.length > 0) {
+      this.flushToolMessage();
+    }
+
+    this.flushTextToAssistantParts();
+
+    const args =
+      rawInput && typeof rawInput === "object" && rawInput !== null && !invalid
+        ? (rawInput as Record<string, unknown>)
+        : undefined;
+
+    this.assistantParts.push({
+      type: "tool-call",
+      toolCallId,
+      toolName,
+      args: args ?? {},
+    });
+  }
+
+  handleToolResult(part: ToolResultPart): void {
+    const preliminary = "preliminary" in part && Boolean(part.preliminary);
+    const rawInput = "input" in part ? part.input : undefined;
+
+    this.emit("tool-call-end", {
+      toolName: part.toolName,
+      toolCallId: part.toolCallId,
+      output: serializeUnknownForSSE(part.output),
+      ...(rawInput !== undefined
+        ? { input: serializeUnknownForSSE(rawInput) }
+        : {}),
+      ...(preliminary ? { preliminary: true as const } : {}),
+    });
+
+    if (preliminary) return;
+
+    // First real result of this batch: flush the assistant message (tool calls + any text).
+    if (
+      this.pendingToolResults.length === 0 &&
+      this.assistantParts.length > 0
+    ) {
+      this.flushAssistantMessage();
+    }
+
+    this.pendingToolResults.push({
+      type: "tool-result",
+      toolCallId: part.toolCallId,
+      toolName: part.toolName,
+      result: stringifyToolResultForStorage(part.output),
+    });
+  }
+
+  handleToolError(part: ToolErrorPart): void {
+    const toolCallId = getStringProperty(part, "toolCallId");
+    if (!toolCallId) return;
+
+    const toolName = getStringProperty(part, "toolName");
+    const message = getErrorMessage(
+      "error" in part ? part.error : undefined,
+      "Tool execution failed",
+    );
+    this.emit("tool-call-error", {
+      toolCallId,
+      ...(toolName ? { toolName } : {}),
+      message,
+    });
+  }
+
+  /** Flush whatever remains after the stream ends. */
+  flush(): void {
+    this.flushAssistantMessage();
+    this.flushToolMessage();
+  }
 }
 
 function debugNonTextPart(
@@ -468,78 +492,78 @@ function debugNonTextPart(
   });
 }
 
-/**
- * Creates an Express request handler from an AgentConfig. The returned handler
- * owns the full lifecycle: gating, conversation history, system prompt assembly,
- * streaming, SSE event mapping, and message persistence.
- *
- * Every POST body must include `message: string` and `conversationId: string`.
- * Agent-specific body fields are extracted via `config.parseParams`.
- */
-export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
-  return async (
-    req: AuthRequest<AgentRequestBody>,
-    res: Response,
-  ): Promise<void> => {
-    const flushableRes = res as FlushableResponse;
-    const body = req.body as AgentRequestBody;
-    const { message, conversationId } = body;
-    const context = getContextFromReq(req);
+async function streamAgentResponse(
+  stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
+  config: AgentConfig,
+  conversationId: string,
+  emit: AgentEmit,
+): Promise<void> {
+  const processor = new StreamProcessor(conversationId, emit);
 
-    resetSnapshotSlotCounter(conversationId);
+  try {
+    for await (const part of stream.fullStream) {
+      debugNonTextPart(part, conversationId, config.promptType);
 
-    if (!(await runAccessGates(context, res))) {
-      return;
-    }
-
-    const params = config.parseParams(body);
-    const { system, orgAdditionalPrompt, overrideModel } =
-      await buildSystemPromptForRequest(context, config, params);
-    const messagesForLLM = prepareConversationMessages(
-      conversationId,
-      context,
-      message,
-    );
-    setSseHeaders(res);
-    const emit = createEmit(flushableRes, conversationId);
-    const tools = config.buildTools(context, conversationId, params, emit);
-
-    setStreaming(conversationId, true);
-    try {
-      const stream = await streamingChatCompletion({
-        context,
-        system,
-        messages: messagesForLLM,
-        temperature: config.temperature,
-        type: config.promptType,
-        isDefaultPrompt: !orgAdditionalPrompt,
-        overrideModel,
-        tools,
-        maxSteps: config.maxSteps,
-      });
-
-      await streamAgentResponse(
-        stream,
-        config,
-        conversationId,
-        emit,
-      );
-
-      try {
-        await stream.response;
-      } catch {
-        // Stream may already be settled; ignore
-      }
-    } finally {
-      try {
-        cleanupConversationArtifacts(conversationId);
-      } catch {
-        // ignore cleanup errors
+      switch (part.type) {
+        case "text-delta":
+          processor.handleTextDelta(part);
+          break;
+        case "tool-input-start":
+          processor.handleToolInputStart(part);
+          break;
+        case "tool-input-delta":
+          processor.handleToolInputDelta(part);
+          break;
+        case "tool-call":
+          processor.handleToolCall(part);
+          break;
+        case "tool-result":
+          processor.handleToolResult(part);
+          break;
+        case "tool-error":
+          processor.handleToolError(part);
+          break;
+        case "reasoning-delta":
+          emit("reasoning-delta", { text: part.text });
+          break;
+        case "error":
+          emit("error", {
+            message: getErrorMessage(
+              (part as ErrorPart).error,
+              "An error occurred",
+            ),
+          });
+          break;
+        default:
+          break;
       }
 
-      setStreaming(conversationId, false);
-      emit("done", {});
-      flushableRes.end();
+      config.onLLMEvent?.(part, emit);
     }
-  };
+  } catch (err) {
+    emit("error", { message: getErrorMessage(err, "An error occurred") });
+  }
+
+  processor.flush();
+}
+
+// =============================================================================
+// Small utilities (stream parts + errors)
+// =============================================================================
+
+function getStringProperty(value: unknown, key: string): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = (value as Record<string, unknown>)[key];
+  return typeof raw === "string" ? raw : undefined;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error == null) return fallback;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return fallback;
+  }
 }
