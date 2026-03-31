@@ -1,4 +1,3 @@
-import { cloneDeep, isEqual } from "lodash";
 import { checkIfRevisionNeedsReview, PermissionError } from "shared/util";
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { deleteFeatureRuleValidator } from "shared/validators";
@@ -7,7 +6,10 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getFeature, updateFeature } from "back-end/src/models/FeatureModel";
+import {
+  applyRevisionChanges,
+  getFeature,
+} from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
@@ -94,6 +96,7 @@ export const deleteFeatureRule = createApiRequestHandler(
   }
 
   // Create a revision and publish it immediately
+  const changes = { rules: revisedRules };
   const revision = await createRevision({
     context: req.context,
     feature,
@@ -102,24 +105,18 @@ export const deleteFeatureRule = createApiRequestHandler(
     comment: "Rule deleted via REST API",
     environments: orgEnvs,
     publish: true,
-    changes: { rules: revisedRules },
+    changes,
     org: req.organization,
-    canBypassApprovalChecks: apiBypassesReviews,
+    canBypassApprovalChecks: true, // review gate already enforced above
   });
 
-  // Apply the updated rules to the feature's environmentSettings
-  const updatedEnvSettings = cloneDeep(feature.environmentSettings || {});
-  updatedEnvSettings[environment] = updatedEnvSettings[environment] || {};
-  updatedEnvSettings[environment].rules = updatedRules;
-
-  const updates: Record<string, unknown> = {
-    version: revision.version,
-  };
-  if (!isEqual(updatedEnvSettings, feature.environmentSettings)) {
-    updates.environmentSettings = updatedEnvSettings;
-  }
-
-  const updatedFeature = await updateFeature(req.context, feature, updates);
+  // Apply revision changes (handles nextScheduledUpdate, safe rollout cleanup, etc.)
+  const updatedFeature = await applyRevisionChanges(
+    req.context,
+    feature,
+    revision,
+    changes,
+  );
 
   await req.audit({
     event: "feature.update",
