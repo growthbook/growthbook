@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars } from "react-icons/fa";
+import { FaAngleRight, FaBars, FaEye } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -219,6 +219,23 @@ const TopNav: FC<{
         <div className="align-middle">
           <PiListChecks size="16" className="mr-1" />
           Activity Feed
+        </div>
+      </DropdownMenuItem>
+    );
+  };
+
+  const renderWatchingDropDown = () => {
+    return (
+      <DropdownMenuItem
+        className={styles.dropdownItemIconColor}
+        onClick={() => {
+          setDropdownOpen(false);
+          router.push("/watching");
+        }}
+      >
+        <div className="align-middle">
+          <FaEye size="16" className="mr-1" />
+          Watching
         </div>
       </DropdownMenuItem>
     );
@@ -479,6 +496,7 @@ const TopNav: FC<{
             {renderNameAndEmailDropdownLabel()}
             {renderEditProfileDropDown()}
             {renderThemeSubDropDown()}
+            {renderWatchingDropDown()}
             {renderMyActivityFeedsDropDown()}
             {renderMyReportsDropDown()}
             {renderPersonalAccessTokensDropDown()}
