@@ -590,7 +590,6 @@ function TargetingForm({
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)
           }
-          valueAsId={true}
           variations={
             getLatestPhaseVariations(experiment).map((v, i) => {
               return {

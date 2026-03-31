@@ -95,6 +95,7 @@ export default function FeatureVariationsInput({
   const [editingIds, setEditingIds] = useState(
     startEditingIndexes || !idsMatchIndexes,
   );
+  console.log("editingIds", editingIds);
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
@@ -107,6 +108,7 @@ export default function FeatureVariationsInput({
       setWeight(i, w);
     });
   };
+  console.log(setVariations);
 
   const label = _label
     ? _label
@@ -262,7 +264,9 @@ export default function FeatureVariationsInput({
           {!hideVariationIds &&
             !startEditingIndexes &&
             !valueAsId &&
-            !hideValueField && (
+            !hideValueField &&
+            !disableVariations &&
+            setVariations && (
               <div className="mb-2">
                 {!editingIds ? (
                   <Link
