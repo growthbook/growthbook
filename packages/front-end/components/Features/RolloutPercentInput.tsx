@@ -1,23 +1,14 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
-import { ReactNode, useState } from "react";
-import { PiCaretRightFill, PiCaretDownFill } from "react-icons/pi";
+import { ReactNode } from "react";
+import { PiCaretRightFill } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
 import Collapsible from "react-collapsible";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
-import Link from "@/ui/Link";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuGroup,
-} from "@/ui/DropdownMenu";
-import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
-} from "@/components/Features/AttributeOptionTooltip";
 
 export interface Props {
   value: number;
@@ -56,16 +47,9 @@ export default function RolloutPercentInput({
   advancedOpen,
   setAdvancedOpen,
 }: Props) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
   );
-
-  const currentAttributeName =
-    hashAttribute ||
-    filteredAttributes?.find((s) => s.property === hashAttribute)?.property ||
-    "user id";
 
   return (
     <Box>
@@ -78,7 +62,7 @@ export default function RolloutPercentInput({
         </Flex>
       )}
       {lockedByRamp ? (
-        <Text as="div" fontStyle="italic" color="text-mid" mt="2" mb="3">
+        <Text as="div" fontStyle="italic" color="text-mid" mb="3">
           Controlled by ramp-up schedule
         </Text>
       ) : (
@@ -116,69 +100,36 @@ export default function RolloutPercentInput({
 
       {(setHashAttribute && attributeSchema) ||
       (setSeed && setAdvancedOpen !== undefined) ? (
-        <Box pl="5">
+        <Box px="4" py="2" mt="2" className="bg-highlight rounded">
           {setHashAttribute && attributeSchema && (
-            <Flex align="center" gap="2" mb={setSeed ? "2" : "0"}>
-              <Text weight="medium">Sample using attribute</Text>
-              <DropdownMenu
-                trigger={
-                  <Link
-                    type="button"
-                    style={{ color: "var(--color-text-high)" }}
-                  >
-                    <Text mr="1">{currentAttributeName}</Text>
-                    <PiCaretDownFill style={{ fontSize: "12px" }} />
-                  </Link>
-                }
-                open={dropdownOpen}
-                onOpenChange={setDropdownOpen}
-                menuPlacement="start"
-                variant="soft"
-              >
-                <DropdownMenuGroup>
-                  {filteredAttributes?.map((attr) => (
-                    <DropdownMenuItem
-                      key={attr.property}
-                      onClick={() => {
-                        setHashAttribute(attr.property);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      <AttributeOptionWithTooltip
-                        option={
-                          {
-                            label: attr.property,
-                            value: attr.property,
-                            description: attr.description,
-                            tags: attr.tags,
-                            datatype: attr.datatype,
-                            hashAttribute: attr.hashAttribute,
-                          } as AttributeOptionForTooltip
-                        }
-                        context="menu"
-                      >
-                        {attr.property}
-                      </AttributeOptionWithTooltip>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenu>
-            </Flex>
+            <SelectField
+              label="Sample using attribute"
+              value={hashAttribute ?? ""}
+              options={
+                filteredAttributes?.map((attr) => ({
+                  label: attr.property,
+                  value: attr.property,
+                })) ?? []
+              }
+              onChange={(v) => setHashAttribute(v)}
+              containerClassName="mb-1"
+            />
           )}
 
           {setSeed && setAdvancedOpen !== undefined && (
             <Collapsible
               trigger={
-                <span className="cursor-pointer">
-                  <PiCaretRightFill className="chevron" /> Change seed
-                </span>
+                <div className="link-purple">
+                  <PiCaretRightFill className="chevron mr-1" />
+                  Change seed
+                </div>
               }
               open={advancedOpen}
               onTriggerOpening={() => setAdvancedOpen(true)}
               onTriggerClosing={() => setAdvancedOpen(false)}
               transitionTime={100}
             >
-              <Box mt="2">
+              <Box mt="1">
                 <Field
                   type="input"
                   value={seed}

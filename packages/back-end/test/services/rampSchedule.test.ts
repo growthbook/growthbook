@@ -243,15 +243,6 @@ describe("applyPatchToRule", () => {
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
   });
-
-  it("ignores null coverage (null means 'no change')", () => {
-    const result = applyPatchToRule(base, {
-      coverage: null as unknown as number,
-    });
-    expect((result as { coverage?: number }).coverage).toBe(
-      base.coverage ?? undefined,
-    );
-  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1352,39 +1352,16 @@ export default function RuleModal({
             Select Implementation
           </Text>
           <RadioCards
-            mt="2"
-            mb="5"
+            mt="4"
+            mb="2"
             width="100%"
             options={[
               {
                 value: "force",
-                label: "Targeting Rule",
+                label: "Rule",
                 description:
                   "Assign a specific feature value to groups of users or control the rollout percentage",
               },
-            ]}
-            value={overviewRadioSelectorRuleType}
-            setValue={(
-              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit",
-            ) => {
-              setOverviewRadioSelectorRuleType(v);
-              if (v === "force") {
-                setOverviewRuleType("force");
-              } else if (v === "rollout") {
-                setOverviewRuleType("rollout");
-              } else if (v === "safe-rollout") {
-                setOverviewRuleType("safe-rollout");
-              } else {
-                setOverviewRuleType("experiment-ref-new");
-              }
-            }}
-          />
-
-          <Text>DATA-DRIVEN</Text>
-          <RadioCards
-            mt="2"
-            width="100%"
-            options={[
               {
                 value: "safe-rollout",
                 disabled: !hasSafeRolloutsFeature || datasources.length === 0,
@@ -1396,7 +1373,6 @@ export default function RuleModal({
                     Safe rollout
                   </PremiumTooltip>
                 ),
-                badge: "NEW!",
                 description: (
                   <>
                     <div>
@@ -1417,27 +1393,20 @@ export default function RuleModal({
                 description:
                   "Measure the impact of this feature on your key metrics",
               },
-              ...[
-                {
-                  value: "bandit",
-                  disabled: !hasMultiArmedBanditFeature,
-                  label: (
-                    <PremiumTooltip
-                      commercialFeature="multi-armed-bandits"
-                      usePortal={true}
-                    >
-                      Bandit
-                    </PremiumTooltip>
-                  ),
-                  description: (
-                    <>
-                      <div>
-                        Find a winner among many variations on one goal metric
-                      </div>
-                    </>
-                  ),
-                },
-              ],
+              {
+                value: "bandit",
+                disabled: !hasMultiArmedBanditFeature,
+                label: (
+                  <PremiumTooltip
+                    commercialFeature="multi-armed-bandits"
+                    usePortal={true}
+                  >
+                    Bandit
+                  </PremiumTooltip>
+                ),
+                description:
+                  "Find a winner among many variations on one goal metric",
+              },
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(

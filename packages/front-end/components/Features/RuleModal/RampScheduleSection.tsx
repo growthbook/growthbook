@@ -1538,23 +1538,13 @@ export default function RampScheduleSection({
             open={moreOptionsOpen}
             transitionTime={100}
             trigger={
-              <Link
-                size="2"
-                onClick={() => setMoreOptionsOpen((o) => !o)}
-                style={{ userSelect: "none" }}
+              <a
+                className="link-purple"
+                onClick={() => setMoreOptionsOpen(!moreOptionsOpen)}
               >
-                <Text weight="medium">More options</Text>
-                <PiCaretRightFill
-                  style={{
-                    marginLeft: 4,
-                    verticalAlign: "middle",
-                    transition: "transform 150ms",
-                    transform: moreOptionsOpen
-                      ? "rotate(90deg)"
-                      : "rotate(0deg)",
-                  }}
-                />
-              </Link>
+                <PiCaretRightFill className="chevron mr-1" />
+                More options
+              </a>
             }
           >
             <Box mt="3">

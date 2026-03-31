@@ -250,23 +250,6 @@ export default function StandardRuleFields({
         disabled={isRampControlled("force")}
       />
 
-      <Box mt="3" mb="8">
-        <RolloutPercentInput
-          value={form.watch("coverage") ?? 1}
-          setValue={(coverage) => form.setValue("coverage", coverage)}
-          lockedByRamp={isRampControlled("coverage")}
-          hashAttribute={form.watch("hashAttribute")}
-          setHashAttribute={(v) => form.setValue("hashAttribute", v)}
-          attributeSchema={attributeSchema}
-          hasHashAttributes={hasHashAttributes}
-          seed={form.watch("seed")}
-          setSeed={(v) => form.setValue("seed", v)}
-          featureId={feature.id}
-          advancedOpen={advancedOptionsOpen}
-          setAdvancedOpen={setadvancedOptionsOpen}
-        />
-      </Box>
-
       {/* Scheduling section */}
       <div className="mb-3">
         <RadioGroup
@@ -438,6 +421,22 @@ export default function StandardRuleFields({
       </div>
       <Separator size="4" my="5" />
 
+      <RolloutPercentInput
+        value={form.watch("coverage") ?? 1}
+        setValue={(coverage) => form.setValue("coverage", coverage)}
+        lockedByRamp={isRampControlled("coverage")}
+        hashAttribute={form.watch("hashAttribute")}
+        setHashAttribute={(v) => form.setValue("hashAttribute", v)}
+        attributeSchema={attributeSchema}
+        hasHashAttributes={hasHashAttributes}
+        seed={form.watch("seed")}
+        setSeed={(v) => form.setValue("seed", v)}
+        featureId={feature.id}
+        advancedOpen={advancedOptionsOpen}
+        setAdvancedOpen={setadvancedOptionsOpen}
+      />
+      <Separator size="4" my="5" />
+
       {isRampControlled("savedGroups") ? (
         <RampControlledField label="Target by Saved Groups" />
       ) : (
@@ -449,6 +448,7 @@ export default function StandardRuleFields({
         />
       )}
       <Separator size="4" my="5" />
+
       {isRampControlled("condition") ? (
         <RampControlledField label="Target by Attributes" />
       ) : (
@@ -461,6 +461,7 @@ export default function StandardRuleFields({
         />
       )}
       <Separator size="4" my="5" />
+
       {isRampControlled("prerequisites") ? (
         <RampControlledField label="Target by Prerequisite Features" />
       ) : (
