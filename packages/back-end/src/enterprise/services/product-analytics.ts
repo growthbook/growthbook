@@ -179,5 +179,5 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
   const baseUrl = `${APP_ORIGIN}/product-analytics/explore/${DATASET_TYPE_PATH[config.dataset.type]}`;
-  return `${baseUrl}?config=${encodeExplorationConfig(config)}`;
+  return `${baseUrl}?config=${encodeURIComponent(encodeExplorationConfig(config))}`;
 }
