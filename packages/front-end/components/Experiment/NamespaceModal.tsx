@@ -1,4 +1,5 @@
-import { useForm } from "react-hook-form";
+import { useMemo } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { Namespaces } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,7 +29,10 @@ function MultiRangeNamespaceModal({
 }) {
   const existingNamespace = existing?.namespace;
   const settings = useOrgSettings();
-  const attributes = settings?.attributeSchema || [];
+  const attributes = useMemo(
+    () => settings?.attributeSchema || [],
+    [settings?.attributeSchema],
+  );
 
   const form = useForm<NamespaceFormValue>({
     defaultValues: {
@@ -44,13 +48,32 @@ function MultiRangeNamespaceModal({
     },
   });
   const { apiCall } = useAuth();
+  const selectedHashAttribute =
+    (useWatch({
+      control: form.control,
+      name: "hashAttribute",
+    }) as string | undefined) || "";
 
-  const hashAttributeOptions = attributes
-    .filter((a) => !a.archived)
-    .map((a) => ({
-      label: a.property,
-      value: a.property,
-    }));
+  const hashAttributeOptions = useMemo(() => {
+    const options = attributes
+      .filter((a) => !a.archived && a.hashAttribute)
+      .map((a) => ({
+        label: a.property,
+        value: a.property,
+      }));
+
+    if (
+      selectedHashAttribute &&
+      !options.find((option) => option.value === selectedHashAttribute)
+    ) {
+      options.push({
+        label: selectedHashAttribute,
+        value: selectedHashAttribute,
+      });
+    }
+
+    return options;
+  }, [attributes, selectedHashAttribute]);
 
   return (
     <Modal
@@ -98,7 +121,7 @@ function MultiRangeNamespaceModal({
         helpText="The user attribute to hash for namespace allocation. Uses v2 hashing algorithm."
         required
         options={hashAttributeOptions}
-        value={form.watch("hashAttribute")}
+        value={selectedHashAttribute}
         onChange={(value) => {
           form.setValue("hashAttribute", value);
         }}
