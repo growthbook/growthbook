@@ -59,7 +59,9 @@ interface ChartData {
 const TOOL_STATUS_LABELS: Record<string, string> = {
   runExploration: "Running query...",
   getSnapshot: "Inspecting data...",
-  searchMetrics: "Searching metrics...",
+  search: "Searching...",
+  getAvailableColumns: "Inspecting data shape...",
+  getColumnValues: "Inspecting values...",
   getCurrentConfig: "Reading current config...",
   getConfigSchema: "Loading config schema...",
 };
@@ -142,9 +144,15 @@ function chartDataFromRecord(data: Record<string, unknown>): ChartData | null {
 interface ChartBubbleProps {
   chartData: ChartData;
   toolTransparency?: React.ReactNode;
+  /** Passed through to ExplorerChart — set false for already-seen charts to skip re-animation. */
+  animate?: boolean;
 }
 
-function ChartBubble({ chartData, toolTransparency }: ChartBubbleProps) {
+function ChartBubble({
+  chartData,
+  toolTransparency,
+  animate = true,
+}: ChartBubbleProps) {
   return (
     <AssistantBubble wide>
       <Flex align="center" gap="2" mb="2">
@@ -156,9 +164,10 @@ function ChartBubble({ chartData, toolTransparency }: ChartBubbleProps) {
       <Box style={{ height: 360, minHeight: 260, display: "flex" }}>
         <ExplorerChart
           exploration={chartData.exploration}
-          error={null}
+          error={chartData.exploration?.error ?? null}
           submittedExploreState={chartData.config}
           loading={false}
+          animate={animate}
         />
       </Box>
       {toolTransparency ? (
@@ -407,6 +416,7 @@ export default function ExplorerAIChat() {
               <ChartBubble
                 key={`${msg.id}-r${i}`}
                 chartData={chartData}
+                animate={false}
                 toolTransparency={
                   <ToolTransparencyBlock
                     embedded

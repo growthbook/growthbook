@@ -54,11 +54,14 @@ export default function ExplorerChart({
   error,
   submittedExploreState,
   loading,
+  animate = true,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
   submittedExploreState: ExplorationConfig;
   loading: boolean;
+  /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
+  animate?: boolean;
 }) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -373,6 +376,7 @@ export default function ExplorerChart({
             key={JSON.stringify(chartConfig)}
             option={{
               ...chartConfig,
+              ...(animate ? {} : { animation: false }),
               padding: [0, 0, 0, 0],
               grid: {
                 left:

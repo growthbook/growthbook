@@ -19,7 +19,10 @@ import { dateGranularity } from "shared/validators";
 import {
   calculateProductAnalyticsDateRange,
   getDateGranularity,
+  mapDatabaseTypeToEnum,
 } from "shared/enterprise";
+
+export { mapDatabaseTypeToEnum };
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
@@ -182,46 +185,6 @@ export function getMaxDimensions(dataset: ExplorationDataset): number {
     maxDimensions -= 1;
   }
   return maxDimensions;
-}
-
-export function mapDatabaseTypeToEnum(
-  dbType: string,
-): "string" | "number" | "date" | "boolean" | "other" {
-  const lowerType = dbType.toLowerCase();
-
-  // Numbers
-  if (
-    lowerType.includes("int") ||
-    lowerType.includes("numeric") ||
-    lowerType.includes("decimal") ||
-    lowerType.includes("float") ||
-    lowerType.includes("double") ||
-    lowerType.includes("real")
-  ) {
-    return "number";
-  }
-
-  // Dates
-  if (lowerType.includes("date") || lowerType.includes("time")) {
-    return "date";
-  }
-
-  // Booleans
-  if (lowerType.includes("bool")) {
-    return "boolean";
-  }
-
-  // Strings (varchar, char, text, etc.)
-  if (
-    lowerType.includes("char") ||
-    lowerType.includes("text") ||
-    lowerType.includes("string")
-  ) {
-    return "string";
-  }
-
-  // Default to other
-  return "other";
 }
 
 export function getInferredTimestampColumn(

@@ -18,7 +18,18 @@ function formatToolOutputForPre(toolOutput: unknown): string {
   }
   if (typeof toolOutput === "string") {
     try {
-      return prettyJson(JSON.parse(toolOutput) as unknown);
+      const parsed = JSON.parse(toolOutput) as unknown;
+      // Tools that return pre-formatted JSON strings are stored with an extra
+      // JSON.stringify pass (double-encoded). Detect this by checking whether
+      // the first parse produced a string, then try to parse the inner value.
+      if (typeof parsed === "string") {
+        try {
+          return prettyJson(JSON.parse(parsed) as unknown);
+        } catch {
+          return parsed;
+        }
+      }
+      return prettyJson(parsed);
     } catch {
       return toolOutput;
     }

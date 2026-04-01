@@ -9,7 +9,12 @@ import {
   explorationConfigValidator,
   ProductAnalyticsResultRow,
 } from "shared/validators";
-import { FactMetricInterface } from "shared/types/fact-table";
+import {
+  ColumnInterface,
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -21,6 +26,19 @@ import {
   createAgentHandler,
   type AgentConfig,
 } from "back-end/src/enterprise/services/agent-handler";
+import {
+  getFactTable,
+  getFactTablesForDatasource,
+  getAllFactTablesForOrganization,
+} from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
+import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
+import {
+  getInformationSchemaWithPaths,
+  getTablePath,
+} from "back-end/src/services/informationSchema";
+import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 // =============================================================================
 // Constants & system prompt
@@ -41,10 +59,70 @@ const PA_SYSTEM_INSTRUCTIONS =
   "runExploration returns the full exploration payload (including structured result data) plus resultCsv: use that return value for analysis, insights, and answering questions about the run you just executed.\n" +
   'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
   "Use getSnapshot only when you need rows or CSV for a snapshot whose tool result is no longer fully available in the conversation — e.g. older runs after prior tool outputs were compacted, or when the user references a specific snapshotId from history.\n" +
-  "When selecting metrics, prefer using the searchMetrics tool instead of guessing metric IDs.\n" +
+  "Use the search tool to discover metrics, fact tables, and datasource tables — it searches across all three types simultaneously. " +
+  "Each result includes an 'explorerType' field ('metric', 'fact_table', or 'data_source') indicating which exploration type to use, and a 'kind' field with the specific result type.\n" +
+  "For fact_table explorations: use search to find a fact table, then getAvailableColumns({ factTableId }) to discover valid columns and userIdTypes before building the config.\n" +
+  "For metric explorations with filters, group-by dimensions, or before setting unit: use getAvailableColumns({ metricIds }) to discover valid columns and which metrics need a unit.\n" +
+  "For data_source explorations: use search to find the right table (result kind='data_source_table'), then getAvailableColumns({ datasourceTableId }) to get column names and types — use the returned columns to build the columnTypes map and choose the timestampColumn in the config.\n" +
+  "Unit field rules — always follow the unitNote returned by getAvailableColumns:\n" +
+  '  - fact_table valueType "unit_count": set unit to userIdTypes[0] (e.g. "user_id") unless the user specifies otherwise.\n' +
+  '  - fact_table valueType "count" or "sum": unit must be null.\n' +
+  "  - metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.\n" +
+  "  - data_source: unit_count is not supported; unit is always null.\n" +
+  "When building row filters that require a specific column value (e.g. country='United States', browser='Chrome'), " +
+  "use getColumnValues to discover the actual values stored in that column before constructing the filter. " +
+  "Pass a searchTerm when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
+  "getColumnValues only works on string-typed columns.\n" +
   "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
-  "If asked about metrics that don't exist, let the user know.\n" +
+  "If asked about metrics, fact tables, or tables that don't exist, let the user know.\n" +
   "Keep responses brief and actionable.";
+
+async function buildDatasourceTablesPreview(
+  ctx: ReqContext,
+  datasourceId: string,
+): Promise<string> {
+  if (!datasourceId) return "No datasource configured.";
+  try {
+    const informationSchema = await getInformationSchemaByDatasourceId(
+      datasourceId,
+      ctx.org.id,
+    );
+    if (!informationSchema)
+      return "No information schema available. Build the schema in datasource settings to enable raw table exploration.";
+    const datasource = await getDataSourceById(ctx, datasourceId);
+    if (!datasource) return "Datasource not found.";
+    const withPaths = getInformationSchemaWithPaths(
+      informationSchema,
+      datasource.type,
+    );
+    const tables: { tableId: string; tableName: string; tablePath: string }[] =
+      [];
+    for (const db of withPaths.databases) {
+      for (const schema of db.schemas) {
+        for (const table of schema.tables) {
+          tables.push({
+            tableId: table.id,
+            tableName: table.tableName,
+            tablePath: table.path,
+          });
+        }
+      }
+    }
+    if (!tables.length) return "No tables found in the information schema.";
+    const preview = tables.slice(0, METRICS_PREVIEW_COUNT);
+    const lines = preview.map(
+      (t) => `- "${t.tableName}" (id: ${t.tableId}, path: ${t.tablePath})`,
+    );
+    if (tables.length > METRICS_PREVIEW_COUNT) {
+      lines.push(
+        `... and ${tables.length - METRICS_PREVIEW_COUNT} more. Use the search tool to find additional tables.`,
+      );
+    }
+    return lines.join("\n");
+  } catch {
+    return "Unable to load datasource tables.";
+  }
+}
 
 async function buildProductAnalyticsSystemPrompt(
   ctx: ReqContext,
@@ -56,15 +134,30 @@ async function buildProductAnalyticsSystemPrompt(
     : allMetrics;
   const metricsPreview = buildMetricsPreview(metrics);
 
+  const allFactTables = datasourceId
+    ? await getFactTablesForDatasource(ctx, datasourceId)
+    : await getAllFactTablesForOrganization(ctx);
+  const factTablesPreview = buildFactTablesPreview(allFactTables);
+
+  const datasourceTablesPreview = datasourceId
+    ? await buildDatasourceTablesPreview(ctx, datasourceId)
+    : "No datasource configured.";
+
   return (
     "You are an expert product analytics assistant for GrowthBook.\n" +
-    "You help users understand and work with their metrics and exploration configuration.\n\n" +
+    "You help users understand and work with their metrics, fact tables, and exploration configuration.\n\n" +
     (datasourceId
       ? `Datasource ID for this session: ${datasourceId}\n` +
         "Always use this datasource ID in the config.datasource field when calling runExploration.\n\n"
       : "") +
     "Available metrics (sample):\n" +
     metricsPreview +
+    "\n\n" +
+    "Available fact tables (sample):\n" +
+    factTablesPreview +
+    "\n\n" +
+    "Available datasource tables (sample):\n" +
+    datasourceTablesPreview +
     "\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
@@ -100,14 +193,20 @@ function buildConfigSchemaSummary(): string {
     '- chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     '- dateRange.predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange"',
     '- IMPORTANT: "last14Days" is not valid. For 14 days use { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }',
-    "- dimensions[] supports:",
+    "- dimensions[]: use column values returned by getAvailableColumns for dimension columns and rowFilter columns",
     "  - date: { dimensionType: 'date', column: string|null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
     "  - dynamic: { dimensionType: 'dynamic', column: string|null, maxValues: number }",
     "  - static: { dimensionType: 'static', column: string, values: string[] }",
     "  - slice: { dimensionType: 'slice', slices: { name: string, filters: RowFilter[] }[] }",
     '- dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters[] }] }',
-    '- dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType, valueColumn, unit, rowFilters[] }] }',
-    '- dataset for type="data_source": { type: "data_source", table, path, timestampColumn, columnTypes, values: [{ type: "data_source", name, valueType, valueColumn, unit, rowFilters[] }] }',
+    "  Use search to find metricId. Use getAvailableColumns({ metricIds }) to discover valid columns and unit options.",
+    "  unit: one of userIdTypes for proportion/retention/dailyParticipation/ratio-distinct metrics; null for all others.",
+    '- dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters[] }] }',
+    '  Use search to find factTableId (result kind="fact_table"). Use getAvailableColumns({ factTableId }) to discover valid columns and unit options.',
+    '  unit: one of userIdTypes (e.g. "user_id") when valueType is "unit_count"; null for "count" or "sum".',
+    '- dataset for type="data_source": { type: "data_source", table, path, timestampColumn, columnTypes: Record<string, "string"|"number"|"date"|"boolean"|"other">, values: [{ type: "data_source", name, valueType: "count"|"sum", valueColumn, unit: null, rowFilters[] }] }',
+    '  Use search to find table (id) and path (result kind="data_source_table"). Use getAvailableColumns({ datasourceTableId }) to build columnTypes and choose timestampColumn.',
+    "  unit_count is not supported for data_source; unit is always null.",
     "Always return a complete config object when calling runExploration.",
   ].join("\n");
 }
@@ -126,6 +225,25 @@ function buildMetricsPreview(metrics: FactMetricInterface[]): string {
   if (metrics.length > METRICS_PREVIEW_COUNT) {
     lines.push(
       `... and ${metrics.length - METRICS_PREVIEW_COUNT} more. Use the searchMetrics tool to discover additional metrics.`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function buildFactTablesPreview(factTables: FactTableInterface[]): string {
+  if (!factTables.length)
+    return "No fact tables are configured for this datasource.";
+
+  const preview = factTables.slice(0, METRICS_PREVIEW_COUNT);
+  const lines = preview.map((ft) => {
+    const colCount = (ft.columns ?? []).filter((c) => !c.deleted).length;
+    return `- "${ft.name}" (id: ${ft.id}, columns: ${colCount})`;
+  });
+
+  if (factTables.length > METRICS_PREVIEW_COUNT) {
+    lines.push(
+      `... and ${factTables.length - METRICS_PREVIEW_COUNT} more. Use the searchFactTables tool to discover additional fact tables.`,
     );
   }
 
@@ -287,47 +405,132 @@ function explorationConfigFromLatestRun(
   return null;
 }
 
-async function executeSearchMetrics(
+async function executeSearch(
   getMetrics: () => Promise<FactMetricInterface[]>,
+  getFactTables: () => Promise<FactTableInterface[]>,
+  ctx: ReqContext,
+  datasourceId: string,
   input: { query: string; limit: number },
 ): Promise<string> {
   const { query, limit } = input;
-  const metrics = await getMetrics();
   const q = query.trim().toLowerCase();
-  const scored = metrics
-    .map((m) => {
-      const haystack = [
-        m.id,
-        m.name,
-        m.description ?? "",
-        m.owner ?? "",
-        ...(m.tags ?? []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      const exact = m.name.toLowerCase() === q || m.id.toLowerCase() === q;
-      const includes = haystack.includes(q);
-      const score = exact ? 3 : includes ? 1 : 0;
-      return { metric: m, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort(
-      (a, b) => b.score - a.score || a.metric.name.localeCompare(b.metric.name),
-    )
-    .slice(0, limit)
-    .map(({ metric }) => ({
-      id: metric.id,
-      name: metric.name,
-      type: metric.metricType,
-      description: metric.description ?? null,
-      owner: metric.owner ?? null,
-      tags: metric.tags ?? [],
-    }));
 
-  if (!scored.length) {
-    return `No metrics found for "${query}".`;
+  type ScoredResult = { score: number; name: string; result: unknown };
+  const all: ScoredResult[] = [];
+
+  // Search metrics
+  const metrics = await getMetrics();
+  for (const m of metrics) {
+    const haystack = [
+      m.id,
+      m.name,
+      m.description ?? "",
+      m.owner ?? "",
+      ...(m.tags ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+    const exact = m.name.toLowerCase() === q || m.id.toLowerCase() === q;
+    const includes = haystack.includes(q);
+    const score = exact ? 3 : includes ? 1 : 0;
+    if (score > 0) {
+      all.push({
+        score,
+        name: m.name,
+        result: {
+          kind: "metric",
+          explorerType: "metric",
+          id: m.id,
+          name: m.name,
+          type: m.metricType,
+          description: m.description ?? null,
+          owner: m.owner ?? null,
+          tags: m.tags ?? [],
+        },
+      });
+    }
   }
-  return JSON.stringify({ matches: scored }, null, 2);
+
+  // Search fact tables
+  const factTables = await getFactTables();
+  for (const ft of factTables) {
+    const haystack = [ft.id, ft.name, ft.eventName ?? ""]
+      .join(" ")
+      .toLowerCase();
+    const exact = ft.name.toLowerCase() === q || ft.id.toLowerCase() === q;
+    const includes = haystack.includes(q);
+    const score = exact ? 3 : includes ? 1 : 0;
+    if (score > 0) {
+      all.push({
+        score,
+        name: ft.name,
+        result: {
+          kind: "fact_table",
+          explorerType: "fact_table",
+          id: ft.id,
+          name: ft.name,
+          eventName: ft.eventName ?? null,
+          columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
+        },
+      });
+    }
+  }
+
+  // Search datasource tables from the information schema
+  if (datasourceId) {
+    try {
+      const informationSchema = await getInformationSchemaByDatasourceId(
+        datasourceId,
+        ctx.org.id,
+      );
+      if (informationSchema) {
+        const datasource = await getDataSourceById(ctx, datasourceId);
+        if (datasource) {
+          const withPaths = getInformationSchemaWithPaths(
+            informationSchema,
+            datasource.type,
+          );
+          for (const db of withPaths.databases) {
+            for (const schema of db.schemas) {
+              for (const table of schema.tables) {
+                const haystack = [table.tableName, table.path]
+                  .join(" ")
+                  .toLowerCase();
+                const exact = table.tableName.toLowerCase() === q;
+                const includes = haystack.includes(q);
+                const score = exact ? 3 : includes ? 1 : 0;
+                if (score > 0) {
+                  all.push({
+                    score,
+                    name: table.tableName,
+                    result: {
+                      kind: "data_source_table",
+                      explorerType: "data_source",
+                      tableId: table.id,
+                      tableName: table.tableName,
+                      tablePath: table.path,
+                    },
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore schema fetch errors
+    }
+  }
+
+  const matches = all
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, limit)
+    .map((x) => x.result);
+
+  if (!matches.length) {
+    return `No results found for "${query}".`;
+  }
+  return JSON.stringify({ matches }, null, 2);
 }
 
 async function executeGetCurrentConfig(
@@ -366,6 +569,13 @@ async function executeRunExploration(
     const exploration = await runProductAnalyticsExploration(ctx, config, {
       cache: "preferred",
     });
+
+    if (exploration?.status === "error") {
+      return {
+        status: "error",
+        message: exploration.error ?? "The query failed with an unknown error",
+      };
+    }
 
     const prevConfig = explorationConfigFromLatestRun(
       getLatestToolResult(conversationId, "runExploration"),
@@ -429,14 +639,336 @@ async function executeGetSnapshot(
   );
 }
 
+async function executeGetAvailableColumns(
+  ctx: ReqContext,
+  input: {
+    factTableId?: string;
+    metricIds?: string[];
+    datasourceTableId?: string;
+  },
+): Promise<string> {
+  if (input.factTableId) {
+    const ft = await getFactTable(ctx, input.factTableId);
+    if (!ft) return `Fact table "${input.factTableId}" not found.`;
+    const columns = (ft.columns ?? [])
+      .filter((c) => !c.deleted)
+      .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
+      .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+    return JSON.stringify(
+      {
+        columns,
+        userIdTypes: ft.userIdTypes ?? [],
+        unitNote: ft.userIdTypes?.length
+          ? `For valueType "unit_count", set unit to one of userIdTypes (default: "${ft.userIdTypes[0]}"). For "count" or "sum", set unit to null.`
+          : 'No userIdTypes configured — use valueType "count" or "sum" only; set unit to null.',
+      },
+      null,
+      2,
+    );
+  }
+
+  if (input.metricIds?.length) {
+    const metrics = await ctx.models.factMetrics.getByIds(input.metricIds);
+    let columns: FactTableInterface["columns"] | null = null;
+    // Collect userIdTypes from the first resolved numerator fact table
+    let userIdTypes: string[] = [];
+    const metricUnitInfo: {
+      metricId: string;
+      metricType: string;
+      needsUnit: boolean;
+    }[] = [];
+
+    for (const m of metrics) {
+      const needsUnit =
+        m.metricType === "proportion" ||
+        m.metricType === "retention" ||
+        m.metricType === "dailyParticipation" ||
+        (m.metricType === "ratio" && m.numerator.column === "$$distinctUsers");
+
+      metricUnitInfo.push({
+        metricId: m.id,
+        metricType: m.metricType,
+        needsUnit,
+      });
+
+      if (!m.numerator.factTableId) continue;
+      const ft = await getFactTable(ctx, m.numerator.factTableId);
+      if (!userIdTypes.length && ft?.userIdTypes?.length) {
+        userIdTypes = ft.userIdTypes;
+      }
+      const ftCols = (ft?.columns ?? []).filter((c) => !c.deleted);
+      if (columns === null) {
+        columns = ftCols;
+      } else {
+        const nameSet = new Set(ftCols.map((c) => c.column));
+        columns = columns.filter((c) => nameSet.has(c.column));
+      }
+    }
+
+    const result = (columns ?? [])
+      .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
+      .map((c) => ({ column: c.column, name: c.name, datatype: c.datatype }));
+
+    const unitNote = userIdTypes.length
+      ? `For metrics where needsUnit=true, set unit to one of userIdTypes (default: "${userIdTypes[0]}"). For others, set unit to null.`
+      : "No userIdTypes found — set unit to null for all metrics.";
+
+    return JSON.stringify(
+      { columns: result, userIdTypes, metrics: metricUnitInfo, unitNote },
+      null,
+      2,
+    );
+  }
+
+  if (input.datasourceTableId) {
+    const table = await getInformationSchemaTableById(
+      ctx.org.id,
+      input.datasourceTableId,
+    );
+    if (!table) return `Table "${input.datasourceTableId}" not found.`;
+    const columns = table.columns.map((c) => ({
+      column: c.columnName,
+      name: c.columnName,
+      datatype: mapDatabaseTypeToEnum(c.dataType),
+    }));
+    return JSON.stringify(
+      {
+        columns,
+        userIdTypes: [],
+        unitNote:
+          'data_source explorations do not support valueType "unit_count". Use "count" or "sum" only; always set unit to null.',
+      },
+      null,
+      2,
+    );
+  }
+
+  return "Provide one of: factTableId, metricIds, or datasourceTableId.";
+}
+
+async function executeGetColumnValues(
+  ctx: ReqContext,
+  input: {
+    factTableId?: string;
+    metricIds?: string[];
+    datasourceTableId?: string;
+    columns: string[];
+    searchTerm?: string;
+    limit: number;
+  },
+): Promise<string> {
+  const { columns: requestedColumns, searchTerm, limit } = input;
+
+  type RawCol = { column: string; datatype: string };
+  let factTableSql: string;
+  let factTableEventName: string;
+  let datasourceId: string;
+  let availableColumns: RawCol[];
+
+  if (input.factTableId) {
+    const ft = await getFactTable(ctx, input.factTableId);
+    if (!ft) return `Fact table "${input.factTableId}" not found.`;
+    factTableSql = ft.sql;
+    factTableEventName = ft.eventName ?? "";
+    datasourceId = ft.datasource;
+    availableColumns = (ft.columns ?? [])
+      .filter((c) => !c.deleted)
+      .map((c) => ({ column: c.column, datatype: c.datatype }));
+  } else if (input.metricIds?.length) {
+    const metrics = await ctx.models.factMetrics.getByIds(input.metricIds);
+    const firstWithFt = metrics.find((m) => m.numerator.factTableId);
+    if (!firstWithFt?.numerator.factTableId) {
+      return "Could not resolve a fact table from the provided metric IDs.";
+    }
+    const ft = await getFactTable(ctx, firstWithFt.numerator.factTableId);
+    if (!ft) return `Fact table not found.`;
+    factTableSql = ft.sql;
+    factTableEventName = ft.eventName ?? "";
+    datasourceId = ft.datasource;
+    availableColumns = (ft.columns ?? [])
+      .filter((c) => !c.deleted)
+      .map((c) => ({ column: c.column, datatype: c.datatype }));
+  } else if (input.datasourceTableId) {
+    const table = await getInformationSchemaTableById(
+      ctx.org.id,
+      input.datasourceTableId,
+    );
+    if (!table) return `Table "${input.datasourceTableId}" not found.`;
+    const ds = await getDataSourceById(ctx, table.datasourceId);
+    if (!ds) return `Datasource not found.`;
+    const tablePath = getTablePath(ds.type, {
+      catalog: table.databaseName,
+      schema: table.tableSchema,
+      tableName: table.tableName,
+    });
+    factTableSql = `SELECT * FROM ${tablePath}`;
+    factTableEventName = "";
+    datasourceId = table.datasourceId;
+    availableColumns = table.columns.map((c) => ({
+      column: c.columnName,
+      datatype: mapDatabaseTypeToEnum(c.dataType),
+    }));
+  } else {
+    return "Provide one of: factTableId, metricIds, or datasourceTableId.";
+  }
+
+  const datasource = await getDataSourceById(ctx, datasourceId);
+  if (!datasource) return `Datasource not found.`;
+
+  // Separate requested columns into queryable (string-typed), skipped (wrong type), not-found
+  const colsToQuery: ColumnInterface[] = [];
+  const nonStringCols: string[] = [];
+  const notFoundCols: string[] = [];
+
+  for (const name of requestedColumns) {
+    const found = availableColumns.find((c) => c.column === name);
+    if (!found) {
+      notFoundCols.push(name);
+    } else if (found.datatype !== "string") {
+      nonStringCols.push(name);
+    } else {
+      colsToQuery.push({
+        column: name,
+        name,
+        datatype: "string",
+        numberFormat: "",
+        description: "",
+        deleted: false,
+        dateCreated: new Date(0),
+        dateUpdated: new Date(0),
+      });
+    }
+  }
+
+  const warnings: string[] = [];
+  if (nonStringCols.length)
+    warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
+  if (notFoundCols.length)
+    warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
+
+  if (colsToQuery.length === 0) {
+    return JSON.stringify(
+      { values: {}, warnings: warnings.length ? warnings : undefined },
+      null,
+      2,
+    );
+  }
+
+  let rawValues: Record<string, string[]>;
+  try {
+    rawValues = await runColumnsTopValuesQuery(
+      ctx,
+      datasource,
+      { sql: factTableSql, eventName: factTableEventName },
+      colsToQuery,
+    );
+  } catch (err) {
+    return `Failed to query column values: ${
+      err instanceof Error ? err.message : "Unknown error"
+    }`;
+  }
+
+  // Apply searchTerm filter and respect limit
+  const values: Record<string, string[]> = {};
+  for (const col of Object.keys(rawValues)) {
+    let vals = rawValues[col];
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      vals = vals.filter((v) => v.toLowerCase().includes(term));
+    }
+    values[col] = vals.slice(0, limit);
+  }
+
+  return JSON.stringify(
+    { values, warnings: warnings.length ? warnings : undefined },
+    null,
+    2,
+  );
+}
+
 // =============================================================================
 // Tool schemas & wiring
 // =============================================================================
 
-const searchMetricsInputSchema = z.object({
-  query: z.string().min(1).describe("Search term, e.g. 'average order value'"),
-  limit: z.number().int().min(1).max(20).default(8),
+const searchInputSchema = z.object({
+  query: z
+    .string()
+    .min(1)
+    .describe(
+      "Search term to match against metrics, fact tables, and datasource tables, e.g. 'revenue' or 'pageviews'",
+    ),
+  limit: z.number().int().min(1).max(20).default(10),
 });
+
+const getAvailableColumnsInputSchema = z
+  .object({
+    factTableId: z
+      .string()
+      .optional()
+      .describe("Fact table ID — use for fact_table explorations"),
+    metricIds: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Metric IDs — returns the intersection of columns across all selected metrics' underlying fact tables",
+      ),
+    datasourceTableId: z
+      .string()
+      .optional()
+      .describe(
+        "Information schema table ID (from search results where kind='data_source_table') — use for data_source explorations",
+      ),
+  })
+  .refine(
+    (v) =>
+      [v.factTableId, v.metricIds, v.datasourceTableId].filter(Boolean)
+        .length === 1,
+    {
+      message:
+        "Provide exactly one of: factTableId, metricIds, or datasourceTableId",
+    },
+  );
+
+const getColumnValuesInputSchema = z
+  .object({
+    factTableId: z
+      .string()
+      .optional()
+      .describe("Fact table ID — use for fact_table explorations"),
+    metricIds: z
+      .array(z.string())
+      .optional()
+      .describe("Metric IDs — resolves to the underlying fact table"),
+    datasourceTableId: z
+      .string()
+      .optional()
+      .describe(
+        "Information schema table ID — use for data_source explorations",
+      ),
+    columns: z
+      .array(z.string())
+      .min(1)
+      .max(5)
+      .describe(
+        "Column names to fetch values for — must be string-typed columns",
+      ),
+    searchTerm: z
+      .string()
+      .optional()
+      .describe(
+        "Optional substring filter — only return values containing this string (case-insensitive). Use when you have a partial guess of the value, e.g. 'US' to find 'United States'.",
+      ),
+    limit: z.number().int().min(1).max(50).default(20),
+  })
+  .refine(
+    (v) =>
+      [v.factTableId, v.metricIds, v.datasourceTableId].filter(Boolean)
+        .length === 1,
+    {
+      message:
+        "Provide exactly one of: factTableId, metricIds, or datasourceTableId",
+    },
+  );
 
 const emptyInputSchema = z.object({});
 
@@ -452,9 +984,24 @@ const getSnapshotInputSchema = z.object({
     ),
 });
 
-const SEARCH_METRICS_DESCRIPTION =
-  "Search available metrics by name, description, owner, tags, or ID. " +
-  "Use this to discover the right metrics before editing config.";
+const SEARCH_DESCRIPTION =
+  "Search across metrics, fact tables, and datasource tables simultaneously by name, description, or ID. " +
+  "Each result includes a 'kind' field ('metric', 'fact_table', or 'data_source_table') and an 'explorerType' field " +
+  "('metric', 'fact_table', or 'data_source') indicating which exploration type to use. " +
+  "Use the 'id' field from metric/fact_table results as metricId/factTableId; use 'tableId' and 'tablePath' from data_source_table results.";
+
+const GET_AVAILABLE_COLUMNS_DESCRIPTION =
+  "Get the columns available for dimensions and filters based on the current selection. " +
+  "Also returns userIdTypes and a unitNote that tells you exactly how to set the unit field for each value. " +
+  "For fact_table explorations: pass factTableId. " +
+  "For metric explorations: pass metricIds to get the intersection of columns across selected metrics, plus per-metric needsUnit flags. " +
+  "For data_source explorations: pass datasourceTableId (from the search tool results) to get column names and types — use these to populate columnTypes and pick timestampColumn in the config.";
+
+const GET_COLUMN_VALUES_DESCRIPTION =
+  "Fetch the actual values stored in one or more string columns by running a lightweight GROUP BY query against the warehouse. " +
+  "Use this before building row filters when you need to know the real values in a column (e.g. 'country' might store 'United States' not 'US'). " +
+  "Pass an optional searchTerm to narrow results when you have a partial guess. " +
+  "Provide the same source identifier as getAvailableColumns: factTableId, metricIds, or datasourceTableId.";
 
 const GET_CURRENT_CONFIG_DESCRIPTION =
   "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.";
@@ -498,11 +1045,33 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       return metricsCache;
     };
 
+    let factTablesCache: FactTableInterface[] | null = null;
+    const getFactTables = async (): Promise<FactTableInterface[]> => {
+      if (factTablesCache) return factTablesCache;
+      factTablesCache = datasourceId
+        ? await getFactTablesForDatasource(ctx, datasourceId)
+        : await getAllFactTablesForOrganization(ctx);
+      return factTablesCache;
+    };
+
     return {
-      searchMetrics: aiTool({
-        description: SEARCH_METRICS_DESCRIPTION,
-        inputSchema: searchMetricsInputSchema,
-        execute: (input) => executeSearchMetrics(getMetrics, input),
+      search: aiTool({
+        description: SEARCH_DESCRIPTION,
+        inputSchema: searchInputSchema,
+        execute: (input) =>
+          executeSearch(getMetrics, getFactTables, ctx, datasourceId, input),
+      }),
+
+      getAvailableColumns: aiTool({
+        description: GET_AVAILABLE_COLUMNS_DESCRIPTION,
+        inputSchema: getAvailableColumnsInputSchema,
+        execute: (input) => executeGetAvailableColumns(ctx, input),
+      }),
+
+      getColumnValues: aiTool({
+        description: GET_COLUMN_VALUES_DESCRIPTION,
+        inputSchema: getColumnValuesInputSchema,
+        execute: (input) => executeGetColumnValues(ctx, input),
       }),
 
       getCurrentConfig: aiTool({
@@ -534,7 +1103,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   },
 
   temperature: 0.3,
-  maxSteps: 10,
+  maxSteps: 15,
 };
 
 export const postChat = createAgentHandler(productAnalyticsAgentConfig);
