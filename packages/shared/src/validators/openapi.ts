@@ -352,6 +352,12 @@ export const listVisualChangesetsValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const postVisualChangesetsValidator = {
+  bodySchema: z.object({ "editorUrl": z.string().describe("URL of the page opened in the visual editor when creating this changeset"), "urlPatterns": z.array(z.object({ "include": z.boolean().optional(), "type": z.enum(["simple","regex"]), "pattern": z.string() })).describe("URL patterns that determine which pages this visual changeset applies to") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getExperimentSnapshotValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
