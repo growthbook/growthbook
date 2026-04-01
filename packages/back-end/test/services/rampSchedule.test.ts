@@ -1084,15 +1084,19 @@ describe("rollbackToStep", () => {
     expect(patched?.condition).toBe('{"step":"0"}');
   });
 
-  it("rolling back to -1 does not publish when effective patch is empty (pre-ramp state)", async () => {
+  it("rolling back to -1 publishes step-0 effective patch to restore the ramp's starting position", async () => {
     const schedule = makeSchedule({ currentStepIndex: 1 });
 
     const { ctx } = makeContext({ currentStepIndex: 1 });
     await rollbackToStep(ctx as never, schedule, -1);
 
-    // At stepIndex=-1, effective patch is empty — no rule changes needed, so
-    // publishRevision is not called.
-    expect(mockPublishRevision).not.toHaveBeenCalled();
+    // Step 0 patch (coverage: 0.3) is applied so the live rule immediately
+    // reflects the start-of-ramp state rather than staying at the advanced value.
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect((patched as { coverage?: number })?.coverage).toBe(0.3);
   });
 
   it("sets status to rolled-back for full rollback (targetStepIndex=-1)", async () => {
