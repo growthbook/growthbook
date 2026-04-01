@@ -1821,6 +1821,8 @@ async function getSnapshotAnalyses(
     string,
     ExperimentAnalysisParamsContextData
   >();
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
@@ -1834,6 +1836,16 @@ async function getSnapshotAnalyses(
       { experiment, organization, analysisSettings, metricMap, snapshot },
       i,
     ) => {
+      const expandedMetricMap = new Map(metricMap);
+      // Ensure slice metrics from existing snapshot query results can always
+      // be resolved during re-analysis, regardless of caller behavior.
+      expandAllSliceMetricsInMap({
+        metricMap: expandedMetricMap,
+        factTableMap,
+        experiment,
+        metricGroups,
+      });
+
       // check if analysis is possible
       if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
         logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
@@ -1875,7 +1887,7 @@ async function getSnapshotAnalyses(
 
       const mdat = getMetricsAndQueryDataForStatsEngine(
         queryMap,
-        metricMap,
+        expandedMetricMap,
         snapshot.settings,
       );
       const id = `${i}_${experiment.id}_${snapshot.id}`;

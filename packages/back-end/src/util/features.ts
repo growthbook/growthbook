@@ -725,13 +725,17 @@ export function getFeatureDefinition({
           }
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);
-          rule.coverage = r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-
-          if (r.hashAttribute) {
-            rule.hashAttribute = r.hashAttribute;
-          }
-          if (r.seed) {
-            rule.seed = r.seed;
+          const clampedCoverage =
+            r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+          // At 100% coverage, treat as a force rule so users without hashAttribute aren't excluded
+          if (clampedCoverage < 1) {
+            rule.coverage = clampedCoverage;
+            if (r.hashAttribute) {
+              rule.hashAttribute = r.hashAttribute;
+            }
+            if (r.seed) {
+              rule.seed = r.seed;
+            }
           }
         } else if (r.type === "safe-rollout") {
           const safeRollout = safeRolloutMap.get(r.safeRolloutId);

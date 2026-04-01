@@ -839,6 +839,56 @@ describe("fillRevisionFromFeature", () => {
     expect(filled.rules.production).toHaveLength(1);
   });
 
+  it("backfills defaultValue from feature when undefined (legacy revision)", () => {
+    const feature: FeatureInterface = { ...baseFeature, defaultValue: "true" };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: undefined as unknown as string, // legacy: field absent in DB
+      rules: {},
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.defaultValue).toBe("true");
+  });
+
+  it("does not overwrite an explicit defaultValue with the feature value", () => {
+    const feature: FeatureInterface = { ...baseFeature, defaultValue: "true" };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.defaultValue).toBe("false");
+  });
+
+  it("backfills archived from feature when undefined (legacy revision)", () => {
+    const feature: FeatureInterface = { ...baseFeature, archived: false };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      archived: undefined,
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.archived).toBe(false);
+  });
+
+  it("backfills prerequisites from feature when undefined (legacy revision)", () => {
+    const prereqs = [{ id: "dep", condition: '{"value":true}' }];
+    const feature: FeatureInterface = {
+      ...baseFeature,
+      prerequisites: prereqs,
+    };
+    const revision: RevisionFields = {
+      version: 4,
+      defaultValue: "false",
+      rules: {},
+      prerequisites: undefined,
+    };
+    const filled = fillRevisionFromFeature(revision, feature);
+    expect(filled.prerequisites).toEqual(prereqs);
+  });
+
   it("backfills metadata.valueType for old revisions that lack it", () => {
     const feature: FeatureInterface = { ...baseFeature, valueType: "string" };
     const revision: RevisionFields = {
@@ -1379,6 +1429,116 @@ describe("checkIfRevisionNeedsReview — archived changes", () => {
         settings,
       }),
     ).toBe(false);
+  });
+});
+
+describe("checkIfRevisionNeedsReview — legacy/sparse base revision (no false positives)", () => {
+  // Regression: legacy revisions stored before envelope fields existed have
+  // defaultValue/archived/prerequisites as undefined in the DB.  Without the
+  // fillRevisionFromFeature backfill fix, revisionHasGlobalChange would compare
+  // "false" !== undefined → true → bypass env-scoped review entirely.
+  const allEnvs = ["production", "staging"];
+
+  it("does NOT require review when base is a legacy revision (missing defaultValue) and only a staging rule was added", () => {
+    const settings = makeSettings(
+      makeReviewSetting({
+        requireReviewOn: true,
+        environments: ["production"], // only production is gated
+      }),
+    );
+    // Simulate a legacy base revision where defaultValue was never stored.
+    const legacyBase = makeRevision({
+      version: 1,
+      defaultValue: undefined as unknown as string,
+      archived: undefined,
+      prerequisites: undefined,
+    });
+    // Draft only adds a staging rule — should NOT require review.
+    const draft = makeRevision({
+      version: 2,
+      defaultValue: "false", // new draft has the field
+      rules: {
+        staging: [
+          {
+            id: "r1",
+            type: "force",
+            value: "true",
+            enabled: true,
+            condition: "",
+          },
+        ],
+      },
+    });
+
+    // Simulate what FeaturesOverview and the back-end publish path do:
+    // fill both revisions before comparing.
+    const filledBase = {
+      ...legacyBase,
+      ...fillRevisionFromFeature(legacyBase, baseFeature),
+    };
+    const filledDraft = {
+      ...draft,
+      ...fillRevisionFromFeature(draft, baseFeature),
+    };
+
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: filledBase,
+        revision: filledDraft,
+        allEnvironments: allEnvs,
+        settings,
+      }),
+    ).toBe(false);
+  });
+
+  it("DOES require review when base is a legacy revision and the draft touches a gated env", () => {
+    const settings = makeSettings(
+      makeReviewSetting({
+        requireReviewOn: true,
+        environments: ["production"],
+      }),
+    );
+    const legacyBase = makeRevision({
+      version: 1,
+      defaultValue: undefined as unknown as string,
+      archived: undefined,
+      prerequisites: undefined,
+    });
+    const draft = makeRevision({
+      version: 2,
+      defaultValue: "false",
+      rules: {
+        production: [
+          {
+            id: "r1",
+            type: "force",
+            value: "true",
+            enabled: true,
+            condition: "",
+          },
+        ],
+      },
+    });
+
+    const filledBase = {
+      ...legacyBase,
+      ...fillRevisionFromFeature(legacyBase, baseFeature),
+    };
+    const filledDraft = {
+      ...draft,
+      ...fillRevisionFromFeature(draft, baseFeature),
+    };
+
+    expect(
+      checkIfRevisionNeedsReview({
+        feature: baseFeature,
+        baseRevision: filledBase,
+        revision: filledDraft,
+        allEnvironments: allEnvs,
+        settings,
+      }),
+    ).toBe(true);
   });
 });
 

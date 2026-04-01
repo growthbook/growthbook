@@ -246,7 +246,7 @@ export default function BanditRefNewFields({
             // }
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={defaultConditionValue}
             onChange={setConditionValue}
@@ -255,7 +255,7 @@ export default function BanditRefNewFields({
             key={conditionKey}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}

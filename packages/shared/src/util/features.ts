@@ -644,6 +644,7 @@ export type RevisionFields = Pick<
   | "archived"
   | "metadata"
   | "holdout"
+  | "rampActions"
 >;
 
 // Per-field backfill for old/sparse revisions before passing to autoMerge.
@@ -669,6 +670,13 @@ const revisionFieldFillers: Partial<{
     current?.valueType != null
       ? current
       : { ...current, valueType: feature.valueType },
+  // Backfill envelope fields for legacy revisions that predate them. Without
+  // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
+  // defaultValue and returns "all", bypassing env-scoped review checks even
+  // for drafts that only touch non-gated environments.
+  defaultValue: (feature, current) => current ?? feature.defaultValue,
+  archived: (feature, current) => current ?? feature.archived ?? false,
+  prerequisites: (feature, current) => current ?? feature.prerequisites ?? [],
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.
@@ -799,6 +807,8 @@ export function draftDiffersFromLive(
         return true;
     }
   }
+  // Pending ramp actions (create/detach) are meaningful changes even if no feature content changed
+  if ((draftRevision.rampActions ?? []).length > 0) return true;
   return false;
 }
 
@@ -881,6 +891,64 @@ function revisionHasMetadataOnlyGlobalChange(
         ),
     )
   );
+}
+
+// Try to merge two diverged rule arrays at the individual rule level (matched by id).
+// Returns the merged array when each modified rule was only touched by one side,
+// or null when the same rule was modified by both sides (a genuine conflict).
+function tryRuleLevelMerge(
+  base: FeatureRule[],
+  live: FeatureRule[],
+  revision: FeatureRule[],
+): FeatureRule[] | null {
+  const baseById = new Map(base.map((r) => [r.id, r]));
+  const liveById = new Map(live.map((r) => [r.id, r]));
+  const revById = new Map(revision.map((r) => [r.id, r]));
+
+  const allIds = new Set([
+    ...base.map((r) => r.id),
+    ...live.map((r) => r.id),
+    ...revision.map((r) => r.id),
+  ]);
+
+  for (const id of allIds) {
+    const liveChanged = !isEqual(liveById.get(id), baseById.get(id));
+    const revChanged = !isEqual(revById.get(id), baseById.get(id));
+    if (
+      liveChanged &&
+      revChanged &&
+      !isEqual(liveById.get(id), revById.get(id))
+    ) {
+      return null;
+    }
+  }
+
+  // No per-rule conflicts. Walk live ordering, applying revision-side changes.
+  const merged: FeatureRule[] = [];
+  const handledIds = new Set<string>();
+
+  for (const liveRule of live) {
+    handledIds.add(liveRule.id);
+    const revRule = revById.get(liveRule.id);
+    const revChanged =
+      revRule !== undefined && !isEqual(revRule, baseById.get(liveRule.id));
+    merged.push(revChanged ? revRule! : liveRule);
+  }
+
+  // Append rules added or modified by the revision that are not present in live.
+  // Skip rules that were in base, unchanged in revision, but deleted from live —
+  // those deletions happened server-side and should be respected.
+  for (const revRule of revision) {
+    if (!handledIds.has(revRule.id)) {
+      const isNew = !baseById.has(revRule.id);
+      const revChanged = !isEqual(revRule, baseById.get(revRule.id));
+      if (isNew || revChanged) {
+        merged.push(revRule);
+      }
+    }
+  }
+
+  return merged;
 }
 
 export function autoMerge(
@@ -1011,22 +1079,32 @@ export function autoMerge(
       !isEqual(live.rules[env] || [], base.rules[env] || []) &&
       !isEqual(live.rules[env] || [], rules)
     ) {
-      const conflictInfo: MergeConflict = {
-        name: `Rules - ${env}`,
-        key: `rules.${env}`,
-        base: JSON.stringify(base.rules[env], null, 2),
-        live: JSON.stringify(live.rules[env], null, 2),
-        revision: JSON.stringify(rules, null, 2),
-        resolved: false,
-      };
-      const strategy = strategies[conflictInfo.key];
-      if (strategy === "overwrite") {
-        conflictInfo.resolved = true;
-        result.rules[env] = rules;
-      } else if (strategy === "discard") {
-        conflictInfo.resolved = true;
+      // Both sides changed — try per-rule merge before raising a conflict.
+      const autoMerged = tryRuleLevelMerge(
+        base.rules[env] || [],
+        live.rules[env] || [],
+        rules,
+      );
+      if (autoMerged !== null) {
+        result.rules[env] = autoMerged;
+      } else {
+        const conflictInfo: MergeConflict = {
+          name: `Rules - ${env}`,
+          key: `rules.${env}`,
+          base: JSON.stringify(base.rules[env], null, 2),
+          live: JSON.stringify(live.rules[env], null, 2),
+          revision: JSON.stringify(rules, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.rules[env] = rules;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
       }
-      conflicts.push(conflictInfo);
     } else {
       result.rules[env] = rules;
     }
@@ -1571,6 +1649,18 @@ export function resetReviewOnChange({
 // Per-env changes (rules, environmentsEnabled) return specific env IDs.
 // Global changes (prerequisites, archived, holdout, defaultValue, metadata) return "all".
 // Used for both UI display and approval-gate determination.
+// Strip UI-only metadata fields from a rule before diffing for review/affected-env
+// purposes. These fields never affect SDK behaviour so they must not trigger a
+// review requirement or show as "changed" environments.
+function normalizeRuleForDiff(
+  rule: FeatureRule,
+): Omit<FeatureRule, "scheduleType"> {
+  const { scheduleType: _scheduleType, ...rest } = rule as FeatureRule & {
+    scheduleType?: unknown;
+  };
+  return rest as Omit<FeatureRule, "scheduleType">;
+}
+
 export function getDraftAffectedEnvironments(
   revision: RevisionFields,
   baseRevision: RevisionFields,
@@ -1581,7 +1671,9 @@ export function getDraftAffectedEnvironments(
   // Per-environment changes
   const envs = new Set<string>();
   for (const env of allEnvironments) {
-    if (!isEqual(revision.rules[env] || [], baseRevision.rules[env] || [])) {
+    const revRules = (revision.rules[env] || []).map(normalizeRuleForDiff);
+    const baseRules = (baseRevision.rules[env] || []).map(normalizeRuleForDiff);
+    if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
     const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
@@ -1640,10 +1732,13 @@ export function checkIfRevisionNeedsReview({
   // Environment-specific changes: split into rules/values vs kill switches.
   // Rules/values always require approval. Kill switches only require approval
   // when featureRequireEnvironmentReview is true (default: true when unset).
-  const envsWithRuleChanges = affected.filter(
-    (env) =>
-      !isEqual(revision.rules?.[env] || [], baseRevision.rules?.[env] || []),
-  );
+  const envsWithRuleChanges = affected.filter((env) => {
+    const revRules = (revision.rules?.[env] || []).map(normalizeRuleForDiff);
+    const baseRules = (baseRevision.rules?.[env] || []).map(
+      normalizeRuleForDiff,
+    );
+    return !isEqual(revRules, baseRules);
+  });
   const envKillSwitchChanges = affected.filter(
     (env) =>
       revision.environmentsEnabled?.[env] !== undefined &&

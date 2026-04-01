@@ -7,7 +7,7 @@ import {
 } from "shared/types/feature";
 import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip, Separator } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -33,7 +33,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -480,14 +480,14 @@ export default function ExperimentRefNewFields({
             setValue={setSavedGroupValue}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={defaultConditionValue}
             onChange={setConditionValue}
             key={conditionKey}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}
