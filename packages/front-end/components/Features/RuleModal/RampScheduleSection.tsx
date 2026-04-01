@@ -652,7 +652,7 @@ export default function RampScheduleSection({
                   onChange={(v) => setPatchFn("condition", v)}
                   project={feature.project ?? ""}
                   slimMode
-                  emptyText="No targeting applied"
+                  emptyText="No targeting applied. Clears any existing targeting."
                   labelActions={
                     <Link
                       size="1"
@@ -673,7 +673,7 @@ export default function RampScheduleSection({
                   setValue={(v) => setPatchFn("savedGroups", v)}
                   project={feature.project ?? ""}
                   slimMode
-                  emptyText="No targeting applied"
+                  emptyText="No targeting applied. Clears any existing targeting."
                   labelActions={
                     <Link
                       size="1"
@@ -696,7 +696,7 @@ export default function RampScheduleSection({
                   environments={environments}
                   setPrerequisiteTargetingSdkIssues={() => {}}
                   slimMode
-                  emptyText="No targeting applied"
+                  emptyText="No targeting applied. Clears any existing targeting."
                   labelActions={
                     <Link
                       size="1"
