@@ -2,7 +2,6 @@ import { FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
 
@@ -11,9 +10,9 @@ const EnvironmentSelect: FC<{
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
   label?: string;
-}> = ({ environmentSettings, environments, setValue, label }) => {
+  project?: string;
+}> = ({ environmentSettings, environments, setValue, label, project = "" }) => {
   const permissionsUtil = usePermissionsUtil();
-  const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
     return environments.filter((env) => {
       return permissionsUtil.canPublishFeature({ project }, [env.id]);

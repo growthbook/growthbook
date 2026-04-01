@@ -16,7 +16,6 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
-
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");

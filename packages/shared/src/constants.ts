@@ -227,6 +227,8 @@ export const entityEvents = {
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
+  rampSchedule: ["create", "update", "delete"],
+  rampScheduleTemplate: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
