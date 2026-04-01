@@ -1864,6 +1864,7 @@ export default function FeaturesOverview({
                 (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
+            revisionList={revisionList}
             allRevisions={revisions}
             mutate={mutate}
             setVersion={setVersion}

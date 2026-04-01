@@ -140,7 +140,11 @@ export default function RevisionDropdown({
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
 
   const displayList = publishedOnly
-    ? withoutLive.filter((r) => r.status === "published")
+    ? withoutLive
+        .filter((r) => r.status === "published")
+        .filter(
+          (r) => showGenerated || !isRampGenerated(r) || r.version === version,
+        )
     : draftsOnly
       ? withoutLive
           .filter(activeDrafts)
@@ -173,10 +177,9 @@ export default function RevisionDropdown({
     draftsOnly || publishedOnly
       ? -1
       : displayList.findIndex((r) => r.version === version);
-  const baseWindow =
-    draftsOnly || publishedOnly
-      ? displayList.length
-      : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
+  const baseWindow = draftsOnly
+    ? displayList.length
+    : Math.max(initialPageSize, selectedIndex >= 0 ? selectedIndex + 1 : 0);
   const windowSize = baseWindow + extraShown;
   const shown = displayList.slice(0, windowSize);
   const remaining = displayList.length - windowSize;
@@ -267,7 +270,7 @@ export default function RevisionDropdown({
       menuWidth="full"
       menuPlacement={menuPlacement}
     >
-      {!publishedOnly && generatedCount > 0 && (
+      {generatedCount > 0 && (
         <RadixDropdownMenu.Label>
           <Flex align="center" gap="2" justify="end" style={{ width: "100%" }}>
             <Text size="small" color="text-low">
