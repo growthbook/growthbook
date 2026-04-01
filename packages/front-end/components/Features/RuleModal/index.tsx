@@ -309,7 +309,7 @@ export default function RuleModal({
   });
 
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
-    settings.defaultFeatureRulesInAllEnvs
+    mode === "create" && settings.defaultFeatureRulesInAllEnvs
       ? environments.map((env) => env.id)
       : [environment],
   );
