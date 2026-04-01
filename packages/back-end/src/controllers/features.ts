@@ -2791,7 +2791,7 @@ export async function putFeatureRule(
         }
       }
       if (rampSchedulePayload.endActions !== undefined) {
-        updates.endActions = rampSchedulePayload.endActions;
+        updates.endActions = rampSchedulePayload.endActions.map(remapT1);
       }
       await context.models.rampSchedules.updateById(existing.id, updates);
     }
