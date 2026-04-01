@@ -1,8 +1,12 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo } from "react";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Flex, Box } from "@radix-ui/themes";
+import useApi from "@/hooks/useApi";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -23,7 +27,9 @@ import { ExpandableDiff } from "./DraftModal";
 export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
-  /** Full list of all revisions — used to populate the target-version picker. */
+  /** Minimal list for the dropdown — up to 200 entries. */
+  revisionList: MinimalFeatureRevisionInterface[];
+  /** Full revisions for diff preview — lazily cached. */
   allRevisions: FeatureRevisionInterface[];
   close: () => void;
   mutate: () => void;
@@ -33,6 +39,7 @@ export interface Props {
 export default function RevertModal({
   feature,
   revision,
+  revisionList,
   allRevisions,
   close,
   mutate,
@@ -45,9 +52,11 @@ export default function RevertModal({
   const { apiCall } = useAuth();
 
   // Previously-published revisions the user can revert to, newest-published first.
+  // Uses the full revisionList (up to 200) so older publishes aren't cut off by
+  // the top-5 full-content cache.
   const publishedRevisions = useMemo(
     () =>
-      allRevisions
+      revisionList
         .filter(
           (r) => r.status === "published" && r.version !== feature.version,
         )
@@ -56,7 +65,7 @@ export default function RevertModal({
           const at = a.datePublished ? new Date(a.datePublished).getTime() : 0;
           return bt - at;
         }),
-    [allRevisions, feature.version],
+    [revisionList, feature.version],
   );
 
   const settings = useOrgSettings();
@@ -82,17 +91,31 @@ export default function RevertModal({
     approvalsRequired ? "new" : "publish",
   );
 
+  const targetRevisionFromCache = allRevisions.find(
+    (r) => r.version === targetVersion,
+  );
+  // If the selected version isn't in the parent's lazy cache, fetch it directly.
+  const { data: fetchedRevisionData } = useApi<{
+    status: 200;
+    revisions: FeatureRevisionInterface[];
+  }>(`/feature/${feature.id}/revisions?versions=${targetVersion}`, {
+    shouldRun: () => !targetRevisionFromCache,
+  });
   const targetRevision =
-    allRevisions.find((r) => r.version === targetVersion) ?? revision;
+    targetRevisionFromCache ??
+    fetchedRevisionData?.revisions?.find((r) => r.version === targetVersion);
+  const isLoadingRevision = !targetRevision;
+  // Fall back to current revision only for submit/permissions — never for the diff.
+  const targetRevisionForAction = targetRevision ?? revision;
 
   const diffs = useFeatureRevisionDiff({
     current: featureToFeatureRevisionDiffInput(feature),
-    draft: targetRevision,
+    draft: targetRevisionForAction,
   });
 
   const affectedEnvs = getAffectedRevisionEnvs(
     feature,
-    targetRevision,
+    targetRevisionForAction,
     environments,
   );
 
@@ -113,11 +136,11 @@ export default function RevertModal({
       open={true}
       header="Revert"
       submit={
-        canSubmit
+        canSubmit && !isLoadingRevision
           ? async () => {
               if (mode === "new") {
                 const res = await apiCall<{ version: number }>(
-                  `/feature/${feature.id}/${targetRevision.version}/revert-draft`,
+                  `/feature/${feature.id}/${targetRevisionForAction.version}/revert-draft`,
                   {
                     method: "POST",
                     body: JSON.stringify({ comment }),
@@ -127,7 +150,7 @@ export default function RevertModal({
                 if (res?.version) setVersion(res.version);
               } else {
                 const res = await apiCall<{ version: number }>(
-                  `/feature/${feature.id}/${targetRevision.version}/revert`,
+                  `/feature/${feature.id}/${targetRevisionForAction.version}/revert`,
                   {
                     method: "POST",
                     body: JSON.stringify({ comment }),
@@ -173,11 +196,13 @@ export default function RevertModal({
         </Box>
       </Flex>
       <div className="list-group mb-4">
-        {diffs
-          .filter((d) => d.a !== d.b)
-          .map((diff) => (
-            <ExpandableDiff {...diff} key={diff.title} />
-          ))}
+        {isLoadingRevision ? (
+          <div className="text-muted">Loading revision…</div>
+        ) : (
+          diffs
+            .filter((d) => d.a !== d.b)
+            .map((diff) => <ExpandableDiff {...diff} key={diff.title} />)
+        )}
       </div>
 
       <Field

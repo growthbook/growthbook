@@ -4,6 +4,7 @@ import {
   MinimalFeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { RampScheduleInterface } from "shared/validators";
 import React, {
   useCallback,
   useEffect,
@@ -44,6 +45,9 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
 } from "@/components/Features/RevisionLabel";
+import RevisionStatusBadge, {
+  isRampGenerated,
+} from "@/components/Features/RevisionStatusBadge";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
@@ -60,7 +64,6 @@ import {
   dedupeDiffBadges,
 } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { ExpandableDiff } from "./DraftModal";
-import RevisionStatusBadge from "./RevisionStatusBadge";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
@@ -76,6 +79,7 @@ export interface Props {
   // Opens directly in "preview draft vs live" mode for this version
   initialPreviewDraft?: number;
   initialMode?: "most-recent-live";
+  rampSchedules?: RampScheduleInterface[];
 }
 
 function revisionToDiffInput(
@@ -431,6 +435,132 @@ function DiffContent({
   );
 }
 
+// Build FeatureRevisionDiff items for any ramp schedules linked to a given revision.
+// "newerRevision" is the revision being introduced on the right-hand side of the diff.
+// Unlike DraftModal (which only shows pending ramps), this is status-agnostic so it works
+// for both draft previews and historical published-revision comparisons.
+function rampDiffsForRevision(
+  newerRevision: FeatureRevisionInterface | null,
+  featureId: string,
+  rampSchedules: RampScheduleInterface[],
+): FeatureRevisionDiff[] {
+  if (!newerRevision) return [];
+  const diffs: FeatureRevisionDiff[] = [];
+
+  // Activating: any ramp whose activating revision matches newerRevision (any status)
+  for (const ramp of rampSchedules) {
+    if (
+      !ramp.targets.some(
+        (t) =>
+          t.entityId === featureId &&
+          t.activatingRevisionVersion === newerRevision.version,
+      )
+    ) {
+      continue;
+    }
+
+    const alreadyStarted = ramp.status !== "pending";
+    const startDescription = ramp.startDate
+      ? alreadyStarted
+        ? "Started at a scheduled date/time."
+        : "Starts at a scheduled date/time."
+      : alreadyStarted
+        ? "Started automatically on publish."
+        : "Starts automatically on publish.";
+
+    diffs.push({
+      title: `Ramp Schedule – ${ramp.name}`,
+      a: "",
+      b: JSON.stringify(
+        {
+          name: ramp.name,
+          targets: ramp.targets,
+          startDate: ramp.startDate,
+          steps: ramp.steps,
+          endCondition: ramp.endCondition,
+        },
+        null,
+        2,
+      ),
+      customRender: (
+        <p className="mb-0">
+          {alreadyStarted ? "Activated" : "Activates"} ramp schedule{" "}
+          <strong>{ramp.name}</strong> — {ramp.steps.length} step
+          {ramp.steps.length !== 1 ? "s" : ""}. {startDescription}
+        </p>
+      ),
+      badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+    });
+  }
+
+  // Pending ramp actions: display "create" and "detach" actions queued in the draft
+  if (newerRevision.rampActions) {
+    for (const action of newerRevision.rampActions) {
+      if (action.mode === "create") {
+        diffs.push({
+          title: `Ramp Schedule – ${action.name} (pending creation)`,
+          a: "",
+          b: JSON.stringify(
+            {
+              name: action.name,
+              environment: action.environment,
+              ruleId: action.ruleId,
+              startDate: action.startDate,
+              steps: action.steps,
+              endCondition: action.endCondition,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0">
+              Creates new ramp schedule <strong>{action.name}</strong> for rule{" "}
+              <code>{action.ruleId}</code> — {action.steps.length} step
+              {action.steps.length !== 1 ? "s" : ""}.
+            </p>
+          ),
+          badges: [
+            {
+              label: `Create ramp: ${action.name}`,
+              action: "create ramp",
+            },
+          ],
+        });
+      } else if (action.mode === "detach") {
+        diffs.push({
+          title: `Remove from Ramp Schedule (pending)`,
+          a: "",
+          b: JSON.stringify(
+            {
+              rampScheduleId: action.rampScheduleId,
+              ruleId: action.ruleId,
+              deleteScheduleWhenEmpty: action.deleteScheduleWhenEmpty,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0">
+              This rule will be removed from its ramp schedule
+              {action.deleteScheduleWhenEmpty &&
+                " and the schedule will be deleted if empty"}
+              .
+            </p>
+          ),
+          badges: [
+            {
+              label: "Remove from ramp schedule",
+              action: "remove ramp",
+            },
+          ],
+        });
+      }
+    }
+  }
+
+  return diffs;
+}
+
 export default function CompareRevisionsModal({
   feature,
   baseFeature,
@@ -440,6 +570,7 @@ export default function CompareRevisionsModal({
   onClose,
   initialPreviewDraft,
   initialMode,
+  rampSchedules = [],
 }: Props) {
   const { apiCall } = useAuth();
   const liveVersion = feature.version;
@@ -451,6 +582,10 @@ export default function CompareRevisionsModal({
   const [showDrafts, setShowDrafts] = useLocalStorage(
     `${STORAGE_KEY_PREFIX}:showDrafts`,
     true,
+  );
+  const [showGenerated, setShowGenerated] = useLocalStorage(
+    `${STORAGE_KEY_PREFIX}:showGenerated`,
+    false,
   );
   const [diffViewModeRaw, setDiffViewModeRaw] = useLocalStorage<string>(
     `${STORAGE_KEY_PREFIX}:diffViewMode`,
@@ -464,9 +599,10 @@ export default function CompareRevisionsModal({
         if (r.status === "discarded" && !showDiscarded) return false;
         if (DRAFT_REVISION_STATUSES.includes(r.status) && !showDrafts)
           return false;
+        if (isRampGenerated(r) && !showGenerated) return false;
         return true;
       }),
-    [revisionList, showDiscarded, showDrafts],
+    [revisionList, showDiscarded, showDrafts, showGenerated],
   );
 
   const versionsDesc = useMemo(() => {
@@ -820,6 +956,10 @@ export default function CompareRevisionsModal({
     () => revisionList.some((r) => DRAFT_REVISION_STATUSES.includes(r.status)),
     [revisionList],
   );
+  const hasGeneratedRevisions = useMemo(
+    () => revisionList.some(isRampGenerated),
+    [revisionList],
+  );
 
   // True when a draft's base is not the current live version (3-way merge on publish; diff may not match result)
   const isOutOfOrderDraft = useCallback(
@@ -950,6 +1090,29 @@ export default function CompareRevisionsModal({
     previewDraftVersion !== null
       ? [liveVersion, previewDraftVersion].filter((v) => isVersionFailed(v))
       : [];
+
+  // Augment diffs with ramp schedule context for the "newer" revision in each view
+  const stepDiffsWithRamps = useMemo(
+    () => [
+      ...stepDiffs,
+      ...rampDiffsForRevision(stepRevB, feature.id, rampSchedules),
+    ],
+    [stepDiffs, stepRevB, feature.id, rampSchedules],
+  );
+  const mergedDiffsWithRamps = useMemo(
+    () => [
+      ...mergedDiffs,
+      ...rampDiffsForRevision(singleRevLast, feature.id, rampSchedules),
+    ],
+    [mergedDiffs, singleRevLast, feature.id, rampSchedules],
+  );
+  const previewDiffsWithRamps = useMemo(
+    () => [
+      ...previewDiffs,
+      ...rampDiffsForRevision(previewDraftRev, feature.id, rampSchedules),
+    ],
+    [previewDiffs, previewDraftRev, feature.id, rampSchedules],
+  );
 
   return (
     <Modal
@@ -1108,7 +1271,9 @@ export default function CompareRevisionsModal({
               <Text size="medium" weight="medium" color="text-mid">
                 Select range of revisions
               </Text>
-              {(hasDraftRevisions || hasDiscardedRevisions) &&
+              {(hasDraftRevisions ||
+                hasDiscardedRevisions ||
+                hasGeneratedRevisions) &&
                 (() => {
                   const opts = [
                     ...(hasDraftRevisions
@@ -1129,12 +1294,22 @@ export default function CompareRevisionsModal({
                           },
                         ]
                       : []),
+                    ...(hasGeneratedRevisions
+                      ? [
+                          {
+                            label: "Show ramp-generated",
+                            hidden: !showGenerated,
+                            toggle: () => setShowGenerated((v) => !v),
+                          },
+                        ]
+                      : []),
                   ];
                   const count = opts.filter((o) => o.hidden).length;
                   const isShowingAll = count === 0;
                   const isAtDefault =
                     (!hasDraftRevisions || showDrafts) &&
-                    (!hasDiscardedRevisions || !showDiscarded);
+                    (!hasDiscardedRevisions || !showDiscarded) &&
+                    (!hasGeneratedRevisions || !showGenerated);
                   return (
                     <DropdownMenu
                       modal={true}
@@ -1161,6 +1336,7 @@ export default function CompareRevisionsModal({
                           onClick={() => {
                             if (hasDraftRevisions) setShowDrafts(true);
                             if (hasDiscardedRevisions) setShowDiscarded(true);
+                            if (hasGeneratedRevisions) setShowGenerated(true);
                           }}
                         >
                           <Flex align="center">
@@ -1176,6 +1352,7 @@ export default function CompareRevisionsModal({
                         onClick={() => {
                           setShowDrafts(true);
                           setShowDiscarded(false);
+                          setShowGenerated(false);
                         }}
                       >
                         <Flex align="center">
@@ -1406,7 +1583,7 @@ export default function CompareRevisionsModal({
                 </Callout>
               ) : (
                 <DiffContent
-                  diffs={previewDiffs}
+                  diffs={previewDiffsWithRamps}
                   commentVersions={[
                     {
                       version: previewDraftVersion,
@@ -1524,7 +1701,11 @@ export default function CompareRevisionsModal({
                 </Callout>
               ) : (
                 <DiffContent
-                  diffs={diffViewMode === "single" ? mergedDiffs : stepDiffs}
+                  diffs={
+                    diffViewMode === "single"
+                      ? mergedDiffsWithRamps
+                      : stepDiffsWithRamps
+                  }
                   commentVersions={
                     diffViewMode === "steps" && currentStep
                       ? [currentStep[1], currentStep[0]].map((v) => ({

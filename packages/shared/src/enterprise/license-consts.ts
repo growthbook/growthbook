@@ -74,7 +74,8 @@ export type CommercialFeature =
   | "metric-slices"
   | "manage-official-resources"
   | "incremental-refresh"
-  | "adv-presentations";
+  | "adv-presentations"
+  | "ramp-schedules";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -317,6 +318,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "share-product-analytics-dashboards",
     "incremental-refresh",
     "adv-presentations",
+    "ramp-schedules",
   ]),
 };
 

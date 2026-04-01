@@ -1331,7 +1331,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     />
                   )}
 
-                  <hr />
+                  <Separator size="4" my="5" />
                   <SavedGroupTargetingField
                     value={form.watch("phases.0.savedGroups") || []}
                     setValue={(savedGroups) =>
@@ -1339,7 +1339,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     }
                     project={project}
                   />
-                  <hr />
+                  <Separator size="4" my="5" />
                   <ConditionInput
                     defaultValue={form.watch("phases.0.condition") || ""}
                     onChange={(value) =>
@@ -1348,7 +1348,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     key={conditionKey}
                     project={project}
                   />
-                  <hr />
+                  <Separator size="4" my="5" />
                   <PrerequisiteInput
                     value={form.watch("phases.0.prerequisites") || []}
                     setValue={(prerequisites) =>

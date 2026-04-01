@@ -486,6 +486,20 @@ export interface paths {
     /** Create a single metricGroup */
     post: operations["createMetricGroup"];
   };
+  "/ramp-schedule-templates/{id}": {
+    /** Get a single rampScheduleTemplate */
+    get: operations["getRampScheduleTemplate"];
+    /** Update a single rampScheduleTemplate */
+    put: operations["updateRampScheduleTemplate"];
+    /** Delete a single rampScheduleTemplate */
+    delete: operations["deleteRampScheduleTemplate"];
+  };
+  "/ramp-schedule-templates": {
+    /** Get all rampScheduleTemplates */
+    get: operations["listRampScheduleTemplates"];
+    /** Create a single rampScheduleTemplate */
+    post: operations["createRampScheduleTemplate"];
+  };
   "/teams/{id}": {
     /** Get a single team */
     get: operations["getTeam"];
@@ -1218,6 +1232,63 @@ export interface components {
       datasource: string;
       archived: boolean;
     };
+    RampScheduleTemplate: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      steps: ({
+          trigger: {
+            /** @constant */
+            type: "interval";
+            seconds: number;
+          } | {
+            /** @constant */
+            type: "approval";
+          } | {
+            /** @constant */
+            type: "scheduled";
+            at: string;
+          };
+          actions: ({
+              /** @constant */
+              targetType: "feature-rule";
+              targetId: string;
+              patch: {
+                ruleId: string;
+                coverage?: number | null;
+                condition?: string | null;
+                savedGroups?: (({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[]) | null;
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[] | null;
+                enabled?: boolean | null;
+              };
+            })[];
+          approvalNotes?: string | null;
+        })[];
+      endPatch?: {
+        coverage?: number;
+        condition?: string;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+      };
+      official?: boolean;
+    };
     Team: {
       id: string;
       /** Format: date-time */
@@ -1253,6 +1324,106 @@ export interface components {
       total: number;
       hasMore: boolean;
       nextOffset: OneOf<[number, null]>;
+    };
+    RampSchedule: {
+      /** @description Unique identifier (rs_ prefix) */
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      /** @enum {string} */
+      entityType: "feature";
+      entityId: string;
+      /** @description Controlled entity references */
+      targets: ({
+          id: string;
+          /** @enum {string} */
+          entityType: "feature";
+          entityId: string;
+          ruleId?: string;
+          environment?: string;
+          /** @enum {string} */
+          status: "pending-join" | "active";
+          /** @description Feature revision version that activates this ramp; cleared once published */
+          activatingRevisionVersion?: number;
+        })[];
+      /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+      endActions?: ({
+          /** @enum {string} */
+          targetType: "feature-rule";
+          targetId: string;
+          patch: {
+            ruleId: string;
+            coverage?: number;
+            condition?: string;
+            /** @description Force value (any JSON type) */
+            force?: any;
+          };
+        })[];
+      /** @description Ordered ramp steps */
+      steps: ({
+          trigger: {
+            /** @enum {string} */
+            type: "interval" | "approval" | "scheduled";
+            /** @description Hold duration (interval triggers only) */
+            seconds?: number;
+            /**
+             * Format: date-time 
+             * @description Absolute fire time (scheduled triggers only)
+             */
+            at?: string;
+          };
+          actions: ({
+              /** @enum {string} */
+              targetType: "feature-rule";
+              targetId: string;
+              patch: {
+                ruleId: string;
+                coverage?: number;
+                condition?: string;
+                /** @description Force value (any JSON type) */
+                force?: any;
+              };
+            })[];
+          approvalNotes?: string;
+        })[];
+      /**
+       * Format: date-time 
+       * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+       */
+      startDate?: string | null;
+      /** @description Optional hard deadline for standard (no-step) schedules */
+      endCondition?: {
+        trigger?: {
+          /** @enum {string} */
+          type?: "scheduled";
+          /** Format: date-time */
+          at?: string;
+        };
+      };
+      /** @enum {string} */
+      status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+      /** @description Index of current step; -1 = not yet started */
+      currentStepIndex: number;
+      /** Format: date-time */
+      startedAt?: string;
+      /**
+       * Format: date-time 
+       * @description Anchor for cumulative interval timing; resets after each approval gate
+       */
+      phaseStartedAt?: string;
+      /** Format: date-time */
+      pausedAt?: string;
+      /**
+       * Format: date-time 
+       * @description When the next step fires; null for approval steps and terminal states
+       */
+      nextStepAt: string | null;
+      /** @description Milliseconds since startedAt (computed at response time, not stored) */
+      elapsedMs?: number;
     };
     Dimension: {
       id: string;
@@ -19507,6 +19678,417 @@ export interface operations {
       };
     };
   };
+  getRampScheduleTemplate: {
+    /** Get a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+              };
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateRampScheduleTemplate: {
+    /** Update a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          steps?: ({
+              trigger: {
+                /** @constant */
+                type: "interval";
+                seconds: number;
+              } | {
+                /** @constant */
+                type: "approval";
+              } | {
+                /** @constant */
+                type: "scheduled";
+                at: string;
+              };
+              actions: ({
+                  /** @constant */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number | null;
+                    condition?: string | null;
+                    savedGroups?: (({
+                        /** @enum {string} */
+                        match: "all" | "none" | "any";
+                        ids: (string)[];
+                      })[]) | null;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[] | null;
+                    enabled?: boolean | null;
+                  };
+                })[];
+              approvalNotes?: string | null;
+            })[];
+          endPatch?: {
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+          };
+          official?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+              };
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteRampScheduleTemplate: {
+    /** Delete a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listRampScheduleTemplates: {
+    /** Get all rampScheduleTemplates */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                steps: ({
+                    trigger: {
+                      /** @constant */
+                      type: "interval";
+                      seconds: number;
+                    } | {
+                      /** @constant */
+                      type: "approval";
+                    } | {
+                      /** @constant */
+                      type: "scheduled";
+                      at: string;
+                    };
+                    actions: ({
+                        /** @constant */
+                        targetType: "feature-rule";
+                        targetId: string;
+                        patch: {
+                          ruleId: string;
+                          coverage?: number | null;
+                          condition?: string | null;
+                          savedGroups?: (({
+                              /** @enum {string} */
+                              match: "all" | "none" | "any";
+                              ids: (string)[];
+                            })[]) | null;
+                          prerequisites?: ({
+                              id: string;
+                              condition: string;
+                            })[] | null;
+                          enabled?: boolean | null;
+                        };
+                      })[];
+                    approvalNotes?: string | null;
+                  })[];
+                endPatch?: {
+                  coverage?: number;
+                  condition?: string;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                };
+                official?: boolean;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createRampScheduleTemplate: {
+    /** Create a single rampScheduleTemplate */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          steps: ({
+              trigger: {
+                /** @constant */
+                type: "interval";
+                seconds: number;
+              } | {
+                /** @constant */
+                type: "approval";
+              } | {
+                /** @constant */
+                type: "scheduled";
+                at: string;
+              };
+              actions: ({
+                  /** @constant */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number | null;
+                    condition?: string | null;
+                    savedGroups?: (({
+                        /** @enum {string} */
+                        match: "all" | "none" | "any";
+                        ids: (string)[];
+                      })[]) | null;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[] | null;
+                    enabled?: boolean | null;
+                  };
+                })[];
+              approvalNotes?: string | null;
+            })[];
+          endPatch?: {
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+          };
+          official?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+              };
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
   getTeam: {
     /** Get a single team */
     parameters: {
@@ -19801,6 +20383,7 @@ import * as openApiValidators from "shared/validators";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
+export type ApiRampSchedule = z.infer<typeof openApiValidators.apiRampScheduleValidator>;
 export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
 export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
