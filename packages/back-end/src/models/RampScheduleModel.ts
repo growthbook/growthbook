@@ -3,6 +3,7 @@ import {
   RampScheduleInterface,
   rampScheduleValidator,
 } from "shared/validators";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -80,4 +81,36 @@ export class RampScheduleModel extends BaseClass {
       },
     });
   }
+}
+
+/**
+ * Cross-org query for the poller: returns minimal docs for every schedule
+ * that is due for processing or pending crash-recovery.
+ * Bypasses org-scoped BaseModel intentionally — the caller must load the
+ * full document via a proper context after queuing the work.
+ */
+export async function findSchedulesDueForProcessing(
+  now: Date,
+): Promise<{ id: string; organization: string }[]> {
+  const docs = await getCollection(COLLECTION_NAME)
+    .find(
+      {
+        $or: [
+          // Primary path: any schedule with a due process time
+          { nextProcessAt: { $ne: null, $lte: now } },
+          // Crash recovery: pending schedules whose activation hook may have missed
+          {
+            status: "pending",
+            "targets.activatingRevisionVersion": { $exists: true, $ne: null },
+          },
+        ],
+      },
+      { projection: { _id: 1, id: 1, organization: 1 } },
+    )
+    .toArray();
+
+  return docs.map((d) => ({
+    id: (d.id as string | undefined) || String(d._id),
+    organization: d.organization as string,
+  }));
 }

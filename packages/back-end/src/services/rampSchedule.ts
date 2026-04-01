@@ -593,13 +593,19 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
     let environments: string[] = [];
     let tags: string[] = [];
     if ("targets" in schedule && schedule.entityType === "feature") {
-      environments = [
-        ...new Set(schedule.targets.flatMap((t) => t.environment ?? [])),
-      ];
       const feature = await getFeature(ctx, schedule.entityId);
       if (feature) {
         projects = feature.project ? [feature.project] : [];
         tags = feature.tags ?? [];
+        // Targets with a specific environment use that; targets with environment=null
+        // (multi-env ramps) fall back to all environments the feature is active in.
+        const specificEnvs = schedule.targets
+          .map((t) => t.environment)
+          .filter((e): e is string => !!e);
+        environments =
+          specificEnvs.length > 0
+            ? [...new Set(specificEnvs)]
+            : Object.keys(feature.environmentSettings ?? {});
       }
     }
     await createEvent({

@@ -9,6 +9,7 @@ import {
   onActivatingRevisionPublished,
 } from "back-end/src/services/rampSchedule";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { findSchedulesDueForProcessing } from "back-end/src/models/RampScheduleModel";
 
 type AdvanceSingleRampScheduleJob = Job<{
   rampScheduleId: string;
@@ -37,46 +38,11 @@ async function queueRampScheduleAdvance(
 }
 
 export default async function addRampScheduleJob(agenda: Agenda) {
-  // Ensure a sparse index on nextProcessAt for efficient polling.
-  const mongoose = await import("mongoose");
-  await mongoose.default.connection.db
-    .collection("rampschedules")
-    .createIndex(
-      { nextProcessAt: 1 },
-      { sparse: true, name: "nextProcessAt_1" },
-    );
-
   agenda.define(QUEUE_RAMP_SCHEDULE_ADVANCES, async () => {
     const now = new Date();
-    const mongoose = await import("mongoose");
-    const scheduleDocs = await mongoose.default.connection.db
-      .collection("rampschedules")
-      .find(
-        {
-          $or: [
-            // Primary path: any schedule with a due process time
-            { nextProcessAt: { $ne: null, $lte: now } },
-            // Crash recovery: pending schedules whose activation hook may have missed
-            {
-              status: "pending",
-              "targets.activatingRevisionVersion": { $exists: true, $ne: null },
-            },
-          ],
-        },
-        { projection: { _id: 1, id: 1, organization: 1 } },
-      )
-      .toArray();
-
+    const scheduleDocs = await findSchedulesDueForProcessing(now);
     for (const doc of scheduleDocs) {
-      const d = doc as unknown as {
-        id?: string;
-        _id: unknown;
-        organization: string;
-      };
-      await queueRampScheduleAdvance(agenda, {
-        id: d.id || String(d._id),
-        organization: d.organization,
-      });
+      await queueRampScheduleAdvance(agenda, doc);
     }
   });
 
