@@ -12,6 +12,7 @@ import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -46,6 +47,7 @@ import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
 import informationSchemaTablesRouter from "./information-schema-tables/information-schema-tables.router";
+import rampSchedulesRouter from "./ramp-schedules/ramp-schedules.router";
 import { defineRouterForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
@@ -55,6 +57,7 @@ const API_MODELS: ModelClass[] = [
   TeamModel,
   ExperimentTemplatesModel,
   AnalyticsExplorationModel,
+  RampScheduleTemplateModel,
 ];
 
 const router = Router();
@@ -157,6 +160,7 @@ router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.use("/information-schema-tables", informationSchemaTablesRouter);
+router.use("/ramp-schedules", rampSchedulesRouter);
 router.post("/transform-copy", postCopyTransform);
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
