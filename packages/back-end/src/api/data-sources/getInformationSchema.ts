@@ -15,7 +15,6 @@ function toApiInformationSchema(
     id: schema.id,
     datasourceId: schema.datasourceId,
     status: schema.status,
-    refreshMS: schema.refreshMS,
     error: schema.error ?? undefined,
     databases: schema.databases.map((db) => ({
       databaseName: db.databaseName,
