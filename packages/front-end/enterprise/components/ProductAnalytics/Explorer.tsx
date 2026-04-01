@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
@@ -138,14 +138,10 @@ export default function Explorer({ type }: { type: DatasetType }) {
 function ExplorerInner({ type }: { type: DatasetType }) {
   const { datasources } = useDefinitions();
 
-  const [lastUsedDatasourceId] = useLocalStorage<string | undefined>(
+  const [defaultDataSourceId] = useLocalStorage<string | undefined>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
-    undefined,
+    datasources[0]?.id ?? "",
   );
-
-  const defaultDataSourceId = useMemo(() => {
-    return lastUsedDatasourceId ?? datasources[0]?.id ?? "";
-  }, [lastUsedDatasourceId, datasources]);
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",

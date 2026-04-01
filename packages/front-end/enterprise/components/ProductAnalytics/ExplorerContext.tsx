@@ -77,13 +77,12 @@ export function ExplorerProvider({
   onRunComplete,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
-
-  const [, setLastUsedDatasourceId] = useLocalStorage<string | undefined>(
-    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
-    undefined,
-  );
-
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
+
+  const [, setDefaultDataSourceId] = useLocalStorage<string>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    datasources[0]?.id ?? "",
+  );
 
   const [explorerState, setExplorerState] = useState<{
     draftState: ExplorationConfig;
@@ -399,7 +398,7 @@ export function ExplorerProvider({
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
-        setLastUsedDatasourceId(datasourceId);
+        setDefaultDataSourceId(datasourceId);
       }
 
       setExplorerState((prev) => {
@@ -420,7 +419,7 @@ export function ExplorerProvider({
         };
       });
     },
-    [createDefaultValue, datasources, initialConfig, setLastUsedDatasourceId],
+    [createDefaultValue, datasources, initialConfig, setDefaultDataSourceId],
   );
 
   const value = useMemo<ExplorerContextValue>(
