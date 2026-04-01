@@ -1,10 +1,10 @@
-import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
+import React, { useState } from "react";
+import { Box, Flex, ScrollArea, Separator } from "@radix-ui/themes";
+import { PiMagnifyingGlass, PiPlus, PiChat } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
-import styles from "./ConversationSidebar.module.scss";
+import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,12 +43,31 @@ export default function ConversationSidebar({
   onSelect,
   onNewChat,
 }: ConversationSidebarProps) {
+  const [hoveredConversationId, setHoveredConversationId] = useState<
+    string | null
+  >(null);
+
   return (
-    <div className={styles.sidebar}>
-      <Flex
+    <Flex
+      direction="column"
+      p="2"
+      style={{
+        width: 220,
+        flexShrink: 0,
+        borderRight: "1px solid var(--gray-a6)",
+        background: "var(--color-panel-solid)",
+        overflow: "hidden",
+      }}
+    >
+      {/* <Flex
         align="center"
         justify="between"
-        className={styles.sidebarHeader}
+        px="3"
+        py="2"
+        style={{
+          borderBottom: "1px solid var(--gray-a3)",
+          flexShrink: 0,
+        }}
       >
         <Text size="small" weight="medium" color="text-mid">
           Chats
@@ -56,35 +75,139 @@ export default function ConversationSidebar({
         <Button variant="ghost" size="xs" onClick={onNewChat} title="New chat">
           <PiPlus size={13} />
         </Button>
+      </Flex> */}
+
+      <Flex direction="column" gap="2">
+        <Button onClick={() => onNewChat()}>
+          <Flex align="center" justify="center" gap="1">
+            <PiPlus size={13} />
+            <Text size="medium" weight="medium">
+              New chat
+            </Text>
+          </Flex>
+        </Button>
+
+        <Button variant="soft">
+          <Flex align="center" justify="center" gap="1">
+            <PiMagnifyingGlass size={13} />
+            <Text size="medium" weight="medium">
+              Search chats
+            </Text>
+          </Flex>
+        </Button>
       </Flex>
 
-      <div className={styles.list}>
-        {conversations.length === 0 ? (
-          <div className={styles.empty}>No conversations yet</div>
-        ) : (
-          conversations.map((conv) => (
-            <button
-              key={conv.conversationId}
-              className={`${styles.item} ${
-                conv.conversationId === activeConversationId
-                  ? styles.active
-                  : ""
-              }`}
-              onClick={() => onSelect(conv.conversationId)}
+      <Separator
+        my="3"
+        style={{ width: "100%", background: "var(--slate-a5)" }}
+      />
+
+      <ScrollArea
+        type="hover"
+        scrollbars="vertical"
+        style={{ flex: 1, minHeight: 0 }}
+      >
+        <Box pl="1">
+          <Text size="small" weight="medium" color="text-low">
+            Your Chats
+          </Text>
+        </Box>
+
+        <Flex direction="column" gap="2" style={{ padding: "6px 4px" }}>
+          {conversations.length === 0 ? (
+            <Flex
+              align="center"
+              justify="center"
+              direction="column"
+              gap="2"
+              style={{
+                padding: "20px 12px",
+                fontSize: 12,
+                color: "var(--gray-a9)",
+                textAlign: "center",
+              }}
             >
-              <span className={styles.itemTitle}>
-                {conv.title || "Untitled"}
-              </span>
-              <span className={styles.itemMeta}>
-                {conv.isStreaming && (
-                  <span className={styles.streamingDot} title="Streaming" />
-                )}
-                {relativeTime(conv.createdAt)}
-              </span>
-            </button>
-          ))
-        )}
-      </div>
-    </div>
+              {/* Chat bubble icon */}
+              <PiChat size={20} color="var(--violet-a11)" />
+              <Text size="small" color="text-high" weight="semibold">
+                No chats yet
+              </Text>
+              <Text size="small" color="text-low" align="center">
+                Start a new conversation to explore data.
+              </Text>
+            </Flex>
+          ) : (
+            conversations.map((conv) => {
+              const isActive = conv.conversationId === activeConversationId;
+              const isHovered = hoveredConversationId === conv.conversationId;
+              return (
+                <button
+                  key={conv.conversationId}
+                  type="button"
+                  onMouseEnter={() =>
+                    setHoveredConversationId(conv.conversationId)
+                  }
+                  onMouseLeave={() => setHoveredConversationId(null)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    width: "100%",
+                    padding: "7px 10px",
+                    borderRadius: "var(--radius-2)",
+                    border: isActive
+                      ? "1px solid var(--slate-a5)"
+                      : "1px solid transparent",
+                    background: isActive
+                      ? "var(--violet-8)"
+                      : isHovered
+                        ? "var(--gray-a3)"
+                        : "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    color: "var(--gray-12)",
+                  }}
+                  onClick={() => onSelect(conv.conversationId)}
+                >
+                  {/* <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 500,
+                      lineHeight: 1.4,
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {conv.title || "Untitled"}
+                  </span> */}
+                  <Text size="small" weight="semibold" color="text-high">
+                    {conv.title || "Untitled"}
+                  </Text>
+                  <Box
+                    as="span"
+                    style={{
+                      fontSize: 11,
+                      color: "var(--gray-a10)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    {conv.isStreaming ? (
+                      <span
+                        title="Streaming"
+                        className={aiChatPrimitives.streamingDot}
+                      />
+                    ) : null}
+                    {relativeTime(conv.createdAt)}
+                  </Box>
+                </button>
+              );
+            })
+          )}
+        </Flex>
+      </ScrollArea>
+    </Flex>
   );
 }

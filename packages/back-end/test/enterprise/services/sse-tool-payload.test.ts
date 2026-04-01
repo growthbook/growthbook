@@ -1,7 +1,7 @@
 import {
   MAX_SSE_TOOL_JSON_LENGTH,
   serializeUnknownForSSE,
-} from "back-end/src/enterprise/services/sse-tool-payload";
+} from "back-end/src/enterprise/services/agent-handler";
 
 describe("serializeUnknownForSSE", () => {
   it("round-trips plain objects", () => {

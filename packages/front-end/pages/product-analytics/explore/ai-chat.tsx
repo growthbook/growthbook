@@ -22,7 +22,7 @@ export default function AIChatExplorePage() {
   } as ExplorationConfig;
 
   return (
-    <Box className="position-relative" style={{ padding: "8px" }}>
+    <Box className="position-relative" style={{ padding: "0" }}>
       <PageHead
         breadcrumb={[
           {

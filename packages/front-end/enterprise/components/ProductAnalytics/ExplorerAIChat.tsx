@@ -2,23 +2,25 @@ import React, { useRef, useEffect, useCallback } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
-  PiPaperPlaneRight,
   PiSparkle,
   PiCheckCircle,
-  PiCircleNotch,
-  PiWarningFill,
+  PiLightning,
+  PiUserCircle,
+  PiChartLine,
+  PiArrowsLeftRight,
+  PiArrowRightBold,
 } from "react-icons/pi";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { toolResultPreviewLabel } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
-import { toolResultPreviewLabel } from "shared/ai-chat";
 import {
   useAIChat,
   useChatListBackgroundPoll,
@@ -29,9 +31,19 @@ import {
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import ToolTransparencyBlock from "@/enterprise/components/AIChat/ToolTransparencyBlock";
+import {
+  AssistantBubble,
+  UserBubble,
+  ErrorBubble,
+  ThinkingBubble,
+  ToolStatusIcon,
+  AIAnalystLabel,
+} from "@/enterprise/components/AIChat/AIChatPrimitives";
+import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
-import styles from "./ExplorerAIChat.module.scss";
+import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
@@ -51,6 +63,48 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   getCurrentConfig: "Reading current config...",
   getConfigSchema: "Loading config schema...",
 };
+
+const QUICK_ACTIONS: {
+  label: string;
+  icon: React.ReactNode;
+  prompt: string;
+}[] = [
+  {
+    label: "User Growth",
+    icon: <PiUserCircle size={16} />,
+    prompt: "Show me user growth trends over time",
+  },
+  {
+    label: "Conversion Analysis",
+    icon: <PiChartLine size={16} />,
+    prompt: "Analyze conversion rates across key funnel steps",
+  },
+  {
+    label: "Revenue Trends",
+    icon: <PiArrowsLeftRight size={16} />,
+    prompt: "Show revenue trends over the last 30 days",
+  },
+  {
+    label: "Top Metrics",
+    icon: <PiChartLine size={16} />,
+    prompt: "What are our top performing metrics right now?",
+  },
+];
+
+function groupIntoBlocks(
+  msgs: AIChatMessage[],
+): { type: "user" | "assistant"; msgs: AIChatMessage[] }[] {
+  const blocks: { type: "user" | "assistant"; msgs: AIChatMessage[] }[] = [];
+  for (const msg of msgs) {
+    const type = msg.role === "user" ? "user" : "assistant";
+    if (!blocks.length || blocks[blocks.length - 1].type !== type) {
+      blocks.push({ type, msgs: [msg] });
+    } else {
+      blocks[blocks.length - 1].msgs.push(msg);
+    }
+  }
+  return blocks;
+}
 
 function chartDataFromToolResult(result: unknown): ChartData | null {
   if (typeof result === "string") {
@@ -78,26 +132,28 @@ function chartDataFromRecord(data: Record<string, unknown>): ChartData | null {
     config = exploration.config as ExplorationConfig;
   }
   if (!config || typeof config !== "object") return null;
-  return {
-    config,
-    exploration,
-  };
+  return { config, exploration };
 }
 
 // ---------------------------------------------------------------------------
-// Chart render helper (shared between active items and finalized messages)
+// ChartBubble — PA-specific chart result rendered as a message bubble
 // ---------------------------------------------------------------------------
 
-function renderChart(chartData: ChartData, toolTransparency?: React.ReactNode) {
+interface ChartBubbleProps {
+  chartData: ChartData;
+  toolTransparency?: React.ReactNode;
+}
+
+function ChartBubble({ chartData, toolTransparency }: ChartBubbleProps) {
   return (
-    <Box className={styles.chartMessage}>
+    <AssistantBubble wide>
       <Flex align="center" gap="2" mb="2">
         <PiSparkle size={12} />
         <Text size="small" weight="medium">
           Generated chart
         </Text>
       </Flex>
-      <Box className={styles.chartMessageInner}>
+      <Box style={{ height: 360, minHeight: 260, display: "flex" }}>
         <ExplorerChart
           exploration={chartData.exploration}
           error={null}
@@ -106,9 +162,17 @@ function renderChart(chartData: ChartData, toolTransparency?: React.ReactNode) {
         />
       </Box>
       {toolTransparency ? (
-        <Box className={styles.chartToolTransparency}>{toolTransparency}</Box>
+        <Box
+          style={{
+            marginTop: "var(--space-2)",
+            paddingTop: "var(--space-2)",
+            borderTop: "1px solid var(--gray-a5)",
+          }}
+        >
+          {toolTransparency}
+        </Box>
       ) : null}
-    </Box>
+    </AssistantBubble>
   );
 }
 
@@ -165,7 +229,6 @@ export default function ExplorerAIChat() {
     refreshList,
   );
 
-  // Refresh sidebar list when a streaming turn completes
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
       refreshList();
@@ -177,13 +240,6 @@ export default function ExplorerAIChat() {
     newChat();
     refreshList();
   }, [newChat, refreshList]);
-
-  const handleLoadConversation = useCallback(
-    (id: string) => {
-      return loadConversation(id);
-    },
-    [loadConversation],
-  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -203,6 +259,14 @@ export default function ExplorerAIChat() {
     [sendMessage],
   );
 
+  const handleQuickAction = useCallback(
+    (prompt: string) => {
+      setInput(prompt);
+      inputRef.current?.focus();
+    },
+    [setInput],
+  );
+
   // ---------------------------------------------------------------------------
   // Render helpers
   // ---------------------------------------------------------------------------
@@ -212,9 +276,9 @@ export default function ExplorerAIChat() {
       const displayedContent = displayedTextMap.get(item.id) ?? "";
       if (!displayedContent) return null;
       return (
-        <Box key={item.id} className={styles.assistantMessage}>
+        <AssistantBubble key={item.id}>
           <Markdown>{displayedContent}</Markdown>
-        </Box>
+        </AssistantBubble>
       );
     }
 
@@ -222,35 +286,28 @@ export default function ExplorerAIChat() {
       const chartData = item.toolResultData
         ? chartDataFromRecord(item.toolResultData)
         : null;
-      const isError = item.status === "error";
       if (chartData && item.status === "done") {
         return (
-          <Box key={item.toolCallId}>
-            {renderChart(
-              chartData,
+          <ChartBubble
+            key={item.toolCallId}
+            chartData={chartData}
+            toolTransparency={
               <ToolTransparencyBlock
                 embedded
                 summaryLabel="Query & tool response"
                 toolInput={item.toolInput}
                 argsTextPreview={item.argsTextPreview}
                 toolOutput={item.toolOutput}
-              />,
-            )}
-          </Box>
+              />
+            }
+          />
         );
       }
+      const isError = item.status === "error";
       return (
-        <Box key={item.toolCallId} className={styles.assistantMessage}>
+        <AssistantBubble key={item.toolCallId}>
           <Flex align="center" gap="2">
-            {item.status === "running" ? (
-              <span className={styles.spinIcon}>
-                <PiCircleNotch size={12} />
-              </span>
-            ) : isError ? (
-              <PiWarningFill size={12} color="var(--amber-11)" />
-            ) : (
-              <PiCheckCircle size={12} color="var(--green-9)" />
-            )}
+            <ToolStatusIcon status={item.status} />
             <Text size="small" color="text-low">
               {isError && item.errorMessage ? item.errorMessage : item.label}
             </Text>
@@ -260,23 +317,12 @@ export default function ExplorerAIChat() {
             argsTextPreview={item.argsTextPreview}
             toolOutput={item.toolOutput}
           />
-        </Box>
+        </AssistantBubble>
       );
     }
 
     if (item.kind === "thinking") {
-      return (
-        <Box key={item.id} className={styles.assistantMessage}>
-          <Flex align="center" gap="2">
-            <span className={styles.spinIcon}>
-              <PiCircleNotch size={12} />
-            </span>
-            <Text size="small" color="text-low">
-              Thinking...
-            </Text>
-          </Flex>
-        </Box>
-      );
+      return <ThinkingBubble key={item.id} label="Thinking..." />;
     }
 
     return null;
@@ -288,13 +334,43 @@ export default function ExplorerAIChat() {
         typeof msg.content === "string"
           ? msg.content
           : msg.content
-              .filter((p): p is { type: "text"; text: string } => p.type === "text")
+              .filter(
+                (p): p is { type: "text"; text: string } => p.type === "text",
+              )
               .map((p) => p.text)
               .join("\n");
+      const timestamp = msg.ts
+        ? new Date(msg.ts)
+            .toLocaleString("en-US", {
+              month: "2-digit",
+              day: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+            .replace(",", " -")
+        : null;
       return (
-        <Box key={msg.id} className={styles.userMessage}>
-          <Text size="small">{userText}</Text>
-        </Box>
+        <React.Fragment key={msg.id}>
+          <UserBubble>
+            <Text color="text-high" size="small">
+              {userText}
+            </Text>
+          </UserBubble>
+          {timestamp && (
+            <Box
+              style={{
+                alignSelf: "flex-end",
+                marginTop: "-8px",
+                paddingRight: "2px",
+              }}
+            >
+              <Text size="small" color="text-low">
+                {timestamp}
+              </Text>
+            </Box>
+          )}
+        </React.Fragment>
       );
     }
 
@@ -302,17 +378,17 @@ export default function ExplorerAIChat() {
       const { content } = msg;
       if (typeof content === "string") {
         return (
-          <Box key={msg.id} className={styles.assistantMessage}>
+          <AssistantBubble key={msg.id}>
             <Markdown>{content}</Markdown>
-          </Box>
+          </AssistantBubble>
         );
       }
       return content.map((part, i) => {
         if (part.type === "text") {
           return (
-            <Box key={`${msg.id}-t${i}`} className={styles.assistantMessage}>
+            <AssistantBubble key={`${msg.id}-t${i}`}>
               <Markdown>{part.text}</Markdown>
-            </Box>
+            </AssistantBubble>
           );
         }
         // tool-call parts are rendered via their matching tool-result below
@@ -328,23 +404,24 @@ export default function ExplorerAIChat() {
           const chartData = chartDataFromToolResult(part.result);
           if (chartData) {
             return (
-              <Box key={`${msg.id}-r${i}`}>
-                {renderChart(
-                  chartData,
+              <ChartBubble
+                key={`${msg.id}-r${i}`}
+                chartData={chartData}
+                toolTransparency={
                   <ToolTransparencyBlock
                     embedded
                     summaryLabel="Query & tool response"
                     toolInput={pairedCall?.args}
                     toolOutput={part.result}
-                  />,
-                )}
-              </Box>
+                  />
+                }
+              />
             );
           }
         }
 
         return (
-          <Box key={`${msg.id}-r${i}`} className={styles.assistantMessage}>
+          <AssistantBubble key={`${msg.id}-r${i}`}>
             <Flex align="center" gap="2">
               <PiCheckCircle size={12} color="var(--green-9)" />
               <Text size="small" color="text-low">
@@ -356,7 +433,7 @@ export default function ExplorerAIChat() {
               toolInput={pairedCall?.args}
               toolOutput={part.result}
             />
-          </Box>
+          </AssistantBubble>
         );
       });
     }
@@ -376,7 +453,7 @@ export default function ExplorerAIChat() {
         direction="column"
         gap="3"
         p="6"
-        className={styles.emptyOutput}
+        style={{ height: "100%" }}
       >
         <BsStars size={28} />
         <Text align="center" color="text-mid">
@@ -396,11 +473,20 @@ export default function ExplorerAIChat() {
   // ---------------------------------------------------------------------------
 
   return (
-    <Flex className={styles.layout} style={{ flexDirection: "row" }}>
+    <Flex
+      style={{
+        height: "calc(100vh - 56px)",
+        minHeight: 0,
+        background: "var(--color-background)",
+        border: "1px solid var(--gray-a6)",
+        flexDirection: "row",
+        minWidth: 0,
+      }}
+    >
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
-        onSelect={handleLoadConversation}
+        onSelect={loadConversation}
         onNewChat={handleNewChat}
       />
 
@@ -410,14 +496,13 @@ export default function ExplorerAIChat() {
           justify="between"
           px="4"
           py="3"
-          className={styles.chatHeader}
+          style={{
+            borderBottom: "1px solid var(--gray-a3)",
+            background: "var(--color-panel-solid)",
+            flexShrink: 0,
+          }}
         >
-          <Flex align="center" gap="2">
-            <BsStars size={14} />
-            <Heading as="h2" size="small" weight="medium">
-              AI Chat
-            </Heading>
-          </Flex>
+          <DataSourceDropdown />
         </Flex>
 
         <Flex
@@ -425,7 +510,12 @@ export default function ExplorerAIChat() {
           gap="3"
           px="4"
           py="3"
-          className={styles.chatMessages}
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            minHeight: 120,
+            minWidth: 0,
+          }}
         >
           {!hasAnyContent && !loading && (
             <Flex
@@ -434,73 +524,116 @@ export default function ExplorerAIChat() {
               direction="column"
               gap="2"
               py="6"
+              style={{ height: "100%" }}
             >
-              <BsStars size={24} color="var(--gray-a8)" />
+              <Box
+                style={{
+                  background: "var(--violet-a3)",
+                  borderRadius: "999px",
+                  padding: "8px 12px",
+                }}
+              >
+                <PiSparkle size={24} color="var(--violet-11)" />
+              </Box>
+              <Heading as="h2" size="small" weight="medium">
+                What would you like to explore?
+              </Heading>
               <Text size="small" color="text-low" align="center">
-                Ask about your data, and I&apos;ll answer with analysis plus
-                charts inline.
+                Ask anything about your data.
+              </Text>
+              <Text size="small" color="text-low" align="center">
+                Explore metrics, trends, experiment results, or user segments.
               </Text>
             </Flex>
           )}
 
-          {[
-            ...messages.map((m) => renderMessage(m)),
-            ...activeTurnItems.map(renderActiveTurnItem),
-          ]}
+          {groupIntoBlocks(messages).flatMap((block, blockIdx) => {
+            const renderedMsgs = block.msgs.flatMap((m) => {
+              const result = renderMessage(m);
+              if (Array.isArray(result)) return result;
+              return result != null ? [result] : [];
+            });
+            if (block.type === "assistant") {
+              return [
+                <AIAnalystLabel key={`ai-label-${blockIdx}`} />,
+                ...renderedMsgs,
+              ];
+            }
+            return renderedMsgs;
+          })}
+
+          {(activeTurnItems.length > 0 ||
+            (loading && activeTurnItems.length === 0)) && <AIAnalystLabel />}
+
+          {activeTurnItems.map(renderActiveTurnItem)}
 
           {loading && activeTurnItems.length === 0 && (
-            <Box className={styles.assistantMessage}>
-              <Flex align="center" gap="2">
-                <span className={styles.spinIcon}>
-                  <PiCircleNotch size={12} />
-                </span>
-                <Text size="small" color="text-low">
-                  Thinking...
-                </Text>
-              </Flex>
-            </Box>
+            <ThinkingBubble label="Thinking..." />
           )}
 
           {loading && waitingForNextStep && (
-            <Box className={styles.assistantMessage}>
-              <Flex align="center" gap="2">
-                <span className={styles.spinIcon}>
-                  <PiCircleNotch size={12} />
-                </span>
-                <Text size="small" color="text-low">
-                  Planning next step...
-                </Text>
-              </Flex>
-            </Box>
+            <ThinkingBubble label="Planning next step..." />
           )}
 
           {error && (
-            <Box className={styles.errorMessage}>
+            <ErrorBubble>
               <Text size="small">{error}</Text>
-            </Box>
+            </ErrorBubble>
           )}
 
           <div ref={messagesEndRef} />
         </Flex>
 
-        <Flex align="end" gap="2" px="3" py="2" className={styles.chatInput}>
-          <textarea
-            ref={inputRef}
-            className={styles.chatTextarea}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your metrics..."
-            rows={2}
-            disabled={loading}
-          />
-          <button
-            className={styles.sendButton}
-            onClick={sendMessage}
-            disabled={!input.trim() || loading}
-          >
-            <PiPaperPlaneRight size={16} />
-          </button>
+        <Flex
+          direction="column"
+          gap="4"
+          py="5"
+          align="center"
+          justify="center"
+          style={{
+            borderTop: "1px solid var(--gray-a3)",
+            background: "var(--color-panel-solid)",
+          }}
+        >
+          <Flex align="center" gap="1">
+            <Flex align="center" gap="1" mr="2">
+              <PiLightning size={16} />
+              <Text size="small" color="text-low" weight="semibold">
+                Quick actions:
+              </Text>
+            </Flex>
+            <Flex align="center" gap="2">
+              {QUICK_ACTIONS.map((action) => (
+                <Button
+                  key={action.label}
+                  variant="outline"
+                  size="xs"
+                  onClick={() => handleQuickAction(action.prompt)}
+                >
+                  <Flex align="center" gap="1">
+                    {action.icon}
+                    {action.label}
+                  </Flex>
+                </Button>
+              ))}
+            </Flex>
+          </Flex>
+
+          <Flex px="2" gap="2" width="100%" align="center" justify="center">
+            {/* TODO: fix width on smaller screens */}
+            <Field
+              placeholder="Ask about metrics, experiments, or setup..."
+              style={{ width: "624px" }}
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading}
+            />
+            <Button onClick={sendMessage} disabled={!input.trim() || loading}>
+              <PiArrowRightBold size={16} />
+            </Button>
+          </Flex>
         </Flex>
       </Flex>
     </Flex>
