@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
@@ -143,6 +143,12 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     datasources[0]?.id ?? "",
   );
 
+  const resolvedDataSourceId = useMemo(() => {
+    return datasources.some((d) => d.id === defaultDataSourceId)
+      ? defaultDataSourceId
+      : (datasources[0]?.id ?? "");
+  }, [datasources, defaultDataSourceId]);
+
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
     explorationQueryParser,
@@ -163,7 +169,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
-    datasource: defaultDataSourceId,
+    datasource: resolvedDataSourceId,
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
   } as ExplorationConfig;
 
