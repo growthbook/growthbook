@@ -9,6 +9,7 @@ import {
   PastExperimentsInterface,
 } from "shared/types/past-experiments";
 import { Queries, QueryStatus } from "shared/types/query";
+import cloneDeep from "lodash/cloneDeep";
 import {
   getPastExperimentsById,
   updatePastExperiments,
@@ -20,6 +21,17 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   PastExperimentParams,
   PastExperiment[]
 > {
+  private getMergeReadyWeights(exp: PastExperiment): number[] {
+    // Stored weights are normalized fractions (e.g. [0.5, 0.5]) after each run.
+    // Convert those back to count-space before merging in new user counts.
+    if (!exp.weights?.length) return [];
+    const maxWeight = Math.max(...exp.weights);
+    if (maxWeight <= 1) {
+      return exp.weights.map((w) => w * exp.users);
+    }
+    return [...exp.weights];
+  }
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunPastExperimentQueries(
       this.integration.datasource,
@@ -59,7 +71,9 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     if (shouldMerge) {
       this.model.experiments?.forEach((e) => {
         const key = e.trackingKey + "::" + e.exposureQueryId;
-        experimentMap.set(key, e);
+        const mergeBase = cloneDeep(e);
+        mergeBase.weights = this.getMergeReadyWeights(e);
+        experimentMap.set(key, mergeBase);
       });
     }
 
