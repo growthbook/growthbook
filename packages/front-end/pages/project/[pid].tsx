@@ -73,10 +73,13 @@ const ProjectPage: FC = () => {
 
   useEffect(() => {
     if (settings) {
-      const newVal = { ...form.getValues() };
-      Object.keys(settings).forEach((k) => {
-        newVal[k] = settings?.[k] || newVal[k];
-      });
+      const newVal = {
+        ...form.getValues(),
+        ...settings,
+      };
+      if (typeof settings.confidenceLevel !== "undefined") {
+        newVal.confidenceLevel = settings.confidenceLevel * 100;
+      }
       form.reset(newVal);
       setOriginalValue(newVal);
     }
@@ -85,10 +88,17 @@ const ProjectPage: FC = () => {
   const ctaEnabled = hasChanges(form.getValues(), originalValue);
 
   const saveSettings = form.handleSubmit(async (value) => {
+    const savedSettings = {
+      ...value,
+      confidenceLevel:
+        typeof value.confidenceLevel === "number"
+          ? value.confidenceLevel / 100
+          : undefined,
+    };
     await apiCall(`/projects/${pid}/settings`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: savedSettings,
       }),
     });
 
@@ -226,16 +236,16 @@ const ProjectPage: FC = () => {
                         <Field
                           label="Bayesian significance level"
                           type="number"
-                          step="0.01"
-                          min="0.5"
-                          max="1"
+                          step="any"
+                          min="50"
+                          max="99"
                           append="%"
                           containerClassName="mt-3"
-                          helpText="Overrides organization default Bayesian chance-to-win in this project."
+                          helpText="Overrides organization default Bayesian confidence level in this project."
                           {...form.register("confidenceLevel", {
                             valueAsNumber: true,
-                            min: 0.5,
-                            max: 1,
+                            min: 50,
+                            max: 99,
                           })}
                         />
                       </Box>

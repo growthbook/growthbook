@@ -7,7 +7,7 @@ export const statsEnginesValidator = z.enum(statsEngines);
 
 export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
-  confidenceLevel: z.number().optional(),
+  confidenceLevel: z.number().min(0).max(1).optional(),
 });
 
 export const projectValidator = baseSchema
