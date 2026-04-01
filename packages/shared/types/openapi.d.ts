@@ -210,6 +210,8 @@ export interface paths {
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
     get: operations["listVisualChangesets"];
+    /** Create a visual changeset for an experiment */
+    post: operations["postVisualChangesets"];
   };
   "/snapshots/{id}": {
     /** Get an experiment snapshot status */
@@ -11656,6 +11658,64 @@ export interface operations {
       };
     };
   };
+  postVisualChangesets: {
+    /** Create a visual changeset for an experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description URL of the page opened in the visual editor when creating this changeset */
+          editorUrl: string;
+          /** @description URL patterns that determine which pages this visual changeset applies to */
+          urlPatterns: ({
+              include?: boolean;
+              /** @enum {string} */
+              type: "simple" | "regex";
+              pattern: string;
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangeset: {
+              id?: string;
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "regex";
+                  pattern: string;
+                })[];
+              editorUrl: string;
+              experiment: string;
+              visualChanges: ({
+                  description?: string;
+                  css?: string;
+                  js?: string;
+                  variation: string;
+                  domMutations: ({
+                      selector: string;
+                      /** @enum {string} */
+                      action: "append" | "set" | "remove";
+                      attribute: string;
+                      value?: string;
+                      parentSelector?: string;
+                      insertBeforeSelector?: string;
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
   getExperimentSnapshot: {
     /** Get an experiment snapshot status */
     responses: {
@@ -19828,6 +19888,7 @@ export type PostVariationImageUploadResponse = operations["postVariationImageUpl
 export type DeleteVariationScreenshotResponse = operations["deleteVariationScreenshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type PostVisualChangesetsResponse = operations["postVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];

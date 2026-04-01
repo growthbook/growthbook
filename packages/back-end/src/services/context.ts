@@ -1,8 +1,4 @@
-import {
-  Permissions,
-  userHasPermission,
-  roleToPermissionMap,
-} from "shared/permissions";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
@@ -14,6 +10,7 @@ import {
   Permission,
   UserPermissions,
 } from "shared/types/organization";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
@@ -34,6 +31,7 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   getUserPermissions,
+  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -216,6 +214,7 @@ export class ReqContextClass {
     user,
     role,
     apiKey,
+    apiKeyData,
     req,
   }: {
     org: OrganizationInterface;
@@ -227,6 +226,7 @@ export class ReqContextClass {
     };
     apiKey?: string;
     role?: string;
+    apiKeyData?: ApiKeyInterface;
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
@@ -262,14 +262,17 @@ export class ReqContextClass {
         throw new Error("Role must be provided for API key or background job");
       }
 
-      this.userPermissions = {
-        global: {
-          permissions: roleToPermissionMap(role, org),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+      const roleInfo = apiKeyData ?? {
+        role,
+        limitAccessByEnvironment: false,
+        environments: [] as string[],
       };
+
+      this.userPermissions = getRolePermissions(
+        { ...roleInfo, role },
+        org,
+        teams || [],
+      );
     }
 
     this.permissions = new Permissions(this.userPermissions);
