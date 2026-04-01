@@ -17,15 +17,20 @@ export const listExperiments = createApiRequestHandler(
   // Filter and sort at the database level for better performance
   // Note: type is not specified, which defaults to excluding holdouts
   const experiments = await getAllExperiments(req.context, {
-    includeArchived: true,
+    includeArchived: req.query.archived !== "false",
     project: req.query.projectId,
     datasourceId: req.query.datasourceId,
     trackingKey: req.query.experimentId,
     sortBy: { dateCreated: 1 },
   });
 
+  // If archived=true, only return archived experiments
+  const filteredByArchive = req.query.archived === "true"
+    ? experiments.filter((e) => e.archived)
+    : experiments;
+
   // TODO: Move pagination (limit/offset) to database for better performance
-  const { filtered, returnFields } = applyPagination(experiments, req.query);
+  const { filtered, returnFields } = applyPagination(filteredByArchive, req.query);
 
   // Batch-load all projects for the filtered experiments to avoid N+1 queries
   const projectIds = [
