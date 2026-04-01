@@ -935,10 +935,16 @@ function tryRuleLevelMerge(
     merged.push(revChanged ? revRule! : liveRule);
   }
 
-  // Append rules added only in the revision (not present in live).
+  // Append rules added or modified by the revision that are not present in live.
+  // Skip rules that were in base, unchanged in revision, but deleted from live —
+  // those deletions happened server-side and should be respected.
   for (const revRule of revision) {
     if (!handledIds.has(revRule.id)) {
-      merged.push(revRule);
+      const isNew = !baseById.has(revRule.id);
+      const revChanged = !isEqual(revRule, baseById.get(revRule.id));
+      if (isNew || revChanged) {
+        merged.push(revRule);
+      }
     }
   }
 
