@@ -173,7 +173,28 @@ export const advanceRampSchedule = createApiRequestHandler({
     );
   }
 
-  const advanced = await advanceStep(req.context, schedule);
+  // Rebase phaseStartedAt when advancing from paused so nextStepAt stays in the future.
+  let scheduleToAdvance = schedule;
+  if (schedule.status === "paused") {
+    const now = new Date();
+    const nextStepIndex = schedule.currentStepIndex + 1;
+    let elapsed = 0;
+    for (let i = 0; i < nextStepIndex; i++) {
+      const t = schedule.steps[i]?.trigger;
+      if (t?.type === "interval") elapsed += t.seconds;
+    }
+    const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
+    scheduleToAdvance = await req.context.models.rampSchedules.updateById(
+      schedule.id,
+      {
+        status: "running",
+        phaseStartedAt: freshPhaseStart,
+        pausedAt: null,
+      },
+    );
+  }
+
+  const advanced = await advanceStep(req.context, scheduleToAdvance);
 
   return { rampSchedule: advanced };
 });

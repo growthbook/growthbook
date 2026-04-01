@@ -381,15 +381,35 @@ export const postRampScheduleAction = async (
       break;
     }
 
-    case "advance":
+    case "advance": {
       if (!["running", "paused"].includes(schedule.status)) {
         return res.status(400).json({
           status: 400,
           message: `Cannot advance a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await advanceStep(context, schedule);
+      // Rebase phaseStartedAt when advancing from paused so nextStepAt stays in the future.
+      let scheduleToAdvance = schedule;
+      if (schedule.status === "paused") {
+        const nextStepIndex = schedule.currentStepIndex + 1;
+        let elapsed = 0;
+        for (let i = 0; i < nextStepIndex; i++) {
+          const t = schedule.steps[i]?.trigger;
+          if (t?.type === "interval") elapsed += t.seconds;
+        }
+        const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
+        scheduleToAdvance = await context.models.rampSchedules.updateById(
+          schedule.id,
+          {
+            status: "running",
+            phaseStartedAt: freshPhaseStart,
+            pausedAt: null,
+          },
+        );
+      }
+      updated = await advanceStep(context, scheduleToAdvance);
       break;
+    }
 
     case "rollback":
       updated = await rollbackToStep(context, schedule, -1);
