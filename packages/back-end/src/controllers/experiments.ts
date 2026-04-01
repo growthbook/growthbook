@@ -3768,12 +3768,12 @@ export async function postExperimentFeatureValues(
     }
   });
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
+    linkedFeatures: featureObjects,
   });
 
   if (variationsChanged) {
@@ -3792,7 +3792,7 @@ export async function postExperimentFeatureValues(
   }
 
   // Check for permission to update each feature
-  for (const feature of linkedFeatures) {
+  for (const feature of featureObjects) {
     if (
       !context.permissions.canUpdateFeature(feature, {}) ||
       !context.permissions.canManageFeatureDrafts(feature)
@@ -3805,7 +3805,7 @@ export async function postExperimentFeatureValues(
   const featureUpdatePlans = await validateExperimentFeatureUpdates({
     experiment,
     features,
-    linkedFeatures,
+    linkedFeatures: featureObjects,
     context,
     featureRevisionOptions,
   });

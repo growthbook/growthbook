@@ -10,6 +10,7 @@ import { Variation } from "shared/types/experiment";
 import { OrganizationSettings } from "shared/types/organization";
 import {
   ExperimentInterface,
+  ExperimentRefRule,
   ExperimentRefVariation,
   FeatureInterface,
   FeatureRule,
@@ -169,12 +170,22 @@ export async function validateExperimentFeatureUpdates({
       revision,
     );
 
-    // TODO: Should we allow this to happen and continue?
-    // A linked feature may no longer have any experiment-ref rules, which would cause the update to fail.
     if (!matchingRules.length)
       throw new Error(
-        `No experiment-ref rules found for this experiment on feature ${feature.id}`,
+        `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
       );
+
+    const firstRule = matchingRules[0].rule as ExperimentRefRule;
+    const baselineVariations = JSON.stringify(firstRule.variations);
+
+    for (let i = 1; i < matchingRules.length; i++) {
+      const rule = matchingRules[i].rule as ExperimentRefRule;
+      if (JSON.stringify(rule.variations) !== baselineVariations) {
+        throw new Error(
+          `Feature ${feature.id}: variation values must be identical across all environments to edit feature values on an experiment.`,
+        );
+      }
+    }
 
     const updatedVariationValues = features[feature.id];
     const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
