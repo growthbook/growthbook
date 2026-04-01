@@ -8,7 +8,7 @@ export type uuidCookieSettings = {
   domain?: string;
   path?: string;
   maxAge?: number;
-  expires?: number;
+  expires?: string;
   secure?: boolean;
   sameSite?: "lax" | "strict" | "none";
   partitioned?: boolean;
@@ -154,7 +154,7 @@ function setCookie(
 ) {
   document.cookie = [
     `${name}=${value}`,
-    "maxAge" in settings
+    settings.maxAge !== undefined && settings.maxAge !== null
       ? `max-age=${settings.maxAge}`
       : `expires=${settings.expires ?? getDefaultExpireOTCString()}`,
     `path=${settings.path ?? "/"}`,

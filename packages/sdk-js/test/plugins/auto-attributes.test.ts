@@ -408,7 +408,7 @@ describe("autoAttributesPlugin", () => {
     });
 
     it("passes expires setting to cookie setter", () => {
-      const expirationTime = 1735689600;
+      const expirationTime = new Date().toISOString();
       const plugin = autoAttributesPlugin({
         uuidCookieSettings: { expires: expirationTime },
       });
