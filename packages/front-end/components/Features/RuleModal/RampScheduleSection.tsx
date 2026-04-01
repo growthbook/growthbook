@@ -1092,20 +1092,22 @@ export default function RampScheduleSection({
                       Add step after
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        color="red"
-                        onClick={() => {
-                          setOpenMenuIndex(null);
-                          removeStep(i);
-                        }}
-                      >
-                        Remove step
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
+                  {state.steps.length > 1 ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          color="red"
+                          onClick={() => {
+                            setOpenMenuIndex(null);
+                            removeStep(i);
+                          }}
+                        >
+                          Remove step
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  ) : null}
                 </DropdownMenu>
               </Flex>
 
@@ -1196,7 +1198,7 @@ export default function RampScheduleSection({
       align="center"
       justify="between"
       gap="2"
-      style={{ minWidth: 350, maxWidth: 500, overflow: "hidden" }}
+      style={{ width: 420, overflow: "hidden" }}
     >
       <span
         style={{
