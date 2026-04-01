@@ -36,6 +36,7 @@ export const putRampSchedule = createApiRequestHandler(
     throw new Error("Ramp schedule not found");
   }
 
+  // Pro gate — see postRampSchedule.ts for rationale.
   if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
     req.context.throwPlanDoesNotAllowError(
       "Ramp schedules require a Pro plan or above.",

@@ -84,6 +84,7 @@ export const postRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
+  // Pro gate — see postRampSchedule.ts for rationale.
   if (!context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
       "Ramp schedules require a Pro plan or above.",
@@ -141,6 +142,7 @@ export const putRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
+  // Pro gate — see postRampSchedule.ts for rationale.
   if (!context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
       "Ramp schedules require a Pro plan or above.",

@@ -161,6 +161,10 @@ export const postRampSchedule = createApiRequestHandler(
 
   const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 
+  // Intentionally gated at Pro ("schedule-feature-flag") rather than Enterprise
+  // ("ramp-schedules"). Both features share the same scheduling infrastructure;
+  // using the more restrictive gate would lock out Pro customers unnecessarily.
+  // Templates remain Enterprise-only since they are a power-user feature.
   if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
     req.context.throwPlanDoesNotAllowError(
       "Ramp schedules require a Pro plan or above.",
