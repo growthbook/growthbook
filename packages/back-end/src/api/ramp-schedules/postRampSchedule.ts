@@ -147,9 +147,9 @@ export const postRampSchedule = createApiRequestHandler(
 
   const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 
-  if (!req.context.hasPremiumFeature("ramp-schedules")) {
+  if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
     req.context.throwPlanDoesNotAllowError(
-      "Ramp schedules require an Enterprise plan.",
+      "Ramp schedules require a Pro plan or above.",
     );
   }
 

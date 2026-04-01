@@ -315,12 +315,8 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
-    // No more steps — complete.
-    return ctx.models.rampSchedules.updateById(schedule.id, {
-      status: "completed",
-      nextStepAt: null,
-      nextProcessAt: null,
-    });
+    // No more steps — apply end actions and complete.
+    return completeRollout(ctx, schedule);
   }
 
   const now = new Date();
@@ -697,15 +693,18 @@ export async function approveAndPublishStep(
   // Ramp schedules always complete when all steps finish — no holdForEndDate.
   const isCompleting = !nextStepAt;
 
-  const approveStatus = isCompleting
-    ? ("completed" as const)
-    : ("running" as const);
+  if (isCompleting) {
+    // Apply end actions and mark complete.
+    await completeRollout(ctx, schedule);
+    return null;
+  }
+
   await ctx.models.rampSchedules.updateById(schedule.id, {
-    status: approveStatus,
+    status: "running",
     nextStepAt,
     ...(wasApprovalGate ? { phaseStartedAt: newPhaseStart } : {}),
     nextProcessAt: computeNextProcessAt({
-      status: approveStatus,
+      status: "running",
       nextStepAt,
       endCondition: schedule.endCondition,
     }),

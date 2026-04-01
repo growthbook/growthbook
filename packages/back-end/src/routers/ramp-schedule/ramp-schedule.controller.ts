@@ -84,9 +84,9 @@ export const postRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.hasPremiumFeature("ramp-schedules")) {
+  if (!context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedules require an Enterprise plan.",
+      "Ramp schedules require a Pro plan or above.",
     );
   }
 
@@ -141,9 +141,9 @@ export const putRampSchedule = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.hasPremiumFeature("ramp-schedules")) {
+  if (!context.hasPremiumFeature("schedule-feature-flag")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedules require an Enterprise plan.",
+      "Ramp schedules require a Pro plan or above.",
     );
   }
 

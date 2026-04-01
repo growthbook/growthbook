@@ -1359,9 +1359,9 @@ async function createRampSchedulesForRevision(
   for (const action of actions) {
     if (action.mode !== "create") continue;
 
-    if (!context.hasPremiumFeature("ramp-schedules")) {
+    if (!context.hasPremiumFeature("schedule-feature-flag")) {
       context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
+        "Ramp schedules require a Pro plan or above.",
       );
     }
 

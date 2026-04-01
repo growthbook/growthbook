@@ -804,14 +804,38 @@ describe("advanceStep — last step / completion", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("sets status to completed when no more steps remain", async () => {
+  it("sets status to completed and publishes final revision when no more steps remain", async () => {
     const schedule = makeSchedule({ currentStepIndex: 2 }); // 3 steps total (0,1,2) → step 3 doesn't exist
     const { ctx, updateById } = makeContext({ currentStepIndex: 2 });
     await advanceStep(ctx as never, schedule);
 
+    // completeRollout applies end actions and publishes the final revision.
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("completed");
     expect(updates.nextStepAt).toBeNull();
+  });
+
+  it("applies endActions when completing via advanceStep", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      endActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, coverage: 1 },
+        },
+      ],
+    });
+    const { ctx } = makeContext({ currentStepIndex: 2 });
+    await advanceStep(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect((patched as { coverage?: number })?.coverage).toBe(1);
   });
 });
 
