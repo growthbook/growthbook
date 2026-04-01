@@ -1170,6 +1170,19 @@ export default function RuleModal({
           values = { ...values, enabled: false };
         }
 
+        // Clear rule-level targeting for new ramp rules — steps own state over time.
+        if (
+          rampScheduleInline &&
+          (values.type === "rollout" || values.type === "force")
+        ) {
+          values = {
+            ...values,
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+          };
+        }
+
         res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${targetVersion}/rule`,
           {
