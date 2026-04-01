@@ -7017,6 +7017,9 @@ paths:
                           - runAtEnd
                         additionalProperties: false
                       - type: 'null'
+                  explorationUrl:
+                    description: A direct link to view this exploration in the GrowthBook Application.
+                    type: string
                   message:
                     description: 'Present when `exploration` is null, explaining why no result was returned.'
                     type: string
@@ -7722,6 +7725,9 @@ paths:
                           - runAtEnd
                         additionalProperties: false
                       - type: 'null'
+                  explorationUrl:
+                    description: A direct link to view this exploration in the GrowthBook Application.
+                    type: string
                   message:
                     description: 'Present when `exploration` is null, explaining why no result was returned.'
                     type: string
@@ -8461,6 +8467,9 @@ paths:
                           - runAtEnd
                         additionalProperties: false
                       - type: 'null'
+                  explorationUrl:
+                    description: A direct link to view this exploration in the GrowthBook Application.
+                    type: string
                   message:
                     description: 'Present when `exploration` is null, explaining why no result was returned.'
                     type: string
