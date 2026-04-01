@@ -8,3 +8,5 @@ anyOf:
   - $ref: "./FeatureExperimentRule.yaml"
     deprecated: true
     title: "Experiment (legacy)"
+  - $ref: "./FeatureSafeRolloutRule.yaml"
+    title: "Safe Rollout Rule"

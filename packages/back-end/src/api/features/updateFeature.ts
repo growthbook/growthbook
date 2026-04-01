@@ -104,7 +104,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         ([envName, envSettings]) => {
           if (envSettings.rules) {
             envSettings.rules.forEach((rule, ruleIndex) => {
-              if (rule.scheduleRules) {
+              if (rule.type === "safe-rollout") return;
+              if ("scheduleRules" in rule && rule.scheduleRules) {
                 // Validate that the org has access to schedule rules
                 if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
                   throw new Error(
@@ -135,9 +136,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const environmentSettings =
       req.body.environments != null
-        ? updateInterfaceEnvSettingsFromApiEnvSettings(
+        ? await updateInterfaceEnvSettingsFromApiEnvSettings(
             feature,
             req.body.environments,
+            req.context,
           )
         : null;
 
