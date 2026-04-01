@@ -2,6 +2,7 @@ import { GetInformationSchemaTableResponse } from "shared/types/openapi";
 import { getInformationSchemaTableValidator } from "shared/validators";
 import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 export const getInformationSchemaTable = createApiRequestHandler(
   getInformationSchemaTableValidator,
@@ -12,6 +13,12 @@ export const getInformationSchemaTable = createApiRequestHandler(
   );
 
   if (!table) {
+    throw new Error("Could not find information schema table with that id");
+  }
+
+  const datasource = await getDataSourceById(req.context, table.datasourceId);
+
+  if (!datasource) {
     throw new Error("Could not find information schema table with that id");
   }
 
