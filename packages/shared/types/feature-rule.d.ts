@@ -12,8 +12,9 @@ export type RampEndTrigger = { type: "scheduled"; at: string };
 export type InlineRampScheduleCreate = {
   mode: "create";
   name: string;
-  // environment the rule lives in (used to build the ramp target)
-  environment: string;
+  // If set, patches are scoped to this environment only.
+  // If absent/null, patches apply to all environments that share the ruleId.
+  environment?: string | null;
   steps: RampStep[];
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions?: RampStepAction[];

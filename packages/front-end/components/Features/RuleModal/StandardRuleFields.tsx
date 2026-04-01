@@ -273,6 +273,13 @@ export default function StandardRuleFields({
 
         {scheduleType === "schedule" && (
           <Box my="6">
+            {environments.length > 1 && (
+              <Callout status="warning" mb="4">
+                You are creating a rule in {environments.length} environment
+                {environments.length > 1 ? "s" : ""}. The schedule will apply to
+                all of them.
+              </Callout>
+            )}
             {hasLegacySchedule ? (
               <LegacyScheduleInputs
                 defaultValue={defaultValues.scheduleRules || []}
@@ -295,6 +302,13 @@ export default function StandardRuleFields({
             <Heading as="h3" size="small" mb="4">
               Ramp-up
             </Heading>
+            {environments.length > 1 && (
+              <Callout status="warning" mb="4">
+                You are creating a rule in {environments.length} environment
+                {environments.length > 1 ? "s" : ""}. The ramp-up will apply to
+                all of them.
+              </Callout>
+            )}
             {ruleRampSchedule && !rampIsEditable ? (
               <RampScheduleDisplay rs={ruleRampSchedule} />
             ) : (

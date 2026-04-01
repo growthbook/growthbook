@@ -681,7 +681,7 @@ describe("featureEntityHandler.applyActions", () => {
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
   });
 
-  it("throws when the rule is not found in any environment", async () => {
+  it("throws when the rule is not found in any environment (no env scope)", async () => {
     const actions = [
       {
         targetType: "feature-rule" as const,
@@ -721,6 +721,93 @@ describe("featureEntityHandler.applyActions", () => {
     });
 
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+  });
+
+  it("without environment: patches all envs sharing the ruleId", async () => {
+    // makeFeature puts the same RULE_ID only in production (staging has no rules),
+    // so "all envs" here means production only — but the key is no env filter is applied.
+    const actions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, coverage: 0.75 },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+      stepLabel: "step",
+      user: { type: "system" },
+      // environment intentionally omitted → no scope
+    });
+
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const productionRules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const patched = productionRules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect((patched as { coverage?: number })?.coverage).toBe(0.75);
+  });
+
+  it("with environment: patches only that environment, not others", async () => {
+    // Feature has the rule in both production and staging for this test.
+    const sharedRule: FeatureRule = {
+      id: RULE_ID,
+      type: "rollout",
+      coverage: 0.1,
+      hashAttribute: "id",
+      enabled: true,
+      condition: "",
+    };
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature(),
+      environmentSettings: {
+        production: { enabled: true, rules: [sharedRule] },
+        staging: { enabled: true, rules: [{ ...sharedRule }] },
+      },
+    } as never);
+
+    const actions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, coverage: 0.9 },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+      stepLabel: "step",
+      user: { type: "system" },
+      environment: "production",
+    });
+
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const productionRules: FeatureRule[] = forceResult.rules?.production ?? [];
+    const stagingRules: FeatureRule[] = forceResult.rules?.staging ?? [];
+
+    const patchedProd = productionRules.find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    );
+    const patchedStaging = stagingRules.find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    );
+
+    expect((patchedProd as { coverage?: number })?.coverage).toBe(0.9);
+    // staging must be unchanged
+    expect((patchedStaging as { coverage?: number })?.coverage).toBe(0.1);
+  });
+
+  it("with environment: throws a scoped error when rule is not in that environment", async () => {
+    const actions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, coverage: 0.5 },
+      },
+    ];
+    // The rule exists in production but not staging — scoping to staging should throw.
+    await expect(
+      featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+        stepLabel: "step",
+        user: { type: "system" },
+        environment: "staging",
+      }),
+    ).rejects.toThrow(/not found in environment "staging"/);
   });
 });
 

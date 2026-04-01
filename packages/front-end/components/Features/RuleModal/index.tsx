@@ -1131,7 +1131,12 @@ export default function RuleModal({
               name: isScheduleMode
                 ? scheduleAutoName(rampState)
                 : rampState.name.trim(),
-              environment,
+              // Single environment: scope patches to that env only.
+              // Multiple environments: omit so the ramp applies to all matching ruleIds.
+              environment:
+                selectedEnvironments.length === 1
+                  ? selectedEnvironments[0]
+                  : undefined,
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               endActions: !isScheduleMode
                 ? buildEndActions(rampState.endPatch, effectiveRuleId)

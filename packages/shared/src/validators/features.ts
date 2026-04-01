@@ -283,7 +283,9 @@ const revisionRampEndConditionSchema = z.object({
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
   name: z.string(),
-  environment: z.string(),
+  /** If set, patches are scoped to this environment only.
+   *  If absent/null, patches apply to all environments sharing the ruleId. */
+  environment: z.string().optional().nullable(),
   steps: z.array(rampStep),
   // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions: z.array(rampStepAction).optional(),

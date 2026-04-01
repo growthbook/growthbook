@@ -1823,7 +1823,11 @@ export async function postFeatureRule(
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
-        environment: rampSchedulePayload.environment,
+        // Single environment: scope patches to that env. Multiple: no scope (affects all matching ruleIds).
+        environment:
+          selectedEnvironments.length === 1
+            ? selectedEnvironments[0]
+            : undefined,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
         endActions:
           rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
@@ -2660,7 +2664,7 @@ export async function putFeatureRule(
       const createAction: RevisionRampCreateAction = {
         mode: "create",
         name: rampSchedulePayload.name,
-        environment: rampSchedulePayload.environment,
+        environment,
         steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
         endActions:
           rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],

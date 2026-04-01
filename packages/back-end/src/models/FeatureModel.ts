@@ -1397,7 +1397,9 @@ async function createRampSchedulesForRevision(
           entityType: "feature",
           entityId: feature.id,
           ruleId: action.ruleId,
-          environment: action.environment,
+          // null = patches apply to all environments sharing this ruleId.
+          // A specific environment = patches are scoped to that env only.
+          environment: action.environment ?? null,
           status: "active",
           // Link this target to the activating revision so onRevisionPublished
           // (and the Agenda recovery path) can transition "pending" → "running".

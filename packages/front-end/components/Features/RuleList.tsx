@@ -112,7 +112,10 @@ export default function RuleList({
   // These are fake/synthetic schedules just for UI display of pending state
   if (draftRevision?.rampActions) {
     for (const action of draftRevision.rampActions) {
-      if (action.mode === "create" && action.environment === environment) {
+      if (
+        action.mode === "create" &&
+        (!action.environment || action.environment === environment)
+      ) {
         // Only add if not already in map (real schedule takes precedence)
         if (!rampSchedulesMap.has(action.ruleId)) {
           // Create a synthetic pending ramp schedule for display

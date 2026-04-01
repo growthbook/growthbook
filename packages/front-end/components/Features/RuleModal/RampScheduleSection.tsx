@@ -1319,51 +1319,64 @@ export default function RampScheduleSection({
             Save as template
           </Button>
         }
-        content={
-          <Flex direction="column" gap="3">
-            <Field
-              label="Template name"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              autoFocus
-            />
-            <Flex justify="end" gap="2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSaveTemplateOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                loading={savingTemplate}
-                disabled={!templateName.trim()}
-                onClick={async () => {
-                  setSavingTemplate(true);
-                  try {
-                    const res = await apiCall<{
-                      rampScheduleTemplate: { id: string };
-                    }>("/ramp-schedule-templates", {
-                      method: "POST",
-                      body: JSON.stringify({
-                        ...buildTemplatePayload(state),
-                        name: templateName.trim() || state.name || "template",
-                      }),
-                    });
-                    await mutateTemplates();
-                    setSelectedTemplateId(res.rampScheduleTemplate.id);
-                    setSaveTemplateOpen(false);
-                  } finally {
-                    setSavingTemplate(false);
+        content={(() => {
+          const doSave = async () => {
+            if (!templateName.trim() || savingTemplate) return;
+            setSavingTemplate(true);
+            try {
+              const res = await apiCall<{
+                rampScheduleTemplate: { id: string };
+              }>("/ramp-schedule-templates", {
+                method: "POST",
+                body: JSON.stringify({
+                  ...buildTemplatePayload(state),
+                  name: templateName.trim() || state.name || "template",
+                }),
+              });
+              await mutateTemplates();
+              setSelectedTemplateId(res.rampScheduleTemplate.id);
+              setSaveTemplateOpen(false);
+            } finally {
+              setSavingTemplate(false);
+            }
+          };
+          return (
+            <Flex direction="column" gap="3">
+              <Field
+                label="Template name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                autoFocus
+                onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => {
+                  // Prevent Enter from bubbling up and submitting the outer modal.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    doSave();
                   }
                 }}
-              >
-                Save
-              </Button>
+              />
+              <Flex justify="end" gap="2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSaveTemplateOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  loading={savingTemplate}
+                  disabled={!templateName.trim()}
+                  onClick={doSave}
+                >
+                  Save
+                </Button>
+              </Flex>
             </Flex>
-          </Flex>
-        }
+          );
+        })()}
       />
     ) : null;
 

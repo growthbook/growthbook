@@ -25,7 +25,13 @@ interface EntityHandler {
     ctx: ReqContext | ApiReqContext,
     entityId: string,
     actions: RampStepAction[],
-    opts: { stepLabel: string; user: EventUser },
+    opts: {
+      stepLabel: string;
+      user: EventUser;
+      // If set, patches are scoped to this environment only.
+      // If absent, patches apply to all environments sharing the ruleId.
+      environment?: string | null;
+    },
   ): Promise<void>;
 }
 
@@ -96,7 +102,7 @@ export function applyPatchToRule(
 
 export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
-    const { stepLabel, user } = opts;
+    const { stepLabel, user, environment } = opts;
 
     const feature = await getFeature(ctx, entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
@@ -108,13 +114,19 @@ export const featureEntityHandler: EntityHandler = {
       patchedRules[env] = [...(envSettings.rules ?? [])];
     }
 
+    // When an environment is specified, scope patches to that env only.
+    // When absent, patches apply to every environment that has a matching ruleId.
+    const envsToCheck = environment
+      ? Object.keys(patchedRules).filter((e) => e === environment)
+      : Object.keys(patchedRules);
+
     for (const action of actions) {
       if (action.targetType !== "feature-rule") continue;
       const { patch } = action;
       const { ruleId, ...patchFields } = patch;
       let foundInAnyEnv = false;
 
-      for (const env of Object.keys(patchedRules)) {
+      for (const env of envsToCheck) {
         const ruleIdx = patchedRules[env].findIndex((r) => r.id === ruleId);
         if (ruleIdx === -1) continue;
         foundInAnyEnv = true;
@@ -126,7 +138,7 @@ export const featureEntityHandler: EntityHandler = {
 
       if (!foundInAnyEnv) {
         throw new Error(
-          `Ramp target rule "${ruleId}" not found in any environment — it may have been deleted`,
+          `Ramp target rule "${ruleId}" not found in ${environment ? `environment "${environment}"` : "any environment"} — it may have been deleted`,
         );
       }
     }
@@ -242,7 +254,12 @@ async function executeStepActions(
 ): Promise<void> {
   const byEntity = new Map<
     string,
-    { entityType: string; entityId: string; actions: RampStepAction[] }
+    {
+      entityType: string;
+      entityId: string;
+      actions: RampStepAction[];
+      environment: string | null | undefined;
+    }
   >();
 
   for (const action of actions) {
@@ -255,6 +272,7 @@ async function executeStepActions(
         entityType: target.entityType,
         entityId: target.entityId,
         actions: [],
+        environment: target.environment,
       });
     }
     byEntity.get(key)!.actions.push(action);
@@ -277,6 +295,7 @@ async function executeStepActions(
       await handler.applyActions(ctx, group.entityId, group.actions, {
         stepLabel,
         user,
+        environment: group.environment,
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
