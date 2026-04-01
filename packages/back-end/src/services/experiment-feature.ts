@@ -30,6 +30,35 @@ export type ExperimentFeatureUpdatePlan = {
   matchingRules: MatchingRule[];
 };
 
+export type ExperimentFeatureValueRevisionOptions = {
+  targetVersion?: number;
+  autoPublish?: boolean;
+  forceNewDraft?: boolean;
+};
+
+export type ExperimentLinkedFeatureValueUpdate = {
+  variations: ExperimentRefVariation[];
+  revisionOptions: ExperimentFeatureValueRevisionOptions;
+};
+
+function assertLinkedFeatureRevisionOptions(
+  featureId: string,
+  revisionOptions: ExperimentFeatureValueRevisionOptions | undefined,
+): asserts revisionOptions is ExperimentFeatureValueRevisionOptions {
+  if (revisionOptions === undefined) {
+    throw new Error(`Feature ${featureId}: revisionOptions is required`);
+  }
+  if (
+    revisionOptions.targetVersion === undefined &&
+    revisionOptions.autoPublish === undefined &&
+    revisionOptions.forceNewDraft === undefined
+  ) {
+    throw new Error(
+      `Feature ${featureId}: revisionOptions must set at least one of targetVersion, autoPublish, or forceNewDraft`,
+    );
+  }
+}
+
 export function validateExperimentFeatureVariations({
   variations,
   variationWeights,
@@ -39,7 +68,7 @@ export function validateExperimentFeatureVariations({
   variations: Variation[];
   variationWeights: number[];
   experiment: ExperimentInterface;
-  features: Record<string, ExperimentRefVariation[]>;
+  features: Record<string, ExperimentLinkedFeatureValueUpdate>;
 }) {
   const existingVariations = experiment.variations;
 
@@ -64,10 +93,15 @@ export function validateExperimentFeatureVariations({
       );
     }
   }
-  if (Object.values(features).some((v) => v.length !== variations.length)) {
+  if (
+    Object.values(features).some(
+      (v) => v.variations.length !== variations.length,
+    )
+  ) {
     throw new Error("All features must specify values for all variations.");
   }
-  for (const [featureId, refVariations] of Object.entries(features)) {
+  for (const [featureId, entry] of Object.entries(features)) {
+    const refVariations = entry.variations;
     for (let i = 0; i < refVariations.length; i++) {
       const expectedVariationId = variations[i]?.id;
       if (!expectedVariationId) {
@@ -136,25 +170,23 @@ export async function validateExperimentFeatureUpdates({
   features,
   linkedFeatures,
   context,
-  featureRevisionOptions,
 }: {
   experiment: ExperimentInterface;
-  features: Record<string, ExperimentRefVariation[]>;
-  featureRevisionOptions: Record<
-    string,
-    { targetVersion?: number; autoPublish?: boolean; forceNewDraft?: boolean }
-  >;
+  features: Record<string, ExperimentLinkedFeatureValueUpdate>;
   linkedFeatures: FeatureInterface[];
   context: ReqContext;
 }): Promise<ExperimentFeatureUpdatePlan[]> {
   const plans: ExperimentFeatureUpdatePlan[] = [];
 
   for (const feature of linkedFeatures) {
-    if (!featureRevisionOptions[feature.id]) {
-      throw new Error(`No revision options provided for feature ${feature.id}`);
+    const entry = features[feature.id];
+    if (!entry) {
+      throw new Error(
+        `No feature value update provided for feature ${feature.id}`,
+      );
     }
-    const { targetVersion, autoPublish, forceNewDraft } =
-      featureRevisionOptions[feature.id];
+    assertLinkedFeatureRevisionOptions(feature.id, entry.revisionOptions);
+    const { targetVersion, autoPublish, forceNewDraft } = entry.revisionOptions;
 
     const useExistingRevision = targetVersion && !forceNewDraft && !autoPublish;
 
@@ -187,7 +219,7 @@ export async function validateExperimentFeatureUpdates({
       }
     }
 
-    const updatedVariationValues = features[feature.id];
+    const updatedVariationValues = entry.variations;
     const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
       if (m.rule.type !== "experiment-ref") return false;
       return (

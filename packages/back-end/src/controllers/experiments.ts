@@ -38,7 +38,6 @@ import {
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
-import { ExperimentRefVariation } from "shared/types/feature";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -137,6 +136,7 @@ import {
   getLiveAndBaseRevisionsForFeature,
 } from "back-end/src/services/features";
 import {
+  ExperimentLinkedFeatureValueUpdate,
   updateExperimentRefVariations,
   validateExperimentFeatureUpdates,
   validateExperimentFeatureVariations,
@@ -3694,15 +3694,7 @@ export async function postExperimentFeatureValues(
     {
       variations: Variation[];
       variationWeights: number[];
-      features: Record<string, ExperimentRefVariation[]>;
-      featureRevisionOptions: Record<
-        string,
-        {
-          targetVersion?: number;
-          autoPublish?: boolean;
-          forceNewDraft?: boolean;
-        }
-      >;
+      features: Record<string, ExperimentLinkedFeatureValueUpdate>;
     },
     { id: string }
   >,
@@ -3710,8 +3702,7 @@ export async function postExperimentFeatureValues(
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { variations, variationWeights, features, featureRevisionOptions } =
-    req.body;
+  const { variations, variationWeights, features } = req.body;
   const { org } = context;
   const experiment = await getExperimentById(context, id);
 
@@ -3807,7 +3798,6 @@ export async function postExperimentFeatureValues(
     features,
     linkedFeatures: featureObjects,
     context,
-    featureRevisionOptions,
   });
 
   // If variations or variation weights have changed, update the experiment and sync visual changesets and url redirects
@@ -3829,9 +3819,9 @@ export async function postExperimentFeatureValues(
     existingRevision,
     matchingRules,
   } of featureUpdatePlans) {
-    const { autoPublish } = featureRevisionOptions[feature.id];
+    const { autoPublish } = features[feature.id].revisionOptions;
     const orgEnvIds = context.environments;
-    const updatedVariationValues = features[feature.id];
+    const updatedVariationValues = features[feature.id].variations;
 
     const revision = existingRevision
       ? existingRevision
