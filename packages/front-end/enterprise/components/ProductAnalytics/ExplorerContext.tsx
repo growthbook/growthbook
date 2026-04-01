@@ -63,11 +63,6 @@ const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
   "product-analytics:explorer:datasource" as const;
 
-export type LastUsedDataSourceId = {
-  [projectId: string]: string | undefined;
-  lastUsedDatasourceId?: string;
-};
-
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorationConfig;
@@ -83,13 +78,12 @@ export function ExplorerProvider({
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
 
-  const [, setLastUsedDatasourceId] = useLocalStorage<LastUsedDataSourceId>(
+  const [, setLastUsedDatasourceId] = useLocalStorage<string | undefined>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
-    {},
+    undefined,
   );
 
-  const { getFactTableById, getFactMetricById, datasources, project } =
-    useDefinitions();
+  const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
 
   const [explorerState, setExplorerState] = useState<{
     draftState: ExplorationConfig;
@@ -405,11 +399,7 @@ export function ExplorerProvider({
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
-        setLastUsedDatasourceId((prev) => ({
-          ...prev,
-          [project]: datasourceId,
-          lastUsedDatasourceId: datasourceId,
-        }));
+        setLastUsedDatasourceId(datasourceId);
       }
 
       setExplorerState((prev) => {
@@ -430,13 +420,7 @@ export function ExplorerProvider({
         };
       });
     },
-    [
-      createDefaultValue,
-      datasources,
-      initialConfig,
-      project,
-      setLastUsedDatasourceId,
-    ],
+    [createDefaultValue, datasources, initialConfig, setLastUsedDatasourceId],
   );
 
   const value = useMemo<ExplorerContextValue>(

@@ -13,7 +13,6 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
 import {
   ExplorerProvider,
-  LastUsedDataSourceId,
   LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
   useExplorerContext,
 } from "./ExplorerContext";
@@ -137,20 +136,16 @@ export default function Explorer({ type }: { type: DatasetType }) {
 }
 
 function ExplorerInner({ type }: { type: DatasetType }) {
-  const { datasources, project } = useDefinitions();
+  const { datasources } = useDefinitions();
 
-  const [lastUsedDatasourceId] = useLocalStorage<LastUsedDataSourceId>(
+  const [lastUsedDatasourceId] = useLocalStorage<string | undefined>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
-    {},
+    undefined,
   );
 
   const defaultDataSourceId = useMemo(() => {
-    if (project in lastUsedDatasourceId && lastUsedDatasourceId[project])
-      return lastUsedDatasourceId[project];
-    if (lastUsedDatasourceId.lastUsedDatasourceId)
-      return lastUsedDatasourceId.lastUsedDatasourceId;
-    return datasources[0]?.id ?? "";
-  }, [lastUsedDatasourceId, project, datasources]);
+    return lastUsedDatasourceId ?? datasources[0]?.id ?? "";
+  }, [lastUsedDatasourceId, datasources]);
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
