@@ -24,7 +24,7 @@ import { useCallback, useEffect, useState } from "react";
  * ```
  */
 export default function useURLHash<Id extends string>(
-  validIds: Id[] | undefined = undefined,
+  validIds: readonly Id[] | undefined = undefined,
 ) {
   const [hash, setHashState] = useState(() => {
     // Get initial hash from URL
