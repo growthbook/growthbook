@@ -1050,7 +1050,12 @@ export default function RuleModal({
                   name: isScheduleMode
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim() || undefined,
-                  steps: buildRampSteps(rampState.steps, "t1", ruleId),
+                  steps: buildRampSteps(
+                    rampState.steps,
+                    ruleRampSchedule.targets.find((t) => t.status === "active")
+                      ?.id ?? "t1",
+                    ruleId,
+                  ),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
                     : undefined,
