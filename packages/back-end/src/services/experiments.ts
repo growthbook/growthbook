@@ -3117,9 +3117,9 @@ function resolveExperimentUpdateVariationsAndPhases(
   const resolvedVariations: ExperimentInterface["variations"] | undefined =
     hasVariationPayload
       ? variations.map((v) => ({
+          ...v,
           id: v.id || generateVariationId(),
           screenshots: v.screenshots || [],
-          ...v,
         }))
       : undefined;
   const canonicalVariations = resolvedVariations ?? experiment.variations;

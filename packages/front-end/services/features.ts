@@ -1385,7 +1385,7 @@ export function getExperimentDefinitionFromFeature(
     return {
       id: generateVariationId(),
       name,
-      key: v.value,
+      key: i + "",
       screenshots: [],
       description: v.value,
     };
