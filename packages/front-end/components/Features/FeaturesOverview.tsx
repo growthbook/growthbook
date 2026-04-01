@@ -1877,7 +1877,10 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
-            onPublish={() => setVersion(revision.version)}
+            onPublish={() => {
+              setVersion(revision.version);
+              setTimeout(() => setVersion(liveVersionRef.current), 300);
+            }}
             experimentsMap={experimentsMap}
             rampSchedules={rampSchedules}
           />
@@ -1889,7 +1892,13 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
-            onPublish={() => setVersion(revision.version)}
+            onPublish={() => {
+              setVersion(revision.version);
+              // Ramp steps fire synchronously on the backend and may publish
+              // additional revisions. After React processes the mutate response,
+              // snap to whatever is actually live now.
+              setTimeout(() => setVersion(liveVersionRef.current), 300);
+            }}
             experimentsMap={experimentsMap}
             rampSchedules={rampSchedules}
           />
