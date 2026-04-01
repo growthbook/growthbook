@@ -15,6 +15,7 @@ import {
   getQueriesByIds,
   getRecentQuery,
   updateQuery,
+  updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
@@ -641,16 +642,22 @@ export abstract class QueryRunner<
       .catch(async (e) => {
         clearInterval(timer);
         logger.debug("Query failed: " + e.message);
-        updateQuery(this.context, doc, {
-          finishedAt: new Date(),
-          status: "failed",
-          error: e.message,
-        })
-          .then(() => {
-            onFailure();
-            this.onQueryFinish();
-          })
-          .catch((e) => logger.error(e));
+        try {
+          const updated = await updateQueryIfRunning(this.context, doc, {
+            finishedAt: new Date(),
+            status: "failed",
+            error: e.message,
+          });
+          if (!updated) {
+            logger.debug(
+              `Query ${doc.id} failure not written: already terminal (e.g. user cancel)`,
+            );
+          }
+          onFailure();
+          this.onQueryFinish();
+        } catch (err) {
+          logger.error(err);
+        }
       });
   }
 
