@@ -4913,7 +4913,6 @@ export interface components {
       datasourceId: string;
       /** @enum {string} */
       status: "PENDING" | "COMPLETE";
-      refreshMS: number;
       error?: {
         /** @enum {string} */
         errorType: "generic" | "not_supported" | "missing_params";
@@ -15874,7 +15873,6 @@ export interface operations {
               datasourceId: string;
               /** @enum {string} */
               status: "PENDING" | "COMPLETE";
-              refreshMS: number;
               error?: {
                 /** @enum {string} */
                 errorType: "generic" | "not_supported" | "missing_params";

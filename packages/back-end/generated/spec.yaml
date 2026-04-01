@@ -26038,7 +26038,6 @@ components:
         - id
         - datasourceId
         - status
-        - refreshMS
         - databases
         - dateCreated
         - dateUpdated
@@ -26052,8 +26051,6 @@ components:
           enum:
             - PENDING
             - COMPLETE
-        refreshMS:
-          type: number
         error:
           type: object
           required:
