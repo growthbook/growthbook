@@ -1960,6 +1960,35 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = async (
           throw new Error("Safe Rollout rules is a premium feature.");
         }
 
+        // Check if a safe-rollout rule with this id already exists in the
+        // feature's current environment settings. If so, reuse the existing
+        // SafeRollout document instead of creating a new one — this prevents
+        // orphaning the old document (and its snapshot history) on every PUT.
+        const existingRule = r.id
+          ? (feature.environmentSettings[environmentId]?.rules ?? []).find(
+              (rule): rule is SafeRolloutRule =>
+                rule.type === "safe-rollout" && rule.id === r.id,
+            )
+          : undefined;
+
+        if (existingRule) {
+          const safeRolloutRule: SafeRolloutRule = {
+            id: existingRule.id,
+            type: "safe-rollout",
+            enabled: r.enabled != null ? r.enabled : existingRule.enabled,
+            description: r.description ?? existingRule.description,
+            condition: r.condition ?? existingRule.condition,
+            controlValue: validateFeatureValue(feature, r.controlValue),
+            variationValue: validateFeatureValue(feature, r.variationValue),
+            hashAttribute: r.hashAttribute,
+            seed: existingRule.seed,
+            trackingKey: existingRule.trackingKey,
+            safeRolloutId: existingRule.safeRolloutId,
+            status: existingRule.status,
+          };
+          return safeRolloutRule;
+        }
+
         const validatedSafeRolloutFields =
           await validateCreateSafeRolloutFields(
             {
