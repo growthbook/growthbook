@@ -986,7 +986,7 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
 
 /**
  * Persists experiment changes and syncs linked visual changesets and URL
- * redirects when `variations` or `phases` are in the changeset.
+ * redirects when `variations` are in the changeset.
  */
 export async function updateExperimentAndSync({
   context,
@@ -1006,8 +1006,7 @@ export async function updateExperimentAndSync({
     bypassWebhooks,
   });
 
-  const shouldSyncLinked =
-    changes.variations !== undefined || changes.phases !== undefined;
+  const shouldSyncLinked = changes.variations !== undefined;
 
   if (shouldSyncLinked) {
     await syncVisualChangesetsAndUrlRedirectsForExperiment({
