@@ -262,7 +262,7 @@ export default function ExplorerDataTable({
   const explorationReturnedNoData = useMemo(() => {
     if (!exploration?.result?.rows?.length) return true;
     return exploration.result.rows.every((r) => r.values.length === 0);
-  }, [exploration?.result.rows]);
+  }, [exploration?.result?.rows]);
 
   return (
     <DisplayTestQueryResults
