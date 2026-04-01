@@ -286,8 +286,8 @@ async function executeStepActions(
 
   const stepLabel =
     stepIndex >= schedule.steps.length
-      ? `Ramp complete: ${schedule.name}`
-      : `Ramp [${stepIndex + 1} of ${schedule.steps.length}]: ${schedule.name}`;
+      ? "Ramp complete"
+      : `Ramp step ${stepIndex + 1} of ${schedule.steps.length}`;
 
   for (const [, group] of byEntity) {
     const handler = getEntityHandler(group.entityType);
