@@ -149,6 +149,9 @@ export async function validateExperimentFeatureUpdates({
   const plans: ExperimentFeatureUpdatePlan[] = [];
 
   for (const feature of linkedFeatures) {
+    if (!featureRevisionOptions[feature.id]) {
+      throw new Error(`No revision options provided for feature ${feature.id}`);
+    }
     const { targetVersion, autoPublish, forceNewDraft } =
       featureRevisionOptions[feature.id];
 
