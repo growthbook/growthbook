@@ -1,7 +1,4 @@
-import {
-  InformationSchemaInterface,
-  InformationSchemaInterfaceWithPaths,
-} from "shared/types/integrations";
+import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { GetInformationSchemaResponse } from "shared/types/openapi";
 import { getInformationSchemaValidator } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -12,7 +9,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 type ApiInformationSchema = GetInformationSchemaResponse["informationSchema"];
 
 function toApiInformationSchema(
-  schema: InformationSchemaInterface | InformationSchemaInterfaceWithPaths,
+  schema: InformationSchemaInterfaceWithPaths,
 ): ApiInformationSchema {
   return {
     id: schema.id,
@@ -22,14 +19,17 @@ function toApiInformationSchema(
     error: schema.error ?? undefined,
     databases: schema.databases.map((db) => ({
       databaseName: db.databaseName,
+      path: db.path,
       dateCreated: db.dateCreated.toISOString(),
       dateUpdated: db.dateUpdated.toISOString(),
       schemas: db.schemas.map((s) => ({
         schemaName: s.schemaName,
+        path: s.path,
         dateCreated: s.dateCreated.toISOString(),
         dateUpdated: s.dateUpdated.toISOString(),
         tables: s.tables.map((t) => ({
           tableName: t.tableName,
+          path: t.path,
           id: t.id,
           numOfColumns: t.numOfColumns,
           dateCreated: t.dateCreated.toISOString(),

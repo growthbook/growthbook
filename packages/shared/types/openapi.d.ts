@@ -4921,18 +4921,21 @@ export interface components {
       };
       databases: ({
           databaseName: string;
+          path?: string;
           /** Format: date-time */
           dateCreated: string;
           /** Format: date-time */
           dateUpdated: string;
           schemas: ({
               schemaName: string;
+              path?: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               tables: ({
                   tableName: string;
+                  path?: string;
                   id: string;
                   numOfColumns: number;
                   /** Format: date-time */
@@ -15879,18 +15882,21 @@ export interface operations {
               };
               databases: ({
                   databaseName: string;
+                  path?: string;
                   /** Format: date-time */
                   dateCreated: string;
                   /** Format: date-time */
                   dateUpdated: string;
                   schemas: ({
                       schemaName: string;
+                      path?: string;
                       /** Format: date-time */
                       dateCreated: string;
                       /** Format: date-time */
                       dateUpdated: string;
                       tables: ({
                           tableName: string;
+                          path?: string;
                           id: string;
                           numOfColumns: number;
                           /** Format: date-time */

@@ -26080,6 +26080,8 @@ components:
             properties:
               databaseName:
                 type: string
+              path:
+                type: string
               dateCreated:
                 type: string
                 format: date-time
@@ -26097,6 +26099,8 @@ components:
                     - dateUpdated
                   properties:
                     schemaName:
+                      type: string
+                    path:
                       type: string
                     dateCreated:
                       type: string
@@ -26116,6 +26120,8 @@ components:
                           - dateUpdated
                         properties:
                           tableName:
+                            type: string
+                          path:
                             type: string
                           id:
                             type: string
