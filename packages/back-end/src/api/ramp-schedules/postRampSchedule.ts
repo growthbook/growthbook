@@ -136,6 +136,20 @@ export const postRampSchedule = createApiRequestHandler(
         ),
       }));
 
+  // Resolve endActions from body, falling back to the template's endPatch if present.
+  const resolvedEndActions: RampStepAction[] | undefined =
+    body.endActions !== undefined
+      ? body.endActions
+      : template?.endPatch && Object.keys(template.endPatch).length > 0
+        ? [
+            {
+              targetType: "feature-rule" as const,
+              targetId,
+              patch: { ruleId: body.ruleId, ...template.endPatch },
+            },
+          ]
+        : undefined;
+
   // Resolve end condition from body or template
   const rawEndTrigger = body.endCondition?.trigger;
   const endTrigger = rawEndTrigger
@@ -168,7 +182,7 @@ export const postRampSchedule = createApiRequestHandler(
       },
     ],
     steps: resolvedSteps,
-    endActions: body.endActions,
+    endActions: resolvedEndActions,
     startDate,
     endCondition,
     // Rule is already published — schedule is immediately eligible to start

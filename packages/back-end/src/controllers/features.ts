@@ -2776,12 +2776,12 @@ export async function putFeatureRule(
       if ("startDate" in rampSchedulePayload) {
         updates.startDate = rampSchedulePayload.startDate
           ? new Date(rampSchedulePayload.startDate)
-          : undefined;
+          : null;
       }
       if (rampSchedulePayload.endCondition !== undefined) {
         const ec = rampSchedulePayload.endCondition;
         if (!ec) {
-          updates.endCondition = undefined;
+          updates.endCondition = null;
         } else {
           const rawTrigger = ec.trigger;
           const trigger = rawTrigger
