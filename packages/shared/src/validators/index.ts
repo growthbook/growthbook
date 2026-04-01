@@ -10,6 +10,8 @@ export * from "./metric-time-series";
 export * from "./openapi";
 export * from "./queries";
 export * from "./safe-rollout";
+export * from "./ramp-schedule";
+export * from "./ramp-schedule-notifications";
 export * from "./saved-group";
 export * from "./saved-queries";
 export * from "./segment";

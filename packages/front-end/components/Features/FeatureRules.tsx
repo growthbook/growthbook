@@ -5,8 +5,12 @@ import {
   FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
+  RampScheduleInterface,
 } from "shared/validators";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -43,6 +47,10 @@ export default function FeatureRules({
   holdout,
   baseFeature,
   revisionList,
+  rampSchedules,
+  draftRevision,
+  pendingRuleEdit,
+  onPendingRuleEditHandled,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -58,15 +66,33 @@ export default function FeatureRules({
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
+  rampSchedules?: RampScheduleInterface[];
+  draftRevision?: FeatureRevisionInterface | null;
+  pendingRuleEdit?: { environment: string; ruleId: string } | null;
+  onPendingRuleEditHandled?: () => void;
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
+
+  // Open the rule modal when triggered externally (e.g. from the ramp timeline CTA).
+  useEffect(() => {
+    if (!pendingRuleEdit) return;
+    const { environment, ruleId } = pendingRuleEdit;
+    const rules = getRules(feature, environment);
+    const idx = rules.findIndex((r) => r.id === ruleId);
+    if (idx !== -1) {
+      setEnv(environment);
+      setRuleModal({ i: idx, environment, mode: "edit" });
+    }
+    onPendingRuleEditHandled?.();
+  }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    detachRampOnSave?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -244,6 +270,8 @@ export default function FeatureRules({
                     holdoutIsDeleted={draftDeletesHoldout}
                     openHoldoutModal={() => setHoldoutModal(true)}
                     revisionList={revisionList}
+                    rampSchedules={rampSchedules}
+                    draftRevision={draftRevision}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -319,6 +347,9 @@ export default function FeatureRules({
           setVersion={setVersion}
           mode={ruleModal.mode}
           revisionList={revisionList}
+          rampSchedules={rampSchedules}
+          detachRampOnSave={ruleModal.detachRampOnSave}
+          draftRevision={draftRevision}
         />
       )}
       {copyRuleModal !== null && (
