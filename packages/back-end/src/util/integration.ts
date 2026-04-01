@@ -25,12 +25,8 @@ export function applyMetricOverrides(
 
   metric.targetMDE = computed.targetMDE ?? undefined;
 
-  // TODO: move this to the form validation when saving this settings
   if (metric.regressionAdjustmentDays < 0) {
     metric.regressionAdjustmentDays = 0;
-  }
-  if (metric.regressionAdjustmentDays > 100) {
-    metric.regressionAdjustmentDays = 100;
   }
   return;
 }
