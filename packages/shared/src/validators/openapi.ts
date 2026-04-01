@@ -134,6 +134,12 @@ export const revertFeatureValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const deleteFeatureRuleValidator = {
+  bodySchema: z.object({ "environment": z.string().describe("The environment the rule belongs to"), "ruleId": z.string().describe("The ID of the rule to delete") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getFeatureRevisionsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0) }).strict(),
