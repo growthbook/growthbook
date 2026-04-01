@@ -183,8 +183,14 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export function getConfidenceLevelsForOrg(context: ReqContext) {
-  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
+export function getConfidenceLevelsForOrg(
+  context: ReqContext,
+  project?: Partial<ProjectInterface>,
+) {
+  const ciUpper =
+    project?.settings?.confidenceLevel ??
+    context.org.settings?.confidenceLevel ??
+    0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,

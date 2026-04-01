@@ -70,6 +70,29 @@ describe("settings", () => {
       );
     });
 
+    it('applies project confidenceLevel overrides', () => {
+      const organization = genOrgWithSettings({
+        confidenceLevel: 0.95,
+      });
+
+      const projectWithOverride: ProjectInterface = {
+        ...mockProject,
+        settings: {
+          ...mockProject.settings,
+          confidenceLevel: 0.99,
+        },
+      };
+
+      const { settings: newSettings } = getScopedSettings({
+        organization,
+        project: projectWithOverride,
+      });
+
+      expect(newSettings.confidenceLevel.value).toEqual(
+        projectWithOverride.settings.confidenceLevel,
+      );
+    });
+
     describe("applying mixed metric overrides", () => {
       const organization = genOrgWithSettings({
         statsEngine: "frequentist",

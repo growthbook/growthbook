@@ -16,6 +16,7 @@ import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -221,6 +222,21 @@ const ProjectPage: FC = () => {
                           }}
                           label="By default, experiments use your organization's default statistics engine, however, you can override this for experiments in this project."
                           parentSettings={parentSettings}
+                        />
+                        <Field
+                          label="Bayesian significance level"
+                          type="number"
+                          step="0.01"
+                          min="0.5"
+                          max="1"
+                          append="%"
+                          containerClassName="mt-3"
+                          helpText="Overrides organization default Bayesian chance-to-win in this project."
+                          {...form.register("confidenceLevel", {
+                            valueAsNumber: true,
+                            min: 0.5,
+                            max: 1,
+                          })}
                         />
                       </Box>
                     </Flex>

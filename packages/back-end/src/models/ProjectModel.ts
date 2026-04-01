@@ -105,6 +105,7 @@ export class ProjectModel extends BaseClass {
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {
         statsEngine: project.settings?.statsEngine,
+        confidenceLevel: project.settings?.confidenceLevel,
       },
     };
   }

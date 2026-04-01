@@ -3918,7 +3918,10 @@ export async function computeResultsStatus({
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection = getPValueCorrectionForOrg(context);
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const project = experiment.project
+    ? await context.models.projects.getById(experiment.project)
+    : undefined;
+  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context, project);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
