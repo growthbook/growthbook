@@ -1359,6 +1359,12 @@ async function createRampSchedulesForRevision(
   for (const action of actions) {
     if (action.mode !== "create") continue;
 
+    if (!context.hasPremiumFeature("ramp-schedules")) {
+      context.throwPlanDoesNotAllowError(
+        "Ramp schedules require an Enterprise plan.",
+      );
+    }
+
     const targetId = uuidv4();
 
     // Remap "t1" placeholder targetId to the real UUID.

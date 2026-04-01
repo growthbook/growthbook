@@ -147,6 +147,12 @@ export const postRampSchedule = createApiRequestHandler(
 
   const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
 
+  if (!req.context.hasPremiumFeature("ramp-schedules")) {
+    req.context.throwPlanDoesNotAllowError(
+      "Ramp schedules require an Enterprise plan.",
+    );
+  }
+
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name,
     entityType: "feature",

@@ -36,6 +36,12 @@ export const putRampSchedule = createApiRequestHandler(
     throw new Error("Ramp schedule not found");
   }
 
+  if (!req.context.hasPremiumFeature("ramp-schedules")) {
+    req.context.throwPlanDoesNotAllowError(
+      "Ramp schedules require an Enterprise plan.",
+    );
+  }
+
   // Only allow updates when the schedule has not yet started or is paused between steps
   if (!["pending", "ready", "paused"].includes(schedule.status)) {
     throw new Error(

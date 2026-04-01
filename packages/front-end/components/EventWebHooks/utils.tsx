@@ -86,6 +86,39 @@ export const eventWebHookEventOptions: {
     id: "feature.deleted",
     name: "feature.deleted",
   },
+  // Ramp Schedules
+  {
+    id: "feature.rampSchedule.created",
+    name: "feature.rampSchedule.created",
+  },
+  {
+    id: "feature.rampSchedule.deleted",
+    name: "feature.rampSchedule.deleted",
+  },
+  {
+    id: "feature.rampSchedule.actions.started",
+    name: "feature.rampSchedule.actions.started",
+  },
+  {
+    id: "feature.rampSchedule.actions.completed",
+    name: "feature.rampSchedule.actions.completed",
+  },
+  {
+    id: "feature.rampSchedule.actions.rolledBack",
+    name: "feature.rampSchedule.actions.rolledBack",
+  },
+  {
+    id: "feature.rampSchedule.actions.jumped",
+    name: "feature.rampSchedule.actions.jumped",
+  },
+  {
+    id: "feature.rampSchedule.actions.step.advanced",
+    name: "feature.rampSchedule.actions.step.advanced",
+  },
+  {
+    id: "feature.rampSchedule.actions.step.approvalRequired",
+    name: "feature.rampSchedule.actions.step.approvalRequired",
+  },
   // Safe Rollouts
   {
     id: "feature.saferollout.ship",
@@ -131,39 +164,6 @@ export const eventWebHookEventOptions: {
   {
     id: "experiment.decision.review",
     name: "experiment.decision.review",
-  },
-  // Ramp Schedules
-  {
-    id: "feature.rampSchedule.created",
-    name: "feature.rampSchedule.created",
-  },
-  {
-    id: "feature.rampSchedule.deleted",
-    name: "feature.rampSchedule.deleted",
-  },
-  {
-    id: "feature.rampSchedule.actions.started",
-    name: "feature.rampSchedule.actions.started",
-  },
-  {
-    id: "feature.rampSchedule.actions.completed",
-    name: "feature.rampSchedule.actions.completed",
-  },
-  {
-    id: "feature.rampSchedule.actions.rolledBack",
-    name: "feature.rampSchedule.actions.rolledBack",
-  },
-  {
-    id: "feature.rampSchedule.actions.jumped",
-    name: "feature.rampSchedule.actions.jumped",
-  },
-  {
-    id: "feature.rampSchedule.actions.step.advanced",
-    name: "feature.rampSchedule.actions.step.advanced",
-  },
-  {
-    id: "feature.rampSchedule.actions.step.approvalRequired",
-    name: "feature.rampSchedule.actions.step.approvalRequired",
   },
 ];
 

@@ -83,6 +83,13 @@ export const postRampSchedule = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+
+  if (!context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedules require an Enterprise plan.",
+    );
+  }
+
   const body = req.body;
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
@@ -133,6 +140,13 @@ export const putRampSchedule = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+
+  if (!context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedules require an Enterprise plan.",
+    );
+  }
+
   const schedule = await context.models.rampSchedules.getById(req.params.id);
   if (!schedule) {
     return res
