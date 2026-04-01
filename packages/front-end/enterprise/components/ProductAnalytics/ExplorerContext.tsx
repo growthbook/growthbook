@@ -27,6 +27,7 @@ import {
   isSubmittableConfig,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 type SetDraftStateAction =
@@ -59,6 +60,14 @@ export interface ExplorerContextValue {
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
+export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
+  "product-analytics:explorer:datasource" as const;
+
+export type LastUsedDataSourceId = {
+  [projectId: string]: string | undefined;
+  lastUsedDatasourceId?: string;
+};
+
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorationConfig;
@@ -74,7 +83,13 @@ export function ExplorerProvider({
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
 
-  const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
+  const [, setLastUsedDatasourceId] = useLocalStorage<LastUsedDataSourceId>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    {},
+  );
+
+  const { getFactTableById, getFactMetricById, datasources, project } =
+    useDefinitions();
 
   const [explorerState, setExplorerState] = useState<{
     draftState: ExplorationConfig;
@@ -387,8 +402,15 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
-      const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
+      const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
+      if (datasourceId) {
+        setLastUsedDatasourceId((prev) => ({
+          ...prev,
+          [project]: datasourceId,
+          lastUsedDatasourceId: datasourceId,
+        }));
+      }
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
@@ -408,7 +430,13 @@ export function ExplorerProvider({
         };
       });
     },
-    [createDefaultValue, datasources, initialConfig],
+    [
+      createDefaultValue,
+      datasources,
+      initialConfig,
+      project,
+      setLastUsedDatasourceId,
+    ],
   );
 
   const value = useMemo<ExplorerContextValue>(

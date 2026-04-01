@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
@@ -9,8 +9,14 @@ import { NuqsAdapter } from "nuqs/adapters/next/pages";
 import ShadowedScrollArea from "@/components/ShadowedScrollArea/ShadowedScrollArea";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ExplorerSideBar from "./SideBar/ExplorerSideBar";
-import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
+import {
+  ExplorerProvider,
+  LastUsedDataSourceId,
+  LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+  useExplorerContext,
+} from "./ExplorerContext";
 import ExplorerMainSection from "./MainSection/ExplorerMainSection";
 import {
   createEmptyDataset,
@@ -131,7 +137,20 @@ export default function Explorer({ type }: { type: DatasetType }) {
 }
 
 function ExplorerInner({ type }: { type: DatasetType }) {
-  const { datasources } = useDefinitions();
+  const { datasources, project } = useDefinitions();
+
+  const [lastUsedDatasourceId] = useLocalStorage<LastUsedDataSourceId>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    {},
+  );
+
+  const defaultDataSourceId = useMemo(() => {
+    if (project in lastUsedDatasourceId && lastUsedDatasourceId[project])
+      return lastUsedDatasourceId[project];
+    if (lastUsedDatasourceId.lastUsedDatasourceId)
+      return lastUsedDatasourceId.lastUsedDatasourceId;
+    return datasources[0]?.id ?? "";
+  }, [lastUsedDatasourceId, project, datasources]);
 
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
@@ -153,7 +172,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
-    datasource: datasources[0]?.id || "",
+    datasource: defaultDataSourceId,
     dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
   } as ExplorationConfig;
 
