@@ -7,6 +7,7 @@ import {
   QueryStatus,
   QueryType,
 } from "shared/types/query";
+import { parseIntWithDefault, parseOptionalInt } from "shared/util";
 import {
   countRunningQueries,
   createNewQuery,
@@ -221,6 +222,20 @@ export abstract class QueryRunner<
     logger.debug(this.model.id + " runner: Starting queries");
     const queries = await this.startQueries(params);
     this.model.queries = queries;
+
+    if (queries.length === 0) {
+      const noQueriesError = "No queries were generated for this analysis";
+      logger.debug(this.model.id + " runner: " + noQueriesError);
+      const newModel = await this.updateModel({
+        status: "failed",
+        queries: [],
+        runStarted: new Date(),
+        error: noQueriesError,
+      });
+      this.model = newModel;
+      this.setStatus("finished", noQueriesError);
+      return newModel;
+    }
 
     // If already finished (queries were cached)
     let error = "";
@@ -660,12 +675,9 @@ export abstract class QueryRunner<
       logger.debug("Trying to reuse existing query for " + name);
       try {
         // Use datasource-specific cache TTL if set, otherwise use global default
-        const queryCacheTTLSetting =
-          this.integration.datasource.settings.queryCacheTTLMins;
-        const parsedTTL = queryCacheTTLSetting
-          ? parseInt(queryCacheTTLSetting)
-          : NaN;
-        const cacheTTLMins = isNaN(parsedTTL) ? undefined : parsedTTL;
+        const cacheTTLMins = parseOptionalInt(
+          this.integration.datasource.settings.queryCacheTTLMins,
+        );
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
@@ -785,8 +797,9 @@ export abstract class QueryRunner<
   private async concurrencyLimitReached(): Promise<boolean> {
     if (!this.integration.datasource.settings.maxConcurrentQueries)
       return new Promise<boolean>((resolve) => resolve(false));
-    const numericConcurrencyLimit = parseInt(
+    const numericConcurrencyLimit = parseIntWithDefault(
       this.integration.datasource.settings.maxConcurrentQueries,
+      NaN,
     );
     if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {
       return new Promise<boolean>((resolve) => resolve(false));

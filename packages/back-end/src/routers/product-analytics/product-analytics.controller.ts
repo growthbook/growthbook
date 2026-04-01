@@ -2,6 +2,7 @@ import type { Response } from "express";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  ExplorationCacheQuery,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -14,7 +15,7 @@ export const postProductAnalyticsRun = async (
   req: AuthRequest<
     { config: ExplorationConfig },
     unknown,
-    { cache?: "preferred" | "required" | "never" }
+    ExplorationCacheQuery
   >,
   res: Response<{
     status: 200;
