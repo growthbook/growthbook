@@ -403,9 +403,12 @@ export async function rollbackToStep(
   schedule: RampScheduleInterface,
   targetStepIndex: number,
 ): Promise<RampScheduleInterface> {
-  // Apply the fully accumulated effective state at the target step so the rule matches
-  // what it would look like if the ramp had run sequentially to that point.
-  const effective = computeEffectivePatch(schedule, targetStepIndex);
+  // For a pre-start rollback (-1), use step 0's accumulated state so the live rule
+  // immediately reflects the ramp's starting position rather than staying at wherever
+  // it was. For any other index, use that step's accumulated state.
+  const patchIndex =
+    targetStepIndex === -1 && schedule.steps.length > 0 ? 0 : targetStepIndex;
+  const effective = computeEffectivePatch(schedule, patchIndex);
   const rollbackActions: RampStepAction[] = [...effective.entries()].map(
     ([targetId, patch]) => ({ targetType: "feature-rule", targetId, patch }),
   );
