@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { postVisualChangesets } from "back-end/src/api/visual-changesets/postVisualChangesets";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
 import { getExperimentResults } from "./getExperimentResults";
 import { getExperiment } from "./getExperiment";
@@ -30,5 +31,6 @@ router.delete(
 
 // VisualChangeset Endpoints
 router.get("/:id/visual-changesets", listVisualChangesets);
+router.post("/:id/visual-changesets", postVisualChangesets);
 
 export default router;
