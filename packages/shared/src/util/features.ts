@@ -670,6 +670,13 @@ const revisionFieldFillers: Partial<{
     current?.valueType != null
       ? current
       : { ...current, valueType: feature.valueType },
+  // Backfill envelope fields for legacy revisions that predate them. Without
+  // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
+  // defaultValue and returns "all", bypassing env-scoped review checks even
+  // for drafts that only touch non-gated environments.
+  defaultValue: (feature, current) => current ?? feature.defaultValue,
+  archived: (feature, current) => current ?? feature.archived ?? false,
+  prerequisites: (feature, current) => current ?? feature.prerequisites ?? [],
 };
 
 // Backfills stale/missing fields on a revision before passing to autoMerge.
