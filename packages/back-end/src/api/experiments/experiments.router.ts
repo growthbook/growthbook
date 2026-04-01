@@ -1,6 +1,6 @@
 import { Router } from "express";
+import { postVisualChangesets } from "back-end/src/api/visual-changesets/postVisualChangesets";
 import { listVisualChangesets } from "back-end/src/api/visual-changesets/listVisualChangesets";
-import { postExperimentVisualChangeset } from "./postExperimentVisualChangeset";
 import { getExperimentResults } from "./getExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
@@ -18,9 +18,8 @@ router.get("/", listExperiments);
 router.post("/", postExperiment);
 router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
-router.post("/:id/snapshot", postExperimentSnapshot);
-router.post("/:id/visual-changeset", postExperimentVisualChangeset);
 router.post("/:id", updateExperiment);
+router.post("/:id/snapshot", postExperimentSnapshot);
 router.post(
   "/:id/variation/:variationId/screenshot/upload",
   postVariationImageUpload,
@@ -32,5 +31,6 @@ router.delete(
 
 // VisualChangeset Endpoints
 router.get("/:id/visual-changesets", listVisualChangesets);
+router.post("/:id/visual-changesets", postVisualChangesets);
 
 export default router;

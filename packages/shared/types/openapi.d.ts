@@ -210,10 +210,8 @@ export interface paths {
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
     get: operations["listVisualChangesets"];
-  };
-  "/experiments/{id}/visual-changeset": {
     /** Create a visual changeset for an experiment */
-    post: operations["postExperimentVisualChangeset"];
+    post: operations["postVisualChangesets"];
   };
   "/snapshots/{id}": {
     /** Get an experiment snapshot status */
@@ -11660,7 +11658,7 @@ export interface operations {
       };
     };
   };
-  postExperimentVisualChangeset: {
+  postVisualChangesets: {
     /** Create a visual changeset for an experiment */
     parameters: {
         /** @description The id of the requested resource */
@@ -19884,7 +19882,7 @@ export type PostVariationImageUploadResponse = operations["postVariationImageUpl
 export type DeleteVariationScreenshotResponse = operations["deleteVariationScreenshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
-export type PostExperimentVisualChangesetResponse = operations["postExperimentVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PostVisualChangesetsResponse = operations["postVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];

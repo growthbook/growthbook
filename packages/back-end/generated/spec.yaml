@@ -2939,14 +2939,13 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/VisualChangeset'
-  '/experiments/{id}/visual-changeset':
     post:
       summary: Create a visual changeset for an experiment
       tags:
         - visual-changesets
       parameters:
         - $ref: '#/components/parameters/id'
-      operationId: postExperimentVisualChangeset
+      operationId: postVisualChangesets
       requestBody:
         required: true
         content:
@@ -2981,7 +2980,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changeset \
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
               -u secret_abc123DEF456: \
               -H "Content-Type: application/json" \
               -d '{"editorUrl":"https://example.com/","urlPatterns":[{"type":"simple","pattern":"/","include":true}]}'
