@@ -75,7 +75,7 @@ export function useFeaturePageData(
 
   // Poll ramp schedules independently so the timeline stays live without
   // reloading the full (heavy) feature page payload.
-  const rampPollMs = 60_000;
+  const rampPollMs = 15_000;
   const { data: rampSchedulesData, mutate: mutateRampSchedules } = useApi<{
     status: 200;
     rampSchedules: RampScheduleInterface[];
