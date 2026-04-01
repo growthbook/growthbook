@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/back-end/test/integrations/BigQuery.test.ts": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/AssignmentTester.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -861,16 +856,6 @@
   },
   "packages/front-end/enterprise/components/Insights/MetricEffects.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/ProductAnalytics/Explorer.tsx": {
-    "import/no-unresolved": {
-      "count": 2
-    }
-  },
-  "packages/front-end/enterprise/components/ProductAnalytics/util.ts": {
-    "import/no-unresolved": {
       "count": 1
     }
   },

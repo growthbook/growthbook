@@ -207,10 +207,6 @@ const EditMetricsForm: FC<{
     >
       <ExperimentMetricsSelector
         noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
-        excludeQuantiles={
-          isExperimentIncludedInIncrementalRefresh &&
-          !datasource?.properties?.hasQuantileKLL
-        }
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}

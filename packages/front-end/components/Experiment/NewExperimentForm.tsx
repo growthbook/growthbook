@@ -1495,10 +1495,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <ExperimentMetricsSelector
                 datasource={datasource?.id}
                 noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
-                excludeQuantiles={
-                  willExperimentBeIncludedInIncrementalRefresh &&
-                  !datasource?.properties?.hasQuantileKLL
-                }
                 exposureQueryId={exposureQueryId}
                 project={project}
                 goalMetrics={form.watch("goalMetrics") ?? []}

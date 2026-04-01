@@ -192,7 +192,11 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     id: "fact_eq1",
     metricType: "quantile",
     quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
-    numerator: { factTableId: "ft_events", column: "amount", aggregation: "sum" },
+    numerator: {
+      factTableId: "ft_events",
+      column: "amount",
+      aggregation: "sum",
+    },
   });
 
   const factTableMap = new Map([["ft_events", factTable]]);
