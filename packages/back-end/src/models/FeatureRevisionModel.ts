@@ -642,15 +642,23 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors: append the editing user only if not already present.
-  // Deduplicates on write so the array stays minimal.
+  // Track contributors: deduplicates on write so the array stays minimal.
+  // dashboard → dedup by id; api_key → dedup by apiKey; system → one entry per subtype.
   const existing = revision.contributors ?? [];
-  const logUserId = log.user?.type === "dashboard" ? log.user.id : null;
   const alreadyPresent =
-    logUserId !== null &&
-    existing.some((c) => c?.type === "dashboard" && c.id === logUserId);
+    log.user != null &&
+    existing.some((c) => {
+      if (!c) return false;
+      if (c.type === "dashboard" && log.user?.type === "dashboard")
+        return c.id === log.user.id;
+      if (c.type === "api_key" && log.user?.type === "api_key")
+        return c.apiKey === log.user.apiKey;
+      if (c.type === "system" && log.user?.type === "system")
+        return (c.subtype ?? "") === (log.user.subtype ?? "");
+      return false;
+    });
   const updatedContributors =
-    log.user && !alreadyPresent ? [...existing, log.user] : existing;
+    log.user != null && !alreadyPresent ? [...existing, log.user] : existing;
 
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {

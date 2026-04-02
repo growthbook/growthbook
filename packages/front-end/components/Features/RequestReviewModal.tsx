@@ -95,7 +95,6 @@ export default function RequestReviewModal({
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
-    !isBlockedContributor &&
     permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
@@ -670,7 +669,10 @@ export default function RequestReviewModal({
               {
                 value: "Approved",
                 label: "Approve",
-                description: "Submit feedback and approve for publishing.",
+                description: isBlockedContributor
+                  ? "You contributed to this draft and cannot approve it."
+                  : "Submit feedback and approve for publishing.",
+                disabled: isBlockedContributor,
               },
             ]}
           />
