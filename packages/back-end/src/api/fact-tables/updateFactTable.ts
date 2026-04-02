@@ -12,6 +12,7 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
@@ -58,6 +59,8 @@ export const updateFactTable = createApiRequestHandler(
   }
 
   const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  if (resolvedOwner !== undefined) data.owner = resolvedOwner;
 
   // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {

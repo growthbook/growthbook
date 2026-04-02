@@ -84,6 +84,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     if (req.body.query) updates.sql = req.body.query;
     if (req.body.factTableId) updates.factTableId = req.body.factTableId;
     if (req.body.filters) updates.filters = req.body.filters;
+    if (req.body.owner !== undefined) updates.owner = req.body.owner;
 
     const segment = await req.context.models.segments.update(existing, updates);
 

@@ -5,6 +5,7 @@ import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
@@ -34,8 +35,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags, customFields } =
-      req.body;
+    const {
+      owner: ownerInput,
+      archived,
+      description,
+      project,
+      tags,
+      customFields,
+    } = req.body;
+    const owner = await resolveOwnerToUserId(ownerInput, req.context);
 
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;

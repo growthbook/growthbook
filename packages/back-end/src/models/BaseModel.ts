@@ -18,6 +18,7 @@ import {
   createModelAuditLogger,
   type AuditLogConfig,
 } from "back-end/src/services/audit";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   ForeignKeys,
   ForeignRefs,
@@ -685,10 +686,18 @@ export abstract class BaseModel<
       throw new Error("Cannot set dateUpdated field");
     }
 
-    // Add default owner and createdBy if empty
-    if ("owner" in props && !props.owner) {
-      props.owner = this.context.userId || "";
+    // Resolve owner from email/name to userId if needed, then fall back to current user
+    if ("owner" in props) {
+      if (typeof props.owner === "string" && props.owner) {
+        props.owner =
+          (await resolveOwnerToUserId(props.owner, this.context)) ??
+          props.owner;
+      }
+      if (!props.owner) {
+        props.owner = this.context.userId || "";
+      }
     }
+
     if ("createdBy" in props && !props.createdBy) {
       props.createdBy = this.context.userName || "";
     }
@@ -752,6 +761,17 @@ export abstract class BaseModel<
     },
   ) {
     updates = this.updateValidator.parse(updates);
+
+    // Resolve owner from email to userId if needed
+    if (
+      "owner" in updates &&
+      typeof updates.owner === "string" &&
+      updates.owner
+    ) {
+      updates.owner =
+        (await resolveOwnerToUserId(updates.owner, this.context)) ??
+        updates.owner;
+    }
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
