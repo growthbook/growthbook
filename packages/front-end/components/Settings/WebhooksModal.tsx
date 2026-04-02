@@ -70,7 +70,7 @@ function getWebhookFromType(
         endpoint: `https://api.cloudflare.com/client/v4/accounts/${inputs.accountId}/storage/kv/namespaces/${inputs.namespaceId}/values/${inputs.key}`,
         httpMethod: "PUT",
         headers: JSON.stringify({
-          Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
+          Authorization: `Bearer {{[${inputs.webhookSecretKey}]}}`,
         }),
         payloadFormat: "sdkPayload",
       };
@@ -79,7 +79,7 @@ function getWebhookFromType(
         endpoint: `https://api.fastly.com/resources/stores/kv/${inputs.storeId}/keys/${inputs.key}`,
         httpMethod: "PUT",
         headers: JSON.stringify({
-          "Fastly-Key": `{{ ${inputs.webhookSecretKey} }}`,
+          "Fastly-Key": `{{[${inputs.webhookSecretKey}]}}`,
         }),
         payloadFormat: "sdkPayload",
       };
@@ -90,7 +90,7 @@ function getWebhookFromType(
         }/items${inputs.teamId ? `?teamId=${inputs.teamId}` : ""}`,
         httpMethod: "PATCH",
         headers: JSON.stringify({
-          Authorization: `Bearer {{ ${inputs.webhookSecretKey} }}`,
+          Authorization: `Bearer {{[${inputs.webhookSecretKey}]}}`,
         }),
         payloadFormat: "edgeConfigUnescaped",
         payloadKey: inputs.key,
