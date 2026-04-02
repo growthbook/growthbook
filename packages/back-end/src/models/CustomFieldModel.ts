@@ -353,7 +353,9 @@ export class CustomFieldModel extends BaseClass {
     >,
   ): Promise<string> {
     const id = req.params.id;
-    const index = (req.query as { index?: number }).index;
+    const rawIndex = (req.query as { index?: string }).index;
+    const index =
+      rawIndex !== undefined && rawIndex !== "" ? Number(rawIndex) : undefined;
     await this.deleteCustomField(id, index);
     return id;
   }

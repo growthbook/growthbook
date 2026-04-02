@@ -16692,6 +16692,7 @@ export interface operations {
           projects?: (string)[];
           /** @description What types of objects this custom field is applicable to (feature, experiment) */
           sections?: ("feature" | "experiment")[];
+          active?: boolean;
         };
       };
     };

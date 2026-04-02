@@ -821,6 +821,19 @@ export function getFeatureDefinition({
     delete def.rules;
   }
 
+  if (metadataOptions) {
+    const featureMetadata = buildPayloadMetadata<FeatureMetadata>(
+      {
+        project: feature.project,
+        customFields: feature.customFields,
+        tags: feature.tags,
+      },
+      metadataOptions,
+      projectsMap,
+    );
+    if (featureMetadata) def.metadata = featureMetadata;
+  }
+
   if (allowedKeys) {
     def = pick(def, allowedKeys.featureKeys) as FeatureDefinition;
   }

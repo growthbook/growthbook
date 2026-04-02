@@ -42,7 +42,6 @@ import {
   AutoExperimentWithMetadata,
   ExperimentMetadata,
   FeatureDefinition,
-  FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -180,21 +179,7 @@ export function generateFeaturesPayload({
       projectsMap,
     });
     if (def) {
-      const metadata = buildPayloadMetadata<FeatureMetadata>(
-        {
-          project: feature.project,
-          customFields: feature.customFields,
-          tags: feature.tags,
-        },
-        {
-          includeProjectIdInMetadata,
-          includeCustomFieldsInMetadata,
-          allowedCustomFieldsInMetadata,
-          includeTagsInMetadata,
-        },
-        projectsMap,
-      );
-      defs[feature.id] = metadata ? { ...def, metadata } : def;
+      defs[feature.id] = def;
     }
   });
 

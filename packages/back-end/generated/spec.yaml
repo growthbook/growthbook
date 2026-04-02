@@ -9019,6 +9019,8 @@ paths:
                     enum:
                       - feature
                       - experiment
+                active:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
