@@ -42,6 +42,7 @@ const featureRevisionSchema = new mongoose.Schema({
   archived: Boolean,
   metadata: {},
   holdout: {},
+  rampActions: [{}],
   status: String,
   requiresReview: Boolean,
   log: [
@@ -587,6 +588,7 @@ export async function updateRevision(
       | "archived"
       | "metadata"
       | "holdout"
+      | "rampActions"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,
@@ -602,6 +604,7 @@ export async function updateRevision(
     "archived",
     "metadata",
     "holdout",
+    "rampActions",
   ] as const;
 
   const hasMutableChange = MUTABLE_FIELDS.some((f) => f in changes);
@@ -716,6 +719,8 @@ export async function markRevisionAsPublished(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  await dispatchRevisionPublishedHook(context, revision);
 }
 
 export async function markRevisionAsReviewRequested(
@@ -950,4 +955,48 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
   }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
 
   return docs.map((m) => toInterface(m, context));
+}
+
+// ---------------------------------------------------------------------------
+// Ramp schedule hook registry
+//
+// Services that need to react to revision publish/discard events register
+// their handlers here at startup. Using a registry pattern avoids circular
+// module dependencies between FeatureRevisionModel and services/rampSchedule.
+// ---------------------------------------------------------------------------
+
+type RevisionHook = (
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+) => Promise<void>;
+
+let _onRevisionPublishedHook: RevisionHook | null = null;
+
+export function registerRevisionPublishedHook(hook: RevisionHook): void {
+  _onRevisionPublishedHook = hook;
+}
+
+export async function dispatchRevisionPublishedHook(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  if (!_onRevisionPublishedHook) return;
+  try {
+    await _onRevisionPublishedHook(context, revision);
+  } catch (e) {
+    logger.error(e, "Error in revision published ramp hook");
+  }
+}
+
+// Mark a revision as pending-parent so it waits for its sibling approval revision.
+// Used by the ramp service when creating multi-target approval-gated steps.
+export async function markRevisionAsPendingParent(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    { organization, featureId, version },
+    { $set: { status: "pending-parent" } },
+  );
 }

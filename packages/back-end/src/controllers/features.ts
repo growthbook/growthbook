@@ -35,6 +35,8 @@ import {
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionRampCreateAction,
+  RevisionRampDetachAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -70,7 +72,6 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import {
-  addFeatureRule,
   addLinkedExperiment,
   copyFeatureEnvironmentRules,
   createFeature,
@@ -1025,10 +1026,44 @@ export async function postFeaturePublish(
     feature,
     revision,
   });
+
+  // Compute merge result first so the review check can diff the merged outcome
+  // against live — the same approach the frontend uses. This prevents spurious
+  // review requirements when the draft's raw rules differ from base only because
+  // an automated process (e.g. ramp step advancement) published changes in between.
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    environmentIds,
+    {},
+  );
+
+  // Build an effective revision from the merge result layered on top of live,
+  // mirroring the frontend's requireReviews calculation.
+  const filledLive = {
+    ...live,
+    ...liveRevisionFromFeature(live, feature),
+  };
+  const effectiveRevision = mergeResult.success
+    ? {
+        ...filledLive,
+        ...mergeResult.result,
+        // Merge rules per-environment: mergeResult.result.rules is sparse
+        // (only changed envs). A top-level spread would replace filledLive.rules
+        // entirely, making untouched envs appear as [] and incorrectly triggering
+        // review requirements for environments the draft never touched.
+        rules: {
+          ...filledLive.rules,
+          ...(mergeResult.result.rules ?? {}),
+        },
+      }
+    : { ...revision, ...fillRevisionFromFeature(revision, feature) };
+
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
-    baseRevision: base,
-    revision,
+    baseRevision: filledLive,
+    revision: effectiveRevision,
     allEnvironments: environmentIds,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
@@ -1045,13 +1080,6 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
   }
-  const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
-    revision,
-    environmentIds,
-    {},
-  );
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
@@ -1589,6 +1617,7 @@ export async function postFeatureRule(
     environments: selectedEnvironments = [],
     rule,
     safeRolloutFields,
+    rampSchedule: rampSchedulePayload,
   } = req.body;
 
   const feature = await getFeature(context, id);
@@ -1601,7 +1630,6 @@ export async function postFeatureRule(
   const environmentIds = environments.map((e) => e.id);
 
   if (!selectedEnvironments.length) {
-    // Temporary so this new back-end continues to work with old front-end
     if (
       "environment" in req.body &&
       typeof req.body.environment === "string" &&
@@ -1724,13 +1752,93 @@ export async function postFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
-  await addFeatureRule(
+
+  // Assign rule ID if not present
+  if (!rule.id) {
+    rule.id = generateRuleId();
+  }
+
+  // Prepare ramp action if needed (will be combined with rule addition)
+  let rampActionsUpdate:
+    | RevisionRampCreateAction
+    | RevisionRampDetachAction
+    | undefined;
+  if (
+    rampSchedulePayload &&
+    (rule.type === "rollout" || rule.type === "force") &&
+    rule.id
+  ) {
+    if (rampSchedulePayload.mode === "create") {
+      const createAction: RevisionRampCreateAction = {
+        mode: "create",
+        name: rampSchedulePayload.name,
+        // Single environment: scope patches to that env. Multiple: no scope (affects all matching ruleIds).
+        environment:
+          selectedEnvironments.length === 1
+            ? selectedEnvironments[0]
+            : undefined,
+        steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
+        endActions:
+          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        startDate:
+          rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
+        endCondition: (rampSchedulePayload.endCondition ??
+          undefined) as RevisionRampCreateAction["endCondition"],
+        ruleId: rule.id,
+      };
+      rampActionsUpdate = createAction;
+    } else if (rampSchedulePayload.mode === "detach") {
+      const existingActions = revision.rampActions ?? [];
+      const hasPendingCreate = existingActions.some(
+        (a) => a.mode === "create" && a.ruleId === rule.id,
+      );
+      if (!hasPendingCreate) {
+        const detachAction: RevisionRampDetachAction = {
+          mode: "detach",
+          rampScheduleId: rampSchedulePayload.rampScheduleId,
+          ruleId: rule.id,
+          deleteScheduleWhenEmpty: rampSchedulePayload.deleteScheduleWhenEmpty,
+        };
+        rampActionsUpdate = detachAction;
+      }
+    }
+  }
+
+  // Prepare rule addition changes (also includes ramp actions if needed)
+  const ruleAdditionChanges = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+  };
+  selectedEnvironments.forEach((env) => {
+    ruleAdditionChanges.rules[env] = ruleAdditionChanges.rules[env] || [];
+    ruleAdditionChanges.rules[env].push(rule);
+  });
+
+  // Combine rule addition and ramp changes into a single revision update
+  const combinedChanges: Record<string, unknown> = ruleAdditionChanges;
+  if (rampActionsUpdate) {
+    const existingActions = revision.rampActions ?? [];
+    const filtered = existingActions.filter(
+      (a) =>
+        !(
+          (a.mode === "create" && a.ruleId === rampActionsUpdate!.ruleId) ||
+          (a.mode === "detach" && a.ruleId === rampActionsUpdate!.ruleId)
+        ),
+    );
+    combinedChanges.rampActions = [...filtered, rampActionsUpdate];
+  }
+
+  // Single updateRevision call combines both rule addition and ramp changes atomically
+  await updateRevision(
     context,
     feature,
     revision,
-    selectedEnvironments,
-    rule,
-    res.locals.eventAudit,
+    combinedChanges,
+    {
+      user: res.locals.eventAudit,
+      action: "add rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
+      subject: `to ${selectedEnvironments.join(", ")}`,
+      value: JSON.stringify(rule),
+    },
     resetReview,
   );
 
@@ -2350,7 +2458,7 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, i } = req.body;
+  const { environment, rule, i, rampSchedule: rampSchedulePayload } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -2429,16 +2537,153 @@ export async function putFeatureRule(
     settings: org?.settings,
   });
 
-  await editFeatureRule(
+  // Capture the existing rule ID before editing (used for ramp schedule operations).
+  const existingRuleId: string | undefined =
+    (revision.rules?.[environment]?.[i]?.id as string | undefined) ?? undefined;
+
+  // Prepare ramp action changes if needed (will be combined with rule changes)
+  let rampActionsUpdate:
+    | RevisionRampCreateAction
+    | RevisionRampDetachAction
+    | undefined;
+  if (rampSchedulePayload && existingRuleId) {
+    const ruleId = existingRuleId;
+    if (rampSchedulePayload.mode === "create") {
+      const createAction: RevisionRampCreateAction = {
+        mode: "create",
+        name: rampSchedulePayload.name,
+        environment,
+        steps: rampSchedulePayload.steps as RevisionRampCreateAction["steps"],
+        endActions:
+          rampSchedulePayload.endActions as RevisionRampCreateAction["endActions"],
+        startDate:
+          rampSchedulePayload.startDate as RevisionRampCreateAction["startDate"],
+        endCondition: (rampSchedulePayload.endCondition ??
+          undefined) as RevisionRampCreateAction["endCondition"],
+        ruleId,
+      };
+      rampActionsUpdate = createAction;
+    } else if (rampSchedulePayload.mode === "detach") {
+      const hasPendingCreate = (revision.rampActions ?? []).some(
+        (a) => a.mode === "create" && a.ruleId === ruleId,
+      );
+      if (!hasPendingCreate) {
+        const detachAction: RevisionRampDetachAction = {
+          mode: "detach",
+          rampScheduleId: rampSchedulePayload.rampScheduleId,
+          ruleId,
+          deleteScheduleWhenEmpty: rampSchedulePayload.deleteScheduleWhenEmpty,
+        };
+        rampActionsUpdate = detachAction;
+      }
+    }
+    // "clear" removes any pending ramp action for this rule without adding a new one
+  }
+
+  // Prepare rule update changes
+  const ruleChanges = {
+    rules: revision.rules ? cloneDeep(revision.rules) : {},
+  };
+  if (!ruleChanges.rules[environment]) {
+    ruleChanges.rules[environment] = [];
+  }
+  if (!ruleChanges.rules[environment][i]) {
+    throw new Error("Unknown rule");
+  }
+  // Merge partial updates with existing rule
+  ruleChanges.rules[environment][i] = {
+    ...ruleChanges.rules[environment][i],
+    ...rule,
+  } as FeatureRule;
+
+  // Combine rule and ramp changes into a single revision update
+  const combinedChanges: Record<string, unknown> = ruleChanges;
+  if (rampSchedulePayload?.mode === "clear" && existingRuleId) {
+    // Strip any pending create/detach action for this rule
+    const existingActions = revision.rampActions ?? [];
+    combinedChanges.rampActions = existingActions.filter(
+      (a) =>
+        !(
+          (a.mode === "create" && a.ruleId === existingRuleId) ||
+          (a.mode === "detach" && a.ruleId === existingRuleId)
+        ),
+    );
+  } else if (rampActionsUpdate) {
+    const existingActions = revision.rampActions ?? [];
+    const filtered = existingActions.filter(
+      (a) =>
+        !(
+          (a.mode === "create" && a.ruleId === rampActionsUpdate!.ruleId) ||
+          (a.mode === "detach" && a.ruleId === rampActionsUpdate!.ruleId)
+        ),
+    );
+    combinedChanges.rampActions = [...filtered, rampActionsUpdate];
+  }
+
+  // Single updateRevision call combines both rule and ramp changes atomically
+  await updateRevision(
     context,
     feature,
     revision,
-    environment,
-    i,
-    rule,
-    res.locals.eventAudit,
+    combinedChanges,
+    {
+      user: res.locals.eventAudit,
+      action: "edit rule" + (rampActionsUpdate ? " with ramp schedule" : ""),
+      subject: `${environment} rule ${i}`,
+      value: JSON.stringify(rule),
+    },
     resetReview,
   );
+
+  // Handle real-time "update" mode separately (operates on live schedule, not revision-bound)
+  // Gracefully skip if the schedule no longer exists (e.g., was deleted or reverted away).
+  if (rampSchedulePayload && rampSchedulePayload.mode === "update") {
+    const existing = await context.models.rampSchedules.getById(
+      rampSchedulePayload.rampScheduleId,
+    );
+    if (existing && ["pending", "ready", "paused"].includes(existing.status)) {
+      const updates: Record<string, unknown> = {};
+      // Remap "t1" placeholder targetId references to the real target UUID.
+      // The frontend always uses "t1" when building step/condition actions; the
+      // actual UUID was assigned at schedule creation and must be preserved.
+      const primaryTargetId = existing.targets.find(
+        (t) => t.status === "active",
+      )?.id;
+      const remapT1 = <T extends { targetId: string }>(a: T): T =>
+        primaryTargetId && a.targetId === "t1"
+          ? { ...a, targetId: primaryTargetId }
+          : a;
+      if (rampSchedulePayload.name !== undefined)
+        updates.name = rampSchedulePayload.name;
+      if (rampSchedulePayload.steps !== undefined) {
+        updates.steps = rampSchedulePayload.steps.map((step) => ({
+          ...step,
+          actions: (step.actions ?? []).map(remapT1),
+        }));
+      }
+      if ("startDate" in rampSchedulePayload) {
+        updates.startDate = rampSchedulePayload.startDate
+          ? new Date(rampSchedulePayload.startDate)
+          : null;
+      }
+      if (rampSchedulePayload.endCondition !== undefined) {
+        const ec = rampSchedulePayload.endCondition;
+        if (!ec) {
+          updates.endCondition = null;
+        } else {
+          const rawTrigger = ec.trigger;
+          const trigger = rawTrigger
+            ? { type: "scheduled" as const, at: new Date(rawTrigger.at) }
+            : undefined;
+          updates.endCondition = { trigger };
+        }
+      }
+      if (rampSchedulePayload.endActions !== undefined) {
+        updates.endActions = rampSchedulePayload.endActions.map(remapT1);
+      }
+      await context.models.rampSchedules.updateById(existing.id, updates);
+    }
+  }
 
   res.status(200).json({
     status: 200,
@@ -3549,6 +3794,14 @@ export async function getFeatureById(
     holdout = await context.models.holdout.getById(feature.holdout.id);
   }
 
+  // find active ramp schedules for this feature
+  const now = Date.now();
+  const rampSchedules = (
+    await context.models.rampSchedules.getAllByFeatureId(feature.id)
+  ).map((rs) =>
+    rs.startedAt ? { ...rs, elapsedMs: now - rs.startedAt.getTime() } : rs,
+  );
+
   res.status(200).json({
     status: 200,
     feature,
@@ -3558,6 +3811,7 @@ export async function getFeatureById(
     safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
     holdout,
+    rampSchedules,
   });
 }
 

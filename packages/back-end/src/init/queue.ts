@@ -21,6 +21,8 @@ import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJ
 import addDashboardUpdateJob from "back-end/src/jobs/updateDashboards";
 import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
+import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
+import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -42,6 +44,8 @@ export async function queueInit() {
   addDashboardUpdateJob(agenda);
   addHoldoutUpdateJob(agenda);
   updateAutoSlicesJob(agenda);
+  addRampScheduleJob(agenda);
+  initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection
     .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })

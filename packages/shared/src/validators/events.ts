@@ -11,6 +11,16 @@ import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
 } from "./safe-rollout-notifications";
+import {
+  rampScheduleStartedPayload,
+  rampScheduleStepAdvancedPayload,
+  rampScheduleStepApprovalRequiredPayload,
+  rampScheduleCompletedPayload,
+  rampScheduleRolledBackPayload,
+  rampScheduleCreatedPayload,
+  rampScheduleDeletedPayload,
+  rampScheduleJumpedPayload,
+} from "./ramp-schedule-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import { experimentInfoSignificance } from "./experiment-info";
@@ -35,7 +45,11 @@ const eventUserApiKey = z
   })
   .strict();
 
-const eventUserSystem = z.object({ type: z.literal("system") }).strict();
+const eventUserSystem = z.object({
+  type: z.literal("system"),
+  subtype: z.string().optional(),
+  id: z.string().optional(),
+});
 
 export type EventUserApiKey = z.infer<typeof eventUserApiKey>;
 
@@ -95,6 +109,41 @@ export const notificationEvents = {
       schema: safeRolloutUnhealthyNotificationPayload,
       description:
         "Triggered when a safe rollout is failing a health check and may not be working as expected.",
+    },
+    "rampSchedule.created": {
+      schema: rampScheduleCreatedPayload,
+      description: "Triggered when a ramp schedule is created for a feature",
+    },
+    "rampSchedule.deleted": {
+      schema: rampScheduleDeletedPayload,
+      description: "Triggered when a ramp schedule is deleted from a feature",
+    },
+    "rampSchedule.actions.started": {
+      schema: rampScheduleStartedPayload,
+      description: "Triggered when a feature ramp schedule starts",
+    },
+    "rampSchedule.actions.completed": {
+      schema: rampScheduleCompletedPayload,
+      description: "Triggered when a feature ramp schedule completes all steps",
+    },
+    "rampSchedule.actions.rolledBack": {
+      schema: rampScheduleRolledBackPayload,
+      description:
+        "Triggered when a feature ramp schedule is rolled back or reset to start",
+    },
+    "rampSchedule.actions.jumped": {
+      schema: rampScheduleJumpedPayload,
+      description:
+        "Triggered when a feature ramp schedule is jumped to a specific step",
+    },
+    "rampSchedule.actions.step.advanced": {
+      schema: rampScheduleStepAdvancedPayload,
+      description:
+        "Triggered when a feature ramp schedule advances to the next step",
+    },
+    "rampSchedule.actions.step.approvalRequired": {
+      schema: rampScheduleStepApprovalRequiredPayload,
+      description: "Triggered when a feature ramp step is waiting for approval",
     },
   },
   experiment: {
