@@ -75,7 +75,7 @@ export default function CustomFieldModal({
   const currentValues = form.watch("values");
   const currentProjects = form.watch("projects");
 
-  const valueWarning = useMemo(() => {
+  const optionsChangeInfo = useMemo(() => {
     if (!existing.id) return null;
     if (currentType !== "enum" && currentType !== "multiselect") return null;
     if (!existing.values || !currentValues) return null;
@@ -88,7 +88,7 @@ export default function CustomFieldModal({
     );
 
     if (removedOptions.length > 0) {
-      return `Removing options may result in data loss. Existing values that are no longer in the options list will be removed.`;
+      return "Removing options will not affect existing data.";
     }
     return null;
   }, [existing.id, existing.values, currentType, currentValues]);
@@ -155,7 +155,6 @@ export default function CustomFieldModal({
           const edit = customFields.filter((e) => e.id === existing.id)[0];
           if (!edit) throw new Error("Could not edit custom field");
           edit.name = value?.name ?? "";
-          edit.type = value?.type ?? "text";
           edit.required = value?.required ?? false;
           edit.values = value.values;
           edit.defaultValue = value.defaultValue;
@@ -332,9 +331,9 @@ export default function CustomFieldModal({
               placeholder="Add value..."
               containerClassName="mb-0"
             />
-            {valueWarning && (
-              <Callout status="warning" mt="2">
-                {valueWarning}
+            {optionsChangeInfo && (
+              <Callout status="info" mt="2">
+                {optionsChangeInfo}
               </Callout>
             )}
           </Box>

@@ -1212,7 +1212,7 @@ export default function SDKConnectionForm({
             {form.watch("includeCustomFieldsInMetadata") && (
               <Box mt="2">
                 <MultiSelectField
-                  placeholder="None selected"
+                  placeholder="No fields included"
                   containerClassName="w-100 mb-0"
                   value={form.watch("allowedCustomFieldsInMetadata") || []}
                   onChange={(fields) =>

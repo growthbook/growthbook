@@ -43,6 +43,7 @@ function CustomFieldsTable({
   duplicateIds,
   showRequired,
   deleteCustomField,
+  toggleCustomField,
   setModalOpen,
   handleMoveUp,
   handleMoveDown,
@@ -53,13 +54,14 @@ function CustomFieldsTable({
   duplicateIds: Set<string>;
   showRequired: boolean;
   deleteCustomField: (cf: CustomFieldWithArrayIndex) => Promise<void>;
+  toggleCustomField: (cf: CustomFieldWithArrayIndex) => Promise<void>;
   setModalOpen: (v: Partial<CustomField> | null) => void;
   handleMoveUp: (moveId: string, aboveId: string) => void;
   handleMoveDown: (moveId: string, belowId: string) => void;
   canManage: boolean;
 }) {
   const W = CUSTOM_FIELD_TABLE_WIDTHS;
-  const colSpan = 7 + 1 + (showRequired ? 1 : 0); // appliesTo always shown
+  const colSpan = 7 + 1 + (showRequired ? 1 : 0); // +1 for menu
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return items;
@@ -111,6 +113,7 @@ function CustomFieldsTable({
                 key={`${v.id}-${v.arrayIndex}`}
                 customField={v}
                 deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
                 setEditModal={setModalOpen}
                 canMoveUp={filteredIndex > 0}
                 canMoveDown={filteredIndex < filteredItems.length - 1}
@@ -183,6 +186,23 @@ const CustomFields: FC = () => {
       track("Delete Custom Field", { type: customField.type });
       mutateDefinitions();
     });
+  };
+
+  const toggleCustomField = async (customField: CustomFieldWithArrayIndex) => {
+    await apiCall(`/custom-fields/${customField.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        name: customField.name,
+        description: customField.description,
+        placeholder: customField.placeholder,
+        defaultValue: customField.defaultValue,
+        values: customField.values,
+        required: customField.required,
+        projects: customField.projects,
+        sections: customField.sections,
+        active: (customField.active ?? true) === false,
+      }),
+    }).then(() => mutateDefinitions());
   };
 
   const reorderFields = async (oldId: string, newId: string) => {
@@ -295,6 +315,7 @@ const CustomFields: FC = () => {
                   duplicateIds={duplicateIds}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
+                  toggleCustomField={toggleCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}
                   handleMoveDown={handleMoveDown}
@@ -310,6 +331,7 @@ const CustomFields: FC = () => {
                   duplicateIds={duplicateIds}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
+                  toggleCustomField={toggleCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}
                   handleMoveDown={handleMoveDown}
@@ -325,6 +347,7 @@ const CustomFields: FC = () => {
                   duplicateIds={duplicateIds}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
+                  toggleCustomField={toggleCustomField}
                   setModalOpen={setModalOpen}
                   handleMoveUp={handleMoveUp}
                   handleMoveDown={handleMoveDown}

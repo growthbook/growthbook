@@ -114,6 +114,7 @@ export class CustomFieldModel extends BaseClass {
           ...omit(f, ["section", "sections"]),
           projects,
           sections,
+          active: (f as CustomField).active ?? true,
         } as CustomField;
       }),
     };
@@ -127,20 +128,27 @@ export class CustomFieldModel extends BaseClass {
     return null;
   }
 
-  public async getCustomFieldByFieldId(customFieldId: string) {
+  public async getCustomFieldByFieldId(
+    customFieldId: string,
+    { includeInactive = false } = {},
+  ) {
     const customFields = await this.getCustomFields();
     if (!customFields) return null;
-    return customFields.fields.find((f) => f.id === customFieldId) ?? null;
+    return (
+      customFields.fields.find(
+        (f) =>
+          f.id === customFieldId && (includeInactive || f.active !== false),
+      ) ?? null
+    );
   }
 
   public async getCustomFieldsByProject(projectId: string) {
     const customFields = await this.getCustomFields();
-    if (!customFields) {
-      return null;
-    }
+    if (!customFields) return null;
     return customFields.fields.filter(
       (field) =>
-        field.projects?.includes(projectId) || field.projects?.length === 0,
+        field.active !== false &&
+        (field.projects?.includes(projectId) || field.projects?.length === 0),
     );
   }
 
@@ -152,14 +160,14 @@ export class CustomFieldModel extends BaseClass {
     project?: string;
   }) {
     const customFields = await this.getCustomFields();
-    const filteredCustomFields = customFields?.fields.filter((v) =>
-      v.sections?.includes(section),
+    const filteredCustomFields = customFields?.fields.filter(
+      (v) => v.active !== false && v.sections?.includes(section),
     );
     if (!filteredCustomFields || filteredCustomFields.length === 0) {
       return filteredCustomFields;
     }
     return filteredCustomFields.filter((v) => {
-      if (v.projects && v.projects.length && v.projects[0] !== "") {
+      if (v.projects && v.projects.length > 0) {
         return v.projects.some((p) => p === project);
       }
       return true;
@@ -172,6 +180,12 @@ export class CustomFieldModel extends BaseClass {
       "dateCreated" | "dateUpdated" | "creator" | "active"
     >,
   ) {
+    if (!customField.id.match(/^[a-z0-9_-]+$/)) {
+      this.context.throwBadRequestError(
+        "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
+      );
+    }
+
     const newCustomField = {
       active: true,
       ...customField,
@@ -182,12 +196,18 @@ export class CustomFieldModel extends BaseClass {
     };
     const existing = await this.getCustomFields();
     if (existing) {
-      const idMatch = existing.fields.find(
-        ({ id }) => id === newCustomField.id,
+      if (existing.fields.some(({ id }) => id === newCustomField.id)) {
+        this.context.throwBadRequestError("Custom field key already exists.");
+      }
+      const nameConflict = existing.fields.find(
+        (f) =>
+          f.active !== false &&
+          f.name === newCustomField.name &&
+          f.sections?.some((s) => newCustomField.sections.includes(s)),
       );
-      if (idMatch) {
+      if (nameConflict) {
         this.context.throwBadRequestError(
-          "Failed to add custom field. Key not unique!",
+          "Custom field name already exists for one or more of the selected sections.",
         );
       }
       const newFields = [...existing.fields, newCustomField];
@@ -220,6 +240,7 @@ export class CustomFieldModel extends BaseClass {
           ...field,
           ...customFieldUpdates,
           id: customFieldId,
+          active: customFieldUpdates.active ?? field.active ?? true,
           dateCreated: field.dateCreated,
           dateUpdated: new Date(),
         };
@@ -349,7 +370,7 @@ export class CustomFieldModel extends BaseClass {
     const parsedBody = apiUpdateCustomFieldBody.parse(req.body);
     const containerObject = await this.updateCustomField(id, parsedBody);
     if (!containerObject)
-      this.context.throwInternalServerError("Failed to update custom field");
+      this.context.throwNotFoundError("Custom field not found");
     const updated = containerObject.fields.find(
       ({ id: fieldId }) => fieldId === id,
     );

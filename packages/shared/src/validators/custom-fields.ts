@@ -65,7 +65,7 @@ export const updateCustomFieldsValidator = customFieldsPropsValidator.omit({
   type: true,
   dateCreated: true,
   dateUpdated: true,
-});
+}); // `active` remains — allows enabling/disabling a field
 
 const apiDefaultValueTypes = z.union([
   z.string(),
@@ -117,4 +117,5 @@ export const apiCreateCustomFieldBody = z.strictObject({
 
 export const apiUpdateCustomFieldBody = apiCreateCustomFieldBody
   .omit({ id: true, type: true })
+  .extend({ active: z.boolean().optional() })
   .partial();

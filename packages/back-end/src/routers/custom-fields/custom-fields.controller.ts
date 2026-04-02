@@ -54,31 +54,6 @@ export const postCustomField = async (
     return context.throwBadRequestError("Must specify field key");
   }
 
-  if (!id.match(/^[a-z0-9_-]+$/)) {
-    return context.throwBadRequestError(
-      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
-    );
-  }
-  const effectiveSections: CustomFieldSection[] = sections?.length
-    ? sections
-    : [...ALL_SECTIONS];
-
-  const existingFields = await context.models.customFields.getCustomFields();
-
-  // check if this name already exists for any overlapping section:
-  if (existingFields) {
-    const existingCustomField = existingFields.fields.find(
-      (field) =>
-        field.name === name &&
-        field.sections?.some((s) => effectiveSections.includes(s)),
-    );
-    if (existingCustomField) {
-      return context.throwBadRequestError(
-        "Custom field name already exists for one or more of the selected sections",
-      );
-    }
-  }
-
   const updated = await context.models.customFields.addCustomField({
     id,
     name,
@@ -89,7 +64,7 @@ export const postCustomField = async (
     values,
     required,
     projects,
-    sections: effectiveSections,
+    sections: sections?.length ? sections : [...ALL_SECTIONS],
   });
 
   if (!updated) {
@@ -178,6 +153,7 @@ type PutCustomFieldRequest = AuthRequest<
     required: boolean;
     projects?: string[];
     sections?: CustomFieldSection[];
+    active?: boolean;
   },
   { id: string }
 >;
@@ -207,6 +183,7 @@ export const putCustomField = async (
     required,
     projects,
     sections,
+    active,
   } = req.body;
   const { id } = req.params;
 
@@ -217,7 +194,9 @@ export const putCustomField = async (
   req.checkPermissions("manageCustomFields");
 
   const existingField =
-    await context.models.customFields.getCustomFieldByFieldId(id);
+    await context.models.customFields.getCustomFieldByFieldId(id, {
+      includeInactive: true,
+    });
 
   if (!existingField) {
     return context.throwNotFoundError("Custom field not found");
@@ -234,6 +213,7 @@ export const putCustomField = async (
       required,
       projects,
       sections: sections ?? existingField.sections ?? [...ALL_SECTIONS],
+      ...(active !== undefined && { active }),
     },
   );
 
