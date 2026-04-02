@@ -20,12 +20,6 @@ export type VariationMeta = {
   name?: string;
 };
 
-export type FeatureMetadata = {
-  projects?: string[];
-  customFields?: Record<string, unknown>;
-  tags?: string[];
-};
-
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
@@ -59,7 +53,6 @@ export type FeatureRule<T = any> = {
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
-  metadata?: FeatureMetadata;
 }
 
 export type FeatureResultSource =
@@ -128,17 +121,10 @@ export type Experiment<T> = {
 
 export type AutoExperimentChangeType = "redirect" | "visual" | "unknown";
 
-export type ExperimentMetadata = {
-  projects?: string[];
-  customFields?: Record<string, unknown>;
-  tags?: string[];
-};
-
 export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
-  metadata?: ExperimentMetadata;
 };
 
 export type ExperimentOverride = {

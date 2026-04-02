@@ -78,100 +78,112 @@ const ProjectsPage: FC = () => {
           </div>
         </div>
         <p className="text-gray mb-4">
-          Group your ideas and experiments into <strong>Projects</strong> to keep
-          things organized and easy to manage.
+          Group your ideas and experiments into <strong>Projects</strong> to
+          keep things organized and easy to manage.
         </p>
 
-      {projects.length > 0 ? (
-        <>
-          <Box className="relative" width="40%" mb="4">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </Box>
-          <table className="table appbox gbtable table-valign-top" style={{ tableLayout: "fixed", width: "100%" }}>
-            <thead>
-              <tr>
-                <SortableTH field="name" style={{ width: "20%" }}>Project Name</SortableTH>
-                <SortableTH field="computedPublicId" style={{ width: "20%" }}>Public ID</SortableTH>
-                <th style={{ width: "30%" }}>Description</th>
-                <SortableTH field="dateCreated" style={{ width: "15%" }}>Date Created</SortableTH>
-                <SortableTH field="dateUpdated" style={{ width: "15%" }}>Date Updated</SortableTH>
-                <th style={{ width: 40, minWidth: 40 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => {
-                const canEdit = permissionsUtil.canUpdateProject(p.id);
-                const canDelete =
-                  // If the project has the `managedBy` property, we block deletion.
-                  permissionsUtil.canDeleteProject(p.id) && !p.managedBy?.type;
-                return (
-                  <tr key={p.id}>
-                    <td className="text-gray">
-                      {canEdit ? (
-                        <Link
-                          className="link-purple"
-                          href={`/project/${p.id}`}
-                        >
-                          {p.name}
-                        </Link>
-                      ) : (
-                        <span>{p.name}</span>
-                      )}
-                      {p.managedBy?.type ? (
-                        <div>
-                          <Badge
-                            label={`Managed by ${capitalizeFirstLetter(
-                              p.managedBy.type,
-                            )}`}
-                          />
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="text-gray">
-                      <code className="small">{p.publicId || p.id}</code>
-                    </td>
-                    <td className="text-gray">
-                      {p.description && p.description.length > 80
-                        ? p.description.substring(0, 80).trim() + "..."
-                        : p.description ?? ""}
-                    </td>
-                    <td className="text-gray">{ago(p.dateCreated)}</td>
-                    <td className="text-gray">{ago(p.dateUpdated)}</td>
-                    <td>
-                      <ProjectRowMenu
-                        project={p}
-                        canEdit={canEdit}
-                        canDelete={canDelete}
-                        onEdit={() => setModalOpen(p)}
-                        onDelete={async () => {
-                          await apiCall(
-                            `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
-                            {
-                              method: "DELETE",
-                            },
-                          );
-                          mutateDefinitions();
-                        }}
-                        deleteProjectResources={deleteProjectResources}
-                        setDeleteProjectResources={setDeleteProjectResources}
-                      />
+        {projects.length > 0 ? (
+          <>
+            <Box className="relative" width="40%" mb="4">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </Box>
+            <table
+              className="table appbox gbtable table-valign-top"
+              style={{ tableLayout: "fixed", width: "100%" }}
+            >
+              <thead>
+                <tr>
+                  <SortableTH field="name" style={{ width: "20%" }}>
+                    Project Name
+                  </SortableTH>
+                  <SortableTH field="computedPublicId" style={{ width: "20%" }}>
+                    Public ID
+                  </SortableTH>
+                  <th style={{ width: "30%" }}>Description</th>
+                  <SortableTH field="dateCreated" style={{ width: "15%" }}>
+                    Date Created
+                  </SortableTH>
+                  <SortableTH field="dateUpdated" style={{ width: "15%" }}>
+                    Date Updated
+                  </SortableTH>
+                  <th style={{ width: 40, minWidth: 40 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((p) => {
+                  const canEdit = permissionsUtil.canUpdateProject(p.id);
+                  const canDelete =
+                    // If the project has the `managedBy` property, we block deletion.
+                    permissionsUtil.canDeleteProject(p.id) &&
+                    !p.managedBy?.type;
+                  return (
+                    <tr key={p.id}>
+                      <td className="text-gray">
+                        {canEdit ? (
+                          <Link
+                            className="link-purple"
+                            href={`/project/${p.id}`}
+                          >
+                            {p.name}
+                          </Link>
+                        ) : (
+                          <span>{p.name}</span>
+                        )}
+                        {p.managedBy?.type ? (
+                          <div>
+                            <Badge
+                              label={`Managed by ${capitalizeFirstLetter(
+                                p.managedBy.type,
+                              )}`}
+                            />
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="text-gray">
+                        <code className="small">{p.publicId || p.id}</code>
+                      </td>
+                      <td className="text-gray">
+                        {p.description && p.description.length > 80
+                          ? p.description.substring(0, 80).trim() + "..."
+                          : (p.description ?? "")}
+                      </td>
+                      <td className="text-gray">{ago(p.dateCreated)}</td>
+                      <td className="text-gray">{ago(p.dateUpdated)}</td>
+                      <td>
+                        <ProjectRowMenu
+                          project={p}
+                          canEdit={canEdit}
+                          canDelete={canDelete}
+                          onEdit={() => setModalOpen(p)}
+                          onDelete={async () => {
+                            await apiCall(
+                              `/projects/${p.id}?deleteResources=${deleteProjectResources ? "true" : "false"}`,
+                              {
+                                method: "DELETE",
+                              },
+                            );
+                            mutateDefinitions();
+                          }}
+                          deleteProjectResources={deleteProjectResources}
+                          setDeleteProjectResources={setDeleteProjectResources}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!items.length && isFiltered && (
+                  <tr>
+                    <td colSpan={6} align={"center"}>
+                      No matching projects
                     </td>
                   </tr>
-                );
-              })}
-              {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={6} align={"center"}>
-                    No matching projects
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
             {pagination}
           </>
         ) : (

@@ -12,6 +12,7 @@ import { CustomFieldSection } from "shared/types/custom-fields";
 import { ApiRequest } from "back-end/src/util/handler";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { migrateCustomFieldValues } from "back-end/src/services/customFieldMigration";
 import {
   customFieldApiSpec,
@@ -266,29 +267,32 @@ export class CustomFieldModel extends BaseClass {
     const updated = await this.update(existing, { fields: newFields });
     if (!updated) return null;
 
-    if (typeChanged || valuesChanged) {
+    if ((typeChanged || valuesChanged) && existingField) {
       const sectionsToMigrate = [
         ...new Set([
-          ...(existingField?.sections ?? []),
+          ...(existingField.sections ?? []),
           ...(customFieldUpdates.sections ??
-            existingField?.sections ?? ["feature"]),
+            existingField.sections ?? ["feature"]),
         ]),
       ];
       await migrateCustomFieldValues(
         this.context,
         customFieldId,
         sectionsToMigrate as CustomFieldSection[],
-        existingField!.type,
-        customFieldUpdates.type!,
-        existingField!.values,
+        existingField.type,
+        customFieldUpdates.type ?? existingField.type,
+        existingField.values,
         customFieldUpdates.values,
       );
     }
 
     queueSDKPayloadRefresh({
       context: this.context,
-      payloadKeys: [],
-      sdkConnections: [],
+      payloadKeys: getEnvironmentIdsFromOrg(this.context.org).map((env) => ({
+        environment: env,
+        project: "",
+      })),
+      treatEmptyProjectAsGlobal: true,
       auditContext: {
         event: "updated",
         model: "custom-field",
@@ -321,8 +325,11 @@ export class CustomFieldModel extends BaseClass {
     if (updated) {
       queueSDKPayloadRefresh({
         context: this.context,
-        payloadKeys: [],
-        sdkConnections: [],
+        payloadKeys: getEnvironmentIdsFromOrg(this.context.org).map((env) => ({
+          environment: env,
+          project: "",
+        })),
+        treatEmptyProjectAsGlobal: true,
         auditContext: {
           event: "deleted",
           model: "custom-field",

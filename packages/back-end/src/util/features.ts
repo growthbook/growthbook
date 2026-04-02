@@ -1,7 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
-  FeatureRule as FeatureDefinitionRule,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
@@ -13,7 +12,12 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
-import { FeatureDefinition } from "shared/types/sdk";
+import {
+  ExperimentMetadata,
+  FeatureDefinition,
+  FeatureDefinitionRule,
+} from "shared/types/sdk";
+import { ProjectInterface } from "shared/types/project";
 import { HoldoutInterface } from "shared/validators";
 import {
   expandNestedSavedGroups,
@@ -33,6 +37,50 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+export type MetadataOptions = {
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
+};
+
+function buildExperimentRefMetadata(
+  exp: ExperimentInterface,
+  opts: MetadataOptions,
+  projectsMap: Map<string, ProjectInterface> | undefined,
+): ExperimentMetadata | undefined {
+  const metadata: ExperimentMetadata = {};
+
+  if (opts.includeProjectIdInMetadata && exp.project && projectsMap) {
+    const project = projectsMap.get(exp.project);
+    if (project) {
+      metadata.projects = [project.publicId ?? project.id];
+    }
+  }
+
+  if (
+    opts.includeCustomFieldsInMetadata &&
+    opts.allowedCustomFieldsInMetadata?.length &&
+    exp.customFields
+  ) {
+    const filtered: Record<string, unknown> = {};
+    for (const fieldId of opts.allowedCustomFieldsInMetadata) {
+      if (exp.customFields[fieldId] !== undefined) {
+        filtered[fieldId] = exp.customFields[fieldId];
+      }
+    }
+    if (Object.keys(filtered).length > 0) {
+      metadata.customFields = filtered;
+    }
+  }
+
+  if (opts.includeTagsInMetadata && exp.tags?.length) {
+    metadata.tags = exp.tags;
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
 
 function getSavedGroupCondition(
   groupId: string,
@@ -323,6 +371,8 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  metadataOptions,
+  projectsMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -341,6 +391,8 @@ export function getFeatureDefinition({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  metadataOptions?: MetadataOptions;
+  projectsMap?: Map<string, ProjectInterface>;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -565,6 +617,15 @@ export function getFeatureDefinition({
                 replaceSavedGroups(savedGroupsMap, organization!),
               );
           }
+          if (metadataOptions) {
+            const expMetadata = buildExperimentRefMetadata(
+              exp,
+              metadataOptions,
+              projectsMap,
+            );
+            if (expMetadata) rule.metadata = expMetadata;
+          }
+
           if (allowedKeys) {
             const picked = pick(
               rule,

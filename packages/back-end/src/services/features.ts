@@ -38,7 +38,12 @@ import {
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
-import { FeatureDefinition } from "shared/types/sdk";
+import {
+  AutoExperimentWithMetadata,
+  ExperimentMetadata,
+  FeatureDefinition,
+  FeatureMetadata,
+} from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
   ApiFeatureWithRevisions,
@@ -84,6 +89,7 @@ import {
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
+  MetadataOptions,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
@@ -165,49 +171,75 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      metadataOptions: {
+        includeProjectIdInMetadata,
+        includeCustomFieldsInMetadata,
+        allowedCustomFieldsInMetadata,
+        includeTagsInMetadata,
+      },
+      projectsMap,
     });
     if (def) {
-      // Add metadata if any fields are requested
-      const metadata: Record<string, unknown> = {};
-
-      // Project ID
-      if (includeProjectIdInMetadata && feature.project && projectsMap) {
-        const project = projectsMap.get(feature.project);
-        if (project) {
-          metadata.projects = [project.publicId || project.id];
-        }
-      }
-
-      // Custom fields (filtered by whitelist)
-      if (
-        includeCustomFieldsInMetadata &&
-        allowedCustomFieldsInMetadata?.length &&
-        feature.customFields
-      ) {
-        const filtered: Record<string, unknown> = {};
-        for (const fieldId of allowedCustomFieldsInMetadata) {
-          if (feature.customFields[fieldId] !== undefined) {
-            filtered[fieldId] = feature.customFields[fieldId];
-          }
-        }
-        if (Object.keys(filtered).length > 0) {
-          metadata.customFields = filtered;
-        }
-      }
-
-      // Tags (ALL tags if enabled - no filtering)
-      if (includeTagsInMetadata && feature.tags?.length) {
-        metadata.tags = feature.tags;
-      }
-
-      defs[feature.id] = {
-        ...def,
-        ...(Object.keys(metadata).length > 0 && { metadata }),
-      };
+      const metadata = buildPayloadMetadata<FeatureMetadata>(
+        {
+          project: feature.project,
+          customFields: feature.customFields,
+          tags: feature.tags,
+        },
+        {
+          includeProjectIdInMetadata,
+          includeCustomFieldsInMetadata,
+          allowedCustomFieldsInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
+      );
+      defs[feature.id] = metadata ? { ...def, metadata } : def;
     }
   });
 
   return defs;
+}
+
+function buildPayloadMetadata<T extends FeatureMetadata | ExperimentMetadata>(
+  entity: {
+    project?: string;
+    customFields?: Record<string, unknown>;
+    tags?: string[];
+  },
+  opts: MetadataOptions,
+  projectsMap: Map<string, ProjectInterface> | undefined,
+): T | undefined {
+  const metadata: T = {} as T;
+
+  if (opts.includeProjectIdInMetadata && entity.project && projectsMap) {
+    const project = projectsMap.get(entity.project);
+    if (project) {
+      metadata.projects = [project.publicId ?? project.id];
+    }
+  }
+
+  if (
+    opts.includeCustomFieldsInMetadata &&
+    opts.allowedCustomFieldsInMetadata?.length &&
+    entity.customFields
+  ) {
+    const filtered: Record<string, unknown> = {};
+    for (const fieldId of opts.allowedCustomFieldsInMetadata) {
+      if (entity.customFields[fieldId] !== undefined) {
+        filtered[fieldId] = entity.customFields[fieldId];
+      }
+    }
+    if (Object.keys(filtered).length > 0) {
+      metadata.customFields = filtered;
+    }
+  }
+
+  if (opts.includeTagsInMetadata && entity.tags?.length) {
+    metadata.tags = entity.tags;
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
 function buildHoldoutsMapForProjects(
@@ -317,11 +349,11 @@ export function generateAutoExperimentsPayload({
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeExperimentNames?: boolean;
-}): AutoExperiment[] {
+}): AutoExperimentWithMetadata[] {
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
   const isValidSDKExperiment = (
-    e: AutoExperiment | null,
-  ): e is AutoExperiment => !!e;
+    e: AutoExperimentWithMetadata | null,
+  ): e is AutoExperimentWithMetadata => !!e;
 
   const newVisualExperiments = reduceExperimentsWithPrerequisites(
     visualExperiments,
@@ -344,7 +376,7 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperiment | null> =
+  const sdkExperiments: Array<AutoExperimentWithMetadata | null> =
     sortedAutoExperiments.map((data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -391,7 +423,7 @@ export function generateAutoExperimentsPayload({
           ? data.urlRedirect.id
           : data.visualChangeset.id;
 
-      const exp: AutoExperiment = {
+      const exp: AutoExperimentWithMetadata = {
         key: e.trackingKey,
         changeId: sha256(
           `${e.trackingKey}_${data.type}_${implementationId}`,
@@ -467,43 +499,17 @@ export function generateAutoExperimentsPayload({
         exp.persistQueryString = true;
       }
 
-      // Add metadata if any fields are requested
-      const metadata: Record<string, unknown> = {};
-
-      // Project ID
-      if (includeProjectIdInMetadata && e.project && projectsMap) {
-        const project = projectsMap.get(e.project);
-        if (project) {
-          metadata.projects = [project.publicId || project.id];
-        }
-      }
-
-      // Custom fields (filtered by whitelist)
-      if (
-        includeCustomFieldsInMetadata &&
-        allowedCustomFieldsInMetadata?.length &&
-        e.customFields
-      ) {
-        const filtered: Record<string, unknown> = {};
-        for (const fieldId of allowedCustomFieldsInMetadata) {
-          if (e.customFields[fieldId] !== undefined) {
-            filtered[fieldId] = e.customFields[fieldId];
-          }
-        }
-        if (Object.keys(filtered).length > 0) {
-          metadata.customFields = filtered;
-        }
-      }
-
-      // Tags (ALL tags if enabled - no filtering)
-      if (includeTagsInMetadata && e.tags?.length) {
-        metadata.tags = e.tags;
-      }
-
-      if (Object.keys(metadata).length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (exp as any).metadata = metadata;
-      }
+      const metadata = buildPayloadMetadata<ExperimentMetadata>(
+        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          includeProjectIdInMetadata,
+          includeCustomFieldsInMetadata,
+          allowedCustomFieldsInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
+      );
+      if (metadata) exp.metadata = metadata;
 
       if (capabilities !== undefined && savedGroupsMap && organization) {
         if (
@@ -521,7 +527,7 @@ export function generateAutoExperimentsPayload({
         }
         const { removedExperimentKeys } = getPayloadAllowedKeys(capabilities);
         if (removedExperimentKeys.length) {
-          return omit(exp, removedExperimentKeys) as AutoExperiment;
+          return omit(exp, removedExperimentKeys) as AutoExperimentWithMetadata;
         }
       }
 
@@ -747,6 +753,11 @@ export async function refreshSDKPayloadCache({
   const sdkConnections = payloadKeys.length
     ? await findSDKConnectionsByOrganization(context)
     : sdkConnectionsToUpdate;
+
+  if (sdkConnections.some((c) => c.includeProjectIdInMetadata)) {
+    const allProjects = await context.models.projects.getAll();
+    rawData.projectsMap = new Map(allProjects.map((p) => [p.id, p]));
+  }
 
   const connectionsUpdated: SDKConnectionInterface[] = [];
   const promises: (() => Promise<void>)[] = [];
@@ -1027,6 +1038,8 @@ export type SDKPayloadRawData = {
   >;
   visualExperiments?: VisualExperiment[];
   urlRedirectExperiments?: URLRedirectExperiment[];
+  // Populated when any connection in the refresh has includeProjectIdInMetadata=true
+  projectsMap?: Map<string, ProjectInterface>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -1144,9 +1157,9 @@ export async function buildSDKPayloadForConnection(
     projectList,
   );
 
-  // Load projects map if metadata is requested
-  let projectsMap: Map<string, ProjectInterface> | undefined;
-  if (includeProjectIdInMetadata) {
+  // Load projects map if metadata is requested and not already provided in bulk data
+  let projectsMap: Map<string, ProjectInterface> | undefined = data.projectsMap;
+  if (includeProjectIdInMetadata && !projectsMap) {
     const allProjects = await context.models.projects.getAll();
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }

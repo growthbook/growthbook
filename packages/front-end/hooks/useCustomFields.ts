@@ -17,10 +17,6 @@ export function filterCustomFieldsForSectionAndProject(
   section: CustomFieldSection,
   project: string | undefined,
 ) {
-  // for the moment, an experiment is in none/all projects, project scoped custom fields will not be available to it.
-  // if (!project) {
-  //   return customFields;
-  // }
   const filteredCustomFields = customFields?.filter((v) =>
     v.sections?.includes(section),
   );

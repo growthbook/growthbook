@@ -273,6 +273,7 @@ export default function CustomFieldModal({
           minRows={1}
           maxRows={4}
           {...form.register("description")}
+          helpText="Shown as a tool tip to users entering this field value"
           containerClassName="mb-0"
         />
         <Box>
@@ -312,12 +313,6 @@ export default function CustomFieldModal({
             )}
           </Box>
         )}
-        <Field
-          label="Description"
-          {...form.register("description")}
-          helpText="Shown as a tool tip to users entering this field value"
-          containerClassName="mb-0"
-        />
         <Box>
           <SelectField
             label="Value type"

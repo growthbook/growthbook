@@ -6,6 +6,7 @@ import {
   projectValidator,
 } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -157,8 +158,11 @@ export class ProjectModel extends BaseClass {
     ) {
       queueSDKPayloadRefresh({
         context: this.context,
-        payloadKeys: [],
-        sdkConnections: [],
+        payloadKeys: getEnvironmentIdsFromOrg(this.context.org).map((env) => ({
+          environment: env,
+          project: "",
+        })),
+        treatEmptyProjectAsGlobal: true,
         auditContext: {
           event: "updated",
           model: "project",
