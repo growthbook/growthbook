@@ -1647,10 +1647,15 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
-  // Build a temporary revision shape for the review check (same logic as createRevision).
+  // Build a temporary revision shape for the review check. Merge rules per-environment
+  // so that sparse changes.rules doesn't wipe untouched environments to [].
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveRevision,
     ...(changes ?? {}),
+    rules: {
+      ...liveRevision.rules,
+      ...(changes?.rules ?? {}),
+    },
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,

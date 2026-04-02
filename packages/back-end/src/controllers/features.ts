@@ -1108,7 +1108,18 @@ export async function postFeaturePublish(
     ...liveRevisionFromFeature(live, feature),
   };
   const effectiveRevision = mergeResult.success
-    ? { ...filledLive, ...mergeResult.result }
+    ? {
+        ...filledLive,
+        ...mergeResult.result,
+        // Merge rules per-environment: mergeResult.result.rules is sparse
+        // (only changed envs). A top-level spread would replace filledLive.rules
+        // entirely, making untouched envs appear as [] and incorrectly triggering
+        // review requirements for environments the draft never touched.
+        rules: {
+          ...filledLive.rules,
+          ...(mergeResult.result.rules ?? {}),
+        },
+      }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
   const requiresReview = checkIfRevisionNeedsReview({
