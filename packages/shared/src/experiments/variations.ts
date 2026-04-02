@@ -44,18 +44,18 @@ export function getLatestPhaseVariations(
 
   let hasMissing = false;
   const foundVariations: VariationWithIndexAndStatus[] = [];
-  latestPhase.variations.forEach((v) => {
+  for (const v of latestPhase.variations) {
     const foundVariation = allVariations.find((allV) => allV.id === v.id);
     if (foundVariation === undefined) {
       hasMissing = true;
-      return;
+      break;
     }
     foundVariations.push({
       ...foundVariation,
       // Add status from phase variation, if present
       status: v.status,
     });
-  });
+  }
   // If any missing, fall back to all variations with status "active"
   if (hasMissing) {
     return defaultResponse;

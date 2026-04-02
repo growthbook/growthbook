@@ -3106,6 +3106,27 @@ function resolvePhaseVariationsForPayloadPhase({
   return existingPhaseVariations || experimentLevelVariationsForPhase;
 }
 
+/**
+ * Maps REST update payload fields `phases` and/or `variations` into experiment changes.
+ *
+ * **Validation (only when `phases` is present):** Each phase’s `condition` and every
+ * prerequisite’s `condition` are validated; invalid JSON/expressions throw with a clear error.
+ *
+ * **Top-level variations:** If the payload includes `variations`, merged entries get
+ * `screenshots: []` when omitted and a new `id` via `generateVariationId()` when omitted.
+ *
+ * **Phase-level `variations` (id + status envelope):**
+ * - With a `phases` payload: per phase index, keep the existing phase’s variation envelope
+ *   when the request does *not* send top-level `variations`; otherwise replace the envelope
+ *   with all top-level experiment variations and set every status to `"active"`. If the
+ *   existing phase had no envelope, fall back to that same active list from top-level variations.
+ * - With top-level `variations` but *no* `phases` payload: only the **last** phase’s envelope
+ *   is updated to match the new top-level order/ids; earlier phases are left unchanged
+ *   (historical phases keep their stored envelopes).
+ *
+ * **Weights:** When a phase in the payload omits `variationWeights`, weights default to
+ * equal splits across that phase’s resolved `variations` list.
+ */
 function resolveExperimentUpdateVariationsAndPhases(
   phases: UpdateExperimentApiPayload["phases"],
   variations: UpdateExperimentApiPayload["variations"],
@@ -3117,9 +3138,9 @@ function resolveExperimentUpdateVariationsAndPhases(
   const resolvedVariations: ExperimentInterface["variations"] | undefined =
     hasVariationPayload
       ? variations.map((v) => ({
+          ...v,
           id: v.id || generateVariationId(),
           screenshots: v.screenshots || [],
-          ...v,
         }))
       : undefined;
   const canonicalVariations = resolvedVariations ?? experiment.variations;
@@ -3325,8 +3346,6 @@ export function updateExperimentApiPayloadToInterface(
   const { settings } = getScopedSettings({
     organization,
   });
-
-  // Validate that phase variations are the same as the variations coming in via the request body
 
   // Clean up some vars for bandits, but only if safe to do so...
   // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:

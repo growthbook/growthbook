@@ -1383,9 +1383,9 @@ export function getExperimentDefinitionFromFeature(
       name = v.value === "true" ? "On" : "Off";
     }
     return {
-      id: generateVariationId(),
       name,
-      key: v.value,
+      key: i + "",
+      id: generateVariationId(),
       screenshots: [],
       description: v.value,
     };

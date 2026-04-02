@@ -95,11 +95,12 @@ export default function FeatureVariationsInput({
   const [editingIds, setEditingIds] = useState(
     startEditingIndexes || !idsMatchIndexes,
   );
-  console.log("editingIds", editingIds);
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
-  const renormalizeVariationKeysOnSort =
+  // editingIds already encodes the notion of having bespoke IDs, so if it is false
+  // it is probably safe to renormalize variation keys on sort
+  const forceRenormalizeVariationKeysOnSort =
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
 
   const setEqualWeights = () => {
@@ -108,7 +109,6 @@ export default function FeatureVariationsInput({
       setWeight(i, w);
     });
   };
-  console.log(setVariations);
 
   const label = _label
     ? _label
@@ -354,8 +354,9 @@ export default function FeatureVariationsInput({
               <tbody>
                 {variations && (
                   <SortableVariationsList
-                    valuesAsIds={
-                      idsMatchIndexes || renormalizeVariationKeysOnSort
+                    valuesAsIds={idsMatchIndexes}
+                    forceRenormalizeVariationKeysOnSort={
+                      forceRenormalizeVariationKeysOnSort
                     }
                     variations={variations}
                     setVariations={

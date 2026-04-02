@@ -353,10 +353,6 @@ const AnalysisForm: FC<{
             body.phases[phaseId].variationWeights = body.variations.map(
               () => 1 / (body?.variations?.length || 2),
             );
-            body.phases[phaseId].variations = body.variations.map((v) => ({
-              id: v.id || "",
-              status: "active" as const,
-            }));
           }
           const banditScheduleHours =
             (body.banditScheduleValue ?? 0) *

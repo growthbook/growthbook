@@ -94,7 +94,6 @@ export type FormVariation = {
   description?: string;
   screenshots: { path: string }[];
   weight: number;
-  status: "active";
 };
 
 const weekAgo = new Date();
@@ -399,7 +398,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       description: v.description,
       screenshots: v.screenshots,
       weight: watchedWeights[i] ?? 1 / (watchedExpVariations.length || 2),
-      status: "active" as const,
     }),
   );
 
