@@ -48,7 +48,13 @@ function actionColor(action: string): string {
   return "gray";
 }
 
-export function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
+export function RevisionLogRow({
+  log,
+  first,
+}: {
+  log: RevisionLog;
+  first: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { users } = useUser();
 

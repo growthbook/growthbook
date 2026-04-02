@@ -15,7 +15,6 @@ import {
   PiLockSimple,
   PiProhibit,
 } from "react-icons/pi";
-import Avatar from "@/components/Avatar/Avatar";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -38,6 +37,7 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import Avatar from "@/components/Avatar/Avatar";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -63,7 +63,6 @@ import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import {
@@ -814,12 +813,7 @@ export default function FeaturesOverview({
                 <Metadata
                   label="Revised by"
                   value={
-                    <Avatar
-                      email={cb.email}
-                      name={name}
-                      size={22}
-                      showEmail
-                    />
+                    <Avatar email={cb.email} name={name} size={22} showEmail />
                   }
                 />
               );
@@ -868,9 +862,7 @@ export default function FeaturesOverview({
               : null;
           const coAuthors = (revision.contributors ?? [])
             .filter((c): c is NonNullable<typeof c> => c != null)
-            .filter(
-              (c) => !(c.type === "dashboard" && c.id === createdById),
-            );
+            .filter((c) => !(c.type === "dashboard" && c.id === createdById));
           if (coAuthors.length === 0) return null;
           const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
           return (

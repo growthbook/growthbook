@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 // eslint-disable-next-line no-restricted-imports
 import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
-import Avatar from "@/components/Avatar/Avatar";
 import {
   PiArrowsLeftRightBold,
   PiCaretDownBold,
@@ -13,6 +12,7 @@ import {
 } from "react-icons/pi";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { datetime } from "shared/dates";
+import Avatar from "@/components/Avatar/Avatar";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   DropdownMenu,
@@ -47,9 +47,12 @@ function EntryUserAvatar({
   user: CoarsenedAuditEntry<unknown>["user"];
 }) {
   if (user.type === "system") return <span>System</span>;
-  if (user.type === "apikey") return <span className="badge badge-secondary">API Key</span>;
+  if (user.type === "apikey")
+    return <span className="badge badge-secondary">API Key</span>;
   if (!user.email) return <span>{user.name || "Unknown user"}</span>;
-  return <Avatar email={user.email} name={user.name ?? ""} size={22} showEmail />;
+  return (
+    <Avatar email={user.email} name={user.name ?? ""} size={22} showEmail />
+  );
 }
 
 function AuditEntryCompareLabel({
@@ -89,13 +92,12 @@ function AuditEntryCompareLabel({
             <EntryUserAvatar user={entryA.user} />
           </Box>
         )}
-        {entryA && (
-          <Text as="div">
-            {datetime(entryA.dateStart)}
-          </Text>
-        )}
+        {entryA && <Text as="div">{datetime(entryA.dateStart)}</Text>}
       </Flex>
-      <PiArrowsLeftRightBold size={16} style={{ flexShrink: 0, marginTop: 4 }} />
+      <PiArrowsLeftRightBold
+        size={16}
+        style={{ flexShrink: 0, marginTop: 4 }}
+      />
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryBFailed && (
@@ -112,11 +114,7 @@ function AuditEntryCompareLabel({
             <EntryUserAvatar user={entryB.user} />
           </Box>
         )}
-        {entryB && (
-          <Text as="div">
-            {datetime(entryB.dateStart)}
-          </Text>
-        )}
+        {entryB && <Text as="div">{datetime(entryB.dateStart)}</Text>}
       </Flex>
     </Flex>
   );
@@ -160,10 +158,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
                   />,
                 ],
                 ["Date", datetime(entry.dateStart)],
-                [
-                  "Author",
-                  <EntryUserAvatar key="author" user={entry.user} />,
-                ],
+                ["Author", <EntryUserAvatar key="author" user={entry.user} />],
                 ...(entry.count > 1
                   ? [["Merged events", String(entry.count)]]
                   : []),

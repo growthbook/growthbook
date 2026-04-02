@@ -55,7 +55,9 @@ const Avatar: FC<{
   if (!showEmail) return circle;
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4em" }}>
+    <span
+      style={{ display: "inline-flex", alignItems: "center", gap: "0.4em" }}
+    >
       {circle}
       {name && <span>{name}</span>}
       <span style={{ color: "var(--gray-9)" }}>
