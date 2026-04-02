@@ -626,7 +626,11 @@ export function getFeatureDefinition({
           }
           if (metadataOptions) {
             const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
-              { project: exp.project, customFields: exp.customFields, tags: exp.tags },
+              {
+                project: exp.project,
+                customFields: exp.customFields,
+                tags: exp.tags,
+              },
               metadataOptions,
               projectsMap,
             );

@@ -144,7 +144,11 @@ export function SortableCustomFieldRow(props: SortableProps) {
             usePortal
           >
             <PiWarningBold
-              style={{ color: "var(--red-9)", flexShrink: 0, marginRight: "0.25rem" }}
+              style={{
+                color: "var(--red-9)",
+                flexShrink: 0,
+                marginRight: "0.25rem",
+              }}
             />
           </Tooltip>
         )}
