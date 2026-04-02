@@ -323,9 +323,17 @@ export default function SDKConnectionForm({
         return;
       }
       form.setValue("remoteEvalEnabled", true);
-      form.setValue("encryptPayload", false);
-      form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", true);
+      if (
+        !(
+          form.watch("encryptPayload") ||
+          form.watch("hashSecureAttributes") ||
+          !form.watch("includeExperimentNames")
+        )
+      ) {
+        form.setValue("encryptPayload", false);
+        form.setValue("hashSecureAttributes", false);
+        form.setValue("includeExperimentNames", true);
+      }
     }
   }, [
     selectedSecurityTab,
