@@ -361,9 +361,10 @@ export const secretsReplacer = (
       for (const key of Object.keys(encodedSecrets)) {
         if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
           const escapedForRegex = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const escapedForReplacement = key.replace(/\$/g, "$$$$");
           processed = processed.replace(
             new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),
-            `{{[${key}]}}`,
+            `{{[${escapedForReplacement}]}}`,
           );
         }
       }
