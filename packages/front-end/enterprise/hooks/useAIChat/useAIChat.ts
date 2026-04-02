@@ -56,6 +56,7 @@ export function useAIChat({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
+  const [isRemoteStream, setIsRemoteStream] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const remotePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
@@ -117,6 +118,7 @@ export function useAIChat({
 
         if (data.isStreaming && isRecent) {
           setLoading(true);
+          setIsRemoteStream(true);
           const targetId = conversationId;
           remotePollTargetIdRef.current = targetId;
           remotePollIntervalRef.current = setInterval(async () => {
@@ -129,11 +131,13 @@ export function useAIChat({
               setMessages(poll.messages ?? []);
               if (!poll.isStreaming) {
                 clearRemotePoll();
+                setIsRemoteStream(false);
                 setLoading(false);
               }
             } catch {
               if (!cancelled && remotePollTargetIdRef.current === targetId) {
                 clearRemotePoll();
+                setIsRemoteStream(false);
                 setLoading(false);
               }
             }
@@ -283,6 +287,7 @@ export function useAIChat({
     setError(null);
     clearRemotePoll();
     setLoading(true);
+    setIsRemoteStream(false);
     setActive([]);
     setWaitingForNextStep(false);
 
@@ -404,6 +409,7 @@ export function useAIChat({
     setError(null);
     setLoading(false);
     setWaitingForNextStep(false);
+    setIsRemoteStream(false);
   }, [conversationStorageKey, clearRemotePoll, setActive]);
 
   // ---------------------------------------------------------------------------
@@ -423,6 +429,7 @@ export function useAIChat({
       setActive([]);
       setError(null);
       setWaitingForNextStep(false);
+      setIsRemoteStream(false);
       if (getConversationEndpoint) {
         setLoading(true);
       } else {
@@ -447,6 +454,7 @@ export function useAIChat({
     loadConversation,
     loading,
     waitingForNextStep,
+    isRemoteStream,
     error,
     input,
     setInput,

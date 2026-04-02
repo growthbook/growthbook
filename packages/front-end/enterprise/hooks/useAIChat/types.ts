@@ -80,6 +80,8 @@ export interface ConversationSummary {
   createdAt: number;
   messageCount: number;
   isStreaming: boolean;
+  /** Truncated text of the first user message, for sidebar preview. */
+  preview: string;
 }
 
 /** GET /chat/:id — messages plus whether the agent is still generating. */
@@ -98,6 +100,9 @@ export interface UseAIChatReturn {
   loadConversation: (id: string) => Promise<void>;
   loading: boolean;
   waitingForNextStep: boolean;
+  /** True when following a stream via polling (navigated away and back) rather
+   *  than a live SSE connection on this tab. */
+  isRemoteStream: boolean;
   error: string | null;
   input: string;
   setInput: (value: string) => void;

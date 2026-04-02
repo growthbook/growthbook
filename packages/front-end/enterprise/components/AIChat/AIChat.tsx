@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useMemo } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { PiPaperPlaneRight, PiCheckCircle } from "react-icons/pi";
@@ -51,6 +51,7 @@ export default function AIChat({
   placeholder = "Ask a question...",
   emptyStateMessage = "Ask a question and I'll help you find answers.",
   getConversationsListEndpoint,
+  onSSEEvent: callerOnSSEEvent,
   ...hookOptions
 }: AIChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -64,6 +65,22 @@ export default function AIChat({
   const { aiEnabled } = useAISettings();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
+  const { data: listData, mutate: refreshList } = useApi<{
+    conversations: ConversationSummary[];
+  }>(getConversationsListEndpoint ?? "", {
+    shouldRun: () => !!getConversationsListEndpoint,
+  });
+
+  const handleSSEEvent = useCallback(
+    (event: Parameters<NonNullable<UseAIChatOptions["onSSEEvent"]>>[0]) => {
+      if (event.type === "conversation-title") {
+        void refreshList();
+      }
+      callerOnSSEEvent?.(event);
+    },
+    [refreshList, callerOnSSEEvent],
+  );
+
   const {
     messages,
     activeTurnItems,
@@ -73,17 +90,12 @@ export default function AIChat({
     loadConversation,
     loading,
     waitingForNextStep,
+    isRemoteStream,
     error,
     input,
     setInput,
     conversationId,
-  } = useAIChat(hookOptions);
-
-  const { data: listData, mutate: refreshList } = useApi<{
-    conversations: ConversationSummary[];
-  }>(getConversationsListEndpoint ?? "", {
-    shouldRun: () => !!getConversationsListEndpoint,
-  });
+  } = useAIChat({ ...hookOptions, onSSEEvent: handleSSEEvent });
 
   useChatListBackgroundPoll(
     listData?.conversations,
@@ -121,6 +133,28 @@ export default function AIChat({
     newChat();
     refreshList();
   }, [newChat, refreshList]);
+
+  const conversations = useMemo(() => {
+    const list = listData?.conversations ?? [];
+    const isInList = list.some((c) => c.conversationId === conversationId);
+    if (!isInList && messages.length > 0) {
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      const preview =
+        typeof firstUserMsg?.content === "string" ? firstUserMsg.content : "";
+      return [
+        {
+          conversationId,
+          title: "New Chat",
+          createdAt: Date.now(),
+          messageCount: messages.length,
+          isStreaming: loading,
+          preview,
+        },
+        ...list,
+      ];
+    }
+    return list;
+  }, [listData?.conversations, conversationId, messages, loading]);
 
   const renderActiveTurnItem = (item: ActiveTurnItem) => {
     if (item.kind === "text") {
@@ -247,7 +281,6 @@ export default function AIChat({
   }
 
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
-  const conversations = listData?.conversations ?? [];
 
   const chatPanel = (
     <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
@@ -308,10 +341,12 @@ export default function AIChat({
         ]}
 
         {loading && activeTurnItems.length === 0 && (
-          <ThinkingBubble label="Thinking..." />
+          <ThinkingBubble
+            label={isRemoteStream ? "Still generating..." : "Thinking..."}
+          />
         )}
 
-        {loading && waitingForNextStep && (
+        {loading && !isRemoteStream && waitingForNextStep && (
           <ThinkingBubble label="Planning next step..." />
         )}
 

@@ -118,6 +118,8 @@ export interface ConversationSummary {
   createdAt: number;
   messageCount: number;
   isStreaming: boolean;
+  /** Truncated text of the first user message, for sidebar preview. */
+  preview: string;
 }
 
 /**
@@ -167,15 +169,26 @@ export function listConversations(
   for (const [conversationId, entry] of store.entries()) {
     if (entry.userId !== userId || entry.orgId !== orgId) continue;
     if (entry.messages.length === 0) continue;
+    const firstUserMsg = entry.messages.find((m) => m.role === "user");
+    const preview =
+      typeof firstUserMsg?.content === "string" ? firstUserMsg.content : "";
     results.push({
       conversationId,
       title: entry.title,
       createdAt: entry.createdAt,
       messageCount: entry.messages.length,
       isStreaming: entry.isStreaming,
+      preview,
     });
   }
   return results.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function updateTitle(conversationId: string, title: string): void {
+  const entry = store.get(conversationId);
+  if (entry) {
+    entry.title = title;
+  }
 }
 
 function cleanup(): void {

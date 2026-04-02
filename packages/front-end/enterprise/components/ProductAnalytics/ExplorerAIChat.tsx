@@ -1,4 +1,10 @@
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  useMemo,
+} from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
@@ -220,6 +226,7 @@ export default function ExplorerAIChat() {
     loadConversation,
     loading,
     waitingForNextStep,
+    isRemoteStream,
     error,
     input,
     setInput,
@@ -236,6 +243,11 @@ export default function ExplorerAIChat() {
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     onStreamAccepted: () => {
       void refreshList();
+    },
+    onSSEEvent: (event) => {
+      if (event.type === "conversation-title") {
+        void refreshList();
+      }
     },
   });
 
@@ -257,6 +269,28 @@ export default function ExplorerAIChat() {
     newChat();
     refreshList();
   }, [newChat, refreshList]);
+
+  const conversations = useMemo(() => {
+    const list = listData?.conversations ?? [];
+    const isInList = list.some((c) => c.conversationId === conversationId);
+    if (!isInList && messages.length > 0) {
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      const preview =
+        typeof firstUserMsg?.content === "string" ? firstUserMsg.content : "";
+      return [
+        {
+          conversationId,
+          title: "New Chat",
+          createdAt: Date.now(),
+          messageCount: messages.length,
+          isStreaming: loading,
+          preview,
+        },
+        ...list,
+      ];
+    }
+    return list;
+  }, [listData?.conversations, conversationId, messages, loading]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -492,7 +526,6 @@ export default function ExplorerAIChat() {
   }
 
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
-  const conversations = listData?.conversations ?? [];
 
   const messageBlocks = groupIntoBlocks(messages);
   const lastBlockIsAssistant =
@@ -615,10 +648,12 @@ export default function ExplorerAIChat() {
           {activeTurnItems.map(renderActiveTurnItem)}
 
           {loading && activeTurnItems.length === 0 && (
-            <ThinkingBubble label="Thinking..." />
+            <ThinkingBubble
+              label={isRemoteStream ? "Still generating..." : "Thinking..."}
+            />
           )}
 
-          {loading && waitingForNextStep && (
+          {loading && !isRemoteStream && waitingForNextStep && (
             <ThinkingBubble label="Planning next step..." />
           )}
 

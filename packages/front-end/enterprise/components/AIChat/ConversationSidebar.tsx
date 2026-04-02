@@ -201,6 +201,22 @@ export default function ConversationSidebar({
                     <Text size="small" weight="semibold" color="text-high">
                       {conv.title || "Untitled"}
                     </Text>
+                    {conv.preview ? (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "var(--gray-a11)",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          lineHeight: 1.4,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {conv.preview}
+                      </span>
+                    ) : null}
                     <Box
                       as="span"
                       style={{

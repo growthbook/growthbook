@@ -18,6 +18,7 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   streamingChatCompletion,
+  simpleCompletion,
   secondsUntilAICanBeUsedAgain,
 } from "back-end/src/enterprise/services/ai";
 import {
@@ -26,6 +27,7 @@ import {
   setStreaming,
   touchStreamedAt,
   initConversation,
+  updateTitle,
 } from "back-end/src/enterprise/services/conversation-store";
 import { stripForLLM } from "back-end/src/enterprise/services/ai-chat-for-llm";
 import { logger } from "back-end/src/util/logger";
@@ -140,16 +142,47 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     const params = config.parseParams(body);
     const { system, orgAdditionalPrompt, overrideModel } =
       await buildSystemPromptForRequest(context, config, params);
-    const messagesForLLM = prepareConversationMessages(
-      conversationId,
-      context,
-      message,
-    );
+    const { messages: messagesForLLM, isFirstMessage } =
+      prepareConversationMessages(conversationId, context, message);
     setSseHeaders(res);
     const emit = createEmit(flushableRes, conversationId);
     const tools = config.buildTools(context, conversationId, params, emit);
 
     setStreaming(conversationId, true);
+
+    // Fire title generation immediately from the user's message so it runs
+    // concurrently with the main stream and resolves as early as possible.
+    const titlePromise: Promise<void> = isFirstMessage
+      ? (async () => {
+          try {
+            const raw = await simpleCompletion({
+              context,
+              instructions:
+                "You are a title generator. Respond with ONLY a 3-6 word title for the user's data analytics request. Output nothing else — no explanation, no punctuation wrapping, no markdown.",
+              prompt: message,
+              temperature: 0.3,
+              type: config.promptType,
+              isDefaultPrompt: true,
+            });
+            // Take only the first non-empty line in case the model adds extra text
+            const firstLine =
+              raw
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .find((l) => l.length > 0) ?? "";
+            const trimmedTitle = firstLine
+              .replace(/^["'`#*_\s]+|["'`#*_\s]+$/g, "")
+              .slice(0, 100);
+            if (trimmedTitle) {
+              updateTitle(conversationId, trimmedTitle);
+              emit("conversation-title", { title: trimmedTitle });
+            }
+          } catch {
+            // Title generation is non-critical; leave "New Chat"
+          }
+        })()
+      : Promise.resolve();
+
     try {
       const stream = await streamingChatCompletion({
         context,
@@ -173,6 +206,10 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       } catch {
         // ignore
       }
+
+      // Ensure title is emitted before the connection closes, even if the
+      // main stream finished faster than the title generation.
+      await titlePromise;
     } finally {
       try {
         config.onCleanup?.(conversationId);
@@ -258,15 +295,16 @@ function prepareConversationMessages(
   conversationId: string,
   context: ReqContext,
   message: string,
-): ReturnType<typeof stripForLLM> {
+): { messages: ReturnType<typeof stripForLLM>; isFirstMessage: boolean } {
   const history = getConversation(conversationId);
+  const isFirstMessage = history.length === 0;
 
-  if (history.length === 0) {
+  if (isFirstMessage) {
     initConversation(
       conversationId,
       context.userId,
       context.org.id,
-      message.slice(0, 80),
+      "New Chat",
     );
   }
 
@@ -277,7 +315,7 @@ function prepareConversationMessages(
     ts: Date.now(),
   };
   appendMessages(conversationId, [userMessage]);
-  return stripForLLM(getConversation(conversationId));
+  return { messages: stripForLLM(getConversation(conversationId)), isFirstMessage };
 }
 
 // =============================================================================
@@ -502,6 +540,20 @@ class StreamProcessor {
       toolCallId,
       ...(toolName ? { toolName } : {}),
       message,
+    });
+
+    // Persist the error as a tool result so the LLM sees it on the next turn.
+    // Without this the conversation has an orphaned tool call with no matching
+    // result, causing "No tool output found for function call" on subsequent
+    // requests — and the model never learns what went wrong.
+    if (this.pendingToolResults.length === 0 && this.assistantParts.length > 0) {
+      this.flushAssistantMessage();
+    }
+    this.pendingToolResults.push({
+      type: "tool-result",
+      toolCallId,
+      toolName: toolName ?? "",
+      result: message,
     });
   }
 
