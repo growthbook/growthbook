@@ -70,7 +70,7 @@ export type RequireReview = {
   projects: string[];
   featureRequireEnvironmentReview?: boolean;
   featureRequireMetadataReview?: boolean;
-  /** When true, a user who contributed to (or created) this draft cannot approve it. */
+  // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
 };
 
