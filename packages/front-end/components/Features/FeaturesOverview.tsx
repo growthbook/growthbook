@@ -493,7 +493,19 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
-      effectiveRevision = { ...filledLive, ...mergeResult.result };
+      effectiveRevision = {
+        ...filledLive,
+        ...mergeResult.result,
+        // Merge rules per-environment so that environments absent from the
+        // sparse mergeResult.result (e.g. production when only dev/staging
+        // changed) inherit their live rules rather than defaulting to [].
+        // Without this, getDraftAffectedEnvironments incorrectly detects a
+        // diff in untouched environments and over-triggers review requirements.
+        rules: {
+          ...filledLive.rules,
+          ...(mergeResult.result.rules ?? {}),
+        },
+      };
       effectiveBase = filledLive;
     }
 
