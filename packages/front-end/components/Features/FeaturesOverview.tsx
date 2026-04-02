@@ -10,10 +10,12 @@ import {
   PiArrowsLeftRightBold,
   PiPencilSimpleFill,
   PiCaretRightBold,
+  PiCaretRightFill,
   PiPencil,
   PiLockSimple,
   PiProhibit,
 } from "react-icons/pi";
+import Avatar from "@/components/Avatar/Avatar";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -260,6 +262,7 @@ export default function FeaturesOverview({
 
   const [editCommentModel, setEditCommentModal] = useState(false);
   const [commentExpanded, setCommentExpanded] = useState(false);
+  const [coAuthorsOpen, setCoAuthorsOpen] = useState(false);
   useEffect(() => {
     setCommentExpanded(false);
   }, [revision?.version]);
@@ -802,23 +805,21 @@ export default function FeaturesOverview({
   const renderRevisionInfo = () => {
     return (
       <Flex direction="column" gap="1">
-        <Flex align="center" gap="4" wrap="wrap">
+        <Flex align="center" justify="between" gap="4" wrap="wrap">
           {(() => {
             const cb = revision.createdBy;
             if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id);
+              const name = getOwnerDisplay(cb.id) ?? cb.name ?? "";
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    name ? (
-                      <span>
-                        <UserAvatar name={name} size="sm" variant="soft" />{" "}
-                        {name}
-                      </span>
-                    ) : (
-                      <em className="text-muted">Unknown</em>
-                    )
+                    <Avatar
+                      email={cb.email}
+                      name={name}
+                      size={22}
+                      showEmail
+                    />
                   }
                 />
               );
@@ -847,17 +848,70 @@ export default function FeaturesOverview({
             }
             return null;
           })()}
-          <Metadata label="Created" value={datetime(revision.dateCreated)} />
-          {revision.status === "published" && revision.datePublished && (
-            <Metadata
-              label="Published"
-              value={datetime(revision.datePublished)}
-            />
-          )}
-          {revision.status === "draft" && (
-            <Metadata label="Last update" value={ago(revision.dateUpdated)} />
-          )}
+          <Flex align="center" gap="4" wrap="wrap">
+            <Metadata label="Created" value={datetime(revision.dateCreated)} />
+            {revision.status === "published" && revision.datePublished && (
+              <Metadata
+                label="Published"
+                value={datetime(revision.datePublished)}
+              />
+            )}
+            {revision.status === "draft" && (
+              <Metadata label="Last update" value={ago(revision.dateUpdated)} />
+            )}
+          </Flex>
         </Flex>
+        {(() => {
+          const createdById =
+            revision.createdBy?.type === "dashboard"
+              ? revision.createdBy.id
+              : null;
+          const coAuthors = (revision.contributors ?? [])
+            .filter((c): c is NonNullable<typeof c> => c != null)
+            .filter(
+              (c) => !(c.type === "dashboard" && c.id === createdById),
+            );
+          if (coAuthors.length === 0) return null;
+          const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
+          return (
+            <Box mb="2">
+              <div
+                className="link-purple"
+                style={{ cursor: "pointer", userSelect: "none" }}
+                onClick={() => setCoAuthorsOpen((o) => !o)}
+              >
+                <PiCaretRightFill
+                  style={{
+                    display: "inline",
+                    marginRight: 4,
+                    transition: "transform 0.15s ease",
+                    transform: coAuthorsOpen ? "rotate(90deg)" : "none",
+                  }}
+                />
+                {label}
+              </div>
+              {coAuthorsOpen && (
+                <Flex direction="column" gap="2" mt="2" ml="3">
+                  {coAuthors.map((c, i) =>
+                    c.type === "dashboard" ? (
+                      <Avatar
+                        key={c.id}
+                        email={c.email}
+                        name={c.name ?? ""}
+                        size={22}
+                        showEmail
+                      />
+                    ) : c.type === "api_key" ? (
+                      <span key={i} className="badge badge-secondary">
+                        API Key
+                      </span>
+                    ) : null,
+                  )}
+                </Flex>
+              )}
+            </Box>
+          );
+        })()}
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <span
             className={metaDataStyles.labelColor}

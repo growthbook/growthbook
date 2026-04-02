@@ -642,11 +642,15 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors: append the editing user to the existing list.
-  // Plain array append (no DB-specific operators) for interoperability.
-  const updatedContributors = log.user
-    ? [...(revision.contributors ?? []), log.user]
-    : revision.contributors ?? [];
+  // Track contributors: append the editing user only if not already present.
+  // Deduplicates on write so the array stays minimal.
+  const existing = revision.contributors ?? [];
+  const logUserId = log.user?.type === "dashboard" ? log.user.id : null;
+  const alreadyPresent =
+    logUserId !== null &&
+    existing.some((c) => c?.type === "dashboard" && c.id === logUserId);
+  const updatedContributors =
+    log.user && !alreadyPresent ? [...existing, log.user] : existing;
 
   await FeatureRevisionModel.updateOne(
     {
