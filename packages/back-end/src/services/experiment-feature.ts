@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import {
   getMatchingRules,
   MatchingRule,
@@ -207,12 +208,12 @@ export async function validateExperimentFeatureUpdates({
         `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
       );
 
-    const firstRule = matchingRules[0].rule as ExperimentRefRule;
-    const baselineVariations = JSON.stringify(firstRule.variations);
+    const baselineVariations = (matchingRules[0].rule as ExperimentRefRule)
+      .variations;
 
     for (let i = 1; i < matchingRules.length; i++) {
       const rule = matchingRules[i].rule as ExperimentRefRule;
-      if (JSON.stringify(rule.variations) !== baselineVariations) {
+      if (!isEqual(rule.variations, baselineVariations)) {
         throw new Error(
           `Feature ${feature.id}: variation values must be identical across all environments to edit feature values on an experiment.`,
         );
@@ -222,10 +223,7 @@ export async function validateExperimentFeatureUpdates({
     const updatedVariationValues = entry.variations;
     const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
       if (m.rule.type !== "experiment-ref") return false;
-      return (
-        JSON.stringify(m.rule.variations) !==
-        JSON.stringify(updatedVariationValues)
-      );
+      return !isEqual(m.rule.variations, updatedVariationValues);
     });
 
     if (!featureNeedsUpdate) continue;

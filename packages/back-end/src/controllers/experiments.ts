@@ -38,6 +38,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
+import isEqual from "lodash/isEqual";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -3741,12 +3742,11 @@ export async function postExperimentFeatureValues(
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
 
-  const variationsChanged =
-    JSON.stringify(variations) !== JSON.stringify(experiment.variations);
-
-  const variationWeightsChanged =
-    JSON.stringify(variationWeights) !==
-    JSON.stringify(latestPhase.variationWeights);
+  const variationsChanged = !isEqual(variations, experiment.variations);
+  const variationWeightsChanged = !isEqual(
+    variationWeights,
+    latestPhase.variationWeights,
+  );
 
   const changes: Changeset = {};
 
