@@ -29,7 +29,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent-9);
+  background: var(--accent-12);
   animation: gb-ai-sidebar-pulse 1.2s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -60,5 +60,12 @@
 
   &:disabled {
     opacity: 0.6;
+  }
+}
+
+.userBubble {
+  ::selection {
+    background: rgba(255, 255, 255, 0.35);
+    color: #fff;
   }
 }

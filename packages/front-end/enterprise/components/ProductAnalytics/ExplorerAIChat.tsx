@@ -191,6 +191,9 @@ function ChartBubble({
 
 export default function ExplorerAIChat() {
   const prevLoadingRef = useRef(false);
+  /** Persists the open/closed state of each ToolTransparencyBlock across the
+   *  activeTurnItems → messages remount that happens at turn end. */
+  const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
@@ -307,6 +310,8 @@ export default function ExplorerAIChat() {
                 toolInput={item.toolInput}
                 argsTextPreview={item.argsTextPreview}
                 toolOutput={item.toolOutput}
+                toolCallId={item.toolCallId}
+                openStateRef={toolDetailsOpenRef}
               />
             }
           />
@@ -325,6 +330,8 @@ export default function ExplorerAIChat() {
             toolInput={item.toolInput}
             argsTextPreview={item.argsTextPreview}
             toolOutput={item.toolOutput}
+            toolCallId={item.toolCallId}
+            openStateRef={toolDetailsOpenRef}
           />
         </AssistantBubble>
       );
@@ -423,6 +430,8 @@ export default function ExplorerAIChat() {
                     summaryLabel="Query & tool response"
                     toolInput={pairedCall?.args}
                     toolOutput={part.result}
+                    toolCallId={part.toolCallId}
+                    openStateRef={toolDetailsOpenRef}
                   />
                 }
               />
@@ -442,6 +451,8 @@ export default function ExplorerAIChat() {
             <ToolTransparencyBlock
               toolInput={pairedCall?.args}
               toolOutput={part.result}
+              toolCallId={part.toolCallId}
+              openStateRef={toolDetailsOpenRef}
             />
           </AssistantBubble>
         );
@@ -477,6 +488,11 @@ export default function ExplorerAIChat() {
 
   const hasAnyContent = messages.length > 0 || activeTurnItems.length > 0;
   const conversations = listData?.conversations ?? [];
+
+  const messageBlocks = groupIntoBlocks(messages);
+  const lastBlockIsAssistant =
+    messageBlocks.length > 0 &&
+    messageBlocks[messageBlocks.length - 1].type === "assistant";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -557,7 +573,7 @@ export default function ExplorerAIChat() {
             </Flex>
           )}
 
-          {groupIntoBlocks(messages).flatMap((block, blockIdx) => {
+          {messageBlocks.flatMap((block, blockIdx) => {
             const renderedMsgs = block.msgs.flatMap((m) => {
               const result = renderMessage(m);
               if (Array.isArray(result)) return result;
@@ -573,7 +589,8 @@ export default function ExplorerAIChat() {
           })}
 
           {(activeTurnItems.length > 0 ||
-            (loading && activeTurnItems.length === 0)) && <AIAnalystLabel />}
+            (loading && activeTurnItems.length === 0)) &&
+            !lastBlockIsAssistant && <AIAnalystLabel />}
 
           {activeTurnItems.map(renderActiveTurnItem)}
 

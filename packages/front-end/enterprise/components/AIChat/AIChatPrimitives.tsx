@@ -62,7 +62,11 @@ interface UserBubbleProps {
 }
 
 export function UserBubble({ children }: UserBubbleProps) {
-  return <Box style={USER_BUBBLE_STYLE}>{children}</Box>;
+  return (
+    <Box style={USER_BUBBLE_STYLE} className={aiChatStyles.userBubble}>
+      {children}
+    </Box>
+  );
 }
 
 interface ErrorBubbleProps {

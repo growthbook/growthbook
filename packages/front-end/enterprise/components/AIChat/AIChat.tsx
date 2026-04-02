@@ -56,6 +56,9 @@ export default function AIChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const prevLoadingRef = useRef(false);
+  /** Persists the open/closed state of each ToolTransparencyBlock across the
+   *  activeTurnItems → messages remount that happens at turn end. */
+  const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
@@ -143,6 +146,8 @@ export default function AIChat({
             toolInput={item.toolInput}
             argsTextPreview={item.argsTextPreview}
             toolOutput={item.toolOutput}
+            toolCallId={item.toolCallId}
+            openStateRef={toolDetailsOpenRef}
           />
         </AssistantBubble>
       );
@@ -210,6 +215,8 @@ export default function AIChat({
             <ToolTransparencyBlock
               toolInput={pairedCall?.args}
               toolOutput={part.result}
+              toolCallId={part.toolCallId}
+              openStateRef={toolDetailsOpenRef}
             />
           </AssistantBubble>
         );
