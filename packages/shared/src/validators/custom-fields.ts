@@ -62,6 +62,7 @@ export const createCustomFieldsValidator = customFieldsPropsValidator.omit({
 
 export const updateCustomFieldsValidator = customFieldsPropsValidator.omit({
   id: true,
+  type: true,
   dateCreated: true,
   dateUpdated: true,
 });
@@ -115,5 +116,5 @@ export const apiCreateCustomFieldBody = z.strictObject({
 });
 
 export const apiUpdateCustomFieldBody = apiCreateCustomFieldBody
-  .omit({ id: true })
+  .omit({ id: true, type: true })
   .partial();

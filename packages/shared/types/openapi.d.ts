@@ -16687,11 +16687,6 @@ export interface operations {
           description?: string;
           placeholder?: string;
           defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
           values?: string;
           required?: boolean;
           projects?: (string)[];

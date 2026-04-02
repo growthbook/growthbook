@@ -125,7 +125,7 @@ const CustomFieldInput: FC<{
   return (
     <Flex direction="column" gap="6" my="2" className={className}>
       {!availableFields?.length ? (
-        <Text align="center" color="gray">
+        <Text align="center" color="text-low">
           No fields available for this experiment or project
         </Text>
       ) : (
@@ -249,7 +249,7 @@ const CustomFieldInput: FC<{
                       (!v.required && normalizedCustomFields?.[v.id])) && (
                       <Flex justify="between" align="start" mt="1">
                         {v.description ? (
-                          <Text size="1" color="gray">
+                          <Text size="small" color="text-low">
                             {v.description}
                           </Text>
                         ) : (

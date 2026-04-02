@@ -7,10 +7,7 @@ import {
 import { ALL_SECTIONS } from "shared/validators";
 import React, { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  getCustomFieldChangeWarning,
-  getCustomFieldProjectChangeWarning,
-} from "shared/util";
+import { getCustomFieldProjectChangeWarning } from "shared/util";
 import { generateTrackingKey } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -73,26 +70,13 @@ export default function CustomFieldModal({
   // Auto-link name to id for new custom fields
   const [linkNameWithKey, setLinkNameWithKey] = useState(!existing.id);
 
-  // Calculate warning messages for destructive changes
+  const isEditing = !!existing.id;
   const currentType = form.watch("type");
   const currentValues = form.watch("values");
   const currentProjects = form.watch("projects");
 
-  const typeWarning = useMemo(() => {
-    if (!existing.id) return null; // Only show for edits
-    if (existing.type === currentType) return null; // Only for type changes
-
-    return getCustomFieldChangeWarning(
-      existing.type || "text",
-      currentType,
-      existing.values,
-      currentValues,
-    );
-  }, [existing.id, existing.type, existing.values, currentType, currentValues]);
-
   const valueWarning = useMemo(() => {
-    if (!existing.id) return null; // Only show for edits
-    if (existing.type !== currentType) return null; // Only for same type
+    if (!existing.id) return null;
     if (currentType !== "enum" && currentType !== "multiselect") return null;
     if (!existing.values || !currentValues) return null;
     if (existing.values === currentValues) return null;
@@ -107,7 +91,7 @@ export default function CustomFieldModal({
       return `Removing options may result in data loss. Existing values that are no longer in the options list will be removed.`;
     }
     return null;
-  }, [existing.id, existing.type, existing.values, currentType, currentValues]);
+  }, [existing.id, existing.values, currentType, currentValues]);
 
   const projectWarning = useMemo(() => {
     if (!existing.id) return null; // Only show for edits
@@ -322,13 +306,14 @@ export default function CustomFieldModal({
             onChange={(v: CustomFieldTypes) => {
               form.setValue("type", v);
             }}
+            disabled={isEditing}
+            helpText={
+              isEditing
+                ? "Field type cannot be changed after creation."
+                : undefined
+            }
             containerClassName="mb-0"
           />
-          {typeWarning && (
-            <Callout status="warning" mt="2">
-              {typeWarning}
-            </Callout>
-          )}
         </Box>
         {(form.watch("type") === "enum" ||
           form.watch("type") === "multiselect") && (

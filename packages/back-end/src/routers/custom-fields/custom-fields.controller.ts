@@ -2,7 +2,6 @@ import type { Response } from "express";
 import {
   CustomFieldSection,
   CustomFieldsInterface,
-  CustomFieldTypes,
   CreateCustomFieldProps,
 } from "shared/types/custom-fields";
 import { ALL_SECTIONS } from "shared/validators";
@@ -175,7 +174,6 @@ type PutCustomFieldRequest = AuthRequest<
     description: string;
     placeholder: string;
     defaultValue?: boolean | string;
-    type: CustomFieldTypes;
     values?: string;
     required: boolean;
     projects?: string[];
@@ -205,7 +203,6 @@ export const putCustomField = async (
     description,
     placeholder,
     defaultValue,
-    type,
     values,
     required,
     projects,
@@ -233,7 +230,6 @@ export const putCustomField = async (
       description,
       placeholder,
       defaultValue,
-      type,
       values,
       required,
       projects,

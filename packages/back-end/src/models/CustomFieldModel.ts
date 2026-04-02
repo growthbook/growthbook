@@ -1,7 +1,6 @@
 import { omit } from "lodash";
 import { z } from "zod";
 import {
-  ALL_SECTIONS,
   customFieldsPropsValidator,
   customFieldsValidator,
   customFieldSectionValues,
@@ -14,7 +13,6 @@ import { ApiRequest } from "back-end/src/util/handler";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { migrateCustomFieldValues } from "back-end/src/services/customFieldMigration";
 import {
   customFieldApiSpec,
   listCustomFieldsEndpoint,
@@ -212,19 +210,9 @@ export class CustomFieldModel extends BaseClass {
     customFieldUpdates: Partial<CustomField>,
   ) {
     const existing = await this.getCustomFields();
-    if (!existing) {
-      return null;
-    }
-    const existingField = existing.fields.find((f) => f.id === customFieldId);
-    const typeChanged =
-      customFieldUpdates.type !== undefined &&
-      existingField &&
-      existingField.type !== customFieldUpdates.type;
-    const valuesChanged =
-      existingField &&
-      (existingField.type === "enum" || existingField.type === "multiselect") &&
-      customFieldUpdates.values !== undefined &&
-      existingField.values !== customFieldUpdates.values;
+    if (!existing) return null;
+
+    if (!existing.fields.some((f) => f.id === customFieldId)) return null;
 
     const newFields = existing.fields.map((field) => {
       if (field.id === customFieldId) {
@@ -242,24 +230,6 @@ export class CustomFieldModel extends BaseClass {
     });
     const updated = await this.update(existing, { fields: newFields });
     if (!updated) return null;
-
-    if ((typeChanged || valuesChanged) && existingField) {
-      const sectionsToMigrate = [
-        ...new Set([
-          ...(existingField.sections ?? []),
-          ...(customFieldUpdates.sections ??
-            existingField.sections ?? [...ALL_SECTIONS]),
-        ]),
-      ];
-      await migrateCustomFieldValues(
-        this.context,
-        customFieldId,
-        sectionsToMigrate as CustomFieldSection[],
-        existingField.type,
-        customFieldUpdates.type ?? existingField.type,
-        customFieldUpdates.values,
-      );
-    }
 
     queueSDKPayloadRefresh({
       context: this.context,
