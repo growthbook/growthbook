@@ -64,6 +64,7 @@ import {
 import {
   Environment,
   OrganizationInterface,
+  Namespaces,
   SDKAttribute,
   SDKAttributeSchema,
 } from "shared/types/organization";
@@ -80,6 +81,7 @@ import {
   getAllVisualExperiments,
 } from "back-end/src/models/ExperimentModel";
 import {
+  applyNamespaceToPayload,
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
@@ -382,16 +384,6 @@ export function generateAutoExperimentsPayload({
             ? { key: v.key, name: v.name }
             : { key: v.key },
         ),
-        filters: phase?.namespace?.enabled
-          ? [
-              {
-                attribute: e.hashAttribute,
-                seed: phase.namespace.name,
-                hashVersion: 2,
-                ranges: [phase.namespace.range],
-              },
-            ]
-          : [],
         seed: phase.seed,
         ...(includeExperimentNames === true ? { name: e.name } : {}),
         phase: `${e.phases.length - 1}`,
@@ -401,6 +393,15 @@ export function generateAutoExperimentsPayload({
         condition,
         coverage: phase.coverage,
       };
+
+      // Handle namespace
+      if (phase?.namespace?.enabled && phase.namespace.name) {
+        applyNamespaceToPayload(
+          exp,
+          phase.namespace,
+          namespacesToMap(organization?.settings?.namespaces),
+        );
+      }
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
@@ -433,6 +434,30 @@ export function generateAutoExperimentsPayload({
       return exp;
     });
   return sdkExperiments.filter(isValidSDKExperiment);
+}
+
+/**
+ * Convert namespaces array to Map for efficient lookups
+ */
+export function namespacesToMap(
+  namespaces?: Namespaces[],
+): Map<
+  string,
+  { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+> {
+  if (!namespaces) return new Map();
+  return new Map(
+    namespaces.map((ns) => [
+      ns.name,
+      {
+        // For legacy, hashAttribute and seed might be missing but we try to preserve them if available
+        hashAttribute:
+          ("hashAttribute" in ns ? ns.hashAttribute : undefined) || "id",
+        seed: ("seed" in ns ? ns.seed : undefined) || ns.name,
+        format: ns.format,
+      },
+    ]),
+  );
 }
 
 export async function getSavedGroupMap(
@@ -1182,6 +1207,7 @@ export function evaluateFeature({
   skipRulesWithPrerequisites = true,
   date = new Date(),
   safeRolloutMap,
+  namespaces,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -1193,6 +1219,10 @@ export function evaluateFeature({
   skipRulesWithPrerequisites?: boolean;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  namespaces?: Map<
+    string,
+    { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
+  >;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -1226,6 +1256,7 @@ export function evaluateFeature({
         revision,
         date,
         safeRolloutMap,
+        namespaces: namespaces,
       });
 
       if (definition) {
@@ -1356,6 +1387,7 @@ export async function evaluateAllFeatures({
       prereqStateCache: {},
       safeRolloutMap,
       holdoutsMap,
+      organization: context.org,
     });
 
     // now we have all the definitions, lets evaluate them
@@ -1556,12 +1588,13 @@ export function getApiFeatureObj({
       experimentMap,
       environment: env,
       safeRolloutMap,
+      namespaces: namespacesToMap(organization.settings?.namespaces),
     });
 
     featureEnvironments[env] = {
       enabled,
       defaultValue,
-      rules,
+      rules: rules as ApiFeatureRule[],
     };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -1607,9 +1640,10 @@ export function getApiFeatureObj({
         experimentMap,
         environment: env,
         safeRolloutMap,
+        namespaces: namespacesToMap(organization.settings?.namespaces),
       });
 
-      environmentRules[env] = rules;
+      environmentRules[env] = rules as ApiFeatureRule[];
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const createdBy =
