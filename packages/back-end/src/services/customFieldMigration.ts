@@ -24,7 +24,6 @@ export async function migrateCustomFieldValues(
   sections: CustomFieldSection[],
   fromType: CustomFieldTypes,
   toType: CustomFieldTypes,
-  fromValues?: string,
   toValues?: string,
 ) {
   for (const section of sections) {

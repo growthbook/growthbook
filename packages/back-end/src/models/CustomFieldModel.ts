@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import { z } from "zod";
 import {
+  ALL_SECTIONS,
   customFieldsPropsValidator,
   customFieldsValidator,
   customFieldSectionValues,
@@ -88,7 +89,7 @@ export class CustomFieldModel extends BaseClass {
     return this.context.hasPremiumFeature("custom-metadata");
   }
 
-  // JIT readonly migration: normalize projects (strips legacy ""), migrate section→sections.
+  // JIT readonly migration: normalize projects (strips legacy ""), migrate section -> sections.
   protected migrate(
     legacyDoc: LegacyCustomFieldsDocument,
   ): z.infer<typeof customFieldsValidator> {
@@ -247,7 +248,7 @@ export class CustomFieldModel extends BaseClass {
         ...new Set([
           ...(existingField.sections ?? []),
           ...(customFieldUpdates.sections ??
-            existingField.sections ?? ["feature"]),
+            existingField.sections ?? [...ALL_SECTIONS]),
         ]),
       ];
       await migrateCustomFieldValues(
@@ -256,7 +257,6 @@ export class CustomFieldModel extends BaseClass {
         sectionsToMigrate as CustomFieldSection[],
         existingField.type,
         customFieldUpdates.type ?? existingField.type,
-        existingField.values,
         customFieldUpdates.values,
       );
     }

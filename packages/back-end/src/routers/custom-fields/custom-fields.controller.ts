@@ -5,6 +5,7 @@ import {
   CustomFieldTypes,
   CreateCustomFieldProps,
 } from "shared/types/custom-fields";
+import { ALL_SECTIONS } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
@@ -59,14 +60,18 @@ export const postCustomField = async (
       "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
     );
   }
+  const effectiveSections: CustomFieldSection[] = sections?.length
+    ? sections
+    : [...ALL_SECTIONS];
+
   const existingFields = await context.models.customFields.getCustomFields();
 
   // check if this name already exists for any overlapping section:
-  if (existingFields && sections?.length) {
+  if (existingFields) {
     const existingCustomField = existingFields.fields.find(
       (field) =>
         field.name === name &&
-        field.sections?.some((s) => sections.includes(s)),
+        field.sections?.some((s) => effectiveSections.includes(s)),
     );
     if (existingCustomField) {
       return context.throwBadRequestError(
@@ -85,7 +90,7 @@ export const postCustomField = async (
     values,
     required,
     projects,
-    sections: sections ?? ["feature"],
+    sections: effectiveSections,
   });
 
   if (!updated) {
@@ -232,7 +237,7 @@ export const putCustomField = async (
       values,
       required,
       projects,
-      sections: sections ?? existingField.sections ?? ["feature"],
+      sections: sections ?? existingField.sections ?? [...ALL_SECTIONS],
     },
   );
 

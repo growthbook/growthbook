@@ -1,5 +1,6 @@
 import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
+import { ALL_SECTIONS } from "shared/validators";
 import {
   closestCenter,
   DndContext,
@@ -352,7 +353,7 @@ const CustomFields: FC = () => {
           defaultSections={
             modalOpen.sections ??
             (activeFilter === "all"
-              ? ["feature", "experiment"]
+              ? [...ALL_SECTIONS]
               : [activeFilter as CustomFieldSection])
           }
           close={() => setModalOpen(null)}

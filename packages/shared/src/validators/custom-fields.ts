@@ -3,6 +3,8 @@ import { apiBaseSchema } from "./base-model";
 
 export const customFieldSectionValues = ["feature", "experiment"] as const;
 export const customFieldSectionTypes = z.enum(customFieldSectionValues);
+// All valid sections — use as the default when no section is specified.
+export const ALL_SECTIONS = [...customFieldSectionValues] as const;
 
 export const customFieldTypes = z.enum([
   "text",

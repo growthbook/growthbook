@@ -4,6 +4,7 @@ import {
   CustomFieldSection,
   CustomFieldTypes,
 } from "shared/types/custom-fields";
+import { ALL_SECTIONS } from "shared/validators";
 import React, { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -37,7 +38,7 @@ const APPLIES_TO_OPTIONS = Object.entries(CUSTOM_FIELD_SECTION_LABELS).map(
 
 export default function CustomFieldModal({
   existing,
-  defaultSections = ["feature"],
+  defaultSections = [...ALL_SECTIONS] as CustomFieldSection[],
   close,
   onSuccess,
 }: {
@@ -198,7 +199,7 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            sections: value.sections ?? ["feature"],
+            sections: value.sections ?? [...ALL_SECTIONS],
           };
 
           await apiCall(`/custom-fields`, {
@@ -284,7 +285,7 @@ export default function CustomFieldModal({
             onChange={(v) =>
               form.setValue(
                 "sections",
-                v.length > 0 ? (v as CustomFieldSection[]) : ["feature"],
+                v.length > 0 ? (v as CustomFieldSection[]) : [...ALL_SECTIONS],
               )
             }
             placeholder="Select..."
