@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { UseFormReturn } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import { UseFormReturn, useWatch } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import { Namespaces } from "shared/types/organization";
@@ -15,6 +15,19 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
+import {
+  normalizeRangeAfterLowerChange,
+  normalizeRangeAfterUpperChange,
+  getLargestGap,
+  RangeTuple,
+  shiftDraftKeysAfterRangeRemoval,
+  subtractSelectedRangesFromGaps,
+  trimDraftKeysToRangeLength,
+} from "./NamespaceSelectorUtils";
+
+const EMPTY_RANGES: RangeTuple[] = [];
+const EMPTY_NAMESPACES: Namespaces[] = [];
+const EMPTY_NAMESPACE_USAGE = {};
 
 export interface Props {
   featureId: string;
@@ -25,6 +38,15 @@ export interface Props {
   experimentHashAttribute?: string;
   fallbackAttribute?: string;
 }
+
+type NamespaceFormState = {
+  enabled?: boolean;
+  name?: string;
+  range?: RangeTuple;
+  ranges?: RangeTuple[];
+  format?: string;
+  hashAttribute?: string;
+};
 
 export default function NamespaceSelector({
   form,
@@ -38,70 +60,117 @@ export default function NamespaceSelector({
     `/organization/namespaces`,
   );
   const { namespaces } = useOrgSettings();
+  const [rangeDrafts, setRangeDrafts] = useState<Record<string, string>>({});
+  const namespacePath = `${formPrefix}namespace`;
+  const namespaceNamePath = `${namespacePath}.name`;
+  const namespaceRangesPath = `${namespacePath}.ranges`;
+  const namespaceFormatPath = `${namespacePath}.format`;
+  const namespaceHashAttributePath = `${namespacePath}.hashAttribute`;
+  const namespaceEnabledPath = `${namespacePath}.enabled`;
 
-  const namespace = form.watch(`${formPrefix}namespace.name`);
-  const enabled = form.watch(`${formPrefix}namespace.enabled`);
+  const namespaceState =
+    (useWatch({
+      control: form.control,
+      name: namespacePath,
+    }) as NamespaceFormState | undefined) || {};
+  const watchedHashAttribute =
+    (useWatch({
+      control: form.control,
+      name: "hashAttribute",
+    }) as string | undefined) || "";
+  const watchedFallbackAttribute =
+    (useWatch({
+      control: form.control,
+      name: "fallbackAttribute",
+    }) as string | undefined) || "";
 
-  // Get ranges - check both formats
-  let ranges: [number, number][] =
-    form.watch(`${formPrefix}namespace.ranges`) || [];
-
-  // If no ranges but has old single range format, convert it
-  if (ranges.length === 0) {
-    const oldRange = form.watch(`${formPrefix}namespace.range`);
-    if (oldRange && Array.isArray(oldRange) && oldRange.length === 2) {
-      ranges = [oldRange as [number, number]];
-      // Update form to use new format
-      form.setValue(`${formPrefix}namespace.ranges`, ranges);
-    }
-  }
-
-  //const hasMultipleRanges = ranges.length > 1;
-  const allNamespaces = namespaces || [];
-  const selectedNamespace = allNamespaces.find((n) => n.name === namespace);
-  const effectiveHashAttribute =
-    experimentHashAttribute || form.watch("hashAttribute") || "";
-  const effectiveFallbackAttribute =
-    fallbackAttribute ?? form.watch("fallbackAttribute") ?? "";
-  const isFallbackMode = !!effectiveFallbackAttribute.trim();
-
-  const activeNamespaces = allNamespaces.filter(
-    (n) => n?.status !== "inactive",
+  const namespace = namespaceState.name || "";
+  const enabled = !!namespaceState.enabled;
+  const storedRanges = namespaceState.ranges || EMPTY_RANGES;
+  const legacyRange =
+    Array.isArray(namespaceState.range) && namespaceState.range.length === 2
+      ? (namespaceState.range as RangeTuple)
+      : undefined;
+  const ranges = useMemo(
+    () =>
+      storedRanges.length > 0
+        ? storedRanges
+        : legacyRange
+          ? [legacyRange]
+          : EMPTY_RANGES,
+    [legacyRange, storedRanges],
   );
+
+  const effectiveHashAttribute =
+    experimentHashAttribute || watchedHashAttribute || "";
+  const effectiveFallbackAttribute =
+    fallbackAttribute ?? watchedFallbackAttribute ?? "";
+  const isFallbackMode = !!effectiveFallbackAttribute.trim();
+  const allNamespaces = namespaces || EMPTY_NAMESPACES;
+  const namespaceUsage = data?.namespaces || EMPTY_NAMESPACE_USAGE;
   const isLegacyNamespace = (n: Namespaces) => n.format !== "multiRange";
 
-  const matchingNamespaces = activeNamespaces.filter((n) => {
-    if (isLegacyNamespace(n)) return true;
-    return n.hashAttribute === effectiveHashAttribute;
-  });
+  const {
+    filteredNamespaces,
+    namespaceOptions,
+    selectedNamespace,
+    selectedIsDifferentHash,
+  } = useMemo(() => {
+    const activeNamespaces = allNamespaces.filter(
+      (n) => n?.status !== "inactive",
+    );
+    const filtered = isFallbackMode
+      ? activeNamespaces.filter((n) => isLegacyNamespace(n))
+      : activeNamespaces;
+    const matchingNamespaces = activeNamespaces.filter((n) => {
+      if (isLegacyNamespace(n)) return true;
+      return n.hashAttribute === effectiveHashAttribute;
+    });
+    const differentHashNamespaces = activeNamespaces.filter((n) => {
+      if (isLegacyNamespace(n)) return false;
+      return n.hashAttribute !== effectiveHashAttribute;
+    });
 
-  const differentHashNamespaces = activeNamespaces.filter((n) => {
-    if (isLegacyNamespace(n)) return false;
-    return n.hashAttribute !== effectiveHashAttribute;
-  });
+    return {
+      filteredNamespaces: filtered,
+      namespaceOptions: (isFallbackMode
+        ? filtered.map((n) => ({ value: n.name, label: n.label }))
+        : [
+            ...matchingNamespaces.map((n) => ({
+              value: n.name,
+              label: n.label,
+            })),
+            ...differentHashNamespaces.map((n) => ({
+              value: n.name,
+              label: n.label,
+            })),
+          ]) as SingleValue[],
+      selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
+      selectedIsDifferentHash:
+        !isFallbackMode &&
+        activeNamespaces.some(
+          (n) =>
+            n.name === namespace &&
+            n.format === "multiRange" &&
+            n.hashAttribute !== effectiveHashAttribute,
+        ),
+    };
+  }, [allNamespaces, effectiveHashAttribute, isFallbackMode, namespace]);
 
-  // Memoize so the array reference only changes when the filter criteria actually
-  // change, preventing the useEffect below from firing on every render.
-  const filteredNamespaces = useMemo(() => {
-    const active = (namespaces || []).filter((n) => n?.status !== "inactive");
-    return isFallbackMode ? active.filter((n) => isLegacyNamespace(n)) : active;
-  }, [isFallbackMode, namespaces]);
+  const persistedGaps = useMemo(
+    () => findGaps(namespaceUsage, namespace, featureId, trackingKey),
+    [namespaceUsage, namespace, featureId, trackingKey],
+  );
+  const largestAvailableGap = useMemo(
+    () => getLargestGap(subtractSelectedRangesFromGaps(persistedGaps, ranges)),
+    [persistedGaps, ranges],
+  );
+  const totalAllocation = useMemo(
+    () => ranges.reduce((sum, [start, end]) => sum + (end - start), 0),
+    [ranges],
+  );
 
-  const namespaceOptions: SingleValue[] = isFallbackMode
-    ? filteredNamespaces.map((n) => ({ value: n.name, label: n.label }))
-    : [
-        ...matchingNamespaces.map((n) => ({ value: n.name, label: n.label })),
-        ...differentHashNamespaces.map((n) => ({
-          value: n.name,
-          label: n.label,
-        })),
-      ];
-
-  const selectedIsDifferentHash =
-    !isFallbackMode &&
-    !!selectedNamespace &&
-    selectedNamespace.format === "multiRange" &&
-    selectedNamespace.hashAttribute !== effectiveHashAttribute;
+  const getDraftKey = (index: number, field: 0 | 1) => `${index}:${field}`;
 
   useEffect(() => {
     if (!namespace) return;
@@ -109,47 +178,88 @@ export default function NamespaceSelector({
       (n) => n.name === namespace,
     );
     if (existsInFiltered) return;
-    form.setValue(`${formPrefix}namespace.name`, "");
-    form.setValue(`${formPrefix}namespace.ranges`, []);
-  }, [filteredNamespaces, form, formPrefix, namespace]);
+    form.setValue(namespaceNamePath, "");
+    form.setValue(namespaceRangesPath, []);
+    setRangeDrafts({});
+  }, [
+    filteredNamespaces,
+    form,
+    namespace,
+    namespaceNamePath,
+    namespaceRangesPath,
+  ]);
+
+  useEffect(() => {
+    if (storedRanges.length > 0 || !legacyRange) return;
+    form.setValue(namespaceRangesPath, [legacyRange]);
+  }, [form, legacyRange, namespaceRangesPath, storedRanges.length]);
+
+  useEffect(() => {
+    setRangeDrafts((current) => {
+      const next = trimDraftKeysToRangeLength(current, ranges.length);
+      const currentKeys = Object.keys(current);
+      const nextKeys = Object.keys(next);
+      if (
+        currentKeys.length === nextKeys.length &&
+        currentKeys.every((key) => next[key] === current[key])
+      ) {
+        return current;
+      }
+
+      return next;
+    });
+  }, [ranges.length]);
+
+  const getAvailableGapsForRange = (index: number) => {
+    return subtractSelectedRangesFromGaps(
+      persistedGaps,
+      ranges.filter((_, rangeIndex) => rangeIndex !== index),
+    );
+  };
+
+  const setRangeAtIndex = (index: number, nextRange: RangeTuple) => {
+    const newRanges = ranges.map((r, i) =>
+      i === index ? ([...r] as RangeTuple) : r,
+    );
+    newRanges[index] = nextRange;
+    form.setValue(namespaceRangesPath, newRanges);
+  };
+
+  const commitDraftValue = (index: number, field: 0 | 1, rawValue: string) => {
+    const parsed = Number.parseFloat(rawValue);
+    const currentRange = ranges[index] || [0, 1];
+    const availableGaps = getAvailableGapsForRange(index);
+    const nextRange =
+      field === 0
+        ? normalizeRangeAfterLowerChange(currentRange, parsed, availableGaps)
+        : normalizeRangeAfterUpperChange(currentRange, parsed, availableGaps);
+
+    setRangeAtIndex(index, nextRange);
+    setRangeDrafts((current) => {
+      const next = { ...current };
+      delete next[getDraftKey(index, field)];
+      return next;
+    });
+  };
 
   if (!data || error || !allNamespaces.length) return null;
 
-  // Calculate total allocation percentage
-  const totalAllocation = ranges.reduce(
-    (sum, [start, end]) => sum + (end - start),
-    0,
-  );
-
   const addRange = () => {
-    const gaps = findGaps(
-      data?.namespaces || {},
-      namespace,
-      featureId,
-      trackingKey,
-    ).sort((a, b) => b.end - b.start - (a.end - a.start));
-
-    const largestGap = gaps[0];
-    if (largestGap) {
+    if (largestAvailableGap) {
       const newRanges = [
         ...ranges,
-        [largestGap.start, largestGap.end] as [number, number],
+        [largestAvailableGap.start, largestAvailableGap.end] as RangeTuple,
       ];
-      form.setValue(`${formPrefix}namespace.ranges`, newRanges);
+      form.setValue(namespaceRangesPath, newRanges);
     }
   };
 
   const removeRange = (index: number) => {
     const newRanges = ranges.filter((_, i) => i !== index);
-    form.setValue(`${formPrefix}namespace.ranges`, newRanges);
-  };
-
-  const updateRange = (index: number, field: 0 | 1, value: number) => {
-    const newRanges = ranges.map((r, i) =>
-      i === index ? ([...r] as [number, number]) : r,
+    form.setValue(namespaceRangesPath, newRanges);
+    setRangeDrafts((current) =>
+      shiftDraftKeysAfterRangeRemoval(current, index),
     );
-    newRanges[index][field] = value;
-    form.setValue(`${formPrefix}namespace.ranges`, newRanges);
   };
 
   return (
@@ -160,7 +270,7 @@ export default function NamespaceSelector({
         description="Run mutually exclusive experiments"
         value={enabled}
         setValue={(v) => {
-          form.setValue(`${formPrefix}namespace.enabled`, v);
+          form.setValue(namespaceEnabledPath, v);
         }}
       />
       {enabled && (
@@ -171,13 +281,14 @@ export default function NamespaceSelector({
             onChange={(v) => {
               if (v === namespace) return;
               const selected = filteredNamespaces.find((n) => n.name === v);
-              form.setValue(`${formPrefix}namespace.name`, v);
+              setRangeDrafts({});
+              form.setValue(namespaceNamePath, v);
 
               // Set format from namespace definition so downstream consumers
               // (applyNamespaceToPayload, toExperimentApiInterface) can discriminate
               // between legacy and multiRange without relying on structural checks.
               form.setValue(
-                `${formPrefix}namespace.format`,
+                namespaceFormatPath,
                 selected?.format === "multiRange" ? "multiRange" : "legacy",
               );
 
@@ -188,22 +299,18 @@ export default function NamespaceSelector({
                 selected.hashAttribute
               ) {
                 form.setValue(
-                  `${formPrefix}namespace.hashAttribute`,
+                  namespaceHashAttributePath,
                   selected.hashAttribute,
                 );
               }
 
-              // Find largest gap for initial range
-              const largestGap = findGaps(
-                data?.namespaces || {},
-                v,
-                featureId,
-                trackingKey,
-              ).sort((a, b) => b.end - b.start - (a.end - a.start))[0];
+              const initialGap = getLargestGap(
+                findGaps(namespaceUsage, v, featureId, trackingKey),
+              );
 
               // Always initialize with ranges array (single range by default)
-              form.setValue(`${formPrefix}namespace.ranges`, [
-                [largestGap?.start || 0, largestGap?.end || 0],
+              form.setValue(namespaceRangesPath, [
+                [initialGap?.start || 0, initialGap?.end || 0],
               ]);
             }}
             placeholder="Choose a namespace..."
@@ -252,22 +359,40 @@ export default function NamespaceSelector({
                     <Field
                       type="number"
                       min={0}
-                      max={range[1]}
+                      max={1}
                       step=".01"
-                      value={range[0]}
+                      value={
+                        rangeDrafts[getDraftKey(index, 0)] ?? `${range[0]}`
+                      }
                       onChange={(e) => {
-                        updateRange(index, 0, parseFloat(e.target.value) || 0);
+                        const rawValue = e.target.value;
+                        setRangeDrafts((current) => ({
+                          ...current,
+                          [getDraftKey(index, 0)]: rawValue,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        commitDraftValue(index, 0, e.target.value);
                       }}
                     />
                     <Text>to</Text>
                     <Field
                       type="number"
-                      min={range[0]}
+                      min={0}
                       max={1}
                       step=".01"
-                      value={range[1]}
+                      value={
+                        rangeDrafts[getDraftKey(index, 1)] ?? `${range[1]}`
+                      }
                       onChange={(e) => {
-                        updateRange(index, 1, parseFloat(e.target.value) || 0);
+                        const rawValue = e.target.value;
+                        setRangeDrafts((current) => ({
+                          ...current,
+                          [getDraftKey(index, 1)]: rawValue,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        commitDraftValue(index, 1, e.target.value);
                       }}
                     />
                     <Text color="text-low">
