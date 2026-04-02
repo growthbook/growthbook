@@ -101,6 +101,9 @@ import {
   generateRuleId,
   getFeatureDefinitions,
   getSavedGroupMap,
+  getLiveAndBaseRevisionsForFeature,
+  getDraftRevision,
+  assertCanAutoPublish,
 } from "back-end/src/services/features";
 import {
   getSDKPayloadCacheLocation,
@@ -254,37 +257,6 @@ async function createOrUpdateDraftWithChanges(
     org,
   });
   return newRevision;
-}
-
-// Throws if the draft requires approval and the caller cannot bypass.
-async function assertCanAutoPublish(
-  context: ReqContext,
-  feature: FeatureInterface,
-  draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
-
-  const baseRevision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version: draft.baseVersion,
-  });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
-
-  const requiresReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision,
-    revision: draft,
-    allEnvironments,
-    settings: org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-  });
-
-  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
-    context.permissions.throwPermissionError();
-  }
 }
 
 export type SDKPayloadParams = Pick<
@@ -812,29 +784,11 @@ export async function postFeatureRebase(
   if (!rebasableStatuses.includes(revision.status)) {
     throw new Error("Can only fix conflicts for active draft revisions");
   }
-
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
-    featureId: feature.id,
-    version: feature.version,
+    feature,
+    revision,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
 
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
@@ -999,22 +953,21 @@ export async function postFeatureReviewOrComment(
   // Block contributors from self-approving when the org setting is enabled.
   if (review === "Approved") {
     const requireReviews = context.org.settings?.requireReviews;
-    const reviewSetting =
-      Array.isArray(requireReviews)
-        ? getReviewSetting(requireReviews, feature)
-        : undefined;
+    const reviewSetting = Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const allContributors = [
         revision.createdBy,
         ...(revision.contributors ?? []),
       ];
       const isSelfApproval = allContributors.some(
-        (c) => c?.type === "dashboard" && (c as EventUserLoggedIn).id === context.userId,
+        (c) =>
+          c?.type === "dashboard" &&
+          (c as EventUserLoggedIn).id === context.userId,
       );
       if (isSelfApproval) {
-        throw new Error(
-          "You cannot approve a draft you contributed to.",
-        );
+        throw new Error("You cannot approve a draft you contributed to.");
       }
     }
   }
@@ -1091,28 +1044,12 @@ export async function postFeaturePublish(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
-    featureId: feature.id,
-    version: feature.version,
+    feature,
+    revision,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
 
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
   // Compute merge result first so the review check can diff the merged outcome
   // against live — the same approach the frontend uses. This prevents spurious
   // review requirements when the draft's raw rules differ from base only because
@@ -2204,50 +2141,6 @@ export async function postFeatureExperimentRefRule(
   });
 }
 
-async function getDraftRevision(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  version: number,
-): Promise<FeatureRevisionInterface> {
-  // This is the published version, create a new draft revision
-  const { org } = context;
-  if (version === feature.version) {
-    const newRevision = await createRevision({
-      context,
-      feature,
-      user: context.auditUser,
-      environments: getEnvironmentIdsFromOrg(context.org),
-      baseVersion: version,
-      org,
-    });
-
-    return newRevision;
-  }
-
-  // If this is already a draft, return it
-  const revision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version,
-  });
-  if (!revision) {
-    throw new Error("Cannot find revision");
-  }
-  if (
-    !(
-      revision.status === "draft" ||
-      revision.status === "pending-review" ||
-      revision.status === "changes-requested" ||
-      revision.status === "approved"
-    )
-  ) {
-    throw new Error("Can only make changes to draft revisions");
-  }
-
-  return revision;
-}
-
 export async function putRevisionComment(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
   res: Response<{ status: 200 }, EventUserForResponseLocals>,
@@ -2491,28 +2384,11 @@ export async function putSafeRolloutStatus(
     resetReview,
   );
 
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
-    featureId: feature.id,
-    version: feature.version,
+    feature,
+    revision,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
