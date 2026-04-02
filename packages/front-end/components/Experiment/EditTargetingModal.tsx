@@ -8,8 +8,8 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
+import { Flex, Box, Text, Separator } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -117,7 +117,7 @@ export default function EditTargetingModal({
     trackingKey: experiment.trackingKey || "",
     variationWeights:
       lastPhase?.variationWeights ??
-      getEqualWeights(experiment.variations.length, 4),
+      getEqualWeights(getLatestPhaseVariations(experiment).length, 4),
     newPhase: false,
     reseed: true,
   };
@@ -540,14 +540,14 @@ function TargetingForm({
             setValue={(v) => form.setValue("savedGroups", v)}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
@@ -584,7 +584,7 @@ function TargetingForm({
           }
           valueAsId={true}
           variations={
-            experiment.variations.map((v, i) => {
+            getLatestPhaseVariations(experiment).map((v, i) => {
               return {
                 value: v.key || i + "",
                 name: v.name,

@@ -8,6 +8,14 @@
 | **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
 | **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
 | **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
+| **[feature.rampSchedule.created](#featurerampSchedulecreated)** | Triggered when a ramp schedule is created for a feature |
+| **[feature.rampSchedule.deleted](#featurerampScheduledeleted)** | Triggered when a ramp schedule is deleted from a feature |
+| **[feature.rampSchedule.actions.started](#featurerampScheduleactionsstarted)** | Triggered when a feature ramp schedule starts |
+| **[feature.rampSchedule.actions.completed](#featurerampScheduleactionscompleted)** | Triggered when a feature ramp schedule completes all steps |
+| **[feature.rampSchedule.actions.rolledBack](#featurerampScheduleactionsrolledBack)** | Triggered when a feature ramp schedule is rolled back or reset to start |
+| **[feature.rampSchedule.actions.jumped](#featurerampScheduleactionsjumped)** | Triggered when a feature ramp schedule is jumped to a specific step |
+| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances to the next step |
+| **[feature.rampSchedule.actions.step.approvalRequired](#featurerampScheduleactionsstepapprovalRequired)** | Triggered when a feature ramp step is waiting for approval |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -295,6 +303,12 @@ Triggered when a feature is created
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -307,6 +321,8 @@ Triggered when a feature is created
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -593,6 +609,12 @@ Triggered when a feature is updated
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -857,6 +879,12 @@ Triggered when a feature is updated
                 publishedBy: string;
             } | undefined;
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -874,6 +902,8 @@ Triggered when a feature is updated
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1160,6 +1190,12 @@ Triggered when a feature is deleted
                 publishedBy: string;
             };
             customFields?: Record<string, any> | undefined;
+            holdout?: ({
+                /** Holdout ID */
+                id: string;
+                /** The feature value assigned to users in the holdout treatment group */
+                value: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1172,6 +1208,8 @@ Triggered when a feature is deleted
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1211,6 +1249,8 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1250,6 +1290,8 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1290,6 +1332,353 @@ Triggered when a safe rollout is failing a health check and may not be working a
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.created
+
+Triggered when a ramp schedule is created for a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.created";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            entityType: string;
+            entityId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.deleted
+
+Triggered when a ramp schedule is deleted from a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.deleted";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.started
+
+Triggered when a feature ramp schedule starts
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.started";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.completed
+
+Triggered when a feature ramp schedule completes all steps
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.completed";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.rolledBack
+
+Triggered when a feature ramp schedule is rolled back or reset to start
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.rolledBack";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.jumped
+
+Triggered when a feature ramp schedule is jumped to a specific step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.jumped";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.advanced
+
+Triggered when a feature ramp schedule advances to the next step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.advanced";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.approvalRequired
+
+Triggered when a feature ramp step is waiting for approval
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.approvalRequired";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            approvalNotes?: (string | null) | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1454,6 +1843,7 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
     };
     user: {
@@ -1466,6 +1856,8 @@ Triggered when an experiment is created
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1630,6 +2022,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1772,6 +2165,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -1789,6 +2183,8 @@ Triggered when an experiment is updated
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1953,6 +2349,7 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            templateId?: string | undefined;
         };
     };
     user: {
@@ -1965,6 +2362,8 @@ Triggered when an experiment is deleted
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2016,6 +2415,8 @@ Triggered when a warning condition is detected on an experiment
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2061,6 +2462,8 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2100,6 +2503,8 @@ Triggered when an experiment is ready to ship a variation.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2139,6 +2544,8 @@ Triggered when an experiment should be rolled back to the control.
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2178,6 +2585,8 @@ Triggered when an experiment has reached the desired power point, but the result
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2221,6 +2630,8 @@ Triggered when a user logs in
         apiKey: string;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];

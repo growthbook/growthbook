@@ -5,7 +5,12 @@ import {
   FeatureRule,
   SafeRolloutInterface,
   HoldoutInterface,
+  RampScheduleInterface,
 } from "shared/validators";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -40,9 +45,16 @@ export default function FeatureRules({
   isDraft,
   safeRolloutsMap,
   holdout,
+  baseFeature,
+  revisionList,
+  rampSchedules,
+  draftRevision,
+  pendingRuleEdit,
+  onPendingRuleEditHandled,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   isLocked: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -53,15 +65,34 @@ export default function FeatureRules({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
+  revisionList: MinimalFeatureRevisionInterface[];
+  rampSchedules?: RampScheduleInterface[];
+  draftRevision?: FeatureRevisionInterface | null;
+  pendingRuleEdit?: { environment: string; ruleId: string } | null;
+  onPendingRuleEditHandled?: () => void;
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
+
+  // Open the rule modal when triggered externally (e.g. from the ramp timeline CTA).
+  useEffect(() => {
+    if (!pendingRuleEdit) return;
+    const { environment, ruleId } = pendingRuleEdit;
+    const rules = getRules(feature, environment);
+    const idx = rules.findIndex((r) => r.id === ruleId);
+    if (idx !== -1) {
+      setEnv(environment);
+      setRuleModal({ i: idx, environment, mode: "edit" });
+    }
+    onPendingRuleEditHandled?.();
+  }, [pendingRuleEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
     defaultType?: string;
     mode: "create" | "edit" | "duplicate";
+    detachRampOnSave?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -196,20 +227,27 @@ export default function FeatureRules({
                 )}
               </Flex>
             </TabsList>
-            <Link
-              ml="2"
-              onClick={() => setCompareEnvModal({ sourceEnv: env })}
-              underline="none"
-              wrap="nowrap"
-              size="1"
-            >
-              Compare environments
-            </Link>
+            {!isLocked && (
+              <Link
+                ml="2"
+                onClick={() => setCompareEnvModal({ sourceEnv: env })}
+                wrap="nowrap"
+                size="1"
+              >
+                Sync rules across environments
+              </Link>
+            )}
           </Flex>
         </Container>
         {environments.map((e) => {
-          const includeHoldoutRule =
+          const liveHoldoutActive =
             !!holdout && !!holdout?.environmentSettings?.[e.id]?.enabled;
+          // Also show as deleted if the draft removes the holdout but it's still live
+          const draftDeletesHoldout =
+            !feature.holdout?.id &&
+            !!baseFeature.holdout?.id &&
+            !!holdout?.environmentSettings?.[e.id]?.enabled;
+          const includeHoldoutRule = liveHoldoutActive || draftDeletesHoldout;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
@@ -217,6 +255,7 @@ export default function FeatureRules({
                   <RuleList
                     environment={e.id}
                     feature={feature}
+                    baseFeature={baseFeature}
                     mutate={mutate}
                     setRuleModal={setRuleModal}
                     setCopyRuleModal={setCopyRuleModal}
@@ -227,8 +266,12 @@ export default function FeatureRules({
                     hideInactive={hideInactive}
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
-                    holdout={includeHoldoutRule ? holdout : undefined}
+                    holdout={liveHoldoutActive ? holdout : undefined}
+                    holdoutIsDeleted={draftDeletesHoldout}
                     openHoldoutModal={() => setHoldoutModal(true)}
+                    revisionList={revisionList}
+                    rampSchedules={rampSchedules}
+                    draftRevision={draftRevision}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -301,9 +344,12 @@ export default function FeatureRules({
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
-          version={currentVersion}
           setVersion={setVersion}
           mode={ruleModal.mode}
+          revisionList={revisionList}
+          rampSchedules={rampSchedules}
+          detachRampOnSave={ruleModal.detachRampOnSave}
+          draftRevision={draftRevision}
         />
       )}
       {copyRuleModal !== null && (
@@ -339,8 +385,10 @@ export default function FeatureRules({
       {holdoutModal && (
         <HoldoutValueModal
           feature={feature}
+          revisionList={revisionList}
           close={() => setHoldoutModal(false)}
           mutate={mutate}
+          setVersion={setVersion}
         />
       )}
     </>

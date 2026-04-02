@@ -16,7 +16,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
+import {
+  SafeRolloutInterface,
+  HoldoutInterface,
+  RampScheduleInterface,
+  RampScheduleForDisplay,
+} from "shared/validators";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -29,6 +38,7 @@ import { HoldoutRule } from "./HoldoutRule";
 
 export default function RuleList({
   feature,
+  baseFeature,
   mutate,
   environment,
   setRuleModal,
@@ -41,9 +51,14 @@ export default function RuleList({
   isDraft,
   safeRolloutsMap,
   holdout,
+  holdoutIsDeleted,
   openHoldoutModal,
+  revisionList,
+  rampSchedules,
+  draftRevision,
 }: {
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   environment: string;
   mutate: () => void;
   setRuleModal: (args: {
@@ -64,12 +79,86 @@ export default function RuleList({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
+  holdoutIsDeleted: boolean;
   openHoldoutModal: () => void;
+  revisionList: MinimalFeatureRevisionInterface[];
+  rampSchedules?: RampScheduleInterface[];
+  draftRevision?: FeatureRevisionInterface | null;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
+
+  // Build a ruleId → ramp schedule map for this environment so Rule can look
+  // up its associated ramp schedule in O(1) without prop drilling the full array.
+  const rampSchedulesMap = new Map<string, RampScheduleInterface>();
+
+  // First, add actual ramp schedules
+  for (const rs of rampSchedules ?? []) {
+    for (const target of rs.targets) {
+      if (
+        target.ruleId &&
+        (!target.environment || target.environment === environment)
+      ) {
+        if (!rampSchedulesMap.has(target.ruleId)) {
+          rampSchedulesMap.set(target.ruleId, rs);
+        }
+      }
+    }
+  }
+
+  // Then, add pending ramp schedules from draft actions
+  // These are fake/synthetic schedules just for UI display of pending state
+  if (draftRevision?.rampActions) {
+    for (const action of draftRevision.rampActions) {
+      if (
+        action.mode === "create" &&
+        (!action.environment || action.environment === environment)
+      ) {
+        // Only add if not already in map (real schedule takes precedence)
+        if (!rampSchedulesMap.has(action.ruleId)) {
+          // Create a synthetic pending ramp schedule for display
+          // This is just for UI - convert action dates (ISO strings) to Date objects
+          const pendingRamp: RampScheduleForDisplay = {
+            id: `pending-${action.ruleId}`,
+            name: action.name,
+            targets: [
+              {
+                id: "t1",
+                entityType: "feature",
+                entityId: "",
+                ruleId: action.ruleId,
+                environment,
+                status: "active",
+              },
+            ],
+            steps: action.steps,
+            endActions: action.endActions,
+            startDate: action.startDate
+              ? new Date(action.startDate)
+              : undefined,
+            endCondition:
+              action.endCondition?.trigger?.type === "scheduled"
+                ? {
+                    trigger: {
+                      type: "scheduled",
+                      at: new Date(action.endCondition.trigger.at),
+                    },
+                  }
+                : undefined,
+            status: "pending",
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+          };
+          rampSchedulesMap.set(
+            action.ruleId,
+            pendingRamp as RampScheduleInterface,
+          );
+        }
+      }
+    }
+  }
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -84,7 +173,7 @@ export default function RuleList({
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout) {
+  if (!items.length && !holdout && !holdoutIsDeleted) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -105,7 +194,6 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
-    !locked &&
     permissionsUtil.canViewFeatureModal(feature.project) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 
@@ -156,12 +244,16 @@ export default function RuleList({
           <em>No Active Rules</em>
         </div>
       )}
-      {holdout && (
+      {(holdout || holdoutIsDeleted) && (
         <HoldoutRule
-          feature={feature}
+          feature={holdoutIsDeleted ? baseFeature : feature}
+          isDeleted={holdoutIsDeleted}
           setRuleModal={openHoldoutModal}
           mutate={mutate}
           ruleCount={items.length}
+          revisionList={revisionList}
+          setVersion={setVersion}
+          isLocked={locked}
         />
       )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
@@ -184,6 +276,8 @@ export default function RuleList({
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
+            rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
+            draftRevision={draftRevision}
           />
         ))}
       </SortableContext>
@@ -209,6 +303,8 @@ export default function RuleList({
             isDraft={isDraft}
             safeRolloutsMap={safeRolloutsMap}
             holdout={holdout}
+            rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
+            draftRevision={draftRevision}
           />
         ) : null}
       </DragOverlay>

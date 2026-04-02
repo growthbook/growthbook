@@ -11,6 +11,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { filterEnvironmentsByExperiment } from "shared/util";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -24,9 +25,15 @@ import {
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -69,24 +76,37 @@ const genFormDefaultValues = ({
   permissions,
   project,
   experiment,
+  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
+  customFields?: ReturnType<typeof useCustomFields>;
 }): Omit<
   FeatureInterface,
-  "organization" | "dateCreated" | "dateUpdated" | "defaultValue"
+  | "organization"
+  | "dateCreated"
+  | "dateUpdated"
+  | "defaultValue"
+  | "customFields"
 > & {
   variations: ExperimentRefVariation[];
   existing: string;
+  customFields: Record<string, string>;
 } => {
   const environmentSettings = genEnvironmentSettings({
     environments,
     permissions,
     project,
   });
-  const type = experiment.variations.length > 2 ? "string" : "boolean";
+  const customFieldValues = customFields
+    ? Object.fromEntries(
+        customFields.map((field) => [field.id, field.defaultValue ?? ""]),
+      )
+    : {};
+  const type =
+    getLatestPhaseVariations(experiment).length > 2 ? "string" : "boolean";
   const defaultValue = getDefaultValue(type);
   return {
     existing: "",
@@ -98,7 +118,8 @@ const genFormDefaultValues = ({
     project,
     tags: experiment.tags || [],
     environmentSettings,
-    variations: experiment.variations.map((v, i) => {
+    customFields: customFieldValues,
+    variations: getLatestPhaseVariations(experiment).map((v, i) => {
       return {
         value: i ? getDefaultVariationValue(defaultValue) : defaultValue,
         variationId: v.id,
@@ -117,6 +138,7 @@ export default function FeatureFromExperimentModal({
   source,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
+  const selectedProject = experiment.project ?? project;
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
@@ -124,12 +146,22 @@ export default function FeatureFromExperimentModal({
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
+  const { hasCommercialFeature } = useUser();
+  const allCustomFields = useCustomFields();
+  const customFields = filterCustomFieldsForSectionAndProject(
+    allCustomFields,
+    "feature",
+    selectedProject,
+  );
 
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     experiment,
-    project,
+    project: selectedProject,
+    customFields: hasCommercialFeature("custom-metadata")
+      ? customFields
+      : undefined,
   });
 
   // Scope features to the experiment's project (or all features if experiment has no project)
@@ -162,7 +194,7 @@ export default function FeatureFromExperimentModal({
 
   if (
     !permissionsUtil.canManageFeatureDrafts({
-      project: experiment.project ?? project,
+      project: selectedProject,
     })
   ) {
     ctaEnabled = false;
@@ -404,11 +436,28 @@ export default function FeatureFromExperimentModal({
           <EnvironmentSelect
             environmentSettings={environmentSettings}
             environments={environments}
+            project={experiment.project}
             setValue={(env, on) => {
               environmentSettings[env.id].enabled = on;
               form.setValue("environmentSettings", environmentSettings);
             }}
           />
+
+          {hasCommercialFeature("custom-metadata") &&
+            customFields &&
+            customFields.length > 0 && (
+              <div>
+                <CustomFieldInput
+                  customFields={customFields}
+                  setCustomFields={(value) => {
+                    form.setValue("customFields", value);
+                  }}
+                  currentCustomFields={form.watch("customFields") || {}}
+                  section={"feature"}
+                  project={selectedProject}
+                />
+              </div>
+            )}
         </>
       )}
 
@@ -428,7 +477,7 @@ export default function FeatureFromExperimentModal({
       <div className="form-group">
         <label>Variation Values</label>
         <div className="mb-3 bg-light border p-3">
-          {experiment.variations.map((v, i) => (
+          {getLatestPhaseVariations(experiment).map((v, i) => (
             <FeatureValueField
               key={v.id}
               label={v.name}

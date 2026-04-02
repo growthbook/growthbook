@@ -15,12 +15,14 @@ import type {
   ProductAnalyticsResultRow,
 } from "shared/validators";
 import { isEqual } from "lodash";
-import { dateGranularity } from "shared/validators";
+import { createParser } from "nuqs";
 import {
+  encodeExplorationConfig,
   calculateProductAnalyticsDateRange,
   getDateGranularity,
   mapDatabaseTypeToEnum,
 } from "shared/enterprise";
+import { dateGranularity, explorationConfigValidator } from "shared/validators";
 
 export { mapDatabaseTypeToEnum };
 
@@ -504,6 +506,31 @@ export function computeGroupTotals(
   }
   return totals;
 }
+
+export type DecodeConfigResult =
+  | { config: ExplorationConfig; error: null }
+  | { config: null; error: string };
+
+export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    const config = explorationConfigValidator.parse(parsed);
+    return { config, error: null };
+  } catch {
+    return {
+      config: null,
+      error: "The URL contains an invalid or outdated explorer configuration.",
+    };
+  }
+}
+
+export const explorationConfigParser = createParser<ExplorationConfig>({
+  parse: (raw) => {
+    const result = decodeExplorationConfig(raw);
+    return result.config;
+  },
+  serialize: (config) => encodeExplorationConfig(config),
+});
 
 /**
  * Sort exploration result rows to match the visual ordering of the chart.

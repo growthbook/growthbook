@@ -11,7 +11,7 @@ import {
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
-  RulesAndValues,
+  RevisionFields,
   MergeConflict,
   validateCondition,
   checkEnvironmentsMatch,
@@ -114,7 +114,7 @@ const revision: FeatureRevisionInterface = {
 
 describe("autoMerge", () => {
   it("Auto merges when there are no conflicts", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -122,7 +122,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const live: RulesAndValues = {
+    const live: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -137,7 +137,7 @@ describe("autoMerge", () => {
       },
       version: 6,
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -165,7 +165,7 @@ describe("autoMerge", () => {
     });
   });
   it("Auto merges when live and base are the same revision", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
@@ -173,7 +173,7 @@ describe("autoMerge", () => {
       },
       version: 4,
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -200,15 +200,22 @@ describe("autoMerge", () => {
     });
   });
   it("Handles merge conflicts", () => {
-    const base: RulesAndValues = {
+    const base: RevisionFields = {
       defaultValue: "base",
       rules: {
         dev: [],
-        prod: [],
+        prod: [
+          {
+            type: "force",
+            description: "",
+            id: "sharedForce",
+            value: "base",
+          },
+        ],
       },
       version: 4,
     };
-    const live: RulesAndValues = {
+    const live: RevisionFields = {
       defaultValue: "live",
       rules: {
         dev: [],
@@ -216,14 +223,14 @@ describe("autoMerge", () => {
           {
             type: "force",
             description: "",
-            id: "liveForce",
-            value: "force",
+            id: "sharedForce",
+            value: "live",
           },
         ],
       },
       version: 6,
     };
-    const revision: RulesAndValues = {
+    const revision: RevisionFields = {
       defaultValue: "revision",
       rules: {
         dev: [
@@ -238,8 +245,8 @@ describe("autoMerge", () => {
           {
             type: "force",
             description: "",
-            id: "revisionForce",
-            value: "force",
+            id: "sharedForce",
+            value: "revision",
           },
         ],
       },
@@ -358,6 +365,128 @@ describe("autoMerge", () => {
           prod: revision.rules["prod"],
         },
       },
+    });
+  });
+
+  describe("tryRuleLevelMerge (via autoMerge)", () => {
+    const A = { type: "force" as const, id: "a", description: "", value: "a" };
+    const B = { type: "force" as const, id: "b", description: "", value: "b" };
+    const C = { type: "force" as const, id: "c", description: "", value: "c" };
+
+    it("live reorders rules, draft modifies one — absorbs reorder, uses live ordering", () => {
+      const Bmod = { ...B, value: "b-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B, C] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [C, A, B] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, Bmod, C] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.rules?.dev).toEqual([C, A, Bmod]);
+      }
+    });
+
+    it("both sides add new rules — draft addition appended after live rules", () => {
+      const D = {
+        type: "force" as const,
+        id: "d",
+        description: "",
+        value: "d",
+      };
+      const E = {
+        type: "force" as const,
+        id: "e",
+        description: "",
+        value: "e",
+      };
+
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, E] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, D] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.rules?.dev).toEqual([A, E, D]);
+      }
+    });
+
+    it("live deletes rule, draft modifies different rule — deletion preserved", () => {
+      const Cmod = { ...C, value: "c-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B, C] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, C] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B, Cmod] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.result.rules?.dev).toEqual([A, Cmod]);
+      }
+    });
+
+    it("live deletes rule that draft also modified — conflict", () => {
+      const Bmod = { ...B, value: "b-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, B] },
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A] },
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: { dev: [A, Bmod] },
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.conflicts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ key: "rules.dev" }),
+          ]),
+        );
+      }
     });
   });
 });

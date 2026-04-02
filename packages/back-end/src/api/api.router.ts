@@ -1,10 +1,19 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
-import { Router, Request } from "express";
+import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
+import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
+import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
+import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
 import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
@@ -37,7 +46,18 @@ import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
-import { API_MODELS, defineRouterForApiConfig } from "./ApiModel";
+import rampSchedulesRouter from "./ramp-schedules/ramp-schedules.router";
+import { defineRouterForApiConfig } from "./ApiModel";
+
+const API_MODELS: ModelClass[] = [
+  DashboardModel,
+  CustomFieldModel,
+  MetricGroupModel,
+  TeamModel,
+  ExperimentTemplatesModel,
+  AnalyticsExplorationModel,
+  RampScheduleTemplateModel,
+];
 
 const router = Router();
 let openapiSpec: string;
@@ -62,11 +82,11 @@ router.get("/openapi.yaml", (req, res) => {
 router.use(bodyParser.json({ limit: "2mb" }));
 router.use(bodyParser.urlencoded({ limit: "2mb", extended: true }));
 
-router.use(authenticateApiRequestMiddleware);
+router.use(authenticateApiRequestMiddleware as RequestHandler);
 
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {
-  router.use((req: Request & ApiRequestLocals, res, next) => {
+  router.use(((req: Request & ApiRequestLocals, res, next) => {
     if (req.user) {
       Sentry.setUser({
         id: req.user.id,
@@ -78,10 +98,13 @@ if (SENTRY_DSN) {
       Sentry.setTag("organization", req.context.org.id);
     }
     next();
-  });
+  }) as RequestHandler);
 }
 
-const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
+const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
+  min: 1,
+  name: "API_RATE_LIMIT_MAX",
+});
 const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
 // Rate limit API keys to 60 requests per minute
 router.use(
@@ -90,7 +113,7 @@ router.use(
     max: API_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: Request & ApiRequestLocals) => req.apiKey,
+    keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
     message: {
       message: `Too many requests, limit to ${overallRateLimit} per minute`,
     },
@@ -135,13 +158,14 @@ router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
+router.use("/ramp-schedules", rampSchedulesRouter);
 router.post("/transform-copy", postCopyTransform);
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;
   const r = defineRouterForApiConfig(apiConfig);
   if (r) {
-    router.use(apiConfig.pathBase, r);
+    router.use(apiConfig.openApiSpec.pathBase, r);
   }
 });
 

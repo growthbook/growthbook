@@ -169,11 +169,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -294,11 +289,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ConditionInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -334,11 +324,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/ForceSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -359,22 +344,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/Rule.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -389,22 +364,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/SDKConnections/SDKConnectionsList.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/SafeRollout/SafeRolloutStatusModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SavedGroupTargetingField.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

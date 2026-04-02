@@ -45,7 +45,7 @@ export default function SavedGroupTargetingDisplay({
           >
             {i === 0 && prefix}
             {i || initialAnd ? <Text weight="medium">AND</Text> : null}
-            {getDescription(s)}
+            <Text>{getDescription(s)}</Text>
             <Flex wrap="wrap" gap="2">
               {s.ids.length > 1 && "("}
               {s.ids.map((id) => {

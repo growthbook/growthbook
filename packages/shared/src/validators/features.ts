@@ -7,6 +7,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
+import { rampStep, rampStepAction } from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -51,6 +52,9 @@ export const baseRule = z
     scheduleRules: z.array(scheduleRule).optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    // UI hint: which scheduling mode the user chose. "schedule" = 0-step start/end
+    // date rule; "ramp" = multi-step ramp-up. Absent or "none" = no schedule.
+    scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
   })
   .strict();
 
@@ -218,6 +222,9 @@ export const revisionStatusSchema = z.enum([
   "approved",
   "changes-requested",
   "pending-review",
+  // Held child revision created by a ramp schedule; auto-published when the parent
+  // controller revision is approved/published. Not user-actionable directly.
+  "pending-parent",
 ]);
 
 export type RevisionStatus = z.infer<typeof revisionStatusSchema>;
@@ -225,6 +232,7 @@ export type RevisionStatus = z.infer<typeof revisionStatusSchema>;
 export const activeDraftStatusSchema = revisionStatusSchema.exclude([
   "published",
   "discarded",
+  "pending-parent", // Excluded — managed by ramp schedule, not user-actionable
 ]);
 
 export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
@@ -238,12 +246,73 @@ const minimalFeatureRevisionInterface = z
     dateUpdated: z.date(),
     createdBy: eventUser,
     status: revisionStatusSchema,
+    comment: z.string(),
+    title: z.string().optional(),
   })
   .strict();
 
 export type MinimalFeatureRevisionInterface = z.infer<
   typeof minimalFeatureRevisionInterface
 >;
+
+const revisionMetadataSchema = z.object({
+  description: z.string().optional(),
+  owner: z.string().optional(),
+  project: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  neverStale: z.boolean().optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+  jsonSchema: JSONSchemaDef.optional(),
+  valueType: z.enum(featureValueType).optional(),
+});
+
+export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
+
+// Zod schemas for ramp schedule actions stored on a revision.
+// These are deferred and only executed when the revision is published.
+// Only create and detach are revision-bound; state changes (pause, resume, etc.)
+// are real-time and operate directly on the live ramp schedule.
+const revisionRampEndTrigger = z.object({
+  type: z.literal("scheduled"),
+  at: z.string(),
+});
+const revisionRampEndConditionSchema = z.object({
+  trigger: revisionRampEndTrigger.optional(),
+});
+
+export const revisionRampCreateAction = z.object({
+  mode: z.literal("create"),
+  name: z.string(),
+  /** If set, patches are scoped to this environment only.
+   *  If absent/null, patches apply to all environments sharing the ruleId. */
+  environment: z.string().optional().nullable(),
+  steps: z.array(rampStep),
+  // Actions applied when the ramp completes (merged on top of accumulated step patches).
+  endActions: z.array(rampStepAction).optional(),
+  // ISO datetime string — absent/empty means start immediately on publish.
+  startDate: z.string().optional().nullable(),
+  endCondition: revisionRampEndConditionSchema.optional(),
+  /** Rule ID this ramp is being created for. Used at publish time to build the target. */
+  ruleId: z.string(),
+});
+
+export const revisionRampDetachAction = z.object({
+  mode: z.literal("detach"),
+  rampScheduleId: z.string(),
+  /** Rule ID being detached. Used at publish time to remove the right target. */
+  ruleId: z.string(),
+  /** Delete the ramp schedule entirely if no targets remain after detach. */
+  deleteScheduleWhenEmpty: z.boolean().optional(),
+});
+
+const revisionRampAction = z.discriminatedUnion("mode", [
+  revisionRampCreateAction,
+  revisionRampDetachAction,
+]);
+
+export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
+export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
+export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
@@ -255,6 +324,20 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     comment: z.string(),
     defaultValue: z.string(),
     rules: revisionRulesSchema,
+    // Revision envelopes — only present when explicitly changed
+    environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    prerequisites: z.array(featurePrerequisite).optional(),
+    archived: z.boolean().optional(),
+    metadata: revisionMetadataSchema.optional(),
+    holdout: z
+      .object({ id: z.string(), value: z.string() })
+      .nullable()
+      .optional(),
+    // Ramp schedule actions (create/detach) to execute atomically when this revision
+    // is published. This ensures ramp schedules are never orphaned by draft abandonment
+    // or revision reverts. Real-time state changes (pause, resume, rollback, etc.)
+    // are NOT stored here — they operate directly on live ramp schedule documents.
+    rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
   })
   .strict();
@@ -275,7 +358,6 @@ export const featureInterface = z
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
     version: z.number(),
-    hasDrafts: z.boolean().optional(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),

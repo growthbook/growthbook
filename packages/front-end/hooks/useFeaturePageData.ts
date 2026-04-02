@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -8,6 +8,7 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
+  RampScheduleInterface,
 } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
@@ -20,6 +21,7 @@ type FeaturePageResponse = {
   safeRollouts: SafeRolloutInterface[];
   codeRefs: FeatureCodeRefsInterface[];
   holdout: HoldoutInterface | undefined;
+  rampSchedules: RampScheduleInterface[];
 };
 
 function parseVersion(value: string | string[] | undefined): number | null {
@@ -39,11 +41,13 @@ function toMinimalRevision(
     dateUpdated: r.dateUpdated,
     createdBy: r.createdBy,
     status: r.status,
+    comment: r.comment || "",
+    ...(r.title ? { title: r.title } : {}),
   };
 }
 
-// Fetches features and revisions. Loads 5 full revisions + 200 minimal revisions.
-// Auto-fetches and caches additional full revisions as needed.
+// Fetches feature page data. Initial response includes full revisions for the top-5 recent,
+// all active drafts, and their base versions. Auto-fetches and caches additional full revisions as needed.
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
@@ -69,6 +73,17 @@ export function useFeaturePageData(
     shouldRun: () => !!fid,
   });
 
+  // Poll ramp schedules independently so the timeline stays live without
+  // reloading the full (heavy) feature page payload.
+  const rampPollMs = 15_000;
+  const { data: rampSchedulesData, mutate: mutateRampSchedules } = useApi<{
+    status: 200;
+    rampSchedules: RampScheduleInterface[];
+  }>(fid ? `/ramp-schedule?featureId=${fid}` : "", {
+    shouldRun: () => !!fid,
+    refreshInterval: rampPollMs,
+  });
+
   // Only fetch a specific version if it isn't already in the base response or cache.
   const requestedVersionInBaseSet =
     baseData?.revisions?.some((r) => r.version === selectedVersion) ?? false;
@@ -79,6 +94,33 @@ export function useFeaturePageData(
     selectedVersion != null &&
     !requestedVersionInBaseSet &&
     !requestedVersionInCache;
+
+  // Also fetch the baseVersion of the currently-selected revision when it's
+  // missing from the cache. This is needed for autoMerge (and thus the
+  // publish/review CTAs) when the selected draft was based on an old revision
+  // that fell outside the top-5 window returned by getLatestRevisions.
+  const selectedRevisionBaseVersion: number | null = useMemo(() => {
+    if (!selectedVersion) return null;
+    const full =
+      cachedRevisions[selectedVersion] ??
+      baseData?.revisions?.find((r) => r.version === selectedVersion);
+    return full?.baseVersion ?? null;
+  }, [selectedVersion, cachedRevisions, baseData]);
+
+  const baseVersionInCache =
+    selectedRevisionBaseVersion != null &&
+    !!cachedRevisions[selectedRevisionBaseVersion];
+  const baseVersionInBaseSet =
+    selectedRevisionBaseVersion != null &&
+    (baseData?.revisions?.some(
+      (r) => r.version === selectedRevisionBaseVersion,
+    ) ??
+      false);
+  const shouldFetchBaseVersion =
+    !!fid &&
+    selectedRevisionBaseVersion != null &&
+    !baseVersionInCache &&
+    !baseVersionInBaseSet;
 
   const {
     data: selectedVersionRevisionsData,
@@ -92,6 +134,13 @@ export function useFeaturePageData(
     },
   );
 
+  const { data: baseVersionRevisionsData } = useApi<{
+    status: 200;
+    revisions: FeatureRevisionInterface[];
+  }>(`/feature/${fid}/revisions?versions=${selectedRevisionBaseVersion}`, {
+    shouldRun: () => shouldFetchBaseVersion,
+  });
+
   // Clean up everything if fid changes
   useEffect(() => {
     setVersion(null);
@@ -99,11 +148,35 @@ export function useFeaturePageData(
   }, [fid]);
 
   const refreshData = async () => {
-    await mutateBase();
-    if (shouldFetchFromRevisionsEndpoint) {
-      await mutateSelectedVersion();
-    }
+    await Promise.all([
+      mutateBase(),
+      mutateRampSchedules(),
+      shouldFetchFromRevisionsEndpoint
+        ? mutateSelectedVersion()
+        : Promise.resolve(),
+    ]);
   };
+
+  // When the ramp-schedule poll detects an advancement (step or status change),
+  // re-fetch the full feature payload so revisions and rule state stay in sync.
+  const prevRampSchedulesRef = useRef<RampScheduleInterface[]>([]);
+  useEffect(() => {
+    const prev = prevRampSchedulesRef.current;
+    const curr = rampSchedulesData?.rampSchedules ?? [];
+    const hasAdvancement =
+      prev.length > 0 &&
+      curr.some((rs) => {
+        const p = prev.find((r) => r.id === rs.id);
+        return (
+          p &&
+          (rs.currentStepIndex !== p.currentStepIndex || rs.status !== p.status)
+        );
+      });
+    prevRampSchedulesRef.current = curr;
+    if (hasAdvancement) {
+      mutateBase();
+    }
+  }, [rampSchedulesData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Seed cache from initial response
   useEffect(() => {
@@ -135,6 +208,21 @@ export function useFeaturePageData(
     });
   }, [selectedVersionRevisionsData, fid]);
 
+  // Append base-version revision to cache when lazily fetched
+  useEffect(() => {
+    if (!baseVersionRevisionsData?.revisions?.length || !fid) {
+      return;
+    }
+
+    setCachedRevisions((prev) => {
+      const next = { ...prev };
+      baseVersionRevisionsData.revisions.forEach((r) => {
+        if (r.featureId === fid) next[r.version] = r;
+      });
+      return next;
+    });
+  }, [baseVersionRevisionsData, fid]);
+
   const data = useMemo<FeaturePageResponse | undefined>(() => {
     if (!baseData) return undefined;
 
@@ -151,12 +239,34 @@ export function useFeaturePageData(
       ...baseData,
       revisionList,
       revisions: Object.values(cachedRevisions),
+      // Use polled ramp schedules when available so the timeline stays current
+      // without requiring a full page reload.
+      rampSchedules: rampSchedulesData?.rampSchedules ?? baseData.rampSchedules,
     };
-  }, [baseData, cachedRevisions]);
+  }, [baseData, cachedRevisions, rampSchedulesData]);
 
   const baseFeature = data?.feature;
   const revisions = data?.revisions;
   const baseFeatureVersion = baseFeature?.version;
+
+  // When the live feature version increments (e.g. ramp auto-published above)
+  // and the user was already viewing the live revision, snap them to the new live version.
+  const versionRef = useRef(version);
+  versionRef.current = version;
+  const prevLiveVersionRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const prevLive = prevLiveVersionRef.current;
+    const newLive = baseFeatureVersion;
+    prevLiveVersionRef.current = newLive ?? undefined;
+    if (
+      prevLive !== undefined &&
+      newLive !== undefined &&
+      newLive !== prevLive &&
+      versionRef.current === prevLive
+    ) {
+      setVersion(newLive);
+    }
+  }, [baseFeatureVersion]);
 
   // Set initial version: URL query > draft revision > live version.
   // Wait for cache to seed to avoid incorrectly selecting live when drafts exist.
@@ -179,15 +289,20 @@ export function useFeaturePageData(
       return;
     }
 
-    // Search revisionList (200 items) not revisions (5 items) to find all drafts
+    // Search revisionList (200 items) not revisions (5 items) to find all drafts.
+    // Skip ramp-generated revisions so the page defaults to human-authored drafts.
     const draft =
       data?.revisionList &&
       data.revisionList.find(
         (r) =>
-          r.status === "draft" ||
-          r.status === "approved" ||
-          r.status === "changes-requested" ||
-          r.status === "pending-review",
+          !(
+            r.createdBy?.type === "system" &&
+            r.createdBy.subtype === "ramp-schedule"
+          ) &&
+          (r.status === "draft" ||
+            r.status === "approved" ||
+            r.status === "changes-requested" ||
+            r.status === "pending-review"),
       );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [cacheSeeded, data, version, forcedVersionFromQuery, baseFeatureVersion]);

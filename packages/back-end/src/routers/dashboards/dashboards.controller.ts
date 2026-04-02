@@ -21,7 +21,7 @@ import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
-} from "back-end/src/controllers/experiments";
+} from "back-end/src/services/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
@@ -185,7 +185,6 @@ export async function refreshDashboardData(
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new Error("Cannot find dashboard");
   if (dashboard.experimentId) {
-    // MKTODO: Validate this change doesn't have any unintended consequences
     const experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment)
       throw new Error("Cannot update dashboard without an attached experiment");
