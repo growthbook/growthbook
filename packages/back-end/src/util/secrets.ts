@@ -354,7 +354,20 @@ export const secretsReplacer = (
     );
 
     const stringReplacer = (s: string) => {
-      const template = Handlebars.compile(s, {
+      // Handlebars can't resolve keys with spaces via plain {{ key }} syntax.
+      // Rewrite any such occurrences to bracket-literal form {{[key]}} so
+      // both new and previously-saved webhooks work correctly.
+      let processed = s;
+      for (const key of Object.keys(encodedSecrets)) {
+        if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
+          const escapedForRegex = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          processed = processed.replace(
+            new RegExp(`\\{\\{\\s*${escapedForRegex}\\s*\\}\\}`, "g"),
+            `{{[${key}]}}`,
+          );
+        }
+      }
+      const template = Handlebars.compile(processed, {
         noEscape: true,
         strict: true,
       });
