@@ -24,7 +24,7 @@ import {
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import { datetime } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
 import {
   DropdownMenu,
@@ -355,10 +355,10 @@ function RevisionCommentItem({
 
   const logEntry = useMemo(() => {
     if (!data?.log) return null;
-    const sorted = [...data.log].sort((a, b) =>
-      (b.timestamp as unknown as string).localeCompare(
-        a.timestamp as unknown as string,
-      ),
+    const sorted = [...data.log].sort(
+      (a, b) =>
+        getValidDate(b.timestamp).getTime() -
+        getValidDate(a.timestamp).getTime(),
     );
     for (const entry of sorted) {
       if (entry.action === "edit comment") {
@@ -1223,10 +1223,10 @@ export default function CompareRevisionsModal({
         const response = await apiCall<{ log: RevisionLog[] }>(
           `/feature/${feature.id}/${version}/log`,
         );
-        const sorted = [...(response.log ?? [])].sort((a, b) =>
-          (a.timestamp as unknown as string).localeCompare(
-            b.timestamp as unknown as string,
-          ),
+        const sorted = [...(response.log ?? [])].sort(
+          (a, b) =>
+            getValidDate(a.timestamp).getTime() -
+            getValidDate(b.timestamp).getTime(),
         );
         setFetchedLogs((prev) => ({ ...prev, [version]: sorted }));
       } catch {
