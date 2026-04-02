@@ -16,7 +16,10 @@ import {
   toQueryApiInterface,
 } from "back-end/src/models/QueryModel";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
-import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
+import {
+  getProductAnalyticsExplorationUrl,
+  runProductAnalyticsExploration,
+} from "back-end/src/enterprise/services/product-analytics";
 import analyticsExplorationApiSpec, {
   type makeExplorationEndpoint,
   postMetricExplorationEndpoint,
@@ -72,6 +75,7 @@ function makeExplorationHandler<
       return {
         exploration: toApiInterface(exploration),
         query: queryDoc ? toQueryApiInterface(queryDoc) : null,
+        explorationUrl: getProductAnalyticsExplorationUrl(exploration.config),
       };
     },
   });
