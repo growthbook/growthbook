@@ -206,6 +206,7 @@ export class ProjectModel extends BaseClass {
       id: project.id,
       name: project.name,
       description: project.description || "",
+      publicId: project.publicId,
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {

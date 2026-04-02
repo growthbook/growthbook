@@ -1143,6 +1143,9 @@ paths:
                   type: string
                 description:
                   type: string
+                publicId:
+                  type: string
+                  description: 'URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided.'
                 settings:
                   description: Project settings.
                   type: object
@@ -1210,6 +1213,9 @@ paths:
                   type: string
                 description:
                   description: Project description.
+                  type: string
+                publicId:
+                  description: 'URL-safe slug (lowercase letters, numbers, dashes).'
                   type: string
                 settings:
                   description: Project settings.
@@ -24966,6 +24972,9 @@ components:
           format: date-time
         description:
           type: string
+        publicId:
+          type: string
+          description: URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.
         settings:
           type: object
           properties:

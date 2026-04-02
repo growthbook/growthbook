@@ -1551,6 +1551,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       description?: string;
+      /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+      publicId?: string;
       settings?: {
         statsEngine?: string;
       };
@@ -9472,6 +9474,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 description?: string;
+                /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+                publicId?: string;
                 settings?: {
                   statsEngine?: string;
                 };
@@ -9495,6 +9499,8 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
+          /** @description URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided. */
+          publicId?: string;
           /** @description Project settings. */
           settings?: {
             /** @description Stats engine. */
@@ -9515,6 +9521,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -9544,6 +9552,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -9568,6 +9578,8 @@ export interface operations {
           name?: string;
           /** @description Project description. */
           description?: string;
+          /** @description URL-safe slug (lowercase letters, numbers, dashes). */
+          publicId?: string;
           /** @description Project settings. */
           settings?: {
             /** @description Stats engine. */
@@ -9588,6 +9600,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };

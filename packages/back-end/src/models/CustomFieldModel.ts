@@ -251,8 +251,12 @@ export class CustomFieldModel extends BaseClass {
       );
     }
 
+    // Only update the first matching field — orgs with legacy duplicate IDs
+    // should not have all copies mutated simultaneously.
+    let matchedOnce = false;
     const newFields = existing.fields.map((field) => {
-      if (field.id === customFieldId) {
+      if (field.id === customFieldId && !matchedOnce) {
+        matchedOnce = true;
         const merged = {
           ...field,
           ...customFieldUpdates,
