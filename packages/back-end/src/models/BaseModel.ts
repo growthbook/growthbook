@@ -18,7 +18,6 @@ import {
   createModelAuditLogger,
   type AuditLogConfig,
 } from "back-end/src/services/audit";
-import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   ForeignKeys,
   ForeignRefs,
@@ -27,6 +26,7 @@ import {
 import { ApiRequest } from "back-end/src/util/handler";
 import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -689,9 +689,7 @@ export abstract class BaseModel<
     // Resolve owner from email/name to userId if needed, then fall back to current user
     if ("owner" in props) {
       if (typeof props.owner === "string" && props.owner) {
-        props.owner =
-          (await resolveOwnerToUserId(props.owner, this.context)) ??
-          props.owner;
+        props.owner = await resolveOwnerToUserId(props.owner, this.context);
       }
       if (!props.owner) {
         props.owner = this.context.userId || "";
@@ -768,9 +766,7 @@ export abstract class BaseModel<
       typeof updates.owner === "string" &&
       updates.owner
     ) {
-      updates.owner =
-        (await resolveOwnerToUserId(updates.owner, this.context)) ??
-        updates.owner;
+      updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
     }
 
     // Only consider updates that actually change the value
