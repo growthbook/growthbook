@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import { Flex, Box } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
@@ -15,7 +15,7 @@ const CustomFieldInput: FC<{
   currentCustomFields: Record<string, string>;
   section: CustomFieldSection;
   setCustomFields: (customFields: Record<string, string>) => void;
-  project?: string;
+  project: string | undefined;
   className?: string;
 }> = ({
   customFields,
@@ -31,42 +31,84 @@ const CustomFieldInput: FC<{
     project,
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
-
-  // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
-  if (typeof currentCustomFields === "string") {
-    try {
-      currentCustomFields = JSON.parse(currentCustomFields);
-    } catch (e) {
-      currentCustomFields = {};
+  const normalizedCustomFields = useMemo<Record<string, string>>(() => {
+    // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
+    if (typeof currentCustomFields === "string") {
+      try {
+        return JSON.parse(currentCustomFields);
+      } catch (e) {
+        return {};
+      }
     }
-  }
+
+    return currentCustomFields;
+  }, [currentCustomFields]);
 
   useEffect(() => {
     if (!loadedDefaults) {
       // here we are setting the default values in the form, otherwise
       // boolean/toggles or inputs with default values will not be saved.
       if (availableFields) {
+        const nextCustomFields = { ...normalizedCustomFields };
         availableFields.forEach((v) => {
-          if (!currentCustomFields?.[v.id] && v.defaultValue) {
-            if (v.type === "multiselect") {
-              currentCustomFields[v.id] = JSON.stringify([v.defaultValue]);
-            } else {
-              currentCustomFields[v.id] = v.defaultValue;
-            }
+          const currentValue = nextCustomFields?.[v.id];
+          const missingCurrentValue =
+            currentValue === undefined ||
+            currentValue === null ||
+            currentValue === "";
+          const hasDefaultValue =
+            v.defaultValue !== undefined &&
+            v.defaultValue !== null &&
+            (Array.isArray(v.defaultValue)
+              ? v.defaultValue.length > 0
+              : v.defaultValue !== "");
 
-            if (v.type === "boolean") {
-              currentCustomFields[v.id] = "" + JSON.stringify(v.defaultValue);
+          if (missingCurrentValue && hasDefaultValue) {
+            if (v.type === "multiselect") {
+              nextCustomFields[v.id] = Array.isArray(v.defaultValue)
+                ? JSON.stringify(v.defaultValue)
+                : JSON.stringify([v.defaultValue]);
+            } else if (v.type === "boolean") {
+              const normalizedDefault =
+                typeof v.defaultValue === "boolean"
+                  ? v.defaultValue
+                  : String(v.defaultValue).toLowerCase() === "true";
+              nextCustomFields[v.id] = String(normalizedDefault);
+            } else {
+              nextCustomFields[v.id] = String(v.defaultValue);
             }
           }
         });
-        setCustomFields(currentCustomFields);
+        setCustomFields(nextCustomFields);
         setLoadedDefaults(true);
       }
     }
-  }, [availableFields, loadedDefaults, currentCustomFields, setCustomFields]);
+  }, [
+    availableFields,
+    loadedDefaults,
+    normalizedCustomFields,
+    setCustomFields,
+  ]);
+
+  // Clear previously set fields if they change so we don't send
+  // fields that are not accepted when changing projects for example
+  useEffect(() => {
+    if (!availableFields) return;
+
+    const allowedFields = new Set(availableFields.map((v) => v.id));
+    const currentEntries = Object.entries(normalizedCustomFields);
+    const filteredEntries = currentEntries.filter(([key]) =>
+      allowedFields.has(key),
+    );
+
+    // Only update when we actually need to remove disallowed keys.
+    if (filteredEntries.length !== currentEntries.length) {
+      setCustomFields(Object.fromEntries(filteredEntries));
+    }
+  }, [availableFields, normalizedCustomFields, setCustomFields]);
 
   const updateCustomField = (name, value) => {
-    setCustomFields({ ...currentCustomFields, [name]: value });
+    setCustomFields({ ...normalizedCustomFields, [name]: value });
   };
 
   const getMultiSelectValue = (value) => {
@@ -97,8 +139,8 @@ const CustomFieldInput: FC<{
                     label={v.name}
                     description={v.description}
                     value={
-                      currentCustomFields?.[v.id]
-                        ? currentCustomFields[v.id] === "true"
+                      normalizedCustomFields?.[v.id]
+                        ? normalizedCustomFields[v.id] === "true"
                         : false
                     }
                     setValue={(t) => {
@@ -115,7 +157,9 @@ const CustomFieldInput: FC<{
                         )}
                       </>
                     }
-                    value={currentCustomFields?.[v.id] ?? v?.defaultValue ?? ""}
+                    value={
+                      normalizedCustomFields?.[v.id] ?? v?.defaultValue ?? ""
+                    }
                     options={
                       v.values
                         ? v.values
@@ -128,6 +172,7 @@ const CustomFieldInput: FC<{
                       updateCustomField(v.id, s);
                     }}
                     helpText={v.description}
+                    required={v.required}
                     containerClassName="mb-0"
                   />
                 ) : v.type === "multiselect" ? (
@@ -141,8 +186,8 @@ const CustomFieldInput: FC<{
                       </>
                     }
                     value={
-                      currentCustomFields?.[v.id]
-                        ? getMultiSelectValue(currentCustomFields[v.id])
+                      normalizedCustomFields?.[v.id]
+                        ? getMultiSelectValue(normalizedCustomFields[v.id])
                         : []
                     }
                     options={
@@ -157,6 +202,7 @@ const CustomFieldInput: FC<{
                       updateCustomField(v.id, JSON.stringify(values));
                     }}
                     helpText={v.description}
+                    required={v.required}
                     containerClassName="mb-0"
                   />
                 ) : v.type === "textarea" ? (
@@ -164,7 +210,7 @@ const CustomFieldInput: FC<{
                     textarea
                     minRows={2}
                     maxRows={6}
-                    value={currentCustomFields?.[v.id] ?? ""}
+                    value={normalizedCustomFields?.[v.id] ?? ""}
                     label={
                       <>
                         {v.name}
@@ -184,7 +230,7 @@ const CustomFieldInput: FC<{
                 ) : v.type === "date" || v.type === "datetime" ? (
                   <Box>
                     <DatePicker
-                      date={currentCustomFields?.[v.id] || undefined}
+                      date={normalizedCustomFields?.[v.id] || undefined}
                       setDate={(d) => {
                         updateCustomField(v.id, d?.toISOString() ?? "");
                       }}
@@ -200,7 +246,7 @@ const CustomFieldInput: FC<{
                       containerClassName="mb-0"
                     />
                     {(v.description ||
-                      (!v.required && currentCustomFields?.[v.id])) && (
+                      (!v.required && normalizedCustomFields?.[v.id])) && (
                       <Flex justify="between" align="start" mt="1">
                         {v.description ? (
                           <Text size="1" color="gray">
@@ -209,7 +255,7 @@ const CustomFieldInput: FC<{
                         ) : (
                           <Box />
                         )}
-                        {!v.required && currentCustomFields?.[v.id] && (
+                        {!v.required && normalizedCustomFields?.[v.id] && (
                           <Link
                             onClick={() => updateCustomField(v.id, "")}
                             color="gray"
@@ -223,7 +269,7 @@ const CustomFieldInput: FC<{
                   </Box>
                 ) : (
                   <Field
-                    value={currentCustomFields?.[v.id] ?? ""}
+                    value={normalizedCustomFields?.[v.id] ?? ""}
                     label={
                       <>
                         {v.name}

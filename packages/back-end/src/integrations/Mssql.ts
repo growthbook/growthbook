@@ -1,9 +1,13 @@
-import { FormatDialect } from "shared/types/sql";
+import { parseIntWithDefault } from "shared/util";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { QueryResponse } from "shared/types/integrations";
 import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { findOrCreateConnection } from "back-end/src/util/mssqlPoolManager";
 import SqlIntegration from "./SqlIntegration";
+
+/** Default TCP port for SQL Server; used when stored params are missing or not parseable as an integer. */
+const MSSQL_DEFAULT_TCP_PORT = 1433;
 
 export default class Mssql extends SqlIntegration {
   params!: MssqlConnectionParams;
@@ -21,7 +25,7 @@ export default class Mssql extends SqlIntegration {
   async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource.id, {
       server: this.params.server,
-      port: parseInt(this.params.port + "", 10),
+      port: parseIntWithDefault(this.params.port, MSSQL_DEFAULT_TCP_PORT),
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,
@@ -51,9 +55,14 @@ export default class Mssql extends SqlIntegration {
   ): string {
     return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
   }
-  dateTrunc(col: string) {
-    //return `DATETRUNC(day, ${col})`; <- this is only supported in SQL Server 2022 preview.
-    return `cast(${col} as DATE)`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    // Widely supported shortcut for day granularity (most commonly used)
+    if (granularity === "day") {
+      return `cast(${col} as DATE)`;
+    }
+
+    // DATETRUNC is only supported in SQL Server 2022 preview.
+    return `DATETRUNC(${granularity}, ${col})`;
   }
   ensureFloat(col: string): string {
     return `CAST(${col} as FLOAT)`;

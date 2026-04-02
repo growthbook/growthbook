@@ -149,6 +149,46 @@ export async function updateQuery(
   };
 }
 
+/**
+ * Like updateQuery, but only applies if the document still has status "running".
+ * Returns whether an update matched. Use when another path may have already
+ * moved the query to a terminal state (e.g. user cancel with a custom error).
+ */
+export async function updateQueryIfRunning(
+  context: ReqContext | ApiReqContext,
+  query: QueryInterface,
+  changes: Partial<QueryInterface>,
+): Promise<boolean> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  let processedChanges: Partial<QueryInterface> = { ...changes };
+  if (
+    changes.result &&
+    changes.result === changes.rawResult &&
+    changes.rawResult &&
+    changes.rawResult.length > 0
+  ) {
+    await context.models.sqlResultChunks.createFromResults(
+      query.id,
+      changes.rawResult,
+    );
+    processedChanges = omit(processedChanges, ["result", "rawResult"]);
+    processedChanges.hasChunkedResults = true;
+  }
+
+  const result = await QueryModel.updateOne(
+    {
+      organization: context.org.id,
+      id: query.id,
+      status: "running",
+    },
+    { $set: processedChanges },
+  );
+  return result.matchedCount > 0;
+}
+
 export async function getRecentQuery(
   organization: string,
   datasource: string,

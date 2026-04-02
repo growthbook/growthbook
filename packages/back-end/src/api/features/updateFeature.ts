@@ -1,10 +1,6 @@
-import {
-  featureRequiresReview,
-  validateFeatureValue,
-  validateScheduleRules,
-} from "shared/util";
+import { validateFeatureValue, validateScheduleRules } from "shared/util";
 import { isEqual } from "lodash";
-import { UpdateFeatureResponse } from "shared/types/openapi";
+import type { UpdateFeatureResponse } from "shared/types/openapi";
 import { updateFeatureValidator, RevisionRules } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -12,24 +8,24 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getFeature,
   updateFeature as updateFeatureToDb,
+  createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToRules,
   getApiFeatureObj,
+  getNextScheduledUpdate,
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import {
-  createRevision,
-  getRevision,
-} from "back-end/src/models/FeatureRevisionModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validation";
+import { validateCustomFields } from "./validations";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -83,8 +79,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // check if the custom fields are valid
-    if (customFields) {
-      await validateCustomFields(customFields, req.context, req.body.project);
+    const projectChanged = project !== undefined && project !== feature.project;
+    const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+      existingCustomFieldValues: feature.customFields,
+      updatedCustomFieldValues: customFields,
+    });
+
+    if (projectChanged || customFieldsChanged) {
+      await validateCustomFields(
+        customFields ?? feature.customFields,
+        req.context,
+        effectiveProject,
+      );
     }
 
     // ensure environment keys are valid
@@ -143,6 +149,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           }))
         : null;
 
+    // Validate holdout ID if provided
+    if (req.body.holdout !== undefined && req.body.holdout !== null) {
+      const holdoutObj = await req.context.models.holdout.getById(
+        req.body.holdout.id,
+      );
+      if (!holdoutObj) {
+        throw new Error(`Holdout id '${req.body.holdout.id}' not found.`);
+      }
+    }
+
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
         ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
@@ -186,76 +202,158 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
-    // Create a revision for the changes and publish them immediately
-    let defaultValueChanged = false;
-    const changedEnvironments: string[] = [];
-    if ("defaultValue" in updates || "environmentSettings" in updates) {
-      const revisionChanges: Partial<FeatureRevisionInterface> = {};
-      const revisedRules: RevisionRules = {};
+    if (updates.environmentSettings) {
+      updates.nextScheduledUpdate = getNextScheduledUpdate(
+        updates.environmentSettings,
+        orgEnvs,
+      );
+    }
 
-      // Copy over current envSettings to revision as this endpoint support partial updates
-      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-        revisedRules[env] = settings.rules;
-      });
+    const canBypass = !!req.context.org.settings?.restApiBypassesReviews;
 
-      let hasChanges = false;
-      if (
-        "defaultValue" in updates &&
-        updates.defaultValue !== feature.defaultValue
-      ) {
-        revisionChanges.defaultValue = updates.defaultValue;
-        hasChanges = true;
-        defaultValueChanged = true;
-      }
-      if (updates.environmentSettings) {
-        Object.entries(updates.environmentSettings).forEach(
-          ([env, settings]) => {
-            if (
-              !isEqual(
-                settings.rules,
-                feature.environmentSettings?.[env]?.rules || [],
-              )
-            ) {
-              hasChanges = true;
-              changedEnvironments.push(env);
-              // if the rule is different from the current feature value, update revisionChanges
-              revisedRules[env] = settings.rules;
-            }
-          },
-        );
-      }
+    // Tags go into the revision metadata; capture them before stripping from updates.
+    const newTagsForDiff = updates.tags;
 
-      revisionChanges.rules = revisedRules;
+    // Build a single combined revision for all change types.
 
-      if (hasChanges) {
-        const reviewRequired = featureRequiresReview(
-          feature,
-          changedEnvironments,
-          defaultValueChanged,
-          req.organization.settings,
-        );
-        if (reviewRequired) {
-          if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-            throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
-            );
-          }
+    // 1. environmentsEnabled (kill switches)
+    const changedEnvEnabled: Record<string, boolean> = {};
+    if (updates.environmentSettings) {
+      for (const [env, settings] of Object.entries(
+        updates.environmentSettings,
+      )) {
+        if (
+          typeof settings.enabled === "boolean" &&
+          settings.enabled !== feature.environmentSettings?.[env]?.enabled
+        ) {
+          changedEnvEnabled[env] = settings.enabled;
+          // Exclude enabled from the direct-write path to avoid applying it twice.
+          updates.environmentSettings[env] = {
+            ...updates.environmentSettings[env],
+            enabled: feature.environmentSettings?.[env]?.enabled ?? false,
+          };
         }
+      }
+    }
 
-        const revision = await createRevision({
+    // 2. rules / defaultValue
+    const revisedRules: RevisionRules = {};
+    Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+      revisedRules[env] = settings.rules;
+    });
+    const changedRuleEnvironments: string[] = [];
+    let defaultValueChanged = false;
+
+    if (
+      updates.defaultValue !== undefined &&
+      updates.defaultValue !== feature.defaultValue
+    ) {
+      defaultValueChanged = true;
+    }
+    if (updates.environmentSettings) {
+      Object.entries(updates.environmentSettings).forEach(([env, settings]) => {
+        if (
+          !isEqual(
+            settings.rules,
+            feature.environmentSettings?.[env]?.rules || [],
+          )
+        ) {
+          changedRuleEnvironments.push(env);
+          revisedRules[env] = settings.rules;
+        }
+      });
+    }
+
+    // 3. metadata
+    const metadataChanges: Record<string, unknown> = {};
+    const metadataFields = [
+      "owner",
+      "description",
+      "project",
+      "tags",
+      "customFields",
+      "jsonSchema",
+    ] as const;
+    for (const key of metadataFields) {
+      if (key in updates && updates[key] !== undefined) {
+        metadataChanges[key] = updates[key];
+        delete (updates as Record<string, unknown>)[key];
+      }
+    }
+
+    // 4. prerequisites
+    const newPrerequisites = updates.prerequisites ?? null;
+    if (newPrerequisites !== null) {
+      delete updates.prerequisites;
+    }
+
+    // 5. archived
+    const newArchived =
+      updates.archived !== undefined && updates.archived !== feature.archived
+        ? updates.archived
+        : null;
+    if (newArchived !== null) {
+      delete updates.archived;
+    }
+
+    // 6. holdout — absent: no change; null: remove; { id, value }: add/change
+    const holdoutFieldProvided = "holdout" in req.body;
+    const newHoldout = holdoutFieldProvided
+      ? (req.body.holdout ?? null)
+      : undefined;
+    const hasHoldoutChange =
+      holdoutFieldProvided &&
+      !isEqual(newHoldout ?? null, feature.holdout ?? null);
+
+    // Determine whether any revision-tracked change exists
+    const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
+    const hasRuleChanges =
+      defaultValueChanged || changedRuleEnvironments.length > 0;
+    const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
+    const hasPrereqChanges = newPrerequisites !== null;
+    const hasArchivedChange = newArchived !== null;
+
+    const hasRevisionChanges =
+      hasEnvEnabledChanges ||
+      hasRuleChanges ||
+      hasMetadataChanges ||
+      hasPrereqChanges ||
+      hasArchivedChange ||
+      hasHoldoutChange;
+
+    if (hasRevisionChanges) {
+      const revisionChanges: Partial<FeatureRevisionInterface> = {
+        ...(hasEnvEnabledChanges
+          ? { environmentsEnabled: changedEnvEnabled }
+          : {}),
+        ...(hasRuleChanges || hasEnvEnabledChanges
+          ? {
+              rules: revisedRules,
+              ...(updates.defaultValue !== undefined
+                ? { defaultValue: updates.defaultValue }
+                : {}),
+            }
+          : {}),
+        ...(hasMetadataChanges ? { metadata: metadataChanges } : {}),
+        ...(hasPrereqChanges ? { prerequisites: newPrerequisites } : {}),
+        ...(hasArchivedChange ? { archived: newArchived } : {}),
+        ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
+      };
+
+      // Throws if the revision requires approval and the caller cannot bypass.
+      const { revision, updatedFeature: updatedFeatureFromRevision } =
+        await createAndPublishRevision({
           context: req.context,
           feature,
           user: req.eventAudit,
-          baseVersion: feature.version,
-          comment: "Created via REST API",
-          environments: orgEnvs,
-          publish: true,
-          changes: revisionChanges,
           org: req.organization,
-          canBypassApprovalChecks: true,
+          changes: revisionChanges,
+          comment: "Created via REST API",
+          canBypassApprovalChecks: canBypass,
         });
-        updates.version = revision.version;
-      }
+
+      Object.assign(feature, updatedFeatureFromRevision);
+      updates.version = revision.version;
     }
 
     const updatedFeature = await updateFeatureToDb(
@@ -267,7 +365,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     await addTagsDiff(
       req.context.org.id,
       feature.tags || [],
-      updates.tags || [],
+      newTagsForDiff || [],
     );
 
     await req.audit({

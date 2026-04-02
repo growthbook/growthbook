@@ -224,6 +224,8 @@ export const getSDKConnectionsWebhooks = async (
       "lastSuccess",
       "error",
       "dateCreated",
+      "disabled",
+      "consecutiveFailures",
     ]);
     webhook.sdks.forEach((sdkId) => {
       if (!webhooksByConnection[sdkId]) {
@@ -287,9 +289,7 @@ export async function postSDKConnectionWebhook(
     context.permissions.throwPermissionError();
   }
 
-  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg(
-    org.id,
-  );
+  const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg();
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
     "multiple-sdk-webhooks",

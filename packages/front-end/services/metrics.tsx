@@ -88,12 +88,14 @@ export function getDefaultFactMetricProps({
     denominator: existing?.denominator || null,
     datasource:
       existing?.datasource ||
-      getNewExperimentDatasourceDefaults(
+      getNewExperimentDatasourceDefaults({
         datasources,
         settings,
         project,
-        initialFactTable ? { datasource: initialFactTable?.datasource } : {},
-      ).datasource,
+        initialValue: initialFactTable
+          ? { datasource: initialFactTable?.datasource }
+          : {},
+      }).datasource,
     inverse: existing?.inverse || false,
     cappingSettings: existing?.cappingSettings || {
       type: "",
@@ -341,7 +343,12 @@ export function getExperimentMetricFormatter(
   // Fact metric
   switch (metric.metricType) {
     case "dailyParticipation":
-      return metric.displayAsPercentage ? formatPercent : formatNumber;
+      if (metric.displayAsPercentage) {
+        return proportionFormat === "percentagePoints"
+          ? formatPercentagePoints
+          : formatPercent;
+      }
+      return formatNumber;
     case "proportion":
     case "retention":
       if (proportionFormat === "number") {

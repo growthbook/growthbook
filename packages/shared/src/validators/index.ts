@@ -10,6 +10,8 @@ export * from "./metric-time-series";
 export * from "./openapi";
 export * from "./queries";
 export * from "./safe-rollout";
+export * from "./ramp-schedule";
+export * from "./ramp-schedule-notifications";
 export * from "./saved-group";
 export * from "./saved-queries";
 export * from "./segment";
@@ -17,10 +19,15 @@ export * from "./shared";
 export * from "./webhook-secrets";
 export * from "./webhooks";
 export * from "./event-webhook";
+// Load watch before events - events imports base-types which imports validators, creating a cycle.
+// Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
+export * from "./watch";
+export * from "./apikey";
 export * from "./events";
 export * from "./experiment-decision";
 export * from "./experiment-info";
 export * from "./experiment-warnings";
+
 export * from "./features";
 export * from "./holdout";
 export * from "./projects";
@@ -32,6 +39,10 @@ export * from "./exec-report";
 export * from "./experiment-template";
 export * from "./metric-analysis";
 export * from "./population-data";
+export * from "./presentation-theme";
 export * from "./url-redirects";
 export * from "./sdk-connection-cache";
 export * from "./metric-group";
+export * from "./product-analytics";
+export * from "./organization";
+export * from "./team";

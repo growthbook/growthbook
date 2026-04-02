@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -15,13 +15,13 @@ import {
   IconButton,
   Tooltip as RadixTooltip,
   Separator,
-  Text,
 } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
-import { useFeaturesNames } from "@/hooks/useFeaturesNames";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useArrayIncrementer } from "@/hooks/useIncrementer";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import Text from "@/ui/Text";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import {
@@ -65,6 +65,11 @@ interface Props {
   project?: string;
   environments: string[];
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
+  slimMode?: boolean;
+  emptyText?: string;
+  label?: string;
+  labelActions?: ReactNode;
+  locked?: boolean;
 }
 
 export default function PrerequisiteInput({
@@ -74,8 +79,13 @@ export default function PrerequisiteInput({
   project,
   environments,
   setPrerequisiteTargetingSdkIssues,
+  slimMode,
+  emptyText,
+  label = "Target by Prerequisite Features",
+  labelActions,
+  locked,
 }: Props) {
-  const { features: featureNames } = useFeaturesNames({
+  const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
   });
   const { projects } = useDefinitions();
@@ -326,20 +336,67 @@ export default function PrerequisiteInput({
     ]);
   };
 
-  return (
-    <Box my="4">
-      <Flex mb="1">
-        <PremiumTooltip
-          commercialFeature="prerequisite-targeting"
-          premiumText="Prerequisite targeting is available for Enterprise customers"
+  const header = (label || labelActions) && (
+    <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+      <PremiumTooltip
+        commercialFeature="prerequisite-targeting"
+        premiumText="Prerequisite targeting is available for Enterprise customers"
+      >
+        {slimMode ? (
+          <Text as="div" size="small" weight="semibold" color="text-mid">
+            {label}
+          </Text>
+        ) : (
+          <Text as="div" size="medium" weight="semibold">
+            {label}
+          </Text>
+        )}
+      </PremiumTooltip>
+      {labelActions}
+    </Flex>
+  );
+
+  const addPrerequisiteLink = (
+    <PremiumTooltip commercialFeature="prerequisite-targeting">
+      <Link
+        onClick={() => {
+          if (!hasPrerequisitesCommercialFeature || locked) return;
+          setValue([{ id: "", condition: "{}" }]);
+        }}
+      >
+        <Text
+          weight={slimMode ? "regular" : "semibold"}
+          size={slimMode ? "small" : "medium"}
+          color={
+            !hasPrerequisitesCommercialFeature || locked
+              ? "text-low"
+              : undefined
+          }
         >
-          <label>Target by Prerequisite Features</label>
-        </PremiumTooltip>
-      </Flex>
+          <PiPlusCircleBold className="mr-1" />
+          Add prerequisite targeting
+        </Text>
+      </Link>
+    </PremiumTooltip>
+  );
+
+  const content = (
+    <Box mb={slimMode ? "1" : "2"}>
+      {value.length === 0 && (emptyText || !slimMode) && (
+        <Text
+          color="text-low"
+          fontStyle="italic"
+          mb="2"
+          size={slimMode ? "small" : undefined}
+        >
+          {emptyText || "No prerequisite targeting applied"}
+        </Text>
+      )}
       {value.length > 0 ? (
         <TargetingConditionsCard
           targetingType="prerequisite"
           total={value.length}
+          slimMode={slimMode}
           advancedToggle={
             value.length > 0 &&
             featureNames.find((f) => f.id === value[0].id) ? (
@@ -352,12 +409,15 @@ export default function PrerequisiteInput({
                 }}
                 label="Advanced"
                 size="1"
+                disabled={locked}
               />
             ) : undefined
           }
           addButton={
             hasPrerequisitesCommercialFeature ? (
               <AddConditionButton
+                disabled={locked}
+                slimMode={slimMode}
                 onClick={() => {
                   setValue([
                     ...value,
@@ -419,6 +479,7 @@ export default function PrerequisiteInput({
                             }}
                             label="Advanced"
                             size="1"
+                            disabled={locked}
                           />
                         ) : undefined
                       }
@@ -431,6 +492,7 @@ export default function PrerequisiteInput({
                         widthMode="stacked"
                         attributeSlot={
                           <PrerequisiteFeatureSelector
+                            disabled={locked}
                             value={v.id}
                             onChange={(featureId) => {
                               setValue([
@@ -452,6 +514,7 @@ export default function PrerequisiteInput({
                           <Flex gap="3" align="start">
                             <Box flexGrow="1">
                               <SelectField
+                                disabled={locked}
                                 useMultilineLabels={true}
                                 containerStyles={{
                                   control: (base) => ({
@@ -611,6 +674,7 @@ export default function PrerequisiteInput({
                                 >
                                   <IconButton
                                     type="button"
+                                    disabled={locked}
                                     variant={
                                       isCaseInsensitiveOperator(
                                         conds[0][0].operator,
@@ -664,6 +728,7 @@ export default function PrerequisiteInput({
                               conds?.[0]?.[0]?.operator,
                             ) ? (
                               <StringArrayField
+                                disabled={locked}
                                 containerClassName="w-100"
                                 value={
                                   conds[0][0].value
@@ -691,6 +756,7 @@ export default function PrerequisiteInput({
                               />
                             ) : parentFeatureMeta?.valueType === "number" ? (
                               <Field
+                                disabled={locked}
                                 type="number"
                                 step="any"
                                 value={conds[0][0].value}
@@ -710,6 +776,7 @@ export default function PrerequisiteInput({
                               />
                             ) : (
                               <Field
+                                disabled={locked}
                                 value={conds[0][0].value}
                                 onChange={(e) => {
                                   const newConds = [...conds[0]];
@@ -736,6 +803,7 @@ export default function PrerequisiteInput({
                               variant="ghost"
                               radius="full"
                               size="1"
+                              disabled={locked}
                               onClick={() => {
                                 setValue([
                                   ...value.slice(0, i),
@@ -756,6 +824,7 @@ export default function PrerequisiteInput({
                         widthMode="stacked"
                         attributeSlot={
                           <PrerequisiteFeatureSelector
+                            disabled={locked}
                             value={v.id}
                             onChange={(featureId) => {
                               setValue([
@@ -783,6 +852,7 @@ export default function PrerequisiteInput({
                               variant="ghost"
                               radius="full"
                               size="1"
+                              disabled={locked}
                               onClick={() => {
                                 setValue([
                                   ...value.slice(0, i),
@@ -806,16 +876,17 @@ export default function PrerequisiteInput({
                       }}
                     >
                       <CodeTextArea
+                        disabled={locked}
                         language="json"
                         value={v.condition}
                         setValue={(newVal) => updateCondition(i, newVal)}
                         minLines={3}
                         maxLines={6}
-                        showCopyButton={true}
-                        showFullscreenButton={true}
+                        showCopyButton={!locked}
+                        showFullscreenButton={!locked}
                       />
                       <Box>
-                        <Text color="gray" size="1">
+                        <Text color="text-low" size="small">
                           <code>{`"value"`}</code> refers to the
                           prerequisite&apos;s evaluated value.
                           <Tooltip
@@ -842,7 +913,7 @@ export default function PrerequisiteInput({
                       <Collapsible
                         trigger={
                           <Link>
-                            <Text color="gray">
+                            <Text color="text-low">
                               <PiCaretRightFill className="chevron mr-1" />
                               Details
                             </Text>
@@ -887,24 +958,14 @@ export default function PrerequisiteInput({
             );
           })}
         </TargetingConditionsCard>
-      ) : (
-        <PremiumTooltip commercialFeature="prerequisite-targeting">
-          <Link
-            onClick={() => {
-              if (!hasPrerequisitesCommercialFeature) return;
-              setValue([{ id: "", condition: "{}" }]);
-            }}
-            style={{
-              opacity: hasPrerequisitesCommercialFeature ? 1 : 0.5,
-              cursor: hasPrerequisitesCommercialFeature
-                ? "pointer"
-                : "not-allowed",
-            }}
-          >
-            <PiPlusCircleBold /> Add prerequisite targeting
-          </Link>
-        </PremiumTooltip>
-      )}
+      ) : null}
+    </Box>
+  );
+  return (
+    <Box>
+      {(label || labelActions) && header}
+      {content}
+      {value.length === 0 && addPrerequisiteLink}
     </Box>
   );
 }

@@ -11,8 +11,7 @@ const BaseClass = MakeModelClass({
   schema: sdkConnectionCacheValidator,
   collectionName: "sdkcache",
   idPrefix: "sdk-",
-  globallyUniqueIds: true,
-  additionalIndexes: [{ fields: { id: 1, schemaVersion: 1 }, unique: true }],
+  globallyUniquePrimaryKeys: true,
 });
 
 export class SdkConnectionCacheModel extends BaseClass {
@@ -44,7 +43,8 @@ export class SdkConnectionCacheModel extends BaseClass {
     contents: string,
     auditContext?: SdkConnectionCacheAuditContext,
   ) {
-    const existing = await this.getById(id);
+    // Find existing doc by id only (ignore version) to support version upgrades
+    const existing = await this._findOne({ id });
     const updateData: {
       contents: string;
       schemaVersion: number;
@@ -67,7 +67,6 @@ export class SdkConnectionCacheModel extends BaseClass {
     return await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
       id: /^legacy:/,
-      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
     });
   }
 }

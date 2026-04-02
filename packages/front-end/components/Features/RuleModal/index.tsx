@@ -5,29 +5,35 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   filterEnvironmentsByFeature,
   generateVariationId,
   isProjectListValidForProject,
+  getReviewSetting,
 } from "shared/util";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
+import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutRule,
+  RampScheduleInterface,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -47,13 +53,15 @@ import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVe
 import Modal from "@/components/Modal";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
-import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
-import RolloutFields from "@/components/Features/RuleModal/RolloutFields";
+import StandardRuleFields, {
+  type ScheduleType,
+  deriveScheduleType,
+} from "@/components/Features/RuleModal/StandardRuleFields";
+import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs";
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
@@ -61,15 +69,27 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
-
+import {
+  type RampSectionState,
+  defaultRampSectionState,
+  rampScheduleToSectionState,
+  createActionToSectionState,
+  buildRampSteps,
+  buildEndActions,
+  isRampSectionConfigured,
+  scrubRampStateForRuleType,
+} from "@/components/Features/RuleModal/RampScheduleSection";
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
-  version: number;
   setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
@@ -77,6 +97,10 @@ export interface Props {
   defaultType?: string;
   mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
+  revisionList?: MinimalFeatureRevisionInterface[];
+  rampSchedules?: RampScheduleInterface[];
+  detachRampOnSave?: boolean;
+  draftRevision?: FeatureRevisionInterface | null;
 }
 
 type RadioSelectorRuleType =
@@ -105,12 +129,14 @@ export default function RuleModal({
   mutate,
   environment,
   defaultType = "",
-  version,
   setVersion,
   mode,
   safeRolloutsMap,
+  revisionList = [],
+  rampSchedules = [],
+  detachRampOnSave,
+  draftRevision,
 }: Props) {
-  const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
@@ -122,6 +148,59 @@ export default function RuleModal({
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
       : undefined;
+
+  // Pre-generate a rule ID so we can reference it in the ramp schedule creation
+  // without an extra round-trip. The back-end preserves a truthy id sent by the client.
+  const [pregenRuleId] = useState(() => uniqId("fr_"));
+
+  // Find any existing ramp schedule that already targets this specific rule
+  const ruleRampSchedule = rule?.id
+    ? rampSchedules.find((rs) => rs.targets.some((t) => t.ruleId === rule.id))
+    : undefined;
+
+  // Check if there's a pending detach action for this rule in the draft.
+  // When true, the ramp section should open as "off" so users don't think
+  // the schedule is still active. Re-enabling and saving will clear the detach.
+  const hasPendingDetach =
+    rule?.id != null &&
+    (draftRevision?.rampActions ?? []).some(
+      (a) => a.mode === "detach" && a.ruleId === rule.id,
+    );
+
+  // Find a pending create action for this rule, if any (used when no live schedule exists yet).
+  const pendingCreateAction =
+    !ruleRampSchedule && !hasPendingDetach && rule?.id
+      ? (draftRevision?.rampActions ?? []).find(
+          (a) => a.mode === "create" && a.ruleId === rule.id,
+        )
+      : undefined;
+  const pendingCreateActionTyped =
+    pendingCreateAction?.mode === "create" ? pendingCreateAction : undefined;
+
+  const [rampSectionState, setRampSectionState] = useState<RampSectionState>(
+    () => {
+      if (hasPendingDetach) {
+        // Start unchecked ("off"), but keep all the live schedule data so that
+        // toggling the checkbox reveals the real steps/settings instead of an empty template.
+        if (ruleRampSchedule) {
+          return {
+            ...rampScheduleToSectionState(ruleRampSchedule),
+            mode: "off",
+          };
+        }
+        return defaultRampSectionState(undefined);
+      }
+      // If a pending create action exists in the draft (not yet in DB), pre-populate from it
+      if (pendingCreateActionTyped) {
+        return createActionToSectionState(pendingCreateActionTyped);
+      }
+      // Duplicate starts fresh — no schedule carried over
+      if (mode === "duplicate") {
+        return defaultRampSectionState(undefined);
+      }
+      return defaultRampSectionState(ruleRampSchedule);
+    },
+  );
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
@@ -130,20 +209,42 @@ export default function RuleModal({
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
+  const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
 
-  const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
-  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback",
+  const defaultDraft = useDefaultDraft(revisionList);
+
+  const [draftMode, setDraftMode] = useState<DraftMode>(
+    defaultDraft != null ? "existing" : "new",
   );
+  const [selectedDraft, setSelectedDraft] = useState<number | null>(
+    defaultDraft,
+  );
+
+  // Determines which draft/revision to target in the API call.
+  const targetVersion =
+    draftMode === "existing" && selectedDraft != null
+      ? selectedDraft
+      : feature.version;
+
+  const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (raw === true) return "all";
+    if (!Array.isArray(raw)) return "none";
+    const reviewSetting = getReviewSetting(raw, feature);
+    if (!reviewSetting?.requireReviewOn) return "none";
+    const envList = reviewSetting.environments ?? [];
+    return envList.length === 0 ? "all" : new Set(envList);
+  }, [settings?.requireReviews, feature]);
 
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
     ruleType: defaultType,
     attributeSchema,
-    isSafeRolloutAutoRollbackEnabled,
+    isSafeRolloutAutoRollbackEnabled: true,
   });
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
@@ -159,6 +260,31 @@ export default function RuleModal({
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
+    // Pre-set the ID for new rollout rules so ramp creation can reference it
+    // without a second round-trip. Back-end preserves a truthy id from the client.
+    ...(mode === "create" && !rule ? { id: pregenRuleId } : {}),
+    // Ensure coverage defaults to 1 (100%) for new force rules
+    ...(mode === "create" &&
+    !rule &&
+    defaultRuleValues &&
+    "type" in defaultRuleValues &&
+    defaultRuleValues.type === "force"
+      ? { coverage: 1 }
+      : {}),
+    // Populate hashAttribute and seed for new force rules so they're ready if converted to rollout
+    ...(mode === "create" &&
+    !rule &&
+    defaultRuleValues &&
+    "type" in defaultRuleValues &&
+    defaultRuleValues.type === "force"
+      ? {
+          hashAttribute:
+            attributeSchema?.find((a) => a.hashAttribute)?.property ||
+            attributeSchema?.[0]?.property ||
+            "id",
+          seed: "",
+        }
+      : {}),
   };
 
   // Overview Page
@@ -183,7 +309,7 @@ export default function RuleModal({
   });
 
   const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
-    settings.defaultFeatureRulesInAllEnvs
+    mode === "create" && settings.defaultFeatureRulesInAllEnvs
       ? environments.map((env) => env.id)
       : [environment],
   );
@@ -193,9 +319,16 @@ export default function RuleModal({
   );
   const [scheduleToggleEnabled, setScheduleToggleEnabled] =
     useState(defaultHasSchedule);
+  const [scheduleType, setScheduleType] = useState<ScheduleType>(() =>
+    deriveScheduleType(
+      rampSectionState,
+      defaultHasSchedule,
+      defaultHasSchedule,
+      undefined,
+    ),
+  );
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
@@ -215,6 +348,50 @@ export default function RuleModal({
       : overviewRadioSelectorRuleType === "experiment"
         ? "experiment"
         : null;
+
+  // Compute header text and tracking event type - must be before conditional returns
+  const headerText = useMemo(() => {
+    let text =
+      mode === "duplicate"
+        ? "Duplicate "
+        : mode === "create"
+          ? "Add "
+          : "Edit ";
+    text +=
+      ruleType === "force"
+        ? `${mode === "create" ? "new " : ""}Force Value Rule`
+        : ruleType === "rollout"
+          ? `${mode === "create" ? "new " : ""}Percentage Rollout Rule`
+          : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+                ruleType ?? "",
+              ) && experimentType === "bandit"
+            ? `${
+                ruleType === "experiment-ref-new" ? "new" : "existing"
+              } Bandit as Rule`
+            : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+                  ruleType ?? "",
+                ) && experimentType === "experiment"
+              ? `${
+                  ruleType === "experiment-ref-new" ? "new" : "existing"
+                } Experiment as Rule`
+              : ruleType === "safe-rollout"
+                ? "Safe Rollout Rule"
+                : "Rule";
+    text +=
+      ruleType === "safe-rollout"
+        ? ` in ${environment}`
+        : ` in ${selectedEnvironments[0]}${
+            selectedEnvironments.length > 1
+              ? ` + ${selectedEnvironments.length - 1} more`
+              : ""
+          }`;
+    return text;
+  }, [ruleType, experimentType, mode, environment, selectedEnvironments]);
+
+  const trackingEventModalType = useMemo(
+    () => kebabCase(headerText),
+    [headerText],
+  );
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -267,9 +444,78 @@ export default function RuleModal({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
+  // Watch the values we need to track
+  const currentType = form.watch("type");
+  const currentCoverage = form.watch("coverage");
+
+  // Auto-manage rule type and coverage based on ramp state and coverage value.
+  // Force rule → coverage 100%
+  // Coverage < 100% → rollout rule
+  // Coverage back to 100% → force rule (clean state)
+  // Has ramp affecting coverage → rollout rule
+  useEffect(() => {
+    // Simple schedules never control coverage — only full ramp-ups do.
+    const hasRampWithCoverage =
+      scheduleType === "ramp" &&
+      rampSectionState.mode !== "off" &&
+      (rampSectionState.steps.some(
+        (step) => step.patch.coverage !== undefined,
+      ) ||
+        rampSectionState.endPatch.coverage !== undefined);
+
+    // Determine target rule type and coverage based on current state
+    let targetType: "force" | "rollout" =
+      currentType === "rollout" ? "rollout" : "force";
+    let targetCoverage = currentCoverage ?? 1;
+
+    // If there's a ramp with coverage, must be rollout
+    if (hasRampWithCoverage) {
+      targetType = "rollout";
+    }
+    // If coverage < 100%, must be rollout
+    else if (currentCoverage !== undefined && currentCoverage < 1) {
+      targetType = "rollout";
+    }
+    // If coverage is 100% (or undefined), can be force
+    else if (currentCoverage === undefined || currentCoverage === 1) {
+      targetType = "force";
+      targetCoverage = 1; // Ensure force rules are always 100%
+    }
+
+    // Update type if it changed
+    if (
+      (currentType === "force" || currentType === "rollout") &&
+      currentType !== targetType
+    ) {
+      form.setValue("type", targetType);
+      // When auto-promoting to rollout, ensure hashAttribute has a sensible value
+      if (targetType === "rollout" && !form.getValues("hashAttribute")) {
+        const defaultHash =
+          attributeSchema?.find((a) => a.hashAttribute)?.property ||
+          attributeSchema?.[0]?.property ||
+          "id";
+        form.setValue("hashAttribute", defaultHash);
+      }
+    }
+
+    // Update coverage if it changed
+    if (targetCoverage !== currentCoverage) {
+      form.setValue("coverage", targetCoverage);
+    }
+  }, [
+    currentType,
+    currentCoverage,
+    rampSectionState,
+    scheduleType,
+    form,
+    attributeSchema,
+  ]);
+
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
     const existingSavedGroups = form.watch("savedGroups");
+    const existingHashAttribute = form.watch("hashAttribute");
+    const existingSeed = form.watch("seed");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -277,7 +523,7 @@ export default function RuleModal({
         attributeSchema,
         settings,
         datasources,
-        isSafeRolloutAutoRollbackEnabled,
+        isSafeRolloutAutoRollbackEnabled: true,
       }),
       description: form.watch("description"),
     };
@@ -287,7 +533,24 @@ export default function RuleModal({
     if (existingSavedGroups) {
       newVal.savedGroups = existingSavedGroups;
     }
+    // Always carry hashAttribute forward (fall back to schema default so rollout
+    // rules are never left without a bucketing attribute).
+    const resolvedHash =
+      existingHashAttribute ||
+      attributeSchema?.find((a) => a.hashAttribute)?.property ||
+      attributeSchema?.[0]?.property ||
+      "id";
+    (newVal as Record<string, unknown>).hashAttribute = resolvedHash;
+    if (existingSeed) {
+      (newVal as Record<string, unknown>).seed = existingSeed;
+    }
     form.reset(newVal);
+    // Preserve the pre-generated rule ID so ramp patches stay in sync with
+    // the rule after a type switch. getDefaultRuleValue returns id:"" which
+    // would cause the backend to assign a new ID that doesn't match the patches.
+    if (mode === "create" && !rule) {
+      form.setValue("id", pregenRuleId);
+    }
   }
 
   const submitOverview = () => {
@@ -408,6 +671,10 @@ export default function RuleModal({
           throw new Error("Prerequisite targeting issues must be resolved");
         }
 
+        const shouldIncludeConversionWindow =
+          values.experimentType === "multi-armed-bandit" &&
+          !disableBanditConversionWindow &&
+          (!settings.useStickyBucketing || values.disableStickyBucketing);
         if (values.experimentType === "multi-armed-bandit") {
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
@@ -418,6 +685,15 @@ export default function RuleModal({
           }
           if ((values.goalMetrics?.length ?? 0) !== 1) {
             throw new Error("You must select 1 decision metric");
+          }
+          if (
+            shouldIncludeConversionWindow &&
+            (!values.banditConversionWindowValue ||
+              !values.banditConversionWindowUnit)
+          ) {
+            throw new Error(
+              "Enter a conversion window override or disable the conversion window override",
+            );
           }
         }
 
@@ -435,11 +711,11 @@ export default function RuleModal({
           archived: false,
           autoSnapshots: true,
           // Use template datasource/exposure query id if available
-          ...getNewExperimentDatasourceDefaults(
+          ...getNewExperimentDatasourceDefaults({
             datasources,
             settings,
-            feature.project || "",
-          ),
+            project: feature.project || "",
+          }),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
           disableStickyBucketing: values.disableStickyBucketing ?? false,
@@ -516,6 +792,10 @@ export default function RuleModal({
             banditScheduleUnit: values.banditScheduleUnit ?? "days",
             banditBurnInValue: values.banditBurnInValue ?? 1,
             banditBurnInUnit: values.banditBurnInUnit ?? "days",
+            ...(shouldIncludeConversionWindow && {
+              banditConversionWindowValue: values.banditConversionWindowValue,
+              banditConversionWindowUnit: values.banditConversionWindowUnit,
+            }),
           });
         }
 
@@ -562,7 +842,7 @@ export default function RuleModal({
           enabled: values.enabled ?? true,
           variations: values.values.map((v, i) => ({
             value: v.value,
-            variationId: res.experiment.variations[i]?.id || "",
+            variationId: getAllVariations(res.experiment)[i]?.id || "",
           })),
           scheduleRules: values.scheduleRules || [],
         };
@@ -578,7 +858,7 @@ export default function RuleModal({
           values.variations.map((v) => [v.variationId, v.value]),
         );
 
-        values.variations = exp.variations.map((v, i) => {
+        values.variations = getLatestPhaseVariations(exp).map((v, i) => {
           return {
             variationId: v.id,
             value: valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",
@@ -592,15 +872,12 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         safeRolloutFields = values.safeRolloutFields;
-        // sanity check that the auto rollback and ramp up schedule are enabled
-        safeRolloutFields.autoRollback = isSafeRolloutAutoRollbackEnabled
-          ? safeRolloutFields.autoRollback
-          : false;
+        // Ensure we pass the ramp up schedule enabled flag to the backend (it builds the rest)
         const rampUpSchedule = safeRolloutFields["rampUpSchedule"] || {};
         // backend deals with the rest
         safeRolloutFields["rampUpSchedule"] = {};
         safeRolloutFields["rampUpSchedule"]["enabled"] =
-          rampUpSchedule["enabled"] ?? isSafeRolloutRampUpEnabled;
+          rampUpSchedule["enabled"] ?? true;
 
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
@@ -618,6 +895,13 @@ export default function RuleModal({
         if (safeRolloutFields?.maxDuration) {
           safeRolloutFields.maxDuration.unit = "days";
         }
+      } else if (values.type === "force") {
+        // Force rules don't support hashAttribute or seed; strip them from the form
+        // They're only in the form state to be ready if converted to rollout
+        // eslint-disable-next-line
+        delete (values as any).hashAttribute;
+        // eslint-disable-next-line
+        delete (values as any).seed;
       }
       if (
         values.scheduleRules &&
@@ -632,6 +916,31 @@ export default function RuleModal({
         form.reset(correctedRule);
         throw new Error(
           "We fixed some errors in the rule. If it looks correct, submit again.",
+        );
+      }
+
+      if (
+        (values.type === "rollout" || values.type === "force") &&
+        rampSectionState.mode !== "off" &&
+        !isRampSectionConfigured(rampSectionState)
+      ) {
+        throw new Error(
+          "Ramp schedule requires either steps or scheduled start or end dates.",
+        );
+      }
+
+      // Rollout rules with sub-100% coverage and ramp-up schedules that control
+      // coverage both require a bucketing attribute to be set.
+      const rampHasCoverage =
+        scheduleType === "ramp" &&
+        rampSectionState.mode !== "off" &&
+        rampSectionState.steps.some((s) => s.patch.coverage !== undefined);
+      if (
+        (values.type === "rollout" || rampHasCoverage) &&
+        !(values as Record<string, unknown>).hashAttribute
+      ) {
+        throw new Error(
+          'A "Sample based on attribute" must be selected when using coverage or a ramp schedule that controls coverage.',
         );
       }
 
@@ -663,21 +972,219 @@ export default function RuleModal({
           (values.type === "safe-rollout" &&
             safeRolloutRuleHasChanges(values as SafeRolloutRuleCreateFields))
         ) {
+          // Build optional inline ramp payload to batch with the rule PUT
+          let rampScheduleInline:
+            | PutFeatureRuleBody["rampSchedule"]
+            | undefined;
+          if (
+            (values.type === "rollout" || values.type === "force") &&
+            rule?.id
+          ) {
+            const ruleId = rule.id;
+
+            // If detachRampOnSave flag is set, send a detach payload
+            if (detachRampOnSave && ruleRampSchedule?.id) {
+              rampScheduleInline = {
+                mode: "detach",
+                rampScheduleId: ruleRampSchedule.id,
+                deleteScheduleWhenEmpty: true,
+              };
+            } else if (hasPendingDetach && rampSectionState.mode === "edit") {
+              // User re-enabled the ramp section to restore the detached schedule — cancel the removal
+              rampScheduleInline = { mode: "clear" };
+            } else {
+              // Otherwise, use normal ramp section state logic
+              // Defensively scrub patches to only include fields valid for this rule type
+              const rampState =
+                values.type === "force" || values.type === "rollout"
+                  ? scrubRampStateForRuleType(rampSectionState)
+                  : rampSectionState;
+              // "schedule" mode = simple date window (no intermediate steps).
+              // Driven by the RadioGroup selection — reliable regardless of step count in state.
+              const isScheduleMode = scheduleType === "schedule";
+
+              // A "schedule" type with no start date and no end date is a no-op —
+              // no schedule should be created or updated in this case.
+              const isNoOpSchedule =
+                isScheduleMode &&
+                !rampState.startDate &&
+                !rampState.endScheduleAt;
+
+              if (
+                rampState.mode === "create" &&
+                !isNoOpSchedule &&
+                rampState.name.trim()
+              ) {
+                rampScheduleInline = {
+                  mode: "create",
+                  name: isScheduleMode
+                    ? scheduleAutoName(rampState)
+                    : rampState.name.trim(),
+                  environment,
+                  steps: buildRampSteps(rampState.steps, "t1", ruleId),
+                  endActions: !isScheduleMode
+                    ? buildEndActions(rampState.endPatch, ruleId)
+                    : undefined,
+                  startDate: rampState.startDate || null,
+                  endCondition:
+                    isScheduleMode && rampState.endScheduleAt
+                      ? {
+                          trigger: {
+                            type: "scheduled",
+                            at: rampState.endScheduleAt,
+                          },
+                        }
+                      : undefined,
+                };
+              } else if (
+                !isNoOpSchedule &&
+                rampState.mode === "edit" &&
+                ruleRampSchedule?.id &&
+                !["running", "ready", "pending-approval"].includes(
+                  ruleRampSchedule.status,
+                )
+              ) {
+                rampScheduleInline = {
+                  mode: "update",
+                  rampScheduleId: ruleRampSchedule.id,
+                  name: isScheduleMode
+                    ? scheduleAutoName(rampState)
+                    : rampState.name.trim() || undefined,
+                  steps: buildRampSteps(
+                    rampState.steps,
+                    ruleRampSchedule.targets.find((t) => t.status === "active")
+                      ?.id ?? "t1",
+                    ruleId,
+                  ),
+                  endActions: !isScheduleMode
+                    ? buildEndActions(rampState.endPatch, ruleId)
+                    : undefined,
+                  startDate: rampState.startDate || null,
+                  endCondition:
+                    isScheduleMode && rampState.endScheduleAt
+                      ? {
+                          trigger: {
+                            type: "scheduled",
+                            at: rampState.endScheduleAt,
+                          },
+                        }
+                      : null,
+                };
+              } else if (rampState.mode === "off" && ruleRampSchedule?.id) {
+                // User unchecked the ramp schedule checkbox — detach this rule from the ramp
+                rampScheduleInline = {
+                  mode: "detach",
+                  rampScheduleId: ruleRampSchedule.id,
+                  deleteScheduleWhenEmpty: true,
+                };
+              } else if (rampState.mode === "off" && pendingCreateAction) {
+                // Pending-create schedule only exists in the draft (not yet published) —
+                // user removed the schedule, so clear the create action from the draft.
+                rampScheduleInline = { mode: "clear" };
+              } else if (rampState.mode === "off" && hasPendingDetach) {
+                // User saved without re-configuring a schedule while a pending detach exists —
+                // clear the detach action from the draft (cancel the pending removal)
+                rampScheduleInline = { mode: "clear" };
+              }
+            }
+          }
+
+          // If the ramp has a future start date, publish the rule as disabled
+          // so it remains hidden until the ramp activates.
+          if (
+            rampScheduleInline &&
+            "startDate" in rampScheduleInline &&
+            rampScheduleInline.startDate
+          ) {
+            values = { ...values, enabled: false };
+          }
+
           res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/rule`,
+            `/feature/${feature.id}/${targetVersion}/rule`,
             {
               method: "PUT",
               body: JSON.stringify({
                 rule: values,
                 environment,
                 i,
+                ...(rampScheduleInline
+                  ? { rampSchedule: rampScheduleInline }
+                  : {}),
               } as PutFeatureRuleBody),
             },
           );
         }
       } else {
+        // Build optional inline ramp payload for atomic rule+ramp creation
+        let rampScheduleInline: PostFeatureRuleBody["rampSchedule"] | undefined;
+        if (
+          (values.type === "rollout" || values.type === "force") &&
+          rampSectionState.mode !== "off"
+        ) {
+          const effectiveRuleId = pregenRuleId;
+          // Defensively scrub patches to only include fields valid for this rule type
+          const rampState =
+            values.type === "force" || values.type === "rollout"
+              ? scrubRampStateForRuleType(rampSectionState)
+              : rampSectionState;
+          const isScheduleMode = scheduleType === "schedule";
+          const isNoOpSchedule =
+            isScheduleMode && !rampState.startDate && !rampState.endScheduleAt;
+          if (rampState.mode === "create" && !isNoOpSchedule) {
+            rampScheduleInline = {
+              mode: "create",
+              name: isScheduleMode
+                ? scheduleAutoName(rampState)
+                : rampState.name.trim(),
+              // Single environment: scope patches to that env only.
+              // Multiple environments: omit so the ramp applies to all matching ruleIds.
+              environment:
+                selectedEnvironments.length === 1
+                  ? selectedEnvironments[0]
+                  : undefined,
+              steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
+              endActions: !isScheduleMode
+                ? buildEndActions(rampState.endPatch, effectiveRuleId)
+                : undefined,
+              startDate: rampState.startDate || null,
+              endCondition:
+                isScheduleMode && rampState.endScheduleAt
+                  ? {
+                      trigger: {
+                        type: "scheduled",
+                        at: rampState.endScheduleAt,
+                      },
+                    }
+                  : undefined,
+            };
+          }
+        }
+
+        // If the ramp has a future start date, publish the rule as disabled
+        // so it remains hidden until the ramp activates.
+        if (
+          rampScheduleInline &&
+          "startDate" in rampScheduleInline &&
+          rampScheduleInline.startDate
+        ) {
+          values = { ...values, enabled: false };
+        }
+
+        // Clear rule-level targeting for new ramp rules — steps own state over time.
+        if (
+          rampScheduleInline &&
+          (values.type === "rollout" || values.type === "force")
+        ) {
+          values = {
+            ...values,
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+          };
+        }
+
         res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule`,
+          `/feature/${feature.id}/${targetVersion}/rule`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -687,15 +1194,14 @@ export default function RuleModal({
                   ? [environment]
                   : selectedEnvironments,
               safeRolloutFields,
+              rampSchedule: rampScheduleInline,
             } as PostFeatureRuleBody),
           },
         );
       }
 
       await mutate();
-      if (res && res?.version) {
-        setVersion(res.version);
-      }
+      setVersion(res?.version ?? targetVersion);
     } catch (e) {
       track("Feature Rule Error", {
         source: ruleAction,
@@ -728,56 +1234,36 @@ export default function RuleModal({
           </>
         }
         ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
-        header={`New Rule`}
-        subHeader="You will have a chance to review new rules as a draft before publishing changes."
+        header="New Rule"
+        useRadixButton={true}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
+        <DraftSelectorForChanges
+          feature={feature}
+          revisionList={revisionList}
+          mode={draftMode}
+          setMode={setDraftMode}
+          selectedDraft={selectedDraft}
+          setSelectedDraft={setSelectedDraft}
+          canAutoPublish={false}
+          gatedEnvSet={gatedEnvSet}
+        />
         <div className="bg-highlight rounded p-3 mb-3">
           <Text size="4" weight="bold" as="div" mb="4">
             Select Implementation
           </Text>
-          <Text>MANUAL</Text>
           <RadioCards
-            mt="2"
-            mb="5"
+            mt="4"
+            mb="2"
             width="100%"
             options={[
               {
                 value: "force",
-                label: "Force value",
+                label: "Targeted release",
                 description:
-                  "Target groups of users and give them all the same value",
+                  "Assign a specific feature value to groups of users or control the rollout percentage",
               },
-              {
-                value: "rollout",
-                label: "Percentage rollout",
-                description:
-                  "Release to small percentage of users while monitoring logs",
-              },
-            ]}
-            value={overviewRadioSelectorRuleType}
-            setValue={(
-              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit",
-            ) => {
-              setOverviewRadioSelectorRuleType(v);
-              if (v === "force") {
-                setOverviewRuleType("force");
-              } else if (v === "rollout") {
-                setOverviewRuleType("rollout");
-              } else if (v === "safe-rollout") {
-                setOverviewRuleType("safe-rollout");
-              } else {
-                setOverviewRuleType("experiment-ref-new");
-              }
-            }}
-          />
-
-          <Text>DATA-DRIVEN</Text>
-          <RadioCards
-            mt="2"
-            width="100%"
-            options={[
               {
                 value: "safe-rollout",
                 disabled: !hasSafeRolloutsFeature || datasources.length === 0,
@@ -789,7 +1275,6 @@ export default function RuleModal({
                     Safe rollout
                   </PremiumTooltip>
                 ),
-                badge: "NEW!",
                 description: (
                   <>
                     <div>
@@ -810,39 +1295,20 @@ export default function RuleModal({
                 description:
                   "Measure the impact of this feature on your key metrics",
               },
-              ...(growthbook.isOn("bandits")
-                ? [
-                    {
-                      value: "bandit",
-                      disabled:
-                        !hasMultiArmedBanditFeature ||
-                        !hasStickyBucketFeature ||
-                        !orgStickyBucketing,
-                      label: (
-                        <PremiumTooltip
-                          commercialFeature="multi-armed-bandits"
-                          usePortal={true}
-                        >
-                          Bandit
-                        </PremiumTooltip>
-                      ),
-                      description: (
-                        <>
-                          <div>
-                            Find a winner among many variations on one goal
-                            metric
-                          </div>
-                          {hasStickyBucketFeature && !orgStickyBucketing && (
-                            <HelperText status="info" size="sm" mt="2">
-                              Enable Sticky Bucketing in your organization
-                              settings to run a Bandit
-                            </HelperText>
-                          )}
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
+              {
+                value: "bandit",
+                disabled: !hasMultiArmedBanditFeature,
+                label: (
+                  <PremiumTooltip
+                    commercialFeature="multi-armed-bandits"
+                    usePortal={true}
+                  >
+                    Bandit
+                  </PremiumTooltip>
+                ),
+                description:
+                  "Find a winner among many variations on one goal metric",
+              },
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(
@@ -906,6 +1372,7 @@ export default function RuleModal({
         {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
           <EnvironmentSelect
             environments={environments}
+            project={feature.project}
             environmentSettings={Object.fromEntries(
               environments.map((env) => [
                 env.id,
@@ -930,45 +1397,13 @@ export default function RuleModal({
     );
   }
 
-  let headerText =
-    mode === "duplicate" ? "Duplicate " : mode === "create" ? "Add " : "Edit ";
-  headerText +=
-    ruleType === "force"
-      ? `${mode === "create" ? "new " : ""}Force Value Rule`
-      : ruleType === "rollout"
-        ? `${mode === "create" ? "new " : ""}Percentage Rollout Rule`
-        : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-              ruleType ?? "",
-            ) && experimentType === "bandit"
-          ? `${
-              ruleType === "experiment-ref-new" ? "new" : "existing"
-            } Bandit as Rule`
-          : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-                ruleType ?? "",
-              ) && experimentType === "experiment"
-            ? `${
-                ruleType === "experiment-ref-new" ? "new" : "existing"
-              } Experiment as Rule`
-            : ruleType === "safe-rollout"
-              ? "Safe Rollout Rule"
-              : "Rule";
-  const trackingEventModalType = kebabCase(headerText);
-  headerText +=
-    ruleType === "safe-rollout"
-      ? ` in ${environment}`
-      : ` in ${selectedEnvironments[0]}${
-          selectedEnvironments.length > 1
-            ? ` + ${selectedEnvironments.length - 1} more`
-            : ""
-        }`;
-
   return (
     <FormProvider {...form}>
       <PagedModal
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save"
+        cta="Save to Draft"
         ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
         header={headerText}
         docSection={
@@ -984,25 +1419,23 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
-      >
-        {ruleType === "force" && (
-          <ForceValueFields
+        useRadixButton={true}
+        bodyPrefix={
+          <DraftSelectorForChanges
             feature={feature}
-            environments={selectedEnvironments}
-            defaultValues={defaultValues}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            isCyclic={isCyclic}
-            cyclicFeatureId={cyclicFeatureId}
-            conditionKey={conditionKey}
-            scheduleToggleEnabled={scheduleToggleEnabled}
-            setScheduleToggleEnabled={setScheduleToggleEnabled}
+            revisionList={revisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={false}
+            gatedEnvSet={gatedEnvSet}
           />
-        )}
-
-        {ruleType === "rollout" && (
-          <RolloutFields
+        }
+      >
+        {(ruleType === "force" || ruleType === "rollout") && (
+          <StandardRuleFields
+            ruleType={ruleType}
             feature={feature}
             environments={selectedEnvironments}
             defaultValues={defaultValues}
@@ -1014,6 +1447,12 @@ export default function RuleModal({
             conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
+            ruleRampSchedule={ruleRampSchedule}
+            rampSectionState={rampSectionState}
+            setRampSectionState={setRampSectionState}
+            scheduleType={scheduleType}
+            setScheduleType={setScheduleType}
+            pendingDetach={hasPendingDetach}
           />
         )}
 
@@ -1171,6 +1610,10 @@ export default function RuleModal({
                   }
                   setVariations={(variations) =>
                     form.setValue("values", variations)
+                  }
+                  disableBanditConversionWindow={disableBanditConversionWindow}
+                  setDisableBanditConversionWindow={
+                    setDisableBanditConversionWindow
                   }
                 />
               </Page>

@@ -30,7 +30,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "project.update",
     deleteEvent: "project.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
   defaultValues: {
     description: "",
     settings: {},

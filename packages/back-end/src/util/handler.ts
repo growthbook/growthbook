@@ -117,7 +117,7 @@ export function createApiRequestHandler<
           );
           return res.status(200).json(result);
         } catch (e) {
-          return res.status(400).json({
+          return res.status(e.status || 400).json({
             message: e.message,
           });
         }
@@ -128,6 +128,8 @@ export function createApiRequestHandler<
     return wrappedHandler;
   };
 }
+
+export const statusCodeReturn = z.strictObject({ status: z.number() });
 
 export async function validateIsSuperUserRequest(req: {
   user?: UserInterface;

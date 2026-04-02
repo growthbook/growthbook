@@ -14,6 +14,8 @@ import { ExperimentRefVariation, FeatureInterface } from "./feature";
 export {
   AttributionModel,
   ImplementationType,
+  LookbackOverride,
+  LookbackOverrideValueUnit,
   MetricOverride,
   BanditResult,
   ExperimentStatus,
@@ -34,6 +36,7 @@ export {
 
 export {
   ExperimentTemplateInterface,
+  ApiExperimentTemplateInterface,
   CreateTemplateProps,
   UpdateTemplateProps,
 } from "shared/validators";

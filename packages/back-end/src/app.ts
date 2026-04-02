@@ -2,12 +2,17 @@ import path from "path";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
-import express, { ErrorRequestHandler, Request, Response } from "express";
+import express, {
+  ErrorRequestHandler,
+  Request,
+  RequestHandler,
+  Response,
+} from "express";
 import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import { stringToBoolean } from "shared/util";
+import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
@@ -60,6 +65,10 @@ const ideasController = wrapController(ideasControllerRaw);
 
 import * as presentationControllerRaw from "./controllers/presentations";
 const presentationController = wrapController(presentationControllerRaw);
+import * as presentationThemesControllerRaw from "./controllers/presentationThemes";
+const presentationThemesController = wrapController(
+  presentationThemesControllerRaw,
+);
 
 import * as discussionsControllerRaw from "./controllers/discussions";
 const discussionsController = wrapController(discussionsControllerRaw);
@@ -121,10 +130,13 @@ import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
+import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
+import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 
 const app = express();
 
@@ -134,7 +146,14 @@ if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
 
 // Some platforms set the PORT env var, causing the back-end and front-end to both try to listen on the same port.
 // BACKEND_PORT allows specifying a different port for the back-end to mitigate this conflict.
-app.set("port", process.env.BACKEND_PORT || process.env.PORT || 3100);
+app.set(
+  "port",
+  parseEnvInt(process.env.BACKEND_PORT || process.env.PORT, 3100, {
+    min: 0,
+    max: 65535,
+    name: "BACKEND_PORT/PORT",
+  }),
+);
 app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
@@ -236,8 +255,19 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb
-app.use(bodyParser.json({ limit: "2mb" }));
+// increase max payload json size to 2mb (10mb for the api screenshot upload)
+app.use((req, res, next) => {
+  const isScreenshotUpload =
+    req.method === "POST" &&
+    /^\/api\/v1\/experiments\/[^/]+\/variation\/[^/]+\/screenshot\/upload$/.test(
+      req.path,
+    );
+  bodyParser.json({ limit: isScreenshotUpload ? "10mb" : "2mb" })(
+    req,
+    res,
+    next,
+  );
+});
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -398,34 +428,38 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
-app.use(auth.middleware);
+app.use(auth.middleware as RequestHandler);
 
 // Add logged in user props to the request
-app.use(asyncHandler(processJWT));
+app.use(asyncHandler(processJWT as unknown as RequestHandler));
 
 // Add logged in user props to the logger
-app.use(
-  (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-    res.log = req.log = req.log.child(getCustomLogProps(req as Request));
-    next();
-  },
-);
+app.use(((
+  req: AuthRequest,
+  res: Response & { log: AuthRequest["log"] },
+  next,
+) => {
+  res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+  next();
+}) as RequestHandler);
 
 // Add logged in user to Sentry if configured
 if (SENTRY_DSN) {
-  app.use(
-    (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
-      Sentry.setUser({
-        id: req.currentUser.id,
-        email: req.currentUser.email,
-        name: req.currentUser.name,
-      });
-      if (req.organization) {
-        Sentry.setTag("organization", req.organization.id);
-      }
-      next();
-    },
-  );
+  app.use(((
+    req: AuthRequest,
+    res: Response & { log: AuthRequest["log"] },
+    next,
+  ) => {
+    Sentry.setUser({
+      id: req.currentUser.id,
+      email: req.currentUser.email,
+      name: req.currentUser.name,
+    });
+    if (req.organization) {
+      Sentry.setTag("organization", req.organization.id);
+    }
+    next();
+  }) as RequestHandler);
 }
 
 // Logged-in auth requests
@@ -436,14 +470,14 @@ if (!useSSO) {
 app.use("/user", usersRouter);
 
 // Every other route requires a userId to be set
-app.use(
-  asyncHandler(async (req: AuthRequest, res, next) => {
-    if (!req.userId) {
-      throw new Error("Must be authenticated.  Try refreshing the page.");
-    }
-    next();
-  }),
-);
+const requireUserIdHandler: RequestHandler = async (req, res, next) => {
+  const authReq = req as AuthRequest;
+  if (!authReq.userId) {
+    throw new Error("Must be authenticated.  Try refreshing the page.");
+  }
+  next();
+};
+app.use(asyncHandler(requireUserIdHandler));
 
 // Organization and Settings
 app.use(organizationsRouter);
@@ -733,6 +767,12 @@ app.use("/url-redirects", urlRedirectRouter);
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
 
+// Ramp Schedules
+app.use("/ramp-schedule", rampScheduleRouter);
+
+// Ramp Schedule Templates
+app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
+
 // Holdouts
 app.use("/holdout", holdoutRouter);
 
@@ -762,7 +802,9 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 // Features
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
+app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
+app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
@@ -791,15 +833,21 @@ app.post(
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
+app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
 app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
 app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post(
+  "/feature/:id/:version/revert-draft",
+  featuresController.postFeatureRevertDraft,
+);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
   "/feature/:id/safeRollout/status",
@@ -817,7 +865,11 @@ app.post(
   "/features/batch-prerequisite-states",
   featuresController.postBatchPrerequisiteStates,
 );
-app.get("/features/names", featuresController.getFeatureNames);
+app.get("/features/meta-info", featuresController.getFeatureMetaInfo);
+app.get("/features/status", featuresController.getFeaturesStatus);
+app.get("/features/draft-states", featuresController.getFeatureDraftStates);
+app.get("/features/stale", featuresController.getFeaturesStaleStates);
+app.get("/features/dependents", featuresController.getFeaturesDependents);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -848,6 +900,10 @@ app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
+app.post(
+  "/datasource/:id/query/:queryId/cancel",
+  datasourcesController.cancelDataSourceQuery,
+);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery,
@@ -926,6 +982,24 @@ app.get("/presentation/:id", presentationController.getPresentation);
 app.post("/presentation/:id", presentationController.updatePresentation);
 app.delete("/presentation/:id", presentationController.deletePresentation);
 
+// Presentation themes (saved themes for presentations)
+app.get(
+  "/presentation-themes",
+  presentationThemesController.getPresentationThemes,
+);
+app.post(
+  "/presentation-theme",
+  presentationThemesController.postPresentationTheme,
+);
+app.put(
+  "/presentation-theme/:id",
+  presentationThemesController.putPresentationTheme,
+);
+app.delete(
+  "/presentation-theme/:id",
+  presentationThemesController.deletePresentationTheme,
+);
+
 // Discussions
 app.get(
   "/discussion/:parentType/:parentId",
@@ -987,17 +1061,19 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get(
-  "/generated-hypothesis/:uuid",
-  async (req: AuthRequest<null, { uuid: string }>, res) => {
-    const context = getContextFromReq(req);
-    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
-      context,
-      req.params.uuid,
-    );
-    return res.json({ generatedHypothesis });
-  },
-);
+app.get("/generated-hypothesis/:uuid", (async (
+  req: express.Request,
+  res: express.Response,
+  _next: express.NextFunction,
+) => {
+  const authReq = req as AuthRequest<null, { uuid: string }>;
+  const context = getContextFromReq(authReq);
+  const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+    context,
+    authReq.params.uuid,
+  );
+  return res.json({ generatedHypothesis });
+}) as unknown as RequestHandler);
 
 // Dashboards
 app.use("/dashboards", dashboardsRouter);
@@ -1007,6 +1083,9 @@ app.use("/custom-hooks", customHooksRouter);
 
 // 3rd party data importing proxy
 app.use("/importing", importingRouter);
+
+// Product Analytics
+app.use("/product-analytics", productAnalyticsRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

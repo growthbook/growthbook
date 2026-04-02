@@ -150,7 +150,7 @@ function CustomFieldsTable({
 const TAB_VALUES = ["all", "feature", "experiment"] as const;
 
 const CustomFields: FC = () => {
-  const [activeFilter] = useURLHash(TAB_VALUES as unknown as string[]);
+  const [activeFilter] = useURLHash(TAB_VALUES);
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const { customFields, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();

@@ -10,6 +10,7 @@ export interface ProxyConnection {
   version: string;
   error: string;
   lastError: Date | null;
+  consecutiveFailures?: number;
 }
 
 export type EditSDKConnectionParams = {

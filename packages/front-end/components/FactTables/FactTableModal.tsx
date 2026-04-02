@@ -59,7 +59,7 @@ export default function FactTableModal({
     defaultValues: {
       datasource:
         existing?.datasource ||
-        getNewExperimentDatasourceDefaults(datasources, settings, project)
+        getNewExperimentDatasourceDefaults({ datasources, settings, project })
           .datasource,
       description: existing?.description || "",
       name: existing?.name || "",

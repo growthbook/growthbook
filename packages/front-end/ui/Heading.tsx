@@ -1,13 +1,27 @@
 import { Heading as RadixHeading } from "@radix-ui/themes";
 import type { HeadingProps as RadixHeadingProps } from "@radix-ui/themes";
 
-type HeadingSizes = "small" | "medium" | "large" | "x-large" | "2x-large";
+type HeadingSizes =
+  | "x-small"
+  | "small"
+  | "medium"
+  | "large"
+  | "x-large"
+  | "2x-large";
 type HeadingWeights = "medium" | "semibold";
 type HeadingAlign = "left" | "center" | "right";
+type HeadingWhiteSpace =
+  | "pre"
+  | "normal"
+  | "nowrap"
+  | "pre-wrap"
+  | "pre-line"
+  | "break-spaces";
 // NB: We might need to expand this to support RadixHeadingProps["color"], but being conservative for now.
 type HeadingColors = "text-high" | "text-mid" | "text-low";
 
 const radixSizeMap: Record<HeadingSizes, RadixHeadingProps["size"]> = {
+  "x-small": "2",
   small: "3",
   medium: "4",
   large: "5",
@@ -29,6 +43,8 @@ export interface HeadingProps {
   color?: HeadingColors;
   align?: HeadingAlign;
   title?: string;
+  whiteSpace?: HeadingWhiteSpace;
+  textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
   m?: RadixHeadingProps["m"];
@@ -48,6 +64,8 @@ export default function Heading({
   color,
   align = "left",
   title,
+  whiteSpace,
+  textTransform,
   m,
   mx,
   my,
@@ -57,6 +75,8 @@ export default function Heading({
   ml,
 }: HeadingProps) {
   const style: React.CSSProperties = {};
+  if (whiteSpace) style.whiteSpace = whiteSpace;
+  if (textTransform) style.textTransform = textTransform;
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

@@ -9,6 +9,14 @@ const router = express.Router();
 
 const AttributeController = wrapController(rawAttributesController);
 
+router.get(
+  "/references",
+  validateRequestMiddleware({
+    query: z.object({ ids: z.string().optional() }).strict(),
+  }),
+  AttributeController.getAttributeReferences,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({
@@ -20,6 +28,7 @@ router.post(
       format: z.string().optional(),
       enum: z.string().optional(),
       hashAttribute: z.boolean().optional(),
+      tags: z.array(z.string()).optional(),
     }),
   }),
   AttributeController.postAttribute,
@@ -38,6 +47,7 @@ router.put(
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
       previousName: z.string().optional(),
+      tags: z.array(z.string()).optional(),
     }),
   }),
   AttributeController.putAttribute,

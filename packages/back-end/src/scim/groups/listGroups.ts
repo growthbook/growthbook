@@ -1,6 +1,5 @@
 import { parse, filter } from "scim2-parse-filter";
 import { Response } from "express";
-import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
 import { expandOrgMembers } from "back-end/src/services/organizations";
 import { ScimListRequest, ScimListResponse } from "back-end/types/scim";
 import {
@@ -23,7 +22,7 @@ export async function listGroups(
 
   const org = req.organization;
 
-  const groups = await getTeamsForOrganization(org.id);
+  const groups = await req.context.models.teams.getAll();
   const expandedMembers = await expandOrgMembers(org.members);
 
   const hydratedGroups = groups.map((group) => {
@@ -40,9 +39,11 @@ export async function listGroups(
     return teamtoScimGroup(group);
   });
 
+  const sortedGroups = SCIMGroups.sort((a, b) => a.id.localeCompare(b.id));
+
   const filteredGroups = filterQuery
-    ? SCIMGroups.filter(filter(parse(filterQuery)))
-    : SCIMGroups;
+    ? sortedGroups.filter(filter(parse(filterQuery)))
+    : sortedGroups;
 
   // a startIndex less than 0 should be interpreted as 0
   const correctedStartIndex =

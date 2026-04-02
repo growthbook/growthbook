@@ -8,7 +8,12 @@ import {
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
-import { MinimalFeatureRevisionInterface } from "shared/validators";
+import {
+  MinimalFeatureRevisionInterface,
+  ActiveDraftStatus,
+  ACTIVE_DRAFT_STATUSES,
+  RevisionMetadata,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
@@ -28,8 +33,16 @@ const featureRevisionSchema = new mongoose.Schema({
   datePublished: Date,
   publishedBy: {},
   comment: String,
+  title: String,
   defaultValue: String,
   rules: {},
+  // Revision envelopes — only present when explicitly changed
+  environmentsEnabled: {},
+  prerequisites: [{}],
+  archived: Boolean,
+  metadata: {},
+  holdout: {},
+  rampActions: [{}],
   status: String,
   requiresReview: Boolean,
   log: [
@@ -109,9 +122,9 @@ export async function getMinimalRevisions(
     organization,
     featureId,
   })
-    .select("version datePublished dateUpdated createdBy status")
+    .select("version datePublished dateUpdated createdBy status comment title")
     .sort({ version: -1 })
-    .limit(25);
+    .limit(200);
 
   return docs.map((m) => ({
     version: m.version,
@@ -119,23 +132,61 @@ export async function getMinimalRevisions(
     dateUpdated: m.dateUpdated,
     createdBy: m.createdBy,
     status: m.status,
+    comment: m.comment || "",
+    ...(m.title ? { title: m.title } : {}),
   }));
 }
 
-export async function getLatestRevisions(
+export async function getFeaturePageRevisions(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
 ): Promise<FeatureRevisionInterface[]> {
-  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-  })
-    .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-    .sort({ version: -1 })
-    .limit(5);
+  // Lean initial load: top-5 recent + all active drafts in parallel, then deduplicate.
+  const [recentDocs, activeDraftDocs] = await Promise.all([
+    // Top-5 most recent: covers the revision history UI without fetching everything.
+    FeatureRevisionModel.find({ organization, featureId })
+      .select("-log")
+      .sort({ version: -1 })
+      .limit(5),
+    // All active drafts: a draft created from an old revision may fall outside the top-5 window.
+    FeatureRevisionModel.find({
+      organization,
+      featureId,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    }).select("-log"),
+  ]);
 
-  return docs.map((m) => toInterface(m, context));
+  const seen = new Set<number>();
+  const merged: FeatureRevisionDocument[] = [];
+  for (const doc of [...recentDocs, ...activeDraftDocs]) {
+    if (!seen.has(doc.version)) {
+      seen.add(doc.version);
+      merged.push(doc);
+    }
+  }
+
+  // Base versions of active drafts: needed for autoMerge / conflict detection.
+  // If the base falls outside the top-5 window, mergeResult would be null and publish CTAs break.
+  const missingBaseVersions = activeDraftDocs
+    .map((d) => d.baseVersion)
+    .filter((v): v is number => typeof v === "number" && !seen.has(v));
+
+  if (missingBaseVersions.length > 0) {
+    const baseDocs = await FeatureRevisionModel.find({
+      organization,
+      featureId,
+      version: { $in: missingBaseVersions },
+    }).select("-log");
+    for (const doc of baseDocs) {
+      if (!seen.has(doc.version)) {
+        seen.add(doc.version);
+        merged.push(doc);
+      }
+    }
+  }
+
+  return merged.map((m) => toInterface(m, context));
 }
 
 export async function hasDraft(
@@ -153,6 +204,25 @@ export async function hasDraft(
   return doc ? true : false;
 }
 
+/**
+ * Returns the most recent active draft revision for a feature, or null if none exists.
+ * Used to bundle new gated changes into an existing draft rather than creating a new one.
+ */
+export async function getActiveDraft(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+): Promise<FeatureRevisionInterface | null> {
+  const doc = await FeatureRevisionModel.findOne({
+    organization: feature.organization,
+    featureId: feature.id,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  })
+    .select("-log")
+    .sort({ version: -1 });
+
+  return doc ? toInterface(doc, context) : null;
+}
+
 export async function getFeatureRevisionsByStatus({
   context,
   organization,
@@ -165,15 +235,20 @@ export async function getFeatureRevisionsByStatus({
   context: ReqContext;
   organization: string;
   featureId: string;
-  status?: string;
+  status?: string | string[];
   limit?: number;
   offset?: number;
   sort?: "asc" | "desc";
 }): Promise<FeatureRevisionInterface[]> {
+  const statusFilter = Array.isArray(status)
+    ? { status: { $in: status } }
+    : status
+      ? { status }
+      : {};
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
-    ...(status ? { status } : {}),
+    ...statusFilter,
   })
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 })
@@ -204,22 +279,53 @@ export async function getRevision({
   return doc ? toInterface(doc, context) : null;
 }
 
+export async function getRevisionsByVersions({
+  context,
+  organization,
+  featureId,
+  versions,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  versions: number[];
+}) {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    version: { $in: versions },
+  }).select("-log");
+
+  return docs.map((doc) => toInterface(doc, context));
+}
+
+// Fields excluded in sparse mode: large/unused payload for list-view callers.
+const SPARSE_REVISION_PROJECTION = {
+  log: 0,
+  rules: 0,
+  defaultValue: 0,
+  environmentsEnabled: 0,
+  prerequisites: 0,
+  archived: 0,
+  metadata: 0,
+  baseVersion: 0,
+  datePublished: 0,
+  publishedBy: 0,
+  requiresReview: 0,
+};
+
 export async function getRevisionsByStatus(
   context: ReqContext,
   statuses: string[],
+  { sparse = false }: { sparse?: boolean } = {},
 ) {
-  const revisions = await FeatureRevisionModel.find({
-    organization: context.org.id,
-    status: { $in: statuses },
-  }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
+  const projection = sparse ? SPARSE_REVISION_PROJECTION : { log: 0 };
+  const revisions = await FeatureRevisionModel.find(
+    { organization: context.org.id, status: { $in: statuses } },
+    projection,
+  );
 
-  const docs = revisions
-    .filter((r) => !!r)
-    .map((r) => {
-      return toInterface(r, context);
-    });
-
-  return docs;
+  return revisions.filter((r) => !!r).map((r) => toInterface(r, context));
 }
 
 export async function createInitialRevision(
@@ -230,8 +336,11 @@ export async function createInitialRevision(
   date?: Date,
 ) {
   const rules: Record<string, FeatureRule[]> = {};
+  const environmentsEnabled: Record<string, boolean> = {};
   environments.forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
+    environmentsEnabled[env] =
+      feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
   date = date || new Date();
@@ -250,6 +359,19 @@ export async function createInitialRevision(
     comment: "",
     defaultValue: feature.defaultValue,
     rules,
+    environmentsEnabled,
+    prerequisites: feature.prerequisites || [],
+    archived: feature.archived ?? false,
+    metadata: {
+      description: feature.description,
+      owner: feature.owner,
+      project: feature.project,
+      tags: feature.tags,
+      neverStale: feature.neverStale,
+      customFields: feature.customFields,
+      jsonSchema: feature.jsonSchema,
+      valueType: feature.valueType,
+    },
   });
 
   return toInterface(doc, context);
@@ -289,6 +411,7 @@ export async function createRevision({
   changes,
   publish,
   comment,
+  title,
   org,
   canBypassApprovalChecks,
 }: {
@@ -300,6 +423,7 @@ export async function createRevision({
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
+  title?: string;
   org: OrganizationInterface;
   canBypassApprovalChecks?: boolean;
 }) {
@@ -320,6 +444,40 @@ export async function createRevision({
       rules[env] = feature.environmentSettings?.[env]?.rules || [];
     }
   });
+
+  // All fields are always written as a complete snapshot so revisions are
+  // self-contained and HEAD can be set to any revision without base traversal.
+  // Legacy documents missing these fields are handled defensively at read/apply time.
+  const environmentsEnabled: Record<string, boolean> = Object.fromEntries(
+    environments.map((env) => [
+      env,
+      changes?.environmentsEnabled?.[env] ??
+        feature.environmentSettings?.[env]?.enabled ??
+        false,
+    ]),
+  );
+  const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
+  const archived = changes?.archived ?? feature.archived ?? false;
+  const featureMetadataSnapshot: RevisionMetadata = {
+    description: feature.description,
+    owner: feature.owner,
+    project: feature.project,
+    tags: feature.tags,
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+  };
+  // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
+  // are merged on top so other metadata fields aren't silently dropped.
+  const metadata: RevisionMetadata = changes?.metadata
+    ? { ...featureMetadataSnapshot, ...changes.metadata }
+    : featureMetadataSnapshot;
+  // holdout: explicit null in changes = remove; undefined/absent = carry forward from live
+  const holdout =
+    "holdout" in (changes ?? {})
+      ? (changes!.holdout ?? null)
+      : (feature.holdout ?? null);
 
   if (!baseVersion) baseVersion = lastRevision?.version;
   if (!baseVersion) {
@@ -352,8 +510,14 @@ export async function createRevision({
     status,
     publishedBy: null,
     comment: comment || "",
+    ...(title ? { title } : {}),
     defaultValue,
     rules,
+    environmentsEnabled,
+    prerequisites,
+    archived,
+    metadata,
+    holdout,
   } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -361,6 +525,7 @@ export async function createRevision({
     revision,
     allEnvironments: environments,
     settings: org.settings,
+    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
   if (publish && (!requiresReview || canBypassApprovalChecks)) {
     revision.status = "published";
@@ -392,6 +557,11 @@ export async function createRevision({
         comment: comment || "",
         defaultValue,
         rules,
+        environmentsEnabled,
+        prerequisites,
+        archived,
+        metadata,
+        holdout,
       }),
     })
     .catch((e) => {
@@ -408,7 +578,17 @@ export async function updateRevision(
   changes: Partial<
     Pick<
       FeatureRevisionInterface,
-      "comment" | "defaultValue" | "rules" | "baseVersion"
+      | "title"
+      | "comment"
+      | "defaultValue"
+      | "rules"
+      | "baseVersion"
+      | "environmentsEnabled"
+      | "prerequisites"
+      | "archived"
+      | "metadata"
+      | "holdout"
+      | "rampActions"
     >
   >,
   log: Omit<RevisionLog, "timestamp">,
@@ -416,8 +596,20 @@ export async function updateRevision(
 ) {
   let status = revision.status;
 
-  // If editing defaultValue or rules, require the revision to be a draft
-  if ("defaultValue" in changes || changes.rules) {
+  const MUTABLE_FIELDS = [
+    "defaultValue",
+    "rules",
+    "environmentsEnabled",
+    "prerequisites",
+    "archived",
+    "metadata",
+    "holdout",
+    "rampActions",
+  ] as const;
+
+  const hasMutableChange = MUTABLE_FIELDS.some((f) => f in changes);
+
+  if (hasMutableChange) {
     if (
       !(
         revision.status === "draft" ||
@@ -428,7 +620,7 @@ export async function updateRevision(
     ) {
       throw new Error("Can only update draft revisions");
     }
-    // reset the changes requested since there is no way to reset at the moment.
+    // Reset changes-requested back to pending-review whenever any content changes.
     if (revision.status === "changes-requested") {
       status = "pending-review";
     }
@@ -524,6 +716,8 @@ export async function markRevisionAsPublished(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  await dispatchRevisionPublishedHook(context, revision);
 }
 
 export async function markRevisionAsReviewRequested(
@@ -661,7 +855,7 @@ export async function getFeatureRevisionsByFeatureIds(
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
-      status: "draft",
+      status: { $in: ACTIVE_DRAFT_STATUSES },
       featureId: { $in: featureIds },
     })
       .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
@@ -675,6 +869,49 @@ export async function getFeatureRevisionsByFeatureIds(
   }
 
   return revisionsByFeatureId;
+}
+
+// Higher number = higher priority. When a feature has multiple active
+// revisions, surface the most actionable one.
+const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
+  "changes-requested": 4,
+  "pending-review": 3,
+  approved: 2,
+  draft: 1,
+};
+
+export async function getActiveDraftStates(
+  orgId: string,
+  featureIds?: string[],
+): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+  const q: Record<string, unknown> = {
+    organization: orgId,
+    status: { $in: ACTIVE_DRAFT_STATUSES },
+  };
+  if (featureIds && featureIds.length > 0) {
+    q.featureId = { $in: featureIds };
+  }
+  const docs = await FeatureRevisionModel.find(q, {
+    featureId: 1,
+    status: 1,
+    version: 1,
+    _id: 0,
+  });
+
+  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
+    {};
+  for (const doc of docs) {
+    const fid = doc.featureId;
+    const status = doc.status as ActiveDraftStatus;
+    const existing = result[fid];
+    if (
+      !existing ||
+      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
+    ) {
+      result[fid] = { status, version: doc.version };
+    }
+  }
+  return result;
 }
 
 export async function deleteAllRevisionsForFeature(
@@ -715,4 +952,48 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
   }).select("-log"); // Remove the log when fetching all revisions since it can be large to send over the network
 
   return docs.map((m) => toInterface(m, context));
+}
+
+// ---------------------------------------------------------------------------
+// Ramp schedule hook registry
+//
+// Services that need to react to revision publish/discard events register
+// their handlers here at startup. Using a registry pattern avoids circular
+// module dependencies between FeatureRevisionModel and services/rampSchedule.
+// ---------------------------------------------------------------------------
+
+type RevisionHook = (
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+) => Promise<void>;
+
+let _onRevisionPublishedHook: RevisionHook | null = null;
+
+export function registerRevisionPublishedHook(hook: RevisionHook): void {
+  _onRevisionPublishedHook = hook;
+}
+
+export async function dispatchRevisionPublishedHook(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  if (!_onRevisionPublishedHook) return;
+  try {
+    await _onRevisionPublishedHook(context, revision);
+  } catch (e) {
+    logger.error(e, "Error in revision published ramp hook");
+  }
+}
+
+// Mark a revision as pending-parent so it waits for its sibling approval revision.
+// Used by the ramp service when creating multi-target approval-gated steps.
+export async function markRevisionAsPendingParent(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    { organization, featureId, version },
+    { $set: { status: "pending-parent" } },
+  );
 }

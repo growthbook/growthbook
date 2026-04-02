@@ -1,15 +1,19 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { RampScheduleInterface } from "shared/validators";
 import {
   autoMerge,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { Flex } from "@radix-ui/themes";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -23,10 +27,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  type FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
+import Badge from "@/ui/Badge";
+import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -36,18 +44,27 @@ export interface Props {
   mutate: () => void;
   onPublish?: () => void;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  rampSchedules?: RampScheduleInterface[];
 }
 
 export function ExpandableDiff({
   title,
   a,
   b,
+  defaultOpen = false,
+  styles,
+  leftTitle,
+  rightTitle,
 }: {
   title: string;
   a: string;
   b: string;
+  defaultOpen?: boolean;
+  styles?: object;
+  leftTitle?: string | React.ReactElement;
+  rightTitle?: string | React.ReactElement;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   if (a === b) return null;
 
@@ -72,11 +89,9 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={{
-              contentText: {
-                wordBreak: "break-all",
-              },
-            }}
+            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
+            leftTitle={leftTitle}
+            rightTitle={rightTitle}
           />
         </div>
       )}
@@ -92,6 +107,7 @@ export default function DraftModal({
   mutate,
   onPublish,
   experimentsMap,
+  rampSchedules,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -104,12 +120,18 @@ export default function DraftModal({
     (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
-
   const envIds = environments.map((e) => e.id);
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, envIds, {});
-  }, [revision, baseRevision, liveRevision, envIds]);
+    return autoMerge(
+      liveRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
+      revision,
+      envIds,
+      {},
+    );
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState(revision?.comment || "");
 
@@ -133,18 +155,150 @@ export default function DraftModal({
           defaultValue:
             mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
           rules: mergeResult.result.rules ?? currentRevisionData.rules,
+          // Only include envelope fields if they were part of the merge result
+          ...(mergeResult.result.environmentsEnabled !== undefined
+            ? { environmentsEnabled: mergeResult.result.environmentsEnabled }
+            : {}),
+          ...(mergeResult.result.prerequisites !== undefined
+            ? { prerequisites: mergeResult.result.prerequisites }
+            : {}),
+          ...("holdout" in mergeResult.result
+            ? { holdout: mergeResult.result.holdout }
+            : {}),
+          ...(mergeResult.result.metadata !== undefined
+            ? {
+                metadata: {
+                  ...currentRevisionData.metadata,
+                  ...mergeResult.result.metadata,
+                },
+              }
+            : {}),
         }
       : currentRevisionData,
   });
 
+  // Exclude no-op diffs (e.g. semantic equality but different raw strings)
+  const resultDiffsWithChanges = useMemo(
+    () => resultDiffs.filter((d) => d.a !== d.b),
+    [resultDiffs],
+  );
+
+  // Activating ramps: pending ramps where this revision's publication triggers the start lifecycle.
+  const activatingRamps = (rampSchedules ?? []).filter(
+    (r) =>
+      r.status === "pending" &&
+      r.targets.some(
+        (t) =>
+          t.entityId === feature.id &&
+          t.activatingRevisionVersion === revision?.version,
+      ),
+  );
+
+  // Build extra diff items so ramp changes appear in badges, custom renders, and JSON diffs.
+  const rampDiffs: FeatureRevisionDiff[] = [
+    ...activatingRamps.map((ramp) => {
+      const rampConfig = {
+        name: ramp.name,
+        targets: ramp.targets,
+        startDate: ramp.startDate,
+        steps: ramp.steps,
+        endCondition: ramp.endCondition,
+      };
+      const startDescription = ramp.startDate
+        ? "Starts at a scheduled date/time."
+        : "Starts automatically on publish.";
+      return {
+        title: `Ramp Schedule – ${ramp.name}`,
+        a: "",
+        b: JSON.stringify(rampConfig, null, 2),
+        customRender: (
+          <p className="mb-0">
+            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
+            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
+            {startDescription}
+          </p>
+        ),
+        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      } as FeatureRevisionDiff;
+    }),
+    // Pending ramp actions: create/detach actions queued in the draft
+    ...(revision?.rampActions ?? [])
+      .map((action) => {
+        if (action.mode === "create") {
+          const rampConfig = {
+            name: action.name,
+            environment: action.environment,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            endCondition: action.endCondition,
+          };
+          return {
+            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0">
+                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
+                <code>{action.ruleId}</code> — {action.steps.length} step
+                {action.steps.length !== 1 ? "s" : ""}.
+              </p>
+            ),
+            badges: [
+              {
+                label: `Create ramp: ${action.name}`,
+                action: "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "detach") {
+          return {
+            title: `Remove from Ramp Schedule (pending)`,
+            a: "",
+            b: JSON.stringify(
+              {
+                rampScheduleId: action.rampScheduleId,
+                ruleId: action.ruleId,
+              },
+              null,
+              2,
+            ),
+            customRender: (
+              <p className="mb-0">
+                This rule will be removed from its ramp schedule
+                {action.deleteScheduleWhenEmpty &&
+                  " and the schedule will be deleted if empty"}
+                .
+              </p>
+            ),
+            badges: [
+              {
+                label: "Remove from ramp schedule",
+                action: "remove ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        }
+        return null as unknown as FeatureRevisionDiff;
+      })
+      .filter(Boolean),
+  ];
+
+  // Combined for rendering convenience
+  const linkedRamps = [
+    ...activatingRamps.map((ramp) => ({ ramp, role: "activating" as const })),
+  ];
+
   if (!revision || !mergeResult) return null;
+
+  const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
     getAffectedRevisionEnvs(feature, revision, environments),
   );
 
-  const hasChanges = mergeResultHasChanges(mergeResult);
+  const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
   let submitEnabled = !!mergeResult.success && hasChanges;
   if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
@@ -227,6 +381,14 @@ export default function DraftModal({
         </Callout>
       )}
 
+      {linkedRamps.map(({ ramp }) => (
+        <Callout key={ramp.id} status="info" mb="3">
+          Publishing this draft will activate ramp schedule{" "}
+          <strong>{ramp.name}</strong>. The ramp will begin once this revision
+          is live.
+        </Callout>
+      ))}
+
       {!hasChanges && !mergeResult.conflicts.length && (
         <Callout status="info">
           There are no changes to publish. Either discard the draft or add
@@ -293,15 +455,56 @@ export default function DraftModal({
               </div>
             ) : null}
 
-            <h4>Review Diff</h4>
+            {allDiffsWithChanges.length > 0 && (
+              <>
+                <h4 className="mb-3">Summary of changes</h4>
+                {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
+                  0 && (
+                  <Flex wrap="wrap" gap="2" className="mb-3">
+                    {allDiffsWithChanges
+                      .flatMap((d) => d.badges ?? [])
+                      .map(({ label, action }) => (
+                        <Badge
+                          key={label}
+                          color={logBadgeColor(action)}
+                          variant="soft"
+                          label={label}
+                        />
+                      ))}
+                  </Flex>
+                )}
+                {allDiffsWithChanges.some((d) => d.customRender) && (
+                  <div className="list-group mb-4">
+                    {allDiffsWithChanges
+                      .filter((d) => d.customRender)
+                      .map((d) => (
+                        <div
+                          key={d.title}
+                          className="list-group-item list-group-item-light pb-3"
+                        >
+                          <strong className="d-block mb-2">{d.title}</strong>
+                          {d.customRender}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
+            )}
+            <h4 className="mb-3">Change details</h4>
             <div className="list-group mb-4">
-              {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
+              {allDiffsWithChanges.map((diff) => (
+                <ExpandableDiff
+                  key={diff.title}
+                  title={diff.title}
+                  a={diff.a}
+                  b={diff.b}
+                  styles={COMPACT_DIFF_STYLES}
+                />
               ))}
             </div>
             {hasPermission ? (
               <Field
-                label="Add a Comment (optional)"
+                label="Notes (optional)"
                 textarea
                 placeholder="Summary of changes..."
                 value={comment}

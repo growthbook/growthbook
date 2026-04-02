@@ -169,11 +169,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -195,11 +190,6 @@
     }
   },
   "packages/front-end/components/Experiment/SafeRolloutTimeSeriesGraph.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettings.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -299,22 +289,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ConditionInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureArchiveModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -344,11 +324,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/FeaturesOverview.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/ForceSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -369,27 +344,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/Rule.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/ExperimentRefNewFields.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -404,22 +364,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/SDKConnections/SDKConnectionsList.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/SafeRollout/SafeRolloutStatusModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SavedGroupTargetingField.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -437,11 +387,6 @@
   "packages/front-end/components/GeneralSettings/AISettings.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
@@ -649,11 +594,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Owner/SelectOwner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Queries/QueriesLastRun.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -694,22 +634,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/SavedGroupReferencesList.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/SqlExplorerModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Search/SearchFilters.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -725,11 +650,6 @@
     }
   },
   "packages/front-end/components/Settings/EditDataSource/ClickhouseMaterializedColumns/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -879,11 +799,6 @@
       "count": 2
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardSelector.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -934,11 +849,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/datasources/[did].tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/pages/experiments/template/[tid].tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -974,11 +884,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/presentations.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -987,6 +892,11 @@
   "packages/front-end/pages/project/[pid].tsx": {
     "no-restricted-imports": {
       "count": 2
+    }
+  },
+  "packages/front-end/pages/projects/index.tsx": {
+    "prettier/prettier": {
+      "count": 92
     }
   },
   "packages/front-end/pages/saved-groups/[sgid].tsx": {

@@ -58,7 +58,7 @@ export default function ExperimentSplitVisual({
               style={{ backgroundColor: "#e0e0e0" }}
             />{" "}
             {unallocated}{" "}
-            <strong>
+            <strong className="nowrap">
               ({parseFloat(((1 - coverage) * 100).toPrecision(5)) + "%"})
             </strong>
           </div>
@@ -109,10 +109,9 @@ export default function ExperimentSplitVisual({
                     <></>
                   </Tooltip>
                   {showPercentages && (
-                    <div className={`${styles.percentMarker}`}>
+                    <div className={styles.percentMarker}>
                       <span className="nowrap">
-                        {parseFloat(percentVal.toPrecision(4)) +
-                          "%"}
+                        {parseFloat(percentVal.toPrecision(4)) + "%"}
                       </span>
                       {showValues && (
                         <>
@@ -144,16 +143,18 @@ export default function ExperimentSplitVisual({
                 </Tooltip>
                 {showPercentages && (
                   <div className={`${styles.percentMarker}`}>
-                    <span className="nowrap">
-                      {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
-                        "%"}
+                    <span>
+                      <span className="nowrap">
+                        {parseFloat(((1 - coverageVal) * 100).toPrecision(5)) +
+                          "%"}
+                      </span>
+                      {showValues && (
+                        <>
+                          {" "}
+                          - <strong>unallocated</strong>
+                        </>
+                      )}
                     </span>
-                    {showValues && (
-                      <>
-                        {" "}
-                        - <strong>unallocated</strong>
-                      </>
-                    )}
                   </div>
                 )}
               </div>
