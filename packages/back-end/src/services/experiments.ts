@@ -1006,7 +1006,7 @@ export async function updateExperimentAndSync({
     bypassWebhooks,
   });
 
-  const shouldSyncLinked = changes.variations !== undefined;
+  const shouldSyncLinked = changes.variations && updated;
 
   if (shouldSyncLinked) {
     await syncVisualChangesetsAndUrlRedirectsForExperiment({
