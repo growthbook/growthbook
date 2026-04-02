@@ -47,6 +47,7 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -123,6 +124,15 @@ export default function SDKConnectionForm({
   const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
     getSecurityTabState(initialValue),
   );
+
+  const handleSecurityTabClick = (tab: string) => {
+    if (tab === "remote") {
+      form.setValue("encryptPayload", false);
+      form.setValue("hashSecureAttributes", false);
+      form.setValue("includeExperimentNames", true);
+    }
+    setSelectedSecurityTab(tab);
+  };
 
   const [languageError, setLanguageError] = useState<string | null>(null);
 
@@ -346,9 +356,6 @@ export default function SDKConnectionForm({
         return;
       }
       form.setValue("remoteEvalEnabled", true);
-      form.setValue("encryptPayload", false);
-      form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", true);
     }
   }, [
     selectedSecurityTab,
@@ -665,7 +672,7 @@ export default function SDKConnectionForm({
               tabContentsClassName={(tab) =>
                 tab === "none" ? "d-none" : "noborder mb-0"
               }
-              setActive={setSelectedSecurityTab}
+              setActive={handleSecurityTabClick}
               active={selectedSecurityTab}
             >
               <Tab
@@ -944,9 +951,10 @@ export default function SDKConnectionForm({
                       <Checkbox
                         weight="regular"
                         value={form.watch("remoteEvalEnabled")}
-                        setValue={(val) =>
-                          form.setValue("remoteEvalEnabled", val)
-                        }
+                        setValue={(val) => {
+                          form.setValue("remoteEvalEnabled", val);
+                          if (val) setSelectedSecurityTab("remote");
+                        }}
                         disabled={
                           !hasRemoteEvaluationFeature ||
                           !latestSdkCapabilities.includes("remoteEval")
@@ -1017,6 +1025,26 @@ export default function SDKConnectionForm({
                         </div>
                       </div>
                     )}
+                    {(() => {
+                      if (!form.watch("remoteEvalEnabled")) return null;
+                      const active = [
+                        form.watch("encryptPayload") && "Encrypt payload",
+                        form.watch("hashSecureAttributes") &&
+                          "Hash secure attributes",
+                        !form.watch("includeExperimentNames") &&
+                          "Hide experiment and variation names",
+                      ].filter(Boolean) as string[];
+                      if (!active.length) return null;
+                      return (
+                        <Callout status="warning" size="sm" mt="3">
+                          <strong>{active.join(", ")}</strong>{" "}
+                          {active.length === 1 ? "is" : "are"} not recommended
+                          for most remote evaluation configurations and{" "}
+                          {active.length === 1 ? "is" : "are"} a more advanced
+                          use case.
+                        </Callout>
+                      );
+                    })()}
                   </Box>
                   {!currentSdkCapabilities.includes("remoteEval") ? (
                     <div
@@ -1259,7 +1287,7 @@ export default function SDKConnectionForm({
       {(showVisualEditorSettings || showRedirectSettings) && (
         <Box mt="5">
           <Text as="div" weight="semibold" mb="3">
-            QA and Debugging
+            Observability and QA
           </Text>
           <Flex direction="column" gap="2">
             <Box>
