@@ -15,6 +15,7 @@ import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
+import Avatar from "@/components/Avatar/Avatar";
 import { getCurrentUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -373,6 +374,28 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
+            {revision.contributors && revision.contributors.length > 0 && (
+              <div className="mb-3">
+                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
+                <Flex align="center" gap="2" wrap="wrap" mt="1">
+                  {[revision.createdBy, ...revision.contributors]
+                    .filter((u): u is EventUserLoggedIn =>
+                      u != null && u.type === "dashboard"
+                    )
+                    .filter(
+                      (u, idx, arr) =>
+                        arr.findIndex((x) => x.id === u.id) === idx,
+                    )
+                    .map((lu) => {
+                      return (
+                        <Flex key={lu.id} align="center" gap="1">
+                          <Avatar email={lu.email} size={18} name={lu.name} showEmail />
+                        </Flex>
+                      );
+                    })}
+                </Flex>
+              </div>
+            )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox

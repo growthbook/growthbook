@@ -16,6 +16,10 @@ import React, {
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowsLeftRightBold,
+  PiCaretDownBold,
+  PiCaretLeftBold,
+  PiCaretRightBold,
+  PiCaretRightFill,
   PiClockClockwise,
   PiWarningBold,
   PiX,
@@ -40,7 +44,10 @@ import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Avatar from "@/components/Avatar/Avatar";
 import EventUser from "@/components/Avatar/EventUser";
+import { useUser } from "@/services/UserContext";
+import Code from "@/components/SyntaxHighlighting/Code";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
@@ -95,6 +102,88 @@ function revisionToDiffInput(
   };
 }
 
+function CoAuthors({
+  rev,
+  logs,
+}: {
+  rev: FeatureRevisionInterface;
+  logs?: RevisionLog[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  const createdById =
+    rev.createdBy?.type === "dashboard" ? rev.createdBy.id : null;
+
+  // Use stored contributors if present; otherwise derive from log authors.
+  const storedContributors = (rev.contributors ?? []).filter(
+    (c): c is NonNullable<typeof c> => c != null,
+  );
+
+  const derivedContributors =
+    storedContributors.length === 0 && logs
+      ? logs
+          .filter(
+            (l) =>
+              !NON_CONTENT_ACTIONS.has(l.action) &&
+              l.user?.type === "dashboard",
+          )
+          .map((l) => l.user!)
+          .filter(
+            (u, i, arr) =>
+              u.type === "dashboard" &&
+              arr.findIndex((x) => x.type === "dashboard" && x.id === u.id) ===
+                i,
+          )
+      : storedContributors;
+
+  const coAuthors = derivedContributors.filter(
+    (c) => !(c.type === "dashboard" && c.id === createdById),
+  );
+
+  if (coAuthors.length === 0) return null;
+
+  const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
+
+  return (
+    <Box mt="1">
+      <div
+        className="link-purple"
+        style={{ cursor: "pointer", userSelect: "none" }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PiCaretRightFill
+          style={{
+            display: "inline",
+            marginRight: 4,
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(90deg)" : "none",
+          }}
+        />
+        {label}
+      </div>
+      {open && (
+        <Flex direction="column" gap="2" mt="2" ml="3">
+          {coAuthors.map((c, i) =>
+            c.type === "dashboard" ? (
+              <Avatar
+                key={c.id}
+                email={c.email}
+                name={c.name ?? ""}
+                size={22}
+                showEmail
+              />
+            ) : c.type === "api_key" ? (
+              <span key={i} className="badge badge-secondary">
+                API Key
+              </span>
+            ) : null,
+          )}
+        </Flex>
+      )}
+    </Box>
+  );
+}
+
 function RevisionCompareLabel({
   versionA,
   versionB,
@@ -103,6 +192,8 @@ function RevisionCompareLabel({
   liveVersion,
   revAFailed = false,
   revBFailed = false,
+  logsA,
+  logsB,
   mb,
   mt,
 }: {
@@ -113,11 +204,13 @@ function RevisionCompareLabel({
   liveVersion: number;
   revAFailed?: boolean;
   revBFailed?: boolean;
+  logsA?: RevisionLog[];
+  logsB?: RevisionLog[];
   mb?: "1" | "2" | "3" | "4";
   mt?: "1" | "2" | "3" | "4";
 }) {
   return (
-    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
+    <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" justify="between" gap="2">
           <Flex align="center" gap="1">
@@ -139,15 +232,6 @@ function RevisionCompareLabel({
           </Flex>
           <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
         </Flex>
-        {revA && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(
-              (revA.status === "published" ? revA.datePublished : null) ??
-                revA.dateUpdated,
-            )}{" "}
-            · <EventUser user={revA.createdBy} display="name" />
-          </Text>
-        )}
         {revA &&
           revA.baseVersion !== 0 &&
           (() => {
@@ -162,8 +246,25 @@ function RevisionCompareLabel({
               </Text>
             );
           })()}
+        {revA && (
+          <Box mt="2">
+            <EventUser user={revA.createdBy} display="avatar-with-email" />
+            <CoAuthors rev={revA} logs={logsA} />
+          </Box>
+        )}
+        {revA && (
+          <Text as="div" mt="2">
+            {datetime(
+              (revA.status === "published" ? revA.datePublished : null) ??
+                revA.dateUpdated,
+            )}
+          </Text>
+        )}
       </Flex>
-      <PiArrowsLeftRightBold size={16} />
+      <PiArrowsLeftRightBold
+        size={16}
+        style={{ flexShrink: 0, marginTop: "var(--space-4)" }}
+      />
       <Flex direction="column">
         <Flex align="center" justify="between" gap="2">
           <Flex align="center" gap="1">
@@ -185,15 +286,6 @@ function RevisionCompareLabel({
           </Flex>
           <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
         </Flex>
-        {revB && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(
-              (revB.status === "published" ? revB.datePublished : null) ??
-                revB.dateUpdated,
-            )}{" "}
-            · <EventUser user={revB.createdBy} display="name" />
-          </Text>
-        )}
         {revB &&
           revB.baseVersion !== 0 &&
           (() => {
@@ -208,6 +300,20 @@ function RevisionCompareLabel({
               </Text>
             );
           })()}
+        {revB && (
+          <Box mt="2">
+            <EventUser user={revB.createdBy} display="avatar-with-email" />
+            <CoAuthors rev={revB} logs={logsB} />
+          </Box>
+        )}
+        {revB && (
+          <Text as="div" mt="2">
+            {datetime(
+              (revB.status === "published" ? revB.datePublished : null) ??
+                revB.dateUpdated,
+            )}
+          </Text>
+        )}
       </Flex>
     </Flex>
   );
@@ -288,8 +394,10 @@ function RevisionCommentItem({
           notes
         </Text>
         {logEntry?.user && (
+          <EventUser user={logEntry.user} display="avatar-with-email" />
+        )}
+        {logEntry?.timestamp && (
           <Text size="small" color="text-low">
-            · <EventUser user={logEntry.user} display="name" /> ·{" "}
             {datetime(logEntry.timestamp)}
           </Text>
         )}
@@ -561,6 +669,354 @@ function rampDiffsForRevision(
   return diffs;
 }
 
+// Actions that are review/approval lifecycle events, not content changes.
+// Excluded from sub-rows and never shown with a diff.
+const NON_CONTENT_ACTIONS = new Set([
+  "Review Requested",
+  "Approved",
+  "Requested Changes",
+  "Comment",
+  "edit comment",
+  "publish",
+  "re-publish",
+  "discard",
+]);
+
+// ─── Log replay engine ────────────────────────────────────────────────────────
+// Each log entry is a patch on top of the base revision. We replay them in
+// order to reconstruct the exact full-field state before and after each edit,
+// so the diff shows the rule *in context* (whole env array) rather than in
+// isolation.
+
+type ReplayState = {
+  rules: NonNullable<FeatureRevisionInterface["rules"]>;
+  defaultValue: FeatureRevisionInterface["defaultValue"];
+  prerequisites: NonNullable<FeatureRevisionInterface["prerequisites"]>;
+  environmentsEnabled: NonNullable<
+    FeatureRevisionInterface["environmentsEnabled"]
+  >;
+};
+
+function initialReplayState(
+  base: FeatureRevisionInterface | null,
+): ReplayState {
+  return {
+    rules: base?.rules ?? {},
+    defaultValue: base?.defaultValue ?? "",
+    prerequisites: base?.prerequisites ?? [],
+    environmentsEnabled: base?.environmentsEnabled ?? {},
+  };
+}
+
+/**
+ * Extract all env names from a rule operation subject:
+ *   edit rule:   "<env> rule <i>"        → [env]
+ *   add rule:    "to <env1>, <env2>, …"  → [env1, env2, …]
+ *   delete rule: "in <env> (position X)" → [env]
+ *   move rule:   "in <env> from pos X→Y" → [env]
+ */
+function envsFromSubject(action: string, subject: string): string[] {
+  if (action.startsWith("edit rule")) {
+    const m = subject.match(/^(.+?)\s+rule\s+\d+/);
+    return m ? [m[1]] : [];
+  }
+  if (action.startsWith("add rule")) {
+    const m = subject.match(/^to\s+(.+)$/);
+    return m ? m[1].split(",").map((e) => e.trim()) : [];
+  }
+  if (action === "delete rule" || action.startsWith("move rule")) {
+    const m = subject.match(/^in\s+(.+?)(?:\s+\(|\s+from)/);
+    return m ? [m[1].trim()] : [];
+  }
+  return [];
+}
+
+function applyLogEntry(state: ReplayState, log: RevisionLog): ReplayState {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(log.value);
+  } catch {
+    parsed = log.value;
+  }
+
+  const envs = envsFromSubject(log.action, log.subject);
+  const rules = { ...state.rules };
+
+  if (log.action.startsWith("add rule") && envs.length) {
+    for (const env of envs) {
+      rules[env] = [
+        ...(rules[env] ?? []),
+        parsed as FeatureRevisionInterface["rules"][string][number],
+      ];
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action === "delete rule" && envs.length) {
+    const env = envs[0];
+    // subject: "in <env> (position X)" — 1-indexed
+    const m = log.subject.match(/\(position (\d+)\)/);
+    const pos = m ? parseInt(m[1]) - 1 : -1;
+    if (pos >= 0) {
+      rules[env] = (rules[env] ?? []).filter((_, i) => i !== pos);
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action.startsWith("edit rule") && envs.length) {
+    const env = envs[0];
+    // subject: "<env> rule X" — 0-indexed
+    const m = log.subject.match(/rule (\d+)$/);
+    const idx = m ? parseInt(m[1]) : -1;
+    if (idx >= 0) {
+      const arr = [...(rules[env] ?? [])];
+      arr[idx] = { ...arr[idx], ...(parsed as object) } as (typeof arr)[number];
+      rules[env] = arr;
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action.startsWith("move rule") && envs.length) {
+    const env = envs[0];
+    // subject: "in <env> from position X to Y" — 1-indexed
+    const m = log.subject.match(/from position (\d+) to (\d+)/);
+    if (m) {
+      const from = parseInt(m[1]) - 1;
+      const to = parseInt(m[2]) - 1;
+      const arr = [...(rules[env] ?? [])];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      rules[env] = arr;
+    }
+    return { ...state, rules };
+  }
+
+  if (log.action === "edit defaultValue") {
+    return {
+      ...state,
+      defaultValue:
+        typeof parsed === "string" ? parsed : JSON.stringify(parsed),
+    };
+  }
+
+  if (log.action === "rebase") {
+    const r = parsed as Partial<ReplayState>;
+    return {
+      rules: r.rules ?? state.rules,
+      defaultValue: r.defaultValue ?? state.defaultValue,
+      prerequisites: r.prerequisites ?? state.prerequisites,
+      environmentsEnabled: r.environmentsEnabled ?? state.environmentsEnabled,
+    };
+  }
+
+  return state;
+}
+
+/**
+ * Replay all content logs up to (exclusive) logIndex, then apply entry at
+ * logIndex. Returns the a/b strings for ExpandableDiff scoped to the
+ * affected field so the diff shows full context.
+ */
+// Recursively parse JSON-string fields (condition, value, prerequisites[].condition)
+// so the diff viewer shows structured objects rather than escaped string blobs.
+function parseFeatureJsonFields(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(parseFeatureJsonFields);
+  if (obj !== null && typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if ((k === "condition" || k === "value") && typeof v === "string") {
+        try {
+          result[k] = parseFeatureJsonFields(JSON.parse(v));
+        } catch {
+          result[k] = v;
+        }
+      } else {
+        result[k] = parseFeatureJsonFields(v);
+      }
+    }
+    return result;
+  }
+  return obj;
+}
+
+function computeBeforeAfter(
+  log: RevisionLog,
+  allLogs: RevisionLog[],
+  logIndex: number,
+  baseRevision: FeatureRevisionInterface | null,
+): { a: string; b: string; title: string } | null {
+  const title = log.subject ? `${log.action} · ${log.subject}` : log.action;
+
+  const contentLogs = allLogs.filter((l) => !NON_CONTENT_ACTIONS.has(l.action));
+  const priorContentIdx = contentLogs.indexOf(log);
+  const priorLogs =
+    priorContentIdx >= 0
+      ? contentLogs.slice(0, priorContentIdx)
+      : allLogs
+          .slice(0, logIndex)
+          .filter((l) => !NON_CONTENT_ACTIONS.has(l.action));
+
+  const stateBefore = priorLogs.reduce(
+    applyLogEntry,
+    initialReplayState(baseRevision),
+  );
+  const stateAfter = applyLogEntry(stateBefore, log);
+
+  const pp = (v: unknown) => JSON.stringify(parseFeatureJsonFields(v), null, 2);
+
+  const envs = envsFromSubject(log.action, log.subject);
+  const env = envs[0];
+
+  if (
+    log.action.startsWith("edit rule") ||
+    log.action.startsWith("add rule") ||
+    log.action === "delete rule" ||
+    log.action.startsWith("move rule")
+  ) {
+    if (!env) return null;
+    return {
+      a: pp(stateBefore.rules[env] ?? []),
+      b: pp(stateAfter.rules[env] ?? []),
+      title,
+    };
+  }
+
+  if (log.action === "edit defaultValue") {
+    return {
+      a: pp(stateBefore.defaultValue),
+      b: pp(stateAfter.defaultValue),
+      title,
+    };
+  }
+
+  if (log.action === "rebase") {
+    return { a: pp(stateBefore), b: pp(stateAfter), title };
+  }
+
+  // Fallback: just show the raw value as "after"
+  try {
+    return { a: "", b: pp(JSON.parse(log.value)), title };
+  } catch {
+    return { a: "", b: log.value, title };
+  }
+}
+
+function LogEntryMeta({ log }: { log: RevisionLog }) {
+  const { users } = useUser();
+
+  const displayName =
+    log.user?.type === "dashboard"
+      ? (users.get(log.user.id)?.name ?? log.user.name ?? "")
+      : log.user?.type === "api_key"
+        ? "API Key"
+        : "System";
+
+  const rows: [string, React.ReactNode][] = [
+    ...(log.subject
+      ? ([["Subject", log.subject]] as [string, React.ReactNode][])
+      : []),
+    [
+      "Author",
+      log.user?.type === "dashboard" ? (
+        <Avatar email={log.user.email} size={24} name={displayName} showEmail />
+      ) : (
+        <Text size="small">{displayName}</Text>
+      ),
+    ],
+    ["Date", datetime(log.timestamp)],
+  ];
+
+  return (
+    <Box>
+      <Heading as="h4" size="small" mb="3">
+        {log.action === "edit comment" ? "Edit revision notes" : log.action}
+      </Heading>
+      <Flex direction="column" gap="2">
+        {rows.map(([label, value]) => (
+          <Flex key={label} align="center" gap="3">
+            <span style={{ minWidth: 72, flexShrink: 0 }}>
+              <Text color="text-mid">{label}</Text>
+            </span>
+            {value}
+          </Flex>
+        ))}
+      </Flex>
+    </Box>
+  );
+}
+
+function RawLogDetails({ log }: { log: RevisionLog }) {
+  const [open, setOpen] = useState(false);
+
+  let prettyValue = log.value;
+  try {
+    prettyValue = JSON.stringify(JSON.parse(log.value), null, 2);
+  } catch {
+    // leave as-is
+  }
+
+  return (
+    <Box mt="5">
+      <div
+        className="link-purple font-weight-bold"
+        style={{ cursor: "pointer", userSelect: "none" }}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <PiCaretRightFill
+          style={{
+            display: "inline",
+            marginRight: 4,
+            transition: "transform 0.15s ease",
+            transform: open ? "rotate(90deg)" : "none",
+          }}
+        />
+        Full log entry
+      </div>
+      {open && (
+        <Box mt="3">
+          <div className="diff-wrapper">
+            <div className="list-group-item list-group-item-light">
+              <Code language="json" code={prettyValue} />
+            </div>
+          </div>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function LogEntryPanel({
+  log,
+  allLogs,
+  logIndex,
+  baseRevision,
+}: {
+  log: RevisionLog;
+  allLogs: RevisionLog[];
+  logIndex: number;
+  baseRevision: FeatureRevisionInterface | null;
+}) {
+  const diff = computeBeforeAfter(log, allLogs, logIndex, baseRevision);
+
+  return (
+    <Box>
+      <LogEntryMeta log={log} />
+      {diff && (
+        <Box mt="3">
+          <ExpandableDiff
+            title={diff.title}
+            a={diff.a}
+            b={diff.b}
+            defaultOpen
+            styles={COMPACT_DIFF_STYLES}
+          />
+        </Box>
+      )}
+      <RawLogDetails log={log} />
+    </Box>
+  );
+}
+
 export default function CompareRevisionsModal({
   feature,
   baseFeature,
@@ -661,6 +1117,22 @@ export default function CompareRevisionsModal({
   const [failedVersions, setFailedVersions] = useState<Set<number>>(new Set());
   const fetchingRef = useRef<Set<number>>(new Set());
 
+  // Revision log drill-down state
+  const [expandedLogVersions, setExpandedLogVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [fetchedLogs, setFetchedLogs] = useState<Record<number, RevisionLog[]>>(
+    {},
+  );
+  const [loadingLogVersions, setLoadingLogVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [activeLogEntry, setActiveLogEntry] = useState<{
+    version: number;
+    logIndex: number;
+  } | null>(null);
+  const fetchingLogRef = useRef<Set<number>>(new Set());
+
   const getFullRevision = useCallback(
     (version: number): FeatureRevisionInterface | null => {
       const fromRevisions = revisions.find((r) => r.version === version);
@@ -735,6 +1207,40 @@ export default function CompareRevisionsModal({
       }
     },
     [apiCall, feature.id, getFullRevision],
+  );
+
+  const fetchRevisionLog = useCallback(
+    async (version: number) => {
+      if (fetchedLogs[version] !== undefined) return;
+      if (fetchingLogRef.current.has(version)) return;
+      fetchingLogRef.current.add(version);
+      setLoadingLogVersions((prev) => {
+        const next = new Set(prev);
+        next.add(version);
+        return next;
+      });
+      try {
+        const response = await apiCall<{ log: RevisionLog[] }>(
+          `/feature/${feature.id}/${version}/log`,
+        );
+        const sorted = [...(response.log ?? [])].sort((a, b) =>
+          (a.timestamp as unknown as string).localeCompare(
+            b.timestamp as unknown as string,
+          ),
+        );
+        setFetchedLogs((prev) => ({ ...prev, [version]: sorted }));
+      } catch {
+        setFetchedLogs((prev) => ({ ...prev, [version]: [] }));
+      } finally {
+        fetchingLogRef.current.delete(version);
+        setLoadingLogVersions((prev) => {
+          const next = new Set(prev);
+          next.delete(version);
+          return next;
+        });
+      }
+    },
+    [apiCall, feature.id, fetchedLogs],
   );
 
   const selectedSorted = useMemo(() => {
@@ -1410,6 +1916,9 @@ export default function CompareRevisionsModal({
                 const isDraftRevision =
                   !!minRev && DRAFT_REVISION_STATUSES.includes(minRev.status);
                 const rowId = `compare-rev-${v}`;
+                const isExpanded = expandedLogVersions.has(v);
+                const versionLogs = fetchedLogs[v];
+                const isLoadingLogs = loadingLogVersions.has(v);
                 return (
                   <Box key={v} className={styles.rowWrapper}>
                     <label
@@ -1421,6 +1930,7 @@ export default function CompareRevisionsModal({
                             ? styles.rowSelected
                             : ""
                       }`}
+                      onClick={() => setActiveLogEntry(null)}
                     >
                       <span style={{ pointerEvents: "none" }}>
                         <Checkbox
@@ -1475,12 +1985,12 @@ export default function CompareRevisionsModal({
                             </div>
                           </Flex>
                           {minRev ? (
-                            <Box flexShrink="0">
+                            <Flex align="center" gap="1" flexShrink="0">
                               <RevisionStatusBadge
                                 revision={minRev}
                                 liveVersion={liveVersion}
                               />
-                            </Box>
+                            </Flex>
                           ) : null}
                         </Flex>
                         {date && minRev ? (
@@ -1512,7 +2022,119 @@ export default function CompareRevisionsModal({
                           </Button>
                         </div>
                       )}
+                      <div className={styles.rowCaret}>
+                        <Tooltip
+                          body={
+                            isExpanded
+                              ? "Collapse log entries"
+                              : "Expand log entries"
+                          }
+                        >
+                          <button
+                            type="button"
+                            className={styles.expandChevron}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              const next = new Set(expandedLogVersions);
+                              if (isExpanded) {
+                                next.delete(v);
+                                if (activeLogEntry?.version === v) {
+                                  setActiveLogEntry(null);
+                                }
+                              } else {
+                                next.add(v);
+                                fetchRevisionLog(v);
+                              }
+                              setExpandedLogVersions(next);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <PiCaretDownBold size={12} />
+                            ) : (
+                              <PiCaretRightBold size={12} />
+                            )}
+                          </button>
+                        </Tooltip>
+                      </div>
                     </label>
+                    {isExpanded && (
+                      <div className={styles.logSubRows}>
+                        {isLoadingLogs ? (
+                          <Text size="small" color="text-low" ml="2">
+                            Loading…
+                          </Text>
+                        ) : versionLogs && versionLogs.length > 0 ? (
+                          (() => {
+                            const contentLogs = versionLogs.flatMap(
+                              (logEntry, idx) =>
+                                NON_CONTENT_ACTIONS.has(logEntry.action)
+                                  ? []
+                                  : [{ logEntry, idx }],
+                            );
+                            if (contentLogs.length === 0) {
+                              return (
+                                <Text size="small" color="text-low" ml="2">
+                                  No changes in this revision
+                                </Text>
+                              );
+                            }
+                            return contentLogs.map(({ logEntry, idx }) => {
+                              const isActive =
+                                activeLogEntry?.version === v &&
+                                activeLogEntry.logIndex === idx;
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`${styles.logSubRow} ${
+                                    isActive ? styles.logSubRowActive : ""
+                                  }`}
+                                  onClick={() =>
+                                    setActiveLogEntry(
+                                      isActive
+                                        ? null
+                                        : { version: v, logIndex: idx },
+                                    )
+                                  }
+                                >
+                                  <Flex
+                                    direction="column"
+                                    gap="1"
+                                    style={{ minWidth: 0, flex: 1 }}
+                                  >
+                                    <div
+                                      style={{
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        fontWeight: isActive ? "bold" : 500,
+                                      }}
+                                    >
+                                      {logEntry.action}
+                                      {logEntry.subject
+                                        ? ` · ${logEntry.subject}`
+                                        : ""}
+                                    </div>
+                                    <Text size="small" color="text-low">
+                                      {datetime(logEntry.timestamp)}
+                                      {logEntry.user?.type === "dashboard"
+                                        ? ` · ${logEntry.user.name}`
+                                        : logEntry.user?.type === "api_key"
+                                          ? " · API"
+                                          : ""}
+                                    </Text>
+                                  </Flex>
+                                </div>
+                              );
+                            });
+                          })()
+                        ) : (
+                          <Text size="small" color="text-low" ml="2">
+                            No log entries
+                          </Text>
+                        )}
+                      </div>
+                    )}
                   </Box>
                 );
               })}
@@ -1525,7 +2147,51 @@ export default function CompareRevisionsModal({
           className={`${styles.sidebar} overflow-auto`}
           style={{ minHeight: 0 }}
         >
-          {previewDraftVersion !== null ? (
+          {activeLogEntry !== null &&
+          fetchedLogs[activeLogEntry.version]?.[activeLogEntry.logIndex] ? (
+            // Log entry drill-down panel
+            <>
+              <Box
+                pb="3"
+                mb="3"
+                style={{ borderBottom: "1px solid var(--gray-5)" }}
+              >
+                <Flex align="center" gap="2" wrap="wrap">
+                  <Tooltip body="Return to revision">
+                    <button
+                      type="button"
+                      className={styles.backButton}
+                      onClick={() => setActiveLogEntry(null)}
+                    >
+                      <PiCaretLeftBold size={16} />
+                    </button>
+                  </Tooltip>
+                  <Heading as="h2" size="small" mb="0">
+                    Log entry
+                  </Heading>
+                  <Text size="small" color="text-low">
+                    · Revision {activeLogEntry.version}
+                  </Text>
+                </Flex>
+              </Box>
+              {(() => {
+                const allLogs = fetchedLogs[activeLogEntry.version];
+                const logEntry = allLogs[activeLogEntry.logIndex];
+                const rev = getFullRevision(activeLogEntry.version);
+                const baseRevision = rev?.baseVersion
+                  ? getFullRevision(rev.baseVersion)
+                  : null;
+                return (
+                  <LogEntryPanel
+                    log={logEntry}
+                    allLogs={allLogs}
+                    logIndex={activeLogEntry.logIndex}
+                    baseRevision={baseRevision}
+                  />
+                );
+              })()}
+            </>
+          ) : previewDraftVersion !== null ? (
             // Preview draft mode
             <>
               <Box
@@ -1551,6 +2217,8 @@ export default function CompareRevisionsModal({
                   liveVersion={liveVersion}
                   revAFailed={isVersionFailed(liveVersion)}
                   revBFailed={isVersionFailed(previewDraftVersion)}
+                  logsA={fetchedLogs[liveVersion]}
+                  logsB={fetchedLogs[previewDraftVersion]}
                   mt="3"
                 />
                 {previewDraftRev &&
@@ -1608,8 +2276,8 @@ export default function CompareRevisionsModal({
                 mb="3"
                 style={{ borderBottom: "1px solid var(--gray-5)" }}
               >
-                <Flex align="center" justify="between" gap="4" wrap="wrap">
-                  <Flex align="center" gap="4">
+                <Flex align="start" justify="between" gap="4" wrap="wrap">
+                  <Flex align="start" gap="4">
                     {diffViewMode === "steps" && (
                       <>
                         <Heading as="h2" size="small" mb="0">
@@ -1653,6 +2321,12 @@ export default function CompareRevisionsModal({
                           revBFailed={isVersionFailed(
                             selectedSorted[selectedSorted.length - 1],
                           )}
+                          logsA={fetchedLogs[selectedSorted[0]]}
+                          logsB={
+                            fetchedLogs[
+                              selectedSorted[selectedSorted.length - 1]
+                            ]
+                          }
                         />
                       )}
                   </Flex>
@@ -1680,6 +2354,8 @@ export default function CompareRevisionsModal({
                     liveVersion={liveVersion}
                     revAFailed={isVersionFailed(currentStep[0])}
                     revBFailed={isVersionFailed(currentStep[1])}
+                    logsA={fetchedLogs[currentStep[0]]}
+                    logsB={fetchedLogs[currentStep[1]]}
                     mt="3"
                   />
                 )}

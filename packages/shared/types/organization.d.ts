@@ -70,6 +70,8 @@ export type RequireReview = {
   projects: string[];
   featureRequireEnvironmentReview?: boolean;
   featureRequireMetadataReview?: boolean;
+  /** When true, a user who contributed to (or created) this draft cannot approve it. */
+  blockSelfApproval?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;

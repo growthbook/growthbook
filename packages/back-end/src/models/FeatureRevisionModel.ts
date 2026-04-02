@@ -43,6 +43,8 @@ const featureRevisionSchema = new mongoose.Schema({
   metadata: {},
   holdout: {},
   rampActions: [{}],
+  // Users who have made edits to this draft beyond the original author.
+  contributors: [{}],
   status: String,
   requiresReview: Boolean,
   log: [
@@ -640,6 +642,12 @@ export async function updateRevision(
     original: revision,
   });
 
+  // Track contributors: append the editing user to the existing list.
+  // Plain array append (no DB-specific operators) for interoperability.
+  const updatedContributors = log.user
+    ? [...(revision.contributors ?? []), log.user]
+    : revision.contributors ?? [];
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -647,7 +655,12 @@ export async function updateRevision(
       version: revision.version,
     },
     {
-      $set: { ...changes, status, dateUpdated: new Date() },
+      $set: {
+        ...changes,
+        status,
+        dateUpdated: new Date(),
+        contributors: updatedContributors,
+      },
     },
   );
 

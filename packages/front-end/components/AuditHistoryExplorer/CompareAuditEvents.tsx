@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 // eslint-disable-next-line no-restricted-imports
 import { Box, Checkbox as RadixCheckbox, Flex } from "@radix-ui/themes";
+import Avatar from "@/components/Avatar/Avatar";
 import {
   PiArrowsLeftRightBold,
   PiCaretDownBold,
@@ -40,14 +41,15 @@ import {
 import { useAuditComparison } from "./useAuditComparison";
 import styles from "./CompareAuditEvents.module.scss";
 
-function EntryUserName({
+function EntryUserAvatar({
   user,
 }: {
   user: CoarsenedAuditEntry<unknown>["user"];
 }) {
-  if (user.type === "system") return <>System</>;
-  if (user.type === "apikey") return <>API Key</>;
-  return <>{user.name || user.email || "Unknown user"}</>;
+  if (user.type === "system") return <span>System</span>;
+  if (user.type === "apikey") return <span className="badge badge-secondary">API Key</span>;
+  if (!user.email) return <span>{user.name || "Unknown user"}</span>;
+  return <Avatar email={user.email} name={user.name ?? ""} size={22} showEmail />;
 }
 
 function AuditEntryCompareLabel({
@@ -70,7 +72,7 @@ function AuditEntryCompareLabel({
   mt?: "1" | "2" | "3" | "4";
 }) {
   return (
-    <Flex align="center" gap="4" wrap="nowrap" mb={mb} mt={mt}>
+    <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryAFailed && (
@@ -83,12 +85,17 @@ function AuditEntryCompareLabel({
           </Text>
         </Flex>
         {entryA && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(entryA.dateStart)} · <EntryUserName user={entryA.user} />
+          <Box mt="2">
+            <EntryUserAvatar user={entryA.user} />
+          </Box>
+        )}
+        {entryA && (
+          <Text as="div">
+            {datetime(entryA.dateStart)}
           </Text>
         )}
       </Flex>
-      <PiArrowsLeftRightBold size={16} />
+      <PiArrowsLeftRightBold size={16} style={{ flexShrink: 0, marginTop: 4 }} />
       <Flex direction="column">
         <Flex align="center" gap="1">
           {entryBFailed && (
@@ -101,8 +108,13 @@ function AuditEntryCompareLabel({
           </Text>
         </Flex>
         {entryB && (
-          <Text as="div" size="small" color="text-low">
-            {datetime(entryB.dateStart)} · <EntryUserName user={entryB.user} />
+          <Box mt="2">
+            <EntryUserAvatar user={entryB.user} />
+          </Box>
+        )}
+        {entryB && (
+          <Text as="div">
+            {datetime(entryB.dateStart)}
           </Text>
         )}
       </Flex>
@@ -150,11 +162,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
                 ["Date", datetime(entry.dateStart)],
                 [
                   "Author",
-                  entry.user.type === "system"
-                    ? "System"
-                    : entry.user.type === "apikey"
-                      ? `API Key (${entry.user.apiKey ?? ""})`
-                      : entry.user.name || entry.user.email || "Unknown",
+                  <EntryUserAvatar key="author" user={entry.user} />,
                 ],
                 ...(entry.count > 1
                   ? [["Merged events", String(entry.count)]]
@@ -377,11 +385,13 @@ export default function CompareAuditEvents<T>({
               />
             )}
           </Flex>
-          <Text size="small" color="text-low">
+          <Box mt="2">
+            <EntryUserAvatar user={entry.user} />
+          </Box>
+          <Text as="div">
             {entry.count > 1
               ? datetime(entry.dateEnd)
-              : datetime(entry.dateStart)}{" "}
-            · <EntryUserName user={entry.user} />
+              : datetime(entry.dateStart)}
           </Text>
           {entry.count > 1 && (
             <Box mt="1">
@@ -870,9 +880,11 @@ export default function CompareAuditEvents<T>({
                             {getEntryLabel(singleEntryFirst)}
                           </Text>
                         </Flex>
-                        <Text as="div" size="small" color="text-low">
-                          {datetime(singleEntryFirst.dateStart)} ·{" "}
-                          <EntryUserName user={singleEntryFirst.user} />
+                        <Box mt="2">
+                          <EntryUserAvatar user={singleEntryFirst.user} />
+                        </Box>
+                        <Text as="div">
+                          {datetime(singleEntryFirst.dateStart)}
                         </Text>
                       </Flex>
                     ) : (
