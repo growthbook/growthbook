@@ -1,5 +1,4 @@
 import { ReqContext } from "back-end/types/request";
-import { getUserByEmail } from "back-end/src/models/UserModel";
 
 /**
  * Resolves an owner input value (userId or email address) to a userId.
@@ -23,7 +22,7 @@ export async function resolveOwnerToUserId(
     return ownerInput;
   }
 
-  const user = await getUserByEmail(ownerInput);
+  const user = await context.getUserByEmail(ownerInput);
   const isMember = context.org.members.some((m) => m.id === user?.id);
   if (!isMember || !user) {
     throw new Error(`Unable to find user: ${ownerInput}`);
