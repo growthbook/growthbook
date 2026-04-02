@@ -35,7 +35,7 @@ export const updateDimension = createApiRequestHandler(
     updates.description = req.body.description;
   }
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
-  if (resolvedOwner !== undefined) updates.owner = resolvedOwner;
+  if (req.body.owner !== undefined) updates.owner = resolvedOwner ?? "";
   if (req.body.datasourceId) updates.datasource = req.body.datasourceId;
   if (req.body.identifierType) updates.userIdType = req.body.identifierType;
   if (req.body.query) updates.sql = req.body.query;

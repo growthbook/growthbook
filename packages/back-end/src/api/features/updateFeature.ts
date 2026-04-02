@@ -173,7 +173,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         : null;
 
     const updates: Partial<FeatureInterface> = {
-      ...(owner != null ? { owner } : {}),
+      ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
       ...(project != null ? { project } : {}),
