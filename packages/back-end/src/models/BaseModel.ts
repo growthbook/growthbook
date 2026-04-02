@@ -689,9 +689,7 @@ export abstract class BaseModel<
     // Resolve owner from email/name to userId if needed, then fall back to current user
     if ("owner" in props) {
       if (typeof props.owner === "string" && props.owner) {
-        props.owner =
-          (await resolveOwnerToUserId(props.owner, this.context)) ??
-          props.owner;
+        props.owner = await resolveOwnerToUserId(props.owner, this.context);
       }
       if (!props.owner) {
         props.owner = this.context.userId || "";
@@ -768,9 +766,7 @@ export abstract class BaseModel<
       typeof updates.owner === "string" &&
       updates.owner
     ) {
-      updates.owner =
-        (await resolveOwnerToUserId(updates.owner, this.context)) ??
-        updates.owner;
+      updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
     }
 
     // Only consider updates that actually change the value
