@@ -60,7 +60,7 @@ export const updateFactTable = createApiRequestHandler(
 
   const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
-  if (resolvedOwner !== undefined) data.owner = resolvedOwner;
+  if (req.body.owner !== undefined) data.owner = resolvedOwner ?? "";
 
   // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {

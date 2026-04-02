@@ -30,7 +30,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const updated = putMetricApiPayloadToMetricInterface({
     ...req.body,
-    ...(resolvedOwner !== undefined && { owner: resolvedOwner }),
+    ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
   });
 
   await updateMetric(req.context, metric, updated);

@@ -231,7 +231,7 @@ export const updateExperiment = createApiRequestHandler(
     changes: updateExperimentApiPayloadToInterface(
       {
         ...req.body,
-        ...(resolvedOwner !== undefined && { owner: resolvedOwner }),
+        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
       },
       experiment,
       map,
