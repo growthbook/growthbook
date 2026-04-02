@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "shared/types/custom-fields";
 import {
   closestCenter,
@@ -39,6 +39,7 @@ export type CustomFieldWithArrayIndex = CustomField & { arrayIndex: number };
 function CustomFieldsTable({
   filter,
   items,
+  duplicateIds,
   showRequired,
   deleteCustomField,
   setModalOpen,
@@ -48,6 +49,7 @@ function CustomFieldsTable({
 }: {
   filter: AppliesToFilter;
   items: CustomFieldWithArrayIndex[];
+  duplicateIds: Set<string>;
   showRequired: boolean;
   deleteCustomField: (cf: CustomFieldWithArrayIndex) => Promise<void>;
   setModalOpen: (v: Partial<CustomField> | null) => void;
@@ -119,6 +121,7 @@ function CustomFieldsTable({
                 }
                 canManage={canManage}
                 showRequired={showRequired}
+                isDuplicateId={duplicateIds.has(v.id)}
               />
             ))}
           </SortableContext>
@@ -150,7 +153,7 @@ function CustomFieldsTable({
 const TAB_VALUES = ["all", "feature", "experiment"] as const;
 
 const CustomFields: FC = () => {
-  const [activeFilter] = useURLHash(TAB_VALUES);
+  const [activeFilter, setActiveFilter] = useURLHash(TAB_VALUES);
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const { customFields, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
@@ -223,15 +226,23 @@ const CustomFields: FC = () => {
     setActiveId(undefined);
   }
 
-  const handleMoveUp = (moveId: string, aboveId: string) => {
+  const handleMoveUp = (moveId: string, aboveId: string) =>
     reorderFields(moveId, aboveId);
-  };
 
-  const handleMoveDown = (moveId: string, belowId: string) => {
+  const handleMoveDown = (moveId: string, belowId: string) =>
     reorderFields(moveId, belowId);
-  };
 
   const canManage = permissionsUtils.canManageCustomFields();
+
+  const duplicateIds = useMemo(() => {
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const cf of items) {
+      if (seen.has(cf.id)) dupes.add(cf.id);
+      else seen.add(cf.id);
+    }
+    return dupes;
+  }, [items]);
 
   return (
     <>
@@ -255,8 +266,7 @@ const CustomFields: FC = () => {
         </div>
         <p className="text-gray mb-4">
           Add custom metadata to feature flags and experiments. Choose whether
-          each field applies to features, experiments, or both (separate
-          entries).
+          each field applies to Features, Experiments, or both.
         </p>
         <DndContext
           sensors={sensors}
@@ -265,7 +275,10 @@ const CustomFields: FC = () => {
           onDragCancel={handleDragCancel}
           collisionDetection={closestCenter}
         >
-          <Tabs defaultValue="all" persistInURL={true}>
+          <Tabs
+            value={activeFilter ?? "all"}
+            onValueChange={(v) => setActiveFilter(v as AppliesToFilter)}
+          >
             <Box mb="4">
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -278,6 +291,7 @@ const CustomFields: FC = () => {
                 <CustomFieldsTable
                   filter="all"
                   items={items}
+                  duplicateIds={duplicateIds}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
@@ -292,6 +306,7 @@ const CustomFields: FC = () => {
                 <CustomFieldsTable
                   filter="feature"
                   items={items}
+                  duplicateIds={duplicateIds}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
@@ -306,6 +321,7 @@ const CustomFields: FC = () => {
                 <CustomFieldsTable
                   filter="experiment"
                   items={items}
+                  duplicateIds={duplicateIds}
                   showRequired={true}
                   deleteCustomField={deleteCustomField}
                   setModalOpen={setModalOpen}
@@ -336,7 +352,7 @@ const CustomFields: FC = () => {
           defaultSections={
             modalOpen.sections ??
             (activeFilter === "all"
-              ? ["feature"]
+              ? ["feature", "experiment"]
               : [activeFilter as CustomFieldSection])
           }
           close={() => setModalOpen(null)}

@@ -3,6 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import { CustomField } from "shared/types/custom-fields";
 import { RiDraggable } from "react-icons/ri";
+import { PiWarningBold } from "react-icons/pi";
 import { CUSTOM_FIELD_SECTION_LABELS } from "@/components/CustomFields/constants";
 import type { CustomFieldWithArrayIndex } from "@/components/CustomFields/CustomFields";
 import CustomFieldRowMenu from "@/components/CustomFields/CustomFieldRowMenu";
@@ -82,6 +83,7 @@ interface SortableProps {
   onMoveDown: () => void;
   canManage: boolean;
   showRequired: boolean;
+  isDuplicateId?: boolean;
 }
 
 export function SortableCustomFieldRow(props: SortableProps) {
@@ -94,7 +96,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
     isDragging,
   } = useSortable({ id: props.customField.id });
   const customField = props.customField;
-  const { showRequired } = props;
+  const { showRequired, isDuplicateId } = props;
   const WIDTHS = CUSTOM_FIELD_TABLE_WIDTHS;
   const style: React.CSSProperties = {
     transition,
@@ -136,7 +138,19 @@ export function SortableCustomFieldRow(props: SortableProps) {
         {customField.name}
       </td>
       <td style={{ ...tdStyle, width: WIDTHS.key }} className="text-gray">
-        <code className="small">{customField.id}</code>
+        {isDuplicateId && (
+          <Tooltip
+            body="Duplicate key detected. Consider manually merging duplicate fields."
+            usePortal
+          >
+            <PiWarningBold
+              style={{ color: "var(--red-9)", flexShrink: 0, marginRight: "0.25rem" }}
+            />
+          </Tooltip>
+        )}
+        <code className="small" style={{ wordBreak: "break-all" }}>
+          {customField.id}
+        </code>
       </td>
       <td
         style={{ ...tdStyle, width: WIDTHS.description }}

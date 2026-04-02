@@ -16,6 +16,7 @@ import {
   ExperimentMetadata,
   FeatureDefinition,
   FeatureDefinitionRule,
+  FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import { HoldoutInterface } from "shared/validators";
@@ -45,15 +46,21 @@ export type MetadataOptions = {
   includeTagsInMetadata?: boolean;
 };
 
-function buildExperimentRefMetadata(
-  exp: ExperimentInterface,
+export function buildPayloadMetadata<
+  T extends FeatureMetadata | ExperimentMetadata,
+>(
+  entity: {
+    project?: string;
+    customFields?: Record<string, unknown>;
+    tags?: string[];
+  },
   opts: MetadataOptions,
   projectsMap: Map<string, ProjectInterface> | undefined,
-): ExperimentMetadata | undefined {
-  const metadata: ExperimentMetadata = {};
+): T | undefined {
+  const metadata: T = {} as T;
 
-  if (opts.includeProjectIdInMetadata && exp.project && projectsMap) {
-    const project = projectsMap.get(exp.project);
+  if (opts.includeProjectIdInMetadata && entity.project && projectsMap) {
+    const project = projectsMap.get(entity.project);
     if (project) {
       metadata.projects = [project.publicId ?? project.id];
     }
@@ -62,12 +69,12 @@ function buildExperimentRefMetadata(
   if (
     opts.includeCustomFieldsInMetadata &&
     opts.allowedCustomFieldsInMetadata?.length &&
-    exp.customFields
+    entity.customFields
   ) {
     const filtered: Record<string, unknown> = {};
     for (const fieldId of opts.allowedCustomFieldsInMetadata) {
-      if (exp.customFields[fieldId] !== undefined) {
-        filtered[fieldId] = exp.customFields[fieldId];
+      if (entity.customFields[fieldId] !== undefined) {
+        filtered[fieldId] = entity.customFields[fieldId];
       }
     }
     if (Object.keys(filtered).length > 0) {
@@ -75,8 +82,8 @@ function buildExperimentRefMetadata(
     }
   }
 
-  if (opts.includeTagsInMetadata && exp.tags?.length) {
-    metadata.tags = exp.tags;
+  if (opts.includeTagsInMetadata && entity.tags?.length) {
+    metadata.tags = entity.tags;
   }
 
   return Object.keys(metadata).length > 0 ? metadata : undefined;
@@ -618,8 +625,8 @@ export function getFeatureDefinition({
               );
           }
           if (metadataOptions) {
-            const expMetadata = buildExperimentRefMetadata(
-              exp,
+            const expMetadata = buildPayloadMetadata<ExperimentMetadata>(
+              { project: exp.project, customFields: exp.customFields, tags: exp.tags },
               metadataOptions,
               projectsMap,
             );

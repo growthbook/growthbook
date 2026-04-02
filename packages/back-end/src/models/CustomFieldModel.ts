@@ -88,11 +88,7 @@ export class CustomFieldModel extends BaseClass {
     return this.context.hasPremiumFeature("custom-metadata");
   }
 
-  /**
-   * JIT readonly migration; does not persist.
-   * - normalize projects so [""] from legacy data is never returned
-   * - migrate legacy section (singular) to sections (array)
-   */
+  // JIT readonly migration: normalize projects (strips legacy ""), migrate section→sections.
   protected migrate(
     legacyDoc: LegacyCustomFieldsDocument,
   ): z.infer<typeof customFieldsValidator> {
@@ -134,16 +130,8 @@ export class CustomFieldModel extends BaseClass {
 
   public async getCustomFieldByFieldId(customFieldId: string) {
     const customFields = await this.getCustomFields();
-    if (!customFields) {
-      return null;
-    }
-    return (
-      customFields.fields.find((field) => {
-        if (field.id === customFieldId) {
-          return field;
-        }
-      }) || null
-    );
+    if (!customFields) return null;
+    return customFields.fields.find((f) => f.id === customFieldId) ?? null;
   }
 
   public async getCustomFieldsByProject(projectId: string) {
@@ -173,25 +161,12 @@ export class CustomFieldModel extends BaseClass {
     }
     return filteredCustomFields.filter((v) => {
       if (v.projects && v.projects.length && v.projects[0] !== "") {
-        let matched = false;
-        v.projects.forEach((p) => {
-          if (p === project) {
-            matched = true;
-          }
-        });
-        return matched;
+        return v.projects.some((p) => p === project);
       }
       return true;
     });
   }
 
-  /**
-   * Because each organization should only have one set of custom fields,
-   * this method will either create a new set of custom fields or update
-   * the existing set. Also, each custom field has its own unique id, and
-   * this should not be set outside of the model.
-   * @param customField
-   */
   public async addCustomField(
     customField: Omit<
       CustomField,
@@ -302,11 +277,7 @@ export class CustomFieldModel extends BaseClass {
     return updated;
   }
 
-  /**
-   * Delete a custom field by id. For legacy data with duplicate ids, use index
-   * as tiebreaker. If index is provided and matches a field with that id, delete
-   * that one; otherwise delete the first occurrence.
-   */
+  // For legacy duplicate ids, `index` is the tiebreaker; falls back to first occurrence.
   public async deleteCustomField(customFieldId: string, index?: number) {
     const existing = await this.getCustomFields();
     if (!existing) {
@@ -340,12 +311,7 @@ export class CustomFieldModel extends BaseClass {
     return updated;
   }
 
-  /**
-   * This is required here as the regular update method does not allow for skipping the change check.
-   * And reordering custom fields is not a change that is detected.
-   * @param oldId
-   * @param newId
-   */
+  // Uses _updateOne directly to bypass the change-detection check (reorders are not detected as diffs).
   public async reorderCustomFields(oldId: string, newId: string) {
     const existing = await this.getCustomFields();
     if (!existing) {

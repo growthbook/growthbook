@@ -12,7 +12,7 @@ export type ExperimentMetadata = {
   tags?: string[];
 };
 
-// FeatureRule extended with metadata for experiment-ref rules
+// FeatureRule extended with optional metadata for experiment-ref rules
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
 };
@@ -22,7 +22,7 @@ export type AutoExperimentWithMetadata = AutoExperiment & {
 };
 
 export interface FeatureDefinition {
-  // eslint-disable-next-line
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   defaultValue: any;
   rules?: FeatureDefinitionRule[];
   metadata?: FeatureMetadata;

@@ -27,7 +27,7 @@ type CrudValidatorShapes<T extends ApiBaseSchema> = {
   delete: ApiRequestValidator<
     z.ZodType<{ id: string }>,
     z.ZodNever,
-    z.ZodTypeAny
+    z.ZodNever
   >;
   get: ApiRequestValidator<z.ZodType<{ id: string }>, z.ZodNever, z.ZodNever>;
   list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodTypeAny>;

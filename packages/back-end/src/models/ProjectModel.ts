@@ -72,14 +72,12 @@ export class ProjectModel extends BaseClass {
   }
 
   protected async beforeCreate(data: Partial<ProjectInterface>) {
-    // Auto-generate publicId if not provided
     if (!data.publicId && data.name) {
       const baseSlug = slugify(data.name);
       let publicId = baseSlug;
       let counter = 1;
       const MAX_ATTEMPTS = 1000;
 
-      // Check for uniqueness
       while (counter <= MAX_ATTEMPTS) {
         const existing = await this._findOne({
           organization: this.context.org.id,
@@ -98,14 +96,12 @@ export class ProjectModel extends BaseClass {
 
       data.publicId = publicId;
     } else if (data.publicId) {
-      // Validate manually provided publicId format
       if (!/^[a-z0-9-]+$/.test(data.publicId)) {
         this.context.throwBadRequestError(
           "publicId must contain only lowercase letters, numbers, and dashes",
         );
       }
 
-      // Check for uniqueness
       const existing = await this._findOne({
         organization: this.context.org.id,
         publicId: data.publicId,
@@ -122,19 +118,16 @@ export class ProjectModel extends BaseClass {
     original: ProjectInterface,
     updates: Partial<ProjectInterface>,
   ) {
-    // Validate publicId if it's being updated
     if (
       updates.publicId !== undefined &&
       updates.publicId !== original.publicId
     ) {
-      // Validate format
       if (!/^[a-z0-9-]+$/.test(updates.publicId)) {
         this.context.throwBadRequestError(
           "publicId must contain only lowercase letters, numbers, and dashes",
         );
       }
 
-      // Check for uniqueness
       const existing = await this._findOne({
         organization: this.context.org.id,
         publicId: updates.publicId,
@@ -151,7 +144,6 @@ export class ProjectModel extends BaseClass {
     original: ProjectInterface,
     updates: Partial<ProjectInterface>,
   ) {
-    // If publicId changed, trigger cache refresh
     if (
       updates.publicId !== undefined &&
       updates.publicId !== original.publicId
