@@ -38,7 +38,7 @@ export const updateSavedGroup = createApiRequestHandler(
   if (typeof name !== "undefined" && name !== savedGroup.groupName) {
     fieldsToUpdate.groupName = name;
   }
-  if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+  if (typeof owner !== "undefined") {
     fieldsToUpdate.owner = owner;
   }
   if (

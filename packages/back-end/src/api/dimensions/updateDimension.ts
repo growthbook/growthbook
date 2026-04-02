@@ -2,6 +2,7 @@ import { UpdateDimensionResponse } from "shared/types/openapi";
 import { updateDimensionValidator } from "shared/validators";
 import { DimensionInterface } from "shared/types/dimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import {
   findDimensionById,
   updateDimension as updateDimensionModel,
@@ -33,7 +34,8 @@ export const updateDimension = createApiRequestHandler(
   if (req.body.description !== undefined) {
     updates.description = req.body.description;
   }
-  if (req.body.owner) updates.owner = req.body.owner;
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
+  if (resolvedOwner !== undefined) updates.owner = resolvedOwner;
   if (req.body.datasourceId) updates.datasource = req.body.datasourceId;
   if (req.body.identifierType) updates.userIdType = req.body.identifierType;
   if (req.body.query) updates.sql = req.body.query;

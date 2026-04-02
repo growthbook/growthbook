@@ -5,7 +5,7 @@ properties:
   description:
     type: string
   owner:
-    type: string
+    $ref: "../fields/OwnerInputField.yaml"
   projects:
     type: array
     items:

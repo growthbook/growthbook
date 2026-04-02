@@ -6,8 +6,7 @@ properties:
     type: string
     description: Description of the fact table
   owner:
-    type: string
-    description: The person who is responsible for this fact table
+    $ref: "../fields/OwnerInputField.yaml"
   projects:
     type: array
     items:
