@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
@@ -9,6 +9,8 @@ import {
   PiChartLine,
   PiArrowsLeftRight,
   PiArrowRightBold,
+  PiArrowLineLeft,
+  PiArrowLineRight,
 } from "react-icons/pi";
 import {
   ExplorationConfig,
@@ -195,6 +197,8 @@ export default function ExplorerAIChat() {
    *  activeTurnItems → messages remount that happens at turn end. */
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
   const { draftExploreState } = useExplorerContext();
@@ -244,6 +248,7 @@ export default function ExplorerAIChat() {
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
       refreshList();
+      inputRef.current?.focus();
     }
     prevLoadingRef.current = loading;
   }, [loading, refreshList]);
@@ -259,7 +264,7 @@ export default function ExplorerAIChat() {
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [conversationId]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -514,6 +519,7 @@ export default function ExplorerAIChat() {
         activeConversationId={conversationId}
         onSelect={loadConversation}
         onNewChat={handleNewChat}
+        collapsed={!sidebarOpen}
       />
 
       <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
@@ -528,7 +534,21 @@ export default function ExplorerAIChat() {
             flexShrink: 0,
           }}
         >
-          <DataSourceDropdown />
+          <Flex align="center" gap="2">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setSidebarOpen((o) => !o)}
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              {sidebarOpen ? (
+                <PiArrowLineLeft size={16} />
+              ) : (
+                <PiArrowLineRight size={16} />
+              )}
+            </Button>
+            <DataSourceDropdown />
+          </Flex>
         </Flex>
 
         <Flex

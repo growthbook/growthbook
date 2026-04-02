@@ -1,4 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  stringifyToolResultForStorage,
+  type AIChatTextPart,
+  type AIChatToolCallPart,
+  type AIChatToolResultPart,
+} from "shared/ai-chat";
 import { useAuth } from "@/services/auth";
 import type {
   ActiveTurnItem,
@@ -7,12 +13,6 @@ import type {
   UseAIChatOptions,
   UseAIChatReturn,
 } from "./types";
-import {
-  stringifyToolResultForStorage,
-  type AIChatTextPart,
-  type AIChatToolCallPart,
-  type AIChatToolResultPart,
-} from "shared/ai-chat";
 import {
   REMOTE_STREAM_POLL_INTERVAL_MS,
   REMOTE_STREAM_STALE_MS,
@@ -207,7 +207,10 @@ export function useAIChat({
             toolName: item.toolName,
             result: stringifyToolResultForStorage(item.toolOutput),
           });
-        } else if (item.toolResultData && Object.keys(item.toolResultData).length > 0) {
+        } else if (
+          item.toolResultData &&
+          Object.keys(item.toolResultData).length > 0
+        ) {
           toolResultParts.push({
             type: "tool-result",
             toolCallId: item.toolCallId,
@@ -409,6 +412,7 @@ export function useAIChat({
 
   const loadConversation = useCallback(
     async (id: string) => {
+      if (id === conversationId) return;
       abortControllerRef.current?.abort();
       clearRemotePoll();
       if (conversationStorageKey) {
@@ -427,6 +431,7 @@ export function useAIChat({
     },
     [
       clearRemotePoll,
+      conversationId,
       conversationStorageKey,
       getConversationEndpoint,
       setActive,

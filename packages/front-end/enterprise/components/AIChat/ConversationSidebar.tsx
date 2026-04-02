@@ -31,6 +31,7 @@ export interface ConversationSidebarProps {
   onSelect: (id: string) => void;
   onNewChat: () => void;
   loading?: boolean;
+  collapsed?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ export default function ConversationSidebar({
   activeConversationId,
   onSelect,
   onNewChat,
+  collapsed = false,
 }: ConversationSidebarProps) {
   const [hoveredConversationId, setHoveredConversationId] = useState<
     string | null
@@ -50,16 +52,31 @@ export default function ConversationSidebar({
   return (
     <Flex
       direction="column"
-      p="2"
       style={{
-        width: 220,
+        width: collapsed ? 0 : 220,
         flexShrink: 0,
-        borderRight: "1px solid var(--gray-a6)",
+        borderRight: collapsed ? "none" : "1px solid var(--gray-a6)",
         background: "var(--color-panel-solid)",
         overflow: "hidden",
+        transition: "width 220ms ease",
       }}
     >
-      {/* <Flex
+      {/* Inner wrapper fades out immediately so contents never look squished */}
+      <Flex
+        direction="column"
+        p="2"
+        style={{
+          width: 220,
+          flex: 1,
+          minHeight: 0,
+          opacity: collapsed ? 0 : 1,
+          transition: collapsed
+            ? "opacity 60ms ease"
+            : "opacity 120ms ease 100ms",
+          pointerEvents: collapsed ? "none" : undefined,
+        }}
+      >
+        {/* <Flex
         align="center"
         justify="between"
         px="3"
@@ -77,99 +94,99 @@ export default function ConversationSidebar({
         </Button>
       </Flex> */}
 
-      <Flex direction="column" gap="2">
-        <Button onClick={() => onNewChat()}>
-          <Flex align="center" justify="center" gap="1">
-            <PiPlus size={13} />
-            <Text size="medium" weight="medium">
-              New chat
-            </Text>
-          </Flex>
-        </Button>
-
-        <Button variant="soft">
-          <Flex align="center" justify="center" gap="1">
-            <PiMagnifyingGlass size={13} />
-            <Text size="medium" weight="medium">
-              Search chats
-            </Text>
-          </Flex>
-        </Button>
-      </Flex>
-
-      <Separator
-        my="3"
-        style={{ width: "100%", background: "var(--slate-a5)" }}
-      />
-
-      <ScrollArea
-        type="hover"
-        scrollbars="vertical"
-        style={{ flex: 1, minHeight: 0 }}
-      >
-        <Box pl="1">
-          <Text size="small" weight="medium" color="text-low">
-            Your Chats
-          </Text>
-        </Box>
-
-        <Flex direction="column" gap="2" style={{ padding: "6px 4px" }}>
-          {conversations.length === 0 ? (
-            <Flex
-              align="center"
-              justify="center"
-              direction="column"
-              gap="2"
-              style={{
-                padding: "20px 12px",
-                fontSize: 12,
-                color: "var(--gray-a9)",
-                textAlign: "center",
-              }}
-            >
-              {/* Chat bubble icon */}
-              <PiChat size={20} color="var(--violet-a11)" />
-              <Text size="small" color="text-high" weight="semibold">
-                No chats yet
-              </Text>
-              <Text size="small" color="text-low" align="center">
-                Start a new conversation to explore data.
+        <Flex direction="column" gap="2">
+          <Button onClick={() => onNewChat()}>
+            <Flex align="center" justify="center" gap="1">
+              <PiPlus size={13} />
+              <Text size="medium" weight="medium">
+                New chat
               </Text>
             </Flex>
-          ) : (
-            conversations.map((conv) => {
-              const isActive = conv.conversationId === activeConversationId;
-              const isHovered = hoveredConversationId === conv.conversationId;
-              return (
-                <button
-                  key={conv.conversationId}
-                  type="button"
-                  onMouseEnter={() =>
-                    setHoveredConversationId(conv.conversationId)
-                  }
-                  onMouseLeave={() => setHoveredConversationId(null)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                    width: "100%",
-                    padding: "7px 10px",
-                    borderRadius: "var(--radius-2)",
-                    border: isActive
-                      ? "1px solid var(--slate-a5)"
-                      : "1px solid transparent",
-                    background: isActive
-                      ? "var(--violet-8)"
-                      : isHovered
-                        ? "var(--gray-a3)"
-                        : "none",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    color: "var(--gray-12)",
-                  }}
-                  onClick={() => onSelect(conv.conversationId)}
-                >
-                  {/* <span
+          </Button>
+
+          <Button variant="soft">
+            <Flex align="center" justify="center" gap="1">
+              <PiMagnifyingGlass size={13} />
+              <Text size="medium" weight="medium">
+                Search chats
+              </Text>
+            </Flex>
+          </Button>
+        </Flex>
+
+        <Separator
+          my="3"
+          style={{ width: "100%", background: "var(--slate-a5)" }}
+        />
+
+        <ScrollArea
+          type="hover"
+          scrollbars="vertical"
+          style={{ flex: 1, minHeight: 0 }}
+        >
+          <Box pl="1">
+            <Text size="small" weight="medium" color="text-low">
+              Your Chats
+            </Text>
+          </Box>
+
+          <Flex direction="column" gap="2" style={{ padding: "6px 4px" }}>
+            {conversations.length === 0 ? (
+              <Flex
+                align="center"
+                justify="center"
+                direction="column"
+                gap="2"
+                style={{
+                  padding: "20px 12px",
+                  fontSize: 12,
+                  color: "var(--gray-a9)",
+                  textAlign: "center",
+                }}
+              >
+                {/* Chat bubble icon */}
+                <PiChat size={20} color="var(--violet-a11)" />
+                <Text size="small" color="text-high" weight="semibold">
+                  No chats yet
+                </Text>
+                <Text size="small" color="text-low" align="center">
+                  Start a new conversation to explore data.
+                </Text>
+              </Flex>
+            ) : (
+              conversations.map((conv) => {
+                const isActive = conv.conversationId === activeConversationId;
+                const isHovered = hoveredConversationId === conv.conversationId;
+                return (
+                  <button
+                    key={conv.conversationId}
+                    type="button"
+                    onMouseEnter={() =>
+                      setHoveredConversationId(conv.conversationId)
+                    }
+                    onMouseLeave={() => setHoveredConversationId(null)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                      width: "100%",
+                      padding: "7px 10px",
+                      borderRadius: "var(--radius-2)",
+                      border: isActive
+                        ? "1px solid var(--slate-a5)"
+                        : "1px solid transparent",
+                      background: isActive
+                        ? "var(--violet-8)"
+                        : isHovered
+                          ? "var(--gray-a3)"
+                          : "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      color: "var(--gray-12)",
+                    }}
+                    onClick={() => onSelect(conv.conversationId)}
+                  >
+                    {/* <span
                     style={{
                       fontSize: 12,
                       fontWeight: 500,
@@ -181,33 +198,34 @@ export default function ConversationSidebar({
                   >
                     {conv.title || "Untitled"}
                   </span> */}
-                  <Text size="small" weight="semibold" color="text-high">
-                    {conv.title || "Untitled"}
-                  </Text>
-                  <Box
-                    as="span"
-                    style={{
-                      fontSize: 11,
-                      color: "var(--gray-a10)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    {conv.isStreaming ? (
-                      <span
-                        title="Streaming"
-                        className={aiChatPrimitives.streamingDot}
-                      />
-                    ) : null}
-                    {relativeTime(conv.createdAt)}
-                  </Box>
-                </button>
-              );
-            })
-          )}
-        </Flex>
-      </ScrollArea>
+                    <Text size="small" weight="semibold" color="text-high">
+                      {conv.title || "Untitled"}
+                    </Text>
+                    <Box
+                      as="span"
+                      style={{
+                        fontSize: 11,
+                        color: "var(--gray-a10)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      {conv.isStreaming ? (
+                        <span
+                          title="Streaming"
+                          className={aiChatPrimitives.streamingDot}
+                        />
+                      ) : null}
+                      {relativeTime(conv.createdAt)}
+                    </Box>
+                  </button>
+                );
+              })
+            )}
+          </Flex>
+        </ScrollArea>
+      </Flex>
     </Flex>
   );
 }
