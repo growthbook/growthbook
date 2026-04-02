@@ -113,7 +113,6 @@ export const postReorderCustomFields = async (
 
   const existingFields = await context.models.customFields.getCustomFields();
 
-  // check if this name already exists:
   if (!existingFields || !existingFields.fields) {
     return res.status(403).json({
       status: 403,

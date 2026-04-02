@@ -62,7 +62,7 @@ export function buildPayloadMetadata<
   if (opts.includeProjectIdInMetadata && entity.project && projectsMap) {
     const project = projectsMap.get(entity.project);
     if (project) {
-      metadata.projects = [project.publicId ?? project.id];
+      metadata.projects = [project.publicId || project.id];
     }
   }
 

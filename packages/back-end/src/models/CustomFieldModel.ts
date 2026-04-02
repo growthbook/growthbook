@@ -232,7 +232,24 @@ export class CustomFieldModel extends BaseClass {
     const existing = await this.getCustomFields();
     if (!existing) return null;
 
-    if (!existing.fields.some((f) => f.id === customFieldId)) return null;
+    const currentField = existing.fields.find((f) => f.id === customFieldId);
+    if (!currentField) return null;
+
+    const newName = customFieldUpdates.name ?? currentField.name;
+    const newSections =
+      customFieldUpdates.sections ?? currentField.sections ?? [];
+    const nameConflict = existing.fields.find(
+      (f) =>
+        f.id !== customFieldId &&
+        f.active !== false &&
+        f.name === newName &&
+        f.sections?.some((s) => newSections.includes(s)),
+    );
+    if (nameConflict) {
+      this.context.throwBadRequestError(
+        "Custom field name already exists for one or more of the selected sections.",
+      );
+    }
 
     const newFields = existing.fields.map((field) => {
       if (field.id === customFieldId) {

@@ -74,6 +74,7 @@ export class ProjectModel extends BaseClass {
   protected async beforeCreate(data: Partial<ProjectInterface>) {
     if (!data.publicId && data.name) {
       const baseSlug = slugify(data.name);
+      if (!baseSlug) return; // name yields no slug (e.g. non-ASCII only); leave publicId unset
       let publicId = baseSlug;
       let counter = 1;
       const MAX_ATTEMPTS = 1000;

@@ -1207,19 +1207,6 @@ export const removeTagFromExperiments = async ({
     $pull: { tags: tag },
   });
 
-  const updatedExperiments = previousExperiments.map((exp) => ({
-    ...exp,
-    tags: (exp.tags || []).filter((t) => t !== tag),
-  }));
-
-  for (let i = 0; i < previousExperiments.length; i++) {
-    await onExperimentUpdate({
-      context,
-      oldExperiment: previousExperiments[i],
-      newExperiment: updatedExperiments[i],
-    });
-  }
-
   logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
     tags: exp.tags.filter((t) => t !== tag),
@@ -1340,19 +1327,6 @@ export async function removeProjectFromExperiments(
   const previousExperiments = await findExperiments(context, query);
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
-
-  const updatedExperiments = previousExperiments.map((exp) => ({
-    ...exp,
-    project: "",
-  }));
-
-  for (let i = 0; i < previousExperiments.length; i++) {
-    await onExperimentUpdate({
-      context,
-      oldExperiment: previousExperiments[i],
-      newExperiment: updatedExperiments[i],
-    });
-  }
 
   logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
