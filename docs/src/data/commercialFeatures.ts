@@ -177,6 +177,10 @@ export default {
     plan: "pro",
     displayName: "Quantile Metrics",
   },
+  "ramp-schedules": {
+    plan: "enterprise",
+    displayName: "Ramp Schedules",
+  },
   redirects: {
     plan: "pro",
     displayName: "Redirects",

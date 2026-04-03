@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import { v4 as uuidv4 } from "uuid";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -15,6 +16,9 @@ import {
   SafeRolloutInterface,
   SafeRolloutRule,
   simpleSchemaValidator,
+  RampScheduleInterface,
+  RevisionRampAction,
+  RampStepAction,
 } from "shared/validators";
 import {
   FeatureEnvironment,
@@ -44,6 +48,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
+import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
@@ -935,21 +940,42 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
+  await editFeatureRules(
+    context,
+    feature,
+    revision,
+    [{ environmentId: environment, i }],
+    updates,
+    user,
+    resetReview,
+  );
+}
+
+export async function editFeatureRules(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  matches: { environmentId: string; i: number }[],
+  updates: Partial<FeatureRule>,
+  user: EventUser,
+  resetReview: boolean,
+) {
+  const projected = applyPartialFeatureRuleUpdatesToRevision(
+    revision,
+    matches,
+    updates,
+  );
   const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
+    rules: projected.rules ?? {},
+    status: projected.status,
   };
 
-  changes.rules[environment] = changes.rules[environment] || [];
-  if (!changes.rules[environment][i]) {
-    throw new Error("Unknown rule");
-  }
+  const subject =
+    matches.length === 1
+      ? `in ${matches[0].environmentId} (position ${matches[0].i + 1})`
+      : `in ${matches.map((m) => m.environmentId).join(", ")}`;
 
-  changes.rules[environment][i] = {
-    ...changes.rules[environment][i],
-    ...updates,
-  } as FeatureRule;
-  await updateRevision(
+  const updatedRevision = await updateRevision(
     context,
     feature,
     revision,
@@ -957,11 +983,12 @@ export async function editFeatureRule(
     {
       user,
       action: "edit rule",
-      subject: `in ${environment} (position ${i + 1})`,
+      subject,
       value: JSON.stringify(updates),
     },
     resetReview,
   );
+  return updatedRevision;
 }
 
 export async function copyFeatureEnvironmentRules(
@@ -1218,8 +1245,18 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
+  // When a draft only activates a ramp schedule (no feature content changes),
+  // there's nothing to write to the feature document — just return it as-is so
+  // the caller can still mark the revision as published and trigger lifecycle hooks.
   if (!hasChanges) {
-    throw new Error("No changes to publish");
+    // However, if we have pending ramp actions to execute, we still need to update
+    // the feature version so the live pointer advances correctly
+    if (revision.rampActions && revision.rampActions.length > 0) {
+      changes.version = revision.version;
+      changes.dateUpdated = new Date();
+      return await updateFeature(context, feature, changes);
+    }
+    return feature;
   }
 
   if (changes.environmentSettings) {
@@ -1329,6 +1366,199 @@ export async function applyHoldoutSideEffects(
   }
 }
 
+/**
+ * Create ramp schedules for all `mode === "create"` actions in a revision.
+ * Called BEFORE the feature write so that a schedule creation failure prevents publish.
+ * Returns the IDs of created schedules for rollback on subsequent failure.
+ */
+async function createRampSchedulesForRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: { version: number },
+  actions: RevisionRampAction[],
+): Promise<string[]> {
+  const createdIds: string[] = [];
+
+  for (const action of actions) {
+    if (action.mode !== "create") continue;
+
+    // Pro gate — see postRampSchedule.ts for rationale.
+    if (!context.hasPremiumFeature("schedule-feature-flag")) {
+      context.throwPlanDoesNotAllowError(
+        "Ramp schedules require a Pro plan or above.",
+      );
+    }
+
+    const targetId = uuidv4();
+
+    // Remap "t1" placeholder targetId to the real UUID.
+    const remapTargetId = (a: RampStepAction): RampStepAction =>
+      a.targetId === "t1" ? { ...a, targetId } : a;
+
+    const startDate = action.startDate ? new Date(action.startDate) : undefined;
+
+    const rawEndTrigger = action.endCondition?.trigger;
+    const endTrigger =
+      rawEndTrigger?.type === "scheduled"
+        ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
+        : undefined;
+    const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
+
+    const steps = action.steps.map((step) => ({
+      ...step,
+      actions: step.actions.map(remapTargetId),
+    }));
+
+    const endActions = (action.endActions ?? []).map(remapTargetId);
+
+    const created = await context.models.rampSchedules.create({
+      name: action.name,
+      entityType: "feature",
+      entityId: feature.id,
+      targets: [
+        {
+          id: targetId,
+          entityType: "feature",
+          entityId: feature.id,
+          ruleId: action.ruleId,
+          // null = patches apply to all environments sharing this ruleId.
+          // A specific environment = patches are scoped to that env only.
+          environment: action.environment ?? null,
+          status: "active",
+          // Link this target to the activating revision so onRevisionPublished
+          // (and the Agenda recovery path) can transition "pending" → "running".
+          activatingRevisionVersion: revision.version,
+        },
+      ],
+      steps,
+      endActions: endActions.length > 0 ? endActions : undefined,
+      startDate,
+      endCondition,
+      // Start as "pending" — onActivatingRevisionPublished handles the
+      // immediate → "running" transition inline when the revision publishes.
+      status: "pending",
+      currentStepIndex: -1,
+      nextStepAt:
+        !startDate && steps.length > 0 ? new Date() : (startDate ?? null),
+      startedAt: null,
+      phaseStartedAt: null,
+    });
+
+    createdIds.push(created.id);
+  }
+
+  return createdIds;
+}
+
+/**
+ * Apply detach/update ramp actions stored on a revision.
+ * Best-effort: logs errors but does not throw, since these run after the feature is published.
+ */
+async function applyDetachRampActions(
+  context: ReqContext | ApiReqContext,
+  actions: RevisionRampAction[],
+) {
+  for (const action of actions) {
+    if (action.mode !== "detach") continue;
+    try {
+      const existing = await context.models.rampSchedules.getById(
+        action.rampScheduleId,
+      );
+      if (existing) {
+        const remainingTargets = existing.targets.filter(
+          (t) => t.ruleId !== action.ruleId,
+        );
+        if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+          await context.models.rampSchedules.deleteById(existing.id);
+        } else {
+          await context.models.rampSchedules.updateById(existing.id, {
+            targets: remainingTargets,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error(err, {
+        msg: "Failed to apply revision ramp detach action",
+        action,
+      });
+    }
+  }
+}
+
+async function cleanupOrphanedRampSchedules(
+  context: ReqContext | ApiReqContext,
+  oldFeature: FeatureInterface,
+  newFeature: FeatureInterface,
+) {
+  try {
+    // When publishing a change that modifies rules, clean up ramp schedules that
+    // become orphaned. This handles several scenarios:
+    // 1. Rules that target a ramp are deleted → ramp is cleaned up
+    // 2. Reverting to an older revision that predates a ramp's creation → ramp's
+    //    targets (from newer revisions) are removed, orphaning the ramp → cleanup deletes it
+    // 3. Reverting back to a newer revision with a ramp → the ramp is recreated via
+    //    the inline "create" action on the rule (natural behavior)
+    //
+    // Note: If a ramp schedule is deleted and then we revert to a future revision
+    // where it should exist, the "create" action will not fire again. The user must
+    // re-create the ramp. This is the safe, explicit behavior.
+
+    // Collect all rule IDs that existed in the old feature.
+    const oldRuleIds = new Set<string>();
+    Object.values(oldFeature.environmentSettings ?? {}).forEach((env) => {
+      (env?.rules ?? []).forEach((rule) => {
+        if (rule?.id) {
+          oldRuleIds.add(rule.id);
+        }
+      });
+    });
+
+    // Collect all rule IDs in the new feature.
+    const newRuleIds = new Set<string>();
+    Object.values(newFeature.environmentSettings ?? {}).forEach((env) => {
+      (env?.rules ?? []).forEach((rule) => {
+        if (rule?.id) {
+          newRuleIds.add(rule.id);
+        }
+      });
+    });
+
+    // Find rule IDs that were removed (existed in old but not in new).
+    const deletedRuleIds = Array.from(oldRuleIds).filter(
+      (id) => !newRuleIds.has(id),
+    );
+
+    // Query all ramp schedules for this feature and check if any targets
+    // reference the deleted rules.
+    const allRamps = await context.models?.rampSchedules?.getAllByFeatureId?.(
+      newFeature.id,
+    );
+
+    if (!allRamps) return;
+
+    for (const ramp of allRamps) {
+      const remainingTargets = (ramp?.targets ?? []).filter(
+        (target: RampScheduleInterface["targets"][0]) => {
+          // Keep targets that reference rules that still exist.
+          return target?.ruleId && !deletedRuleIds.includes(target.ruleId);
+        },
+      );
+
+      // If no implementations remain, delete the ramp.
+      if (
+        remainingTargets.length === 0 &&
+        (ramp?.targets ?? []).length > 0 &&
+        ramp?.id
+      ) {
+        await context.models?.rampSchedules?.deleteById?.(ramp.id);
+      }
+    }
+  } catch (error) {
+    // Log but don't throw — cleanup is a nice-to-have, not essential for publish to succeed.
+    logger.error("Error cleaning up orphaned ramp schedules", error);
+  }
+}
+
 export async function publishRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1340,26 +1570,65 @@ export async function publishRevision(
     throw new Error("Can only publish a draft revision");
   }
 
-  // TODO: wrap these 2 calls in a transaction
-  const updatedFeature = await applyRevisionChanges(
-    context,
-    feature,
-    revision,
-    result,
+  // Create ramp schedules BEFORE writing the feature so that a schedule
+  // creation failure gates the publish (atomicity: no published feature without
+  // its ramp schedule).
+  const createActions = (revision.rampActions ?? []).filter(
+    (a) => a.mode === "create",
   );
-
-  // Run holdout side-effects for every publish path (approval flow, revert, direct publish, etc.)
-  if (result.holdout !== undefined) {
-    await applyHoldoutSideEffects(context, feature, result.holdout);
+  const preCreatedScheduleIds: string[] = [];
+  if (createActions.length) {
+    const ids = await createRampSchedulesForRevision(
+      context,
+      feature,
+      revision,
+      createActions,
+    );
+    preCreatedScheduleIds.push(...ids);
   }
 
-  await markRevisionAsPublished(
-    context,
-    feature,
-    revision,
-    context.auditUser,
-    comment,
-  );
+  let updatedFeature: FeatureInterface;
+  try {
+    updatedFeature = await applyRevisionChanges(
+      context,
+      feature,
+      revision,
+      result,
+    );
+
+    if (result.holdout !== undefined) {
+      await applyHoldoutSideEffects(context, feature, result.holdout);
+    }
+
+    await markRevisionAsPublished(
+      context,
+      feature,
+      revision,
+      context.auditUser,
+      comment,
+    );
+  } catch (err) {
+    // Roll back pre-created ramp schedules so they don't linger as orphans.
+    for (const id of preCreatedScheduleIds) {
+      try {
+        await context.models.rampSchedules.deleteById(id);
+      } catch (deleteErr) {
+        logger.error(
+          deleteErr,
+          `Failed to delete orphaned ramp schedule ${id} during publish rollback`,
+        );
+      }
+    }
+    throw err;
+  }
+
+  // Apply detach actions (best-effort: logged but do not fail publish).
+  if (revision.rampActions?.length) {
+    await applyDetachRampActions(context, revision.rampActions);
+  }
+
+  // Clean up orphaned ramp schedules (best-effort).
+  await cleanupOrphanedRampSchedules(context, feature, updatedFeature);
 
   return updatedFeature;
 }
@@ -1401,10 +1670,15 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
-  // Build a temporary revision shape for the review check (same logic as createRevision).
+  // Build a temporary revision shape for the review check. Merge rules per-environment
+  // so that sparse changes.rules doesn't wipe untouched environments to [].
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveRevision,
     ...(changes ?? {}),
+    rules: {
+      ...liveRevision.rules,
+      ...(changes?.rules ?? {}),
+    },
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,

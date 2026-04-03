@@ -69,3 +69,7 @@ export function getInitialConfigByBlockType(
       throw new Error(`Invalid block type: ${blockType}`);
   }
 }
+
+export function encodeExplorationConfig(config: ExplorationConfig): string {
+  return btoa(encodeURIComponent(JSON.stringify(config)));
+}

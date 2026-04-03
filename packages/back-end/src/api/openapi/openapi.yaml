@@ -227,7 +227,10 @@ paths:
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
   /experiments/{id}/visual-changesets:
-    $ref: "./paths/listVisualChangesets.yaml"
+    get:
+      $ref: "./paths/listVisualChangesets.yaml"
+    post:
+      $ref: "./paths/postVisualChangesets.yaml"
   /snapshots/{id}:
     $ref: "./paths/getExperimentSnapshot.yaml"
   /metrics:

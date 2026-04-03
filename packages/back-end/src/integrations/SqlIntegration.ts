@@ -1,6 +1,7 @@
 import bs58 from "bs58";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
+import { parseIntWithDefault } from "shared/util";
 import normal from "@stdlib/stats/base/dists/normal";
 import { format as formatDate, subDays } from "date-fns";
 import {
@@ -274,6 +275,7 @@ export default abstract class SqlIntegration
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       canGroupPercentileCappedMetrics: this.canGroupPercentileCappedMetrics(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
+      hasQuantileKLL: this.hasQuantileKLL(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
       maxColumns: 1000,
     };
@@ -426,6 +428,9 @@ export default abstract class SqlIntegration
   hasCountDistinctHLL(): boolean {
     return false;
   }
+  hasQuantileKLL(): boolean {
+    return false;
+  }
   supportsLimitZeroColumnValidation(): boolean {
     return false;
   }
@@ -445,6 +450,53 @@ export default abstract class SqlIntegration
   hllCardinality(col: string): string {
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllInit(col: string): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllMergePartial(col: string): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllExtractPoint(col: string, quantile: number): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  // eslint-disable-next-line
+  kllExtractQuantiles(col: string, numQuantiles: number): string {
+    throw new Error(
+      "KLL quantile sketches are not supported by this data source.",
+    );
+  }
+  /**
+   * SQL expression that approximates (fraction of events below threshold) × n_events
+   * for a per-user merged KLL sketch, using a discrete CDF from the sketch.
+   *
+   * Implementations typically: sample the sketch at numQuantiles evenly spaced
+   * quantile levels (yielding numQuantiles+1 monotone values), count how many
+   * samples are strictly below the threshold, scale by n_events / numQuantiles,
+   * and COALESCE to 0 when sketch or threshold is null / empty.
+   *
+   * Fraction discretization error is O(1/numQuantiles) (e.g. ±1% at 100).
+   * Warehouses must override together with kllExtractQuantiles when
+   * hasQuantileKLL() is true.
+   */
+  kllRankApprox(
+    _sketchCol: string,
+    _thresholdCol: string,
+    _nEventsCol: string,
+    _numQuantiles: number,
+  ): string {
+    throw new Error(
+      "KLL rank approximation is not implemented for this data source.",
     );
   }
 
@@ -602,7 +654,7 @@ export default abstract class SqlIntegration
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",
           variation_name: row.variation_name,
-          users: parseInt(row.users) || 0,
+          users: parseIntWithDefault(row.users, 0),
           end_date: getValidDate(row.end_date).toISOString(),
           start_date: getValidDate(row.start_date).toISOString(),
           latest_data: getValidDate(row.latest_data).toISOString(),
@@ -1367,8 +1419,8 @@ export default abstract class SqlIntegration
       return {
         variation: row.variation ?? "",
         ...dimensionData,
-        users: parseInt(row.users) || 0,
-        count: parseInt(row.users) || 0,
+        users: parseIntWithDefault(row.users, 0),
+        count: parseIntWithDefault(row.users, 0),
         ...metricData,
       };
     });
@@ -1430,8 +1482,8 @@ export default abstract class SqlIntegration
         const result: ExperimentMetricQueryResponseRows[number] = {
           variation: row.variation ?? "",
           ...dimensionData,
-          users: parseInt(row.users as string) || 0,
-          count: parseInt(row.users as string) || 0,
+          users: parseIntWithDefault(row.users, 0),
+          count: parseIntWithDefault(row.users, 0),
           main_sum: parseFloat(row.main_sum as string) || 0,
           main_sum_squares: parseFloat(row.main_sum_squares as string) || 0,
         };
@@ -2593,8 +2645,8 @@ export default abstract class SqlIntegration
         return {
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
-          units: parseInt(row.units) || 0,
-          total_units: parseInt(row.total_units) || 0,
+          units: parseIntWithDefault(row.units, 0),
+          total_units: parseIntWithDefault(row.total_units, 0),
         };
       }),
       statistics: statistics,
@@ -2669,10 +2721,14 @@ export default abstract class SqlIntegration
       ? this.datasource.settings.queries.featureUsage[0].query
       : "";
 
+    const compiledFeatureEvalQuery = compileSqlTemplate(featureEvalQuery, {
+      startDate: oneWeekAgo,
+    });
+
     return format(
       `-- Feature Evaluation Diagnostics Query
       WITH __featureEvalQuery AS (
-        ${featureEvalQuery}
+        ${compiledFeatureEvalQuery}
       )
       SELECT * FROM __featureEvalQuery
       WHERE feature_key = '${featureKey}' AND timestamp >= ${this.toTimestamp(oneWeekAgo)}
@@ -5582,6 +5638,29 @@ export default abstract class SqlIntegration
     }).join("\n")}`;
   }
 
+  /**
+   * Like getQuantileGridColumns but extracts points from a merged KLL sketch
+   * column instead of calling APPROX_PERCENTILE on raw values. Used by the
+   * incremental-refresh path where the metric source table stores per-user-date
+   * sketches that are merged at stats time.
+   */
+  getKllQuantileGridColumns(
+    metricQuantileSettings: MetricQuantileSettings,
+    sketchCol: string,
+    prefix: string,
+  ) {
+    return `, ${this.kllExtractPoint(sketchCol, metricQuantileSettings.quantile)} AS ${prefix}quantile
+    ${N_STAR_VALUES.map((nstar) => {
+      const { lower, upper } = this.getQuantileBoundValues(
+        metricQuantileSettings.quantile,
+        0.05,
+        nstar,
+      );
+      return `, ${this.kllExtractPoint(sketchCol, lower)} AS ${prefix}quantile_lower_${nstar}
+          , ${this.kllExtractPoint(sketchCol, upper)} AS ${prefix}quantile_upper_${nstar}`;
+    }).join("\n")}`;
+  }
+
   public getColumnsTopValuesQuery({
     factTable,
     columns,
@@ -6684,16 +6763,16 @@ ORDER BY column_name, count DESC
       metric.metricType === "quantile" &&
       metric.quantileSettings?.type === "event"
     ) {
+      // For incremental refresh, event quantile metrics store a KLL sketch of
+      // event values per user-date. Sketches are merged (per user, then per
+      // variation) at stats-query time and the quantile grid is extracted via
+      // kllExtractPoint. The per-user "count below threshold" (main_sum) is
+      // recovered via two-pass rank recovery (kllRankApprox) — see
+      // getIncrementalRefreshStatisticsQuery.
       return {
-        intermediateDataType: "float", // TODO(incremental-refresh): use array-based method
-        // potentially use array based methods to store an array of events
-        // and then count share of array below method instead of the following hap
-        partialAggregationFunction: (_column: string) => {
-          throw new Error("Not implemented");
-        },
-        reAggregationFunction: (_column: string, _quantileColumn?: string) => {
-          throw new Error("Not implemented");
-        },
+        intermediateDataType: "kll",
+        partialAggregationFunction: (column: string) => this.kllInit(column),
+        reAggregationFunction: (column: string) => this.kllMergePartial(column),
         finalDataType: "integer",
         fullAggregationFunction: (column: string, quantileColumn?: string) =>
           `SUM(${this.ifElse(`${column} <= ${quantileColumn ?? ""}`, "1", "0")})`,
@@ -7147,6 +7226,8 @@ ORDER BY column_name, count DESC
         return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
+      case "kll":
+        return "VARBINARY";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
@@ -7395,13 +7476,11 @@ ORDER BY column_name, count DESC
     );
 
     if (
-      sortedMetrics.some(
-        (m) =>
-          m.metricType === "quantile" && m.quantileSettings?.type === "event",
-      )
+      sortedMetrics.some((m) => quantileMetricType(m) === "event") &&
+      !this.hasQuantileKLL()
     ) {
       throw new Error(
-        "Event quantiles not yet supported with incremental refresh.",
+        "Event quantile metrics with incremental refresh require a data source that supports KLL quantile sketches.",
       );
     }
 
@@ -7450,6 +7529,17 @@ ORDER BY column_name, count DESC
         schema.set(
           `${this.encodeMetricIdForColumnName(metric.id)}_denominator_value`,
           this.getDataType(denominatorMetadata.intermediateDataType),
+        );
+      }
+
+      // Event quantile metrics store a KLL sketch in _value plus a raw event
+      // count per user-date. The count is needed to compute n_events and the
+      // clustered-variance denominator at stats time (sketches cannot answer
+      // rank queries).
+      if (quantileMetricType(metric) === "event") {
+        schema.set(
+          `${this.encodeMetricIdForColumnName(metric.id)}_n_events`,
+          this.getDataType("integer"),
         );
       }
     });
@@ -7681,6 +7771,11 @@ ORDER BY column_name, count DESC
                     ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
                     : ""
                 }
+                ${
+                  m.quantileMetric === "event"
+                    ? `, COUNT(${m.alias}_value) AS ${this.encodeMetricIdForColumnName(m.id)}_n_events`
+                    : ""
+                }
               `;
               })
               .join("\n")}
@@ -7697,6 +7792,10 @@ ORDER BY column_name, count DESC
                 `, ${this.encodeMetricIdForColumnName(m.id)}_value AS ${this.encodeMetricIdForColumnName(m.id)}_value${
                   m.ratioMetric
                     ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_denominator_value AS ${this.encodeMetricIdForColumnName(m.id)}_denominator_value`
+                    : ""
+                }${
+                  m.quantileMetric === "event"
+                    ? `\n, ${this.encodeMetricIdForColumnName(m.id)}_n_events AS ${this.encodeMetricIdForColumnName(m.id)}_n_events`
                     : ""
                 }`,
             )
@@ -7736,6 +7835,7 @@ ORDER BY column_name, count DESC
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
     const percentileData = factTableWithMetricData.percentileData;
+    const eventQuantileData = factTableWithMetricData.eventQuantileData;
     const regressionAdjustedMetrics =
       factTableWithMetricData.regressionAdjustedMetrics;
 
@@ -7863,6 +7963,11 @@ ORDER BY column_name, count DESC
                   data.ratioMetric && denomReAggFunction
                     ? `, ${denomReAggFunction(`umj.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`)} AS ${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value`
                     : ""
+                }
+                ${
+                  data.quantileMetric === "event"
+                    ? `, SUM(COALESCE(umj.${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)) AS ${this.encodeMetricIdForColumnName(data.metric.id)}_n_events`
+                    : ""
                 }`;
             })
             .join("\n")}
@@ -7870,23 +7975,93 @@ ORDER BY column_name, count DESC
         GROUP BY
           ${baseIdType}
       )
+      ${
+        eventQuantileData.length > 0
+          ? `
+      , __eventQuantileSketch AS (
+        -- Pass 1 of two-pass KLL rank recovery: merge per-user sketches by
+        -- variation+dimension. __eventQuantileMetric extracts the quantile grid
+        -- (including q_hat) from these merged sketches; __joinedData then uses
+        -- q_hat as the threshold for per-user rank recovery (pass 2).
+        SELECT
+          u.variation AS variation
+          ${allDimensionCols.map((c) => `, u.${c.alias} AS ${c.alias}`).join("")}
+          ${metricData
+            .filter((d) => d.quantileMetric === "event")
+            .map(
+              (d) =>
+                `, ${this.kllMergePartial(`m.${this.encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
+            )
+            .join("\n")}
+        FROM __experimentUnits u
+        INNER JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
+        GROUP BY
+          u.variation
+          ${allDimensionCols.map((c) => `, u.${c.alias}`).join("")}
+      )
+      , __eventQuantileMetric AS (
+        SELECT
+          variation
+          ${allDimensionCols.map((c) => `, ${c.alias}`).join("")}
+          ${metricData
+            .filter((d) => d.quantileMetric === "event")
+            .map((d) =>
+              this.getKllQuantileGridColumns(
+                d.metricQuantileSettings,
+                `${d.alias}_sketch`,
+                `${d.alias}_`,
+              ),
+            )
+            .join("\n")}
+        FROM __eventQuantileSketch
+      )
+      `
+          : ""
+      }
       , __joinedData AS (
           SELECT
             u.${baseIdType}
             ${allDimensionCols.map((d) => `, u.${d.alias} AS ${d.alias}`).join("")}
             , u.variation
             ${metricData
-              // TODO(incremental-refresh): here is where we need to nullif 0 for
-              // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map((data) => {
+                if (data.quantileMetric === "event") {
+                  // Two-pass KLL rank recovery: __eventQuantileMetric provides
+                  // the global q_hat per variation+dimension (pass 1). Here we
+                  // extract a 100-point CDF from each user's merged sketch and
+                  // count the fraction below q_hat to recover a per-user
+                  // "count below threshold" with ±0.5% rank precision (pass 2).
+                  // This preserves per-user variance in both event volume and
+                  // fraction-below-threshold, so the cluster-adjusted variance
+                  // estimator in QuantileClusteredStatistic is correct.
+                  // Note: ignoreZeros for event quantiles is handled upstream in
+                  // addCaseWhenTimeFilter (zeros are filtered out of __newMetricRows
+                  // before sketching, so they never enter the KLL sketch or n_events).
+                  const nEventsCol = `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
+                  const sketchCol = `m.${this.encodeMetricIdForColumnName(data.metric.id)}_value`;
+                  const thresholdCol = `qm.${data.alias}_quantile`;
+                  return `, ${this.kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
+                  , ${nEventsCol} AS ${data.alias}_n_events`;
+                }
+                // Unit quantiles with ignoreZeros: reAggregationFunction already
+                // returns NULLIF(..., 0) so _value is NULL for zero-sum users.
+                // Preserve that NULL here (don't COALESCE) so approxQuantile
+                // excludes them. For all other metrics COALESCE is correct — a
+                // NULL from the LEFT JOIN means zero events for that user.
+                const nullIfZero =
+                  data.quantileMetric === "unit" &&
+                  data.metricQuantileSettings.ignoreZeros;
+                const valueCol = nullIfZero
+                  ? `m.${this.encodeMetricIdForColumnName(data.metric.id)}_value`
+                  : `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`;
                 return `, ${data.aggregatedValueTransformation({
-                  column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_value, 0)`,
+                  column: valueCol,
                   initialTimestampColumn: "u.first_exposure_timestamp",
                   analysisEndDate: params.settings.endDate,
                 })} AS ${data.alias}_value ${
                   data.ratioMetric
                     ? `, ${data.aggregatedValueTransformation({
-                        column: `COALESCE(${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
+                        column: `COALESCE(m.${this.encodeMetricIdForColumnName(data.metric.id)}_denominator_value, 0)`,
                         initialTimestampColumn: "u.first_exposure_timestamp",
                         analysisEndDate: params.settings.endDate,
                       })} AS ${data.alias}_denominator`
@@ -7934,6 +8109,17 @@ ORDER BY column_name, count DESC
               ) c ON u.${baseIdType} = c.${baseIdType}`
               : ""
           }
+          ${
+            // Dimension-equality join mirrors the existing pattern at
+            // getExperimentFactMetricStatisticsCTE (NULL = NULL → false is
+            // acceptable; dimensions are COALESCEd to a sentinel upstream).
+            eventQuantileData.length > 0
+              ? `LEFT JOIN __eventQuantileMetric qm ON (
+                  qm.variation = u.variation
+                  ${allDimensionCols.map((c) => `AND qm.${c.alias} = u.${c.alias}`).join("\n")}
+                )`
+              : ""
+          }
       )
       ${
         percentileData.length > 0
@@ -7947,7 +8133,7 @@ ORDER BY column_name, count DESC
       ${this.getExperimentFactMetricStatisticsCTE({
         dimensionCols: allDimensionCols,
         metricData,
-        eventQuantileData: [], // TODO(incremental-refresh): quantiles
+        eventQuantileData,
         baseIdType,
         joinedMetricTableName: "__joinedData",
         eventQuantileTableName: "__eventQuantileMetric",

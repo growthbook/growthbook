@@ -5,7 +5,7 @@ import { Box, Card, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -109,28 +109,37 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 <Badge label={<>1</>} radius="full" color="gray" />
               </Box>
               <Box flexGrow="1" pr="2">
-                <Flex align="center" justify="between" mb="3" flexGrow="1">
+                <Flex
+                  justify="between"
+                  align="start"
+                  mb="3"
+                  gap="3"
+                  style={{ maxWidth: "100%" }}
+                >
                   <Flex
-                    flexGrow="1"
-                    gap="3"
-                    justify="between"
-                    mr="3"
                     align="center"
+                    gap="2"
+                    style={{ flex: "0 1 auto", flexWrap: "wrap" }}
                   >
                     <Heading as="h4" size="3" weight="medium" mb="0">
-                      <Flex gap="3" align="center">
-                        <div>Holdout: </div>
-                        <Link href={`/holdout/${feature.holdout?.id}`}>
+                      <>
+                        Holdout:{" "}
+                        <Link
+                          href={`/holdout/${feature.holdout?.id}`}
+                          style={{ marginRight: "var(--space-2)" }}
+                        >
                           {holdout.name}
-                          <PiArrowSquareOut className="ml-1" />
                         </Link>
-                        {!isDeleted && (
-                          <ExperimentStatusIndicator
-                            experimentData={holdoutExperiment}
-                          />
-                        )}
-                      </Flex>
+                      </>
                     </Heading>
+                    {!isDeleted && (
+                      <ExperimentStatusIndicator
+                        experimentData={holdoutExperiment}
+                      />
+                    )}
+                  </Flex>
+
+                  <Flex align="center" gap="2" flexShrink="0">
                     {isInactive && (
                       <Badge
                         color="amber"
@@ -142,61 +151,61 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                         }
                       />
                     )}
-                  </Flex>
-                  {canEdit && !isLocked && (
-                    <DropdownMenu
-                      trigger={
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          radius="full"
-                          size="2"
-                          highContrast
-                          mt="1"
-                        >
-                          <BsThreeDotsVertical size={18} />
-                        </IconButton>
-                      }
-                      open={dropdownOpen}
-                      onOpenChange={setDropdownOpen}
-                      menuPlacement="end"
-                      variant="soft"
-                    >
-                      <DropdownMenuGroup>
-                        {isDeleted ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setDropdownOpen(false);
-                              setReEnableModal(true);
-                            }}
+
+                    {canEdit && !isLocked && (
+                      <DropdownMenu
+                        trigger={
+                          <IconButton
+                            variant="ghost"
+                            color="gray"
+                            radius="full"
+                            size="2"
+                            highContrast
                           >
-                            Re-enable holdout
-                          </DropdownMenuItem>
-                        ) : (
-                          <>
+                            <BsThreeDotsVertical size={18} />
+                          </IconButton>
+                        }
+                        open={dropdownOpen}
+                        onOpenChange={setDropdownOpen}
+                        menuPlacement="end"
+                        variant="soft"
+                      >
+                        <DropdownMenuGroup>
+                          {isDeleted ? (
                             <DropdownMenuItem
                               onClick={() => {
-                                setRuleModal();
                                 setDropdownOpen(false);
+                                setReEnableModal(true);
                               }}
                             >
-                              Edit
+                              Re-enable holdout
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              color="red"
-                              onClick={() => {
-                                setDropdownOpen(false);
-                                setRemoveModal(true);
-                              }}
-                            >
-                              Remove from holdout
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuGroup>
-                    </DropdownMenu>
-                  )}
+                          ) : (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setRuleModal();
+                                  setDropdownOpen(false);
+                                }}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                color="red"
+                                onClick={() => {
+                                  setDropdownOpen(false);
+                                  setRemoveModal(true);
+                                }}
+                              >
+                                Remove from holdout
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuGroup>
+                      </DropdownMenu>
+                    )}
+                  </Flex>
                 </Flex>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
                   {isDeleted ? (

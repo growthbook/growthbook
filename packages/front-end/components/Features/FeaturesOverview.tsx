@@ -34,7 +34,10 @@ import {
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
+  RampScheduleInterface,
 } from "shared/validators";
+import Avatar from "@/components/Avatar/Avatar";
+import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -60,7 +63,6 @@ import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import {
@@ -205,6 +207,7 @@ export default function FeaturesOverview({
   setVersion,
   safeRollouts,
   holdout,
+  rampSchedules,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -214,6 +217,7 @@ export default function FeaturesOverview({
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
   holdout: HoldoutInterface | undefined;
+  rampSchedules: RampScheduleInterface[] | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
@@ -227,6 +231,10 @@ export default function FeaturesOverview({
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
+  // Always reflects the current live version — used in async callbacks to avoid
+  // stale closure captures when ramp actions auto-publish new revisions.
+  const liveVersionRef = useRef(feature.version);
+  liveVersionRef.current = feature.version;
   const [newDraftTitle, setNewDraftTitle] = useState("");
   const [newDraftTitleStash, setNewDraftTitleStash] = useState("");
   const [editingNewDraftTitle, setEditingNewDraftTitle] = useState(false);
@@ -412,13 +420,27 @@ export default function FeaturesOverview({
       return false;
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!liveRevision) return false;
-    return draftDiffersFromLive(
-      revision,
-      liveRevision,
-      baseFeature,
-      environments.map((e) => e.id),
+    if (
+      draftDiffersFromLive(
+        revision,
+        liveRevision,
+        baseFeature,
+        environments.map((e) => e.id),
+      )
+    )
+      return true;
+    // A draft that only activates a ramp schedule (no feature content changes)
+    // still has meaningful changes and should be publishable.
+    const hasLinkedRamp = rampSchedules?.some((rs) =>
+      rs.targets.some((t) => t.activatingRevisionVersion === revision.version),
     );
-  }, [revision, revisions, feature, baseFeature, environments]);
+    if (hasLinkedRamp) return true;
+
+    // Also check for pending ramp actions in the draft (create/detach)
+    const hasPendingRampActions =
+      revision.rampActions && revision.rampActions.length > 0;
+    return !!hasPendingRampActions;
+  }, [revision, revisions, feature, baseFeature, environments, rampSchedules]);
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
@@ -472,12 +494,24 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
-      effectiveRevision = { ...filledLive, ...mergeResult.result };
+      effectiveRevision = {
+        ...filledLive,
+        ...mergeResult.result,
+        // Merge rules per-environment so that environments absent from the
+        // sparse mergeResult.result (e.g. production when only dev/staging
+        // changed) inherit their live rules rather than defaulting to [].
+        // Without this, getDraftAffectedEnvironments incorrectly detects a
+        // diff in untouched environments and over-triggers review requirements.
+        rules: {
+          ...filledLive.rules,
+          ...(mergeResult.result.rules ?? {}),
+        },
+      };
       effectiveBase = filledLive;
     }
 
     requireReviews = checkIfRevisionNeedsReview({
-      feature,
+      feature: baseFeature,
       baseRevision: effectiveBase,
       revision: effectiveRevision,
       allEnvironments: environments.map((e) => e.id),
@@ -768,24 +802,23 @@ export default function FeaturesOverview({
 
   const renderRevisionInfo = () => {
     return (
-      <Flex direction="column" gap="1">
-        <Flex align="center" gap="4" wrap="wrap">
+      <Flex direction="column">
+        {/* Revised by (left) + Created/Published (right) — side by side on wide, stacked on narrow */}
+        <Flex
+          align="center"
+          justify="between"
+          wrap="wrap"
+          style={{ rowGap: "var(--space-1)", columnGap: "var(--space-4)" }}
+        >
           {(() => {
             const cb = revision.createdBy;
             if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id);
+              const name = getOwnerDisplay(cb.id) ?? cb.name ?? "";
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    name ? (
-                      <span>
-                        <UserAvatar name={name} size="sm" variant="soft" />{" "}
-                        {name}
-                      </span>
-                    ) : (
-                      <em className="text-muted">Unknown</em>
-                    )
+                    <Avatar email={cb.email} name={name} size={22} showEmail />
                   }
                 />
               );
@@ -798,19 +831,36 @@ export default function FeaturesOverview({
                 />
               );
             }
+            if (cb?.type === "system") {
+              return (
+                <Metadata
+                  label="Generated by"
+                  value={
+                    <em>
+                      {cb.subtype === "ramp-schedule"
+                        ? "ramp schedule"
+                        : "system"}
+                    </em>
+                  }
+                />
+              );
+            }
             return null;
           })()}
-          <Metadata label="Created" value={datetime(revision.dateCreated)} />
-          {revision.status === "published" && revision.datePublished && (
-            <Metadata
-              label="Published"
-              value={datetime(revision.datePublished)}
-            />
-          )}
-          {revision.status === "draft" && (
-            <Metadata label="Last update" value={ago(revision.dateUpdated)} />
-          )}
+          <Flex align="center" gap="4" wrap="wrap">
+            <Metadata label="Created" value={datetime(revision.dateCreated)} />
+            {revision.status === "published" && revision.datePublished && (
+              <Metadata
+                label="Published"
+                value={datetime(revision.datePublished)}
+              />
+            )}
+            {revision.status === "draft" && (
+              <Metadata label="Last update" value={ago(revision.dateUpdated)} />
+            )}
+          </Flex>
         </Flex>
+        <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <span
             className={metaDataStyles.labelColor}
@@ -929,8 +979,11 @@ export default function FeaturesOverview({
                       bgColor: "var(--gray-a3)",
                       message: (
                         <>
-                          Viewing an old <strong>published</strong> revision —
-                          no longer live
+                          Viewing a previously <strong>published</strong>{" "}
+                          revision.{" "}
+                          <Link onClick={() => setVersion(feature.version)}>
+                            <strong>Switch to live</strong>
+                          </Link>
                         </>
                       ),
                     }
@@ -1741,6 +1794,8 @@ export default function FeaturesOverview({
                       safeRolloutsMap={safeRolloutsMap}
                       holdout={holdout}
                       revisionList={revisionList || []}
+                      rampSchedules={rampSchedules}
+                      draftRevision={revision}
                     />
                   </>
                 ) : (
@@ -1824,6 +1879,7 @@ export default function FeaturesOverview({
                 (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
+            revisionList={revisionList}
             allRevisions={revisions}
             mutate={mutate}
             setVersion={setVersion}
@@ -1836,7 +1892,12 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
+            onPublish={() => {
+              setVersion(revision.version);
+              setTimeout(() => setVersion(liveVersionRef.current), 300);
+            }}
             experimentsMap={experimentsMap}
+            rampSchedules={rampSchedules}
           />
         )}
         {draftModal && revision && (
@@ -1846,7 +1907,15 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
+            onPublish={() => {
+              setVersion(revision.version);
+              // Ramp steps fire synchronously on the backend and may publish
+              // additional revisions. After React processes the mutate response,
+              // snap to whatever is actually live now.
+              setTimeout(() => setVersion(liveVersionRef.current), 300);
+            }}
             experimentsMap={experimentsMap}
+            rampSchedules={rampSchedules}
           />
         )}
         {conflictModal && revision && (
@@ -2100,6 +2169,7 @@ export default function FeaturesOverview({
             onClose={() => setCompareRevisionsModalOpen(false)}
             initialPreviewDraft={isDraft ? (version ?? undefined) : undefined}
             initialMode={isLive && !isDraft ? "most-recent-live" : undefined}
+            rampSchedules={rampSchedules}
           />
         )}
         {showKillSwitchManager && (

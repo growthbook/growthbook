@@ -2,11 +2,14 @@ import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
 import { FormatDialect } from "../types/sql";
 import { FormatError } from "../types/error";
+import { parseEnvInt } from "./util/numbers";
 
 export const SQL_ROW_LIMIT = 1000;
 
-export const MAX_SQL_LENGTH_TO_FORMAT = parseInt(
-  process.env.MAX_SQL_LENGTH_TO_FORMAT || "15000",
+export const MAX_SQL_LENGTH_TO_FORMAT = parseEnvInt(
+  process.env.MAX_SQL_LENGTH_TO_FORMAT,
+  15_000,
+  { min: 1, name: "MAX_SQL_LENGTH_TO_FORMAT" },
 );
 
 export function format(

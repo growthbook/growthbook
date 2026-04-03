@@ -9,7 +9,7 @@ import isEqual from "lodash/isEqual";
 import { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { Flex, Box, Text } from "@radix-ui/themes";
+import { Flex, Box, Text, Separator } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -548,14 +548,14 @@ function TargetingForm({
             setValue={(v) => form.setValue("savedGroups", v)}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
             project={experiment.project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
