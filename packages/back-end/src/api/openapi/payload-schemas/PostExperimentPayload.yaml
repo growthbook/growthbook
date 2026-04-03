@@ -267,6 +267,21 @@ properties:
     enum:
       - "days"
       - "hours"
+  postStratificationEnabled:
+    type:
+      - boolean
+      - "null"
+    description: When null, the organization default is used.
+  decisionFrameworkSettings:
+    $ref: "../schemas/ExperimentDecisionFrameworkSettings.yaml"
+  metricOverrides:
+    type: array
+    items:
+      $ref: "../schemas/ExperimentMetricOverrideEntry.yaml"
+    description: Per-metric analysis overrides for this experiment.
+  defaultDashboardId:
+    type: string
+    description: ID of the default dashboard for this experiment.
   customFields:
     type: object
     additionalProperties:

@@ -258,5 +258,8 @@ properties:
       required:
         - slices
     description: "Custom slices that apply to ALL applicable metrics in the experiment"
+  defaultDashboardId:
+    type: string
+    description: ID of the default dashboard for this experiment.
   templateId:
     type: string

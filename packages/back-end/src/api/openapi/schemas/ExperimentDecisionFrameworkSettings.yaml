@@ -1,0 +1,17 @@
+type: object
+properties:
+  decisionCriteriaId:
+    type: string
+  decisionFrameworkMetricOverrides:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: ID of the metric to override settings for.
+        targetMDE:
+          type: number
+          description: The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0.

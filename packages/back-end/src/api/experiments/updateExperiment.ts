@@ -113,6 +113,15 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
+  if (req.body.defaultDashboardId) {
+    const dashboard = await req.context.models.dashboards.getById(
+      req.body.defaultDashboardId,
+    );
+    if (!dashboard) {
+      throw new Error(`Invalid dashboard: ${req.body.defaultDashboardId}`);
+    }
+  }
+
   // Validate that specified metrics exist and belong to the organization
   const metricGroups = await req.context.models.metricGroups.getAll();
   const oldMetricIds = getAllMetricIdsFromExperiment(

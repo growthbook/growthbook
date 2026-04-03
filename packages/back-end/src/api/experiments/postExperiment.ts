@@ -160,6 +160,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       payload.project,
     );
 
+    if (payload.defaultDashboardId) {
+      const dashboard = await req.context.models.dashboards.getById(
+        payload.defaultDashboardId,
+      );
+      if (!dashboard) {
+        throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
+      }
+    }
+
     const ownerId = await (async () => {
       if (!ownerEmail) return req.context.userId;
       const user = await getUserByEmail(ownerEmail);
