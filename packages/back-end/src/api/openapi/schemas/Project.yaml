@@ -17,6 +17,9 @@ properties:
     format: date-time
   description:
     type: string
+  publicId:
+    type: string
+    description: URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.
   settings:
     type: object
     properties:

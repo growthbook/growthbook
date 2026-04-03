@@ -275,6 +275,10 @@ export type SDKPayloadParams = Pick<
   | "hashSecureAttributes"
   | "savedGroupReferencesEnabled"
   | "remoteEvalEnabled"
+  | "includeProjectIdInMetadata"
+  | "includeCustomFieldsInMetadata"
+  | "allowedCustomFieldsInMetadata"
+  | "includeTagsInMetadata"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -313,6 +317,10 @@ export async function getPayloadParamsFromApiKey(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
+      includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: connection.includeTagsInMetadata,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -425,6 +433,10 @@ export async function getFeatureDefinitionsWithCache({
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
       includeRuleIds: params.includeRuleIds,
+      includeProjectIdInMetadata: params.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: params.includeTagsInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined

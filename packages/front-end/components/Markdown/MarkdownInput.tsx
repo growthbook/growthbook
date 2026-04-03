@@ -54,6 +54,7 @@ const MarkdownInput: FC<{
   onCancel?: () => void;
   hidePreview?: boolean;
   showButtons?: boolean;
+  maxRows?: number;
   onAISuggestionReceived?: (result: string) => void;
   trackingSource?: string;
 }> = ({
@@ -72,6 +73,7 @@ const MarkdownInput: FC<{
   onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
+  maxRows = 6,
   onAISuggestionReceived,
   trackingSource,
 }) => {
@@ -225,7 +227,7 @@ const MarkdownInput: FC<{
             <div className="position-relative" {...typedRootProps}>
               <ReactTextareaAutocomplete
                 className="form-control mb-1"
-                rows={6}
+                rows={maxRows}
                 loadingComponent={Loading}
                 minChar={0}
                 dropdownStyle={{
