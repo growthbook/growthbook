@@ -353,20 +353,12 @@ export const addTargetRampSchedule = createApiRequestHandler({
     );
   }
 
-  // Also check untargeted schedules (entityId: "") for prior add-target conflicts.
-  const [featureSchedules, untargetedSchedules] = await Promise.all([
-    req.context.models.rampSchedules.getAllByFeatureId(featureId),
-    schedule.entityId === ""
-      ? req.context.models.rampSchedules.getAllByEntityId("feature", "")
-      : Promise.resolve([] as (typeof schedule)[]),
-  ]);
-  const allSchedules = [
-    ...featureSchedules.filter((s) => s.id !== schedule.id),
-    ...untargetedSchedules.filter((s) => s.id !== schedule.id),
-  ];
-  const conflict = allSchedules.find((s) =>
-    s.targets.some((t) => t.ruleId === ruleId && t.environment === environment),
+  // Query directly on targets[] to catch conflicts regardless of schedule entityId.
+  const conflicting = await req.context.models.rampSchedules.findByTargetRule(
+    ruleId,
+    environment,
   );
+  const conflict = conflicting.find((s) => s.id !== schedule.id);
   if (conflict) {
     throw new Error(
       `Schedule '${conflict.id}' already controls rule '${ruleId}' in environment '${environment}'.`,
@@ -432,6 +424,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   }
 
   if (remaining.length === 0) {
+    // Eject means "stop controlling this rule, leave it as-is" — no rollback, no status guard.
     await req.context.models.rampSchedules.deleteById(schedule.id);
     return { deletedId: schedule.id };
   }
