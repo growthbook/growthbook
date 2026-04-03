@@ -324,6 +324,20 @@ export function getColumnRefFormatter(
   return getColumnFormatter(fact);
 }
 
+const SMART_COMPACT_THRESHOLD = 10000;
+
+function withSmartCompact(
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
+): (value: number, options?: Intl.NumberFormatOptions) => string {
+  return (value: number, options?: Intl.NumberFormatOptions) => {
+    const absValue = Math.abs(value);
+    if (absValue >= SMART_COMPACT_THRESHOLD) {
+      return formatter(value, { ...options, notation: "compact" });
+    }
+    return formatter(value, options);
+  };
+}
+
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
   getFactTableById: (id: string) => FactTableInterface | null,
@@ -380,11 +394,13 @@ export function getExperimentMetricFormatter(
           denominator &&
           numerator.numberFormat === denominator.numberFormat
         ) {
-          return formatNumber;
+          return withSmartCompact(formatNumber);
         }
 
         // Otherwise, just use the numerator to figure out the value type
-        return getColumnRefFormatter(metric.numerator, getFactTableById);
+        return withSmartCompact(
+          getColumnRefFormatter(metric.numerator, getFactTableById),
+        );
       })();
 
     case "quantile":
