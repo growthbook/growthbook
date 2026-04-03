@@ -1579,12 +1579,9 @@ export default function FactMetricModal({
           if (values.numerator.column !== "$$distinctUsers") {
             values.numerator.aggregateFilterColumn = "";
           } else {
-            if (
-              values.cappingSettings?.type === "percentile" ||
-              values.cappingSettings?.lowerType === "percentile"
-            ) {
+            if (values.cappingSettings?.type) {
               throw new Error(
-                "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
+                "Cannot specify both Capping and a User Filter. Please remove one of them.",
               );
             }
           }

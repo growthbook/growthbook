@@ -112,6 +112,11 @@ export async function getUpdateFactMetricPropsFromBody(
         usesUpperPercentile || usesLowerPercentile ? nextIgnoreZeros : false,
       lowerType: nextLowerType,
       lowerValue: cs.lowerValue !== undefined ? cs.lowerValue : prev.lowerValue,
+      lowerIgnoreZeros: usesLowerPercentile
+        ? cs.lowerIgnoreZeros !== undefined
+          ? cs.lowerIgnoreZeros
+          : prev.lowerIgnoreZeros
+        : undefined,
     };
   }
   if (windowSettings) {

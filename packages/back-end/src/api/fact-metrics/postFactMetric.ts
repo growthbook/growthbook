@@ -191,6 +191,10 @@ export async function getCreateMetricPropsFromBody(
       ignoreZeros: ignoreZerosForPercentiles,
       lowerType: lowerActive ? lowType : "",
       lowerValue: lowerActive ? (cs.lowerValue ?? 0) : 0,
+      lowerIgnoreZeros:
+        usesLowerPercentile && cs.lowerIgnoreZeros !== undefined
+          ? cs.lowerIgnoreZeros
+          : undefined,
     };
   }
 
