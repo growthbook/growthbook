@@ -18249,17 +18249,11 @@ export interface operations {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter to schedules attached to a specific feature */
-        /** @description Filter to schedules attached to features in a specific project */
-        /** @description Filter to schedules that target a specific rule ID */
-        /** @description Filter to schedules that target a specific environment (use with ruleId for exact targeting) */
         /** @description Filter by schedule status */
       query: {
         limit?: number;
         offset?: number;
         featureId?: string;
-        project?: string;
-        ruleId?: string;
-        environment?: string;
         status?: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
       };
     };

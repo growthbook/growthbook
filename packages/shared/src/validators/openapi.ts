@@ -704,7 +704,7 @@ export const getSettingsValidator = {
 
 export const listRampSchedulesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "featureId": z.string().optional(), "project": z.string().optional(), "ruleId": z.string().optional(), "environment": z.string().optional(), "status": z.enum(["pending","ready","running","paused","pending-approval","completed","rolled-back"]).optional() }).strict(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "featureId": z.string().optional(), "status": z.enum(["pending","ready","running","paused","pending-approval","completed","rolled-back"]).optional() }).strict(),
   paramsSchema: z.never(),
 };
 

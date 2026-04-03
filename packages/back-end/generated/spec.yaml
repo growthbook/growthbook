@@ -6401,21 +6401,6 @@ paths:
             type: string
           description: Filter to schedules attached to a specific feature
         - in: query
-          name: project
-          schema:
-            type: string
-          description: Filter to schedules attached to features in a specific project
-        - in: query
-          name: ruleId
-          schema:
-            type: string
-          description: Filter to schedules that target a specific rule ID
-        - in: query
-          name: environment
-          schema:
-            type: string
-          description: Filter to schedules that target a specific environment (use with ruleId for exact targeting)
-        - in: query
           name: status
           schema:
             type: string
