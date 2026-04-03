@@ -94,6 +94,10 @@ export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.numbe
 
 export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
 
+export const apiInformationSchemaValidator = z.object({ "id": z.string(), "datasourceId": z.string(), "status": z.enum(["PENDING","COMPLETE"]), "error": z.object({ "errorType": z.enum(["generic","not_supported","missing_params"]), "message": z.string() }).optional(), "databases": z.array(z.object({ "databaseName": z.string(), "path": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "schemas": z.array(z.object({ "schemaName": z.string(), "path": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "tables": z.array(z.object({ "tableName": z.string(), "path": z.string().optional(), "id": z.string(), "numOfColumns": z.coerce.number(), "dateCreated": z.string(), "dateUpdated": z.string() })) })) })), "dateCreated": z.string(), "dateUpdated": z.string() }).strict()
+
+export const apiInformationSchemaTableValidator = z.object({ "id": z.string(), "datasourceId": z.string(), "informationSchemaId": z.string(), "tableName": z.string(), "tableSchema": z.string(), "databaseName": z.string(), "columns": z.array(z.object({ "columnName": z.string(), "dataType": z.string() })), "refreshMS": z.coerce.number(), "dateCreated": z.string(), "dateUpdated": z.string() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional(), "skipPagination": z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1") }).strict(),
@@ -698,4 +702,16 @@ export const getSettingsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+};
+
+export const getInformationSchemaValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "dataSourceId": z.string() }).strict(),
+};
+
+export const getInformationSchemaTableValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "tableId": z.string() }).strict(),
 };
