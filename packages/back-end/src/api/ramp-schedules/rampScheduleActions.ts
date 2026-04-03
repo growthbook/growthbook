@@ -95,7 +95,6 @@ export const pauseRampSchedule = createApiRequestHandler({
 });
 
 // POST /ramp-schedules/:id/actions/resume
-// Note: delegates to the internal controller logic via the same service functions.
 export const resumeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
@@ -132,14 +131,11 @@ export const resumeRampSchedule = createApiRequestHandler({
 
   if (!pausedAtApproval) {
     if (schedule.nextStepAt) {
-      // Shift existing deadline forward by the pause duration.
       resumeUpdates.nextStepAt = new Date(
         schedule.nextStepAt.getTime() + pauseDurationMs,
       );
     } else {
-      // nextStepAt is null (after a rollback or reset).
-      // At start (-1): fire step 0 immediately.
-      // Mid-schedule: rebase phaseStartedAt and recompute next step timer from now.
+      // nextStepAt is null after a rollback: rebase phase timing from now.
       const nextStepIndex = schedule.currentStepIndex + 1;
       if (schedule.currentStepIndex === -1) {
         resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
@@ -182,7 +178,6 @@ export const resumeRampSchedule = createApiRequestHandler({
 });
 
 // POST /ramp-schedules/:id/actions/jump
-// Jump to an exact step index (forward or backward). Pauses after landing.
 export const jumpRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema.extend({
@@ -206,9 +201,7 @@ export const jumpRampSchedule = createApiRequestHandler({
 
   const now = new Date();
 
-  // Rebase phaseStartedAt so the landed step's hold timer runs from "now".
-  // phaseStartedAt = now - sum(interval[0..target-1]) means the next step fires
-  // at now + steps[target].seconds, which is the expected behavior after landing.
+  // phaseStartedAt = now - sum(intervals before target) so the next step fires at now + target.seconds
   const freshPhaseStartedAt = (() => {
     if (targetStepIndex <= 0) return now;
     let elapsed = 0;
@@ -256,7 +249,6 @@ export const jumpRampSchedule = createApiRequestHandler({
 });
 
 // POST /ramp-schedules/:id/actions/complete
-// "Complete rollout" — jumps to last step or applies endCondition immediately
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
@@ -277,7 +269,6 @@ export const completeRampSchedule = createApiRequestHandler({
 });
 
 // POST /ramp-schedules/:id/actions/approve-step
-// Approve the current pending-approval gate and advance to the next step.
 export const approveStepRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
@@ -307,9 +298,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   return { rampSchedule: updated };
 });
 
-// POST /ramp-schedules/:id/actions/rollback
-// Roll back to the very beginning (-1) and land in "paused" so the schedule
-// can be restarted via /actions/start or /actions/resume.
+// POST /ramp-schedules/:id/actions/rollback — lands in "paused" so it can be restarted
 export const rollbackRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
@@ -322,30 +311,23 @@ export const rollbackRampSchedule = createApiRequestHandler({
   const isTerminal = ["completed", "rolled-back"].includes(schedule.status);
   const now = new Date();
 
-  // Roll back rule patches if the schedule has progressed past step 0.
   const rolled =
     schedule.currentStepIndex >= 0
       ? await rollbackToStep(req.context, schedule, -1)
       : schedule;
 
-  // Override the terminal "rolled-back" status to "paused" so it can be restarted.
-  // Note: rollbackToStep already dispatches rampSchedule.actions.rolledBack above,
-  // so we skip a second dispatch here to avoid duplicate audit entries.
+  // rollbackToStep already dispatches rolledBack; override to "paused" so it can be restarted.
   const updated = await req.context.models.rampSchedules.updateById(rolled.id, {
     status: "paused",
     pausedAt: now,
     nextProcessAt: null,
-    // Clear timing anchors for terminal restarts so resume begins fresh.
     ...(isTerminal && { startedAt: null, phaseStartedAt: null }),
   });
 
   return { rampSchedule: updated };
 });
 
-// POST /ramp-schedules/:id/actions/add-target
-// Attach an additional feature rule to this ramp schedule as a new target.
-// Enforces the 1:1 constraint: each [featureId, ruleId, environment] combo
-// can only be controlled by one schedule at a time.
+// POST /ramp-schedules/:id/actions/add-target — enforces 1:1 [ruleId, environment] per schedule
 export const addTargetRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z.object({
@@ -361,7 +343,6 @@ export const addTargetRampSchedule = createApiRequestHandler({
 
   const { featureId, ruleId, environment } = req.body;
 
-  // Verify the feature and rule exist.
   const feature = await getFeature(req.context, featureId);
   if (!feature) throw new Error(`Feature '${featureId}' not found`);
   const envRules = feature.environmentSettings?.[environment]?.rules ?? [];
@@ -372,9 +353,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     );
   }
 
-  // Enforce 1:1 across all schedules for this feature.
-  // Also check target-less schedules (entityId: "") since they may already
-  // carry a conflicting target from a previous add-target call.
+  // Also check untargeted schedules (entityId: "") for prior add-target conflicts.
   const [featureSchedules, untargetedSchedules] = await Promise.all([
     req.context.models.rampSchedules.getAllByFeatureId(featureId),
     schedule.entityId === ""
@@ -403,9 +382,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     status: "active" as const,
   };
 
-  // When adding the first target to a targetless schedule:
-  // - set entityId so it's discoverable via getAllByFeatureId
-  // - transition pending → ready so the schedule can be started
+  // First target: set entityId for discoverability and transition pending → ready.
   const isFirstTarget = schedule.targets.length === 0;
   const entityUpdate = schedule.entityId === "" ? { entityId: featureId } : {};
   const statusUpdate =
@@ -425,10 +402,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   return { rampSchedule: updated };
 });
 
-// POST /ramp-schedules/:id/actions/eject-target
-// Remove a target from this schedule. The target may be identified by its
-// `targetId`, or by the `[ruleId, environment]` pair. If removing this target
-// would leave the schedule with no targets, the schedule is deleted entirely.
+// POST /ramp-schedules/:id/actions/eject-target — deletes schedule if last target removed
 export const ejectTargetRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: z

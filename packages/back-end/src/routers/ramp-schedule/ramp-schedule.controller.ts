@@ -431,8 +431,7 @@ export const postRampScheduleAction = async (
         schedule.currentStepIndex >= 0
           ? await rollbackToStep(context, schedule, -1)
           : schedule;
-      // Note: rollbackToStep already dispatches rampSchedule.actions.rolledBack
-      // above, so we skip a second dispatch here to avoid duplicate audit entries.
+      // rollbackToStep already dispatches rolledBack; override status to "paused".
       updated = await context.models.rampSchedules.updateById(resetRolled.id, {
         status: "paused",
         pausedAt: now,

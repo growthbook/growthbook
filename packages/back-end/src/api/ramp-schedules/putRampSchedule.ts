@@ -8,8 +8,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { computeNextProcessAt } from "back-end/src/services/rampSchedule";
 
-// Step action where targetId is optional — when omitted (or "t1"), it is
-// resolved to the schedule's single active target at request time.
+// omitted or "t1" targetId is resolved to the schedule's single active target
 const putBodyAction = rampStepAction
   .omit({ targetId: true })
   .extend({ targetId: z.string().optional() });
@@ -64,13 +63,11 @@ export const putRampSchedule = createApiRequestHandler(
   const updates: Record<string, unknown> = {};
   const body = req.body;
 
-  // Resolve omitted / "t1" targetId placeholders to the schedule's active target UUID.
   const resolveTargetId = (
     action: z.infer<typeof putBodyAction>,
   ): RampStepAction => {
     const tid = action.targetId;
     if (tid && tid !== "t1") {
-      // Validate that the explicitly supplied targetId actually exists on this schedule.
       if (!schedule.targets.some((t) => t.id === tid)) {
         throw new Error(
           `targetId '${tid}' does not exist on this ramp schedule. Use the id from schedule.targets[].id.`,

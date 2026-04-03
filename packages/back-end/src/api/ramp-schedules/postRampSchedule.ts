@@ -11,10 +11,8 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { dispatchRampEvent } from "back-end/src/services/rampSchedule";
 
-// Relaxed step action for the POST body:
-// - targetId and patch.ruleId are optional when featureId+ruleId+environment are
-//   provided at the top level (they are auto-injected server-side).
-// - When creating a standalone schedule with no target, callers must supply them.
+// targetId and patch.ruleId are auto-injected when top-level featureId/ruleId/environment
+// are set; for standalone schedules the caller must supply them explicitly.
 const postBodyAction = z.object({
   targetType: z.literal("feature-rule").optional(),
   targetId: z.string().optional(),
@@ -38,14 +36,7 @@ const postRampScheduleValidator = {
   bodySchema: z
     .object({
       name: z.string(),
-      // The feature that anchors this schedule for entity/permissions purposes.
-      // Optional — if omitted the schedule is a free-standing skeleton until
-      // a target is added via /actions/add-target.
       featureId: z.string().optional(),
-      // The specific rule and environment to attach as the initial target.
-      // Both must be provided together; require featureId if set.
-      // When provided, targetId and patch.ruleId are auto-injected into all
-      // step actions and endActions so callers only need to supply patch values.
       ruleId: z.string().optional(),
       environment: z.string().optional(),
       steps: z.array(postBodyStep).optional(),
@@ -85,10 +76,7 @@ const postRampScheduleValidator = {
     }),
 };
 
-/**
- * Returns true if the JSON type of `value` matches the feature's `valueType`.
- * Used to filter `force` values from templates that are incompatible.
- */
+// Returns true if the JSON type of `value` matches the feature's `valueType`.
 function forceMatchesValueType(
   value: unknown,
   valueType: FeatureInterface["valueType"],
@@ -102,10 +90,7 @@ function forceMatchesValueType(
   return false;
 }
 
-/**
- * Remaps template step actions to use the real targetId and ruleId,
- * and strips `force` values that don't match the feature's valueType.
- */
+// Remaps template actions to the real targetId/ruleId; strips incompatible `force` values.
 function remapTemplateActions(
   actions: RampScheduleTemplateInterface["steps"][number]["actions"],
   targetId: string,
@@ -122,7 +107,7 @@ function remapTemplateActions(
   });
 }
 
-/** Converts an API trigger (ISO string dates) to the DB trigger form. */
+// Converts an API trigger (ISO string dates) to the DB trigger form.
 function normalizeApiTrigger(trigger: {
   type: string;
   seconds?: number;
@@ -137,10 +122,6 @@ function normalizeApiTrigger(trigger: {
   return { type: "approval" };
 }
 
-/**
- * Converts a relaxed POST body action to a full RampStepAction.
- * Used when no target is being auto-created — caller must supply targetId.
- */
 function normalizeAction(action: PostBodyAction): RampStepAction {
   return {
     targetType: "feature-rule" as const,
@@ -149,11 +130,7 @@ function normalizeAction(action: PostBodyAction): RampStepAction {
   };
 }
 
-/**
- * Injects targetId and ruleId into a caller-supplied action.
- * Caller-supplied values are overridden — the server is the source of truth for
- * which target and rule an action applies to when using top-level shorthand.
- */
+// Overrides targetId and ruleId from top-level shorthand fields.
 function injectTarget(
   action: PostBodyAction,
   targetId: string,
@@ -171,10 +148,8 @@ export const postRampSchedule = createApiRequestHandler(
 )(async (req) => {
   const body = req.body;
 
-  // The UI gates ramp schedule creation at Pro ("schedule-feature-flag") because
-  // simple schedules and ramp schedules share infrastructure there. The REST API
-  // uses the stricter Enterprise ("ramp-schedules") gate: programmatic creation
-  // is an advanced workflow that belongs in the Enterprise tier.
+  // REST uses Enterprise ("ramp-schedules"); the dashboard uses Pro ("schedule-feature-flag")
+  // because simple schedules share infrastructure there.
   if (!req.context.hasPremiumFeature("ramp-schedules")) {
     req.context.throwPlanDoesNotAllowError(
       "Ramp schedules require an Enterprise plan.",
@@ -183,7 +158,6 @@ export const postRampSchedule = createApiRequestHandler(
 
   const hasTarget = !!(body.featureId && body.ruleId && body.environment);
 
-  // --- Target validation (only when featureId+ruleId+environment are provided) ---
   let targetId: string | undefined;
   let feature: FeatureInterface | null = null;
 
@@ -205,7 +179,6 @@ export const postRampSchedule = createApiRequestHandler(
       );
     }
 
-    // Enforce 1:1 — fail if a schedule already targets this rule in this environment
     const existing = await req.context.models.rampSchedules.getAllByFeatureId(
       body.featureId!,
     );
@@ -224,7 +197,6 @@ export const postRampSchedule = createApiRequestHandler(
     targetId = uuidv4();
   }
 
-  // --- Template loading ---
   let template: RampScheduleTemplateInterface | undefined;
   if (body.templateId) {
     const tmpl = await req.context.models.rampScheduleTemplates.getById(
@@ -238,8 +210,7 @@ export const postRampSchedule = createApiRequestHandler(
 
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
-  // --- Resolve steps ---
-  // Priority: explicit body steps → template steps (only when target is known) → []
+  // body steps → template steps (when target known) → []
   const resolvedSteps: RampScheduleInterface["steps"] = (() => {
     if (body.steps !== undefined) {
       return body.steps.map((s) => ({
@@ -267,7 +238,6 @@ export const postRampSchedule = createApiRequestHandler(
     return [];
   })();
 
-  // --- Resolve endActions ---
   const resolvedEndActions: RampStepAction[] | undefined = (() => {
     if (body.endActions !== undefined) {
       return body.endActions.map((a) =>
@@ -292,7 +262,6 @@ export const postRampSchedule = createApiRequestHandler(
     return undefined;
   })();
 
-  // --- Resolve end condition ---
   const rawEndTrigger = body.endCondition?.trigger;
   const endTrigger = rawEndTrigger
     ? {
