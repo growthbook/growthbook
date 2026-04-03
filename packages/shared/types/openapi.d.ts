@@ -276,6 +276,20 @@ export interface paths {
       };
     };
   };
+  "/namespaces": {
+    /** Get all namespaces */
+    get: operations["listNamespaces"];
+    /** Create a single namespace */
+    post: operations["postNamespace"];
+  };
+  "/namespaces/{id}": {
+    /** Get a single namespace */
+    get: operations["getNamespace"];
+    /** Update a single namespace */
+    put: operations["putNamespace"];
+    /** Delete a single namespace */
+    delete: operations["deleteNamespace"];
+  };
   "/saved-groups": {
     /** Get all saved group */
     get: operations["listSavedGroups"];
@@ -5055,6 +5069,19 @@ export interface components {
           /** @description The feature flag key referenced */
           flagKey: string;
         })[];
+    };
+    Namespace: {
+      /** @description The unique identifier for the namespace (e.g. ns-abc123) */
+      name: string;
+      /** @description The display name of the namespace */
+      label: string;
+      /** @description A description of what the namespace is used for */
+      description: string;
+      /**
+       * @description Whether the namespace is active or inactive 
+       * @enum {string}
+       */
+      status: "active" | "inactive";
     };
   };
   responses: {
@@ -12988,6 +13015,162 @@ export interface operations {
       };
     };
   };
+  listNamespaces: {
+    /** Get all namespaces */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            namespaces: ({
+                /** @description The unique identifier for the namespace (e.g. ns-abc123) */
+                name: string;
+                /** @description The display name of the namespace */
+                label: string;
+                /** @description A description of what the namespace is used for */
+                description: string;
+                /**
+                 * @description Whether the namespace is active or inactive 
+                 * @enum {string}
+                 */
+                status: "active" | "inactive";
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postNamespace: {
+    /** Create a single namespace */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the namespace */
+          label: string;
+          /** @description A description of what the namespace is used for */
+          description: string;
+          /**
+           * @description Whether the namespace is active or inactive 
+           * @enum {string}
+           */
+          status: "active" | "inactive";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            namespace: {
+              /** @description The unique identifier for the namespace (e.g. ns-abc123) */
+              name: string;
+              /** @description The display name of the namespace */
+              label: string;
+              /** @description A description of what the namespace is used for */
+              description: string;
+              /**
+               * @description Whether the namespace is active or inactive 
+               * @enum {string}
+               */
+              status: "active" | "inactive";
+            };
+          };
+        };
+      };
+    };
+  };
+  getNamespace: {
+    /** Get a single namespace */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            namespace: {
+              /** @description The unique identifier for the namespace (e.g. ns-abc123) */
+              name: string;
+              /** @description The display name of the namespace */
+              label: string;
+              /** @description A description of what the namespace is used for */
+              description: string;
+              /**
+               * @description Whether the namespace is active or inactive 
+               * @enum {string}
+               */
+              status: "active" | "inactive";
+            };
+          };
+        };
+      };
+    };
+  };
+  putNamespace: {
+    /** Update a single namespace */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the namespace */
+          label: string;
+          /** @description A description of what the namespace is used for */
+          description: string;
+          /**
+           * @description Whether the namespace is active or inactive 
+           * @enum {string}
+           */
+          status: "active" | "inactive";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            namespace: {
+              /** @description The unique identifier for the namespace (e.g. ns-abc123) */
+              name: string;
+              /** @description The display name of the namespace */
+              label: string;
+              /** @description A description of what the namespace is used for */
+              description: string;
+              /**
+               * @description Whether the namespace is active or inactive 
+               * @enum {string}
+               */
+              status: "active" | "inactive";
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteNamespace: {
+    /** Delete a single namespace */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listSavedGroups: {
     /** Get all saved group */
     parameters: {
@@ -20450,6 +20633,7 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiNamespace = z.infer<typeof openApiValidators.apiNamespaceValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -20507,6 +20691,11 @@ export type GetVisualChangesetResponse = operations["getVisualChangeset"]["respo
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
+export type ListNamespacesResponse = operations["listNamespaces"]["responses"]["200"]["content"]["application/json"];
+export type PostNamespaceResponse = operations["postNamespace"]["responses"]["200"]["content"]["application/json"];
+export type GetNamespaceResponse = operations["getNamespace"]["responses"]["200"]["content"]["application/json"];
+export type PutNamespaceResponse = operations["putNamespace"]["responses"]["200"]["content"]["application/json"];
+export type DeleteNamespaceResponse = operations["deleteNamespace"]["responses"]["200"]["content"]["application/json"];
 export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]["200"]["content"]["application/json"];
 export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];

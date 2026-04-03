@@ -94,6 +94,8 @@ export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.numbe
 
 export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
 
+export const apiNamespaceValidator = z.object({ "name": z.string().describe("The unique identifier for the namespace (e.g. ns-abc123)"), "label": z.string().describe("The display name of the namespace"), "description": z.string().describe("A description of what the namespace is used for"), "status": z.enum(["active","inactive"]).describe("Whether the namespace is active or inactive") }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "clientKey": z.string().optional(), "skipPagination": z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(false).transform((v) => v === true || v === "true" || v === "1") }).strict(),
@@ -422,6 +424,36 @@ export const putVisualChangeValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string(), "visualChangeId": z.string() }).strict(),
+};
+
+export const listNamespacesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const postNamespaceValidator = {
+  bodySchema: z.object({ "label": z.string().describe("The display name of the namespace"), "description": z.string().describe("A description of what the namespace is used for"), "status": z.enum(["active","inactive"]).describe("Whether the namespace is active or inactive") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getNamespaceValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const putNamespaceValidator = {
+  bodySchema: z.object({ "label": z.string().describe("The display name of the namespace"), "description": z.string().describe("A description of what the namespace is used for"), "status": z.enum(["active","inactive"]).describe("Whether the namespace is active or inactive") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteNamespaceValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
 export const listSavedGroupsValidator = {
