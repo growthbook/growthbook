@@ -5,6 +5,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
+import CurrentDailyUsage from "./CurrentDailyUsage";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -241,6 +242,7 @@ export default function ConversationSidebar({
             )}
           </Flex>
         </ScrollArea>
+        <CurrentDailyUsage />
       </Flex>
     </Flex>
   );
