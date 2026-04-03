@@ -129,11 +129,13 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
 
-  // Resolve bypass: explicit bypassApproval=true requires the bypass permission;
-  // org-level restApiBypassesReviews continues to work as a global escape hatch.
+  // Resolve bypass. Org-level restApiBypassesReviews is a global escape hatch;
+  // when it's already on, bypassApproval=true is a no-op and we don't enforce
+  // the per-key bypass permission (otherwise clients that always send the flag
+  // would 403 on orgs where the toggle is enabled but the key lacks the perm).
   const orgBypass = !!org.settings?.restApiBypassesReviews;
   let canBypass = orgBypass;
-  if (bypassApproval) {
+  if (bypassApproval && !orgBypass) {
     if (!context.permissions.canBypassApprovalChecks(feature)) {
       throw new PermissionError(
         "API key does not have the 'bypassApprovalChecks' permission required to set bypassApproval=true.",

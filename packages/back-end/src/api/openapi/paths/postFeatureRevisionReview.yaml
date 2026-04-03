@@ -1,8 +1,11 @@
 summary: Submit a review for a feature revision
 description: |
   Combined "submit for review" + "review submission" endpoint. Approves, requests changes on,
-  or adds a comment to a feature revision in any status (`draft`, `pending-review`,
-  `changes-requested`, or `approved`).
+  or adds a comment to a feature revision.
+
+  `Approved` and `Requested Changes` are only accepted on revisions in `draft`, `pending-review`,
+  `changes-requested`, or `approved` status. `Comment` is accepted on any status (including
+  `published` and `discarded`) — matching the dashboard, where comments can be added at any time.
 
   When called on a `draft` revision with `Approved` or `Requested Changes`, the revision is
   implicitly submitted for review and then immediately moved to the requested status —
