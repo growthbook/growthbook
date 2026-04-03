@@ -16,7 +16,6 @@ export const deleteRampSchedule = createApiRequestHandler(
     throw new Error("Ramp schedule not found");
   }
 
-  // Do not allow deletion of running schedules to avoid orphaned revisions
   if (["running", "pending-approval"].includes(schedule.status)) {
     throw new Error(
       `Cannot delete a ramp schedule in status "${schedule.status}". Pause or complete the schedule first.`,

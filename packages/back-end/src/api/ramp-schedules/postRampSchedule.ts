@@ -104,16 +104,14 @@ function remapTemplateActions(
   });
 }
 
-function normalizeApiTrigger(trigger: {
-  type: string;
-  seconds?: number;
-  at?: string;
-}): RampScheduleInterface["steps"][number]["trigger"] {
+function normalizeApiTrigger(
+  trigger: z.infer<typeof apiRampTrigger>,
+): RampScheduleInterface["steps"][number]["trigger"] {
   if (trigger.type === "scheduled") {
-    return { type: "scheduled", at: new Date(trigger.at!) };
+    return { type: "scheduled", at: new Date(trigger.at) };
   }
   if (trigger.type === "interval") {
-    return { type: "interval", seconds: trigger.seconds! };
+    return { type: "interval", seconds: trigger.seconds };
   }
   return { type: "approval" };
 }
@@ -175,17 +173,13 @@ export const postRampSchedule = createApiRequestHandler(
       );
     }
 
-    const existing = await req.context.models.rampSchedules.getAllByFeatureId(
-      body.featureId!,
+    const conflicting = await req.context.models.rampSchedules.findByTargetRule(
+      body.ruleId!,
+      body.environment!,
     );
-    const alreadyAttached = existing.find((s) =>
-      s.targets.some(
-        (t) => t.ruleId === body.ruleId && t.environment === body.environment,
-      ),
-    );
-    if (alreadyAttached) {
+    if (conflicting.length > 0) {
       throw new Error(
-        `A ramp schedule (${alreadyAttached.id}) already controls rule '${body.ruleId}' ` +
+        `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}' ` +
           `in environment '${body.environment}'. Delete it first before creating a new one.`,
       );
     }
