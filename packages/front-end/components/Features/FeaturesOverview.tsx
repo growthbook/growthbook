@@ -860,28 +860,7 @@ export default function FeaturesOverview({
             )}
           </Flex>
         </Flex>
-        <CoAuthors
-          rev={{
-            ...revision,
-            contributors: [
-              {
-                type: "dashboard",
-                id: "stub-1",
-                email: "alice@example.com",
-                name: "Alice",
-              },
-              {
-                type: "dashboard",
-                id: "stub-2",
-                email: "bob@example.com",
-                name: "Bob",
-              },
-              { type: "api_key", apiKey: "secret_stub123" },
-            ],
-          }}
-          mt="3"
-          mb="3"
-        />
+        <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <span
             className={metaDataStyles.labelColor}
