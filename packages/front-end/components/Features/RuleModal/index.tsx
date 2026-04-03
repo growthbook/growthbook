@@ -1024,7 +1024,15 @@ export default function RuleModal({
                   steps: buildRampSteps(rampState.steps, "t1", ruleId),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
-                    : undefined,
+                    : rampState.endScheduleAt
+                      ? [
+                          {
+                            targetType: "feature-rule" as const,
+                            targetId: "t1",
+                            patch: { ruleId, enabled: false },
+                          },
+                        ]
+                      : undefined,
                   startDate: rampState.startDate || null,
                   endCondition:
                     isScheduleMode && rampState.endScheduleAt
@@ -1058,7 +1066,18 @@ export default function RuleModal({
                   ),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
-                    : undefined,
+                    : rampState.endScheduleAt
+                      ? [
+                          {
+                            targetType: "feature-rule" as const,
+                            targetId:
+                              ruleRampSchedule.targets.find(
+                                (t) => t.status === "active",
+                              )?.id ?? "t1",
+                            patch: { ruleId, enabled: false },
+                          },
+                        ]
+                      : undefined,
                   startDate: rampState.startDate || null,
                   endCondition:
                     isScheduleMode && rampState.endScheduleAt
@@ -1145,7 +1164,15 @@ export default function RuleModal({
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               endActions: !isScheduleMode
                 ? buildEndActions(rampState.endPatch, effectiveRuleId)
-                : undefined,
+                : rampState.endScheduleAt
+                  ? [
+                      {
+                        targetType: "feature-rule" as const,
+                        targetId: "t1",
+                        patch: { ruleId: effectiveRuleId, enabled: false },
+                      },
+                    ]
+                  : undefined,
               startDate: rampState.startDate || null,
               endCondition:
                 isScheduleMode && rampState.endScheduleAt

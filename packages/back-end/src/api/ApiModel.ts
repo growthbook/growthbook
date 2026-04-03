@@ -78,6 +78,12 @@ export type OpenApiModelSpec<
   crudActions?: CrudAction[];
   crudValidatorOverrides?: Partial<CrudValidatorShapes<T>>;
   customEndpoints?: OpenApiEndpointSpec[];
+  /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
+  navDisplayName?: string;
+  /** Short description shown under the nav label in the docs. */
+  navDescription?: string;
+  /** If set, inserts this resource's nav tag immediately after the named tag in the left nav. */
+  navAfterTag?: string;
 };
 
 /**

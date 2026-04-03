@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 import {
-  advanceStep,
   advanceUntilBlocked,
+  approveAndPublishStep,
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
@@ -9,6 +10,7 @@ import {
   jumpAheadToStep,
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const actionParamsSchema = z.object({ id: z.string() });
@@ -158,63 +160,6 @@ export const resumeRampSchedule = createApiRequestHandler({
   return { rampSchedule: updated };
 });
 
-// POST /ramp-schedules/:id/actions/advance
-export const advanceRampSchedule = createApiRequestHandler({
-  paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
-})(async (req) => {
-  const schedule = await req.context.models.rampSchedules.getById(
-    req.params.id,
-  );
-  if (!schedule) throw new Error("Ramp schedule not found");
-  if (!["running", "paused"].includes(schedule.status)) {
-    throw new Error(
-      `Cannot manually advance a ramp schedule in status "${schedule.status}"`,
-    );
-  }
-
-  // Rebase phaseStartedAt when advancing from paused so nextStepAt stays in the future.
-  let scheduleToAdvance = schedule;
-  if (schedule.status === "paused") {
-    const now = new Date();
-    const nextStepIndex = schedule.currentStepIndex + 1;
-    let elapsed = 0;
-    for (let i = 0; i < nextStepIndex; i++) {
-      const t = schedule.steps[i]?.trigger;
-      if (t?.type === "interval") elapsed += t.seconds;
-    }
-    const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
-    scheduleToAdvance = await req.context.models.rampSchedules.updateById(
-      schedule.id,
-      {
-        status: "running",
-        phaseStartedAt: freshPhaseStart,
-        pausedAt: null,
-      },
-    );
-  }
-
-  const advanced = await advanceStep(req.context, scheduleToAdvance);
-
-  return { rampSchedule: advanced };
-});
-
-// POST /ramp-schedules/:id/actions/rollback
-// Always rolls back to the very beginning (-1). Use /actions/jump to land at a specific step.
-export const rollbackRampSchedule = createApiRequestHandler({
-  paramsSchema: actionParamsSchema,
-  bodySchema: attributionBodySchema,
-})(async (req) => {
-  const schedule = await req.context.models.rampSchedules.getById(
-    req.params.id,
-  );
-  if (!schedule) throw new Error("Ramp schedule not found");
-
-  const rolledBack = await rollbackToStep(req.context, schedule, -1);
-
-  return { rampSchedule: rolledBack };
-});
-
 // POST /ramp-schedules/:id/actions/jump
 // Jump to an exact step index (forward or backward). Pauses after landing.
 export const jumpRampSchedule = createApiRequestHandler({
@@ -287,4 +232,205 @@ export const completeRampSchedule = createApiRequestHandler({
   const completed = await completeRollout(req.context, schedule);
 
   return { rampSchedule: completed };
+});
+
+// POST /ramp-schedules/:id/actions/approve-step
+// Approve the current pending-approval gate and advance to the next step.
+export const approveStepRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: attributionBodySchema,
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+  if (schedule.status !== "pending-approval") {
+    throw new Error(
+      `Cannot approve step: schedule is not in "pending-approval" status (currently "${schedule.status}")`,
+    );
+  }
+
+  const err = await approveAndPublishStep(req.context, schedule);
+  if (err) {
+    const detail = "detail" in err ? err.detail : undefined;
+    if (err.code === "permission_denied") {
+      throw new Error(`Permission denied: ${detail ?? err.code}`);
+    }
+    throw new Error(detail ?? err.code);
+  }
+
+  const updated =
+    (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
+
+  return { rampSchedule: updated };
+});
+
+// POST /ramp-schedules/:id/actions/rollback
+// Roll back to the very beginning (-1) and land in "paused" so the schedule
+// can be restarted via /actions/start or /actions/resume.
+export const rollbackRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: attributionBodySchema,
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  const isTerminal = ["completed", "rolled-back"].includes(schedule.status);
+  const now = new Date();
+
+  // Roll back rule patches if the schedule has progressed past step 0.
+  const rolled =
+    schedule.currentStepIndex >= 0
+      ? await rollbackToStep(req.context, schedule, -1)
+      : schedule;
+
+  // Override the terminal "rolled-back" status to "paused" so it can be restarted.
+  const updated = await req.context.models.rampSchedules.updateById(rolled.id, {
+    status: "paused",
+    pausedAt: now,
+    nextProcessAt: null,
+    // Clear timing anchors for terminal restarts so resume begins fresh.
+    ...(isTerminal && { startedAt: null, phaseStartedAt: null }),
+  });
+
+  await dispatchRampEvent(
+    req.context,
+    updated,
+    "rampSchedule.actions.rolledBack",
+    {
+      object: {
+        rampScheduleId: updated.id,
+        rampName: updated.name,
+        orgId: req.context.org.id,
+        currentStepIndex: updated.currentStepIndex,
+        status: updated.status,
+        targetStepIndex: -1,
+      },
+    },
+  );
+
+  return { rampSchedule: updated };
+});
+
+// POST /ramp-schedules/:id/actions/add-target
+// Attach an additional feature rule to this ramp schedule as a new target.
+// Enforces the 1:1 constraint: each [featureId, ruleId, environment] combo
+// can only be controlled by one schedule at a time.
+export const addTargetRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.object({
+    featureId: z.string(),
+    ruleId: z.string(),
+    environment: z.string(),
+  }),
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  const { featureId, ruleId, environment } = req.body;
+
+  // Verify the feature and rule exist.
+  const feature = await getFeature(req.context, featureId);
+  if (!feature) throw new Error(`Feature '${featureId}' not found`);
+  const envRules = feature.environmentSettings?.[environment]?.rules ?? [];
+  if (!envRules.find((r) => r.id === ruleId)) {
+    throw new Error(
+      `Rule '${ruleId}' not found in environment '${environment}'. ` +
+        `The rule must be published before attaching a ramp schedule.`,
+    );
+  }
+
+  // Enforce 1:1 across all schedules for this feature.
+  // Also check target-less schedules (entityId: "") since they may already
+  // carry a conflicting target from a previous add-target call.
+  const [featureSchedules, untargetedSchedules] = await Promise.all([
+    req.context.models.rampSchedules.getAllByFeatureId(featureId),
+    schedule.entityId === ""
+      ? req.context.models.rampSchedules.getAllByEntityId("feature", "")
+      : Promise.resolve([] as typeof schedule[]),
+  ]);
+  const allSchedules = [
+    ...featureSchedules,
+    ...untargetedSchedules.filter((s) => s.id !== schedule.id),
+  ];
+  const conflict = allSchedules.find((s) =>
+    s.targets.some(
+      (t) => t.ruleId === ruleId && t.environment === environment,
+    ),
+  );
+  if (conflict) {
+    throw new Error(
+      `Schedule '${conflict.id}' already controls rule '${ruleId}' in environment '${environment}'.`,
+    );
+  }
+
+  const newTarget = {
+    id: uuidv4(),
+    entityType: "feature" as const,
+    entityId: featureId,
+    ruleId,
+    environment,
+    status: "active" as const,
+  };
+
+  // When adding the first target to a targetless schedule, also set entityId
+  // so the schedule is discoverable via getAllByFeatureId going forward.
+  const entityUpdate =
+    schedule.entityId === "" ? { entityId: featureId } : {};
+
+  const updated = await req.context.models.rampSchedules.updateById(
+    schedule.id,
+    { targets: [...schedule.targets, newTarget], ...entityUpdate },
+  );
+
+  return { rampSchedule: updated };
+});
+
+// POST /ramp-schedules/:id/actions/eject-target
+// Remove a target from this schedule. The target may be identified by its
+// `targetId`, or by the `[ruleId, environment]` pair. If removing this target
+// would leave the schedule with no targets, the schedule is deleted entirely.
+export const ejectTargetRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z
+    .object({
+      targetId: z.string().optional(),
+      ruleId: z.string().optional(),
+      environment: z.string().optional(),
+    })
+    .refine((b) => b.targetId || (b.ruleId && b.environment), {
+      message: "Provide either targetId or both ruleId and environment",
+    }),
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  const { targetId, ruleId, environment } = req.body;
+
+  const remaining = schedule.targets.filter((t) => {
+    if (targetId) return t.id !== targetId;
+    return !(t.ruleId === ruleId && t.environment === environment);
+  });
+
+  if (remaining.length === schedule.targets.length) {
+    throw new Error("No matching target found on this schedule");
+  }
+
+  if (remaining.length === 0) {
+    await req.context.models.rampSchedules.deleteById(schedule.id);
+    return { deleted: true, rampScheduleId: schedule.id };
+  }
+
+  const updated = await req.context.models.rampSchedules.updateById(
+    schedule.id,
+    { targets: remaining },
+  );
+
+  return { rampSchedule: updated };
 });

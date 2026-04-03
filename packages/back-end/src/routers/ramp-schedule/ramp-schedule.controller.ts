@@ -413,10 +413,6 @@ export const postRampScheduleAction = async (
       break;
     }
 
-    case "rollback":
-      updated = await rollbackToStep(context, schedule, -1);
-      break;
-
     case "complete":
       if (["completed", "rolled-back"].includes(schedule.status)) {
         return res.status(400).json({
