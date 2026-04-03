@@ -26527,8 +26527,6 @@ components:
                   type: string
               sql:
                 type: string
-        informationSchemaId:
-          type: string
         mixpanelSettings:
           type: object
           required:

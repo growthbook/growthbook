@@ -4568,7 +4568,6 @@ export interface components {
           identifierTypes: (string)[];
           sql: string;
         })[];
-      informationSchemaId?: string;
       mixpanelSettings?: {
         viewedExperimentEventName: string;
         experimentIdProperty: string;
@@ -10550,7 +10549,6 @@ export interface operations {
                     identifierTypes: (string)[];
                     sql: string;
                   })[];
-                informationSchemaId?: string;
                 mixpanelSettings?: {
                   viewedExperimentEventName: string;
                   experimentIdProperty: string;
@@ -10604,7 +10602,6 @@ export interface operations {
                   identifierTypes: (string)[];
                   sql: string;
                 })[];
-              informationSchemaId?: string;
               mixpanelSettings?: {
                 viewedExperimentEventName: string;
                 experimentIdProperty: string;

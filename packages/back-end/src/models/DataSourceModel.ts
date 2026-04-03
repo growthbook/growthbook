@@ -499,9 +499,6 @@ export function toDataSourceApiInterface(
       }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
-    ...(settings?.informationSchemaId
-      ? { informationSchemaId: settings.informationSchemaId }
-      : {}),
   };
 
   if (datasource.type === "mixpanel") {
