@@ -19945,6 +19945,202 @@ paths:
                         - statsEngine
                         - targeting
                       additionalProperties: false
+  /experiment-templates/bulk-import:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - ExperimentTemplates
+      summary: Bulk create or update experiment templates
+      operationId: bulkImportExperimentTemplates
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/experiment-templates/bulk-import -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                templates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        type: object
+                        properties:
+                          project:
+                            type: string
+                          owner:
+                            type: string
+                          templateMetadata:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              description:
+                                type: string
+                            required:
+                              - name
+                            additionalProperties: false
+                          type:
+                            type: string
+                            enum:
+                              - standard
+                          hypothesis:
+                            type: string
+                          description:
+                            type: string
+                          tags:
+                            type: array
+                            items:
+                              type: string
+                          customFields:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          datasource:
+                            type: string
+                          exposureQueryId:
+                            type: string
+                          hashAttribute:
+                            type: string
+                          fallbackAttribute:
+                            type: string
+                          disableStickyBucketing:
+                            type: boolean
+                          goalMetrics:
+                            type: array
+                            items:
+                              type: string
+                          secondaryMetrics:
+                            type: array
+                            items:
+                              type: string
+                          guardrailMetrics:
+                            type: array
+                            items:
+                              type: string
+                          activationMetric:
+                            type: string
+                          statsEngine:
+                            type: string
+                            enum:
+                              - bayesian
+                              - frequentist
+                          segment:
+                            type: string
+                          skipPartialData:
+                            type: boolean
+                          targeting:
+                            type: object
+                            properties:
+                              coverage:
+                                type: number
+                              savedGroups:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              prerequisites:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              condition:
+                                type: string
+                            required:
+                              - coverage
+                              - condition
+                            additionalProperties: false
+                          customMetricSlices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                slices:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      column:
+                                        type: string
+                                      levels:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - column
+                                      - levels
+                                    additionalProperties: false
+                              required:
+                                - slices
+                              additionalProperties: false
+                        required:
+                          - owner
+                          - templateMetadata
+                          - type
+                          - datasource
+                          - exposureQueryId
+                          - statsEngine
+                          - targeting
+                        additionalProperties: false
+                    required:
+                      - id
+                      - data
+                    additionalProperties: false
+              required:
+                - templates
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  added:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  updated:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                required:
+                  - added
+                  - updated
+                additionalProperties: false
   '/metric-groups/{id}':
     get:
       $skipValidatorGeneration: true

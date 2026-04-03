@@ -482,6 +482,10 @@ export interface paths {
     /** Create a single experimentTemplate */
     post: operations["createExperimentTemplate"];
   };
+  "/experiment-templates/bulk-import": {
+    /** Bulk create or update experiment templates */
+    post: operations["bulkImportExperimentTemplates"];
+  };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
     get: operations["getMetricGroup"];
@@ -19869,6 +19873,76 @@ export interface operations {
                     })[];
                 })[];
             };
+          };
+        };
+      };
+    };
+  };
+  bulkImportExperimentTemplates: {
+    /** Bulk create or update experiment templates */
+    requestBody: {
+      content: {
+        "application/json": {
+          templates: ({
+              id: string;
+              data: {
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              };
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            added: number;
+            updated: number;
           };
         };
       };

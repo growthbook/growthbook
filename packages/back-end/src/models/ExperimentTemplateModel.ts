@@ -6,13 +6,19 @@ import {
   ExperimentTemplateInterface,
 } from "shared/validators";
 import { ApiRequest } from "back-end/src/util/handler";
-import { experimentTemplateApiSpec } from "back-end/src/api/specs/experiment-template.spec";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  experimentTemplateApiSpec,
+  bulkImportExperimentTemplatesEndpoint,
+} from "back-end/src/api/specs/experiment-template.spec";
 import { MakeModelClass } from "./BaseModel";
+
+const ID_PREFIX = "tmplt__";
 
 const BaseClass = MakeModelClass({
   schema: experimentTemplateInterface,
   collectionName: "experimenttemplates",
-  idPrefix: "tmplt__",
+  idPrefix: ID_PREFIX,
   auditLog: {
     entity: "experimentTemplate",
     createEvent: "experimentTemplate.create",
@@ -28,6 +34,43 @@ const BaseClass = MakeModelClass({
   apiConfig: {
     modelKey: "experimentTemplates",
     openApiSpec: experimentTemplateApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...bulkImportExperimentTemplatesEndpoint,
+        reqHandler: async (req) => {
+          let added = 0;
+          let updated = 0;
+          const normalizedIds = req.body.templates.map(({ id }) =>
+            id.startsWith(ID_PREFIX) ? id : `${ID_PREFIX}${id}`,
+          );
+          const existingTemplates =
+            await req.context.models.experimentTemplates.getByIds(
+              normalizedIds,
+            );
+          const existingById = new Map(existingTemplates.map((t) => [t.id, t]));
+          for (const { id, data } of req.body.templates) {
+            const normalizedId = id.startsWith(ID_PREFIX)
+              ? id
+              : `${ID_PREFIX}${id}`;
+            const existing = existingById.get(normalizedId);
+            if (existing) {
+              await req.context.models.experimentTemplates.update(
+                existing,
+                data,
+              );
+              updated++;
+            } else {
+              await req.context.models.experimentTemplates.create({
+                ...data,
+                id: normalizedId,
+              });
+              added++;
+            }
+          }
+          return { added, updated };
+        },
+      }),
+    ],
   },
 });
 
