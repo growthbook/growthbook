@@ -22,6 +22,7 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import { encodeExplorationConfig } from "shared/enterprise";
 import { toolResultPreviewLabel } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -49,6 +50,7 @@ import {
 } from "@/enterprise/components/AIChat/AIChatPrimitives";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
@@ -156,11 +158,19 @@ interface ChartBubbleProps {
   animate?: boolean;
 }
 
+const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
+  metric: "/product-analytics/explore/metrics",
+  fact_table: "/product-analytics/explore/fact-table",
+  data_source: "/product-analytics/explore/data-source",
+};
+
 function ChartBubble({
   chartData,
   toolTransparency,
   animate = true,
 }: ChartBubbleProps) {
+  const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
+
   return (
     <AssistantBubble wide>
       <Flex align="center" gap="2" mb="2">
@@ -168,6 +178,16 @@ function ChartBubble({
         <Text size="small" weight="medium">
           Generated chart
         </Text>
+        <Box ml="auto">
+          <LinkButton
+            href={explorerUrl}
+            variant="ghost"
+            size="xs"
+            color="violet"
+          >
+            Open in Explorer
+          </LinkButton>
+        </Box>
       </Flex>
       <Box style={{ height: 360, minHeight: 260, display: "flex" }}>
         <ExplorerChart
