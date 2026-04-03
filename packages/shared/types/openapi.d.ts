@@ -683,9 +683,19 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
+  "/experiment-templates/{id}": {
+    /** Get a single experimentTemplate */
+    get: operations["getExperimentTemplate"];
+    /** Update a single experimentTemplate */
+    put: operations["updateExperimentTemplate"];
+    /** Delete a single experimentTemplate */
+    delete: operations["deleteExperimentTemplate"];
+  };
   "/experiment-templates": {
     /** Get all experimentTemplates */
     get: operations["listExperimentTemplates"];
+    /** Create a single experimentTemplate */
+    post: operations["createExperimentTemplate"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -24421,6 +24431,161 @@ export interface operations {
       };
     };
   };
+  getExperimentTemplate: {
+    /** Get a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  updateExperimentTemplate: {
+    /** Update a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteExperimentTemplate: {
+    /** Delete a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listExperimentTemplates: {
     /** Get all experimentTemplates */
     parameters: {
@@ -24485,6 +24650,70 @@ export interface operations {
                       })[];
                   })[];
               })[];
+          };
+        };
+      };
+    };
+  };
+  createExperimentTemplate: {
+    /** Create a single experimentTemplate */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
           };
         };
       };

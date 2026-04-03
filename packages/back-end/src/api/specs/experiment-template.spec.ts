@@ -1,7 +1,8 @@
-import { z } from "zod";
 import {
   apiExperimentTemplateValidator,
   apiListExperimentTemplatesValidator,
+  apiCreateExperimentTemplateBody,
+  apiUpdateExperimentTemplateBody,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
@@ -11,10 +12,10 @@ export const experimentTemplateApiSpec = {
   pathBase: "/experiment-templates",
   apiInterface: apiExperimentTemplateValidator,
   schemas: {
-    createBody: z.never(),
-    updateBody: z.never(),
+    createBody: apiCreateExperimentTemplateBody,
+    updateBody: apiUpdateExperimentTemplateBody,
   },
-  crudActions: ["list"],
+  includeDefaultCrud: true,
   crudValidatorOverrides: {
     list: apiListExperimentTemplatesValidator,
   },
