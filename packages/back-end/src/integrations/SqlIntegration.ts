@@ -16,6 +16,7 @@ import {
   quantileMetricType,
   getColumnRefWhereClause,
   getAggregateFilters,
+  wrapValueColumnWithAggregateUserFilter,
   isBinomialMetric,
   getDelayWindowHours,
   getColumnExpression,
@@ -5230,8 +5231,13 @@ export default abstract class SqlIntegration
       cs.lowerValue < 1 &&
       isCappableMetricType(metric);
 
+    const innerCol = wrapValueColumnWithAggregateUserFilter(
+      valueCol,
+      columnRef ?? null,
+    );
+
     if (hasUpperAbs || hasUpperPct || hasLowerAbs || hasLowerPct) {
-      let expr = this.ensureFloat(`COALESCE(${valueCol}, 0)`);
+      let expr = this.ensureFloat(`COALESCE(${innerCol}, 0)`);
       if (hasUpperAbs) {
         expr = `LEAST(${expr}, ${cs!.value})`;
       } else if (hasUpperPct) {
@@ -5245,17 +5251,7 @@ export default abstract class SqlIntegration
       return expr;
     }
 
-    const filters = getAggregateFilters({
-      columnRef: columnRef || null,
-      column: valueCol,
-      ignoreInvalid: true,
-    });
-    let col = valueCol;
-    if (filters.length) {
-      col = `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
-    }
-
-    return `COALESCE(${col}, 0)`;
+    return `COALESCE(${innerCol}, 0)`;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");

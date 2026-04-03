@@ -399,6 +399,29 @@ export function getAggregateFilters({
   return filters;
 }
 
+/**
+ * For `$$distinctUsers` with aggregate user filters, each user's contribution is 1 when their
+ * aggregated value matches the filter(s) and NULL otherwise. Used in experiment SQL so capping
+ * applies to the same per-user expression as the uncapped path.
+ */
+export function wrapValueColumnWithAggregateUserFilter(
+  columnExpr: string,
+  columnRef: Pick<
+    ColumnRef,
+    "aggregateFilter" | "aggregateFilterColumn" | "column"
+  > | null,
+): string {
+  const filters = getAggregateFilters({
+    columnRef,
+    column: columnExpr,
+    ignoreInvalid: true,
+  });
+  if (!filters.length) {
+    return columnExpr;
+  }
+  return `(CASE WHEN ${filters.join(" AND ")} THEN 1 ELSE NULL END)`;
+}
+
 export function getFactTableTemplateVariables(
   factTable: FactTableInterface,
 ): TemplateVariables {
