@@ -642,23 +642,11 @@ export async function updateRevision(
     original: revision,
   });
 
-  // Track contributors: deduplicates on write so the array stays minimal.
-  // dashboard → dedup by id; api_key → dedup by apiKey; system → one entry per subtype.
-  const existing = revision.contributors ?? [];
-  const alreadyPresent =
-    log.user != null &&
-    existing.some((c) => {
-      if (!c) return false;
-      if (c.type === "dashboard" && log.user?.type === "dashboard")
-        return c.id === log.user.id;
-      if (c.type === "api_key" && log.user?.type === "api_key")
-        return c.apiKey === log.user.apiKey;
-      if (c.type === "system" && log.user?.type === "system")
-        return (c.subtype ?? "") === (log.user.subtype ?? "");
-      return false;
-    });
-  const updatedContributors =
-    log.user != null && !alreadyPresent ? [...existing, log.user] : existing;
+  // Track contributors atomically using $addToSet (deep equality dedup).
+  // Using a separate operator from $set avoids the race condition where two
+  // concurrent edits both read the same stale contributors array.
+  const contributorUpdate =
+    log.user != null ? { $addToSet: { contributors: log.user } } : {};
 
   const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
@@ -671,8 +659,8 @@ export async function updateRevision(
         ...changes,
         status,
         dateUpdated: new Date(),
-        contributors: updatedContributors,
       },
+      ...contributorUpdate,
     },
     { new: true },
   );

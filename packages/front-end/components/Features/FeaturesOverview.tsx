@@ -10,7 +10,6 @@ import {
   PiArrowsLeftRightBold,
   PiPencilSimpleFill,
   PiCaretRightBold,
-  PiCaretRightFill,
   PiPencil,
   PiLockSimple,
   PiProhibit,
@@ -38,6 +37,7 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import Avatar from "@/components/Avatar/Avatar";
+import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -261,7 +261,6 @@ export default function FeaturesOverview({
 
   const [editCommentModel, setEditCommentModal] = useState(false);
   const [commentExpanded, setCommentExpanded] = useState(false);
-  const [coAuthorsOpen, setCoAuthorsOpen] = useState(false);
   useEffect(() => {
     setCommentExpanded(false);
   }, [revision?.version]);
@@ -803,8 +802,14 @@ export default function FeaturesOverview({
 
   const renderRevisionInfo = () => {
     return (
-      <Flex direction="column" gap="1">
-        <Flex align="center" justify="between" gap="4" wrap="wrap">
+      <Flex direction="column">
+        {/* Revised by (left) + Created/Published (right) — side by side on wide, stacked on narrow */}
+        <Flex
+          align="center"
+          justify="between"
+          wrap="wrap"
+          style={{ rowGap: "var(--space-1)", columnGap: "var(--space-4)" }}
+        >
           {(() => {
             const cb = revision.createdBy;
             if (cb?.type === "dashboard") {
@@ -855,55 +860,28 @@ export default function FeaturesOverview({
             )}
           </Flex>
         </Flex>
-        {(() => {
-          const createdById =
-            revision.createdBy?.type === "dashboard"
-              ? revision.createdBy.id
-              : null;
-          const coAuthors = (revision.contributors ?? [])
-            .filter((c): c is NonNullable<typeof c> => c != null)
-            .filter((c) => !(c.type === "dashboard" && c.id === createdById));
-          if (coAuthors.length === 0) return null;
-          const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
-          return (
-            <Box mb="2">
-              <div
-                className="link-purple"
-                style={{ cursor: "pointer", userSelect: "none" }}
-                onClick={() => setCoAuthorsOpen((o) => !o)}
-              >
-                <PiCaretRightFill
-                  style={{
-                    display: "inline",
-                    marginRight: 4,
-                    transition: "transform 0.15s ease",
-                    transform: coAuthorsOpen ? "rotate(90deg)" : "none",
-                  }}
-                />
-                {label}
-              </div>
-              {coAuthorsOpen && (
-                <Flex direction="column" gap="2" mt="2" ml="3">
-                  {coAuthors.map((c, i) =>
-                    c.type === "dashboard" ? (
-                      <Avatar
-                        key={c.id}
-                        email={c.email}
-                        name={c.name ?? ""}
-                        size={22}
-                        showEmail
-                      />
-                    ) : c.type === "api_key" ? (
-                      <span key={i} className="badge badge-secondary">
-                        API Key
-                      </span>
-                    ) : null,
-                  )}
-                </Flex>
-              )}
-            </Box>
-          );
-        })()}
+        <CoAuthors
+          rev={{
+            ...revision,
+            contributors: [
+              {
+                type: "dashboard",
+                id: "stub-1",
+                email: "alice@example.com",
+                name: "Alice",
+              },
+              {
+                type: "dashboard",
+                id: "stub-2",
+                email: "bob@example.com",
+                name: "Bob",
+              },
+              { type: "api_key", apiKey: "secret_stub123" },
+            ],
+          }}
+          mt="3"
+          mb="3"
+        />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <span
             className={metaDataStyles.labelColor}

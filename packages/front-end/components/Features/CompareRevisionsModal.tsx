@@ -71,6 +71,7 @@ import {
   dedupeDiffBadges,
 } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { ExpandableDiff } from "./DraftModal";
+import CoAuthors, { NON_CONTENT_ACTIONS } from "./CoAuthors";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
@@ -100,88 +101,6 @@ function revisionToDiffInput(
     holdout: r.holdout ?? null,
     metadata: normalizeRevisionMetadata(r.metadata),
   };
-}
-
-function CoAuthors({
-  rev,
-  logs,
-}: {
-  rev: FeatureRevisionInterface;
-  logs?: RevisionLog[];
-}) {
-  const [open, setOpen] = useState(false);
-
-  const createdById =
-    rev.createdBy?.type === "dashboard" ? rev.createdBy.id : null;
-
-  // Use stored contributors if present; otherwise derive from log authors.
-  const storedContributors = (rev.contributors ?? []).filter(
-    (c): c is NonNullable<typeof c> => c != null,
-  );
-
-  const derivedContributors =
-    storedContributors.length === 0 && logs
-      ? logs
-          .filter(
-            (l) =>
-              !NON_CONTENT_ACTIONS.has(l.action) &&
-              l.user?.type === "dashboard",
-          )
-          .map((l) => l.user!)
-          .filter(
-            (u, i, arr) =>
-              u.type === "dashboard" &&
-              arr.findIndex((x) => x.type === "dashboard" && x.id === u.id) ===
-                i,
-          )
-      : storedContributors;
-
-  const coAuthors = derivedContributors.filter(
-    (c) => !(c.type === "dashboard" && c.id === createdById),
-  );
-
-  if (coAuthors.length === 0) return null;
-
-  const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
-
-  return (
-    <Box mt="1">
-      <div
-        className="link-purple"
-        style={{ cursor: "pointer", userSelect: "none" }}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <PiCaretRightFill
-          style={{
-            display: "inline",
-            marginRight: 4,
-            transition: "transform 0.15s ease",
-            transform: open ? "rotate(90deg)" : "none",
-          }}
-        />
-        {label}
-      </div>
-      {open && (
-        <Flex direction="column" gap="2" mt="2" ml="3">
-          {coAuthors.map((c, i) =>
-            c.type === "dashboard" ? (
-              <Avatar
-                key={c.id}
-                email={c.email}
-                name={c.name ?? ""}
-                size={22}
-                showEmail
-              />
-            ) : c.type === "api_key" ? (
-              <span key={i} className="badge badge-secondary">
-                API Key
-              </span>
-            ) : null,
-          )}
-        </Flex>
-      )}
-    </Box>
-  );
 }
 
 function RevisionCompareLabel({
@@ -671,17 +590,6 @@ function rampDiffsForRevision(
 
 // Actions that are review/approval lifecycle events, not content changes.
 // Excluded from sub-rows and never shown with a diff.
-const NON_CONTENT_ACTIONS = new Set([
-  "Review Requested",
-  "Approved",
-  "Requested Changes",
-  "Comment",
-  "edit comment",
-  "publish",
-  "re-publish",
-  "discard",
-]);
-
 // ─── Log replay engine ────────────────────────────────────────────────────────
 // Each log entry is a patch on top of the base revision. We replay them in
 // order to reconstruct the exact full-field state before and after each edit,
