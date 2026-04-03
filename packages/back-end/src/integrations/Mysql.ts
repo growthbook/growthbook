@@ -1,7 +1,10 @@
 import mysql, { RowDataPacket } from "mysql2/promise";
 import { ConnectionOptions } from "mysql2";
 import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
-import { QueryResponse } from "shared/types/integrations";
+import {
+  FactMetricPercentileData,
+  QueryResponse,
+} from "shared/types/integrations";
 import { MysqlConnectionParams } from "shared/types/integrations/mysql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import SqlIntegration from "./SqlIntegration";
@@ -79,12 +82,7 @@ export default class Mysql extends SqlIntegration {
     return `CAST(${col} AS DOUBLE)`;
   }
   percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[],
+    values: FactMetricPercentileData[],
     metricTable: string,
     where: string = "",
   ): string {
@@ -94,24 +92,51 @@ export default class Mysql extends SqlIntegration {
       );
     }
 
-    let whereClause = where;
-    if (values[0].ignoreZeros) {
-      whereClause = whereClause
-        ? `${whereClause} AND ${values[0].valueCol} != 0`
-        : `WHERE ${values[0].valueCol} != 0`;
-    }
+    const v = values[0];
+    const whereFor = (ignoreZeros: boolean) => {
+      let whereClause = where;
+      if (ignoreZeros) {
+        whereClause = whereClause
+          ? `${whereClause} AND ${v.valueCol} != 0`
+          : `WHERE ${v.valueCol} != 0`;
+      }
+      return whereClause;
+    };
 
-    return `
-    SELECT DISTINCT FIRST_VALUE(${values[0].valueCol}) OVER (
-      ORDER BY CASE WHEN p <= ${values[0].percentile} THEN p END DESC
-    ) AS ${values[0].outputCol}
+    const scalarCap = (percentile: number, outputCol: string, ign: boolean) => {
+      const wc = whereFor(ign);
+      return `(SELECT x.capped FROM (
+    SELECT DISTINCT FIRST_VALUE(${v.valueCol}) OVER (
+      ORDER BY CASE WHEN p <= ${percentile} THEN p END DESC
+    ) AS capped
     FROM (
       SELECT
-        ${values[0].valueCol},
-        PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
+        ${v.valueCol},
+        PERCENT_RANK() OVER (ORDER BY ${v.valueCol}) p
       FROM ${metricTable}
-      ${whereClause}
-    ) t`;
+      ${wc}
+    ) t
+  ) x LIMIT 1) AS ${outputCol}`;
+    };
+
+    const cols: string[] = [];
+    const upperP = v.upperPercentile;
+    if (upperP != null && upperP > 0 && upperP < 1) {
+      cols.push(scalarCap(upperP, v.outputCol, v.ignoreZeros ?? false));
+    }
+    const lowerP = v.lowerPercentile;
+    if (lowerP != null && lowerP > 0 && lowerP < 1) {
+      cols.push(
+        scalarCap(lowerP, `${v.outputCol}_lower`, v.ignoreZeros ?? false),
+      );
+    }
+    if (cols.length === 0) {
+      throw new Error(
+        "percentileCapSelectClause: expected at least one percentile bound",
+      );
+    }
+
+    return `SELECT ${cols.join(",\n    ")}`;
   }
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
     const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;

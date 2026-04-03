@@ -90,11 +90,28 @@ export async function getUpdateFactMetricPropsFromBody(
     });
   }
   if (cappingSettings) {
+    const cs = cappingSettings;
+    const prev = factMetric.cappingSettings;
+    const nextType = cs.type === "none" ? "" : (cs.type ?? prev.type);
+    const nextLowerType =
+      cs.lowerType === "none"
+        ? ""
+        : cs.lowerType !== undefined
+          ? cs.lowerType
+          : (prev.lowerType ?? "");
+    const usesUpperPercentile = nextType === "percentile";
+    const usesLowerPercentile = nextLowerType === "percentile";
+    const nextIgnoreZeros =
+      cs.ignoreZeros !== undefined
+        ? cs.ignoreZeros
+        : (prev.ignoreZeros ?? false);
     updates.cappingSettings = {
-      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
-      value: cappingSettings.value ?? factMetric.cappingSettings.value,
+      type: nextType,
+      value: cs.value ?? prev.value,
       ignoreZeros:
-        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
+        usesUpperPercentile || usesLowerPercentile ? nextIgnoreZeros : false,
+      lowerType: nextLowerType,
+      lowerValue: cs.lowerValue !== undefined ? cs.lowerValue : prev.lowerValue,
     };
   }
   if (windowSettings) {

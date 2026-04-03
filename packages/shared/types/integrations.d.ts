@@ -121,7 +121,12 @@ export type FactMetricData = {
   regressionAdjusted: boolean;
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
+  /** Upper-tail percentile capping enabled. */
   isPercentileCapped: boolean;
+  /** Lower-tail percentile capping enabled. */
+  isLowerPercentileCapped: boolean;
+  /** Build percentile cap CTE and join when upper or lower uses percentile. */
+  needsPercentileCapJoin: boolean;
   computeUncappedMetric: boolean;
   numeratorSourceIndex: number;
   denominatorSourceIndex: number;
@@ -173,9 +178,11 @@ export type FactMetricQuantileData = {
 export type FactMetricPercentileData = {
   valueCol: string;
   outputCol: string;
-  percentile: number;
-  ignoreZeros: boolean;
   sourceIndex: number;
+  upperPercentile?: number;
+  lowerPercentile?: number;
+  /** Ignore zeros when computing percentile cap(s); applies to upper and/or lower tail on this column. */
+  ignoreZeros?: boolean;
 };
 
 export type BanditMetricData = Pick<
@@ -185,6 +192,8 @@ export type BanditMetricData = Pick<
   | "ratioMetric"
   | "regressionAdjusted"
   | "isPercentileCapped"
+  | "isLowerPercentileCapped"
+  | "needsPercentileCapJoin"
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
@@ -601,9 +610,11 @@ export type ExperimentMetricQueryResponseRows = {
   users: number;
   count: number;
   main_cap_value?: number;
+  main_cap_value_lower?: number;
   main_sum: number;
   main_sum_squares: number;
   denominator_cap_value?: number;
+  denominator_cap_value_lower?: number;
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;

@@ -9,6 +9,7 @@ import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
   getAggregateFilters,
+  wrapValueColumnWithAggregateUserFilter,
   getColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -1150,6 +1151,30 @@ describe("Experiments", () => {
             column: "value",
           }),
         ).toStrictEqual([]);
+      });
+    });
+
+    describe("wrapValueColumnWithAggregateUserFilter", () => {
+      it("returns the column unchanged when there is no aggregate filter", () => {
+        expect(
+          wrapValueColumnWithAggregateUserFilter("m0.value", {
+            column: "$$distinctUsers",
+            aggregateFilter: undefined,
+            aggregateFilterColumn: "qty",
+          }),
+        ).toBe("m0.value");
+        expect(wrapValueColumnWithAggregateUserFilter("value", null)).toBe(
+          "value",
+        );
+      });
+      it("wraps $$distinctUsers + filter in CASE for use before capping", () => {
+        expect(
+          wrapValueColumnWithAggregateUserFilter("m0.value", {
+            column: "$$distinctUsers",
+            aggregateFilter: ">= 3",
+            aggregateFilterColumn: "qty",
+          }),
+        ).toBe("(CASE WHEN m0.value >= 3 THEN 1 ELSE NULL END)");
       });
     });
 

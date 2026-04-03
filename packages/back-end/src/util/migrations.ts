@@ -150,6 +150,12 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   delete newDoc.conversionDelayHours;
   delete newDoc.conversionWindowHours;
 
+  // Lower-tail capping is for Fact Metrics (SQL) only, not legacy metrics.
+  if (newDoc.cappingSettings) {
+    delete (newDoc.cappingSettings as { lowerType?: unknown }).lowerType;
+    delete (newDoc.cappingSettings as { lowerValue?: unknown }).lowerValue;
+  }
+
   return newDoc as MetricInterface;
 }
 

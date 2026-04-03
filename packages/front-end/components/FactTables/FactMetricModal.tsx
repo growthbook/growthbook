@@ -1518,9 +1518,41 @@ export default function FactMetricModal({
           values.numerator.aggregateFilter = undefined;
         }
 
-        if (values.cappingSettings?.type) {
-          if (!values.cappingSettings.value) {
-            throw new Error("Capped Value cannot be 0");
+        {
+          const cs = values.cappingSettings;
+          const upperPct =
+            cs?.type === "percentile" && cs.value > 0 && cs.value < 1;
+          const upperAbs = cs?.type === "absolute" && cs.value > 0;
+          const lowerPct =
+            cs?.lowerType === "percentile" &&
+            cs.lowerValue != null &&
+            cs.lowerValue > 0 &&
+            cs.lowerValue < 1;
+          const lowerAbs =
+            cs?.lowerType === "absolute" &&
+            cs.lowerValue != null &&
+            cs.lowerValue > 0;
+          const anyCap = upperPct || upperAbs || lowerPct || lowerAbs;
+
+          if (!anyCap) {
+            values.cappingSettings = {
+              type: "",
+              value: 0,
+              lowerType: "",
+              lowerValue: 0,
+              ignoreZeros: false,
+            };
+          } else if (
+            cs?.type === "percentile" &&
+            cs?.lowerType === "percentile" &&
+            cs.value > 0 &&
+            cs.value < 1 &&
+            cs.lowerValue != null &&
+            cs.lowerValue >= cs.value
+          ) {
+            throw new Error(
+              "Lower percentile must be less than upper percentile when both are set.",
+            );
           }
         }
 
@@ -1534,6 +1566,8 @@ export default function FactMetricModal({
           values.cappingSettings = {
             type: "",
             value: 0,
+            lowerType: "",
+            lowerValue: 0,
           };
         }
 
@@ -1544,7 +1578,10 @@ export default function FactMetricModal({
           if (values.numerator.column !== "$$distinctUsers") {
             values.numerator.aggregateFilterColumn = "";
           } else {
-            if (values.cappingSettings?.type) {
+            if (
+              values.cappingSettings?.type === "percentile" ||
+              values.cappingSettings?.lowerType === "percentile"
+            ) {
               throw new Error(
                 "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
               );
@@ -1792,6 +1829,9 @@ export default function FactMetricModal({
                     form.setValue("quantileSettings", quantileSettings);
                     // capping off for quantile metrics
                     form.setValue("cappingSettings.type", "");
+                    form.setValue("cappingSettings.lowerType", "");
+                    form.setValue("cappingSettings.lowerValue", 0);
+                    form.setValue("cappingSettings.value", 0);
 
                     if (
                       quantileSettings.type === "event" &&
@@ -1820,6 +1860,8 @@ export default function FactMetricModal({
                     form.watch("cappingSettings.type") === "absolute"
                   ) {
                     form.setValue("cappingSettings.type", "");
+                    form.setValue("cappingSettings.lowerType", "");
+                    form.setValue("cappingSettings.lowerValue", 0);
                   }
                 }}
                 options={[
@@ -2255,6 +2297,7 @@ export default function FactMetricModal({
                             form={form}
                             datasourceType={selectedDataSource.type}
                             metricType={type}
+                            allowLowerTailCapping
                           />
                         ) : null}
 

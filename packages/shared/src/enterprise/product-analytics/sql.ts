@@ -63,6 +63,8 @@ interface MetricData {
   unit: string | null;
   alias: string;
   percentileCapValueExpr: string | null;
+  /** Same column basis as `percentileCapValueExpr`; used for lower-tail percentile caps. */
+  percentileLowerCapValueExpr: string | null;
   eventValueExpr: string;
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
@@ -355,11 +357,14 @@ function getCappingSettings(
 ): MetricCappingSettings | null {
   if (metric.metricType === "proportion") return null;
 
-  if (
-    metric.cappingSettings?.type === "percentile" ||
-    metric.cappingSettings?.type === "absolute"
-  ) {
-    return metric.cappingSettings;
+  const cs = metric.cappingSettings;
+  if (!cs) return null;
+
+  const hasUpper = cs.type === "percentile" || cs.type === "absolute";
+  const hasLower = cs.lowerType === "percentile" || cs.lowerType === "absolute";
+
+  if (hasUpper || hasLower) {
+    return cs;
   }
 
   return null;
@@ -505,6 +510,15 @@ function getEventValueExpr(
     } else if (cap.type === "absolute") {
       rawValue = `LEAST(${rawValue}, ${cap.value})`;
     }
+    if (cap.lowerType === "percentile") {
+      rawValue = `GREATEST(${rawValue}, COALESCE(${alias}_cap_lower, ${rawValue}))`;
+    } else if (
+      cap.lowerType === "absolute" &&
+      cap.lowerValue != null &&
+      cap.lowerValue > 0
+    ) {
+      rawValue = `GREATEST(${rawValue}, ${cap.lowerValue})`;
+    }
   }
 
   const filters = generateRowFilterSQL(
@@ -618,13 +632,24 @@ function getMetricData(
   }
 
   const cappingSettings = getCappingSettings(metric);
+  const rawPercentileValueExpr = getEventValueExpr(
+    columnRef,
+    factTable,
+    helpers,
+    alias,
+    null,
+  );
 
   return {
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
       cappingSettings && cappingSettings.type === "percentile"
-        ? getEventValueExpr(columnRef, factTable, helpers, alias, null)
+        ? rawPercentileValueExpr
+        : null,
+    percentileLowerCapValueExpr:
+      cappingSettings && cappingSettings.lowerType === "percentile"
+        ? rawPercentileValueExpr
         : null,
     eventValueExpr: getEventValueExpr(
       columnRef,
@@ -726,16 +751,29 @@ function generatePercentileCapsCTE(
   const selects: string[] = [];
   factTableGroup.metrics.forEach((m) => {
     const cappingSettings = getCappingSettings(m.metric);
-    if (!cappingSettings || cappingSettings.type !== "percentile") return;
+    if (!cappingSettings) return;
 
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
 
-    selects.push(
-      `${helpers.percentileApprox(
-        metricData.percentileCapValueExpr || "NULL",
-        cappingSettings.value,
-      )} AS ${metricData.alias}_cap`,
-    );
+    if (cappingSettings.type === "percentile") {
+      selects.push(
+        `${helpers.percentileApprox(
+          metricData.percentileCapValueExpr || "NULL",
+          cappingSettings.value,
+        )} AS ${metricData.alias}_cap`,
+      );
+    }
+    if (
+      cappingSettings.lowerType === "percentile" &&
+      cappingSettings.lowerValue != null
+    ) {
+      selects.push(
+        `${helpers.percentileApprox(
+          metricData.percentileLowerCapValueExpr || "NULL",
+          cappingSettings.lowerValue,
+        )} AS ${metricData.alias}_cap_lower`,
+      );
+    }
   });
 
   if (!selects.length) return null;

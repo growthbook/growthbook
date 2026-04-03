@@ -545,8 +545,13 @@ export class FactMetricModel extends BaseClass {
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {
-        ...cappingSettings,
         type: cappingSettings.type || "none",
+        value: cappingSettings.value,
+        ignoreZeros: cappingSettings.ignoreZeros,
+        lowerType: cappingSettings.lowerType
+          ? cappingSettings.lowerType
+          : "none",
+        lowerValue: cappingSettings.lowerValue,
       },
       windowSettings: {
         ...windowSettings,

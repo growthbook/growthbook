@@ -100,6 +100,8 @@ export function getDefaultFactMetricProps({
     cappingSettings: existing?.cappingSettings || {
       type: "",
       value: 0,
+      lowerType: "",
+      lowerValue: 0,
     },
     managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
