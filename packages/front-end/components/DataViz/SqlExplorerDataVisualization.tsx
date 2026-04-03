@@ -124,9 +124,11 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
       return d;
     }
     case "week": {
-      const day = d.getUTCDay(); // Sunday = 0
+      // Use ISO 8601 week start (Monday) instead of US convention (Sunday)
+      const day = d.getUTCDay(); // Sunday = 0, Monday = 1, ...
+      const diff = (day + 6) % 7; // Monday = 0, Tuesday = 1, ..., Sunday = 6
       const startOfWeek = new Date(
-        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day),
+        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff),
       );
       startOfWeek.setUTCHours(0, 0, 0, 0); // Round to the start of the week
       return startOfWeek;
