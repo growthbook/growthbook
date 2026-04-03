@@ -9,6 +9,7 @@ import {
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { dispatchRampEvent } from "back-end/src/services/rampSchedule";
 
 // Relaxed step action for the POST body:
 // - targetId and patch.ruleId are optional when featureId+ruleId+environment are
@@ -329,6 +330,16 @@ export const postRampSchedule = createApiRequestHandler(
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"
   >);
+
+  await dispatchRampEvent(req.context, schedule, "rampSchedule.created", {
+    object: {
+      rampScheduleId: schedule.id,
+      rampName: schedule.name,
+      orgId: req.context.org.id,
+      entityType: schedule.entityType,
+      entityId: schedule.entityId,
+    },
+  });
 
   return { rampSchedule: schedule };
 });

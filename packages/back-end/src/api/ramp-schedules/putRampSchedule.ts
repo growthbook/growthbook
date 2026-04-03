@@ -70,6 +70,12 @@ export const putRampSchedule = createApiRequestHandler(
   ): RampStepAction => {
     const tid = action.targetId;
     if (tid && tid !== "t1") {
+      // Validate that the explicitly supplied targetId actually exists on this schedule.
+      if (!schedule.targets.some((t) => t.id === tid)) {
+        throw new Error(
+          `targetId '${tid}' does not exist on this ramp schedule. Use the id from schedule.targets[].id.`,
+        );
+      }
       return action as RampStepAction;
     }
     const activeTargets = schedule.targets.filter((t) => t.status === "active");

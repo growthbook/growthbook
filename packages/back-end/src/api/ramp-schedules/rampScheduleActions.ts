@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import { PermissionError } from "shared/util";
 import {
   advanceUntilBlocked,
   approveAndPublishStep,
   applyRampStartActions,
   completeRollout,
   computeNextProcessAt,
+  computeNextStepAt,
   dispatchRampEvent,
   jumpAheadToStep,
   rollbackToStep,
@@ -130,12 +132,31 @@ export const resumeRampSchedule = createApiRequestHandler({
 
   if (!pausedAtApproval) {
     if (schedule.nextStepAt) {
+      // Shift existing deadline forward by the pause duration.
       resumeUpdates.nextStepAt = new Date(
         schedule.nextStepAt.getTime() + pauseDurationMs,
       );
     } else {
+      // nextStepAt is null (after a rollback or reset).
+      // At start (-1): fire step 0 immediately.
+      // Mid-schedule: rebase phaseStartedAt and recompute next step timer from now.
+      const nextStepIndex = schedule.currentStepIndex + 1;
       if (schedule.currentStepIndex === -1) {
         resumeUpdates.nextStepAt = schedule.steps.length > 0 ? now : null;
+      } else if (nextStepIndex < schedule.steps.length) {
+        const currentStepIndex = schedule.currentStepIndex;
+        let sumBefore = 0;
+        for (let i = 0; i < currentStepIndex; i++) {
+          const t = schedule.steps[i]?.trigger;
+          if (t?.type === "interval") sumBefore += t.seconds;
+        }
+        const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
+        resumeUpdates.phaseStartedAt = freshPhaseStart;
+        resumeUpdates.nextStepAt = computeNextStepAt(
+          { ...schedule, phaseStartedAt: freshPhaseStart },
+          currentStepIndex,
+          now,
+        );
       }
     }
   }
@@ -185,15 +206,36 @@ export const jumpRampSchedule = createApiRequestHandler({
 
   const now = new Date();
 
+  // Rebase phaseStartedAt so the landed step's hold timer runs from "now".
+  // phaseStartedAt = now - sum(interval[0..target-1]) means the next step fires
+  // at now + steps[target].seconds, which is the expected behavior after landing.
+  const freshPhaseStartedAt = (() => {
+    if (targetStepIndex <= 0) return now;
+    let elapsed = 0;
+    for (let i = 0; i < targetStepIndex; i++) {
+      const t = schedule.steps[i]?.trigger;
+      if (t?.type === "interval") elapsed += t.seconds;
+    }
+    return new Date(now.getTime() - elapsed * 1000);
+  })();
+
   let updated;
   if (targetStepIndex < schedule.currentStepIndex) {
-    updated = await rollbackToStep(req.context, schedule, targetStepIndex);
+    const rolled = await rollbackToStep(req.context, schedule, targetStepIndex);
+    updated = await req.context.models.rampSchedules.updateById(rolled.id, {
+      status: "paused",
+      pausedAt: now,
+      phaseStartedAt: freshPhaseStartedAt,
+      nextStepAt: null,
+      nextProcessAt: null,
+    });
   } else if (targetStepIndex > schedule.currentStepIndex) {
     updated = await jumpAheadToStep(req.context, schedule, targetStepIndex);
   } else {
     updated = await req.context.models.rampSchedules.updateById(schedule.id, {
       status: "paused",
       pausedAt: now,
+      phaseStartedAt: freshPhaseStartedAt,
       nextStepAt: null,
       nextProcessAt: null,
     });
@@ -254,7 +296,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   if (err) {
     const detail = "detail" in err ? err.detail : undefined;
     if (err.code === "permission_denied") {
-      throw new Error(`Permission denied: ${detail ?? err.code}`);
+      throw new PermissionError(`Permission denied: ${detail ?? err.code}`);
     }
     throw new Error(detail ?? err.code);
   }
@@ -287,6 +329,8 @@ export const rollbackRampSchedule = createApiRequestHandler({
       : schedule;
 
   // Override the terminal "rolled-back" status to "paused" so it can be restarted.
+  // Note: rollbackToStep already dispatches rampSchedule.actions.rolledBack above,
+  // so we skip a second dispatch here to avoid duplicate audit entries.
   const updated = await req.context.models.rampSchedules.updateById(rolled.id, {
     status: "paused",
     pausedAt: now,
@@ -294,22 +338,6 @@ export const rollbackRampSchedule = createApiRequestHandler({
     // Clear timing anchors for terminal restarts so resume begins fresh.
     ...(isTerminal && { startedAt: null, phaseStartedAt: null }),
   });
-
-  await dispatchRampEvent(
-    req.context,
-    updated,
-    "rampSchedule.actions.rolledBack",
-    {
-      object: {
-        rampScheduleId: updated.id,
-        rampName: updated.name,
-        orgId: req.context.org.id,
-        currentStepIndex: updated.currentStepIndex,
-        status: updated.status,
-        targetStepIndex: -1,
-      },
-    },
-  );
 
   return { rampSchedule: updated };
 });
@@ -351,16 +379,14 @@ export const addTargetRampSchedule = createApiRequestHandler({
     req.context.models.rampSchedules.getAllByFeatureId(featureId),
     schedule.entityId === ""
       ? req.context.models.rampSchedules.getAllByEntityId("feature", "")
-      : Promise.resolve([] as typeof schedule[]),
+      : Promise.resolve([] as (typeof schedule)[]),
   ]);
   const allSchedules = [
-    ...featureSchedules,
+    ...featureSchedules.filter((s) => s.id !== schedule.id),
     ...untargetedSchedules.filter((s) => s.id !== schedule.id),
   ];
   const conflict = allSchedules.find((s) =>
-    s.targets.some(
-      (t) => t.ruleId === ruleId && t.environment === environment,
-    ),
+    s.targets.some((t) => t.ruleId === ruleId && t.environment === environment),
   );
   if (conflict) {
     throw new Error(
@@ -377,14 +403,23 @@ export const addTargetRampSchedule = createApiRequestHandler({
     status: "active" as const,
   };
 
-  // When adding the first target to a targetless schedule, also set entityId
-  // so the schedule is discoverable via getAllByFeatureId going forward.
-  const entityUpdate =
-    schedule.entityId === "" ? { entityId: featureId } : {};
+  // When adding the first target to a targetless schedule:
+  // - set entityId so it's discoverable via getAllByFeatureId
+  // - transition pending → ready so the schedule can be started
+  const isFirstTarget = schedule.targets.length === 0;
+  const entityUpdate = schedule.entityId === "" ? { entityId: featureId } : {};
+  const statusUpdate =
+    isFirstTarget && schedule.status === "pending"
+      ? { status: "ready" as const }
+      : {};
 
   const updated = await req.context.models.rampSchedules.updateById(
     schedule.id,
-    { targets: [...schedule.targets, newTarget], ...entityUpdate },
+    {
+      targets: [...schedule.targets, newTarget],
+      ...entityUpdate,
+      ...statusUpdate,
+    },
   );
 
   return { rampSchedule: updated };
@@ -424,7 +459,7 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
 
   if (remaining.length === 0) {
     await req.context.models.rampSchedules.deleteById(schedule.id);
-    return { deleted: true, rampScheduleId: schedule.id };
+    return { deletedId: schedule.id };
   }
 
   const updated = await req.context.models.rampSchedules.updateById(

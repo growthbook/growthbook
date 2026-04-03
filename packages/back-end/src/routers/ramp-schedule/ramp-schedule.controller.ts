@@ -431,6 +431,8 @@ export const postRampScheduleAction = async (
         schedule.currentStepIndex >= 0
           ? await rollbackToStep(context, schedule, -1)
           : schedule;
+      // Note: rollbackToStep already dispatches rampSchedule.actions.rolledBack
+      // above, so we skip a second dispatch here to avoid duplicate audit entries.
       updated = await context.models.rampSchedules.updateById(resetRolled.id, {
         status: "paused",
         pausedAt: now,
@@ -440,21 +442,6 @@ export const postRampScheduleAction = async (
           phaseStartedAt: null,
         }),
       });
-      await dispatchRampEvent(
-        context,
-        updated,
-        "rampSchedule.actions.rolledBack",
-        {
-          object: {
-            rampScheduleId: updated.id,
-            rampName: updated.name,
-            orgId: context.org.id,
-            currentStepIndex: updated.currentStepIndex,
-            status: updated.status,
-            targetStepIndex: -1,
-          },
-        },
-      );
       break;
     }
 
