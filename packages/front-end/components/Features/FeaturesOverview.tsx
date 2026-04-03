@@ -516,6 +516,7 @@ export default function FeaturesOverview({
       revision: effectiveRevision,
       allEnvironments: environments.map((e) => e.id),
       settings,
+      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
     });
   }
   const isLive = revision?.version === feature.version;
