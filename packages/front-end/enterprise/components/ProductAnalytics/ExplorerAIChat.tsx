@@ -54,6 +54,7 @@ import LinkButton from "@/ui/LinkButton";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
+import SaveToDashboardModal from "./SaveToDashboardModal";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
@@ -169,16 +170,32 @@ function ChartBubble({
   toolTransparency,
   animate = true,
 }: ChartBubbleProps) {
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
 
   return (
     <AssistantBubble wide>
+      {showSaveModal && (
+        <SaveToDashboardModal
+          close={() => setShowSaveModal(false)}
+          config={chartData.config}
+          exploration={chartData.exploration}
+        />
+      )}
       <Flex align="center" gap="2" mb="2">
         <PiSparkle size={12} />
         <Text size="small" weight="medium">
           Generated chart
         </Text>
-        <Box ml="auto">
+        <Flex ml="auto" gap="1">
+          <Button
+            variant="ghost"
+            size="xs"
+            color="violet"
+            onClick={() => setShowSaveModal(true)}
+          >
+            Save to Dashboard
+          </Button>
           <LinkButton
             href={explorerUrl}
             variant="ghost"
@@ -187,7 +204,7 @@ function ChartBubble({
           >
             Open in Explorer
           </LinkButton>
-        </Box>
+        </Flex>
       </Flex>
       <Box style={{ height: 360, minHeight: 260, display: "flex" }}>
         <ExplorerChart
