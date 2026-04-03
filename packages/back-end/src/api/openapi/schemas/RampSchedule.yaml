@@ -70,7 +70,6 @@ properties:
         - patch
       properties:
         targetType:
-          type: string
           enum: ["feature-rule"]
         targetId:
           type: string
@@ -123,7 +122,6 @@ properties:
               - patch
             properties:
               targetType:
-                type: string
                 enum: ["feature-rule"]
               targetId:
                 type: string

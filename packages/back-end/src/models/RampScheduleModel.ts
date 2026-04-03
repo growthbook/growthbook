@@ -60,6 +60,15 @@ export class RampScheduleModel extends BaseClass {
     return this._find({ entityType: "feature", entityId: featureId });
   }
 
+  public async findByTargetRule(
+    ruleId: string,
+    environment: string,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({
+      targets: { $elemMatch: { ruleId, environment } },
+    });
+  }
+
   public async getActiveSchedules(): Promise<RampScheduleInterface[]> {
     return this._find({
       status: { $in: ["running", "pending", "pending-approval"] },

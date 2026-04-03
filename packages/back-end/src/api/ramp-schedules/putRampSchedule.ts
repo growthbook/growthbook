@@ -3,16 +3,26 @@ import {
   rampStep,
   rampStepAction,
   RampScheduleInterface,
+  RampStepAction,
 } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { computeNextProcessAt } from "back-end/src/services/rampSchedule";
+
+// omitted or "t1" targetId is resolved to the schedule's single active target
+const putBodyAction = rampStepAction
+  .omit({ targetId: true })
+  .extend({ targetId: z.string().optional() });
+
+const putBodyStep = rampStep
+  .omit({ actions: true })
+  .extend({ actions: z.array(putBodyAction) });
 
 const putRampScheduleValidator = {
   paramsSchema: z.object({ id: z.string() }),
   bodySchema: z.object({
     name: z.string().optional(),
-    steps: z.array(rampStep).min(0).optional(),
-    endActions: z.array(rampStepAction).optional(),
+    steps: z.array(putBodyStep).min(0).optional(),
+    endActions: z.array(putBodyAction).optional(),
     // ISO datetime string; null clears startDate (immediate start).
     startDate: z.string().datetime().optional().nullable(),
     endCondition: z
@@ -36,10 +46,10 @@ export const putRampSchedule = createApiRequestHandler(
     throw new Error("Ramp schedule not found");
   }
 
-  // Pro gate — see postRampSchedule.ts for rationale.
-  if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
+  // Enterprise gate — see postRampSchedule.ts for rationale.
+  if (!req.context.hasPremiumFeature("ramp-schedules")) {
     req.context.throwPlanDoesNotAllowError(
-      "Ramp schedules require a Pro plan or above.",
+      "Ramp schedules require an Enterprise plan.",
     );
   }
 
@@ -53,9 +63,40 @@ export const putRampSchedule = createApiRequestHandler(
   const updates: Record<string, unknown> = {};
   const body = req.body;
 
+  const resolveTargetId = (
+    action: z.infer<typeof putBodyAction>,
+  ): RampStepAction => {
+    const tid = action.targetId;
+    if (tid && tid !== "t1") {
+      if (!schedule.targets.some((t) => t.id === tid)) {
+        throw new Error(
+          `targetId '${tid}' does not exist on this ramp schedule. Use the id from schedule.targets[].id.`,
+        );
+      }
+      return action as RampStepAction;
+    }
+    const activeTargets = schedule.targets.filter((t) => t.status === "active");
+    if (activeTargets.length === 0) {
+      throw new Error("Ramp schedule has no active targets.");
+    }
+    if (activeTargets.length > 1) {
+      throw new Error(
+        `Ramp schedule has ${activeTargets.length} active targets. Specify targetId explicitly in each action.`,
+      );
+    }
+    return { ...action, targetId: activeTargets[0].id } as RampStepAction;
+  };
+
   if (body.name !== undefined) updates.name = body.name;
-  if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.endActions !== undefined) updates.endActions = body.endActions;
+  if (body.steps !== undefined) {
+    updates.steps = body.steps.map((step) => ({
+      ...step,
+      actions: step.actions.map(resolveTargetId),
+    }));
+  }
+  if (body.endActions !== undefined) {
+    updates.endActions = body.endActions.map(resolveTargetId);
+  }
   if ("startDate" in body) {
     updates.startDate = body.startDate ? new Date(body.startDate) : null;
   }

@@ -413,10 +413,6 @@ export const postRampScheduleAction = async (
       break;
     }
 
-    case "rollback":
-      updated = await rollbackToStep(context, schedule, -1);
-      break;
-
     case "complete":
       if (["completed", "rolled-back"].includes(schedule.status)) {
         return res.status(400).json({
@@ -444,21 +440,6 @@ export const postRampScheduleAction = async (
           phaseStartedAt: null,
         }),
       });
-      await dispatchRampEvent(
-        context,
-        updated,
-        "rampSchedule.actions.rolledBack",
-        {
-          object: {
-            rampScheduleId: updated.id,
-            rampName: updated.name,
-            orgId: context.org.id,
-            currentStepIndex: updated.currentStepIndex,
-            status: updated.status,
-            targetStepIndex: -1,
-          },
-        },
-      );
       break;
     }
 

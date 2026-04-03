@@ -18,5 +18,6 @@ export const experimentTemplateApiSpec = {
   crudValidatorOverrides: {
     list: apiListExperimentTemplatesValidator,
   },
+  navAfterTag: "experiments",
 } satisfies OpenApiModelSpec;
 export default experimentTemplateApiSpec;

@@ -63,6 +63,9 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: ramp-schedules
+    x-displayName: Ramp Schedules
+    description: 'Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.'
   - name: data-sources
     x-displayName: Data Sources
     description: 'How GrowthBook connects and queries your data, including cached database schema metadata (information schemas) for tables and columns.'
@@ -120,6 +123,27 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: AnalyticsExplorations
+    x-displayName: Analytics Explorations
+    description: ''
+  - name: CustomFields
+    x-displayName: Custom Fields
+    description: ''
+  - name: Dashboards
+    x-displayName: Dashboards
+    description: ''
+  - name: ExperimentTemplates
+    x-displayName: Experiment Templates
+    description: ''
+  - name: MetricGroups
+    x-displayName: Metric Groups
+    description: ''
+  - name: RampScheduleTemplates
+    x-displayName: Ramp Schedule Templates
+    description: Reusable step configurations for ramp schedules.
+  - name: Teams
+    x-displayName: Teams
+    description: ''
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -171,6 +195,9 @@ tags:
   - name: Feature_model
     x-displayName: Feature
     description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
+  - name: FeatureBaseRule_model
+    x-displayName: FeatureBaseRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureBaseRule" />
   - name: FeatureDefinition_model
     x-displayName: FeatureDefinition
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
@@ -6414,6 +6441,745 @@ paths:
                 properties:
                   informationSchemaTable:
                     $ref: '#/components/schemas/InformationSchemaTable'
+  /ramp-schedules:
+    get:
+      summary: List ramp schedules
+      description: |
+        Returns all ramp schedules for the organization, with optional filters.
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - in: query
+          name: featureId
+          schema:
+            type: string
+          description: Filter to schedules attached to a specific feature
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - pending
+              - ready
+              - running
+              - paused
+              - pending-approval
+              - completed
+              - rolled-back
+          description: Filter by schedule status
+      operationId: listRampSchedules
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/ramp-schedules \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - rampSchedules
+                    properties:
+                      rampSchedules:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RampSchedule'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a ramp schedule
+      description: |
+        Creates a new ramp schedule, optionally attaching it to a published feature rule.
+
+        ### Target attachment (optional)
+
+        Provide `featureId`, `ruleId`, and `environment` together to attach the schedule
+        to a specific rule on creation. The rule must already be live (published). Each
+        `[ruleId, environment]` pair can only be controlled by one schedule at a time.
+
+        When all three are supplied, **`targetId` and `patch.ruleId` are auto-injected**
+        into every step action and endAction — callers only need to supply the patch
+        values (`coverage`, `condition`, etc.).
+
+        If omitted, the schedule is created as a free-standing skeleton in `pending`
+        status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach rules later,
+        and `POST /ramp-schedules/{id}/actions/start` to start it.
+
+        ### Using templates
+
+        Provide `templateId` to inherit steps and endActions from a saved template.
+        Explicit `steps` / `endActions` in the request body take precedence over the
+        template. Template auto-population requires `featureId`, `ruleId`, and
+        `environment` to be set (so targetId can be injected).
+
+        Requires an **Enterprise** plan.
+      tags:
+        - ramp-schedules
+      operationId: postRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          label: With target (simple)
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+              -d '{
+                "name": "Coverage ramp",
+                "featureId": "my-feature",
+                "ruleId": "rule_abc",
+                "environment": "production",
+                "steps": [
+                  { "trigger": { "type": "interval", "seconds": 86400 }, "actions": [{ "patch": { "coverage": 0.5 } }] },
+                  { "trigger": { "type": "approval" }, "actions": [{ "patch": { "coverage": 1.0 } }] }
+                ]
+              }' \
+              -u secret_abc123DEF456:
+        - lang: cURL
+          label: Standalone (no target)
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+              -d '{ "name": "My ramp skeleton" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                featureId:
+                  type: string
+                  description: Feature that anchors this schedule. Required when ruleId/environment are set.
+                ruleId:
+                  type: string
+                  description: Rule to attach as the initial target. Requires featureId and environment.
+                environment:
+                  type: string
+                  description: Environment of the target rule. Requires featureId and ruleId.
+                templateId:
+                  type: string
+                  description: Load steps and endActions from a saved template (featureId+ruleId+environment must also be set for auto-injection)
+                steps:
+                  type: array
+                  description: |
+                    Ordered ramp steps. When featureId+ruleId+environment are provided,
+                    `targetId` and `patch.ruleId` in actions are auto-injected — only
+                    supply the patch fields you want to change.
+                  items:
+                    type: object
+                    required:
+                      - trigger
+                    properties:
+                      trigger:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - interval
+                              - approval
+                              - scheduled
+                          seconds:
+                            type: number
+                            description: Hold duration in seconds (interval triggers only)
+                          at:
+                            type: string
+                            format: date-time
+                            description: Absolute fire time (scheduled triggers only)
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - patch
+                          properties:
+                            targetType:
+                              enum:
+                                - feature-rule
+                              description: Omit when using featureId+ruleId+environment (auto-injected)
+                            targetId:
+                              type: string
+                              description: Auto-injected when featureId+ruleId+environment are provided
+                            patch:
+                              type: object
+                              description: Sparse patch — only fields present are applied; absent fields accumulate from previous steps
+                              properties:
+                                ruleId:
+                                  type: string
+                                  description: Auto-injected when ruleId is provided at the top level
+                                coverage:
+                                  type: number
+                                  minimum: 0
+                                  maximum: 1
+                                condition:
+                                  type: string
+                                force:
+                                  description: Force value (any JSON type)
+                      approvalNotes:
+                        type: string
+                endActions:
+                  type: array
+                  description: Actions applied when the ramp completes. targetId and patch.ruleId are auto-injected when featureId+ruleId+environment are provided.
+                  items:
+                    type: object
+                    required:
+                      - patch
+                    properties:
+                      targetType:
+                        enum:
+                          - feature-rule
+                        description: Omit when using featureId+ruleId+environment (auto-injected)
+                      targetId:
+                        type: string
+                        description: Auto-injected when featureId+ruleId+environment are provided
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          force:
+                            description: Force value (any JSON type)
+                startDate:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: When to start. Absent/null = immediately on start action.
+                endCondition:
+                  type: object
+                  description: Optional hard deadline
+                  properties:
+                    trigger:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - scheduled
+                        at:
+                          type: string
+                          format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single ramp schedule
+      tags:
+        - ramp-schedules
+      operationId: getRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Update a ramp schedule
+      description: |
+        Updates the name, steps, endActions, startDate, or endCondition of a ramp schedule.
+
+        Only allowed when the schedule is in `pending`, `ready`, or `paused` status.
+
+        **targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`
+        (or pass `"t1"`) in each action. If the schedule has exactly one active target, the server
+        will resolve it automatically. For schedules with multiple targets, provide the explicit
+        target UUID from `targets[].id`.
+      tags:
+        - ramp-schedules
+      operationId: putRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123 \
+              -d '{ "name": "Updated ramp" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                steps:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - trigger
+                    properties:
+                      trigger:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - interval
+                              - approval
+                              - scheduled
+                          seconds:
+                            type: number
+                          at:
+                            type: string
+                            format: date-time
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - patch
+                          properties:
+                            targetType:
+                              enum:
+                                - feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              required:
+                                - ruleId
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  type: number
+                                  minimum: 0
+                                  maximum: 1
+                                condition:
+                                  type: string
+                                force:
+                                  description: Force value (any JSON type)
+                      approvalNotes:
+                        type: string
+                endActions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - patch
+                    properties:
+                      targetType:
+                        enum:
+                          - feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        required:
+                          - ruleId
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          force:
+                            description: Force value (any JSON type)
+                startDate:
+                  type: string
+                  format: date-time
+                  nullable: true
+                endCondition:
+                  type: object
+                  nullable: true
+                  properties:
+                    trigger:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - scheduled
+                        at:
+                          type: string
+                          format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Delete a ramp schedule
+      description: |
+        Permanently deletes a ramp schedule. This does not undo any rule patches that
+        were already applied by completed steps.
+      tags:
+        - ramp-schedules
+      operationId: deleteRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+  '/ramp-schedules/{id}/actions/start':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Start a ramp schedule
+      description: |
+        Transitions the schedule from `ready` to `running` and processes the first
+        step immediately if eligible.
+      tags:
+        - ramp-schedules
+      operationId: startRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/start \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/pause':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Pause a ramp schedule
+      description: |
+        Pauses a `running` or `pending-approval` schedule. The schedule can be
+        resumed from the same position with the `/actions/resume` endpoint.
+      tags:
+        - ramp-schedules
+      operationId: pauseRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/pause \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/resume':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Resume a paused ramp schedule
+      description: |
+        Resumes a `paused` schedule. Adjusts timing anchors to account for the
+        pause duration so step intervals continue from where they left off.
+      tags:
+        - ramp-schedules
+      operationId: resumeRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/resume \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/approve-step':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Approve the current pending-approval step
+      description: |
+        Approves the current step on a schedule in `pending-approval` status and
+        advances to the next step. Requires the caller to have feature review
+        permissions for the associated feature.
+      tags:
+        - ramp-schedules
+      operationId: approveStepRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/approve-step \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/rollback':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Roll back a ramp schedule
+      description: |
+        Rolls back to the starting position and lands in `paused` status so the
+        schedule can be restarted with `/actions/start` or `/actions/resume`.
+      tags:
+        - ramp-schedules
+      operationId: rollbackRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/rollback \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/complete':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Complete a ramp schedule immediately
+      description: |
+        Applies end actions and marks the schedule as `completed`, regardless of
+        how many steps remain.
+      tags:
+        - ramp-schedules
+      operationId: completeRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/complete \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/jump':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Jump to a specific step
+      description: |
+        Moves the schedule directly to `targetStepIndex` (forward or backward) and
+        pauses. Use `-1` to jump to the pre-start position without rolling back rule
+        patches.
+      tags:
+        - ramp-schedules
+      operationId: jumpRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/jump \
+              -d '{ "targetStepIndex": 2 }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetStepIndex
+              properties:
+                targetStepIndex:
+                  type: integer
+                  minimum: -1
+                  description: Zero-based index of the step to jump to; -1 = pre-start
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/add-target':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Add a target rule to a ramp schedule
+      description: |
+        Attaches an additional feature rule to this ramp schedule. The
+        `[ruleId, environment]` pair must identify a rule that is already published
+        and must not already be controlled by another schedule.
+      tags:
+        - ramp-schedules
+      operationId: addTargetRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/add-target \
+              -d '{ "featureId": "my-feature", "ruleId": "rule_abc", "environment": "production" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - featureId
+                - ruleId
+                - environment
+              properties:
+                featureId:
+                  type: string
+                ruleId:
+                  type: string
+                environment:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/eject-target':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Remove a target rule from a ramp schedule
+      description: |
+        Detaches a target rule from this ramp schedule. Identify the target either
+        by its `targetId` or by the `[ruleId, environment]` pair.
+
+        If this is the last target on the schedule, the schedule is deleted entirely
+        and the response contains `deleted: true` instead of `rampSchedule`.
+      tags:
+        - ramp-schedules
+      operationId: ejectTargetRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/eject-target \
+              -d '{ "ruleId": "rule_abc", "environment": "production" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetId:
+                  type: string
+                  description: Target ID (from the targets array)
+                ruleId:
+                  type: string
+                  description: Rule ID — use with environment as an alternative to targetId
+                environment:
+                  type: string
+                  description: Environment — use with ruleId as an alternative to targetId
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - rampSchedule
+                    properties:
+                      rampSchedule:
+                        $ref: '#/components/schemas/RampSchedule'
+                  - type: object
+                    required:
+                      - deleted
+                      - rampScheduleId
+                    properties:
+                      deleted:
+                        type: boolean
+                      rampScheduleId:
+                        type: string
   /product-analytics/metric-exploration:
     post:
       $skipValidatorGeneration: true
@@ -24592,7 +25358,6 @@ components:
               - patch
             properties:
               targetType:
-                type: string
                 enum:
                   - feature-rule
               targetId:
@@ -24649,7 +25414,6 @@ components:
                     - patch
                   properties:
                     targetType:
-                      type: string
                       enum:
                         - feature-rule
                     targetId:
@@ -25338,6 +26102,76 @@ components:
           experiment: '#/components/schemas/FeatureExperimentRule'
           experiment-ref: '#/components/schemas/FeatureExperimentRefRule'
           safe-rollout: '#/components/schemas/FeatureSafeRolloutRule'
+    FeatureBaseRule:
+      description: |
+        Common fields shared by all feature rule types. Specific rule types extend
+        this base with their own required properties (value, coverage, etc.).
+      type: object
+      required:
+        - description
+        - id
+        - enabled
+      properties:
+        description:
+          type: string
+        condition:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        scheduleRules:
+          type: array
+          description: Simple time-based on/off schedule for this rule
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
+        scheduleType:
+          type: string
+          enum:
+            - none
+            - schedule
+            - ramp
+          description: |
+            UI hint for which scheduling mode is active:
+            - `none` – no schedule
+            - `schedule` – simple time-based enable/disable via `scheduleRules`
+            - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID of the prerequisite
+              condition:
+                type: string
     FeatureDefinition:
       type: object
       required:
@@ -25393,325 +26227,162 @@ components:
                 type: object
                 additionalProperties: true
     FeatureForceRule:
-      type: object
-      required:
-        - description
-        - condition
-        - id
-        - enabled
-        - type
-        - value
-      properties:
-        description:
-          type: string
-        condition:
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            required:
-              - matchType
-              - savedGroups
-            properties:
-              matchType:
-                type: string
-                enum:
-                  - all
-                  - any
-                  - none
-              savedGroups:
-                type: array
-                items:
-                  type: string
-        prerequisites:
-          type: array
-          items:
-            type: object
-            required:
-              - id
-              - condition
-            properties:
-              id:
-                type: string
-                description: Feature ID
-              condition:
-                type: string
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - force
-        value:
-          type: string
-    FeatureRolloutRule:
-      type: object
-      required:
-        - description
-        - condition
-        - id
-        - enabled
-        - type
-        - value
-        - coverage
-        - hashAttribute
-      properties:
-        description:
-          type: string
-        condition:
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            required:
-              - matchType
-              - savedGroups
-            properties:
-              matchType:
-                type: string
-                enum:
-                  - all
-                  - any
-                  - none
-              savedGroups:
-                type: array
-                items:
-                  type: string
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - rollout
-        value:
-          type: string
-        coverage:
-          type: number
-        hashAttribute:
-          type: string
-    FeatureSafeRolloutRule:
-      type: object
-      required:
-        - condition
-        - id
-        - enabled
-        - type
-        - controlValue
-        - variationValue
-      properties:
-        condition:
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            required:
-              - matchType
-              - savedGroups
-            properties:
-              matchType:
-                type: string
-                enum:
-                  - all
-                  - any
-                  - none
-              savedGroups:
-                type: array
-                items:
-                  type: string
-        prerequisites:
-          type: array
-          items:
-            type: object
-            required:
-              - id
-              - condition
-            properties:
-              id:
-                type: string
-                description: Feature ID
-              condition:
-                type: string
-        id:
-          type: string
-        trackingKey:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - safe-rollout
-        controlValue:
-          type: string
-        variationValue:
-          type: string
-        seed:
-          type: string
-        hashAttribute:
-          type: string
-        safeRolloutId:
-          type: string
-        status:
-          type: string
-          enum:
-            - running
-            - released
-            - rolled-back
-            - stopped
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-    FeatureExperimentRule:
-      type: object
-      required:
-        - description
-        - condition
-        - id
-        - enabled
-        - type
-      properties:
-        description:
-          type: string
-        condition:
-          type: string
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - experiment
-        trackingKey:
-          type: string
-        hashAttribute:
-          type: string
-        fallbackAttribute:
-          type: string
-        disableStickyBucketing:
-          type: boolean
-        bucketVersion:
-          type: number
-        minBucketVersion:
-          type: number
-        namespace:
-          type: object
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
           required:
-            - enabled
-            - name
-            - range
+            - type
+            - value
           properties:
-            enabled:
-              type: boolean
-            name:
+            type:
               type: string
-            range:
+              enum:
+                - force
+            value:
+              type: string
+    FeatureRolloutRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+            - value
+            - coverage
+            - hashAttribute
+          properties:
+            type:
+              type: string
+              enum:
+                - rollout
+            value:
+              type: string
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            hashAttribute:
+              type: string
+            seed:
+              type: string
+              description: Optional seed for the hash function; defaults to the rule id
+    FeatureSafeRolloutRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+            - controlValue
+            - variationValue
+          properties:
+            type:
+              type: string
+              enum:
+                - safe-rollout
+            controlValue:
+              type: string
+            variationValue:
+              type: string
+            seed:
+              type: string
+            hashAttribute:
+              type: string
+            trackingKey:
+              type: string
+            safeRolloutId:
+              type: string
+            status:
+              type: string
+              enum:
+                - running
+                - released
+                - rolled-back
+                - stopped
+    FeatureExperimentRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - experiment
+            trackingKey:
+              type: string
+            hashAttribute:
+              type: string
+            fallbackAttribute:
+              type: string
+            disableStickyBucketing:
+              type: boolean
+            bucketVersion:
+              type: number
+            minBucketVersion:
+              type: number
+            namespace:
+              type: object
+              required:
+                - enabled
+                - name
+                - range
+              properties:
+                enabled:
+                  type: boolean
+                name:
+                  type: string
+                range:
+                  type: array
+                  items:
+                    type: number
+                  minItems: 2
+                  maxItems: 2
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            value:
+              type: array
+              description: Variation values with weights
+              items:
+                type: object
+                required:
+                  - value
+                  - weight
+                properties:
+                  value:
+                    type: string
+                  weight:
+                    type: number
+                  name:
+                    type: string
+    FeatureExperimentRefRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+            - variations
+            - experimentId
+          properties:
+            type:
+              type: string
+              enum:
+                - experiment-ref
+            variations:
               type: array
               items:
-                type: number
-              minItems: 2
-              maxItems: 2
-        coverage:
-          type: number
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        value:
-          type: array
-          items:
-            type: object
-            required:
-              - value
-              - weight
-            properties:
-              value:
-                type: string
-              weight:
-                type: number
-              name:
-                type: string
-    FeatureExperimentRefRule:
-      type: object
-      required:
-        - description
-        - id
-        - enabled
-        - type
-        - variations
-        - experimentId
-      properties:
-        description:
-          type: string
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - experiment-ref
-        condition:
-          type: string
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        variations:
-          type: array
-          items:
-            type: object
-            required:
-              - value
-              - variationId
-            properties:
-              value:
-                type: string
-              variationId:
-                type: string
-        experimentId:
-          type: string
+                type: object
+                required:
+                  - value
+                  - variationId
+                properties:
+                  value:
+                    type: string
+                  variationId:
+                    type: string
+            experimentId:
+              type: string
     FeatureRevision:
       type: object
       required:
@@ -27857,11 +28528,14 @@ x-tagGroups:
       - projects
       - environments
       - features
+      - ramp-schedules
+      - RampScheduleTemplates
       - data-sources
       - fact-tables
       - fact-metrics
       - metrics
       - experiments
+      - ExperimentTemplates
       - snapshots
       - dimensions
       - segments
@@ -27879,9 +28553,7 @@ x-tagGroups:
       - AnalyticsExplorations
       - CustomFields
       - Dashboards
-      - ExperimentTemplates
       - MetricGroups
-      - RampScheduleTemplates
       - Teams
   - name: Models
     tags:
@@ -27902,6 +28574,7 @@ x-tagGroups:
       - FactTableColumn_model
       - FactTableFilter_model
       - Feature_model
+      - FeatureBaseRule_model
       - FeatureDefinition_model
       - FeatureEnvironment_model
       - FeatureExperimentRefRule_model

@@ -30,7 +30,6 @@ export const listRampSchedules = createApiRequestHandler(
   if (req.query.status) {
     schedules = schedules.filter((s) => s.status === req.query.status);
   }
-
   const { filtered, returnFields } = applyPagination(
     schedules.sort(
       (a, b) =>

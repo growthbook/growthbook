@@ -24,6 +24,8 @@ FeatureEnvironment:
   $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
   $ref: "./FeatureRule.yaml"
+FeatureBaseRule:
+  $ref: "./FeatureBaseRule.yaml"
 FeatureDefinition:
   $ref: "./FeatureDefinition.yaml"
 FeatureForceRule:
