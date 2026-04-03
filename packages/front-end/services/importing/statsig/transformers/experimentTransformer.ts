@@ -137,6 +137,10 @@ export function transformStatsigExperimentToGB(
       name: "Main",
       reason: results ? `Experiment ${results}` : "",
       variationWeights,
+      variations: variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
       condition: phaseCondition,
       savedGroups: phaseSavedGroups,
       prerequisites: phasePrerequisites,

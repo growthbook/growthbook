@@ -2649,7 +2649,9 @@ paths:
                       coverage:
                         type: number
                       trafficSplit:
+                        deprecated: true
                         type: array
+                        description: Deprecated and unused. Use variationWeights instead.
                         items:
                           type: object
                           required:

@@ -393,8 +393,9 @@ export const computeExperimentChanges = async ({
 
       if (winning === null) continue;
 
-      const { id: variationId, name: variationName } =
-        getLatestPhaseVariations(experiment)[i];
+      const { id: variationId, name: variationName } = getLatestPhaseVariations(
+        experiment,
+      )?.[i] || { id: i + "", name: "" };
 
       experimentChanges.push({
         experimentId: experiment.id,

@@ -388,7 +388,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       regressionAdjustmentEnabled: true,
       variations: [
         {
-          id: "v0",
+          id: "var_0",
           key: "0",
           name: "Control",
           screenshots: [
@@ -398,7 +398,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
           ],
         },
         {
-          id: "v1",
+          id: "var_1",
           key: "1",
           name: "Treatment",
           screenshots: [
@@ -417,6 +417,10 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
           condition: "",
           namespace: { enabled: false, name: "", range: [0, 1] },
           variationWeights: [0.5, 0.5],
+          variations: [
+            { id: "var_0", status: "active" as const },
+            { id: "var_1", status: "active" as const },
+          ],
         },
       ],
     };

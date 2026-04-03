@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { postMetricValidator, putMetricValidator } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
-import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   applyVariationWeightsToLatestPhase,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1223,6 +1224,179 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.sql).toBe(undefined);
       expect(result.type).toEqual("count");
       expect(result.userIdTypes).toEqual(undefined);
+    });
+  });
+
+  describe("updateExperimentApiPayloadToInterface", () => {
+    const organization = {
+      id: "org_123",
+      settings: {},
+    } as unknown as OrganizationInterface;
+
+    function makeExperiment(): ExperimentInterface {
+      return {
+        id: "exp_123",
+        organization: "org_123",
+        trackingKey: "exp_123",
+        name: "Test Experiment",
+        type: "standard",
+        project: "proj_1",
+        hypothesis: "",
+        description: "",
+        tags: [],
+        owner: "",
+        dateCreated: new Date("2026-01-01T00:00:00.000Z"),
+        dateUpdated: new Date("2026-01-01T00:00:00.000Z"),
+        archived: false,
+        status: "running",
+        autoSnapshots: false,
+        hashAttribute: "id",
+        hashVersion: 2,
+        disableStickyBucketing: false,
+        variations: [
+          {
+            id: "v0",
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "v1",
+            key: "treatment",
+            name: "Treatment",
+            description: "",
+            screenshots: [],
+          },
+        ],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2026-01-01T00:00:00.000Z"),
+            dateEnded: undefined,
+            reason: "",
+            seed: "seed_123",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "{}",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: {
+              enabled: false,
+              name: "",
+              range: [0, 1],
+            },
+            variations: [
+              { id: "v1", status: "stopped" },
+              { id: "v0", status: "active" },
+            ],
+          },
+        ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        regressionAdjustmentEnabled: false,
+        sequentialTestingEnabled: false,
+        shareLevel: "organization",
+        linkedFeatures: [],
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      } as unknown as ExperimentInterface;
+    }
+
+    it("does not overwrite phase variations on phases-only updates", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              variations: [{ id: "v0" }, { id: "v1" }],
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.variations).toBe(undefined);
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "stopped" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("synchronizes existing phases when only top-level variations are updated", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          variations: [
+            { id: "v0", key: "control", name: "Control" },
+            { id: "v1", key: "treatment", name: "Treatment" },
+            { id: "v2", key: "new", name: "New" },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v0", status: "active" },
+        { id: "v1", status: "active" },
+        { id: "v2", status: "active" },
+      ]);
+    });
+
+    it("uses top-level variation order and preserves phase statuses by id in mixed updates", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          variations: [
+            { id: "v1", key: "treatment", name: "Treatment" },
+            { id: "v0", key: "control", name: "Control" },
+          ],
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+              variations: [{ id: "v0" }, { id: "v1" }],
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "active" },
+        { id: "v0", status: "active" },
+      ]);
+    });
+
+    it("does not overwrite phase variations when top-level variations are not provided", () => {
+      const experiment = makeExperiment();
+      const changes = updateExperimentApiPayloadToInterface(
+        {
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-02-01T00:00:00.000Z",
+            },
+          ],
+        },
+        experiment,
+        new Map(),
+        organization,
+      );
+
+      expect(changes.phases?.[0].variations).toEqual([
+        { id: "v1", status: "stopped" },
+        { id: "v0", status: "active" },
+      ]);
     });
   });
 

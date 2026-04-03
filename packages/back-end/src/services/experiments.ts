@@ -3249,6 +3249,11 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const variationIds = payload.variations.map(() => generateVariationId());
+
+  const toPhaseVariations = (variationIds: string[]) =>
+    variationIds.map((id) => ({ id, status: "active" as const }));
+
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
     if (!conditionRes.success) {
@@ -3283,6 +3288,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights:
         p.variationWeights ||
         payload.variations.map(() => 1 / payload.variations.length),
+      variations: toPhaseVariations(variationIds),
     };
   }) || [
     {
@@ -3293,6 +3299,7 @@ export function postExperimentApiPayloadToInterface(
       variationWeights: payload.variations.map(
         () => 1 / payload.variations.length,
       ),
+      variations: toPhaseVariations(variationIds),
       condition: "",
       savedGroups: [],
       namespace: {
@@ -3349,9 +3356,9 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     // Note: attributionModel + lookbackOverride consistency is validated by the controller
     variations:
-      payload.variations.map((v) => ({
+      payload.variations.map((v, i) => ({
         ...v,
-        id: generateVariationId(),
+        id: variationIds[i],
         screenshots: v.screenshots || [],
       })) || [],
     // Legacy field, no longer used when creating experiments
@@ -3408,6 +3415,149 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
+type UpdateExperimentApiPayload = z.infer<
+  typeof updateExperimentValidator.bodySchema
+>;
+
+function toActivePhaseVariations(
+  canonicalVariations: ExperimentInterface["variations"],
+): ExperimentPhase["variations"] {
+  return canonicalVariations.map((v) => ({
+    id: v.id,
+    status: "active",
+  }));
+}
+
+// If there is no variations payload, this returns the existing phase variations
+// If there is a variations payload, this returns the will return the "all active"
+// status for those variations to be set on the phase
+function resolvePhaseVariationsForPayloadPhase({
+  hasVariationPayload,
+  canonicalVariations,
+  existingPhaseVariations,
+}: {
+  hasVariationPayload: boolean;
+  canonicalVariations: ExperimentInterface["variations"];
+  existingPhaseVariations: ExperimentPhase["variations"] | undefined;
+}): ExperimentPhase["variations"] {
+  const experimentLevelVariationsForPhase =
+    toActivePhaseVariations(canonicalVariations);
+
+  if (hasVariationPayload) {
+    return experimentLevelVariationsForPhase;
+  }
+
+  return existingPhaseVariations || experimentLevelVariationsForPhase;
+}
+
+/**
+ * Maps REST update payload fields `phases` and/or `variations` into experiment changes.
+ *
+ * **Validation (only when `phases` is present):** Each phase’s `condition` and every
+ * prerequisite’s `condition` are validated; invalid JSON/expressions throw with a clear error.
+ *
+ * **Top-level variations:** If the payload includes `variations`, merged entries get
+ * `screenshots: []` when omitted and a new `id` via `generateVariationId()` when omitted.
+ *
+ * **Phase-level `variations` (id + status envelope):**
+ * - With a `phases` payload: per phase index, keep the existing phase’s variation envelope
+ *   when the request does *not* send top-level `variations`; otherwise replace the envelope
+ *   with all top-level experiment variations and set every status to `"active"`. If the
+ *   existing phase had no envelope, fall back to that same active list from top-level variations.
+ * - With top-level `variations` but *no* `phases` payload: only the **last** phase’s envelope
+ *   is updated to match the new top-level order/ids; earlier phases are left unchanged
+ *   (historical phases keep their stored envelopes).
+ *
+ * **Weights:** When a phase in the payload omits `variationWeights`, weights default to
+ * equal splits across that phase’s resolved `variations` list.
+ */
+function resolveExperimentUpdateVariationsAndPhases(
+  phases: UpdateExperimentApiPayload["phases"],
+  variations: UpdateExperimentApiPayload["variations"],
+  experiment: ExperimentInterface,
+): Partial<ExperimentInterface> {
+  const hasPhasePayload = phases !== undefined;
+  const hasVariationPayload = variations !== undefined;
+
+  const resolvedVariations: ExperimentInterface["variations"] | undefined =
+    hasVariationPayload
+      ? variations.map((v) => ({
+          ...v,
+          id: v.id || generateVariationId(),
+          screenshots: v.screenshots || [],
+        }))
+      : undefined;
+  const canonicalVariations = resolvedVariations ?? experiment.variations;
+  let resolvedPhases: ExperimentInterface["phases"] | undefined;
+
+  if (hasPhasePayload) {
+    resolvedPhases = phases.map((p, phaseIndex) => {
+      const conditionRes = validateCondition(p.condition);
+      if (!conditionRes.success) {
+        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+      }
+      p.prerequisites?.forEach((prerequisite) => {
+        const conditionRes = validateCondition(prerequisite.condition);
+        if (!conditionRes.success) {
+          throw new Error(
+            `Invalid prerequisite condition: ${conditionRes.error}`,
+          );
+        }
+      });
+
+      // Update phase variations to match new variations payload if it exists
+      // otherwise, use the existing phase variations
+      const phaseVariations = resolvePhaseVariationsForPayloadPhase({
+        hasVariationPayload,
+        canonicalVariations,
+        existingPhaseVariations: experiment.phases[phaseIndex]?.variations,
+      });
+
+      const variationWeights =
+        p.variationWeights ||
+        phaseVariations.map((_) => 1 / phaseVariations.length);
+      return {
+        ...p,
+        dateStarted: new Date(p.dateStarted),
+        dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+        reason: p.reason || "",
+        coverage: p.coverage != null ? p.coverage : 1,
+        condition: p.condition || "{}",
+        prerequisites: p.prerequisites || [],
+        savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+          match: s.matchType,
+          ids: s.savedGroups,
+        })),
+        namespace: {
+          name: p.namespace?.namespaceId || "",
+          range: toNamespaceRange(p.namespace?.range),
+          enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+        },
+        variationWeights,
+        variations: phaseVariations,
+      };
+    });
+  } else if (hasVariationPayload) {
+    // If user is not explicitly updating the phases, but they are updating the variations,
+    // then only update the last phase to have the new variations
+    const syncedPhaseVariations = toActivePhaseVariations(canonicalVariations);
+
+    resolvedPhases = experiment.phases.map((phase, i, arr) =>
+      i === arr.length - 1
+        ? {
+            ...phase,
+            variations: syncedPhaseVariations,
+          }
+        : phase,
+    );
+  }
+
+  return {
+    ...(resolvedVariations ? { variations: resolvedVariations } : {}),
+    ...(resolvedPhases ? { phases: resolvedPhases } : {}),
+  };
+}
+
 /**
  * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
  * @param payload
@@ -3416,7 +3566,7 @@ export function postExperimentApiPayloadToInterface(
  * @param userId
  */
 export function updateExperimentApiPayloadToInterface(
-  payload: z.infer<typeof updateExperimentValidator.bodySchema>,
+  payload: UpdateExperimentApiPayload,
   experiment: ExperimentInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
   organization: OrganizationInterface,
@@ -3468,6 +3618,7 @@ export function updateExperimentApiPayloadToInterface(
     banditBurnInValue,
     banditBurnInUnit,
   } = payload;
+
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
@@ -3514,60 +3665,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(sequentialTestingTuningParameter !== undefined
       ? { sequentialTestingTuningParameter }
       : {}),
-    ...(variations
-      ? {
-          variations: variations?.map((v) => ({
-            id: generateVariationId(),
-            screenshots: [],
-            ...v,
-          })),
-        }
-      : {}),
-    ...(phases
-      ? {
-          phases: phases.map((p) => {
-            const conditionRes = validateCondition(p.condition);
-            if (!conditionRes.success) {
-              throw new Error(
-                `Invalid targeting condition: ${conditionRes.error}`,
-              );
-            }
-            p.prerequisites?.forEach((prerequisite) => {
-              const conditionRes = validateCondition(prerequisite.condition);
-              if (!conditionRes.success) {
-                throw new Error(
-                  `Invalid prerequisite condition: ${conditionRes.error}`,
-                );
-              }
-            });
-
-            return {
-              ...p,
-              dateStarted: new Date(p.dateStarted),
-              dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-              reason: p.reason || "",
-              coverage: p.coverage != null ? p.coverage : 1,
-              condition: p.condition || "{}",
-              prerequisites: p.prerequisites || [],
-              savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-                match: s.matchType,
-                ids: s.savedGroups,
-              })),
-              namespace: {
-                name: p.namespace?.namespaceId || "",
-                range: toNamespaceRange(p.namespace?.range),
-                enabled:
-                  p.namespace?.enabled != null ? p.namespace.enabled : false,
-              },
-              variationWeights:
-                p.variationWeights ||
-                (
-                  payload.variations || getLatestPhaseVariations(experiment)
-                )?.map((_v, _i, arr) => 1 / arr.length),
-            };
-          }),
-        }
-      : {}),
+    ...resolveExperimentUpdateVariationsAndPhases(
+      phases,
+      variations,
+      experiment,
+    ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     ...(customFields !== undefined ? { customFields } : {}),
