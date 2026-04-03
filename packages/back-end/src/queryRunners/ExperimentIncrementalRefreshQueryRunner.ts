@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isRegressionAdjusted,
+  quantileMetricType,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
@@ -105,6 +106,11 @@ export function getIncrementalRefreshMetricSources({
   // TODO(incremental-refresh): error if no efficient percentiles
   // shouldn't be possible since we are unlikely to build incremental
   // refresh for mySQL
+  const getMetricGroupKey = (metric: FactMetricInterface) => {
+    // Keep quantiles in their own source (similar to experimentQueries grouping)
+    return `${metric.numerator.factTableId}${quantileMetricType(metric) ? "_qtile" : ""}`;
+  };
+
   const groups: Record<
     string,
     {
@@ -131,13 +137,13 @@ export function getIncrementalRefreshMetricSources({
 
     // TODO(incremental-refresh): handle cross-table metrics
     const factTableId = metric.numerator.factTableId;
-
-    groups[factTableId] = groups[factTableId] || {
+    const groupKey = getMetricGroupKey(metric);
+    groups[groupKey] = groups[groupKey] || {
       alreadyExists: false,
       factTableId,
       metrics: [],
     };
-    groups[factTableId].metrics.push(metric);
+    groups[groupKey].metrics.push(metric);
   });
 
   const finalGroups: {
@@ -799,10 +805,13 @@ const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(maxTimestampMetricsSourceQuery);
 
-    const dimensionsForPrecomputation = org.settings
-      ?.disablePrecomputedDimensions
-      ? []
-      : eligibleDimensionsWithSlicesUnderMaxCells;
+    // Match standard query runner behavior: quantiles only run overall stats
+    // (no pre-computed dimensions), regardless of requested dimensions.
+    const runOverallQuantileAnalysis = group.metrics.some(quantileMetricType);
+    const dimensionsForPrecomputation =
+      org.settings?.disablePrecomputedDimensions || runOverallQuantileAnalysis
+        ? []
+        : eligibleDimensionsWithSlicesUnderMaxCells;
 
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,

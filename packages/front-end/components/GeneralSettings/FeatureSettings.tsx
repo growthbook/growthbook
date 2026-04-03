@@ -16,7 +16,6 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
-
 export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
@@ -361,6 +360,22 @@ export default function FeatureSettings() {
                             setValue={(v) =>
                               form.setValue(
                                 `requireReviews.${i}.resetReviewOnChange`,
+                                v,
+                              )
+                            }
+                          />
+                          <Checkbox
+                            id={`toggle-block-self-approval-${i}`}
+                            label="Block contributors from self-approving"
+                            description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+                            value={
+                              !!form.watch(
+                                `requireReviews.${i}.blockSelfApproval`,
+                              )
+                            }
+                            setValue={(v) =>
+                              form.setValue(
+                                `requireReviews.${i}.blockSelfApproval`,
                                 v,
                               )
                             }

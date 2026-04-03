@@ -1,5 +1,6 @@
 import Agenda, { AgendaConfig, DefineOptions, Processor } from "agenda";
 import mongoose from "mongoose";
+import { parseEnvInt } from "shared/util";
 import { trackJob } from "./tracing";
 import { addJobLifecycleChecks } from "./jobLifecycle";
 
@@ -9,7 +10,11 @@ export const getAgendaInstance = (): Agenda => {
   if (!agendaInstance) {
     const config: AgendaConfig = {
       mongo: mongoose.connection.db,
-      defaultLockLimit: Number(process.env.GB_AGENDA_DEFAULT_LOCK_LIMIT) || 5,
+      defaultLockLimit: parseEnvInt(
+        process.env.GB_AGENDA_DEFAULT_LOCK_LIMIT,
+        5,
+        { min: 1, name: "GB_AGENDA_DEFAULT_LOCK_LIMIT" },
+      ),
       defaultLockLifetime: 10 * 60 * 1000, // 10 minutes
     };
 

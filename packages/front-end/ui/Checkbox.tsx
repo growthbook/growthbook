@@ -30,7 +30,7 @@ export type Props = {
   error?: string;
   errorLevel?: "error" | "warning";
   description?: string | ReactElement;
-  weight?: "bold" | "regular";
+  weight?: "bold" | "regular" | "medium";
   setValue: (value: boolean) => void;
   required?: boolean;
   containerClassName?: string;

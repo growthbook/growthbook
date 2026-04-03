@@ -37,6 +37,7 @@ import {
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
 } from "shared/types/integrations";
+import { parseIntWithDefault } from "shared/util";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import {
   DataSourceInterface,
@@ -322,7 +323,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
       rows.forEach((row) => {
         const date = convertDate(row.dimensions?.[0] || "");
         const value = parseFloat(row.metrics?.[0]?.values?.[0] || "") || 0;
-        const users = parseInt(row.metrics?.[0]?.values?.[1] || "") || 0;
+        const users = parseIntWithDefault(row.metrics?.[0]?.values?.[1], 0);
 
         let count: number;
         let mean: number;
@@ -480,12 +481,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     }
 
     return rows.map((row) => {
-      const users = parseInt(row.metrics?.[0]?.values?.[0] || "");
+      const users = parseIntWithDefault(row.metrics?.[0]?.values?.[0], 0);
       return {
         dimension: "",
         variation:
           (row.dimensions?.[0] || "").split(this.getDelimiter(), 2)[1] || "",
-        users: users || 0,
+        users,
         metrics: metrics.map((metric, j) => {
           let value = parseFloat(row.metrics?.[0]?.values?.[j + 1] || "") || 0;
           if (metric.table === "ga:bounceRate") {

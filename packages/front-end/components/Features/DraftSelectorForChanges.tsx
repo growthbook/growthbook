@@ -19,6 +19,7 @@ import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { revisionLabelText } from "@/components/Features/RevisionLabel";
+import { isRampGenerated } from "@/components/Features/RevisionStatusBadge";
 import RadioGroup from "@/ui/RadioGroup";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
@@ -61,8 +62,10 @@ export default function DraftSelectorForChanges({
 
   const activeDrafts = useMemo(
     () =>
-      revisionList.filter((r) =>
-        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+      revisionList.filter(
+        (r) =>
+          !isRampGenerated(r) &&
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
       ),
     [revisionList],
   );

@@ -1,0 +1,170 @@
+// ─── Theme-aware color tokens ────────────────────────────────────────────────
+// --gray-4 collapses to near-black in dark mode; define intentional overrides.
+
+:global(.light-theme) {
+  --ramp-future-dot: var(--gray-4);
+  --ramp-future-connector: var(--gray-4);
+  --ramp-future-label: var(--gray-12);
+}
+
+:global(.dark-theme) {
+  --ramp-future-dot: var(--gray-9);
+  --ramp-future-connector: var(--gray-7);
+  --ramp-future-label: var(--gray-11);
+}
+
+// ─── constants (mirrored from TSX) ──────────────────────────────────────────
+// DOT_CONTAINER = 15px, DOT_SIZE = 15px
+// CONNECTOR_MARGIN_TOP = DOT_CONTAINER/2 - 1 + 4 = 10.5px
+// CONNECTOR_WIDTH = 44px
+
+@keyframes ramp-dot-blip {
+  0% {
+    transform: scale(1);
+    opacity: 0;
+  }
+  20%,
+  60% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  80% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+// ─── NodeDot ─────────────────────────────────────────────────────────────────
+
+.dotContainer {
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.dotRing {
+  position: absolute;
+  width: 21px; // DOT_SIZE + 6
+  height: 21px;
+  border-radius: 50%;
+  opacity: 0.35;
+}
+
+.dotRingPulse {
+  animation: ramp-dot-blip 2.5s ease-in-out infinite;
+}
+
+.nodeDot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+
+// ─── Node ────────────────────────────────────────────────────────────────────
+
+.nodeHoverable {
+  cursor: pointer;
+
+  &:hover .nodeDot {
+    transform: scale(1.25);
+  }
+}
+
+.nodeInner {
+  flex-shrink: 0;
+  min-width: 44px;
+}
+
+.nodeLabels {
+  margin-left: -5px;
+  margin-right: -5px;
+  white-space: nowrap;
+}
+
+.nodeSublabel {
+  color: var(--color-text-low);
+}
+
+// ─── Connector ───────────────────────────────────────────────────────────────
+
+.connector {
+  width: 50px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.connectorLine {
+  width: 100%;
+  height: 2px;
+  margin-top: 10.5px;
+}
+
+.connectorLabel {
+  text-align: center;
+  margin-top: 2px;
+  color: var(--color-text-low);
+  white-space: nowrap;
+}
+
+.connectorSpacer {
+  width: 50px;
+  flex-shrink: 0;
+  margin-top: 10.5px;
+  align-self: flex-start;
+}
+
+// ─── PopoverEffectRow ─────────────────────────────────────────────────────────
+
+.effectLabel {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.effectValue {
+  min-width: 0;
+}
+
+// ─── NodePopoverContent ───────────────────────────────────────────────────────
+
+.popoverBox {
+  min-width: 150px;
+  max-width: 350px;
+}
+
+.popoverStatusLabel {
+  font-size: var(--font-size-2);
+  white-space: nowrap;
+}
+
+// ─── Scheduled date two-line label ───────────────────────────────────────────
+
+.scheduledDateLine {
+  line-height: 1.2;
+}
+
+// ─── RampTimeline root ───────────────────────────────────────────────────────
+
+.timelineRoot {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.timelineScroll {
+  overflow-x: auto;
+  padding: 6px 8px;
+}
+
+.timelineRow {
+  width: fit-content;
+}

@@ -101,6 +101,7 @@ const genFormDefaultValues = ({
   | "environmentSettings"
   | "customFields"
   | "holdout"
+  | "jsonSchema"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -130,6 +131,7 @@ const genFormDefaultValues = ({
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout
           : undefined,
+        jsonSchema: featureToDuplicate.jsonSchema,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -241,8 +243,13 @@ export default function FeatureModal({
           throw new Error("Please select a value type");
         }
 
+        // When duplicating, skip JSON schema validation since the value is
+        // copied verbatim from an existing feature and the user cannot edit it.
+        const featureForValidation = featureToDuplicate
+          ? { valueType: feature.valueType }
+          : feature;
         const newDefaultValue = validateFeatureValue(
-          feature,
+          featureForValidation,
           defaultValue,
           "Value",
         );
@@ -378,6 +385,7 @@ export default function FeatureModal({
         <EnvironmentSelect
           environmentSettings={environmentSettings}
           environments={environments}
+          project={selectedProject}
           setValue={(env, on) => {
             environmentSettings[env.id].enabled = on;
             form.setValue("environmentSettings", environmentSettings);

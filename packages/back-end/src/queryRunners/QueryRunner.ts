@@ -8,6 +8,7 @@ import {
   QueryStatus,
   QueryType,
 } from "shared/types/query";
+import { parseIntWithDefault, parseOptionalInt } from "shared/util";
 import {
   countRunningQueries,
   createNewQuery,
@@ -15,6 +16,7 @@ import {
   getQueriesByIds,
   getRecentQuery,
   updateQuery,
+  updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
@@ -642,16 +644,22 @@ export abstract class QueryRunner<
       .catch(async (e) => {
         clearInterval(timer);
         logger.debug("Query failed: " + e.message);
-        updateQuery(this.context, doc, {
-          finishedAt: new Date(),
-          status: "failed",
-          error: e.message,
-        })
-          .then(() => {
-            onFailure();
-            this.onQueryFinish();
-          })
-          .catch((e) => logger.error(e));
+        try {
+          const updated = await updateQueryIfRunning(this.context, doc, {
+            finishedAt: new Date(),
+            status: "failed",
+            error: e.message,
+          });
+          if (!updated) {
+            logger.debug(
+              `Query ${doc.id} failure not written: already terminal (e.g. user cancel)`,
+            );
+          }
+          onFailure();
+          this.onQueryFinish();
+        } catch (err) {
+          logger.error(err);
+        }
       });
   }
 
@@ -676,12 +684,9 @@ export abstract class QueryRunner<
       logger.debug("Trying to reuse existing query for " + name);
       try {
         // Use datasource-specific cache TTL if set, otherwise use global default
-        const queryCacheTTLSetting =
-          this.integration.datasource.settings.queryCacheTTLMins;
-        const parsedTTL = queryCacheTTLSetting
-          ? parseInt(queryCacheTTLSetting)
-          : NaN;
-        const cacheTTLMins = isNaN(parsedTTL) ? undefined : parsedTTL;
+        const cacheTTLMins = parseOptionalInt(
+          this.integration.datasource.settings.queryCacheTTLMins,
+        );
         const existing = await getRecentQuery(
           this.integration.context.org.id,
           this.integration.datasource.id,
@@ -801,8 +806,9 @@ export abstract class QueryRunner<
   private async concurrencyLimitReached(): Promise<boolean> {
     if (!this.integration.datasource.settings.maxConcurrentQueries)
       return new Promise<boolean>((resolve) => resolve(false));
-    const numericConcurrencyLimit = parseInt(
+    const numericConcurrencyLimit = parseIntWithDefault(
       this.integration.datasource.settings.maxConcurrentQueries,
+      NaN,
     );
     if (isNaN(numericConcurrencyLimit) || numericConcurrencyLimit === 0) {
       return new Promise<boolean>((resolve) => resolve(false));

@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
+import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
@@ -34,6 +35,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
   expandAllSliceMetricsInMap,
   getEqualWeights,
   getEffectiveLookbackOverride,
@@ -101,10 +103,12 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
+  Variation,
 } from "shared/types/experiment";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
 } from "shared/types/organization";
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
@@ -118,6 +122,10 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
+} from "back-end/src/models/VisualChangesetModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -933,6 +941,83 @@ export function resetExperimentBanditSettings({
   return changes;
 }
 
+/**
+ * Keeps visual changesets and URL redirects aligned when an experiment's
+ * variations or phases (e.g. weights) change.
+ */
+export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
+  context,
+  updated,
+}: {
+  context: ReqContext | ApiReqContext;
+  updated: ExperimentInterface;
+}): Promise<void> {
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    updated.id,
+    context.org.id,
+  );
+
+  if (visualChangesets.length) {
+    await Promise.all(
+      visualChangesets.map((vc) =>
+        syncVisualChangesWithVariations({
+          visualChangeset: vc,
+          experiment: updated,
+          context,
+        }),
+      ),
+    );
+  }
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    updated.id,
+  );
+  if (urlRedirects.length) {
+    await Promise.all(
+      urlRedirects.map((urlRedirect) =>
+        context.models.urlRedirects.syncURLRedirectsWithVariations(
+          urlRedirect,
+          updated,
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Persists experiment changes and syncs linked visual changesets and URL
+ * redirects when `variations` are in the changeset.
+ */
+export async function updateExperimentAndSync({
+  context,
+  experiment,
+  changes,
+  bypassWebhooks = false,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+  bypassWebhooks?: boolean;
+}): Promise<ExperimentInterface> {
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes,
+    bypassWebhooks,
+  });
+
+  const shouldSyncLinked = changes.variations && updated;
+
+  if (shouldSyncLinked) {
+    await syncVisualChangesetsAndUrlRedirectsForExperiment({
+      context,
+      updated,
+    });
+  }
+
+  return updated;
+}
+
 export function updateExperimentBanditSettings({
   experiment,
   changes,
@@ -1548,6 +1633,237 @@ export async function createSnapshot({
   });
 }
 
+export function validateVariationIds(variations: Variation[]) {
+  variations.forEach((variation, i) => {
+    if (!variation.id) {
+      variation.id = uniqid("var_");
+    }
+    if (!variation.key) {
+      variation.key = i + "";
+    }
+  });
+  const keys = variations.map((v) => v.key);
+  if (keys.length !== new Set(keys).size) {
+    throw new Error("Variation keys must be unique");
+  }
+}
+
+function getSnapshotType({
+  experiment,
+  dimension,
+  phaseIndex,
+}: {
+  experiment: ExperimentInterface;
+  dimension: string | undefined;
+  phaseIndex: number;
+}): SnapshotType {
+  // dimension analyses are ad-hoc
+  if (dimension) {
+    return "exploratory";
+  }
+
+  // analyses of old phases are ad-hoc
+  if (phaseIndex !== experiment.phases.length - 1) {
+    return "exploratory";
+  }
+
+  return "standard";
+}
+
+export async function createExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const plan = await planExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension,
+    phase,
+    useCache,
+    triggeredBy,
+    type,
+    reweight,
+    allowIncrementalRefresh,
+  });
+
+  return createExperimentSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+  });
+}
+
+export async function createExperimentSnapshotFromPlan({
+  plan,
+  context,
+  experiment,
+}: {
+  plan: PlannedExperimentSnapshot;
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<{
+  snapshot: ExperimentSnapshotInterface;
+  queryRunner: ExperimentSnapshotQueryRunner;
+}> {
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+  });
+
+  const queryRunner = await createSnapshotFromPlan({
+    plan,
+    context,
+    experiment,
+    metricMap,
+    factTableMap,
+  });
+  return { snapshot: queryRunner.model, queryRunner };
+}
+
+export async function planExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+  triggeredBy,
+  type,
+  reweight,
+  allowIncrementalRefresh = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+  triggeredBy?: SnapshotTriggeredBy;
+  type?: SnapshotType;
+  reweight?: boolean;
+  allowIncrementalRefresh?: boolean;
+}): Promise<PlannedExperimentSnapshot> {
+  const snapshotType =
+    type ??
+    getSnapshotType({
+      experiment,
+      dimension,
+      phaseIndex: phase,
+    });
+
+  let project = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
+  }
+
+  const { org } = context;
+  const orgSettings: OrganizationSettings =
+    org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment,
+  });
+  const statsEngine = settings.statsEngine.value;
+  const postStratificationEnabled = settings.postStratificationEnabled.value;
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[],
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
+
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+      ...(experiment.type === "multi-armed-bandit"
+        ? {
+            banditConversionWindowValue:
+              experiment.banditConversionWindowValue ?? undefined,
+            banditConversionWindowUnit:
+              experiment.banditConversionWindowUnit ?? undefined,
+          }
+        : {}),
+    });
+
+  const analysisSettings = getDefaultExperimentAnalysisSettings({
+    statsEngine,
+    experiment,
+    organization: org,
+    regressionAdjustmentEnabled,
+    postStratificationEnabled,
+    dimension,
+  });
+
+  const plan = await planSnapshot({
+    experiment,
+    context,
+    phaseIndex: phase,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    reweight,
+    type: snapshotType,
+    triggeredBy: triggeredBy ?? "manual",
+    allowIncrementalRefresh,
+  });
+  return plan;
+}
+
 export type SnapshotAnalysisParams = {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -1585,6 +1901,8 @@ async function getSnapshotAnalyses(
     string,
     ExperimentAnalysisParamsContextData
   >();
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
@@ -1598,6 +1916,16 @@ async function getSnapshotAnalyses(
       { experiment, organization, analysisSettings, metricMap, snapshot },
       i,
     ) => {
+      const expandedMetricMap = new Map(metricMap);
+      // Ensure slice metrics from existing snapshot query results can always
+      // be resolved during re-analysis, regardless of caller behavior.
+      expandAllSliceMetricsInMap({
+        metricMap: expandedMetricMap,
+        factTableMap,
+        experiment,
+        metricGroups,
+      });
+
       // check if analysis is possible
       if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
         logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
@@ -1639,7 +1967,7 @@ async function getSnapshotAnalyses(
 
       const mdat = getMetricsAndQueryDataForStatsEngine(
         queryMap,
-        metricMap,
+        expandedMetricMap,
         snapshot.settings,
       );
       const id = `${i}_${experiment.id}_${snapshot.id}`;
@@ -3467,6 +3795,22 @@ export async function getLinkedFeatureInfo(
   });
 
   return linkedFeatureInfo;
+}
+
+/**
+ * Returns a new phases array with the latest phase's `variationWeights` set to the given values.
+ */
+export function applyVariationWeightsToLatestPhase(
+  experiment: ExperimentInterface,
+  variationWeights: number[],
+): ExperimentPhase[] {
+  const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
+  phases[lastIndex] = {
+    ...phases[lastIndex],
+    variationWeights,
+  };
+  return phases;
 }
 
 export async function getChangesToStartExperiment(
