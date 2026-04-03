@@ -43,6 +43,7 @@ export interface AuthContextValue {
     options?: RequestInit,
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
+  fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -65,6 +66,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  fetchRaw: async () => new Response(),
   orgId: null,
 });
 
@@ -354,6 +356,26 @@ export const AuthProvider: React.FC<{
     [orgId],
   );
 
+  const fetchRaw = useCallback(
+    async (url: string, options: RequestInit = {}): Promise<Response> => {
+      const init = { ...options };
+      init.headers = init.headers || {};
+      init.headers["Authorization"] = `Bearer ${token}`;
+      init.credentials = "include";
+
+      if (init.body && !init.headers["Content-Type"]) {
+        init.headers["Content-Type"] = "application/json";
+      }
+
+      if (orgId && !init.headers["X-Organization"]) {
+        init.headers["X-Organization"] = orgId;
+      }
+
+      return fetch(getApiHost() + url, init);
+    },
+    [orgId, token],
+  );
+
   const apiCall = useCallback(
     async (
       url: string | null,
@@ -508,6 +530,7 @@ export const AuthProvider: React.FC<{
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
+        fetchRaw,
         orgId,
         setOrgId,
         organizations: orgList,

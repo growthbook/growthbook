@@ -1,0 +1,77 @@
+// Keyframes + pseudo-classes that cannot live in inline styles.
+
+@keyframes gb-ai-chat-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gb-ai-sidebar-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.spinIcon {
+  animation: gb-ai-chat-spin 0.8s linear infinite;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.streamingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-12);
+  animation: gb-ai-sidebar-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.chatTextarea {
+  flex: 1;
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-2);
+  padding: 8px 10px;
+  font-size: 13px;
+  resize: none;
+  background: var(--color-surface);
+  color: var(--gray-12);
+  font-family: inherit;
+  line-height: 1.4;
+  min-height: 48px;
+  max-height: 130px;
+  overflow-y: auto;
+  outline: none;
+
+  &:focus {
+    border-color: var(--accent-8);
+  }
+
+  &::placeholder {
+    color: var(--gray-a8);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.userBubble {
+  color: white;
+
+  span {
+    color: inherit !important;
+  }
+
+  ::selection {
+    background: rgba(255, 255, 255, 0.35);
+    color: #fff;
+  }
+}

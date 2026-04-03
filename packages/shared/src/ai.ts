@@ -128,6 +128,7 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-energetic",
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
+  "product-analytics-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -160,6 +161,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
+  "product-analytics-chat": "",
 };
 
 // Prompt types that have default values and can be customized by users

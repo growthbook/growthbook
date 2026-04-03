@@ -28,4 +28,28 @@ router.post(
   productAnalyticsController.postProductAnalyticsRun,
 );
 
+router.post(
+  "/chat",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        message: z.string().min(1),
+        conversationId: z.string().min(1),
+        datasourceId: z.string(),
+      })
+      .strict(),
+  }),
+  productAnalyticsController.postChat,
+);
+
+router.get("/chat", productAnalyticsController.listChats);
+
+router.get(
+  "/chat/:conversationId",
+  validateRequestMiddleware({
+    params: z.object({ conversationId: z.string().min(1) }).strict(),
+  }),
+  productAnalyticsController.getChat,
+);
+
 export { router as productAnalyticsRouter };
