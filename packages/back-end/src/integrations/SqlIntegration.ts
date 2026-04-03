@@ -477,27 +477,27 @@ export default abstract class SqlIntegration
     );
   }
   /**
-   * Approximates the fraction of a user's events that fall below a threshold
-   * by extracting an evenly-spaced CDF from their KLL sketch and counting
-   * points below the threshold. Returns count_below_threshold ≈ frac × n_events.
+   * SQL expression that approximates (fraction of events below threshold) × n_events
+   * for a per-user merged KLL sketch, using a discrete CDF from the sketch.
    *
-   * Precision: ±1/numQuantiles discretization precision on the fraction
-   * (±1% at numQuantiles=100).
-   * NULL-safe: if sketch or threshold is NULL, returns 0.
+   * Implementations typically: sample the sketch at numQuantiles evenly spaced
+   * quantile levels (yielding numQuantiles+1 monotone values), count how many
+   * samples are strictly below the threshold, scale by n_events / numQuantiles,
+   * and COALESCE to 0 when sketch or threshold is null / empty.
+   *
+   * Fraction discretization error is O(1/numQuantiles) (e.g. ±1% at 100).
+   * Warehouses must override together with kllExtractQuantiles when
+   * hasQuantileKLL() is true.
    */
   kllRankApprox(
-    sketchCol: string,
-    thresholdCol: string,
-    nEventsCol: string,
-    numQuantiles: number,
+    _sketchCol: string,
+    _thresholdCol: string,
+    _nEventsCol: string,
+    _numQuantiles: number,
   ): string {
-    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at levels {0, 1/N, ..., 1}.
-    // If the threshold is at percentile p, the count of points strictly below
-    // it is ≈ N*p, so dividing by N (not N+1) gives an unbiased estimate of p.
-    // UNNEST(NULL) yields zero rows, so COUNT(*) is 0 for users with no events.
-    const cdfArray = this.kllExtractQuantiles(sketchCol, numQuantiles);
-    const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
-    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
+    throw new Error(
+      "KLL rank approximation is not implemented for this data source.",
+    );
   }
 
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {

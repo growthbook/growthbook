@@ -211,6 +211,20 @@ export default class BigQuery extends SqlIntegration {
   kllExtractQuantiles(col: string, numQuantiles: number): string {
     return `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`;
   }
+  kllRankApprox(
+    sketchCol: string,
+    thresholdCol: string,
+    nEventsCol: string,
+    numQuantiles: number,
+  ): string {
+    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at levels {0, 1/N, ..., 1}.
+    // If the threshold is at percentile p, the count of points strictly below
+    // it is ≈ N*p, so dividing by N (not N+1) gives an unbiased estimate of p.
+    // UNNEST(NULL) yields zero rows, so COUNT(*) is 0 for users with no events.
+    const cdfArray = this.kllExtractQuantiles(sketchCol, numQuantiles);
+    const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
+    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
     const quantileVal = Number(quantile)
