@@ -314,6 +314,7 @@ export async function createNewQueryFromCached({
     language: existing.language,
     organization: existing.organization,
     query: existing.query,
+    queryType: existing.queryType,
     startedAt: existing.startedAt,
     finishedAt: existing.finishedAt,
     status: existing.status,

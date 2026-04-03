@@ -625,6 +625,8 @@ export async function postValidatePipelineSettings(
         tableFullName: fullTestTablePath,
         integration,
       }),
+      undefined,
+      "pipelineValidation",
     );
     results.create.result = "success";
   } catch (e) {
@@ -648,6 +650,8 @@ export async function postValidatePipelineSettings(
             tableFullName: fullTestTablePath,
             integration,
           }),
+          undefined,
+          "pipelineValidation",
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -677,6 +681,8 @@ export async function postValidatePipelineSettings(
             tableFullName: fullTestTablePath,
             integration,
           }),
+          undefined,
+          "pipelineValidation",
         );
         results.drop = { result: "success" };
       } catch (e) {

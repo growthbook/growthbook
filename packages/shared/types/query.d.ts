@@ -82,6 +82,22 @@ export type QueryType =
   | "productAnalyticsExploration"
 
   // ---
+  // Non-persisted / utility queries (for cost attribution tracking)
+  // ---
+  // SQL explorer ad-hoc queries
+  | "freeFormQuery"
+  // Connection tests and validation queries
+  | "testQuery"
+  // Fact table column/SQL validation
+  | "factTableValidation"
+  // Pipeline write permission tests
+  | "pipelineValidation"
+  // User experiment exposures lookup
+  | "userExposure"
+  // Feature evaluation diagnostics
+  | "featureEvalDiagnostics"
+
+  // ---
   // Legacy, should be deprecated
   // ---
   | "experimentResults";

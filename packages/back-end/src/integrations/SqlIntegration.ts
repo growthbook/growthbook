@@ -155,8 +155,8 @@ import type { PopulationDataQuerySettings } from "shared/types/query";
 import { ExplorationConfig } from "shared/src/validators/product-analytics";
 import {
   AdditionalQueryMetadata,
-  QueryDocMetadata,
   QueryMetadata,
+  QueryType,
 } from "shared/types/query";
 import { MissingDatasourceParamsError } from "back-end/src/util/errors";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -199,9 +199,6 @@ export default abstract class SqlIntegration
   context: ReqContext;
   // Metadata set by the individual query runners
   additionalMetadata?: AdditionalQueryMetadata;
-  // Metadata that comes from the QueryInterface document itself for
-  // all query runner queries
-  queryDocMetadata?: QueryDocMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -244,7 +241,6 @@ export default abstract class SqlIntegration
         userId: this.context.userId,
         userName: this.context.userName,
         ...this.additionalMetadata,
-        ...this.queryDocMetadata,
       };
       return originalRunQuery.call(this, sql, setExternalId, metadata);
     };
@@ -643,8 +639,13 @@ export default abstract class SqlIntegration
   async runPastExperimentQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<PastExperimentQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
 
     return {
       rows: rows.map((row) => {
@@ -1272,8 +1273,13 @@ export default abstract class SqlIntegration
   async runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<MetricAnalysisQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
 
     function parseUnitsBinData(
       // eslint-disable-next-line
@@ -1379,8 +1385,13 @@ export default abstract class SqlIntegration
   async runPopulationFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
-    return this.runExperimentFactMetricsQuery(query, setExternalId);
+    return this.runExperimentFactMetricsQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
   }
 
   processExperimentFactMetricsQueryRows(
@@ -1429,8 +1440,13 @@ export default abstract class SqlIntegration
   async runExperimentFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
 
     return {
       rows: this.processExperimentFactMetricsQueryRows(rows),
@@ -1441,15 +1457,21 @@ export default abstract class SqlIntegration
   async runPopulationMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
-    return this.runExperimentMetricQuery(query, setExternalId);
+    return this.runExperimentMetricQuery(query, setExternalId, queryMetadata);
   }
 
   async runExperimentMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
 
     // Helper function to parse a single float field
     const parseFloatField = (
@@ -1556,8 +1578,13 @@ export default abstract class SqlIntegration
   async runExperimentAggregateUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
     return {
       rows: rows.map((row) => {
         return {
@@ -1574,15 +1601,21 @@ export default abstract class SqlIntegration
   async runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentUnitsQueryResponse> {
-    return await this.runQuery(query, setExternalId);
+    return await this.runQuery(query, setExternalId, queryMetadata);
   }
 
   async runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<MetricValueQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
 
     return {
       rows: rows.map((row) => {
@@ -1644,10 +1677,14 @@ export default abstract class SqlIntegration
   async runTestQuery(
     sql: string,
     timestampCols?: string[],
+    queryType?: QueryType,
   ): Promise<TestQueryResult> {
-    // Calculate the run time of the query
     const queryStartTime = Date.now();
-    const results = await this.runQuery(sql);
+    const results = await this.runQuery(
+      sql,
+      undefined,
+      queryType ? { queryType } : undefined,
+    );
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
@@ -1678,8 +1715,9 @@ export default abstract class SqlIntegration
   async runDropTableQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<DropTableQueryResponse> {
-    const results = await this.runQuery(sql, setExternalId);
+    const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
   }
 
@@ -2638,8 +2676,13 @@ export default abstract class SqlIntegration
   async runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<DimensionSlicesQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
     return {
       rows: rows.map((row) => {
         return {
@@ -2742,7 +2785,9 @@ export default abstract class SqlIntegration
   public async runUserExperimentExposuresQuery(
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query);
+    const { rows, statistics } = await this.runQuery(query, undefined, {
+      queryType: "userExposure",
+    });
 
     // Check if SQL_ROW_LIMIT was reached
     const truncated = rows.length === SQL_ROW_LIMIT;
@@ -2764,7 +2809,9 @@ export default abstract class SqlIntegration
   public async runFeatureEvalDiagnosticsQuery(
     query: string,
   ): Promise<FeatureEvalDiagnosticsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query);
+    const { rows, statistics } = await this.runQuery(query, undefined, {
+      queryType: "featureEvalDiagnostics",
+    });
 
     // Check if SQL_ROW_LIMIT was reached
     const truncated = rows.length === SQL_ROW_LIMIT;
@@ -7184,8 +7231,13 @@ ORDER BY column_name, count DESC
   async runMaxTimestampQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<MaxTimestampQueryResponse> {
-    const { rows, statistics } = await this.runQuery(sql, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      sql,
+      setExternalId,
+      queryMetadata,
+    );
 
     const row = rows?.[0];
 
@@ -7205,8 +7257,9 @@ ORDER BY column_name, count DESC
   async runIncrementalWithNoOutputQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
-    const results = await this.runQuery(sql, setExternalId);
+    const results = await this.runQuery(sql, setExternalId, queryMetadata);
     return results;
   }
 
@@ -8154,8 +8207,13 @@ ORDER BY column_name, count DESC
   async runIncrementalRefreshStatisticsQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(sql, setExternalId);
+    const { rows, statistics } = await this.runQuery(
+      sql,
+      setExternalId,
+      queryMetadata,
+    );
     return {
       rows: this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
@@ -8235,7 +8293,8 @@ ORDER BY column_name, count DESC
   async runProductAnalyticsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ) {
-    return this.runQuery(query, setExternalId);
+    return this.runQuery(query, setExternalId, queryMetadata);
   }
 }
