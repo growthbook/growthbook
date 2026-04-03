@@ -25,11 +25,7 @@ export function useAITokenUsage(): UseAITokenUsageResult {
 
   if (!isCloud()) {
     return {
-      data: {
-        numTokensUsed: 234528,
-        dailyLimit: 1000000,
-        nextResetAt: new Date().getTime() + 24 * 60 * 60 * 1000,
-      },
+      data: null,
       error: undefined,
       isLoading: false,
     };

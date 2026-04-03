@@ -1,17 +1,9 @@
-import React from "react";
 import { Box, Flex, Progress } from "@radix-ui/themes";
-import type { ProgressProps } from "@radix-ui/themes";
 import { PiSparkle } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import { isCloud } from "@/services/env";
 import { useAITokenUsage } from "@/enterprise/hooks/useAITokenUsage";
-
-function getUsageColor(pct: number): ProgressProps["color"] {
-  if (pct >= 90) return "red";
-  if (pct >= 75) return "amber";
-  return "violet";
-}
 
 export default function CurrentDailyUsage() {
   const { data, error, isLoading } = useAITokenUsage();
@@ -76,7 +68,7 @@ export default function CurrentDailyUsage() {
           {Math.round(pct)}%
         </Text>
       </Flex>
-      <Progress value={pct} color={getUsageColor(pct)} size="3" />
+      <Progress value={pct} color="violet" size="3" />
     </Flex>
   );
 }
