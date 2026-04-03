@@ -490,10 +490,39 @@ export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
+/** Lower-tail percentile winsorization (e.g. 5th percentile floor). */
+export function isLowerPercentileCappedMetric(
+  metric: ExperimentMetricInterface,
+) {
+  return (
+    metric.cappingSettings.lowerType === "percentile" &&
+    metric.cappingSettings.lowerValue != null &&
+    metric.cappingSettings.lowerValue > 0 &&
+    metric.cappingSettings.lowerValue < 1 &&
+    isCappableMetricType(metric)
+  );
+}
+
+/** True if SQL needs a percentile subquery (upper and/or lower tail). */
+export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
+  return (
+    isPercentileCappedMetric(metric) || isLowerPercentileCappedMetric(metric)
+  );
+}
+
 function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
   return (
     metric.cappingSettings.type === "absolute" &&
     !!metric.cappingSettings.value &&
+    isCappableMetricType(metric)
+  );
+}
+
+function isLowerAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+  return (
+    metric.cappingSettings.lowerType === "absolute" &&
+    metric.cappingSettings.lowerValue != null &&
+    metric.cappingSettings.lowerValue > 0 &&
     isCappableMetricType(metric)
   );
 }
@@ -504,7 +533,10 @@ export function isSliceMetric(metric: ExperimentMetricInterface) {
 
 export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
   return (
-    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    (isPercentileCappedMetric(metric) ||
+      isLowerPercentileCappedMetric(metric) ||
+      isAbsoluteCappedMetric(metric) ||
+      isLowerAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
   );
 }

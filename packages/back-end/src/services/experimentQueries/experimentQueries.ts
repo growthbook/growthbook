@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isLegacyMetric,
+  isLowerPercentileCappedMetric,
   isPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -22,12 +23,14 @@ import {
   BASE_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   BASE_METRIC_FLOAT_COLS,
   BASE_METRIC_FLOAT_COLS_UNCAPPED,
+  BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
   BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   MAX_METRICS_PER_QUERY,
   N_STAR_VALUES,
   RATIO_METRIC_CUPED_FLOAT_COLS,
   RATIO_METRIC_CUPED_FLOAT_COLS_UNCAPPED,
   RATIO_METRIC_FLOAT_COLS,
+  RATIO_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
   RATIO_METRIC_FLOAT_COLS_UNCAPPED,
 } from "./constants";
@@ -80,23 +83,44 @@ export function getNonQuantileFloatColumns({
   })();
 
   const percentileCappingCols = (() => {
-    if (!isPercentileCappedMetric(metric)) {
-      return [];
+    const cols: string[] = [];
+    if (isPercentileCappedMetric(metric)) {
+      switch (metric.metricType) {
+        case "mean":
+        case "proportion":
+        case "dailyParticipation":
+        case "retention":
+          cols.push(...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS);
+          break;
+        case "ratio":
+          cols.push(
+            ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+            ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
+          );
+          break;
+        case "quantile":
+          break;
+      }
     }
-    switch (metric.metricType) {
-      case "mean":
-      case "proportion":
-      case "dailyParticipation":
-      case "retention":
-        return BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS;
-      case "ratio":
-        return [
-          ...BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
-          ...RATIO_METRIC_PERCENTILE_CAPPING_FLOAT_COLS,
-        ];
-      case "quantile":
-        return [];
+    if (isLowerPercentileCappedMetric(metric)) {
+      switch (metric.metricType) {
+        case "mean":
+        case "proportion":
+        case "dailyParticipation":
+        case "retention":
+          cols.push(...BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS);
+          break;
+        case "ratio":
+          cols.push(
+            ...BASE_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
+            ...RATIO_METRIC_LOWER_PERCENTILE_CAPPING_FLOAT_COLS,
+          );
+          break;
+        case "quantile":
+          break;
+      }
     }
+    return cols;
   })();
 
   const uncappedCols = (() => {

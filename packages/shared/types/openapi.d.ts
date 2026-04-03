@@ -4652,6 +4652,15 @@ export interface components {
         value?: number;
         /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
         ignoreZeros?: boolean;
+        /**
+         * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+         * @enum {string}
+         */
+        lowerType?: "none" | "absolute" | "percentile";
+        /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+        lowerValue?: number;
+        /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+        lowerIgnoreZeros?: boolean;
       };
       /** @description Controls the conversion window for the metric */
       windowSettings: {
@@ -14324,6 +14333,15 @@ export interface operations {
                   value?: number;
                   /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
                   ignoreZeros?: boolean;
+                  /**
+                   * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+                   * @enum {string}
+                   */
+                  lowerType?: "none" | "absolute" | "percentile";
+                  /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                  lowerValue?: number;
+                  /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+                  lowerIgnoreZeros?: boolean;
                 };
                 /** @description Controls the conversion window for the metric */
                 windowSettings: {
@@ -14480,6 +14498,15 @@ export interface operations {
             value?: number;
             /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
             ignoreZeros?: boolean;
+            /**
+             * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+             * @enum {string}
+             */
+            lowerType?: "none" | "absolute" | "percentile";
+            /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+            lowerValue?: number;
+            /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+            lowerIgnoreZeros?: boolean;
           };
           /** @description Controls the conversion window for the metric */
           windowSettings?: {
@@ -14645,6 +14672,15 @@ export interface operations {
                 value?: number;
                 /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
                 ignoreZeros?: boolean;
+                /**
+                 * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+                 * @enum {string}
+                 */
+                lowerType?: "none" | "absolute" | "percentile";
+                /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                lowerValue?: number;
+                /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+                lowerIgnoreZeros?: boolean;
               };
               /** @description Controls the conversion window for the metric */
               windowSettings: {
@@ -14793,6 +14829,15 @@ export interface operations {
                 value?: number;
                 /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
                 ignoreZeros?: boolean;
+                /**
+                 * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+                 * @enum {string}
+                 */
+                lowerType?: "none" | "absolute" | "percentile";
+                /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                lowerValue?: number;
+                /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+                lowerIgnoreZeros?: boolean;
               };
               /** @description Controls the conversion window for the metric */
               windowSettings: {
@@ -14948,6 +14993,15 @@ export interface operations {
             value?: number;
             /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
             ignoreZeros?: boolean;
+            /**
+             * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+             * @enum {string}
+             */
+            lowerType?: "none" | "absolute" | "percentile";
+            /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+            lowerValue?: number;
+            /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+            lowerIgnoreZeros?: boolean;
           };
           /** @description Controls the conversion window for the metric */
           windowSettings?: {
@@ -15102,6 +15156,15 @@ export interface operations {
                 value?: number;
                 /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
                 ignoreZeros?: boolean;
+                /**
+                 * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+                 * @enum {string}
+                 */
+                lowerType?: "none" | "absolute" | "percentile";
+                /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                lowerValue?: number;
+                /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+                lowerIgnoreZeros?: boolean;
               };
               /** @description Controls the conversion window for the metric */
               windowSettings: {
@@ -15363,6 +15426,15 @@ export interface operations {
                   value?: number;
                   /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
                   ignoreZeros?: boolean;
+                  /**
+                   * @description Optional lower-tail winsorization. Omit or `none` for no floor. 
+                   * @enum {string}
+                   */
+                  lowerType?: "none" | "absolute" | "percentile";
+                  /** @description When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1). */
+                  lowerValue?: number;
+                  /** @description If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted). */
+                  lowerIgnoreZeros?: boolean;
                 };
                 /** @description Controls the conversion window for the metric */
                 windowSettings?: {

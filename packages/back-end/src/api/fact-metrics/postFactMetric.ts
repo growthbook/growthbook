@@ -169,10 +169,29 @@ export async function getCreateMetricPropsFromBody(
     });
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
-    data.cappingSettings.type = cappingSettings.type;
-    data.cappingSettings.value = cappingSettings.value || 0;
-    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
+  if (cappingSettings) {
+    const cs = cappingSettings;
+    const capType = cs.type;
+    const upperActive = capType === "absolute" || capType === "percentile";
+    const lowType = cs.lowerType;
+    const lowerActive =
+      (lowType === "absolute" || lowType === "percentile") &&
+      cs.lowerValue != null;
+    const usesUpperPercentile = upperActive && capType === "percentile";
+    const usesLowerPercentile = lowerActive && lowType === "percentile";
+    // Single knob: ignore zeros for percentile capping on upper and/or lower tail.
+    // SqlIntegration falls back to ignoreZeros when lowerIgnoreZeros is unset.
+    const ignoreZerosForPercentiles =
+      usesUpperPercentile || usesLowerPercentile
+        ? cs.ignoreZeros || false
+        : false;
+    data.cappingSettings = {
+      type: upperActive ? capType : "",
+      value: upperActive ? cs.value || 0 : 0,
+      ignoreZeros: ignoreZerosForPercentiles,
+      lowerType: lowerActive ? lowType : "",
+      lowerValue: lowerActive ? (cs.lowerValue ?? 0) : 0,
+    };
   }
 
   if (windowSettings?.type && windowSettings?.type !== "none") {

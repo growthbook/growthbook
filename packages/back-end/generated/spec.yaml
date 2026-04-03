@@ -5411,6 +5411,19 @@ paths:
                     ignoreZeros:
                       type: boolean
                       description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                    lowerType:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                      description: Optional lower-tail winsorization. Omit or `none` for no floor.
+                    lowerValue:
+                      type: number
+                      description: 'When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1).'
+                    lowerIgnoreZeros:
+                      type: boolean
+                      description: 'If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted).'
                 windowSettings:
                   type: object
                   description: Controls the conversion window for the metric
@@ -5792,6 +5805,19 @@ paths:
                     ignoreZeros:
                       type: boolean
                       description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                    lowerType:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                      description: Optional lower-tail winsorization. Omit or `none` for no floor.
+                    lowerValue:
+                      type: number
+                      description: 'When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1).'
+                    lowerIgnoreZeros:
+                      type: boolean
+                      description: 'If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted).'
                 windowSettings:
                   type: object
                   description: Controls the conversion window for the metric
@@ -25350,6 +25376,19 @@ components:
             ignoreZeros:
               type: boolean
               description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+            lowerType:
+              type: string
+              enum:
+                - none
+                - absolute
+                - percentile
+              description: Optional lower-tail winsorization. Omit or `none` for no floor.
+            lowerValue:
+              type: number
+              description: 'When lowerType is absolute, floor for aggregated values. When lowerType is percentile, lower quantile in (0, 1).'
+            lowerIgnoreZeros:
+              type: boolean
+              description: 'If true and lowerType is percentile, zeros are ignored for the lower percentile (defaults to ignoreZeros if omitted).'
         windowSettings:
           type: object
           description: Controls the conversion window for the metric

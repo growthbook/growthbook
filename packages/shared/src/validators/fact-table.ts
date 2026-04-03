@@ -168,6 +168,11 @@ export const cappingSettingsValidator = z
     type: cappingTypeValidator,
     value: z.number(),
     ignoreZeros: z.boolean().optional(),
+    /** Lower-tail winsorization: "" or undefined means none. */
+    lowerType: cappingTypeValidator.optional(),
+    lowerValue: z.number().optional(),
+    /** If unset, `ignoreZeros` is used for lower percentile when `lowerType` is percentile. */
+    lowerIgnoreZeros: z.boolean().optional(),
   })
   .strict();
 
