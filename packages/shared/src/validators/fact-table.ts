@@ -174,7 +174,48 @@ export const cappingSettingsValidator = z
     /** If unset, `ignoreZeros` is used for lower percentile when `lowerType` is percentile. */
     lowerIgnoreZeros: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    const upperAbsActive = data.type === "absolute" && data.value > 0;
+    const lowerAbsActive =
+      data.lowerType === "absolute" &&
+      data.lowerValue != null &&
+      data.lowerValue > 0;
+    if (
+      upperAbsActive &&
+      lowerAbsActive &&
+      data.lowerValue != null &&
+      data.value < data.lowerValue
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Absolute ceiling (value) must be greater than or equal to absolute floor (lowerValue).",
+        path: ["value"],
+      });
+    }
+
+    const upperPctActive =
+      data.type === "percentile" && data.value > 0 && data.value < 1;
+    const lowerPctActive =
+      data.lowerType === "percentile" &&
+      data.lowerValue != null &&
+      data.lowerValue > 0 &&
+      data.lowerValue < 1;
+    if (
+      upperPctActive &&
+      lowerPctActive &&
+      data.lowerValue != null &&
+      data.lowerValue >= data.value
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Lower percentile (lowerValue) must be less than upper percentile (value).",
+        path: ["lowerValue"],
+      });
+    }
+  });
 
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),
