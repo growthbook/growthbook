@@ -11,8 +11,6 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { dispatchRampEvent } from "back-end/src/services/rampSchedule";
 
-// targetId and patch.ruleId are auto-injected when top-level featureId/ruleId/environment
-// are set; for standalone schedules the caller must supply them explicitly.
 const postBodyAction = z.object({
   targetType: z.literal("feature-rule").optional(),
   targetId: z.string().optional(),
@@ -76,7 +74,6 @@ const postRampScheduleValidator = {
     }),
 };
 
-// Returns true if the JSON type of `value` matches the feature's `valueType`.
 function forceMatchesValueType(
   value: unknown,
   valueType: FeatureInterface["valueType"],
@@ -107,7 +104,6 @@ function remapTemplateActions(
   });
 }
 
-// Converts an API trigger (ISO string dates) to the DB trigger form.
 function normalizeApiTrigger(trigger: {
   type: string;
   seconds?: number;

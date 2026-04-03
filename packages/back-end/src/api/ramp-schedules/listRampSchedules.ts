@@ -28,7 +28,6 @@ export const listRampSchedules = createApiRequestHandler(
       req.query.featureId,
     );
   } else if (req.query.project) {
-    // Resolve all features in the project, then fetch their schedules.
     const features = await getAllFeatures(req.context, {
       projects: [req.query.project],
     });

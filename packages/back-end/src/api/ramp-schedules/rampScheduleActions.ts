@@ -268,7 +268,6 @@ export const completeRampSchedule = createApiRequestHandler({
   return { rampSchedule: completed };
 });
 
-// POST /ramp-schedules/:id/actions/approve-step
 export const approveStepRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
@@ -316,7 +315,6 @@ export const rollbackRampSchedule = createApiRequestHandler({
       ? await rollbackToStep(req.context, schedule, -1)
       : schedule;
 
-  // rollbackToStep already dispatches rolledBack; override to "paused" so it can be restarted.
   const updated = await req.context.models.rampSchedules.updateById(rolled.id, {
     status: "paused",
     pausedAt: now,
@@ -353,7 +351,6 @@ export const addTargetRampSchedule = createApiRequestHandler({
     );
   }
 
-  // Query directly on targets[] to catch conflicts regardless of schedule entityId.
   const conflicting = await req.context.models.rampSchedules.findByTargetRule(
     ruleId,
     environment,
@@ -424,9 +421,8 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   }
 
   if (remaining.length === 0) {
-    // Eject means "stop controlling this rule, leave it as-is" — no rollback, no status guard.
     await req.context.models.rampSchedules.deleteById(schedule.id);
-    return { deletedId: schedule.id };
+    return { deleted: true, rampScheduleId: schedule.id };
   }
 
   const updated = await req.context.models.rampSchedules.updateById(
