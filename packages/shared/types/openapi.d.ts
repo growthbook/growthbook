@@ -72,6 +72,57 @@ export interface paths {
   "/features/{id}/revisions": {
     /** Get all revisions for a feature */
     get: operations["getFeatureRevisions"];
+    /**
+     * Create a new draft revision for a feature 
+     * @description Creates a new draft revision based on the live revision of the feature. All change fields are
+     * optional — any field omitted is carried forward from the live revision. The new revision is
+     * always saved with status `draft` and is never auto-published.
+     * 
+     * Use this endpoint when you want to stage feature changes that will go through the review and
+     * approval workflow. To take a draft live, follow up with the submit-for-review, review, and
+     * publish endpoints.
+     */
+    post: operations["postFeatureRevision"];
+  };
+  "/features/{id}/revisions/{version}/review": {
+    /**
+     * Submit a review for a feature revision 
+     * @description Combined "submit for review" + "review submission" endpoint. Approves, requests changes on,
+     * or adds a comment to a feature revision in any status (`draft`, `pending-review`,
+     * `changes-requested`, or `approved`).
+     * 
+     * When called on a `draft` revision with `Approved` or `Requested Changes`, the revision is
+     * implicitly submitted for review and then immediately moved to the requested status —
+     * there is no need to call a separate "submit for review" step.
+     * 
+     * Reviewers cannot submit a non-comment review on a revision they created. When the org has
+     * `blockSelfApproval` enabled and the caller is listed in the revision's `contributors`,
+     * an `Approved` review is rejected.
+     */
+    post: operations["postFeatureRevisionReview"];
+  };
+  "/features/{id}/revisions/{version}/publish": {
+    /**
+     * Publish a feature revision 
+     * @description Publishes the given revision, making it the live version of the feature. If the revision
+     * requires approval (per the org's `requireReviews` settings) and is not in the `approved`
+     * status, the call returns 403 unless the API key has the `bypassApprovalChecks` permission
+     * on the feature.
+     * 
+     * This endpoint mirrors the publish flow used by the GrowthBook UI: it merges the revision's
+     * changes against the current live revision, validates that nothing has shifted underneath,
+     * and rejects the publish on merge conflict. Resolve conflicts by creating a new draft from
+     * the latest live revision.
+     */
+    post: operations["postFeatureRevisionPublish"];
+  };
+  "/features/{id}/revisions/{version}/discard": {
+    /**
+     * Discard a feature revision 
+     * @description Marks the revision as `discarded`. Revisions that are already `published` or `discarded`
+     * cannot be discarded again and the call returns 400.
+     */
+    post: operations["postFeatureRevisionDiscard"];
   };
   "/stale-features": {
     /** Get stale status for one or more features */
@@ -11728,6 +11779,2217 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFeatureRevision: {
+    /**
+     * Create a new draft revision for a feature 
+     * @description Creates a new draft revision based on the live revision of the feature. All change fields are
+     * optional — any field omitted is carried forward from the live revision. The new revision is
+     * always saved with status `draft` and is never auto-published.
+     * 
+     * Use this endpoint when you want to stage feature changes that will go through the review and
+     * approval workflow. To take a draft live, follow up with the submit-for-review, review, and
+     * publish endpoints.
+     */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          defaultValue?: string;
+          environments?: {
+            [key: string]: ({
+              enabled: boolean;
+              rules: (({
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "force";
+                  value: string;
+                }) | ({
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "rollout";
+                  value: string;
+                  /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
+                  coverage: number;
+                  hashAttribute: string;
+                }) | ({
+                  description?: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment-ref";
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
+                  variations: ({
+                      value: string;
+                      variationId: string;
+                    })[];
+                  experimentId: string;
+                }) | ({
+                  description?: string;
+                  condition: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  trackingKey?: string;
+                  hashAttribute?: string;
+                  fallbackAttribute?: string;
+                  disableStickyBucketing?: boolean;
+                  bucketVersion?: number;
+                  minBucketVersion?: number;
+                  namespace?: {
+                    enabled: boolean;
+                    name: string;
+                    range: (number)[];
+                  };
+                  coverage?: number;
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
+                  values?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                  /**
+                   * @deprecated 
+                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                   */
+                  value?: ({
+                      value: string;
+                      weight: number;
+                      name?: string;
+                    })[];
+                }))[];
+              /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+              definition?: string;
+              /** @description Use to write draft changes without publishing them. */
+              draft?: {
+                enabled?: boolean;
+                rules: (({
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "force";
+                    value: string;
+                  }) | ({
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "rollout";
+                    value: string;
+                    /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
+                    coverage: number;
+                    hashAttribute: string;
+                  }) | ({
+                    description?: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment-ref";
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    variations: ({
+                        value: string;
+                        variationId: string;
+                      })[];
+                    experimentId: string;
+                  }) | ({
+                    description?: string;
+                    condition: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    values?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                    /**
+                     * @deprecated 
+                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
+                     */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                  }))[];
+                /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                definition?: string;
+              };
+            }) | undefined;
+          };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
+          archived?: boolean;
+          /** @description Description of the feature (stored in revision metadata) */
+          description?: string;
+          /** @description Stored in revision metadata */
+          owner?: string;
+          /** @description An associated project ID (stored in revision metadata) */
+          project?: string;
+          /** @description List of associated tags (stored in revision metadata) */
+          tags?: (string)[];
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
+          jsonSchema?: string;
+          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
+          holdout?: {
+            /** @description Holdout ID */
+            id: string;
+            /** @description The feature value assigned to users in the holdout treatment group */
+            value: string;
+          } | null;
+          /** @description Optional short title for the draft revision */
+          title?: string;
+          /** @description Optional comment to attach to the draft revision */
+          comment?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            revision: {
+              baseVersion: number;
+              version: number;
+              comment: string;
+              /** Format: date-time */
+              date: string;
+              status: string;
+              createdBy?: string;
+              publishedBy?: string;
+              /** @description The default value at the time this revision was created */
+              defaultValue?: string;
+              rules: {
+                [key: string]: (((({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "force";
+                    value: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** @description Optional seed for the hash function; defaults to the rule id */
+                    seed?: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    /** @description Variation values with weights */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "experiment-ref";
+                    variations: ({
+                        value: string;
+                        variationId: string;
+                      })[];
+                    experimentId: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string;
+                    hashAttribute?: string;
+                    trackingKey?: string;
+                    safeRolloutId?: string;
+                    /** @enum {string} */
+                    status?: "running" | "released" | "rolled-back" | "stopped";
+                  })))[]) | undefined;
+              };
+              definitions?: {
+                [key: string]: string | undefined;
+              };
+              /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+              environmentsEnabled?: {
+                [key: string]: boolean | undefined;
+              };
+              /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+              envPrerequisites?: {
+                [key: string]: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[] | undefined;
+              };
+              /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+              metadata?: {
+                description?: string;
+                owner?: string;
+                project?: string;
+                tags?: (string)[];
+                neverStale?: boolean;
+                valueType?: string;
+                jsonSchema?: {
+                  /** @enum {string} */
+                  schemaType?: "schema" | "simple";
+                  schema?: string;
+                  simple?: {
+                    [key: string]: unknown | undefined;
+                  };
+                  /** Format: date-time */
+                  date?: string;
+                  enabled?: boolean;
+                };
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  postFeatureRevisionReview: {
+    /**
+     * Submit a review for a feature revision 
+     * @description Combined "submit for review" + "review submission" endpoint. Approves, requests changes on,
+     * or adds a comment to a feature revision in any status (`draft`, `pending-review`,
+     * `changes-requested`, or `approved`).
+     * 
+     * When called on a `draft` revision with `Approved` or `Requested Changes`, the revision is
+     * implicitly submitted for review and then immediately moved to the requested status —
+     * there is no need to call a separate "submit for review" step.
+     * 
+     * Reviewers cannot submit a non-comment review on a revision they created. When the org has
+     * `blockSelfApproval` enabled and the caller is listed in the revision's `contributors`,
+     * an `Approved` review is rejected.
+     */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The revision version number */
+      path: {
+        id: string;
+        version: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          review: "Approved" | "Requested Changes" | "Comment";
+          comment?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            revision: {
+              baseVersion: number;
+              version: number;
+              comment: string;
+              /** Format: date-time */
+              date: string;
+              status: string;
+              createdBy?: string;
+              publishedBy?: string;
+              /** @description The default value at the time this revision was created */
+              defaultValue?: string;
+              rules: {
+                [key: string]: (((({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "force";
+                    value: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** @description Optional seed for the hash function; defaults to the rule id */
+                    seed?: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    /** @description Variation values with weights */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "experiment-ref";
+                    variations: ({
+                        value: string;
+                        variationId: string;
+                      })[];
+                    experimentId: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string;
+                    hashAttribute?: string;
+                    trackingKey?: string;
+                    safeRolloutId?: string;
+                    /** @enum {string} */
+                    status?: "running" | "released" | "rolled-back" | "stopped";
+                  })))[]) | undefined;
+              };
+              definitions?: {
+                [key: string]: string | undefined;
+              };
+              /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+              environmentsEnabled?: {
+                [key: string]: boolean | undefined;
+              };
+              /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+              envPrerequisites?: {
+                [key: string]: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[] | undefined;
+              };
+              /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+              metadata?: {
+                description?: string;
+                owner?: string;
+                project?: string;
+                tags?: (string)[];
+                neverStale?: boolean;
+                valueType?: string;
+                jsonSchema?: {
+                  /** @enum {string} */
+                  schemaType?: "schema" | "simple";
+                  schema?: string;
+                  simple?: {
+                    [key: string]: unknown | undefined;
+                  };
+                  /** Format: date-time */
+                  date?: string;
+                  enabled?: boolean;
+                };
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  postFeatureRevisionPublish: {
+    /**
+     * Publish a feature revision 
+     * @description Publishes the given revision, making it the live version of the feature. If the revision
+     * requires approval (per the org's `requireReviews` settings) and is not in the `approved`
+     * status, the call returns 403 unless the API key has the `bypassApprovalChecks` permission
+     * on the feature.
+     * 
+     * This endpoint mirrors the publish flow used by the GrowthBook UI: it merges the revision's
+     * changes against the current live revision, validates that nothing has shifted underneath,
+     * and rejects the publish on merge conflict. Resolve conflicts by creating a new draft from
+     * the latest live revision.
+     */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The revision version number */
+      path: {
+        id: string;
+        version: number;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          comment?: string;
+          /**
+           * @description When `true`, attempt to publish even if the revision is not in the `approved`
+           * status and the org's `requireReviews` settings would otherwise require approval.
+           * The API key must have the `bypassApprovalChecks` permission on the feature for
+           * this flag to take effect; otherwise the request returns 403.
+           */
+          bypassApproval?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            feature: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              archived: boolean;
+              description: string;
+              owner: string;
+              project: string;
+              /** @enum {string} */
+              valueType: "boolean" | "string" | "number" | "json";
+              defaultValue: string;
+              tags: (string)[];
+              environments: {
+                [key: string]: ({
+                  enabled: boolean;
+                  defaultValue: string;
+                  rules: ((({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment";
+                      trackingKey?: string;
+                      hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: boolean;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      namespace?: {
+                        enabled: boolean;
+                        name: string;
+                        range: (number)[];
+                      };
+                      coverage?: number;
+                      /** @description Variation values with weights */
+                      value?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[];
+                  /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                  definition?: string;
+                  draft?: {
+                    enabled: boolean;
+                    defaultValue: string;
+                    rules: ((({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        /** @description Variation values with weights */
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
+                    /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                    definition?: string;
+                  };
+                }) | undefined;
+              };
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
+              revision: {
+                version: number;
+                comment: string;
+                /** Format: date-time */
+                date: string;
+                createdBy: string;
+                publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
+            };
+          };
+        };
+      };
+    };
+  };
+  postFeatureRevisionDiscard: {
+    /**
+     * Discard a feature revision 
+     * @description Marks the revision as `discarded`. Revisions that are already `published` or `discarded`
+     * cannot be discarded again and the call returns 400.
+     */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The revision version number */
+      path: {
+        id: string;
+        version: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            revision: {
+              baseVersion: number;
+              version: number;
+              comment: string;
+              /** Format: date-time */
+              date: string;
+              status: string;
+              createdBy?: string;
+              publishedBy?: string;
+              /** @description The default value at the time this revision was created */
+              defaultValue?: string;
+              rules: {
+                [key: string]: (((({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "force";
+                    value: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** @description Optional seed for the hash function; defaults to the rule id */
+                    seed?: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "experiment";
+                    trackingKey?: string;
+                    hashAttribute?: string;
+                    fallbackAttribute?: string;
+                    disableStickyBucketing?: boolean;
+                    bucketVersion?: number;
+                    minBucketVersion?: number;
+                    namespace?: {
+                      enabled: boolean;
+                      name: string;
+                      range: (number)[];
+                    };
+                    coverage?: number;
+                    /** @description Variation values with weights */
+                    value?: ({
+                        value: string;
+                        weight: number;
+                        name?: string;
+                      })[];
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & {
+                    /** @enum {string} */
+                    type: "experiment-ref";
+                    variations: ({
+                        value: string;
+                        variationId: string;
+                      })[];
+                    experimentId: string;
+                  }) | (({
+                    description: string;
+                    condition?: string;
+                    id: string;
+                    enabled: boolean;
+                    /**
+                     * @description Simple time-based on/off schedule for this rule 
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
+                    /**
+                     * @description UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     *  
+                     * @enum {string}
+                     */
+                    scheduleType?: "none" | "schedule" | "ramp";
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                      })[];
+                  }) & ({
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string;
+                    hashAttribute?: string;
+                    trackingKey?: string;
+                    safeRolloutId?: string;
+                    /** @enum {string} */
+                    status?: "running" | "released" | "rolled-back" | "stopped";
+                  })))[]) | undefined;
+              };
+              definitions?: {
+                [key: string]: string | undefined;
+              };
+              /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+              environmentsEnabled?: {
+                [key: string]: boolean | undefined;
+              };
+              /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+              envPrerequisites?: {
+                [key: string]: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[] | undefined;
+              };
+              /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+              metadata?: {
+                description?: string;
+                owner?: string;
+                project?: string;
+                tags?: (string)[];
+                neverStale?: boolean;
+                valueType?: string;
+                jsonSchema?: {
+                  /** @enum {string} */
+                  schemaType?: "schema" | "simple";
+                  schema?: string;
+                  simple?: {
+                    [key: string]: unknown | undefined;
+                  };
+                  /** Format: date-time */
+                  date?: string;
+                  enabled?: boolean;
+                };
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
+              };
+            };
           };
         };
       };
@@ -24637,6 +26899,10 @@ export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
+export type PostFeatureRevisionResponse = operations["postFeatureRevision"]["responses"]["200"]["content"]["application/json"];
+export type PostFeatureRevisionReviewResponse = operations["postFeatureRevisionReview"]["responses"]["200"]["content"]["application/json"];
+export type PostFeatureRevisionPublishResponse = operations["postFeatureRevisionPublish"]["responses"]["200"]["content"]["application/json"];
+export type PostFeatureRevisionDiscardResponse = operations["postFeatureRevisionDiscard"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureStaleResponse = operations["getFeatureStale"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];

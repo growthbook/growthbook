@@ -1,0 +1,31 @@
+summary: Discard a feature revision
+description: |
+  Marks the revision as `discarded`. Revisions that are already `published` or `discarded`
+  cannot be discarded again and the call returns 400.
+parameters:
+  - $ref: "../parameters.yaml#/id"
+  - name: version
+    in: path
+    required: true
+    description: The revision version number
+    schema:
+      type: integer
+tags:
+  - features
+operationId: postFeatureRevisionDiscard
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revisions/3/discard \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"
