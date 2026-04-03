@@ -249,9 +249,6 @@ export async function runUserExposureQuery(
     lookbackDays,
   });
 
-  // Set queryDocMetadata for cost attribution tracking
-  integration.queryDocMetadata = { queryType: "userExposure" };
-
   try {
     const { rows, statistics } =
       await integration.runUserExperimentExposuresQuery(sql);
@@ -265,8 +262,6 @@ export async function runUserExposureQuery(
       error: e.message,
       sql,
     };
-  } finally {
-    integration.queryDocMetadata = undefined;
   }
 }
 
@@ -299,9 +294,6 @@ export async function runFeatureEvalDiagnosticsQuery(
     feature,
   });
 
-  // Set queryDocMetadata for cost attribution tracking
-  integration.queryDocMetadata = { queryType: "featureEvalDiagnostics" };
-
   try {
     const { rows, statistics } =
       await integration.runFeatureEvalDiagnosticsQuery(sql);
@@ -312,8 +304,6 @@ export async function runFeatureEvalDiagnosticsQuery(
     };
   } catch (e) {
     throw new SQLExecutionError(e.message, sql);
-  } finally {
-    integration.queryDocMetadata = undefined;
   }
 }
 

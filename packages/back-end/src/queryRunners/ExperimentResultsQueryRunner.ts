@@ -193,8 +193,12 @@ export const startExperimentResultQueries = async (
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runExperimentUnitsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runExperimentUnitsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentUnits",
     });
     queries.push(unitQuery);
@@ -240,8 +244,12 @@ export const startExperimentResultQueries = async (
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
-          integration.runExperimentMetricQuery(query, setExternalId),
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runExperimentMetricQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
         queryType: "experimentMetric",
       }),
     );
@@ -276,10 +284,11 @@ export const startExperimentResultQueries = async (
         name: `group_${i}`,
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query, setExternalId) =>
+        run: (query, setExternalId, queryMetadata) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
             setExternalId,
+            queryMetadata,
           ),
         queryType: "experimentMultiMetric",
       }),
@@ -313,8 +322,12 @@ export const startExperimentResultQueries = async (
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query, setExternalId) =>
-        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runExperimentAggregateUnitsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
@@ -332,8 +345,8 @@ export const startExperimentResultQueries = async (
       dependencies: [],
       // all other queries in model must succeed or fail first
       runAtEnd: true,
-      run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runDropTableQuery(query, setExternalId, queryMetadata),
       queryType: "experimentDropUnitsTable",
     });
     queries.push(dropUnitsTableQuery);

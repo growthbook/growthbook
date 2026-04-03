@@ -186,8 +186,12 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery(metricParams),
       dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
+      run: (query, setExternalId, queryMetadata) =>
+        integration.runIncrementalRefreshStatisticsQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        ),
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(statisticsQuery);

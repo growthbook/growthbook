@@ -57,10 +57,11 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
         name: "productAnalyticsExploration",
         query: sql,
         dependencies: [],
-        run: (query, setExternalId) =>
+        run: (query, setExternalId, queryMetadata) =>
           (this.integration as SqlIntegration).runProductAnalyticsQuery(
             query,
             setExternalId,
+            queryMetadata,
           ),
         queryType: "productAnalyticsExploration",
       }),
