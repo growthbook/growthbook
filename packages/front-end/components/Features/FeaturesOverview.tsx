@@ -36,6 +36,8 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import Avatar from "@/components/Avatar/Avatar";
+import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -61,7 +63,6 @@ import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import {
@@ -801,24 +802,23 @@ export default function FeaturesOverview({
 
   const renderRevisionInfo = () => {
     return (
-      <Flex direction="column" gap="1">
-        <Flex align="center" gap="4" wrap="wrap">
+      <Flex direction="column">
+        {/* Revised by (left) + Created/Published (right) — side by side on wide, stacked on narrow */}
+        <Flex
+          align="center"
+          justify="between"
+          wrap="wrap"
+          style={{ rowGap: "var(--space-1)", columnGap: "var(--space-4)" }}
+        >
           {(() => {
             const cb = revision.createdBy;
             if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id);
+              const name = getOwnerDisplay(cb.id) ?? cb.name ?? "";
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    name ? (
-                      <span>
-                        <UserAvatar name={name} size="sm" variant="soft" />{" "}
-                        {name}
-                      </span>
-                    ) : (
-                      <em className="text-muted">Unknown</em>
-                    )
+                    <Avatar email={cb.email} name={name} size={22} showEmail />
                   }
                 />
               );
@@ -847,17 +847,20 @@ export default function FeaturesOverview({
             }
             return null;
           })()}
-          <Metadata label="Created" value={datetime(revision.dateCreated)} />
-          {revision.status === "published" && revision.datePublished && (
-            <Metadata
-              label="Published"
-              value={datetime(revision.datePublished)}
-            />
-          )}
-          {revision.status === "draft" && (
-            <Metadata label="Last update" value={ago(revision.dateUpdated)} />
-          )}
+          <Flex align="center" gap="4" wrap="wrap">
+            <Metadata label="Created" value={datetime(revision.dateCreated)} />
+            {revision.status === "published" && revision.datePublished && (
+              <Metadata
+                label="Published"
+                value={datetime(revision.datePublished)}
+              />
+            )}
+            {revision.status === "draft" && (
+              <Metadata label="Last update" value={ago(revision.dateUpdated)} />
+            )}
+          </Flex>
         </Flex>
+        <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <span
             className={metaDataStyles.labelColor}

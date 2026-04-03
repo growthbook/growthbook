@@ -9,13 +9,15 @@ import {
   filterEnvironmentsByFeature,
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
+  getReviewSetting,
 } from "shared/util";
 import { useForm } from "react-hook-form";
 import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
-import { getCurrentUser } from "@/services/UserContext";
+import Avatar from "@/components/Avatar/Avatar";
+import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
   useEnvironments,
@@ -73,6 +75,7 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
+  const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
@@ -80,6 +83,15 @@ export default function RequestReviewModal({
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
   const createdBy = revision?.createdBy as EventUserLoggedIn;
+  const requireReviews = organization?.settings?.requireReviews;
+  const reviewSetting = Array.isArray(requireReviews)
+    ? getReviewSetting(requireReviews, feature)
+    : undefined;
+  const isBlockedContributor =
+    reviewSetting?.blockSelfApproval &&
+    (revision?.contributors ?? []).some(
+      (c) => c?.type === "dashboard" && c.id === user?.id,
+    );
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
@@ -373,6 +385,34 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
+            {revision.contributors && revision.contributors.length > 0 && (
+              <div className="mb-3">
+                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
+                <Flex align="center" gap="2" wrap="wrap" mt="1">
+                  {[revision.createdBy, ...revision.contributors]
+                    .filter(
+                      (u): u is EventUserLoggedIn =>
+                        u != null && u.type === "dashboard",
+                    )
+                    .filter(
+                      (u, idx, arr) =>
+                        arr.findIndex((x) => x.id === u.id) === idx,
+                    )
+                    .map((lu) => {
+                      return (
+                        <Flex key={lu.id} align="center" gap="1">
+                          <Avatar
+                            email={lu.email}
+                            size={18}
+                            name={lu.name}
+                            showEmail
+                          />
+                        </Flex>
+                      );
+                    })}
+                </Flex>
+              </div>
+            )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox
@@ -629,7 +669,10 @@ export default function RequestReviewModal({
               {
                 value: "Approved",
                 label: "Approve",
-                description: "Submit feedback and approve for publishing.",
+                description: isBlockedContributor
+                  ? "You contributed to this draft and cannot approve it."
+                  : "Submit feedback and approve for publishing.",
+                disabled: isBlockedContributor,
               },
             ]}
           />

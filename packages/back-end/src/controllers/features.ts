@@ -23,6 +23,7 @@ import {
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
+  getReviewSetting,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -947,6 +948,27 @@ export async function postFeatureReviewOrComment(
 
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
+  }
+
+  // Block contributors from self-approving when the org setting is enabled.
+  // Note: contributors[] is only populated on drafts created after contributor tracking was
+  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
+  // retroactively determine co-authors without reading revision logs.
+  if (review === "Approved") {
+    const requireReviews = context.org.settings?.requireReviews;
+    const reviewSetting = Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : undefined;
+    if (reviewSetting?.blockSelfApproval) {
+      const isSelfApproval = (revision.contributors ?? []).some(
+        (c) =>
+          c?.type === "dashboard" &&
+          (c as EventUserLoggedIn).id === context.userId,
+      );
+      if (isSelfApproval) {
+        throw new Error("You cannot approve a draft you contributed to.");
+      }
+    }
   }
   // dont allow review unless you are adding a comment
   if (

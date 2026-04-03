@@ -339,6 +339,9 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
+    // Users (beyond the original author) who have made edits to this draft.
+    // Populated incrementally via updateRevision; used for the self-approval block.
+    contributors: z.array(eventUser).optional(),
   })
   .strict();
 

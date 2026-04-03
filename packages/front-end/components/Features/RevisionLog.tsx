@@ -5,7 +5,7 @@ import {
 } from "shared/types/feature-revision";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { ago, date } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import React, {
   MutableRefObject,
   useImperativeHandle,
@@ -48,7 +48,13 @@ function actionColor(action: string): string {
   return "gray";
 }
 
-function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
+export function RevisionLogRow({
+  log,
+  first,
+}: {
+  log: RevisionLog;
+  first: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { users } = useUser();
 
@@ -109,13 +115,16 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
           </Text>
         )}
         <Flex align="center" gap="1" ml="auto">
-          {log.user?.type === "dashboard" && (
-            <Avatar email={log.user.email} size={16} name={name} />
+          {log.user?.type === "dashboard" ? (
+            <Avatar email={log.user.email} size={16} name={name} showEmail />
+          ) : (
+            <Text size="small" color="text-low">
+              {"API"}
+            </Text>
           )}
           <Text size="small" color="text-low">
-            {log.user?.type === "dashboard" ? log.user.name : "API"}
             {" · "}
-            {ago(log.timestamp)}
+            {datetime(log.timestamp)}
           </Text>
           {hasExpandable && (
             <Text size="small" color="text-low">
