@@ -709,19 +709,20 @@ export default function ExplorerAIChat() {
           py="5"
           align="center"
           justify="center"
+          px="9"
           style={{
             borderTop: "1px solid var(--gray-a3)",
             background: "var(--color-panel-solid)",
           }}
         >
-          <Flex align="center" gap="1">
-            <Flex align="center" gap="1" mr="2">
+          <Flex align="center" gap="1" wrap="wrap">
+            <Flex align="center" gap="1" mr="2" style={{ flexShrink: 0 }}>
               <PiLightning size={16} />
               <Text size="small" color="text-low" weight="semibold">
                 Quick actions:
               </Text>
             </Flex>
-            <Flex align="center" gap="2">
+            <Flex align="center" gap="2" wrap="wrap">
               {QUICK_ACTIONS.map((action) => (
                 <Button
                   key={action.label}
@@ -738,11 +739,10 @@ export default function ExplorerAIChat() {
             </Flex>
           </Flex>
 
-          <Flex px="2" gap="2" width="100%" align="center" justify="center">
-            {/* TODO: fix width on smaller screens */}
+          <Flex gap="2" width="100%" align="center" justify="center">
             <Field
               placeholder="Ask about metrics, experiments, or setup..."
-              style={{ width: "624px" }}
+              containerStyle={{ maxWidth: "800px", flex: 1 }}
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
