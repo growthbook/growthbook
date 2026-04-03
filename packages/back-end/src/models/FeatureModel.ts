@@ -48,6 +48,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
+import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
@@ -939,21 +940,42 @@ export async function editFeatureRule(
   user: EventUser,
   resetReview: boolean,
 ) {
+  await editFeatureRules(
+    context,
+    feature,
+    revision,
+    [{ environmentId: environment, i }],
+    updates,
+    user,
+    resetReview,
+  );
+}
+
+export async function editFeatureRules(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  matches: { environmentId: string; i: number }[],
+  updates: Partial<FeatureRule>,
+  user: EventUser,
+  resetReview: boolean,
+) {
+  const projected = applyPartialFeatureRuleUpdatesToRevision(
+    revision,
+    matches,
+    updates,
+  );
   const changes = {
-    rules: revision.rules ? cloneDeep(revision.rules) : {},
-    status: revision.status,
+    rules: projected.rules ?? {},
+    status: projected.status,
   };
 
-  changes.rules[environment] = changes.rules[environment] || [];
-  if (!changes.rules[environment][i]) {
-    throw new Error("Unknown rule");
-  }
+  const subject =
+    matches.length === 1
+      ? `in ${matches[0].environmentId} (position ${matches[0].i + 1})`
+      : `in ${matches.map((m) => m.environmentId).join(", ")}`;
 
-  changes.rules[environment][i] = {
-    ...changes.rules[environment][i],
-    ...updates,
-  } as FeatureRule;
-  await updateRevision(
+  const updatedRevision = await updateRevision(
     context,
     feature,
     revision,
@@ -961,11 +983,12 @@ export async function editFeatureRule(
     {
       user,
       action: "edit rule",
-      subject: `in ${environment} (position ${i + 1})`,
+      subject,
       value: JSON.stringify(updates),
     },
     resetReview,
   );
+  return updatedRevision;
 }
 
 export async function copyFeatureEnvironmentRules(
@@ -1647,10 +1670,15 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
-  // Build a temporary revision shape for the review check (same logic as createRevision).
+  // Build a temporary revision shape for the review check. Merge rules per-environment
+  // so that sparse changes.rules doesn't wipe untouched environments to [].
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveRevision,
     ...(changes ?? {}),
+    rules: {
+      ...liveRevision.rules,
+      ...(changes?.rules ?? {}),
+    },
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,

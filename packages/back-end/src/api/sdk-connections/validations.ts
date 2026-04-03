@@ -57,6 +57,10 @@ interface CreateSdkConnectionRequestBody
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -161,6 +165,10 @@ export async function validatePostPayload(
     includeExperimentNames = false,
     includeRedirectExperiments = false,
     includeRuleIds = false,
+    includeProjectIdInMetadata = false,
+    includeCustomFieldsInMetadata = false,
+    allowedCustomFieldsInMetadata = [],
+    includeTagsInMetadata = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -194,6 +202,10 @@ export async function validatePostPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -220,6 +232,10 @@ export async function validatePutPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -254,6 +270,10 @@ export async function validatePutPayload(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    includeProjectIdInMetadata,
+    includeCustomFieldsInMetadata,
+    allowedCustomFieldsInMetadata,
+    includeTagsInMetadata,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

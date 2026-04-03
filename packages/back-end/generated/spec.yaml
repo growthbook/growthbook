@@ -1149,6 +1149,9 @@ paths:
                   type: string
                 description:
                   type: string
+                publicId:
+                  type: string
+                  description: 'URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided.'
                 settings:
                   description: Project settings.
                   type: object
@@ -1216,6 +1219,9 @@ paths:
                   type: string
                 description:
                   description: Project description.
+                  type: string
+                publicId:
+                  description: 'URL-safe slug (lowercase letters, numbers, dashes).'
                   type: string
                 settings:
                   description: Project settings.
@@ -1768,6 +1774,16 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1856,6 +1872,16 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -8606,24 +8632,24 @@ paths:
                   type: string
                 required:
                   type: boolean
-                index:
-                  type: boolean
                 projects:
                   type: array
                   items:
                     type: string
-                section:
-                  description: What type of objects this custom field is applicable to
-                  type: string
-                  enum:
-                    - feature
-                    - experiment
+                sections:
+                  description: 'What types of objects this custom field is applicable to (feature, experiment)'
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - feature
+                      - experiment
               required:
                 - id
                 - name
                 - type
                 - required
-                - section
+                - sections
               additionalProperties: false
       responses:
         '200':
@@ -8701,19 +8727,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -8723,7 +8749,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
     get:
       $skipValidatorGeneration: true
@@ -8813,19 +8839,19 @@ paths:
                       type: string
                     required:
                       type: boolean
-                    index:
-                      type: boolean
                     creator:
                       type: string
                     projects:
                       type: array
                       items:
                         type: string
-                    section:
-                      type: string
-                      enum:
-                        - feature
-                        - experiment
+                    sections:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
                     active:
                       type: boolean
                   required:
@@ -8835,7 +8861,7 @@ paths:
                     - name
                     - type
                     - required
-                    - section
+                    - sections
                   additionalProperties: false
   '/custom-fields/{id}':
     delete:
@@ -8955,19 +8981,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -8977,7 +9003,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
     put:
       $skipValidatorGeneration: true
@@ -9039,36 +9065,24 @@ paths:
                         type: string
                         format: date
                         pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
-                type:
-                  description: The type of value this custom field will take
-                  type: string
-                  enum:
-                    - text
-                    - textarea
-                    - markdown
-                    - enum
-                    - multiselect
-                    - url
-                    - number
-                    - boolean
-                    - date
-                    - datetime
                 values:
                   type: string
                 required:
-                  type: boolean
-                index:
                   type: boolean
                 projects:
                   type: array
                   items:
                     type: string
-                section:
-                  description: What type of objects this custom field is applicable to
-                  type: string
-                  enum:
-                    - feature
-                    - experiment
+                sections:
+                  description: 'What types of objects this custom field is applicable to (feature, experiment)'
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - feature
+                      - experiment
+                active:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9146,19 +9160,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -9168,7 +9182,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
   '/dashboards/{id}':
     get:
@@ -22503,19 +22517,19 @@ components:
           type: string
         required:
           type: boolean
-        index:
-          type: boolean
         creator:
           type: string
         projects:
           type: array
           items:
             type: string
-        section:
-          type: string
-          enum:
-            - feature
-            - experiment
+        sections:
+          type: array
+          items:
+            type: string
+            enum:
+              - feature
+              - experiment
         active:
           type: boolean
       required:
@@ -22525,7 +22539,7 @@ components:
         - name
         - type
         - required
-        - section
+        - sections
       additionalProperties: false
       $skipValidatorGeneration: true
     Dashboard:
@@ -25028,6 +25042,9 @@ components:
           format: date-time
         description:
           type: string
+        publicId:
+          type: string
+          description: URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.
         settings:
           type: object
           properties:
@@ -25866,6 +25883,16 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeProjectIdInMetadata:
+          type: boolean
+        includeCustomFieldsInMetadata:
+          type: boolean
+        allowedCustomFieldsInMetadata:
+          type: array
+          items:
+            type: string
+        includeTagsInMetadata:
           type: boolean
         key:
           type: string

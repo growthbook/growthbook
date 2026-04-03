@@ -787,11 +787,9 @@ export interface components {
       type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
       values?: string;
       required: boolean;
-      index?: boolean;
       creator?: string;
       projects?: (string)[];
-      /** @enum {string} */
-      section: "feature" | "experiment";
+      sections: ("feature" | "experiment")[];
       active?: boolean;
     };
     Dashboard: {
@@ -1579,6 +1577,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       description?: string;
+      /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+      publicId?: string;
       settings?: {
         statsEngine?: string;
       };
@@ -3953,6 +3953,10 @@ export interface components {
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
       includeRuleIds?: boolean;
+      includeProjectIdInMetadata?: boolean;
+      includeCustomFieldsInMetadata?: boolean;
+      allowedCustomFieldsInMetadata?: (string)[];
+      includeTagsInMetadata?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -9559,6 +9563,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 description?: string;
+                /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+                publicId?: string;
                 settings?: {
                   statsEngine?: string;
                 };
@@ -9582,6 +9588,8 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
+          /** @description URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided. */
+          publicId?: string;
           /** @description Project settings. */
           settings?: {
             /** @description Stats engine. */
@@ -9602,6 +9610,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -9631,6 +9641,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -9655,6 +9667,8 @@ export interface operations {
           name?: string;
           /** @description Project description. */
           description?: string;
+          /** @description URL-safe slug (lowercase letters, numbers, dashes). */
+          publicId?: string;
           /** @description Project settings. */
           settings?: {
             /** @description Stats engine. */
@@ -9675,6 +9689,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -10197,6 +10213,10 @@ export interface operations {
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
                 includeRuleIds?: boolean;
+                includeProjectIdInMetadata?: boolean;
+                includeCustomFieldsInMetadata?: boolean;
+                allowedCustomFieldsInMetadata?: (string)[];
+                includeTagsInMetadata?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -10234,6 +10254,10 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectIdInMetadata?: boolean;
+          includeCustomFieldsInMetadata?: boolean;
+          allowedCustomFieldsInMetadata?: (string)[];
+          includeTagsInMetadata?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -10267,6 +10291,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -10314,6 +10342,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -10350,6 +10382,10 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectIdInMetadata?: boolean;
+          includeCustomFieldsInMetadata?: boolean;
+          allowedCustomFieldsInMetadata?: (string)[];
+          includeTagsInMetadata?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -10383,6 +10419,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -10448,6 +10488,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -16722,11 +16766,9 @@ export interface operations {
               type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
               values?: string;
               required: boolean;
-              index?: boolean;
               creator?: string;
               projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
+              sections: ("feature" | "experiment")[];
               active?: boolean;
             })[];
         };
@@ -16752,13 +16794,9 @@ export interface operations {
           type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
           values?: string;
           required: boolean;
-          index?: boolean;
           projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section: "feature" | "experiment";
+          /** @description What types of objects this custom field is applicable to (feature, experiment) */
+          sections: ("feature" | "experiment")[];
         };
       };
     };
@@ -16780,11 +16818,9 @@ export interface operations {
               type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
               values?: string;
               required: boolean;
-              index?: boolean;
               creator?: string;
               projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
+              sections: ("feature" | "experiment")[];
               active?: boolean;
             };
           };
@@ -16817,11 +16853,9 @@ export interface operations {
               type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
               values?: string;
               required: boolean;
-              index?: boolean;
               creator?: string;
               projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
+              sections: ("feature" | "experiment")[];
               active?: boolean;
             };
           };
@@ -16844,20 +16878,12 @@ export interface operations {
           description?: string;
           placeholder?: string;
           defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
           values?: string;
           required?: boolean;
-          index?: boolean;
           projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section?: "feature" | "experiment";
+          /** @description What types of objects this custom field is applicable to (feature, experiment) */
+          sections?: ("feature" | "experiment")[];
+          active?: boolean;
         };
       };
     };
@@ -16879,11 +16905,9 @@ export interface operations {
               type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
               values?: string;
               required: boolean;
-              index?: boolean;
               creator?: string;
               projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
+              sections: ("feature" | "experiment")[];
               active?: boolean;
             };
           };

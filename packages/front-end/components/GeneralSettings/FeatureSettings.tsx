@@ -364,6 +364,22 @@ export default function FeatureSettings() {
                               )
                             }
                           />
+                          <Checkbox
+                            id={`toggle-block-self-approval-${i}`}
+                            label="Block contributors from self-approving"
+                            description="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+                            value={
+                              !!form.watch(
+                                `requireReviews.${i}.blockSelfApproval`,
+                              )
+                            }
+                            setValue={(v) =>
+                              form.setValue(
+                                `requireReviews.${i}.blockSelfApproval`,
+                                v,
+                              )
+                            }
+                          />
                           <Box mt="2">
                             <Text as="label" size="2" weight="bold" mb="2">
                               Require approval for
