@@ -68,7 +68,7 @@ tags:
     description: 'Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.'
   - name: data-sources
     x-displayName: Data Sources
-    description: How GrowthBook connects and queries your data
+    description: 'How GrowthBook connects and queries your data, including cached database schema metadata (information schemas) for tables and columns.'
   - name: fact-tables
     x-displayName: Fact Tables
     description: Fact Tables describe the shape of your data warehouse tables
@@ -228,6 +228,12 @@ tags:
   - name: FeatureWithRevisions_model
     x-displayName: FeatureWithRevisions
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: InformationSchema_model
+    x-displayName: InformationSchema
+    description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchema" />
+  - name: InformationSchemaTable_model
+    x-displayName: InformationSchemaTable
+    description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable" />
   - name: LookbackOverride_model
     x-displayName: LookbackOverride
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
@@ -6385,6 +6391,56 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
+  '/data-sources/{dataSourceId}/information-schema':
+    parameters:
+      - $ref: '#/components/parameters/dataSourceId'
+    get:
+      tags:
+        - data-sources
+      summary: Get a Data Source's Information Schema
+      description: 'Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.'
+      operationId: getInformationSchema
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/data-sources/ds_123abc/information-schema \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - informationSchema
+                properties:
+                  informationSchema:
+                    $ref: '#/components/schemas/InformationSchema'
+  '/information-schema-tables/{tableId}':
+    parameters:
+      - $ref: '#/components/parameters/tableId'
+    get:
+      tags:
+        - data-sources
+      summary: Get a single Information Schema Table by id
+      description: 'Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.'
+      operationId: getInformationSchemaTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/information-schema-tables/ist_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - informationSchemaTable
+                properties:
+                  informationSchemaTable:
+                    $ref: '#/components/schemas/InformationSchemaTable'
   /ramp-schedules:
     get:
       summary: List ramp schedules
@@ -22201,6 +22257,20 @@ components:
       description: Specify a specific fact table
       schema:
         type: string
+    dataSourceId:
+      name: dataSourceId
+      in: path
+      required: true
+      description: The id of the data source
+      schema:
+        type: string
+    tableId:
+      name: tableId
+      in: path
+      required: true
+      description: The id of the information schema table
+      schema:
+        type: string
     repo:
       name: repo
       in: query
@@ -28269,6 +28339,156 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    InformationSchema:
+      type: object
+      required:
+        - id
+        - datasourceId
+        - status
+        - databases
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        datasourceId:
+          type: string
+        status:
+          type: string
+          enum:
+            - PENDING
+            - COMPLETE
+        error:
+          type: object
+          required:
+            - errorType
+            - message
+          properties:
+            errorType:
+              type: string
+              enum:
+                - generic
+                - not_supported
+                - missing_params
+            message:
+              type: string
+        databases:
+          type: array
+          items:
+            type: object
+            required:
+              - databaseName
+              - schemas
+              - dateCreated
+              - dateUpdated
+            properties:
+              databaseName:
+                type: string
+              path:
+                type: string
+              dateCreated:
+                type: string
+                format: date-time
+              dateUpdated:
+                type: string
+                format: date-time
+              schemas:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - schemaName
+                    - tables
+                    - dateCreated
+                    - dateUpdated
+                  properties:
+                    schemaName:
+                      type: string
+                    path:
+                      type: string
+                    dateCreated:
+                      type: string
+                      format: date-time
+                    dateUpdated:
+                      type: string
+                      format: date-time
+                    tables:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - tableName
+                          - id
+                          - numOfColumns
+                          - dateCreated
+                          - dateUpdated
+                        properties:
+                          tableName:
+                            type: string
+                          path:
+                            type: string
+                          id:
+                            type: string
+                          numOfColumns:
+                            type: number
+                          dateCreated:
+                            type: string
+                            format: date-time
+                          dateUpdated:
+                            type: string
+                            format: date-time
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    InformationSchemaTable:
+      type: object
+      required:
+        - id
+        - datasourceId
+        - informationSchemaId
+        - tableName
+        - tableSchema
+        - databaseName
+        - columns
+        - refreshMS
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        datasourceId:
+          type: string
+        informationSchemaId:
+          type: string
+        tableName:
+          type: string
+        tableSchema:
+          type: string
+        databaseName:
+          type: string
+        columns:
+          type: array
+          items:
+            type: object
+            required:
+              - columnName
+              - dataType
+            properties:
+              columnName:
+                type: string
+              dataType:
+                type: string
+        refreshMS:
+          type: number
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http
@@ -28365,6 +28585,8 @@ x-tagGroups:
       - FeatureRule_model
       - FeatureSafeRolloutRule_model
       - FeatureWithRevisions_model
+      - InformationSchema_model
+      - InformationSchemaTable_model
       - LookbackOverride_model
       - Member_model
       - Metric_model

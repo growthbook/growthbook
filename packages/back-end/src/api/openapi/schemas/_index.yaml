@@ -88,3 +88,7 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
+InformationSchema:
+  $ref: "./InformationSchema.yaml"
+InformationSchemaTable:
+  $ref: "./InformationSchemaTable.yaml"
