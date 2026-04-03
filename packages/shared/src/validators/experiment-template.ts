@@ -152,6 +152,24 @@ export type ApiUpdateExperimentTemplateBody = z.infer<
   typeof apiUpdateExperimentTemplateBody
 >;
 
+export const apiBulkImportExperimentTemplatesBody = z.strictObject({
+  templates: z.array(
+    z.object({
+      id: z.string(),
+      data: apiCreateExperimentTemplateBody,
+    }),
+  ),
+});
+
+export type ApiBulkImportExperimentTemplatesBody = z.infer<
+  typeof apiBulkImportExperimentTemplatesBody
+>;
+
+export const apiBulkImportExperimentTemplatesResponse = z.object({
+  added: z.number().int(),
+  updated: z.number().int(),
+});
+
 export const createTemplateValidator = experimentTemplateInterface.omit({
   id: true,
   organization: true,
