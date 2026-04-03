@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
 import {
   DndContext,
   DragOverlay,
@@ -198,116 +199,118 @@ export default function RuleList({
     permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={async ({ active, over }) => {
-        if (!canEdit) {
+    <Flex direction="column" gap="3">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={async ({ active, over }) => {
+          if (!canEdit) {
+            setActiveId(null);
+            return;
+          }
+
+          if (over && active.id !== over.id) {
+            const oldIndex = getRuleIndex(active.id);
+            const newIndex = getRuleIndex(over.id);
+
+            if (oldIndex === -1 || newIndex === -1) return;
+
+            const newRules = arrayMove(items, oldIndex, newIndex);
+
+            setItems(newRules);
+            const res = await apiCall<{ version: number }>(
+              `/feature/${feature.id}/${version}/reorder`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  environment,
+                  from: oldIndex,
+                  to: newIndex,
+                }),
+              },
+            );
+            await mutate();
+            res.version && setVersion(res.version);
+          }
           setActiveId(null);
-          return;
-        }
-
-        if (over && active.id !== over.id) {
-          const oldIndex = getRuleIndex(active.id);
-          const newIndex = getRuleIndex(over.id);
-
-          if (oldIndex === -1 || newIndex === -1) return;
-
-          const newRules = arrayMove(items, oldIndex, newIndex);
-
-          setItems(newRules);
-          const res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/reorder`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                environment,
-                from: oldIndex,
-                to: newIndex,
-              }),
-            },
-          );
-          await mutate();
-          res.version && setVersion(res.version);
-        }
-        setActiveId(null);
-      }}
-      onDragStart={({ active }) => {
-        if (!canEdit) {
-          return;
-        }
-        setActiveId(active.id);
-      }}
-    >
-      {inactiveRules.length === items.length && hideInactive && (
-        <div className="px-3 mb-3">
-          <em>No Active Rules</em>
-        </div>
-      )}
-      {(holdout || holdoutIsDeleted) && (
-        <HoldoutRule
-          feature={holdoutIsDeleted ? baseFeature : feature}
-          isDeleted={holdoutIsDeleted}
-          setRuleModal={openHoldoutModal}
-          mutate={mutate}
-          ruleCount={items.length}
-          revisionList={revisionList}
-          setVersion={setVersion}
-          isLocked={locked}
-        />
-      )}
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        {items.map(({ ...rule }, i) => (
-          <SortableRule
-            key={i + rule.id}
-            environment={environment}
-            i={i}
-            rule={rule}
-            feature={feature}
+        }}
+        onDragStart={({ active }) => {
+          if (!canEdit) {
+            return;
+          }
+          setActiveId(active.id);
+        }}
+      >
+        {inactiveRules.length === items.length && hideInactive && (
+          <div className="px-3 mb-3">
+            <em>No Active Rules</em>
+          </div>
+        )}
+        {(holdout || holdoutIsDeleted) && (
+          <HoldoutRule
+            feature={holdoutIsDeleted ? baseFeature : feature}
+            isDeleted={holdoutIsDeleted}
+            setRuleModal={openHoldoutModal}
             mutate={mutate}
-            setRuleModal={setRuleModal}
-            setCopyRuleModal={setCopyRuleModal}
-            unreachable={!!unreachableIndex && i >= unreachableIndex}
-            version={version}
+            ruleCount={items.length}
+            revisionList={revisionList}
             setVersion={setVersion}
-            locked={locked}
-            experimentsMap={experimentsMap}
-            hideInactive={hideInactive}
-            isDraft={isDraft}
-            safeRolloutsMap={safeRolloutsMap}
-            holdout={holdout}
-            rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
-            draftRevision={draftRevision}
+            isLocked={locked}
           />
-        ))}
-      </SortableContext>
-      <DragOverlay>
-        {activeRule ? (
-          <Rule
-            i={getRuleIndex(activeId as string)}
-            environment={environment}
-            rule={activeRule}
-            feature={feature}
-            mutate={mutate}
-            setRuleModal={setRuleModal}
-            setCopyRuleModal={setCopyRuleModal}
-            version={version}
-            setVersion={setVersion}
-            locked={locked}
-            experimentsMap={experimentsMap}
-            hideInactive={hideInactive}
-            unreachable={
-              !!unreachableIndex &&
-              getRuleIndex(activeId as string) >= unreachableIndex
-            }
-            isDraft={isDraft}
-            safeRolloutsMap={safeRolloutsMap}
-            holdout={holdout}
-            rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
-            draftRevision={draftRevision}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        )}
+        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          {items.map(({ ...rule }, i) => (
+            <SortableRule
+              key={i + rule.id}
+              environment={environment}
+              i={i}
+              rule={rule}
+              feature={feature}
+              mutate={mutate}
+              setRuleModal={setRuleModal}
+              setCopyRuleModal={setCopyRuleModal}
+              unreachable={!!unreachableIndex && i >= unreachableIndex}
+              version={version}
+              setVersion={setVersion}
+              locked={locked}
+              experimentsMap={experimentsMap}
+              hideInactive={hideInactive}
+              isDraft={isDraft}
+              safeRolloutsMap={safeRolloutsMap}
+              holdout={holdout}
+              rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
+              draftRevision={draftRevision}
+            />
+          ))}
+        </SortableContext>
+        <DragOverlay>
+          {activeRule ? (
+            <Rule
+              i={getRuleIndex(activeId as string)}
+              environment={environment}
+              rule={activeRule}
+              feature={feature}
+              mutate={mutate}
+              setRuleModal={setRuleModal}
+              setCopyRuleModal={setCopyRuleModal}
+              version={version}
+              setVersion={setVersion}
+              locked={locked}
+              experimentsMap={experimentsMap}
+              hideInactive={hideInactive}
+              unreachable={
+                !!unreachableIndex &&
+                getRuleIndex(activeId as string) >= unreachableIndex
+              }
+              isDraft={isDraft}
+              safeRolloutsMap={safeRolloutsMap}
+              holdout={holdout}
+              rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
+              draftRevision={draftRevision}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </Flex>
   );
 }

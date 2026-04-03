@@ -43,6 +43,8 @@ const featureRevisionSchema = new mongoose.Schema({
   metadata: {},
   holdout: {},
   rampActions: [{}],
+  // Users who have made edits to this draft beyond the original author.
+  contributors: [{}],
   status: String,
   requiresReview: Boolean,
   log: [
@@ -640,15 +642,27 @@ export async function updateRevision(
     original: revision,
   });
 
-  await FeatureRevisionModel.updateOne(
+  // Track contributors atomically using $addToSet (deep equality dedup).
+  // Using a separate operator from $set avoids the race condition where two
+  // concurrent edits both read the same stale contributors array.
+  const contributorUpdate =
+    log.user != null ? { $addToSet: { contributors: log.user } } : {};
+
+  const doc = await FeatureRevisionModel.findOneAndUpdate(
     {
       organization: revision.organization,
       featureId: revision.featureId,
       version: revision.version,
     },
     {
-      $set: { ...changes, status, dateUpdated: new Date() },
+      $set: {
+        ...changes,
+        status,
+        dateUpdated: new Date(),
+      },
+      ...contributorUpdate,
     },
+    { new: true },
   );
 
   // Fire and forget - no route that updates the revision expects the log to be there immediately
@@ -661,6 +675,8 @@ export async function updateRevision(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  return doc ? toInterface(doc, context) : null;
 }
 
 export async function markRevisionAsPublished(

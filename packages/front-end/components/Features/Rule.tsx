@@ -429,7 +429,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         : "var(--green-9)",
               }}
             ></div>
-            <Flex align="start" justify="between" gap="3" p="1" px="2">
+            <Flex align="start" justify="between" gap="3" p="1" pr="2">
               <Box>
                 {rules.length > 1 && canEdit && !locked && (
                   <div
