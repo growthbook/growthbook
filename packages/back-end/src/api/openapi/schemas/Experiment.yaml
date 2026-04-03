@@ -48,7 +48,7 @@ properties:
     items:
       type: string
   owner:
-    type: string
+    $ref: "../fields/OwnerField.yaml"
   archived:
     type: boolean
   status:

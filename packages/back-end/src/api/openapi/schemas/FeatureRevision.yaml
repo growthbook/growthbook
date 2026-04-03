@@ -78,7 +78,7 @@ properties:
       description:
         type: string
       owner:
-        type: string
+        $ref: "../fields/OwnerField.yaml"
       project:
         type: string
       tags:

@@ -9,8 +9,7 @@ properties:
     type: string
     description: Name of the segment
   owner:
-    type: string
-    description: Owner of the segment
+    $ref: "../fields/OwnerInputField.yaml"
   description:
     type: string
     description: Description of the segment

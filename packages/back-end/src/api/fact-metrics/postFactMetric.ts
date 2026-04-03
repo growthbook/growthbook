@@ -215,7 +215,6 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
       req.organization,
       lookupFactTable,
     );
-
     const factMetric = await req.context.models.factMetrics.create(data);
 
     return {

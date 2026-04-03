@@ -15,8 +15,7 @@ properties:
     type: string
     description: Description of the feature
   owner:
-    type: string
-    description: Email of the person who owns this experiment
+    $ref: "../fields/OwnerInputField.yaml"
   project:
     type: string
     description: An associated project ID

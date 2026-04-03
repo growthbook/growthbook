@@ -1427,6 +1427,7 @@ export interface components {
       id: string;
       dateCreated: string;
       dateUpdated: string;
+      /** @description The userId of the owner */
       owner: string;
       datasourceId: string;
       identifierType: string;
@@ -1448,6 +1449,7 @@ export interface components {
       managedBy: "" | "api" | "config" | "admin";
       dateCreated: string;
       dateUpdated: string;
+      /** @description The userId of the owner */
       owner: string;
       datasourceId: string;
       name: string;
@@ -1580,6 +1582,7 @@ export interface components {
     };
     Segment: {
       id: string;
+      /** @description The userId of the owner */
       owner: string;
       datasourceId: string;
       identifierType: string;
@@ -1630,6 +1633,7 @@ export interface components {
       dateUpdated: string;
       archived: boolean;
       description: string;
+      /** @description The userId of the owner */
       owner: string;
       project: string;
       /** @enum {string} */
@@ -2086,6 +2090,7 @@ export interface components {
       dateUpdated: string;
       archived: boolean;
       description: string;
+      /** @description The userId of the owner */
       owner: string;
       project: string;
       /** @enum {string} */
@@ -2775,6 +2780,7 @@ export interface components {
           /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
           metadata?: {
             description?: string;
+            /** @description The userId of the owner */
             owner?: string;
             project?: string;
             tags?: (string)[];
@@ -3885,6 +3891,7 @@ export interface components {
       /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
       metadata?: {
         description?: string;
+        /** @description The userId of the owner */
         owner?: string;
         project?: string;
         tags?: (string)[];
@@ -3954,6 +3961,7 @@ export interface components {
       hypothesis: string;
       description: string;
       tags: (string)[];
+      /** @description The userId of the owner */
       owner: string;
       archived: boolean;
       status: string;
@@ -4352,6 +4360,7 @@ export interface components {
       hypothesis: string;
       description: string;
       tags: (string)[];
+      /** @description The userId of the owner */
       owner: string;
       archived: boolean;
       status: string;
@@ -4599,6 +4608,7 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @description The userId of the owner */
       owner?: string;
       /** @description When type = 'condition', this is the JSON-encoded condition for the group */
       condition?: string;
@@ -4628,6 +4638,7 @@ export interface components {
       id: string;
       name: string;
       description: string;
+      /** @description The userId of the owner */
       owner: string;
       projects: (string)[];
       tags: (string)[];
@@ -4745,6 +4756,7 @@ export interface components {
       id: string;
       name: string;
       description: string;
+      /** @description The userId of the owner */
       owner: string;
       projects: (string)[];
       tags: (string)[];
@@ -4933,6 +4945,7 @@ export interface components {
       dateUpdated: string;
       name: string;
       description?: string;
+      /** @description The userId of the owner */
       owner: string;
       isPublic: boolean;
       /** @description The attributes to set when using this Archetype */
@@ -5139,6 +5152,7 @@ export interface operations {
                 dateUpdated: string;
                 archived: boolean;
                 description: string;
+                /** @description The userId of the owner */
                 owner: string;
                 project: string;
                 /** @enum {string} */
@@ -5609,7 +5623,7 @@ export interface operations {
           archived?: boolean;
           /** @description Description of the feature */
           description?: string;
-          /** @description Email of the person who owns this experiment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner: string;
           /** @description An associated project ID */
           project?: string;
@@ -6026,6 +6040,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -6503,6 +6518,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -7192,6 +7208,7 @@ export interface operations {
                   /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
                   metadata?: {
                     description?: string;
+                    /** @description The userId of the owner */
                     owner?: string;
                     project?: string;
                     tags?: (string)[];
@@ -7240,6 +7257,7 @@ export interface operations {
           archived?: boolean;
           /** @description An associated project ID */
           project?: string;
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           defaultValue?: string;
           /** @description List of associated tags. Will override tags completely with submitted list */
@@ -7654,6 +7672,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -8163,6 +8182,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -8643,6 +8663,7 @@ export interface operations {
               dateUpdated: string;
               archived: boolean;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               project: string;
               /** @enum {string} */
@@ -9355,6 +9376,7 @@ export interface operations {
                 /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
                 metadata?: {
                   description?: string;
+                  /** @description The userId of the owner */
                   owner?: string;
                   project?: string;
                   tags?: (string)[];
@@ -9653,6 +9675,7 @@ export interface operations {
                 id: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /** @description The userId of the owner */
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
@@ -9686,7 +9709,7 @@ export interface operations {
           name: string;
           /** @description Description of the dimension */
           description?: string;
-          /** @description Owner of the dimension */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
           datasourceId: string;
@@ -9710,6 +9733,7 @@ export interface operations {
               id: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -9743,6 +9767,7 @@ export interface operations {
               id: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -9775,7 +9800,7 @@ export interface operations {
           name?: string;
           /** @description Description of the dimension */
           description?: string;
-          /** @description Owner of the dimension */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
           datasourceId?: string;
@@ -9799,6 +9824,7 @@ export interface operations {
               id: string;
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -9856,6 +9882,7 @@ export interface operations {
           "application/json": ({
             segments: ({
                 id: string;
+                /** @description The userId of the owner */
                 owner: string;
                 datasourceId: string;
                 identifierType: string;
@@ -9894,7 +9921,7 @@ export interface operations {
         "application/json": {
           /** @description Name of the segment */
           name: string;
-          /** @description Owner of the segment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description Description of the segment */
           description?: string;
@@ -9929,6 +9956,7 @@ export interface operations {
           "application/json": {
             segment: {
               id: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -9967,6 +9995,7 @@ export interface operations {
           "application/json": {
             segment: {
               id: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -10006,7 +10035,7 @@ export interface operations {
           name?: string;
           /** @description Description of the segment */
           description?: string;
-          /** @description Owner of the segment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description ID of the datasource this segment belongs to */
           datasourceId?: string;
@@ -10039,6 +10068,7 @@ export interface operations {
           "application/json": {
             segment: {
               id: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               identifierType: string;
@@ -10560,6 +10590,7 @@ export interface operations {
                 hypothesis: string;
                 description: string;
                 tags: (string)[];
+                /** @description The userId of the owner */
                 owner: string;
                 archived: boolean;
                 status: string;
@@ -10762,7 +10793,7 @@ export interface operations {
           segmentId?: string;
           /** @description WHERE clause to add to the default experiment query */
           queryFilter?: string;
-          /** @description Email of the person who owns this experiment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           archived?: boolean;
           /** @enum {string} */
@@ -10893,6 +10924,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner */
               owner: string;
               archived: boolean;
               status: string;
@@ -11101,6 +11133,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner */
               owner: string;
               archived: boolean;
               status: string;
@@ -11305,7 +11338,7 @@ export interface operations {
           segmentId?: string;
           /** @description WHERE clause to add to the default experiment query */
           queryFilter?: string;
-          /** @description Email of the person who owns this experiment */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           archived?: boolean;
           /** @enum {string} */
@@ -11447,6 +11480,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner */
               owner: string;
               archived: boolean;
               status: string;
@@ -11974,6 +12008,7 @@ export interface operations {
                 managedBy: "" | "api" | "config" | "admin";
                 dateCreated: string;
                 dateUpdated: string;
+                /** @description The userId of the owner */
                 owner: string;
                 datasourceId: string;
                 name: string;
@@ -12093,7 +12128,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
-          /** @description Name of the person who owns this metric */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description Name of the metric */
           name: string;
@@ -12247,6 +12282,7 @@ export interface operations {
               managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               name: string;
@@ -12368,6 +12404,7 @@ export interface operations {
               managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
+              /** @description The userId of the owner */
               owner: string;
               datasourceId: string;
               name: string;
@@ -12484,7 +12521,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api" | "admin";
-          /** @description Name of the person who owns this metric */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description Name of the metric */
           name?: string;
@@ -12759,6 +12796,7 @@ export interface operations {
               hypothesis: string;
               description: string;
               tags: (string)[];
+              /** @description The userId of the owner */
               owner: string;
               archived: boolean;
               status: string;
@@ -13011,6 +13049,7 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @description The userId of the owner */
                 owner?: string;
                 /** @description When type = 'condition', this is the JSON-encoded condition for the group */
                 condition?: string;
@@ -13051,7 +13090,7 @@ export interface operations {
           attributeKey?: string;
           /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           projects?: (string)[];
         };
@@ -13070,6 +13109,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @description The userId of the owner */
               owner?: string;
               /** @description When type = 'condition', this is the JSON-encoded condition for the group */
               condition?: string;
@@ -13106,6 +13146,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @description The userId of the owner */
               owner?: string;
               /** @description When type = 'condition', this is the JSON-encoded condition for the group */
               condition?: string;
@@ -13138,7 +13179,7 @@ export interface operations {
           condition?: string;
           /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           projects?: (string)[];
         };
@@ -13157,6 +13198,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @description The userId of the owner */
               owner?: string;
               /** @description When type = 'condition', this is the JSON-encoded condition for the group */
               condition?: string;
@@ -13471,6 +13513,7 @@ export interface operations {
                 dateUpdated: string;
                 name: string;
                 description?: string;
+                /** @description The userId of the owner */
                 owner: string;
                 isPublic: boolean;
                 /** @description The attributes to set when using this Archetype */
@@ -13507,6 +13550,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               description?: string;
+              /** @description The userId of the owner */
               owner: string;
               isPublic: boolean;
               /** @description The attributes to set when using this Archetype */
@@ -13536,6 +13580,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               description?: string;
+              /** @description The userId of the owner */
               owner: string;
               isPublic: boolean;
               /** @description The attributes to set when using this Archetype */
@@ -13578,6 +13623,7 @@ export interface operations {
               dateUpdated: string;
               name: string;
               description?: string;
+              /** @description The userId of the owner */
               owner: string;
               isPublic: boolean;
               /** @description The attributes to set when using this Archetype */
@@ -13857,6 +13903,7 @@ export interface operations {
                 id: string;
                 name: string;
                 description: string;
+                /** @description The userId of the owner */
                 owner: string;
                 projects: (string)[];
                 tags: (string)[];
@@ -13937,7 +13984,7 @@ export interface operations {
           name: string;
           /** @description Description of the fact table */
           description?: string;
-          /** @description The person who is responsible for this fact table */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description List of associated project ids */
           projects?: (string)[];
@@ -13967,6 +14014,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -14048,6 +14096,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -14127,7 +14176,7 @@ export interface operations {
           name?: string;
           /** @description Description of the fact table */
           description?: string;
-          /** @description The person who is responsible for this fact table */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           /** @description List of associated project ids */
           projects?: (string)[];
@@ -14197,6 +14246,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -14515,6 +14565,7 @@ export interface operations {
                 id: string;
                 name: string;
                 description: string;
+                /** @description The userId of the owner */
                 owner: string;
                 projects: (string)[];
                 tags: (string)[];
@@ -14661,6 +14712,7 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           projects?: (string)[];
           tags?: (string)[];
@@ -14836,6 +14888,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -14984,6 +15037,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -15129,6 +15183,7 @@ export interface operations {
         "application/json": {
           name?: string;
           description?: string;
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
           owner?: string;
           projects?: (string)[];
           tags?: (string)[];
@@ -15293,6 +15348,7 @@ export interface operations {
               id: string;
               name: string;
               description: string;
+              /** @description The userId of the owner */
               owner: string;
               projects: (string)[];
               tags: (string)[];
@@ -15499,7 +15555,7 @@ export interface operations {
                 name: string;
                 /** @description Description of the fact table */
                 description?: string;
-                /** @description The person who is responsible for this fact table */
+                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
                 owner?: string;
                 /** @description List of associated project ids */
                 projects?: (string)[];
@@ -15544,6 +15600,7 @@ export interface operations {
               data: {
                 name: string;
                 description?: string;
+                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
                 owner?: string;
                 projects?: (string)[];
                 tags?: (string)[];

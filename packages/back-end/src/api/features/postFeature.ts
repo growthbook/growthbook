@@ -6,6 +6,7 @@ import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -151,7 +152,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
-    owner: req.body.owner,
+    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
     description: req.body.description || "",
     project: req.body.project || "",
     dateCreated: new Date(),

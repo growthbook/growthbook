@@ -17,6 +17,7 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import { UserInterface } from "shared/types/user";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -70,6 +71,7 @@ import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorat
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { getUserByEmail } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -404,6 +406,11 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
+  public async getUserByEmail(email: string): Promise<UserInterface | null> {
+    return getUserByEmail(email);
   }
 
   // Cache projects since they are needed many places in the code

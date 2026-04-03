@@ -20,6 +20,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { resolveOwnerToUserId } from "back-end/src/services/owner";
 import { validateCustomFields } from "./validations";
 
 export const updateExperiment = createApiRequestHandler(
@@ -204,11 +205,15 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
+  const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
   const updatedExperiment = await updateExperimentToDb({
     context: req.context,
     experiment: experiment,
     changes: updateExperimentApiPayloadToInterface(
-      req.body,
+      {
+        ...req.body,
+        ...(req.body.owner !== undefined && { owner: resolvedOwner ?? "" }),
+      },
       experiment,
       map,
       req.organization,
