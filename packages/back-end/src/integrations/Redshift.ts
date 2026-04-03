@@ -73,7 +73,7 @@ export default class Redshift extends SqlIntegration {
       const upperP = v.upperPercentile;
       if (upperP != null && upperP > 0 && upperP < 1) {
         const val =
-          (v.upperIgnoreZeros ?? false)
+          (v.ignoreZeros ?? false)
             ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
             : v.valueCol;
         parts.push(
@@ -82,10 +82,10 @@ export default class Redshift extends SqlIntegration {
       }
       const lowerP = v.lowerPercentile;
       if (lowerP != null && lowerP > 0 && lowerP < 1) {
-        const lz = v.lowerIgnoreZeros ?? v.upperIgnoreZeros ?? false;
-        const val = lz
-          ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-          : v.valueCol;
+        const val =
+          (v.ignoreZeros ?? false)
+            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
+            : v.valueCol;
         parts.push(
           `(SELECT ${this.approxQuantile(val, lowerP)} FROM ${metricTable} ${where}) AS ${v.outputCol}_lower`,
         );

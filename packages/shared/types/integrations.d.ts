@@ -179,9 +179,9 @@ export type FactMetricPercentileData = {
   outputCol: string;
   sourceIndex: number;
   upperPercentile?: number;
-  upperIgnoreZeros?: boolean;
   lowerPercentile?: number;
-  lowerIgnoreZeros?: boolean;
+  /** Ignore zeros when computing percentile cap(s); applies to upper and/or lower tail on this column. */
+  ignoreZeros?: boolean;
 };
 
 export type BanditMetricData = Pick<

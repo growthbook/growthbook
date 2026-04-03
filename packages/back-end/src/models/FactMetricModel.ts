@@ -552,7 +552,6 @@ export class FactMetricModel extends BaseClass {
           ? cappingSettings.lowerType
           : "none",
         lowerValue: cappingSettings.lowerValue,
-        lowerIgnoreZeros: cappingSettings.lowerIgnoreZeros,
       },
       windowSettings: {
         ...windowSettings,

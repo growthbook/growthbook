@@ -5081,17 +5081,15 @@ export default abstract class SqlIntegration
       cs.value != null &&
       cs.value > 0 &&
       cs.value < 1
-        ? { pct: cs.value, ign: cs.ignoreZeros ?? false }
+        ? { pct: cs.value }
         : undefined;
     const lower = isLowerPercentileCappedMetric(m.metric)
-      ? {
-          pct: cs.lowerValue as number,
-          ign: cs.lowerIgnoreZeros ?? cs.ignoreZeros ?? false,
-        }
+      ? { pct: cs.lowerValue as number }
       : undefined;
     if (!upper && !lower) {
       return [];
     }
+    const percentileIgnoreZeros = cs.ignoreZeros ?? false;
     const row = (
       valueCol: string,
       outputCol: string,
@@ -5100,12 +5098,9 @@ export default abstract class SqlIntegration
       valueCol,
       outputCol,
       sourceIndex,
-      ...(upper
-        ? { upperPercentile: upper.pct, upperIgnoreZeros: upper.ign }
-        : {}),
-      ...(lower
-        ? { lowerPercentile: lower.pct, lowerIgnoreZeros: lower.ign }
-        : {}),
+      ignoreZeros: percentileIgnoreZeros,
+      ...(upper ? { upperPercentile: upper.pct } : {}),
+      ...(lower ? { lowerPercentile: lower.pct } : {}),
     });
     const out: FactMetricPercentileData[] = [
       row(`${m.alias}_value`, `${m.alias}_value_cap`, m.numeratorSourceIndex),
@@ -5137,28 +5132,23 @@ export default abstract class SqlIntegration
       cs.value != null &&
       cs.value > 0 &&
       cs.value < 1
-        ? { pct: cs.value, ign: cs.ignoreZeros ?? false }
+        ? { pct: cs.value }
         : undefined;
     const lower = isLowerPercentileCappedMetric(metric)
-      ? {
-          pct: cs.lowerValue as number,
-          ign: cs.lowerIgnoreZeros ?? cs.ignoreZeros ?? false,
-        }
+      ? { pct: cs.lowerValue as number }
       : undefined;
     if (!upper && !lower) {
       return [];
     }
+    const percentileIgnoreZeros = cs.ignoreZeros ?? false;
     return [
       {
         valueCol,
         outputCol,
         sourceIndex: 0,
-        ...(upper
-          ? { upperPercentile: upper.pct, upperIgnoreZeros: upper.ign }
-          : {}),
-        ...(lower
-          ? { lowerPercentile: lower.pct, lowerIgnoreZeros: lower.ign }
-          : {}),
+        ignoreZeros: percentileIgnoreZeros,
+        ...(upper ? { upperPercentile: upper.pct } : {}),
+        ...(lower ? { lowerPercentile: lower.pct } : {}),
       },
     ];
   }
@@ -5170,18 +5160,17 @@ export default abstract class SqlIntegration
   ) {
     const cols: string[] = [];
     for (const v of values) {
+      const ign = v.ignoreZeros ?? false;
       const upperP = v.upperPercentile;
       if (upperP != null && upperP > 0 && upperP < 1) {
-        const upperExpr =
-          (v.upperIgnoreZeros ?? false)
-            ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
-            : v.valueCol;
+        const upperExpr = ign
+          ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
+          : v.valueCol;
         cols.push(this.quantileColumn(upperExpr, v.outputCol, upperP));
       }
       const lowerP = v.lowerPercentile;
       if (lowerP != null && lowerP > 0 && lowerP < 1) {
-        const lowerIgn = v.lowerIgnoreZeros ?? v.upperIgnoreZeros ?? false;
-        const lowerExpr = lowerIgn
+        const lowerExpr = ign
           ? this.ifElse(`${v.valueCol} = 0`, "NULL", v.valueCol)
           : v.valueCol;
         cols.push(

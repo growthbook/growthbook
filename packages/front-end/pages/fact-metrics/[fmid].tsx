@@ -277,8 +277,7 @@ export default function FactMetricPage() {
     cap.lowerType === "absolute" &&
     cap.lowerValue != null &&
     cap.lowerValue > 0;
-  const lowerPercentileIgnoresZeros =
-    cap.lowerIgnoreZeros ?? cap.ignoreZeros ?? false;
+  const lowerPercentileIgnoresZeros = cap.ignoreZeros ?? false;
 
   const numeratorData: DataListItem[] = [
     {

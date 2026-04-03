@@ -1541,7 +1541,6 @@ export default function FactMetricModal({
               lowerType: "",
               lowerValue: 0,
               ignoreZeros: false,
-              lowerIgnoreZeros: false,
             };
           } else if (
             cs?.type === "percentile" &&

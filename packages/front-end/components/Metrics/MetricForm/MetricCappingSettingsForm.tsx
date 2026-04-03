@@ -28,7 +28,6 @@ function LegacyMetricCappingSettingsFormContent({
   useEffect(() => {
     form.setValue("cappingSettings.lowerType", "");
     form.setValue("cappingSettings.lowerValue", 0);
-    form.setValue("cappingSettings.lowerIgnoreZeros", false);
   }, [form]);
 
   const cappingSettings = form.watch("cappingSettings") as
@@ -231,7 +230,6 @@ function applyUpperValue(
         form.setValue("cappingSettings.type", "");
         form.setValue("cappingSettings.lowerType", "");
         form.setValue("cappingSettings.ignoreZeros", false);
-        form.setValue("cappingSettings.lowerIgnoreZeros", false);
       } else {
         form.setValue("cappingSettings.type", "");
       }
@@ -262,11 +260,9 @@ function applyLowerValue(
     if (mode === "percentile" && !isUpperCapped("percentile", uv)) {
       form.setValue("cappingSettings.type", "");
       form.setValue("cappingSettings.ignoreZeros", false);
-      form.setValue("cappingSettings.lowerIgnoreZeros", false);
     } else if (mode === "absolute" && !isUpperCapped("absolute", uv)) {
       form.setValue("cappingSettings.type", "");
       form.setValue("cappingSettings.ignoreZeros", false);
-      form.setValue("cappingSettings.lowerIgnoreZeros", false);
     }
   } else {
     form.setValue("cappingSettings.lowerValue", n);
@@ -307,7 +303,6 @@ function FactMetricCappingSettingsFormContent({
         value?: number;
         lowerValue?: number;
         ignoreZeros?: boolean;
-        lowerIgnoreZeros?: boolean;
       }
     | undefined;
   const mode = getCappingMode(cappingSettings ?? {});
@@ -374,7 +369,6 @@ function FactMetricCappingSettingsFormContent({
       form.setValue("cappingSettings.value", 0);
       form.setValue("cappingSettings.lowerValue", 0);
       form.setValue("cappingSettings.ignoreZeros", false);
-      form.setValue("cappingSettings.lowerIgnoreZeros", false);
       return;
     }
     if (m === "absolute") {
@@ -383,7 +377,6 @@ function FactMetricCappingSettingsFormContent({
       form.setValue("cappingSettings.lowerValue", 0);
       form.setValue("cappingSettings.lowerType", "");
       form.setValue("cappingSettings.ignoreZeros", false);
-      form.setValue("cappingSettings.lowerIgnoreZeros", false);
       return;
     }
     form.setValue("cappingSettings.type", "percentile");
@@ -391,7 +384,6 @@ function FactMetricCappingSettingsFormContent({
     form.setValue("cappingSettings.lowerValue", 0);
     form.setValue("cappingSettings.lowerType", "");
     form.setValue("cappingSettings.ignoreZeros", false);
-    form.setValue("cappingSettings.lowerIgnoreZeros", false);
   };
 
   const [upperFocused, setUpperFocused] = useState(false);
@@ -522,13 +514,9 @@ function FactMetricCappingSettingsFormContent({
             {mode === "percentile" && (upperCapped || lowerCapped) ? (
               <Checkbox
                 label="Ignore zeros"
-                value={
-                  (cappingSettings?.ignoreZeros ?? false) ||
-                  (cappingSettings?.lowerIgnoreZeros ?? false)
-                }
+                value={cappingSettings?.ignoreZeros ?? false}
                 setValue={(v) => {
                   form.setValue("cappingSettings.ignoreZeros", v);
-                  form.setValue("cappingSettings.lowerIgnoreZeros", v);
                 }}
                 id="cappingIgnoreZeros"
               />

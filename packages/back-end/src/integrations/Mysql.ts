@@ -122,16 +122,12 @@ export default class Mysql extends SqlIntegration {
     const cols: string[] = [];
     const upperP = v.upperPercentile;
     if (upperP != null && upperP > 0 && upperP < 1) {
-      cols.push(scalarCap(upperP, v.outputCol, v.upperIgnoreZeros ?? false));
+      cols.push(scalarCap(upperP, v.outputCol, v.ignoreZeros ?? false));
     }
     const lowerP = v.lowerPercentile;
     if (lowerP != null && lowerP > 0 && lowerP < 1) {
       cols.push(
-        scalarCap(
-          lowerP,
-          `${v.outputCol}_lower`,
-          v.lowerIgnoreZeros ?? v.upperIgnoreZeros ?? false,
-        ),
+        scalarCap(lowerP, `${v.outputCol}_lower`, v.ignoreZeros ?? false),
       );
     }
     if (cols.length === 0) {

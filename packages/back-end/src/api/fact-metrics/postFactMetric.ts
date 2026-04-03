@@ -180,7 +180,6 @@ export async function getCreateMetricPropsFromBody(
     const usesUpperPercentile = upperActive && capType === "percentile";
     const usesLowerPercentile = lowerActive && lowType === "percentile";
     // Single knob: ignore zeros for percentile capping on upper and/or lower tail.
-    // SqlIntegration falls back to ignoreZeros when lowerIgnoreZeros is unset.
     const ignoreZerosForPercentiles =
       usesUpperPercentile || usesLowerPercentile
         ? cs.ignoreZeros || false
