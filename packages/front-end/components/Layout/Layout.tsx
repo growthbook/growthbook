@@ -34,6 +34,10 @@ const otherPageTitles = [
     title: "Home",
   },
   {
+    path: /^watching/,
+    title: "Watching",
+  },
+  {
     path: /^activity/,
     title: "Activity Feed",
   },
