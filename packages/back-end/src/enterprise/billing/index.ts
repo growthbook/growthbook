@@ -192,26 +192,3 @@ export async function getUsage(organization: OrganizationInterface) {
   // If the updateUsageDataFromServer failed we fall back to unlimited usage
   return keyToUsageData[organization.id]?.usage || UNLIMITED_USAGE;
 }
-
-export async function getUsages(organizations: OrganizationInterface[]) {
-  const orgUsageMap: Record<string, OrganizationUsage> = {};
-
-  const orgsNotInCache: string[] = [];
-  organizations.forEach((org) => {
-    const cachedUsage = getCachedUsageIfValid(org);
-    if (cachedUsage) {
-      orgUsageMap[org.id] = cachedUsage;
-    } else {
-      orgsNotInCache.push(org.id);
-    }
-  });
-
-  if (orgsNotInCache.length > 0) {
-    await updateUsagesFromServer(orgsNotInCache);
-    orgsNotInCache.forEach((orgId) => {
-      orgUsageMap[orgId] = keyToUsageData[orgId]?.usage || UNLIMITED_USAGE;
-    });
-  }
-
-  return orgUsageMap;
-}
