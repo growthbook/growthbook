@@ -114,6 +114,12 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     targetRevision.prerequisites !== undefined &&
     !isEqual(targetRevision.prerequisites, feature.prerequisites || [])
   ) {
+    const allEnabledEnvs = environmentIds.filter(
+      (env) => feature.environmentSettings?.[env]?.enabled,
+    );
+    if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      req.context.permissions.throwPermissionError();
+    }
     changes.prerequisites = targetRevision.prerequisites;
   }
 
@@ -148,7 +154,26 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
       metadataChanges.customFields = m.customFields;
       hasMetaChange = true;
     }
-    if (hasMetaChange) changes.metadata = metadataChanges;
+    if (
+      m.jsonSchema !== undefined &&
+      !isEqual(m.jsonSchema, feature.jsonSchema)
+    ) {
+      metadataChanges.jsonSchema = m.jsonSchema;
+      hasMetaChange = true;
+    }
+    if (m.valueType !== undefined && m.valueType !== feature.valueType) {
+      metadataChanges.valueType = m.valueType;
+      hasMetaChange = true;
+    }
+    if (hasMetaChange) {
+      const allEnabledEnvs = environmentIds.filter(
+        (env) => feature.environmentSettings?.[env]?.enabled,
+      );
+      if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+        req.context.permissions.throwPermissionError();
+      }
+      changes.metadata = metadataChanges;
+    }
   }
 
   const { strategy, comment, title, adminOverride } = req.body;

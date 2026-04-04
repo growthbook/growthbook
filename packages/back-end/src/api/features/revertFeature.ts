@@ -114,6 +114,14 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, feature.prerequisites || [])
     ) {
+      if (
+        !context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, environmentIds)),
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
       changes.prerequisites = revision.prerequisites;
     }
 
@@ -162,7 +170,17 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         metadataChanges.valueType = m.valueType;
         hasMetaChange = true;
       }
-      if (hasMetaChange) changes.metadata = metadataChanges;
+      if (hasMetaChange) {
+        if (
+          !context.permissions.canPublishFeature(
+            feature,
+            Array.from(getEnabledEnvironments(feature, environmentIds)),
+          )
+        ) {
+          context.permissions.throwPermissionError();
+        }
+        changes.metadata = metadataChanges;
+      }
     }
 
     const adminOverride = !!req.body.adminOverride;
