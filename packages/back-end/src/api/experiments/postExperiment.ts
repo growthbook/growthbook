@@ -20,7 +20,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getUserByEmail } from "back-end/src/models/UserModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { validateCustomFields } from "./validations";
+import {
+  assertExperimentPayloadCommercialFeatures,
+  validateCustomFields,
+} from "./validations";
 
 const TEMPLATE_FIELDS_TO_OMIT = [
   "id",
@@ -121,6 +124,13 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     if (!req.context.permissions.canCreateExperiment(payload)) {
       req.context.permissions.throwPermissionError();
     }
+
+    assertExperimentPayloadCommercialFeatures(req.context, {
+      postStratificationEnabled: payload.postStratificationEnabled,
+      decisionFrameworkSettings: payload.decisionFrameworkSettings,
+      metricOverrides: payload.metricOverrides,
+      defaultDashboardId: payload.defaultDashboardId,
+    });
 
     const datasource = payload.datasourceId
       ? await getDataSourceById(req.context, payload.datasourceId)

@@ -2377,7 +2377,7 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/ExperimentMetricOverrideEntry'
-                  description: Per-metric analysis overrides for this experiment.
+                  description: Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries).
                 defaultDashboardId:
                   type: string
                   description: ID of the default dashboard for this experiment.
@@ -2783,7 +2783,7 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/ExperimentMetricOverrideEntry'
-                  description: Per-metric analysis overrides for this experiment.
+                  description: Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries).
                 defaultDashboardId:
                   type: string
                   description: ID of the default dashboard for this experiment.
@@ -27049,7 +27049,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ExperimentMetricOverrideEntry'
-          description: Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable.
+          description: 'Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).'
         goals:
           type: array
           items:

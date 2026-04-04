@@ -285,7 +285,9 @@ properties:
     type: array
     items:
       $ref: "../schemas/ExperimentMetricOverrideEntry.yaml"
-    description: Per-metric analysis overrides for this experiment.
+    description: >-
+      Per-metric analysis overrides for this experiment.
+      Replaces the entire stored array (does not patch individual entries).
   defaultDashboardId:
     type: string
     description: ID of the default dashboard for this experiment.

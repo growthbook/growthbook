@@ -55,7 +55,9 @@ properties:
     type: array
     items:
       $ref: "./ExperimentMetricOverrideEntry.yaml"
-    description: Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable.
+    description: >-
+      Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable.
+      On create/update, this replaces the entire stored array (it does not patch individual entries).
   goals:
     type: array
     items:

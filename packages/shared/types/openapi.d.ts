@@ -5149,7 +5149,7 @@ export interface components {
               targetMDE?: number;
             })[];
         };
-        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
         metricOverrides?: ({
             /** @description ID of the metric to override settings for. */
             id: string;
@@ -5380,7 +5380,7 @@ export interface components {
             targetMDE?: number;
           })[];
       };
-      /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+      /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
       metricOverrides?: ({
           /** @description ID of the metric to override settings for. */
           id: string;
@@ -5549,7 +5549,7 @@ export interface components {
               targetMDE?: number;
             })[];
         };
-        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
         metricOverrides?: ({
             /** @description ID of the metric to override settings for. */
             id: string;
@@ -5780,7 +5780,7 @@ export interface components {
               targetMDE?: number;
             })[];
         };
-        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
         metricOverrides?: ({
             /** @description ID of the metric to override settings for. */
             id: string;
@@ -13293,7 +13293,7 @@ export interface operations {
                         targetMDE?: number;
                       })[];
                   };
-                  /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                  /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                   metricOverrides?: ({
                       /** @description ID of the metric to override settings for. */
                       id: string;
@@ -13585,7 +13585,7 @@ export interface operations {
                 targetMDE?: number;
               })[];
           };
-          /** @description Per-metric analysis overrides for this experiment. */
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
           metricOverrides?: ({
               /** @description ID of the metric to override settings for. */
               id: string;
@@ -13724,7 +13724,7 @@ export interface operations {
                       targetMDE?: number;
                     })[];
                 };
-                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: ({
                     /** @description ID of the metric to override settings for. */
                     id: string;
@@ -13999,7 +13999,7 @@ export interface operations {
                       targetMDE?: number;
                     })[];
                 };
-                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: ({
                     /** @description ID of the metric to override settings for. */
                     id: string;
@@ -14304,7 +14304,7 @@ export interface operations {
                 targetMDE?: number;
               })[];
           };
-          /** @description Per-metric analysis overrides for this experiment. */
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
           metricOverrides?: ({
               /** @description ID of the metric to override settings for. */
               id: string;
@@ -14443,7 +14443,7 @@ export interface operations {
                       targetMDE?: number;
                     })[];
                 };
-                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: ({
                     /** @description ID of the metric to override settings for. */
                     id: string;
@@ -14736,7 +14736,7 @@ export interface operations {
                       targetMDE?: number;
                     })[];
                 };
-                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: ({
                     /** @description ID of the metric to override settings for. */
                     id: string;
@@ -15887,7 +15887,7 @@ export interface operations {
                       targetMDE?: number;
                     })[];
                 };
-                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: ({
                     /** @description ID of the metric to override settings for. */
                     id: string;
