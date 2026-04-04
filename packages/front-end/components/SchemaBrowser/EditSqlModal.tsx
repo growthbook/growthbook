@@ -140,6 +140,9 @@ export default function EditSqlModal({
           datasourceId: datasourceId,
           templateVariables: templateVariables,
           limit: apply5RowLimit ? 5 : undefined,
+          timestampColumn: requiredColumns.has("timestamp")
+            ? "timestamp"
+            : undefined,
         }),
       });
 

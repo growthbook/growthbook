@@ -274,6 +274,7 @@ export type TestQueryParams = {
   query: string;
   templateVariables?: TemplateVariables;
   testDays?: number;
+  timestampColumn?: string;
   limit?: number;
 };
 

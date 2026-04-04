@@ -1606,6 +1606,7 @@ export default abstract class SqlIntegration
     query: string,
     testDays?: number,
     templateVariables?: TemplateVariables,
+    timestampColumn?: string,
   ): string {
     // Use LIMIT 0 for datasources that support column metadata without data
     const limit = this.supportsLimitZeroColumnValidation() ? 0 : 1;
@@ -1614,6 +1615,7 @@ export default abstract class SqlIntegration
       templateVariables,
       testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit,
+      timestampColumn,
     });
   }
 
@@ -1623,16 +1625,21 @@ export default abstract class SqlIntegration
   }
 
   getTestQuery(params: TestQueryParams): string {
-    const { query, templateVariables } = params;
+    const { query, templateVariables, timestampColumn } = params;
     const limit = params.limit ?? 5;
     const testDays = params.testDays ?? DEFAULT_TEST_QUERY_DAYS;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - testDays);
+
+    const tableWhereClause = timestampColumn
+      ? `WHERE ${timestampColumn} >= ${this.toTimestamp(startDate)}`
+      : "";
+
     const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
       )
-      ${this.selectStarLimit("__table", limit)}`,
+      ${this.selectStarLimit(`__table ${tableWhereClause}`, limit)}`,
       {
         startDate,
         templateVariables,
@@ -1647,7 +1654,16 @@ export default abstract class SqlIntegration
   ): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
-    const results = await this.runQuery(sql);
+    const results = await this.runQuery(sql).catch((e) => {
+      // If the user forgets to include a timestamp column in their SQL
+      // The error message from the db will be confusing, so make it more clear.
+      for (const col of timestampCols ?? []) {
+        if (e.message.includes(col)) {
+          throw new Error(`The column '${col}' is required. ${e.message}`);
+        }
+      }
+      throw e;
+    });
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
 
