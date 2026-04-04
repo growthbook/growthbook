@@ -432,6 +432,8 @@ const Results: FC<{
               }
               metricTagFilter={metricTagFilter}
               metricsFilter={metricsFilter}
+              sliceTagsFilter={sliceTagsFilter}
+              customMetricSlices={experiment.customMetricSlices}
               experimentType={experiment.type}
               sortBy={sortBy}
               setSortBy={setSortBy}
