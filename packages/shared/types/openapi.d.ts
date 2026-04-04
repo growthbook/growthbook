@@ -5216,6 +5216,13 @@ export interface components {
             })[];
         })[];
       templateId?: string;
+      /** @description Information about the holdout this experiment is part of, if any */
+      holdout?: {
+        /** @description The holdout ID */
+        id: string;
+        /** @description The holdout name */
+        name: string;
+      } | null;
     };
     ExperimentSnapshot: {
       id: string;
@@ -5614,6 +5621,13 @@ export interface components {
             })[];
         })[];
       templateId?: string;
+      /** @description Information about the holdout this experiment is part of, if any */
+      holdout?: {
+        /** @description The holdout ID */
+        id: string;
+        /** @description The holdout name */
+        name: string;
+      } | null;
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -13060,6 +13074,13 @@ export interface operations {
                       })[];
                   })[];
                 templateId?: string;
+                /** @description Information about the holdout this experiment is part of, if any */
+                holdout?: {
+                  /** @description The holdout ID */
+                  id: string;
+                  /** @description The holdout name */
+                  name: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -13393,6 +13414,13 @@ export interface operations {
                     })[];
                 })[];
               templateId?: string;
+              /** @description Information about the holdout this experiment is part of, if any */
+              holdout?: {
+                /** @description The holdout ID */
+                id: string;
+                /** @description The holdout name */
+                name: string;
+              } | null;
             };
           };
         };
@@ -13601,6 +13629,13 @@ export interface operations {
                     })[];
                 })[];
               templateId?: string;
+              /** @description Information about the holdout this experiment is part of, if any */
+              holdout?: {
+                /** @description The holdout ID */
+                id: string;
+                /** @description The holdout name */
+                name: string;
+              } | null;
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -13947,6 +13982,13 @@ export interface operations {
                     })[];
                 })[];
               templateId?: string;
+              /** @description Information about the holdout this experiment is part of, if any */
+              holdout?: {
+                /** @description The holdout ID */
+                id: string;
+                /** @description The holdout name */
+                name: string;
+              } | null;
             };
           };
         };
@@ -15259,6 +15301,13 @@ export interface operations {
                     })[];
                 })[];
               templateId?: string;
+              /** @description Information about the holdout this experiment is part of, if any */
+              holdout?: {
+                /** @description The holdout ID */
+                id: string;
+                /** @description The holdout name */
+                name: string;
+              } | null;
             };
           };
         };
