@@ -2354,6 +2354,7 @@ Triggered when an experiment is created
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -2363,7 +2364,7 @@ Triggered when an experiment is created
                         targetMDE?: number | undefined;
                     }[] | undefined;
                 } | undefined;
-                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: {
                     /** ID of the metric to override settings for. */
                     id: string;
@@ -2591,6 +2592,7 @@ Triggered when an experiment is updated
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -2600,7 +2602,7 @@ Triggered when an experiment is updated
                         targetMDE?: number | undefined;
                     }[] | undefined;
                 } | undefined;
-                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: {
                     /** ID of the metric to override settings for. */
                     id: string;
@@ -2792,6 +2794,7 @@ Triggered when an experiment is updated
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -2801,7 +2804,7 @@ Triggered when an experiment is updated
                         targetMDE?: number | undefined;
                     }[] | undefined;
                 } | undefined;
-                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: {
                     /** ID of the metric to override settings for. */
                     id: string;
@@ -3034,6 +3037,7 @@ Triggered when an experiment is deleted
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -3043,7 +3047,7 @@ Triggered when an experiment is deleted
                         targetMDE?: number | undefined;
                     }[] | undefined;
                 } | undefined;
-                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. */
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
                 metricOverrides?: {
                     /** ID of the metric to override settings for. */
                     id: string;
