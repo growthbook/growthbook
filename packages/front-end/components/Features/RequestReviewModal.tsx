@@ -12,7 +12,11 @@ import {
   getReviewSetting,
 } from "shared/util";
 import { useForm } from "react-hook-form";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
+import {
+  EventUserApi,
+  EventUserLoggedIn,
+  isNamedUser,
+} from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
@@ -82,7 +86,10 @@ export default function RequestReviewModal({
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
-  const createdBy = revision?.createdBy as EventUserLoggedIn;
+  const createdBy = revision?.createdBy as
+    | EventUserLoggedIn
+    | EventUserApi
+    | undefined;
   const requireReviews = organization?.settings?.requireReviews;
   const reviewSetting = Array.isArray(requireReviews)
     ? getReviewSetting(requireReviews, feature)
@@ -90,7 +97,7 @@ export default function RequestReviewModal({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some(
-      (c) => c?.type === "dashboard" && c.id === user?.id,
+      (c) => isNamedUser(c) && c.id === user?.id,
     );
   const canReview =
     isPendingReview &&
@@ -391,8 +398,8 @@ export default function RequestReviewModal({
                 <Flex align="center" gap="2" wrap="wrap" mt="1">
                   {[revision.createdBy, ...revision.contributors]
                     .filter(
-                      (u): u is EventUserLoggedIn =>
-                        u != null && u.type === "dashboard",
+                      (u): u is EventUserLoggedIn | EventUserApi =>
+                        u != null && isNamedUser(u),
                     )
                     .filter(
                       (u, idx, arr) =>

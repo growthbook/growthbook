@@ -167,7 +167,7 @@ export async function insertMetric(
     throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
 
-  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (metric.managedBy === "api" && !context.isApiRequest) {
     throw new Error(
       "Cannot mark a metric as managed by the API outside of the API.",
     );
@@ -196,7 +196,7 @@ export async function insertMetrics(
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
   }
   for (const metric of metrics) {
-    if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    if (metric.managedBy === "api" && !context.isApiRequest) {
       throw new Error(
         "Cannot mark a metric as managed by the API outside of the API.",
       );
@@ -224,7 +224,7 @@ export async function deleteMetricById(
   if (metric.managedBy === "config") {
     throw new Error("Cannot delete a metric managed by config.yml");
   }
-  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (metric.managedBy === "api" && !context.isApiRequest) {
     throw new Error("Cannot delete a metric managed by the API");
   }
   if (!context.permissions.canDeleteMetric(metric)) {
@@ -561,7 +561,7 @@ export async function updateMetric(
     if (metric.managedBy === "config") {
       throw new Error("Cannot update. Metric managed by config.yml");
     }
-    if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    if (metric.managedBy === "api" && !context.isApiRequest) {
       throw new Error("Cannot update. Metric managed by the API");
     }
     if (!context.permissions.canUpdateMetric(metric, updates)) {

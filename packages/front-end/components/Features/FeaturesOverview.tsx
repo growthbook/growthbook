@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { isNamedUser } from "shared/types/events/event-types";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
@@ -812,7 +813,7 @@ export default function FeaturesOverview({
         >
           {(() => {
             const cb = revision.createdBy;
-            if (cb?.type === "dashboard") {
+            if (isNamedUser(cb)) {
               const name = getOwnerDisplay(cb.id) ?? cb.name ?? "";
               return (
                 <Metadata

@@ -4,6 +4,7 @@ import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import Link from "next/link";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { isNamedUser } from "shared/types/events/event-types";
 import { getEventText } from "@/components/Events/EventsPage/utils";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useApi from "@/hooks/useApi";
@@ -46,7 +47,7 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
         </td>
         <td>
           <span className="py-1 d-block nowrap">
-            {user?.type === "dashboard" ? (
+            {isNamedUser(user) ? (
               <span title={user.email}>{user.name}</span>
             ) : user?.type === "api_key" ? (
               <span title={apiKeyDescriptions?.[user.apiKey] ?? user.apiKey}>

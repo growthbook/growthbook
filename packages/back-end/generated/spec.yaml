@@ -1874,6 +1874,7 @@ paths:
           required: true
           schema:
             type: string
+          description: Must match `rule.id` in the request body
       operationId: putFeatureRevisionRule
       requestBody:
         required: true
@@ -1889,22 +1890,249 @@ paths:
                   type: string
                 rule:
                   description: |
-                    Full replacement for the rule identified by `:ruleId`. Accepted types: `force`, `rollout`, `experiment-ref`, `safe-rollout`.
+                    Full replacement for the rule identified by `:ruleId`. The `id` field must match the `:ruleId`
+                    path parameter. Accepted types: `force`, `rollout`, `experiment-ref`, `safe-rollout`.
 
-                    **Note:** this endpoint uses the internal rule format (as returned by GET revision/feature endpoints).
-                    Saved group targeting uses `savedGroups` (array of `{match, ids}` objects) rather than the
-                    `savedGroupTargeting` / `{matchType, savedGroups}` shape used by `postFeature`/`updateFeature`.
+                    This endpoint uses the **internal** rule format (matching what GET revision endpoints return).
+                    Saved-group targeting uses `savedGroups: [{match, ids}]` — **not** the
+                    `savedGroupTargeting: [{matchType, savedGroups}]` shape used by `postFeature`/`updateFeature`.
 
-                    **Targeting fields (applies to all rule types):**
-                    - `condition` — JSON string using MongoDB-style query syntax against user attributes.
-                      Omit or pass `""` to match everyone.
-                      Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+                    **Targeting fields** (all rule types):
+                    - `condition` — JSON string, MongoDB-style query syntax. Omit or pass `""` to match everyone.
+                      Example: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
                     - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
-                      `match: "all"` = user in all groups; `"any"` = at least one; `"none"` = not in any.
-                    - `prerequisites` — array of `{id: string, condition: string}`.
-                      `id` is a feature flag ID; `condition` is a JSON string checked against `{"value": <flag_value>}`.
-                      Examples: `{"value": true}` · `{"value": {"$in": ["a","b"]}}`
-                  $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties/properties/rules/items'
+                    - `prerequisites` — array of `{id: string, condition: string}` where `condition` is
+                      evaluated against `{"value": <flag_value>}`. Example: `{"value": true}`
+                  oneOf:
+                    - title: Force rule
+                      type: object
+                      required:
+                        - id
+                        - type
+                        - value
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - force
+                        value:
+                          type: string
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - any
+                                  - none
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - id
+                              - condition
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                    - title: Rollout rule
+                      type: object
+                      required:
+                        - id
+                        - type
+                        - value
+                        - coverage
+                        - hashAttribute
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - rollout
+                        value:
+                          type: string
+                        coverage:
+                          type: number
+                          description: Rollout Percent (0–1)
+                        hashAttribute:
+                          type: string
+                        seed:
+                          type: string
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - any
+                                  - none
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - id
+                              - condition
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                    - title: Experiment-ref rule
+                      type: object
+                      required:
+                        - id
+                        - type
+                        - experimentId
+                        - variations
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - experiment-ref
+                        experimentId:
+                          type: string
+                        variations:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - variationId
+                              - value
+                            properties:
+                              variationId:
+                                type: string
+                              value:
+                                type: string
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - any
+                                  - none
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - id
+                              - condition
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                    - title: Safe-rollout rule
+                      type: object
+                      required:
+                        - id
+                        - type
+                        - controlValue
+                        - variationValue
+                        - safeRolloutId
+                        - hashAttribute
+                        - trackingKey
+                        - seed
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - safe-rollout
+                        controlValue:
+                          type: string
+                        variationValue:
+                          type: string
+                        safeRolloutId:
+                          type: string
+                        hashAttribute:
+                          type: string
+                        trackingKey:
+                          type: string
+                        seed:
+                          type: string
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - any
+                                  - none
+                              ids:
+                                type: array
+                                items:
+                                  type: string
                 rampAction:
                   $ref: '#/components/schemas/RevisionRampAction'
                   description: Optional ramp schedule action to associate with this rule

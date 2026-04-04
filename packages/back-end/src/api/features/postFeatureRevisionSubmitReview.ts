@@ -1,7 +1,7 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import { getReviewSetting } from "shared/util";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/types/events/event-types";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -43,7 +43,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
   const { action, comment } = req.body;
   const review = actionToReviewType[action];
 
-  // Block self-approval for dashboard users (API key users are service accounts — not blocked)
+  // Block self-approval for named users (dashboard or PAC); anonymous API keys are service accounts
   if (action === "approve") {
     const requireReviews = req.context.org.settings?.requireReviews;
     const reviewSetting = Array.isArray(requireReviews)
@@ -51,9 +51,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) =>
-          c?.type === "dashboard" &&
-          (c as EventUserLoggedIn).id === req.context.userId,
+        (c) => isNamedUser(c) && c.id === req.context.userId,
       );
       if (isSelfApproval) {
         throw new Error("You cannot approve a draft you contributed to.");
