@@ -1,0 +1,61 @@
+summary: Update revision metadata
+description: |
+  Updates the revision's comment, title, and/or feature metadata snapshot fields.
+  Only provided fields are changed; others are preserved.
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: putFeatureRevisionMetadata
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          comment:
+            type: string
+          title:
+            type: string
+          description:
+            type: string
+          owner:
+            type: string
+          project:
+            type: string
+          tags:
+            type: array
+            items:
+              type: string
+          neverStale:
+            type: boolean
+          valueType:
+            type: string
+            enum:
+              - boolean
+              - string
+              - number
+              - json
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

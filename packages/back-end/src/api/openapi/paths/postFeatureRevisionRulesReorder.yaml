@@ -1,0 +1,49 @@
+summary: Reorder rules in a draft revision
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: postFeatureRevisionRulesReorder
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+          - ruleIds
+        properties:
+          environment:
+            type: string
+          ruleIds:
+            type: array
+            items:
+              type: string
+            description: >
+              The complete desired order of rules for the environment, expressed as
+              a list of every rule ID. Must include all existing rule IDs — no more,
+              no less, no duplicates. Omitting a rule ID or including an unknown ID
+              is an error; the revision is never partially reordered.
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

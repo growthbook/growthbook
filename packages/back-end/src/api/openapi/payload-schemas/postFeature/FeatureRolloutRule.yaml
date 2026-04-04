@@ -63,6 +63,6 @@ properties:
     type: string
   coverage:
     type: number
-    description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+    description: "Rollout Percent (0–1). Percent of traffic included in this experiment. Users not included will skip this rule."
   hashAttribute:
     type: string

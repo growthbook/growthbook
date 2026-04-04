@@ -165,10 +165,11 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (hasMetaChange) changes.metadata = metadataChanges;
     }
 
+    const adminOverride = !!req.body.adminOverride;
     const apiBypassesReviews =
       !!req.context.org.settings?.restApiBypassesReviews;
 
-    if (!apiBypassesReviews) {
+    if (!adminOverride) {
       const liveRevision = await getRevision({
         context,
         organization: feature.organization,
@@ -190,9 +191,13 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (reviewRequired) {
         throw new PermissionError(
           "This revert requires approval before changes can be published. " +
-            "Enable 'REST API always bypasses approval requirements' in organization settings.",
+            "Pass adminOverride: true if your organization allows REST API bypass.",
         );
       }
+    } else if (!apiBypassesReviews) {
+      throw new PermissionError(
+        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
+      );
     }
 
     const { revision: newRevision, updatedFeature } =
@@ -203,7 +208,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         org: req.organization,
         changes,
         comment: comment ?? `Reverted to revision #${version}`,
-        canBypassApprovalChecks: apiBypassesReviews,
+        canBypassApprovalChecks: adminOverride && apiBypassesReviews,
       });
 
     await req.audit({

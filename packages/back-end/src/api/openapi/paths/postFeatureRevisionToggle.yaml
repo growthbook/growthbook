@@ -1,0 +1,42 @@
+summary: Toggle an environment in a draft revision
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: postFeatureRevisionToggle
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+          - enabled
+        properties:
+          environment:
+            type: string
+          enabled:
+            type: boolean
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

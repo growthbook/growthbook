@@ -1,0 +1,134 @@
+oneOf:
+  - type: object
+    required:
+      - mode
+      - name
+      - steps
+      - ruleId
+    properties:
+      mode:
+        type: string
+        enum: [create]
+      name:
+        type: string
+        description: "Display name for the ramp schedule to be created"
+      ruleId:
+        type: string
+        description: "Rule ID this action applies to"
+      environment:
+        type: string
+        nullable: true
+        description: "Scope patches to this environment only; null applies to all environments sharing the ruleId"
+      startDate:
+        type: string
+        format: date-time
+        nullable: true
+        description: "When to start the ramp; absent or null means start immediately on publish"
+      steps:
+        type: array
+        description: "Ordered ramp steps"
+        items:
+          type: object
+          required:
+            - trigger
+            - actions
+          properties:
+            trigger:
+              oneOf:
+                - type: object
+                  required: [type, seconds]
+                  properties:
+                    type:
+                      type: string
+                      enum: [interval]
+                    seconds:
+                      type: number
+                      description: "Hold duration in seconds"
+                - type: object
+                  required: [type]
+                  properties:
+                    type:
+                      type: string
+                      enum: [approval]
+                - type: object
+                  required: [type, at]
+                  properties:
+                    type:
+                      type: string
+                      enum: [scheduled]
+                    at:
+                      type: string
+                      format: date-time
+              discriminator:
+                propertyName: type
+            actions:
+              type: array
+              items:
+                type: object
+                required:
+                  - targetType
+                  - targetId
+                  - patch
+                properties:
+                  targetType:
+                    type: string
+                    enum: [feature-rule]
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    description: "Sparse rule patch applied at this step"
+                    additionalProperties: true
+      endActions:
+        type: array
+        description: "Final patches applied when the ramp completes"
+        items:
+          type: object
+          required:
+            - targetType
+            - targetId
+            - patch
+          properties:
+            targetType:
+              type: string
+              enum: [feature-rule]
+            targetId:
+              type: string
+            patch:
+              type: object
+              additionalProperties: true
+      endCondition:
+        type: object
+        description: "Optional condition that terminates the ramp early"
+        properties:
+          trigger:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [scheduled]
+              at:
+                type: string
+                format: date-time
+
+  - type: object
+    required:
+      - mode
+      - rampScheduleId
+      - ruleId
+    properties:
+      mode:
+        type: string
+        enum: [detach]
+      rampScheduleId:
+        type: string
+        description: "ID of the ramp schedule to detach from"
+      ruleId:
+        type: string
+        description: "Rule ID being detached"
+      deleteScheduleWhenEmpty:
+        type: boolean
+        description: "Delete the ramp schedule entirely if no targets remain after detach"
+
+discriminator:
+  propertyName: mode

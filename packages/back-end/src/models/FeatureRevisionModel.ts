@@ -573,26 +573,28 @@ export async function createRevision({
   return toInterface(doc, context);
 }
 
+export type RevisionChanges = Partial<
+  Pick<
+    FeatureRevisionInterface,
+    | "title"
+    | "comment"
+    | "defaultValue"
+    | "rules"
+    | "baseVersion"
+    | "environmentsEnabled"
+    | "prerequisites"
+    | "archived"
+    | "metadata"
+    | "holdout"
+    | "rampActions"
+  >
+>;
+
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  changes: Partial<
-    Pick<
-      FeatureRevisionInterface,
-      | "title"
-      | "comment"
-      | "defaultValue"
-      | "rules"
-      | "baseVersion"
-      | "environmentsEnabled"
-      | "prerequisites"
-      | "archived"
-      | "metadata"
-      | "holdout"
-      | "rampActions"
-    >
-  >,
+  changes: RevisionChanges,
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
 ) {

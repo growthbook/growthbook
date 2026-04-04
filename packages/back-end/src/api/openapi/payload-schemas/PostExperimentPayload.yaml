@@ -163,6 +163,7 @@ properties:
           type: string
         coverage:
           type: number
+          description: "Rollout Percent (0–1)"
         trafficSplit:
           type: array
           items:

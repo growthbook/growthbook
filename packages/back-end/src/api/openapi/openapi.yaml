@@ -66,6 +66,13 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: feature-revisions
+    x-displayName: Feature Revisions
+    x-beta: true
+    description: |
+      Draft revisions for feature flags, including lifecycle, review, and publish workflows.
+
+      <span style="color: #92400e; font-weight: 600;">BETA:</span> These endpoints are early release and may be unstable. Their format could potentially change — or they could be modified or removed — in the future.
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.
@@ -146,6 +153,61 @@ paths:
   /features/{id}/revisions:
     get:
       $ref: "./paths/getFeatureRevisions.yaml"
+    post:
+      $ref: "./paths/postFeatureRevision.yaml"
+  /features/{id}/revisions/{version}:
+    get:
+      $ref: "./paths/getFeatureRevision.yaml"
+  /features/{id}/revisions/{version}/discard:
+    post:
+      $ref: "./paths/postFeatureRevisionDiscard.yaml"
+  /features/{id}/revisions/{version}/publish:
+    post:
+      $ref: "./paths/postFeatureRevisionPublish.yaml"
+  /features/{id}/revisions/{version}/merge-status:
+    get:
+      $ref: "./paths/getFeatureRevisionMergeStatus.yaml"
+  /features/{id}/revisions/{version}/rebase:
+    post:
+      $ref: "./paths/postFeatureRevisionRebase.yaml"
+  /features/{id}/revisions/{version}/request-review:
+    post:
+      $ref: "./paths/postFeatureRevisionRequestReview.yaml"
+  /features/{id}/revisions/{version}/submit-review:
+    post:
+      $ref: "./paths/postFeatureRevisionSubmitReview.yaml"
+  /features/{id}/revisions/{version}/rules:
+    post:
+      $ref: "./paths/postFeatureRevisionRuleAdd.yaml"
+  /features/{id}/revisions/{version}/rules/reorder:
+    post:
+      $ref: "./paths/postFeatureRevisionRulesReorder.yaml"
+  /features/{id}/revisions/{version}/rules/{ruleId}:
+    put:
+      $ref: "./paths/putFeatureRevisionRule.yaml"
+    delete:
+      $ref: "./paths/deleteFeatureRevisionRule.yaml"
+  /features/{id}/revisions/{version}/ramp-actions:
+    put:
+      $ref: "./paths/putFeatureRevisionRampActions.yaml"
+  /features/{id}/revisions/{version}/toggle:
+    post:
+      $ref: "./paths/postFeatureRevisionToggle.yaml"
+  /features/{id}/revisions/{version}/default-value:
+    put:
+      $ref: "./paths/putFeatureRevisionDefaultValue.yaml"
+  /features/{id}/revisions/{version}/prerequisites:
+    put:
+      $ref: "./paths/putFeatureRevisionPrerequisites.yaml"
+  /features/{id}/revisions/{version}/metadata:
+    put:
+      $ref: "./paths/putFeatureRevisionMetadata.yaml"
+  /features/{id}/revisions/{version}/archive:
+    put:
+      $ref: "./paths/putFeatureRevisionArchive.yaml"
+  /features/{id}/revisions/{version}/holdout:
+    put:
+      $ref: "./paths/putFeatureRevisionHoldout.yaml"
   /stale-features:
     get:
       $ref: "./paths/getFeatureStale.yaml"

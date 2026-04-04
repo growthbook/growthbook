@@ -1,0 +1,150 @@
+summary: Add a rule to a draft revision
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: postFeatureRevisionRuleAdd
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+          - rule
+        properties:
+          environment:
+            type: string
+          rule:
+            description: |
+              Rule to add. For force/rollout rules `type` is optional and inferred from rollout percent (`coverage`):
+              `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
+              Use `experiment-ref` to link an existing experiment or bandit by ID.
+              `id` and `description` are optional — the server generates a UUID and defaults description to `""`.
+            oneOf:
+              - description: "Force or rollout rule. `type` is optional — omit it to let the server infer force vs rollout from `coverage`."
+                type: object
+                required:
+                  - value
+                properties:
+                  type:
+                    type: string
+                    enum: [force, rollout]
+                    description: "Optional — inferred from coverage when omitted"
+                  value:
+                    type: string
+                  coverage:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: "Rollout Percent (0–1). Values < 1 trigger rollout inference and require hashAttribute"
+                  hashAttribute:
+                    type: string
+                  seed:
+                    type: string
+                  id:
+                    type: string
+                  description:
+                    type: string
+                  enabled:
+                    type: boolean
+                  condition:
+                    type: string
+                  savedGroups:
+                    type: array
+                    items:
+                      type: object
+                      required: [match, ids]
+                      properties:
+                        match:
+                          type: string
+                          enum: [all, none, any]
+                        ids:
+                          type: array
+                          items:
+                            type: string
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, condition]
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+              - description: "Experiment-ref or bandit-ref rule — links an existing experiment or bandit by ID"
+                type: object
+                required:
+                  - type
+                  - experimentId
+                  - variations
+                properties:
+                  type:
+                    type: string
+                    enum: [experiment-ref]
+                  experimentId:
+                    type: string
+                    description: "ID of the existing experiment or bandit to link"
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                      required: [variationId, value]
+                      properties:
+                        variationId:
+                          type: string
+                        value:
+                          type: string
+              - description: "Safe-rollout rule"
+                type: object
+                required:
+                  - type
+                  - controlValue
+                  - variationValue
+                  - safeRolloutId
+                  - hashAttribute
+                  - trackingKey
+                  - seed
+                properties:
+                  type:
+                    type: string
+                    enum: [safe-rollout]
+                  controlValue:
+                    type: string
+                  variationValue:
+                    type: string
+                  safeRolloutId:
+                    type: string
+                  hashAttribute:
+                    type: string
+                  trackingKey:
+                    type: string
+                  seed:
+                    type: string
+          rampAction:
+            $ref: "../schemas/RevisionRampAction.yaml"
+            description: "Optional ramp schedule action to associate with this rule (create or detach)"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

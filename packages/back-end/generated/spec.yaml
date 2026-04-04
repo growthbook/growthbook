@@ -63,6 +63,13 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: feature-revisions
+    x-displayName: Feature Revisions
+    x-beta: true
+    description: |
+      Draft revisions for feature flags, including lifecycle, review, and publish workflows.
+
+      <span style="color: #92400e; font-weight: 600;">BETA:</span> These endpoints are early release and may be unstable. Their format could potentially change — or they could be modified or removed — in the future.
   - name: ramp-schedules
     x-displayName: Ramp Schedules
     description: 'Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.'
@@ -264,6 +271,9 @@ tags:
   - name: RampSchedule_model
     x-displayName: RampSchedule
     description: <SchemaDefinition schemaRef="#/components/schemas/RampSchedule" />
+  - name: RevisionRampAction_model
+    x-displayName: RevisionRampAction
+    description: <SchemaDefinition schemaRef="#/components/schemas/RevisionRampAction" />
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
@@ -527,7 +537,7 @@ paths:
                                   type: string
                                 coverage:
                                   type: number
-                                  description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+                                  description: Rollout Percent (0–1). Percent of traffic included in this experiment. Users not included will skip this rule.
                                 hashAttribute:
                                   type: string
                             - title: Experiment Rule
@@ -655,6 +665,7 @@ paths:
                                       maxItems: 2
                                 coverage:
                                   type: number
+                                  description: Rollout Percent (0–1)
                                 scheduleRules:
                                   type: array
                                   items:
@@ -776,6 +787,8 @@ paths:
         Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
 
         Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+
+        Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
@@ -842,6 +855,12 @@ paths:
                     value:
                       type: string
                       description: The feature value assigned to users in the holdout treatment group
+                adminOverride:
+                  type: boolean
+                  default: false
+                  description: |
+                    Pass `true` to bypass approval requirements and immediately publish the change.
+                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -856,13 +875,22 @@ paths:
     delete:
       parameters:
         - $ref: '#/components/parameters/id'
+        - in: query
+          name: adminOverride
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            Pass `true` to bypass the live-feature guard and delete without archiving first.
+            Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       tags:
         - features
       summary: Deletes a single feature
       description: |
         Permanently deletes a feature and all of its revisions.
 
-        Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+        Archived features can be deleted freely. Deleting a live (non-archived) feature requires passing `?adminOverride=true` and the org setting "REST API always bypasses approval requirements" to be enabled.
       operationId: deleteFeature
       x-codeSamples:
         - lang: cURL
@@ -891,6 +919,8 @@ paths:
         Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
 
         Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+
+        Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
       tags:
         - features
       operationId: toggleFeature
@@ -924,6 +954,12 @@ paths:
                       - 1
                       - 0
                       - ''
+                adminOverride:
+                  type: boolean
+                  default: false
+                  description: |
+                    Pass `true` to bypass approval requirements and immediately publish the change.
+                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -944,6 +980,8 @@ paths:
         Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
 
         Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+
+        Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
       tags:
         - features
       operationId: revertFeature
@@ -966,6 +1004,12 @@ paths:
                   type: number
                 comment:
                   type: string
+                adminOverride:
+                  type: boolean
+                  default: false
+                  description: |
+                    Pass `true` to bypass approval requirements and immediately publish the change.
+                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -1007,6 +1051,999 @@ paths:
                         items:
                           $ref: '#/components/schemas/FeatureRevision'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a draft revision
+      description: Creates a new draft revision branched from the specified base version (defaults to the current live version).
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+      operationId: postFeatureRevision
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  default: ''
+                title:
+                  type: string
+                baseVersion:
+                  type: integer
+                  description: Version to branch from (defaults to current live version)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}':
+    get:
+      summary: Get a feature revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: getFeatureRevision
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/discard':
+    post:
+      summary: Discard a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionDiscard
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/publish':
+    post:
+      summary: Publish a revision
+      description: |
+        Publishes the revision. Returns 409 if merge conflicts exist — call rebase first to resolve them.
+
+        If the feature requires approval, the revision must be in `approved` status unless `adminOverride: true`
+        is passed in the request body. Admin override requires the organization setting **"REST API always bypasses
+        approval requirements"** to be enabled and the caller to have bypass-approval permissions.
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionPublish
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  default: ''
+                adminOverride:
+                  type: boolean
+                  default: false
+                  description: |
+                    Bypass approval requirements and publish regardless of revision status.
+                    Requires the organization setting "REST API always bypasses approval requirements"
+                    and appropriate bypass-approval permissions.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/merge-status':
+    get:
+      summary: Check merge status
+      description: 'Returns whether the revision can be merged cleanly, along with any conflicts.'
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+      operationId: getFeatureRevisionMergeStatus
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - conflicts
+                properties:
+                  success:
+                    type: boolean
+                  conflicts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                        resolved:
+                          type: boolean
+                        base:
+                          type: string
+                        live:
+                          type: string
+                        revision:
+                          type: string
+                  result:
+                    type: object
+                    description: Merged result (only present when success is true)
+  '/features/{id}/revisions/{version}/rebase':
+    post:
+      summary: Rebase a draft revision
+      description: |
+        Resolves merge conflicts using per-field strategies and rebases the draft onto the current live version.
+        Provide an empty strategies object to auto-merge where possible.
+        If any conflicts remain unresolved, a 409 is returned with the remaining conflicts.
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionRebase
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategies:
+                  type: object
+                  description: Map of conflict key to resolution strategy
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/request-review':
+    post:
+      summary: Request review
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionRequestReview
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  default: ''
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/submit-review':
+    post:
+      summary: Submit a review
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionSubmitReview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - approve
+                    - request-changes
+                    - comment
+                  default: comment
+                comment:
+                  type: string
+                  default: ''
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/rules':
+    post:
+      summary: Add a rule to a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionRuleAdd
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environment
+                - rule
+              properties:
+                environment:
+                  type: string
+                rule:
+                  description: |
+                    Rule to add. For force/rollout rules `type` is optional and inferred from rollout percent (`coverage`):
+                    `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
+                    Use `experiment-ref` to link an existing experiment or bandit by ID.
+                    `id` and `description` are optional — the server generates a UUID and defaults description to `""`.
+                  oneOf:
+                    - description: Force or rollout rule. `type` is optional — omit it to let the server infer force vs rollout from `coverage`.
+                      type: object
+                      required:
+                        - value
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - force
+                            - rollout
+                          description: Optional — inferred from coverage when omitted
+                        value:
+                          type: string
+                        coverage:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                          description: Rollout Percent (0–1). Values < 1 trigger rollout inference and require hashAttribute
+                        hashAttribute:
+                          type: string
+                        seed:
+                          type: string
+                        id:
+                          type: string
+                        description:
+                          type: string
+                        enabled:
+                          type: boolean
+                        condition:
+                          type: string
+                        savedGroups:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                        prerequisites:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - id
+                              - condition
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                    - description: Experiment-ref or bandit-ref rule — links an existing experiment or bandit by ID
+                      type: object
+                      required:
+                        - type
+                        - experimentId
+                        - variations
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - experiment-ref
+                        experimentId:
+                          type: string
+                          description: ID of the existing experiment or bandit to link
+                        variations:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                              - variationId
+                              - value
+                            properties:
+                              variationId:
+                                type: string
+                              value:
+                                type: string
+                    - description: Safe-rollout rule
+                      type: object
+                      required:
+                        - type
+                        - controlValue
+                        - variationValue
+                        - safeRolloutId
+                        - hashAttribute
+                        - trackingKey
+                        - seed
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - safe-rollout
+                        controlValue:
+                          type: string
+                        variationValue:
+                          type: string
+                        safeRolloutId:
+                          type: string
+                        hashAttribute:
+                          type: string
+                        trackingKey:
+                          type: string
+                        seed:
+                          type: string
+                rampAction:
+                  $ref: '#/components/schemas/RevisionRampAction'
+                  description: Optional ramp schedule action to associate with this rule (create or detach)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/rules/reorder':
+    post:
+      summary: Reorder rules in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionRulesReorder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environment
+                - ruleIds
+              properties:
+                environment:
+                  type: string
+                ruleIds:
+                  type: array
+                  items:
+                    type: string
+                  description: |
+                    The complete desired order of rules for the environment, expressed as a list of every rule ID. Must include all existing rule IDs — no more, no less, no duplicates. Omitting a rule ID or including an unknown ID is an error; the revision is never partially reordered.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/rules/{ruleId}':
+    put:
+      summary: Update a rule in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      operationId: putFeatureRevisionRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environment
+                - rule
+              properties:
+                environment:
+                  type: string
+                rule:
+                  type: object
+                  description: Partial rule fields to merge onto the existing rule
+                rampAction:
+                  $ref: '#/components/schemas/RevisionRampAction'
+                  description: Optional ramp schedule action to associate with this rule
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+    delete:
+      summary: Delete a rule from a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      operationId: deleteFeatureRevisionRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environment
+              properties:
+                environment:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/ramp-actions':
+    put:
+      summary: Upsert a ramp action on a draft revision
+      description: |
+        Associates or clears a ramp schedule action for a specific rule on the draft.
+        When published, a `create` action creates a new ramp schedule; a `detach` action removes one.
+        Pass `null` for action to clear any pending ramp action for the ruleId.
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: putFeatureRevisionRampActions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ruleId
+                - action
+              properties:
+                ruleId:
+                  type: string
+                action:
+                  nullable: true
+                  description: 'The ramp action to set, or null to clear any pending action for this ruleId'
+                  oneOf:
+                    - $ref: '#/components/schemas/RevisionRampAction'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/toggle':
+    post:
+      summary: Toggle an environment in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: postFeatureRevisionToggle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environment
+                - enabled
+              properties:
+                environment:
+                  type: string
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/default-value':
+    put:
+      summary: Set the default value in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: putFeatureRevisionDefaultValue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - defaultValue
+              properties:
+                defaultValue:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/prerequisites':
+    put:
+      summary: Set prerequisites in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: putFeatureRevisionPrerequisites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prerequisites
+              properties:
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - condition
+                    properties:
+                      id:
+                        type: string
+                        description: Feature ID of the prerequisite
+                      condition:
+                        type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/metadata':
+    put:
+      summary: Update revision metadata
+      description: |
+        Updates the revision's comment, title, and/or feature metadata snapshot fields.
+        Only provided fields are changed; others are preserved.
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: putFeatureRevisionMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+                owner:
+                  type: string
+                project:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                neverStale:
+                  type: boolean
+                valueType:
+                  type: string
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/archive':
+    put:
+      summary: Set archived state in a draft revision
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: putFeatureRevisionArchive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - archived
+              properties:
+                archived:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/holdout':
+    put:
+      summary: Set holdout in a draft revision
+      description: |
+        Associates a holdout experiment with this revision. Pass null to clear.
+      tags:
+        - feature-revisions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Revision version number
+      operationId: putFeatureRevisionHoldout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - holdout
+              properties:
+                holdout:
+                  nullable: true
+                  type: object
+                  required:
+                    - id
+                    - value
+                  properties:
+                    id:
+                      type: string
+                      description: Holdout experiment ID
+                    value:
+                      type: string
+                      description: Value to serve to users in the holdout
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
   /stale-features:
     get:
       parameters:
@@ -2257,6 +3294,7 @@ paths:
                         type: string
                       coverage:
                         type: number
+                        description: Rollout Percent (0–1)
                       trafficSplit:
                         type: array
                         items:
@@ -2648,6 +3686,7 @@ paths:
                         type: string
                       coverage:
                         type: number
+                        description: Rollout Percent (0–1)
                       trafficSplit:
                         type: array
                         items:
@@ -6619,6 +7658,7 @@ paths:
                                   type: number
                                   minimum: 0
                                   maximum: 1
+                                  description: Rollout Percent (0–1)
                                 condition:
                                   type: string
                                 force:
@@ -6649,6 +7689,7 @@ paths:
                             type: number
                             minimum: 0
                             maximum: 1
+                            description: Rollout Percent (0–1)
                           condition:
                             type: string
                           force:
@@ -6784,6 +7825,7 @@ paths:
                                   type: number
                                   minimum: 0
                                   maximum: 1
+                                  description: Rollout Percent (0–1)
                                 condition:
                                   type: string
                                 force:
@@ -6813,6 +7855,7 @@ paths:
                             type: number
                             minimum: 0
                             maximum: 1
+                            description: Rollout Percent (0–1)
                           condition:
                             type: string
                           force:
@@ -25373,6 +26416,7 @@ components:
                     type: number
                     minimum: 0
                     maximum: 1
+                    description: Rollout Percent (0–1)
                   condition:
                     type: string
                   force:
@@ -25429,6 +26473,7 @@ components:
                           type: number
                           minimum: 0
                           maximum: 1
+                          description: Rollout Percent (0–1)
                         condition:
                           type: string
                         force:
@@ -26050,7 +27095,98 @@ components:
             revisions:
               type: array
               items:
-                $ref: '#/components/schemas/FeatureRevision'
+                type: object
+                required:
+                  - baseVersion
+                  - version
+                  - comment
+                  - date
+                  - status
+                  - rules
+                properties:
+                  baseVersion:
+                    type: integer
+                  version:
+                    type: integer
+                  comment:
+                    type: string
+                  date:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  createdBy:
+                    type: string
+                  publishedBy:
+                    type: string
+                  defaultValue:
+                    type: string
+                    description: The default value at the time this revision was created
+                  rules:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/FeatureRule'
+                  definitions:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                  environmentsEnabled:
+                    type: object
+                    additionalProperties:
+                      type: boolean
+                  prerequisites:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - condition
+                      properties:
+                        id:
+                          type: string
+                        condition:
+                          type: string
+                  metadata:
+                    type: object
+                    properties:
+                      description:
+                        type: string
+                      owner:
+                        type: string
+                      project:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      neverStale:
+                        type: boolean
+                      valueType:
+                        type: string
+                      jsonSchema:
+                        type: object
+                        properties:
+                          schemaType:
+                            type: string
+                            enum:
+                              - schema
+                              - simple
+                          schema:
+                            type: string
+                          simple:
+                            type: object
+                            additionalProperties: true
+                          date:
+                            type: string
+                            format: date-time
+                          enabled:
+                            type: boolean
+                      customFields:
+                        type: object
+                        additionalProperties: true
     FeatureEnvironment:
       type: object
       required:
@@ -26087,6 +27223,251 @@ components:
             definition:
               type: string
               description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+    FeatureRevision:
+      type: object
+      required:
+        - featureId
+        - version
+        - dateCreated
+        - dateUpdated
+        - createdBy
+        - status
+        - comment
+        - baseVersion
+        - defaultValue
+        - rules
+      properties:
+        featureId:
+          type: string
+        version:
+          type: number
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        datePublished:
+          type: string
+          format: date-time
+          nullable: true
+        createdBy:
+          type: object
+          description: User who created this revision
+        publishedBy:
+          type: object
+          nullable: true
+          description: User who published this revision
+        status:
+          type: string
+          enum:
+            - draft
+            - published
+            - discarded
+            - approved
+            - changes-requested
+            - pending-review
+            - pending-parent
+        comment:
+          type: string
+          description: Internal note attached to the revision
+        title:
+          type: string
+          description: Short display title for the draft
+        baseVersion:
+          type: number
+          description: Version this draft was branched from
+        defaultValue:
+          type: string
+        rules:
+          type: object
+          description: Map of environment id → rule array for this revision
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/FeatureRule'
+        environmentsEnabled:
+          type: object
+          additionalProperties:
+            type: boolean
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+        archived:
+          type: boolean
+        metadata:
+          type: object
+          description: Feature-level metadata snapshot at time of draft
+        holdout:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            value:
+              type: string
+        contributors:
+          type: array
+          description: Users who have edited this draft
+          items:
+            type: object
+        rampActions:
+          type: array
+          description: Pending ramp schedule actions to execute when this revision is published
+          items:
+            $ref: '#/components/schemas/RevisionRampAction'
+    RevisionRampAction:
+      oneOf:
+        - type: object
+          required:
+            - mode
+            - name
+            - steps
+            - ruleId
+          properties:
+            mode:
+              type: string
+              enum:
+                - create
+            name:
+              type: string
+              description: Display name for the ramp schedule to be created
+            ruleId:
+              type: string
+              description: Rule ID this action applies to
+            environment:
+              type: string
+              nullable: true
+              description: Scope patches to this environment only; null applies to all environments sharing the ruleId
+            startDate:
+              type: string
+              format: date-time
+              nullable: true
+              description: When to start the ramp; absent or null means start immediately on publish
+            steps:
+              type: array
+              description: Ordered ramp steps
+              items:
+                type: object
+                required:
+                  - trigger
+                  - actions
+                properties:
+                  trigger:
+                    oneOf:
+                      - type: object
+                        required:
+                          - type
+                          - seconds
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - interval
+                          seconds:
+                            type: number
+                            description: Hold duration in seconds
+                      - type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - approval
+                      - type: object
+                        required:
+                          - type
+                          - at
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - scheduled
+                          at:
+                            type: string
+                            format: date-time
+                    discriminator:
+                      propertyName: type
+                  actions:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - targetType
+                        - targetId
+                        - patch
+                      properties:
+                        targetType:
+                          type: string
+                          enum:
+                            - feature-rule
+                        targetId:
+                          type: string
+                        patch:
+                          type: object
+                          description: Sparse rule patch applied at this step
+                          additionalProperties: true
+            endActions:
+              type: array
+              description: Final patches applied when the ramp completes
+              items:
+                type: object
+                required:
+                  - targetType
+                  - targetId
+                  - patch
+                properties:
+                  targetType:
+                    type: string
+                    enum:
+                      - feature-rule
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    additionalProperties: true
+            endCondition:
+              type: object
+              description: Optional condition that terminates the ramp early
+              properties:
+                trigger:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - scheduled
+                    at:
+                      type: string
+                      format: date-time
+        - type: object
+          required:
+            - mode
+            - rampScheduleId
+            - ruleId
+          properties:
+            mode:
+              type: string
+              enum:
+                - detach
+            rampScheduleId:
+              type: string
+              description: ID of the ramp schedule to detach from
+            ruleId:
+              type: string
+              description: Rule ID being detached
+            deleteScheduleWhenEmpty:
+              type: boolean
+              description: Delete the ramp schedule entirely if no targets remain after detach
+      discriminator:
+        propertyName: mode
     FeatureRule:
       anyOf:
         - $ref: '#/components/schemas/FeatureForceRule'
@@ -26223,6 +27604,7 @@ components:
                 type: string
               coverage:
                 type: number
+                description: Rollout Percent (0–1)
               condition:
                 type: object
                 additionalProperties: true
@@ -26260,6 +27642,7 @@ components:
               type: number
               minimum: 0
               maximum: 1
+              description: Rollout Percent (0–1)
             hashAttribute:
               type: string
             seed:
@@ -26341,6 +27724,7 @@ components:
               type: number
               minimum: 0
               maximum: 1
+              description: Rollout Percent (0–1)
             value:
               type: array
               description: Variation values with weights
@@ -26383,119 +27767,6 @@ components:
                     type: string
             experimentId:
               type: string
-    FeatureRevision:
-      type: object
-      required:
-        - baseVersion
-        - version
-        - comment
-        - date
-        - status
-        - rules
-      properties:
-        baseVersion:
-          type: integer
-        version:
-          type: integer
-        comment:
-          type: string
-        date:
-          type: string
-          format: date-time
-        status:
-          type: string
-        createdBy:
-          type: string
-        publishedBy:
-          type: string
-        defaultValue:
-          type: string
-          description: The default value at the time this revision was created
-        rules:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              $ref: '#/components/schemas/FeatureRule'
-        definitions:
-          type: object
-          additionalProperties:
-            type: string
-            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
-        environmentsEnabled:
-          type: object
-          description: Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)
-          additionalProperties:
-            type: boolean
-        envPrerequisites:
-          type: object
-          description: Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)
-          additionalProperties:
-            type: array
-            items:
-              type: object
-              required:
-                - id
-                - condition
-              properties:
-                id:
-                  type: string
-                  description: Feature ID
-                condition:
-                  type: string
-        prerequisites:
-          type: array
-          description: Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)
-          items:
-            type: object
-            required:
-              - id
-              - condition
-            properties:
-              id:
-                type: string
-                description: Feature ID
-              condition:
-                type: string
-        metadata:
-          type: object
-          description: Metadata fields captured in this revision (only present when metadata gating is enabled)
-          properties:
-            description:
-              type: string
-            owner:
-              type: string
-            project:
-              type: string
-            tags:
-              type: array
-              items:
-                type: string
-            neverStale:
-              type: boolean
-            valueType:
-              type: string
-            jsonSchema:
-              type: object
-              properties:
-                schemaType:
-                  type: string
-                  enum:
-                    - schema
-                    - simple
-                schema:
-                  type: string
-                simple:
-                  type: object
-                  additionalProperties: true
-                date:
-                  type: string
-                  format: date-time
-                enabled:
-                  type: boolean
-            customFields:
-              type: object
-              additionalProperties: true
     SdkConnection:
       type: object
       required:
@@ -26704,6 +27975,7 @@ components:
                 type: string
               coverage:
                 type: number
+                description: Rollout Percent (0–1)
               trafficSplit:
                 type: array
                 items:
@@ -28528,6 +29800,7 @@ x-tagGroups:
       - projects
       - environments
       - features
+      - feature-revisions
       - ramp-schedules
       - RampScheduleTemplates
       - data-sources
@@ -28597,6 +29870,7 @@ x-tagGroups:
       - Project_model
       - Query_model
       - RampSchedule_model
+      - RevisionRampAction_model
       - SavedGroup_model
       - ScheduleRule_model
       - SdkConnection_model

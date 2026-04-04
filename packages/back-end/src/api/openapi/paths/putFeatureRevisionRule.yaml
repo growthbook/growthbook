@@ -1,0 +1,49 @@
+summary: Update a rule in a draft revision
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+  - in: path
+    name: ruleId
+    required: true
+    schema:
+      type: string
+operationId: putFeatureRevisionRule
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+          - rule
+        properties:
+          environment:
+            type: string
+          rule:
+            type: object
+            description: "Partial rule fields to merge onto the existing rule"
+          rampAction:
+            $ref: "../schemas/RevisionRampAction.yaml"
+            description: "Optional ramp schedule action to associate with this rule"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

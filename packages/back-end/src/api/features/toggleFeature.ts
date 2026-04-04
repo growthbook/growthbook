@@ -85,6 +85,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       };
     }
 
+    const adminOverride = !!req.body.adminOverride;
     const apiBypassesReviews =
       !!req.context.org.settings?.restApiBypassesReviews;
     // Build a minimal fake revision to check whether these toggle changes need review
@@ -111,18 +112,25 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         req.context.hasPremiumFeature("require-approvals"),
     });
 
-    if (reviewRequired && !apiBypassesReviews) {
-      const affectedEnvs = getDraftAffectedEnvironments(
-        fakeRevision,
-        liveRevision,
-        environmentIds,
-      );
-      const envList =
-        affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
-      throw new PermissionError(
-        `This feature requires a review before publishing changes to: ${envList}. ` +
-          "Enable 'REST API always bypasses approval requirements' in organization settings.",
-      );
+    if (reviewRequired) {
+      if (!adminOverride) {
+        const affectedEnvs = getDraftAffectedEnvironments(
+          fakeRevision,
+          liveRevision,
+          environmentIds,
+        );
+        const envList =
+          affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
+        throw new PermissionError(
+          `This feature requires a review before publishing changes to: ${envList}. ` +
+            "Pass adminOverride: true if your organization allows REST API bypass.",
+        );
+      }
+      if (!apiBypassesReviews) {
+        throw new PermissionError(
+          "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
+        );
+      }
     }
 
     const revision = await createRevision({
@@ -135,7 +143,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       publish: true,
       changes: { environmentsEnabled: changedToggles },
       org: req.organization,
-      canBypassApprovalChecks: true, // review gate already enforced above
+    canBypassApprovalChecks: true, // review gate enforced above
     });
 
     const updatedFeature = await applyRevisionChanges(

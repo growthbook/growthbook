@@ -50,3 +50,9 @@ properties:
       value:
         type: string
         description: The feature value assigned to users in the holdout treatment group
+  adminOverride:
+    type: boolean
+    default: false
+    description: |
+      Pass `true` to bypass approval requirements and immediately publish the change.
+      Requires the organization setting "REST API always bypasses approval requirements" to be enabled.

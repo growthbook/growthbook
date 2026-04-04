@@ -16,6 +16,7 @@ allOf:
         type: number
         minimum: 0
         maximum: 1
+        description: "Rollout Percent (0–1)"
       hashAttribute:
         type: string
       seed:
