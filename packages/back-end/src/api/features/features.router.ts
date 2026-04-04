@@ -26,6 +26,7 @@ import { putFeatureRevisionPrerequisites } from "./putFeatureRevisionPrerequisit
 import { putFeatureRevisionMetadata } from "./putFeatureRevisionMetadata";
 import { putFeatureRevisionArchive } from "./putFeatureRevisionArchive";
 import { putFeatureRevisionHoldout } from "./putFeatureRevisionHoldout";
+import { postFeatureRevisionRevert } from "./postFeatureRevisionRevert";
 
 const router = Router();
 
@@ -49,6 +50,7 @@ router.get("/:id/revisions/:version", getFeatureRevision);
 // Lifecycle
 router.post("/:id/revisions/:version/discard", postFeatureRevisionDiscard);
 router.post("/:id/revisions/:version/publish", postFeatureRevisionPublish);
+router.post("/:id/revisions/:version/revert", postFeatureRevisionRevert);
 
 // Conflict resolution
 router.get(

@@ -214,7 +214,7 @@ export const revertFeatureValidator = {
 
 export const getFeatureRevisionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0) }).strict(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "status": z.enum(["draft","published","discarded","approved","changes-requested","pending-review","pending-parent"]).optional(), "author": z.string().optional() }).strict(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
@@ -238,6 +238,12 @@ export const postFeatureRevisionDiscardValidator = {
 
 export const postFeatureRevisionPublishValidator = {
   bodySchema: z.object({ "comment": z.string().default(""), "adminOverride": z.boolean().describe("Bypass approval requirements and publish regardless of revision status.\nRequires the organization setting \"REST API always bypasses approval requirements\"\nand appropriate bypass-approval permissions.\n").default(false) }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
+};
+
+export const postFeatureRevisionRevertValidator = {
+  bodySchema: z.object({ "strategy": z.enum(["draft","publish"]).describe("- `draft` — create an editable draft revision for review before publishing (default)\n- `publish` — create and immediately publish the revert in one step\n").default("draft"), "comment": z.string().describe("Optional comment recorded on the new revision. Defaults to 'Revert to revision #N'.").optional(), "title": z.string().describe("Optional title for the new draft revision (only used with `strategy: \"draft\"`).").optional(), "adminOverride": z.boolean().describe("Pass `true` with `strategy: \"publish\"` to bypass approval requirements and publish immediately.\nRequires the organization setting \"REST API always bypasses approval requirements\" to be enabled.\n").default(false) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string(), "version": z.coerce.number().int() }).strict(),
 };
@@ -1103,4 +1109,10 @@ export const ejectTargetRampScheduleValidator = {
   bodySchema: z.object({ "targetId": z.string().describe("Target ID (from the targets array)").optional(), "ruleId": z.string().describe("Rule ID — use with environment as an alternative to targetId").optional(), "environment": z.string().describe("Environment — use with ruleId as an alternative to targetId").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const listRevisionsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "featureId": z.string().optional(), "status": z.enum(["draft","published","discarded","approved","changes-requested","pending-review","pending-parent"]).optional(), "author": z.string().optional() }).strict(),
+  paramsSchema: z.never(),
 };

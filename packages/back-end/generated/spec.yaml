@@ -1073,6 +1073,24 @@ paths:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - draft
+              - published
+              - discarded
+              - approved
+              - changes-requested
+              - pending-review
+              - pending-parent
+          description: Filter revisions by status.
+        - in: query
+          name: author
+          schema:
+            type: string
+          description: Filter to revisions created by this user ID (matches `createdBy.id` for dashboard users).
       summary: Get all revisions for a feature
       tags:
         - features
@@ -1080,7 +1098,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&offset=0 \
+            curl "https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&status=draft" \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -1238,6 +1256,90 @@ paths:
                     Bypass approval requirements and publish regardless of revision status.
                     Requires the organization setting "REST API always bypasses approval requirements"
                     and appropriate bypass-approval permissions.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - revision
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevision'
+  '/features/{id}/revisions/{version}/revert':
+    post:
+      summary: Revert a feature to this revision
+      description: |
+        Creates a new revision whose rules, default value, environment toggles, and prerequisites
+        match this (published) revision, effectively undoing all changes made since it was live.
+
+        Use `strategy: "draft"` (default) to create an editable draft you can review before publishing.
+        Use `strategy: "publish"` to create and immediately publish the revert — equivalent to the
+        feature-level `/revert` endpoint but scoped to a specific version number in the URL.
+
+        The target revision must be a **published** revision and must not be the current live version.
+
+        Pass `adminOverride: true` with `strategy: "publish"` to bypass approval requirements.
+        Requires the "REST API always bypasses approval requirements" organization setting.
+      tags:
+        - feature-revisions
+      operationId: postFeatureRevisionRevert
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Feature ID
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: integer
+          description: Version number of the published revision to revert to
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            # Create a revert draft
+            curl -X POST https://api.growthbook.io/api/v1/features/my_feature/revisions/3/revert \
+              -H "Content-Type: application/json" \
+              -d '{"strategy": "draft", "comment": "Rolling back bad release"}' \
+              -u secret_abc123DEF456:
+
+            # Immediately publish the revert (requires adminOverride if approval rules apply)
+            curl -X POST https://api.growthbook.io/api/v1/features/my_feature/revisions/3/revert \
+              -H "Content-Type: application/json" \
+              -d '{"strategy": "publish", "adminOverride": true}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum:
+                    - draft
+                    - publish
+                  default: draft
+                  description: |
+                    - `draft` — create an editable draft revision for review before publishing (default)
+                    - `publish` — create and immediately publish the revert in one step
+                comment:
+                  type: string
+                  description: 'Optional comment recorded on the new revision. Defaults to ''Revert to revision #N''.'
+                title:
+                  type: string
+                  description: 'Optional title for the new draft revision (only used with `strategy: "draft"`).'
+                adminOverride:
+                  type: boolean
+                  default: false
+                  description: |
+                    Pass `true` with `strategy: "publish"` to bypass approval requirements and publish immediately.
+                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -8403,6 +8505,66 @@ paths:
                         type: boolean
                       rampScheduleId:
                         type: string
+  /revisions:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - in: query
+          name: featureId
+          schema:
+            type: string
+          description: Filter to revisions for a specific feature.
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - draft
+              - published
+              - discarded
+              - approved
+              - changes-requested
+              - pending-review
+              - pending-parent
+          description: Filter by revision status.
+        - in: query
+          name: author
+          schema:
+            type: string
+          description: Filter to revisions created by this user ID (matches `createdBy.id` for dashboard users).
+      summary: List feature revisions
+      description: |
+        Returns a paginated list of feature revisions across all features in the organization.
+        Optionally filtered by feature, status, and/or author. Results are sorted newest-first.
+      tags:
+        - feature-revisions
+      operationId: listRevisions
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            # All open drafts
+            curl "https://api.growthbook.io/api/v1/revisions?status=draft" \
+              -u secret_abc123DEF456:
+
+            # Drafts by a specific user on a specific feature
+            curl "https://api.growthbook.io/api/v1/revisions?featureId=my_feature&author=usr_abc123" \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - revisions
+                    properties:
+                      revisions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FeatureRevision'
+                  - $ref: '#/components/schemas/PaginationFields'
   /product-analytics/metric-exploration:
     post:
       $skipValidatorGeneration: true

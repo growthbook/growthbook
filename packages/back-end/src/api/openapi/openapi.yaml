@@ -164,6 +164,9 @@ paths:
   /features/{id}/revisions/{version}/publish:
     post:
       $ref: "./paths/postFeatureRevisionPublish.yaml"
+  /features/{id}/revisions/{version}/revert:
+    post:
+      $ref: "./paths/postFeatureRevisionRevert.yaml"
   /features/{id}/revisions/{version}/merge-status:
     get:
       $ref: "./paths/getFeatureRevisionMergeStatus.yaml"
@@ -472,6 +475,9 @@ paths:
     $ref: "./paths/rampScheduleActionAddTarget.yaml"
   /ramp-schedules/{id}/actions/eject-target:
     $ref: "./paths/rampScheduleActionEjectTarget.yaml"
+  /revisions:
+    get:
+      $ref: "./paths/listRevisions.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
