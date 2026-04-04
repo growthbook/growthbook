@@ -1397,12 +1397,9 @@ async function createRampSchedulesForRevision(
 
     const startDate = action.startDate ? new Date(action.startDate) : undefined;
 
-    const rawEndTrigger = action.endCondition?.trigger;
-    const endTrigger =
-      rawEndTrigger?.type === "scheduled"
-        ? { type: "scheduled" as const, at: new Date(rawEndTrigger.at) }
-        : undefined;
-    const endCondition = endTrigger ? { trigger: endTrigger } : undefined;
+    const endCondition = action.endCondition?.trigger
+      ? { trigger: action.endCondition.trigger }
+      : undefined;
 
     const steps = action.steps.map((step) => ({
       ...step,
