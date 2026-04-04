@@ -1,0 +1,37 @@
+summary: Create a new draft revision for a feature
+description: |
+  Creates a new draft revision based on the live revision of the feature. All change fields are
+  optional — any field omitted is carried forward from the live revision. The new revision is
+  always saved with status `draft` and is never auto-published.
+
+  Use this endpoint when you want to stage feature changes that will go through the review and
+  approval workflow. To take a draft live, follow up with the submit-for-review, review, and
+  publish endpoints.
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - features
+operationId: postFeatureRevision
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revisions \
+        -d '{ "comment": "Tweak rollout %", "environments": { "production": { "rules": [...] } } }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/CreateFeatureRevisionPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

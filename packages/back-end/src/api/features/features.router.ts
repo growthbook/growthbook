@@ -7,6 +7,10 @@ import { postFeature } from "./postFeature";
 import { updateFeature } from "./updateFeature";
 import { deleteFeatureById } from "./deleteFeature";
 import { getFeatureRevisions } from "./getFeatureRevisions";
+import { postFeatureRevision } from "./postFeatureRevision";
+import { postFeatureRevisionReview } from "./postFeatureRevisionReview";
+import { postFeatureRevisionPublish } from "./postFeatureRevisionPublish";
+import { postFeatureRevisionDiscard } from "./postFeatureRevisionDiscard";
 const router = Router();
 
 // Feature Endpoints
@@ -19,5 +23,9 @@ router.delete("/:id", deleteFeatureById);
 router.post("/:id/toggle", toggleFeature);
 router.post("/:id/revert", revertFeature);
 router.get("/:id/revisions", getFeatureRevisions);
+router.post("/:id/revisions", postFeatureRevision);
+router.post("/:id/revisions/:version/review", postFeatureRevisionReview);
+router.post("/:id/revisions/:version/publish", postFeatureRevisionPublish);
+router.post("/:id/revisions/:version/discard", postFeatureRevisionDiscard);
 
 export default router;

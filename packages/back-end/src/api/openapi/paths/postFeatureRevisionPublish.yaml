@@ -1,0 +1,55 @@
+summary: Publish a feature revision
+description: |
+  Publishes the given revision, making it the live version of the feature. If the revision
+  requires approval (per the org's `requireReviews` settings) and is not in the `approved`
+  status, the call returns 403 unless the API key has the `bypassApprovalChecks` permission
+  on the feature.
+
+  This endpoint mirrors the publish flow used by the GrowthBook UI: it merges the revision's
+  changes against the current live revision, validates that nothing has shifted underneath,
+  and rejects the publish on merge conflict. Resolve conflicts by creating a new draft from
+  the latest live revision.
+parameters:
+  - $ref: "../parameters.yaml#/id"
+  - name: version
+    in: path
+    required: true
+    description: The revision version number
+    schema:
+      type: integer
+tags:
+  - features
+operationId: postFeatureRevisionPublish
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revisions/3/publish \
+        -d '{ "comment": "Shipping" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          comment:
+            type: string
+          bypassApproval:
+            type: boolean
+            description: |
+              When `true`, attempt to publish even if the revision is not in the `approved`
+              status and the org's `requireReviews` settings would otherwise require approval.
+              The API key must have the `bypassApprovalChecks` permission on the feature for
+              this flag to take effect; otherwise the request returns 403.
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - feature
+          properties:
+            feature:
+              $ref: "../schemas/Feature.yaml"

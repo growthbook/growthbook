@@ -146,6 +146,17 @@ paths:
   /features/{id}/revisions:
     get:
       $ref: "./paths/getFeatureRevisions.yaml"
+    post:
+      $ref: "./paths/postFeatureRevision.yaml"
+  /features/{id}/revisions/{version}/review:
+    post:
+      $ref: "./paths/postFeatureRevisionReview.yaml"
+  /features/{id}/revisions/{version}/publish:
+    post:
+      $ref: "./paths/postFeatureRevisionPublish.yaml"
+  /features/{id}/revisions/{version}/discard:
+    post:
+      $ref: "./paths/postFeatureRevisionDiscard.yaml"
   /stale-features:
     get:
       $ref: "./paths/getFeatureStale.yaml"
