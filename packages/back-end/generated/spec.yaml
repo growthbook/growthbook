@@ -26974,6 +26974,7 @@ components:
           type: number
     ExperimentDecisionFrameworkSettings:
       type: object
+      description: Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields).
       properties:
         decisionCriteriaId:
           type: string

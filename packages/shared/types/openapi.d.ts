@@ -5140,6 +5140,7 @@ export interface components {
         sequentialTestingTuningParameter?: number;
         /** @description When null, the organization default is used. */
         postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
         decisionFrameworkSettings?: {
           decisionCriteriaId?: string;
           decisionFrameworkMetricOverrides?: ({
@@ -5327,6 +5328,7 @@ export interface components {
       regressionAdjustmentEnabled?: boolean;
       regressionAdjustmentDays?: number;
     };
+    /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
     ExperimentDecisionFrameworkSettings: {
       decisionCriteriaId?: string;
       decisionFrameworkMetricOverrides?: ({
@@ -5371,6 +5373,7 @@ export interface components {
       sequentialTestingTuningParameter?: number;
       /** @description When null, the organization default is used. */
       postStratificationEnabled?: OneOf<[boolean, null]>;
+      /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
       decisionFrameworkSettings?: {
         decisionCriteriaId?: string;
         decisionFrameworkMetricOverrides?: ({
@@ -5540,6 +5543,7 @@ export interface components {
         sequentialTestingTuningParameter?: number;
         /** @description When null, the organization default is used. */
         postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
         decisionFrameworkSettings?: {
           decisionCriteriaId?: string;
           decisionFrameworkMetricOverrides?: ({
@@ -5771,6 +5775,7 @@ export interface components {
         sequentialTestingTuningParameter?: number;
         /** @description When null, the organization default is used. */
         postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
         decisionFrameworkSettings?: {
           decisionCriteriaId?: string;
           decisionFrameworkMetricOverrides?: ({
@@ -13284,6 +13289,7 @@ export interface operations {
                   sequentialTestingTuningParameter?: number;
                   /** @description When null, the organization default is used. */
                   postStratificationEnabled?: OneOf<[boolean, null]>;
+                  /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                   decisionFrameworkSettings?: {
                     decisionCriteriaId?: string;
                     decisionFrameworkMetricOverrides?: ({
@@ -13576,6 +13582,7 @@ export interface operations {
           banditConversionWindowUnit?: "days" | "hours";
           /** @description When null, the organization default is used. */
           postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
           decisionFrameworkSettings?: {
             decisionCriteriaId?: string;
             decisionFrameworkMetricOverrides?: ({
@@ -13715,6 +13722,7 @@ export interface operations {
                 sequentialTestingTuningParameter?: number;
                 /** @description When null, the organization default is used. */
                 postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                   decisionCriteriaId?: string;
                   decisionFrameworkMetricOverrides?: ({
@@ -13990,6 +13998,7 @@ export interface operations {
                 sequentialTestingTuningParameter?: number;
                 /** @description When null, the organization default is used. */
                 postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                   decisionCriteriaId?: string;
                   decisionFrameworkMetricOverrides?: ({
@@ -14295,6 +14304,7 @@ export interface operations {
           banditConversionWindowUnit?: "days" | "hours";
           /** @description When null, the organization default is used. */
           postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
           decisionFrameworkSettings?: {
             decisionCriteriaId?: string;
             decisionFrameworkMetricOverrides?: ({
@@ -14434,6 +14444,7 @@ export interface operations {
                 sequentialTestingTuningParameter?: number;
                 /** @description When null, the organization default is used. */
                 postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                   decisionCriteriaId?: string;
                   decisionFrameworkMetricOverrides?: ({
@@ -14727,6 +14738,7 @@ export interface operations {
                 sequentialTestingTuningParameter?: number;
                 /** @description When null, the organization default is used. */
                 postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                   decisionCriteriaId?: string;
                   decisionFrameworkMetricOverrides?: ({
@@ -15878,6 +15890,7 @@ export interface operations {
                 sequentialTestingTuningParameter?: number;
                 /** @description When null, the organization default is used. */
                 postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                   decisionCriteriaId?: string;
                   decisionFrameworkMetricOverrides?: ({
