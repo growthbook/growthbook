@@ -38,6 +38,7 @@ import {
   RevisionMetadata,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  isNamedUser,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -56,7 +57,6 @@ import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
   EventUserApi,
-  isNamedUser,
 } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,

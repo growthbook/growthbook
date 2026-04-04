@@ -4,7 +4,7 @@ import {
   MinimalFeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { RampScheduleInterface } from "shared/validators";
+import { RampScheduleInterface, isNamedUser } from "shared/validators";
 import React, {
   useCallback,
   useEffect,
@@ -26,7 +26,6 @@ import {
 } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
-import { isNamedUser } from "shared/types/events/event-types";
 import {
   DropdownMenu,
   DropdownMenuItem,

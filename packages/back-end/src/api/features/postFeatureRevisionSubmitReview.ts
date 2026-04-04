@@ -1,7 +1,7 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import { getReviewSetting } from "shared/util";
-import { isNamedUser } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {

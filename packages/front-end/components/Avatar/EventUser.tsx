@@ -1,7 +1,5 @@
-import {
-  isNamedUser,
-  EventUser as EventUserType,
-} from "shared/types/events/event-types";
+import { EventUser as EventUserType } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import Avatar from "./Avatar";
 
 export interface Props {

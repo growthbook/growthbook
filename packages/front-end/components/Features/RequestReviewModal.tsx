@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef } from "react";
-import { RampScheduleInterface } from "shared/validators";
+import { RampScheduleInterface, isNamedUser } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
@@ -15,7 +15,6 @@ import { useForm } from "react-hook-form";
 import {
   EventUserApi,
   EventUserLoggedIn,
-  isNamedUser,
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";

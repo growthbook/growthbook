@@ -5,7 +5,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { isNamedUser } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import Avatar from "@/components/Avatar/Avatar";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.

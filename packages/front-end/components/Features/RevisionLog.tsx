@@ -3,7 +3,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { isNamedUser } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { date, datetime } from "shared/dates";

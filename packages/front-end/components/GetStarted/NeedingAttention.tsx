@@ -11,10 +11,10 @@ import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
-  isNamedUser,
   EventUserLoggedIn,
   EventUserApi,
 } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,

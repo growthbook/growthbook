@@ -1,7 +1,13 @@
 import dynamic from "next/dynamic";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { isNamedUser } from "shared/types/events/event-types";
+import {
+  isNamedUser,
+  SafeRolloutInterface,
+  HoldoutInterface,
+  MinimalFeatureRevisionInterface,
+  RampScheduleInterface,
+} from "shared/validators";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
@@ -31,12 +37,6 @@ import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BsClock } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import {
-  SafeRolloutInterface,
-  HoldoutInterface,
-  MinimalFeatureRevisionInterface,
-  RampScheduleInterface,
-} from "shared/validators";
 import Avatar from "@/components/Avatar/Avatar";
 import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
