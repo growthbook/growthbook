@@ -300,8 +300,14 @@ export const getDataSourceValidator = {
 
 export const listExperimentsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional(), "datasourceId": z.string().optional(), "experimentId": z.string().optional() }).strict(),
-  paramsSchema: z.never(),
+  querySchema: z.object({
+    "limit": z.coerce.number().int().default(10),
+    "offset": z.coerce.number().int().default(0),
+    "projectId": z.string().optional(),
+    "datasourceId": z.string().optional(),
+    "experimentId": z.string().optional(),
+    "archived": z.enum(["true", "false"]).optional(),
+  }).strict(),
 };
 
 export const postExperimentValidator = {

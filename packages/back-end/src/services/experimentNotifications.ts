@@ -295,7 +295,10 @@ export const computeExperimentChanges = async ({
   // TODO refactor to only do once per update
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
-  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const project = experiment.project
+    ? await context.models.projects.getById(experiment.project)
+    : undefined;
+  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context, project);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const pValueCorrection = getPValueCorrectionForOrg(context);

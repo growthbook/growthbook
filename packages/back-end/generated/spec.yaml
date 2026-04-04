@@ -2052,6 +2052,17 @@ paths:
           description: Filter the returned list by the experiment tracking key (id)
           schema:
             type: string
+        - name: archived
+          in: query
+          description: >-
+            Filter results by archived status. Pass "true" to show only
+            archived, "false" to exclude archived, or omit to include all
+            experiments.
+          schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
       operationId: listExperiments
       x-codeSamples:
         - lang: cURL
