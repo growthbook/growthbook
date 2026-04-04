@@ -1696,9 +1696,16 @@ export default abstract class SqlIntegration
     forcedBaseIdType?: string;
     experimentId?: string;
   }) {
+    // Extract available identity joins from datasource settings
+    const availableIdJoins =
+      this.datasource.settings?.queries?.identityJoins?.map(
+        (join) => join.ids,
+      ) || [];
+
     const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
       objects,
       forcedBaseIdType,
+      availableIdJoins,
     );
 
     // Joins for when an object doesn't support the baseIdType
