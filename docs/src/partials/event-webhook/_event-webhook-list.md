@@ -465,6 +465,11 @@ Triggered when a feature is created
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1342,6 +1347,11 @@ Triggered when a feature is updated
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1796,6 +1806,11 @@ Triggered when a feature is deleted
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1833,6 +1848,11 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -1878,6 +1898,11 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1916,6 +1941,11 @@ Triggered when a safe rollout is failing a health check and may not be working a
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -1963,6 +1993,11 @@ Triggered when a ramp schedule is created for a feature
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2000,6 +2035,11 @@ Triggered when a ramp schedule is deleted from a feature
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2047,6 +2087,11 @@ Triggered when a feature ramp schedule starts
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2086,6 +2131,11 @@ Triggered when a feature ramp schedule completes all steps
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2134,6 +2184,11 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2174,6 +2229,11 @@ Triggered when a feature ramp schedule is jumped to a specific step
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2221,6 +2281,11 @@ Triggered when a feature ramp schedule advances to the next step
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2261,6 +2326,11 @@ Triggered when a feature ramp step is waiting for approval
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2441,6 +2511,11 @@ Triggered when an experiment is created
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2774,6 +2849,11 @@ Triggered when an experiment is updated
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2954,6 +3034,11 @@ Triggered when an experiment is deleted
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3007,6 +3092,11 @@ Triggered when a warning condition is detected on an experiment
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3054,6 +3144,11 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3091,6 +3186,11 @@ Triggered when an experiment is ready to ship a variation.
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -3136,6 +3236,11 @@ Triggered when an experiment should be rolled back to the control.
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3173,6 +3278,11 @@ Triggered when an experiment has reached the desired power point, but the result
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -3218,6 +3328,11 @@ Triggered when a user logs in
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
