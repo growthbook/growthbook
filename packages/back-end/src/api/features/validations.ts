@@ -58,7 +58,9 @@ export function buildScheduleRampAction(
   };
 
   if (endDate) {
-    action.endCondition = { trigger: { type: "scheduled", at: endDate } };
+    action.endCondition = {
+      trigger: { type: "scheduled", at: new Date(endDate) },
+    };
     action.endActions = [disableAction];
   }
 

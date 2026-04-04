@@ -5,6 +5,7 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getDraftAffectedEnvironments,
   liveRevisionFromFeature,
   MergeConflict,
 } from "shared/util";
@@ -95,6 +96,17 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     err.status = 409;
     err.conflicts = mergeResult.conflicts;
     throw err;
+  }
+
+  const affectedEnvironments = getDraftAffectedEnvironments(
+    revision,
+    base,
+    environmentIds,
+  );
+  const envsToCheck =
+    affectedEnvironments === "all" ? environmentIds : affectedEnvironments;
+  if (!req.context.permissions.canPublishFeature(feature, envsToCheck)) {
+    req.context.permissions.throwPermissionError();
   }
 
   await publishRevision(

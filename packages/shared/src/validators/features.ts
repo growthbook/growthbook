@@ -274,7 +274,7 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // are real-time and operate directly on the live ramp schedule.
 const revisionRampEndTrigger = z.object({
   type: z.literal("scheduled"),
-  at: z.string(),
+  at: z.date(),
 });
 const revisionRampEndConditionSchema = z.object({
   trigger: revisionRampEndTrigger.optional(),
