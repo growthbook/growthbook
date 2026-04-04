@@ -23,7 +23,12 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus, buildScheduleRampAction } from "./validations";
+import {
+  isDraftStatus,
+  buildScheduleRampAction,
+  validateRuleConditions,
+  validateRuleReferences,
+} from "./validations";
 
 const rampActionSchema = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
@@ -47,8 +52,14 @@ const commonPatch = {
 };
 
 // Type-specific editable fields. All optional so callers send only what they want to change.
+// `type` may be included as a re-assertion hint (must match the existing rule's type — it cannot
+// be changed). Providing it enables client-side schema selection in codegen / IDE tooling.
 const rulePatchSchema = z.object({
   ...commonPatch,
+  // Optional re-assertion: if provided, must match the existing rule type
+  type: z
+    .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
+    .optional(),
   // Force / rollout fields (coverage re-infers the type post-patch)
   value: z.string().optional(),
   coverage: z.number().min(0).max(1).optional(),
@@ -68,6 +79,13 @@ type RulePatch = z.infer<typeof rulePatchSchema>;
 
 function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
   const type = existing.type;
+
+  if (patch.type !== undefined && patch.type !== type) {
+    throw new Error(
+      `Rule type cannot be changed (existing: "${type}", provided: "${patch.type}"). ` +
+        "Delete this rule and add a new one to change its type.",
+    );
+  }
 
   const commonUpdates = {
     ...(patch.description !== undefined && { description: patch.description }),
@@ -252,10 +270,12 @@ export const putFeatureRevisionRule = createApiRequestHandler({
 
   // Block creating a new schedule if the rule already has one (pending on this
   // revision or already live). The caller should update it via PUT /ramp-schedules/:id.
+  // Only fire when we'd actually be creating a new schedule: an explicit create action,
+  // or the schedule shorthand (which is only used when no explicit rampAction is set).
   const wantsNewSchedule =
     rampAction?.mode === "create" ||
-    Boolean(schedule?.startDate) ||
-    Boolean(schedule?.endDate);
+    (!rampAction &&
+      (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
   if (wantsNewSchedule) {
     const hasPendingCreate = (revision.rampActions ?? []).some(
       (a) => a.mode === "create" && a.ruleId === req.params.ruleId,
@@ -276,6 +296,35 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     }
   }
   const updatedRule = applyPatch(oldRule, patch);
+
+  // Validate condition JSON and entity references only for fields explicitly in the patch.
+  // We don't re-validate pre-existing values that weren't touched — the internal app
+  // doesn't do this either, and doing so could block edits to rules whose conditions
+  // reference since-deleted saved groups or prerequisite features.
+  validateRuleConditions({
+    condition:
+      patch.condition !== undefined ? updatedRule.condition : undefined,
+    prerequisites:
+      patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
+  });
+  if (
+    patch.condition !== undefined ||
+    patch.savedGroups !== undefined ||
+    patch.prerequisites !== undefined
+  ) {
+    await validateRuleReferences(
+      {
+        condition:
+          patch.condition !== undefined ? updatedRule.condition : undefined,
+        savedGroups:
+          patch.savedGroups !== undefined ? updatedRule.savedGroups : [],
+        prerequisites:
+          patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
+      },
+      req.context,
+    );
+  }
+
   envRules[idx] = updatedRule;
   newRules[environment] = envRules;
 

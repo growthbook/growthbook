@@ -28,7 +28,12 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { NotFoundError } from "back-end/src/util/errors";
-import { isDraftStatus, buildScheduleRampAction } from "./validations";
+import {
+  isDraftStatus,
+  buildScheduleRampAction,
+  validateRuleConditions,
+  validateRuleReferences,
+} from "./validations";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -239,6 +244,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   }
 
   const rule = buildRuleFromInput(ruleInput, uuidv4());
+
+  // Validate condition JSON and entity references before any DB writes
+  validateRuleConditions(rule);
+  await validateRuleReferences(rule, req.context);
 
   // Safe rollout: create the SafeRollout entity and link it to the rule
   if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {

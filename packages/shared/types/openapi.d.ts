@@ -16964,7 +16964,10 @@ export interface operations {
           environment: string;
           /**
            * @description Fields to update on the rule. Only the fields you supply are changed.
-           * The rule type cannot be changed.
+           * The rule **type cannot be changed** — include `type` only as an optional
+           * re-assertion hint (useful for client-side schema selection in codegen or
+           * IDE tooling). If provided and it doesn't match the existing rule type, a
+           * 400 is returned.
            * 
            * Fields by rule type:
            * - **force/rollout**: `value`, `coverage`, `hashAttribute`, `seed`, targeting fields
@@ -16972,6 +16975,14 @@ export interface operations {
            * - **safe-rollout**: `controlValue`, `variationValue`, `hashAttribute`, targeting fields
            */
           rule: {
+            /**
+             * @description Optional re-assertion of the existing rule type. If provided, must match the
+             * server-stored type — this field cannot change the rule type. Supplying it enables
+             * client-side discriminated schema selection (e.g. in generated SDK clients).
+             *  
+             * @enum {string}
+             */
+            type?: "force" | "rollout" | "experiment-ref" | "safe-rollout";
             description?: string;
             enabled?: boolean;
             /** @description Targeting condition as a JSON string (MongoDB-style). Example: `{"country": "US"}` */

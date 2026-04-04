@@ -1950,13 +1950,27 @@ paths:
                   type: object
                   description: |
                     Fields to update on the rule. Only the fields you supply are changed.
-                    The rule type cannot be changed.
+                    The rule **type cannot be changed** — include `type` only as an optional
+                    re-assertion hint (useful for client-side schema selection in codegen or
+                    IDE tooling). If provided and it doesn't match the existing rule type, a
+                    400 is returned.
 
                     Fields by rule type:
                     - **force/rollout**: `value`, `coverage`, `hashAttribute`, `seed`, targeting fields
                     - **experiment-ref**: `experimentId`, `variations`, targeting fields
                     - **safe-rollout**: `controlValue`, `variationValue`, `hashAttribute`, targeting fields
                   properties:
+                    type:
+                      type: string
+                      enum:
+                        - force
+                        - rollout
+                        - experiment-ref
+                        - safe-rollout
+                      description: |
+                        Optional re-assertion of the existing rule type. If provided, must match the
+                        server-stored type — this field cannot change the rule type. Supplying it enables
+                        client-side discriminated schema selection (e.g. in generated SDK clients).
                     description:
                       type: string
                     enabled:

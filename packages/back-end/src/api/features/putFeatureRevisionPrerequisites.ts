@@ -9,7 +9,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
+import {
+  isDraftStatus,
+  validatePrerequisiteConditions,
+  validatePrerequisiteReferences,
+} from "./validations";
 
 export const putFeatureRevisionPrerequisites = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -38,6 +42,9 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler({
   if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
+
+  validatePrerequisiteConditions(req.body.prerequisites);
+  await validatePrerequisiteReferences(req.body.prerequisites, req.context);
 
   await updateRevision(
     req.context,
