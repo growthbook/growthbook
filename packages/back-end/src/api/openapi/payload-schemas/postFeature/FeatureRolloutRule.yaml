@@ -42,16 +42,11 @@ properties:
         condition:
           type: string
   scheduleRules:
+    deprecated: true
+    description: "Deprecated — use the `schedule` shorthand on the endpoint body instead."
     type: array
     items:
       $ref: "../../schemas/ScheduleRule.yaml"
-    example:
-      - enabled: true
-        timestamp: null
-      - enabled: false
-        timestamp: "2025-06-23T16:09:37.769Z"
-  id:
-    type: string
   enabled:
     type: boolean
     description: Enabled by default

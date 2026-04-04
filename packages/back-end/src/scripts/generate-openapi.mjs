@@ -125,25 +125,22 @@ async function run() {
   ];
 
   if (allBetaSelectors.length > 0) {
-    const badgeStyle = [
-      `  content: "BETA"`,
-      `  background-color: #fbbf24`,
-      `  color: #78350f`,
-      `  border-radius: 999px`,
-      `  font-size: 10px`,
-      `  font-weight: 800`,
-      `  letter-spacing: 0.04em`,
-      `  padding: 0px 8px`,
-      `  margin-left: 8px`,
-      `  align-items: center`,
-      `  display: inline-flex`,
-      `  height: 18px`,
-      `  vertical-align: middle`,
-    ].join(";\n") + ";";
-    const betaCSS =
-      `/* Auto-generated from openapi.yaml tags/operations with x-beta: true — do not edit. */\n` +
-      `/* Re-generate by running \`pnpm --filter back-end generate-api-types\`. */\n\n` +
-      allBetaSelectors.join(",\n") + ` {\n${badgeStyle}\n}\n`;
+    const betaCSS = `${allBetaSelectors.join(",\n")} {
+  content: "BETA";
+  background-color: #fbbf24;
+  color: #78350f;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0px 8px;
+  margin-left: 8px;
+  align-items: center;
+  display: inline-flex;
+  height: 18px;
+  vertical-align: middle;
+}
+`;
     fs.writeFileSync(
       path.join(
         __dirname,

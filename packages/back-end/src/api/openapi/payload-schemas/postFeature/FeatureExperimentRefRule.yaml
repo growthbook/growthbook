@@ -62,12 +62,13 @@ properties:
     items:
       type: object
       required:
-        - value
         - variationId
+        - value
       properties:
-        value:
-          type: string
         variationId:
+          type: string
+          description: "Variation ID from the linked experiment"
+        value:
           type: string
   experimentId:
     type: string

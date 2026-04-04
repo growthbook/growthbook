@@ -1,5 +1,6 @@
 oneOf:
-  - type: object
+  - title: "Create ramp schedule"
+    type: object
     required:
       - mode
       - name
@@ -111,7 +112,8 @@ oneOf:
                 type: string
                 format: date-time
 
-  - type: object
+  - title: "Detach ramp schedule"
+    type: object
     required:
       - mode
       - rampScheduleId

@@ -1,13 +1,37 @@
 type: object
 required:
   - type
-  - value
+  - controlValue
+  - variationValue
+  - safeRolloutId
+  - hashAttribute
+  - trackingKey
+  - seed
 properties:
   description:
     type: string
+  id:
+    type: string
+  enabled:
+    type: boolean
+  type:
+    type: string
+    enum:
+      - safe-rollout
+  controlValue:
+    type: string
+  variationValue:
+    type: string
+  safeRolloutId:
+    type: string
+  hashAttribute:
+    type: string
+  trackingKey:
+    type: string
+  seed:
+    type: string
   condition:
     type: string
-    description: Applied to everyone by default.
   savedGroupTargeting:
     type: array
     items:
@@ -27,17 +51,6 @@ properties:
           items:
             type: string
   scheduleRules:
-    deprecated: true
-    description: "Deprecated — use the `schedule` shorthand on the endpoint body instead."
     type: array
     items:
       $ref: "../../schemas/ScheduleRule.yaml"
-  enabled:
-    type: boolean
-    description: Enabled by default
-  type:
-    type: string
-    enum:
-      - force
-  value:
-    type: string

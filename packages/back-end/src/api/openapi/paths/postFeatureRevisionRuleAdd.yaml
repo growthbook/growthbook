@@ -32,9 +32,9 @@ requestBody:
               Rule to add. For force/rollout rules `type` is optional and inferred from rollout percent (`coverage`):
               `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
               Use `experiment-ref` to link an existing experiment or bandit by ID.
-              `id` and `description` are optional — the server generates a UUID and defaults description to `""`.
+              `description` is optional and defaults to `""`. The server always generates the rule ID.
             oneOf:
-              - description: "Force or rollout rule. `type` is optional — omit it to let the server infer force vs rollout from `coverage`."
+              - title: "Force / Rollout rule"
                 type: object
                 required:
                   - value
@@ -53,8 +53,6 @@ requestBody:
                   hashAttribute:
                     type: string
                   seed:
-                    type: string
-                  id:
                     type: string
                   description:
                     type: string
@@ -85,7 +83,8 @@ requestBody:
                           type: string
                         condition:
                           type: string
-              - description: "Experiment-ref or bandit-ref rule — links an existing experiment or bandit by ID"
+              - title: "Experiment-ref rule"
+                description: "Links an existing experiment or bandit by experiment ID"
                 type: object
                 required:
                   - type
@@ -102,13 +101,14 @@ requestBody:
                     type: array
                     items:
                       type: object
-                      required: [variationId, value]
+                      required: [value]
                       properties:
                         variationId:
                           type: string
+                          description: "Variation ID from the linked experiment. If omitted, values are mapped to variations by index order."
                         value:
                           type: string
-              - description: "Safe-rollout rule"
+              - title: "Safe-rollout rule"
                 type: object
                 required:
                   - type
@@ -137,6 +137,23 @@ requestBody:
           rampAction:
             $ref: "../schemas/RevisionRampAction.yaml"
             description: "Optional ramp schedule action to associate with this rule (create or detach)"
+          schedule:
+            type: object
+            description: |
+              Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules`.
+              Ignored when `rampAction` is also provided.
+              - `startDate` — enables the rule at this time (rule is initially set to disabled)
+              - `endDate` — disables the rule at this time
+              A ramp schedule is created automatically with `ruleId` and `environment` inferred from context.
+            properties:
+              startDate:
+                type: string
+                format: date-time
+                nullable: true
+              endDate:
+                type: string
+                format: date-time
+                nullable: true
 responses:
   "200":
     content:

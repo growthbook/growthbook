@@ -5,6 +5,7 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
+  RevisionChanges,
 } from "shared/types/feature-revision";
 import { EventUser, EventUserLoggedIn } from "shared/types/events/event-types";
 import { OrganizationInterface } from "shared/types/organization";
@@ -572,23 +573,6 @@ export async function createRevision({
 
   return toInterface(doc, context);
 }
-
-export type RevisionChanges = Partial<
-  Pick<
-    FeatureRevisionInterface,
-    | "title"
-    | "comment"
-    | "defaultValue"
-    | "rules"
-    | "baseVersion"
-    | "environmentsEnabled"
-    | "prerequisites"
-    | "archived"
-    | "metadata"
-    | "holdout"
-    | "rampActions"
-  >
->;
 
 export async function updateRevision(
   context: ReqContext | ApiReqContext,

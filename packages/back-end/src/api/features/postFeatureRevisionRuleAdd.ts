@@ -18,18 +18,13 @@ import type {
 } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
-  updateRevision,
-  RevisionChanges,
+  updateRevision
 } from "back-end/src/models/FeatureRevisionModel";
-
-const DRAFT_STATUSES = [
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-];
+import { RevisionChanges } from "shared/types/feature-revision";
+import { isDraftStatus, buildScheduleRampAction } from "./validations";
 
 const rampActionSchema = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
@@ -43,7 +38,6 @@ const scheduleRuleInput = z.object({
 
 // Optional fields shared by every rule type
 const commonCreateFields = {
-  id: z.string().optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
@@ -69,7 +63,9 @@ const experimentRefCreateInput = z.object({
   ...commonCreateFields,
   type: z.literal("experiment-ref"),
   experimentId: z.string(),
-  variations: z.array(z.object({ variationId: z.string(), value: z.string() })),
+  variations: z.array(
+    z.object({ variationId: z.string().optional(), value: z.string() }),
+  ),
 });
 
 const safeRolloutCreateInput = z.object({
@@ -110,7 +106,10 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
       ...base,
       type: "experiment-ref",
       experimentId: input.experimentId,
-      variations: input.variations,
+      variations: input.variations.map((v) => ({
+        variationId: v.variationId ?? "",
+        value: v.value,
+      })),
     };
     return rule;
   }
@@ -167,6 +166,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     environment: z.string(),
     rule: ruleCreateInput,
     rampAction: rampActionSchema.optional(),
+    schedule: z
+      .object({
+        startDate: z.string().optional().nullable(),
+        endDate: z.string().optional().nullable(),
+      })
+      .optional(),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -187,30 +192,66 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   });
   if (!revision) throw new Error("Could not find feature revision");
 
-  if (!DRAFT_STATUSES.includes(revision.status)) {
+  if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
 
-  const { environment, rampAction } = req.body;
-  const rule = buildRuleFromInput(req.body.rule, req.body.rule.id ?? uuidv4());
+  const { environment, rampAction, schedule } = req.body;
+  const ruleInput = req.body.rule;
+
+  // Fill in missing variationIds from the linked experiment (by index order)
+  if (ruleInput.type === "experiment-ref") {
+    const anyMissing = ruleInput.variations.some((v) => !v.variationId);
+    if (anyMissing) {
+      const experiment = await getExperimentById(
+        req.context,
+        ruleInput.experimentId,
+      );
+      if (!experiment) {
+        throw new Error(
+          `Could not find experiment "${ruleInput.experimentId}" to resolve variation IDs`,
+        );
+      }
+      ruleInput.variations = ruleInput.variations.map((v, i) => ({
+        variationId: v.variationId ?? experiment.variations[i]?.id ?? "",
+        value: v.value,
+      }));
+    }
+  }
+
+  const rule = buildRuleFromInput(ruleInput, uuidv4());
+
+  // Resolve which ramp action to attach (if any).
+  // Priority: explicit rampAction > schedule shorthand > inline scheduleRules (legacy, deprecated)
+  let resolvedRampAction = rampAction;
+  if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
+    // New rule: always create a ramp action. If startDate set, the rule starts disabled.
+    if (schedule.startDate) rule.enabled = false;
+    resolvedRampAction = buildScheduleRampAction(
+      rule.id,
+      environment,
+      schedule.startDate,
+      schedule.endDate,
+    );
+  }
 
   const newRules = cloneDeep(revision.rules ?? {});
   newRules[environment] = [...(newRules[environment] ?? []), rule];
 
   const changes: RevisionChanges = { rules: newRules };
 
-  if (rampAction) {
+  if (resolvedRampAction) {
     const existing = revision.rampActions ?? [];
     const filtered = existing.filter(
       (a) =>
         !(
           (a.mode === "create" &&
-            a.ruleId === (rampAction as RevisionRampCreateAction).ruleId) ||
+            a.ruleId === (resolvedRampAction as RevisionRampCreateAction).ruleId) ||
           (a.mode === "detach" &&
-            a.ruleId === (rampAction as RevisionRampDetachAction).ruleId)
+            a.ruleId === (resolvedRampAction as RevisionRampDetachAction).ruleId)
         ),
     );
-    changes.rampActions = [...filtered, rampAction];
+    changes.rampActions = [...filtered, resolvedRampAction];
   }
 
   await updateRevision(

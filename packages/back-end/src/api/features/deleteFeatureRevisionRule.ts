@@ -7,13 +7,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-
-const DRAFT_STATUSES = [
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-];
+import { isDraftStatus } from "./validations";
 
 export const deleteFeatureRevisionRule = createApiRequestHandler({
   paramsSchema: z.object({
@@ -43,7 +37,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler({
   });
   if (!revision) throw new Error("Could not find feature revision");
 
-  if (!DRAFT_STATUSES.includes(revision.status)) {
+  if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
 

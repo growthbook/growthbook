@@ -7219,16 +7219,8 @@ export interface operations {
                       savedGroups: (string)[];
                     })[];
                   /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
+                   * @deprecated 
+                   * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                    */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -7240,7 +7232,6 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
-                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -7261,16 +7252,8 @@ export interface operations {
                       condition: string;
                     })[];
                   /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
+                   * @deprecated 
+                   * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                    */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -7282,7 +7265,6 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
-                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -7332,43 +7314,29 @@ export interface operations {
                       timestamp: string | null;
                     })[];
                   variations: ({
-                      value: string;
+                      /** @description Variation ID from the linked experiment */
                       variationId: string;
+                      value: string;
                     })[];
                   experimentId: string;
                 }) | ({
                   description?: string;
-                  condition: string;
                   id?: string;
-                  /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
-                  type: "experiment";
-                  trackingKey?: string;
-                  hashAttribute?: string;
-                  fallbackAttribute?: string;
-                  disableStickyBucketing?: boolean;
-                  bucketVersion?: number;
-                  minBucketVersion?: number;
-                  namespace?: {
-                    enabled: boolean;
-                    name: string;
-                    range: (number)[];
-                  };
-                  /** @description Rollout Percent (0–1) */
-                  coverage?: number;
-                  /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
-                   */
+                  type: "safe-rollout";
+                  controlValue: string;
+                  variationValue: string;
+                  safeRolloutId: string;
+                  hashAttribute: string;
+                  trackingKey: string;
+                  seed: string;
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -7378,20 +7346,6 @@ export interface operations {
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
-                    })[];
-                  values?: ({
-                      value: string;
-                      weight: number;
-                      name?: string;
-                    })[];
-                  /**
-                   * @deprecated 
-                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
-                   */
-                  value?: ({
-                      value: string;
-                      weight: number;
-                      name?: string;
                     })[];
                 }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -7409,16 +7363,8 @@ export interface operations {
                         savedGroups: (string)[];
                       })[];
                     /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
+                     * @deprecated 
+                     * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                      */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -7430,7 +7376,6 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
-                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -7451,16 +7396,8 @@ export interface operations {
                         condition: string;
                       })[];
                     /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
+                     * @deprecated 
+                     * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                      */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -7472,7 +7409,6 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
-                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -7522,43 +7458,29 @@ export interface operations {
                         timestamp: string | null;
                       })[];
                     variations: ({
-                        value: string;
+                        /** @description Variation ID from the linked experiment */
                         variationId: string;
+                        value: string;
                       })[];
                     experimentId: string;
                   }) | ({
                     description?: string;
-                    condition: string;
                     id?: string;
-                    /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
-                    type: "experiment";
-                    trackingKey?: string;
-                    hashAttribute?: string;
-                    fallbackAttribute?: string;
-                    disableStickyBucketing?: boolean;
-                    bucketVersion?: number;
-                    minBucketVersion?: number;
-                    namespace?: {
-                      enabled: boolean;
-                      name: string;
-                      range: (number)[];
-                    };
-                    /** @description Rollout Percent (0–1) */
-                    coverage?: number;
-                    /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
-                     */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    safeRolloutId: string;
+                    hashAttribute: string;
+                    trackingKey: string;
+                    seed: string;
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -7568,20 +7490,6 @@ export interface operations {
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
-                      })[];
-                    values?: ({
-                        value: string;
-                        weight: number;
-                        name?: string;
-                      })[];
-                    /**
-                     * @deprecated 
-                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
-                     */
-                    value?: ({
-                        value: string;
-                        weight: number;
-                        name?: string;
                       })[];
                   }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -9262,16 +9170,8 @@ export interface operations {
                       savedGroups: (string)[];
                     })[];
                   /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
+                   * @deprecated 
+                   * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                    */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -9283,7 +9183,6 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
-                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -9304,16 +9203,8 @@ export interface operations {
                       condition: string;
                     })[];
                   /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
+                   * @deprecated 
+                   * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                    */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -9325,7 +9216,6 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
-                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -9375,43 +9265,29 @@ export interface operations {
                       timestamp: string | null;
                     })[];
                   variations: ({
-                      value: string;
+                      /** @description Variation ID from the linked experiment */
                       variationId: string;
+                      value: string;
                     })[];
                   experimentId: string;
                 }) | ({
                   description?: string;
-                  condition: string;
                   id?: string;
-                  /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
-                  type: "experiment";
-                  trackingKey?: string;
-                  hashAttribute?: string;
-                  fallbackAttribute?: string;
-                  disableStickyBucketing?: boolean;
-                  bucketVersion?: number;
-                  minBucketVersion?: number;
-                  namespace?: {
-                    enabled: boolean;
-                    name: string;
-                    range: (number)[];
-                  };
-                  /** @description Rollout Percent (0–1) */
-                  coverage?: number;
-                  /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
-                   */
+                  type: "safe-rollout";
+                  controlValue: string;
+                  variationValue: string;
+                  safeRolloutId: string;
+                  hashAttribute: string;
+                  trackingKey: string;
+                  seed: string;
+                  condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -9421,20 +9297,6 @@ export interface operations {
                        * @example 2025-06-23T16:09:37.769Z
                        */
                       timestamp: string | null;
-                    })[];
-                  values?: ({
-                      value: string;
-                      weight: number;
-                      name?: string;
-                    })[];
-                  /**
-                   * @deprecated 
-                   * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
-                   */
-                  value?: ({
-                      value: string;
-                      weight: number;
-                      name?: string;
                     })[];
                 }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -9452,16 +9314,8 @@ export interface operations {
                         savedGroups: (string)[];
                       })[];
                     /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
+                     * @deprecated 
+                     * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                      */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -9473,7 +9327,6 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
-                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -9494,16 +9347,8 @@ export interface operations {
                         condition: string;
                       })[];
                     /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
+                     * @deprecated 
+                     * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
                      */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
@@ -9515,7 +9360,6 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
-                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -9565,43 +9409,29 @@ export interface operations {
                         timestamp: string | null;
                       })[];
                     variations: ({
-                        value: string;
+                        /** @description Variation ID from the linked experiment */
                         variationId: string;
+                        value: string;
                       })[];
                     experimentId: string;
                   }) | ({
                     description?: string;
-                    condition: string;
                     id?: string;
-                    /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
-                    type: "experiment";
-                    trackingKey?: string;
-                    hashAttribute?: string;
-                    fallbackAttribute?: string;
-                    disableStickyBucketing?: boolean;
-                    bucketVersion?: number;
-                    minBucketVersion?: number;
-                    namespace?: {
-                      enabled: boolean;
-                      name: string;
-                      range: (number)[];
-                    };
-                    /** @description Rollout Percent (0–1) */
-                    coverage?: number;
-                    /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
-                     */
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    safeRolloutId: string;
+                    hashAttribute: string;
+                    trackingKey: string;
+                    seed: string;
+                    condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -9611,20 +9441,6 @@ export interface operations {
                          * @example 2025-06-23T16:09:37.769Z
                          */
                         timestamp: string | null;
-                      })[];
-                    values?: ({
-                        value: string;
-                        weight: number;
-                        name?: string;
-                      })[];
-                    /**
-                     * @deprecated 
-                     * @description Support passing values under the value key as that was the original spec for FeatureExperimentRules
-                     */
-                    value?: ({
-                        value: string;
-                        weight: number;
-                        name?: string;
                       })[];
                   }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -15142,7 +14958,7 @@ export interface operations {
            * @description Rule to add. For force/rollout rules `type` is optional and inferred from rollout percent (`coverage`):
            * `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
            * Use `experiment-ref` to link an existing experiment or bandit by ID.
-           * `id` and `description` are optional — the server generates a UUID and defaults description to `""`.
+           * `description` is optional and defaults to `""`. The server always generates the rule ID.
            */
           rule: OneOf<[{
             /**
@@ -15155,7 +14971,6 @@ export interface operations {
             coverage?: number;
             hashAttribute?: string;
             seed?: string;
-            id?: string;
             description?: string;
             enabled?: boolean;
             condition?: string;
@@ -15174,7 +14989,8 @@ export interface operations {
             /** @description ID of the existing experiment or bandit to link */
             experimentId: string;
             variations: ({
-                variationId: string;
+                /** @description Variation ID from the linked experiment. If omitted, values are mapped to variations by index order. */
+                variationId?: string;
                 value: string;
               })[];
           }, {
@@ -15256,6 +15072,19 @@ export interface operations {
             /** @description Delete the ramp schedule entirely if no targets remain after detach */
             deleteScheduleWhenEmpty?: boolean;
           }]>;
+          /**
+           * @description Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules`.
+           * Ignored when `rampAction` is also provided.
+           * - `startDate` — enables the rule at this time (rule is initially set to disabled)
+           * - `endDate` — disables the rule at this time
+           * A ramp schedule is created automatically with `ruleId` and `environment` inferred from context.
+           */
+          schedule?: {
+            /** Format: date-time */
+            startDate?: string | null;
+            /** Format: date-time */
+            endDate?: string | null;
+          };
         };
       };
     };
@@ -16111,8 +15940,146 @@ export interface operations {
       content: {
         "application/json": {
           environment: string;
-          /** @description Partial rule fields to merge onto the existing rule */
-          rule: any;
+          /** @description Full replacement rule (same types accepted by postFeature/updateFeature — force, rollout, experiment-ref, safe-rollout; legacy experiment type not accepted) */
+          rule: ({
+            description?: string;
+            /** @description Applied to everyone by default. */
+            condition?: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            /**
+             * @deprecated 
+             * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            /** @description Enabled by default */
+            enabled?: boolean;
+            /** @enum {string} */
+            type: "force";
+            value: string;
+          }) | ({
+            description?: string;
+            /** @description Applied to everyone by default. */
+            condition?: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            /**
+             * @deprecated 
+             * @description Deprecated — use the `schedule` shorthand on the endpoint body instead.
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            /** @description Enabled by default */
+            enabled?: boolean;
+            /** @enum {string} */
+            type: "rollout";
+            value: string;
+            /** @description Rollout Percent (0–1). Percent of traffic included in this experiment. Users not included will skip this rule. */
+            coverage: number;
+            hashAttribute: string;
+          }) | ({
+            description?: string;
+            id?: string;
+            /** @description Enabled by default */
+            enabled?: boolean;
+            /** @enum {string} */
+            type: "experiment-ref";
+            condition?: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            variations: ({
+                /** @description Variation ID from the linked experiment */
+                variationId: string;
+                value: string;
+              })[];
+            experimentId: string;
+          }) | ({
+            description?: string;
+            id?: string;
+            enabled?: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            safeRolloutId: string;
+            hashAttribute: string;
+            trackingKey: string;
+            seed: string;
+            condition?: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+          });
           /** @description Optional ramp schedule action to associate with this rule */
           rampAction?: OneOf<[{
             /** @enum {string} */
@@ -16182,6 +16149,20 @@ export interface operations {
             /** @description Delete the ramp schedule entirely if no targets remain after detach */
             deleteScheduleWhenEmpty?: boolean;
           }]>;
+          /**
+           * @description Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules` directly.
+           * Ignored when `rampAction` is also provided.
+           * - `startDate` — enables the rule at this time (rule is set to disabled until then)
+           * - `endDate` — disables the rule at this time
+           * If the existing rule already uses legacy `scheduleRules`, those are updated in-place
+           * instead of creating a ramp schedule.
+           */
+          schedule?: {
+            /** Format: date-time */
+            startDate?: string | null;
+            /** Format: date-time */
+            endDate?: string | null;
+          };
         };
       };
     };

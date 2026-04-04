@@ -31,11 +31,29 @@ requestBody:
           environment:
             type: string
           rule:
-            type: object
-            description: "Partial rule fields to merge onto the existing rule"
+            $ref: "../payload-schemas/postFeature/FeatureRule.yaml"
+            description: "Full replacement rule (same types accepted by postFeature/updateFeature — force, rollout, experiment-ref, safe-rollout; legacy experiment type not accepted)"
           rampAction:
             $ref: "../schemas/RevisionRampAction.yaml"
             description: "Optional ramp schedule action to associate with this rule"
+          schedule:
+            type: object
+            description: |
+              Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules` directly.
+              Ignored when `rampAction` is also provided.
+              - `startDate` — enables the rule at this time (rule is set to disabled until then)
+              - `endDate` — disables the rule at this time
+              If the existing rule already uses legacy `scheduleRules`, those are updated in-place
+              instead of creating a ramp schedule.
+            properties:
+              startDate:
+                type: string
+                format: date-time
+                nullable: true
+              endDate:
+                type: string
+                format: date-time
+                nullable: true
 responses:
   "200":
     content:

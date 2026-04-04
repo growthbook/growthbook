@@ -452,16 +452,11 @@ paths:
                                         items:
                                           type: string
                                 scheduleRules:
+                                  deprecated: true
+                                  description: Deprecated — use the `schedule` shorthand on the endpoint body instead.
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
-                                  example:
-                                    - enabled: true
-                                      timestamp: null
-                                    - enabled: false
-                                      timestamp: '2025-06-23T16:09:37.769Z'
-                                id:
-                                  type: string
                                 enabled:
                                   type: boolean
                                   description: Enabled by default
@@ -516,16 +511,11 @@ paths:
                                       condition:
                                         type: string
                                 scheduleRules:
+                                  deprecated: true
+                                  description: Deprecated — use the `schedule` shorthand on the endpoint body instead.
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
-                                  example:
-                                    - enabled: true
-                                      timestamp: null
-                                    - enabled: false
-                                      timestamp: '2025-06-23T16:09:37.769Z'
-                                id:
-                                  type: string
                                 enabled:
                                   type: boolean
                                   description: Enabled by default
@@ -605,106 +595,73 @@ paths:
                                   items:
                                     type: object
                                     required:
-                                      - value
                                       - variationId
+                                      - value
                                     properties:
-                                      value:
-                                        type: string
                                       variationId:
+                                        type: string
+                                        description: Variation ID from the linked experiment
+                                      value:
                                         type: string
                                 experimentId:
                                   type: string
-                            - deprecated: true
-                              title: Experiment (legacy)
+                            - title: Safe Rollout Rule
                               type: object
                               required:
-                                - condition
                                 - type
+                                - controlValue
+                                - variationValue
+                                - safeRolloutId
+                                - hashAttribute
+                                - trackingKey
+                                - seed
                               properties:
                                 description:
-                                  type: string
-                                condition:
                                   type: string
                                 id:
                                   type: string
                                 enabled:
                                   type: boolean
-                                  description: Enabled by default
                                 type:
                                   type: string
                                   enum:
-                                    - experiment
-                                trackingKey:
+                                    - safe-rollout
+                                controlValue:
+                                  type: string
+                                variationValue:
+                                  type: string
+                                safeRolloutId:
                                   type: string
                                 hashAttribute:
                                   type: string
-                                fallbackAttribute:
+                                trackingKey:
                                   type: string
-                                disableStickyBucketing:
-                                  type: boolean
-                                bucketVersion:
-                                  type: number
-                                minBucketVersion:
-                                  type: number
-                                namespace:
-                                  type: object
-                                  required:
-                                    - enabled
-                                    - name
-                                    - range
-                                  properties:
-                                    enabled:
-                                      type: boolean
-                                    name:
-                                      type: string
-                                    range:
-                                      type: array
-                                      items:
-                                        type: number
-                                      minItems: 2
-                                      maxItems: 2
-                                coverage:
-                                  type: number
-                                  description: Rollout Percent (0–1)
+                                seed:
+                                  type: string
+                                condition:
+                                  type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
                                 scheduleRules:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
-                                  example:
-                                    - enabled: true
-                                      timestamp: null
-                                    - enabled: false
-                                      timestamp: '2025-06-23T16:09:37.769Z'
-                                values:
-                                  type: array
-                                  items:
-                                    type: object
-                                    required:
-                                      - value
-                                      - weight
-                                    properties:
-                                      value:
-                                        type: string
-                                      weight:
-                                        type: number
-                                      name:
-                                        type: string
-                                value:
-                                  deprecated: true
-                                  description: Support passing values under the value key as that was the original spec for FeatureExperimentRules
-                                  type: array
-                                  items:
-                                    type: object
-                                    required:
-                                      - value
-                                      - weight
-                                    properties:
-                                      value:
-                                        type: string
-                                      weight:
-                                        type: number
-                                      name:
-                                        type: string
                       definition:
                         type: string
                         description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
@@ -1427,9 +1384,9 @@ paths:
                     Rule to add. For force/rollout rules `type` is optional and inferred from rollout percent (`coverage`):
                     `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
                     Use `experiment-ref` to link an existing experiment or bandit by ID.
-                    `id` and `description` are optional — the server generates a UUID and defaults description to `""`.
+                    `description` is optional and defaults to `""`. The server always generates the rule ID.
                   oneOf:
-                    - description: Force or rollout rule. `type` is optional — omit it to let the server infer force vs rollout from `coverage`.
+                    - title: Force / Rollout rule
                       type: object
                       required:
                         - value
@@ -1450,8 +1407,6 @@ paths:
                         hashAttribute:
                           type: string
                         seed:
-                          type: string
-                        id:
                           type: string
                         description:
                           type: string
@@ -1489,7 +1444,8 @@ paths:
                                 type: string
                               condition:
                                 type: string
-                    - description: Experiment-ref or bandit-ref rule — links an existing experiment or bandit by ID
+                    - title: Experiment-ref rule
+                      description: Links an existing experiment or bandit by experiment ID
                       type: object
                       required:
                         - type
@@ -1508,14 +1464,14 @@ paths:
                           items:
                             type: object
                             required:
-                              - variationId
                               - value
                             properties:
                               variationId:
                                 type: string
+                                description: 'Variation ID from the linked experiment. If omitted, values are mapped to variations by index order.'
                               value:
                                 type: string
-                    - description: Safe-rollout rule
+                    - title: Safe-rollout rule
                       type: object
                       required:
                         - type
@@ -1545,6 +1501,23 @@ paths:
                 rampAction:
                   $ref: '#/components/schemas/RevisionRampAction'
                   description: Optional ramp schedule action to associate with this rule (create or detach)
+                schedule:
+                  type: object
+                  description: |
+                    Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules`.
+                    Ignored when `rampAction` is also provided.
+                    - `startDate` — enables the rule at this time (rule is initially set to disabled)
+                    - `endDate` — disables the rule at this time
+                    A ramp schedule is created automatically with `ruleId` and `environment` inferred from context.
+                  properties:
+                    startDate:
+                      type: string
+                      format: date-time
+                      nullable: true
+                    endDate:
+                      type: string
+                      format: date-time
+                      nullable: true
       responses:
         '200':
           content:
@@ -1639,11 +1612,29 @@ paths:
                 environment:
                   type: string
                 rule:
-                  type: object
-                  description: Partial rule fields to merge onto the existing rule
+                  $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties/properties/rules/items'
+                  description: 'Full replacement rule (same types accepted by postFeature/updateFeature — force, rollout, experiment-ref, safe-rollout; legacy experiment type not accepted)'
                 rampAction:
                   $ref: '#/components/schemas/RevisionRampAction'
                   description: Optional ramp schedule action to associate with this rule
+                schedule:
+                  type: object
+                  description: |
+                    Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules` directly.
+                    Ignored when `rampAction` is also provided.
+                    - `startDate` — enables the rule at this time (rule is set to disabled until then)
+                    - `endDate` — disables the rule at this time
+                    If the existing rule already uses legacy `scheduleRules`, those are updated in-place
+                    instead of creating a ramp schedule.
+                  properties:
+                    startDate:
+                      type: string
+                      format: date-time
+                      nullable: true
+                    endDate:
+                      type: string
+                      format: date-time
+                      nullable: true
       responses:
         '200':
           content:
@@ -27324,7 +27315,8 @@ components:
             $ref: '#/components/schemas/RevisionRampAction'
     RevisionRampAction:
       oneOf:
-        - type: object
+        - title: Create ramp schedule
+          type: object
           required:
             - mode
             - name
@@ -27447,7 +27439,8 @@ components:
                     at:
                       type: string
                       format: date-time
-        - type: object
+        - title: Detach ramp schedule
+          type: object
           required:
             - mode
             - rampScheduleId

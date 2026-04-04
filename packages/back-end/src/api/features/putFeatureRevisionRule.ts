@@ -12,16 +12,10 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
-  updateRevision,
-  RevisionChanges,
+  updateRevision
 } from "back-end/src/models/FeatureRevisionModel";
-
-const DRAFT_STATUSES = [
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-];
+import { RevisionChanges } from "shared/types/feature-revision";
+import { isDraftStatus, buildScheduleRampAction } from "./validations";
 
 const rampActionSchema = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
@@ -40,6 +34,15 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     // The rule.id must match the :ruleId param.
     rule: featureRule,
     rampAction: rampActionSchema.optional(),
+    // Simple date-based schedule shorthand. Preferred over setting rule.scheduleRules directly.
+    // Ignored when rampAction is also provided.
+    // If the existing rule already uses legacy scheduleRules, those are updated instead.
+    schedule: z
+      .object({
+        startDate: z.string().optional().nullable(),
+        endDate: z.string().optional().nullable(),
+      })
+      .optional(),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -60,11 +63,12 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   });
   if (!revision) throw new Error("Could not find feature revision");
 
-  if (!DRAFT_STATUSES.includes(revision.status)) {
+  if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
 
-  const { environment, rule, rampAction } = req.body;
+  const { environment, rampAction, schedule } = req.body;
+  const rule = req.body.rule;
 
   if (rule.id !== req.params.ruleId) {
     throw new Error(
@@ -80,23 +84,51 @@ export const putFeatureRevisionRule = createApiRequestHandler({
       `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
     );
   }
+
+  const oldRule = envRules[idx];
   envRules[idx] = rule;
   newRules[environment] = envRules;
 
   const changes: RevisionChanges = { rules: newRules };
 
-  if (rampAction) {
+  // Resolve schedule. Priority: explicit rampAction > schedule shorthand.
+  let resolvedRampAction = rampAction;
+  if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
+    const hasLegacySchedule = oldRule.scheduleType === "schedule" ||
+      (oldRule.scheduleRules?.some((r) => r.timestamp) &&
+        oldRule.scheduleType !== "ramp");
+
+    if (hasLegacySchedule) {
+      // Update legacy scheduleRules in-place on the submitted rule
+      rule.scheduleRules = [
+        { enabled: true, timestamp: schedule.startDate ?? null },
+        { enabled: false, timestamp: schedule.endDate ?? null },
+      ];
+      rule.scheduleType = "schedule";
+    } else {
+      // No legacy schedule: create a ramp action
+      if (schedule.startDate) rule.enabled = false;
+      resolvedRampAction = buildScheduleRampAction(
+        rule.id,
+        environment,
+        schedule.startDate,
+        schedule.endDate,
+      );
+    }
+  }
+
+  if (resolvedRampAction) {
     const existing = revision.rampActions ?? [];
     const filtered = existing.filter(
       (a) =>
         !(
           (a.mode === "create" &&
-            a.ruleId === (rampAction as RevisionRampCreateAction).ruleId) ||
+            a.ruleId === (resolvedRampAction as RevisionRampCreateAction).ruleId) ||
           (a.mode === "detach" &&
-            a.ruleId === (rampAction as RevisionRampDetachAction).ruleId)
+            a.ruleId === (resolvedRampAction as RevisionRampDetachAction).ruleId)
         ),
     );
-    changes.rampActions = [...filtered, rampAction];
+    changes.rampActions = [...filtered, resolvedRampAction];
   }
 
   await updateRevision(

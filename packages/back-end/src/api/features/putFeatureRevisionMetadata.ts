@@ -5,16 +5,10 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
-  updateRevision,
-  RevisionChanges,
+  updateRevision
 } from "back-end/src/models/FeatureRevisionModel";
-
-const DRAFT_STATUSES = [
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-];
+import { RevisionChanges } from "shared/types/feature-revision";
+import { isDraftStatus } from "./validations";
 
 export const putFeatureRevisionMetadata = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -51,7 +45,7 @@ export const putFeatureRevisionMetadata = createApiRequestHandler({
   });
   if (!revision) throw new Error("Could not find feature revision");
 
-  if (!DRAFT_STATUSES.includes(revision.status)) {
+  if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
 

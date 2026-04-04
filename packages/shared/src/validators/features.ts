@@ -347,6 +347,24 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
 
 export type FeatureRevisionInterface = z.infer<typeof featureRevisionInterface>;
 
+export const revisionChangesSchema = featureRevisionInterface
+  .pick({
+    title: true,
+    comment: true,
+    defaultValue: true,
+    rules: true,
+    baseVersion: true,
+    environmentsEnabled: true,
+    prerequisites: true,
+    archived: true,
+    metadata: true,
+    holdout: true,
+    rampActions: true,
+  })
+  .partial();
+
+export type RevisionChanges = z.infer<typeof revisionChangesSchema>;
+
 export const featureInterface = z
   .object({
     id: z.string(),
