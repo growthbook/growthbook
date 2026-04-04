@@ -175,7 +175,7 @@ const SRMWarning: FC<{
       )}
 
       {srm >= srmThreshold ? (
-        <Callout status="info" contentsAs="div">
+        <Callout status="success" contentsAs="div">
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}.{" "}

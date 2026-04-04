@@ -476,6 +476,10 @@ export function getExperimentResultStatus({
       unhealthyData.srm = true;
     }
 
+    if (healthSummary.covariateImbalance?.isImbalanced) {
+      unhealthyData.covariateImbalance = true;
+    }
+
     const multipleExposuresHealthData = getMultipleExposureHealthData({
       multipleExposuresCount: healthSummary.multipleExposures,
       totalUsersCount: healthSummary.totalUsers,
@@ -508,6 +512,7 @@ export function getExperimentResultStatus({
     ...(unhealthyData.srm ? ["SRM"] : []),
     ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
+    ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
   ];
   // 1. Always show unhealthy status if they exist
   if (unhealthyStatuses.length > 0) {

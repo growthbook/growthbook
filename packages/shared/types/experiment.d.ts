@@ -83,6 +83,7 @@ export type ExperimentUnhealthyData = {
     multipleExposedUsers: number;
   };
   lowPowered?: boolean;
+  covariateImbalance?: boolean;
 };
 
 export type ExperimentResultStatus =
