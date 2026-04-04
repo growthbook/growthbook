@@ -24,7 +24,7 @@ export const getFeatureRevisions = createApiRequestHandler(
       author,
       limit,
       offset,
-      sort: "asc",
+      sort: "desc",
     }),
     countDocuments(req.organization.id, {
       featureId: req.params.id,

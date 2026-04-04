@@ -8,13 +8,13 @@ import {
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
+import { RevisionChanges } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
-  updateRevision
+  updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { RevisionChanges } from "shared/types/feature-revision";
 import { isDraftStatus, buildScheduleRampAction } from "./validations";
 
 const rampActionSchema = z.discriminatedUnion("mode", [
@@ -94,7 +94,8 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   // Resolve schedule. Priority: explicit rampAction > schedule shorthand.
   let resolvedRampAction = rampAction;
   if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-    const hasLegacySchedule = oldRule.scheduleType === "schedule" ||
+    const hasLegacySchedule =
+      oldRule.scheduleType === "schedule" ||
       (oldRule.scheduleRules?.some((r) => r.timestamp) &&
         oldRule.scheduleType !== "ramp");
 
@@ -123,9 +124,11 @@ export const putFeatureRevisionRule = createApiRequestHandler({
       (a) =>
         !(
           (a.mode === "create" &&
-            a.ruleId === (resolvedRampAction as RevisionRampCreateAction).ruleId) ||
+            a.ruleId ===
+              (resolvedRampAction as RevisionRampCreateAction).ruleId) ||
           (a.mode === "detach" &&
-            a.ruleId === (resolvedRampAction as RevisionRampDetachAction).ruleId)
+            a.ruleId ===
+              (resolvedRampAction as RevisionRampDetachAction).ruleId)
         ),
     );
     changes.rampActions = [...filtered, resolvedRampAction];

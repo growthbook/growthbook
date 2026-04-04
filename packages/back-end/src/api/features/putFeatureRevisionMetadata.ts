@@ -1,13 +1,13 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import { featureValueType, JSONSchemaDef } from "shared/validators";
+import { RevisionChanges } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
-  updateRevision
+  updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { RevisionChanges } from "shared/types/feature-revision";
 import { isDraftStatus } from "./validations";
 
 export const putFeatureRevisionMetadata = createApiRequestHandler({

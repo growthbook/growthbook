@@ -53,11 +53,11 @@ import {
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  SafeRolloutRule,
 } from "shared/validators";
 import {
   AttributeMap,
   ExperimentRefRule,
-  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -67,7 +67,6 @@ import {
   ForceRule,
   RolloutRule,
 } from "shared/types/feature";
-import { SafeRolloutRule } from "shared/validators";
 import {
   Environment,
   OrganizationInterface,
