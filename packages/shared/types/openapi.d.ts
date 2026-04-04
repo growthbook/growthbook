@@ -7211,11 +7211,36 @@ export interface operations {
               enabled: boolean;
               rules: (({
                   description?: string;
-                  /** @description Applied to everyone by default. */
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description How the user is matched against the listed groups:
+                       * - `all` — user must be in **all** of the listed groups
+                       * - `any` — user must be in **at least one** of the listed groups
+                       * - `none` — user must **not** be in any of the listed groups
+                       *  
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
                   /**
@@ -7232,6 +7257,7 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
+                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -7239,16 +7265,56 @@ export interface operations {
                   value: string;
                 }) | ({
                   description?: string;
-                  /** @description Applied to everyone by default. */
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description How the user is matched against the listed groups:
+                       * - `all` — user must be in **all** of the listed groups
+                       * - `any` — user must be in **at least one** of the listed groups
+                       * - `none` — user must **not** be in any of the listed groups
+                       *  
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                   * Evaluated before the targeting condition. All prerequisites must pass (AND logic).
+                   */
                   prerequisites?: ({
-                      /** @description Feature ID */
+                      /** @description Feature flag ID of the prerequisite feature */
                       id: string;
+                      /**
+                       * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                       * Uses the same MongoDB-style query syntax as `condition`.
+                       * 
+                       * Examples:
+                       * - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+                       * - `{"value": "premium"}` — prerequisite must equal "premium"
+                       * - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+                       *  
+                       * @example {"value": true}
+                       */
                       condition: string;
                     })[];
                   /**
@@ -7265,6 +7331,7 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
+                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -7280,29 +7347,46 @@ export interface operations {
                   enabled?: boolean;
                   /** @enum {string} */
                   type: "experiment-ref";
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                   * All prerequisites must pass (AND logic).
+                   */
                   prerequisites?: ({
-                      /** @description Feature ID */
+                      /** @description Feature flag ID of the prerequisite feature */
                       id: string;
+                      /**
+                       * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                       * Example: `{"value": true}` (flag is on) or `{"value": {"$in": ["a", "b"]}}`
+                       *  
+                       * @example {"value": true}
+                       */
                       condition: string;
                     })[];
-                  /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
-                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -7331,10 +7415,29 @@ export interface operations {
                   hashAttribute: string;
                   trackingKey: string;
                   seed: string;
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
                   scheduleRules?: ({
@@ -7355,11 +7458,36 @@ export interface operations {
                 enabled?: boolean;
                 rules: (({
                     description?: string;
-                    /** @description Applied to everyone by default. */
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description How the user is matched against the listed groups:
+                         * - `all` — user must be in **all** of the listed groups
+                         * - `any` — user must be in **at least one** of the listed groups
+                         * - `none` — user must **not** be in any of the listed groups
+                         *  
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
                     /**
@@ -7376,6 +7504,7 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
+                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -7383,16 +7512,56 @@ export interface operations {
                     value: string;
                   }) | ({
                     description?: string;
-                    /** @description Applied to everyone by default. */
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description How the user is matched against the listed groups:
+                         * - `all` — user must be in **all** of the listed groups
+                         * - `any` — user must be in **at least one** of the listed groups
+                         * - `none` — user must **not** be in any of the listed groups
+                         *  
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
+                    /**
+                     * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                     * Evaluated before the targeting condition. All prerequisites must pass (AND logic).
+                     */
                     prerequisites?: ({
-                        /** @description Feature ID */
+                        /** @description Feature flag ID of the prerequisite feature */
                         id: string;
+                        /**
+                         * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                         * Uses the same MongoDB-style query syntax as `condition`.
+                         * 
+                         * Examples:
+                         * - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+                         * - `{"value": "premium"}` — prerequisite must equal "premium"
+                         * - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+                         *  
+                         * @example {"value": true}
+                         */
                         condition: string;
                       })[];
                     /**
@@ -7409,6 +7578,7 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
+                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -7424,29 +7594,46 @@ export interface operations {
                     enabled?: boolean;
                     /** @enum {string} */
                     type: "experiment-ref";
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
+                    /**
+                     * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                     * All prerequisites must pass (AND logic).
+                     */
                     prerequisites?: ({
-                        /** @description Feature ID */
+                        /** @description Feature flag ID of the prerequisite feature */
                         id: string;
+                        /**
+                         * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                         * Example: `{"value": true}` (flag is on) or `{"value": {"$in": ["a", "b"]}}`
+                         *  
+                         * @example {"value": true}
+                         */
                         condition: string;
                       })[];
-                    /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
-                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -7475,10 +7662,29 @@ export interface operations {
                     hashAttribute: string;
                     trackingKey: string;
                     seed: string;
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
                     scheduleRules?: ({
@@ -9162,11 +9368,36 @@ export interface operations {
               enabled: boolean;
               rules: (({
                   description?: string;
-                  /** @description Applied to everyone by default. */
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description How the user is matched against the listed groups:
+                       * - `all` — user must be in **all** of the listed groups
+                       * - `any` — user must be in **at least one** of the listed groups
+                       * - `none` — user must **not** be in any of the listed groups
+                       *  
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
                   /**
@@ -9183,6 +9414,7 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
+                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -9190,16 +9422,56 @@ export interface operations {
                   value: string;
                 }) | ({
                   description?: string;
-                  /** @description Applied to everyone by default. */
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description How the user is matched against the listed groups:
+                       * - `all` — user must be in **all** of the listed groups
+                       * - `any` — user must be in **at least one** of the listed groups
+                       * - `none` — user must **not** be in any of the listed groups
+                       *  
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                   * Evaluated before the targeting condition. All prerequisites must pass (AND logic).
+                   */
                   prerequisites?: ({
-                      /** @description Feature ID */
+                      /** @description Feature flag ID of the prerequisite feature */
                       id: string;
+                      /**
+                       * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                       * Uses the same MongoDB-style query syntax as `condition`.
+                       * 
+                       * Examples:
+                       * - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+                       * - `{"value": "premium"}` — prerequisite must equal "premium"
+                       * - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+                       *  
+                       * @example {"value": true}
+                       */
                       condition: string;
                     })[];
                   /**
@@ -9216,6 +9488,7 @@ export interface operations {
                        */
                       timestamp: string | null;
                     })[];
+                  id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
@@ -9231,29 +9504,46 @@ export interface operations {
                   enabled?: boolean;
                   /** @enum {string} */
                   type: "experiment-ref";
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                   * All prerequisites must pass (AND logic).
+                   */
                   prerequisites?: ({
-                      /** @description Feature ID */
+                      /** @description Feature flag ID of the prerequisite feature */
                       id: string;
+                      /**
+                       * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                       * Example: `{"value": true}` (flag is on) or `{"value": {"$in": ["a", "b"]}}`
+                       *  
+                       * @example {"value": true}
+                       */
                       condition: string;
                     })[];
-                  /**
-                   * @example [
-                   *   {
-                   *     "enabled": true,
-                   *     "timestamp": null
-                   *   },
-                   *   {
-                   *     "enabled": false,
-                   *     "timestamp": "2025-06-23T16:09:37.769Z"
-                   *   }
-                   * ]
-                   */
                   scheduleRules?: ({
                       /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                       enabled: boolean;
@@ -9282,10 +9572,29 @@ export interface operations {
                   hashAttribute: string;
                   trackingKey: string;
                   seed: string;
+                  /**
+                   * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                   * Evaluated against user attributes — the rule only applies to users who match.
+                   * Omit or pass `""` to match everyone.
+                   * 
+                   * Examples:
+                   * - `{"country": "US"}` — exact match
+                   * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                   *  
+                   * @example {"country": "US"}
+                   */
                   condition?: string;
+                  /**
+                   * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                   * All entries are combined with AND — a user must satisfy every entry.
+                   */
                   savedGroupTargeting?: ({
-                      /** @enum {string} */
+                      /**
+                       * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                       * @enum {string}
+                       */
                       matchType: "all" | "any" | "none";
+                      /** @description Saved Group IDs to match against */
                       savedGroups: (string)[];
                     })[];
                   scheduleRules?: ({
@@ -9306,11 +9615,36 @@ export interface operations {
                 enabled?: boolean;
                 rules: (({
                     description?: string;
-                    /** @description Applied to everyone by default. */
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description How the user is matched against the listed groups:
+                         * - `all` — user must be in **all** of the listed groups
+                         * - `any` — user must be in **at least one** of the listed groups
+                         * - `none` — user must **not** be in any of the listed groups
+                         *  
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
                     /**
@@ -9327,6 +9661,7 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
+                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -9334,16 +9669,56 @@ export interface operations {
                     value: string;
                   }) | ({
                     description?: string;
-                    /** @description Applied to everyone by default. */
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description How the user is matched against the listed groups:
+                         * - `all` — user must be in **all** of the listed groups
+                         * - `any` — user must be in **at least one** of the listed groups
+                         * - `none` — user must **not** be in any of the listed groups
+                         *  
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
+                    /**
+                     * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                     * Evaluated before the targeting condition. All prerequisites must pass (AND logic).
+                     */
                     prerequisites?: ({
-                        /** @description Feature ID */
+                        /** @description Feature flag ID of the prerequisite feature */
                         id: string;
+                        /**
+                         * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                         * Uses the same MongoDB-style query syntax as `condition`.
+                         * 
+                         * Examples:
+                         * - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+                         * - `{"value": "premium"}` — prerequisite must equal "premium"
+                         * - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+                         *  
+                         * @example {"value": true}
+                         */
                         condition: string;
                       })[];
                     /**
@@ -9360,6 +9735,7 @@ export interface operations {
                          */
                         timestamp: string | null;
                       })[];
+                    id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
@@ -9375,29 +9751,46 @@ export interface operations {
                     enabled?: boolean;
                     /** @enum {string} */
                     type: "experiment-ref";
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
+                    /**
+                     * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                     * All prerequisites must pass (AND logic).
+                     */
                     prerequisites?: ({
-                        /** @description Feature ID */
+                        /** @description Feature flag ID of the prerequisite feature */
                         id: string;
+                        /**
+                         * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                         * Example: `{"value": true}` (flag is on) or `{"value": {"$in": ["a", "b"]}}`
+                         *  
+                         * @example {"value": true}
+                         */
                         condition: string;
                       })[];
-                    /**
-                     * @example [
-                     *   {
-                     *     "enabled": true,
-                     *     "timestamp": null
-                     *   },
-                     *   {
-                     *     "enabled": false,
-                     *     "timestamp": "2025-06-23T16:09:37.769Z"
-                     *   }
-                     * ]
-                     */
                     scheduleRules?: ({
                         /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
@@ -9426,10 +9819,29 @@ export interface operations {
                     hashAttribute: string;
                     trackingKey: string;
                     seed: string;
+                    /**
+                     * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                     * Evaluated against user attributes — the rule only applies to users who match.
+                     * Omit or pass `""` to match everyone.
+                     * 
+                     * Examples:
+                     * - `{"country": "US"}` — exact match
+                     * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                     *  
+                     * @example {"country": "US"}
+                     */
                     condition?: string;
+                    /**
+                     * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                     * All entries are combined with AND — a user must satisfy every entry.
+                     */
                     savedGroupTargeting?: ({
-                        /** @enum {string} */
+                        /**
+                         * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                         * @enum {string}
+                         */
                         matchType: "all" | "any" | "none";
+                        /** @description Saved Group IDs to match against */
                         savedGroups: (string)[];
                       })[];
                     scheduleRules?: ({
@@ -9448,7 +9860,11 @@ export interface operations {
               };
             }) | undefined;
           };
-          /** @description Feature IDs. Each feature must evaluate to `true` */
+          /**
+           * @description Feature-level prerequisite feature flag IDs. Each referenced feature must evaluate to `true`
+           * before any rules in this feature are evaluated. For rule-level prerequisites with conditions,
+           * use the `prerequisites` field on individual rules.
+           */
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
@@ -14959,6 +15375,8 @@ export interface operations {
            * `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
            * Use `experiment-ref` to link an existing experiment or bandit by ID.
            * `description` is optional and defaults to `""`. The server always generates the rule ID.
+           * 
+           * All rule types accept `condition`, `savedGroups`, and `prerequisites` for targeting.
            */
           rule: OneOf<[{
             /**
@@ -14973,14 +15391,38 @@ export interface operations {
             seed?: string;
             description?: string;
             enabled?: boolean;
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes. Omit or pass `""` to match everyone.
+             * 
+             * Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}` · `{"$or": [{"country":"US"},{"country":"CA"}]}`
+             *  
+             * @example {"country": "US"}
+             */
             condition?: string;
+            /** @description Filter by Saved Groups (SDK Connections → Saved Groups). All entries are combined with AND. */
             savedGroups?: ({
-                /** @enum {string} */
-                match: "all" | "none" | "any";
+                /**
+                 * @description `all` = user must be in all groups · `any` = at least one · `none` = not in any 
+                 * @enum {string}
+                 */
+                match: "all" | "any" | "none";
+                /** @description Saved Group IDs */
                 ids: (string)[];
               })[];
+            /**
+             * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+             * All prerequisites are combined with AND.
+             */
             prerequisites?: ({
+                /** @description Feature flag ID of the prerequisite */
                 id: string;
+                /**
+                 * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                 * Examples: `{"value": true}` · `{"value": "premium"}` · `{"value": {"$in": ["a","b"]}}`
+                 *  
+                 * @example {"value": true}
+                 */
                 condition: string;
               })[];
           }, {
@@ -14993,6 +15435,26 @@ export interface operations {
                 variationId?: string;
                 value: string;
               })[];
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes. Omit or pass `""` to match everyone.
+             *  
+             * @example {"country": "US"}
+             */
+            condition?: string;
+            /** @description Filter by Saved Groups. All entries combined with AND. */
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "any" | "none";
+                ids: (string)[];
+              })[];
+            /** @description Prerequisite feature flags. All combined with AND. */
+            prerequisites?: ({
+                /** @description Feature flag ID */
+                id: string;
+                /** @description JSON string against `{"value": ...}`. Example: `{"value": true}` */
+                condition: string;
+              })[];
           }, {
             /** @enum {string} */
             type: "safe-rollout";
@@ -15002,6 +15464,19 @@ export interface operations {
             hashAttribute: string;
             trackingKey: string;
             seed: string;
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes. Omit or pass `""` to match everyone.
+             *  
+             * @example {"country": "US"}
+             */
+            condition?: string;
+            /** @description Filter by Saved Groups. All entries combined with AND. */
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "any" | "none";
+                ids: (string)[];
+              })[];
           }]>;
           /** @description Optional ramp schedule action to associate with this rule (create or detach) */
           rampAction?: OneOf<[{
@@ -15940,14 +16415,55 @@ export interface operations {
       content: {
         "application/json": {
           environment: string;
-          /** @description Full replacement rule (same types accepted by postFeature/updateFeature — force, rollout, experiment-ref, safe-rollout; legacy experiment type not accepted) */
+          /**
+           * @description Full replacement for the rule identified by `:ruleId`. Accepted types: `force`, `rollout`, `experiment-ref`, `safe-rollout`.
+           * 
+           * **Note:** this endpoint uses the internal rule format (as returned by GET revision/feature endpoints).
+           * Saved group targeting uses `savedGroups` (array of `{match, ids}` objects) rather than the
+           * `savedGroupTargeting` / `{matchType, savedGroups}` shape used by `postFeature`/`updateFeature`.
+           * 
+           * **Targeting fields (applies to all rule types):**
+           * - `condition` — JSON string using MongoDB-style query syntax against user attributes.
+           *   Omit or pass `""` to match everyone.
+           *   Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+           * - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
+           *   `match: "all"` = user in all groups; `"any"` = at least one; `"none"` = not in any.
+           * - `prerequisites` — array of `{id: string, condition: string}`.
+           *   `id` is a feature flag ID; `condition` is a JSON string checked against `{"value": <flag_value>}`.
+           *   Examples: `{"value": true}` · `{"value": {"$in": ["a","b"]}}`
+           */
           rule: ({
             description?: string;
-            /** @description Applied to everyone by default. */
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes — the rule only applies to users who match.
+             * Omit or pass `""` to match everyone.
+             * 
+             * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+             * 
+             * Examples:
+             * - `{"country": "US"}` — exact match
+             * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+             * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+             *  
+             * @example {"country": "US"}
+             */
             condition?: string;
+            /**
+             * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+             * All entries are combined with AND — a user must satisfy every entry.
+             */
             savedGroupTargeting?: ({
-                /** @enum {string} */
+                /**
+                 * @description How the user is matched against the listed groups:
+                 * - `all` — user must be in **all** of the listed groups
+                 * - `any` — user must be in **at least one** of the listed groups
+                 * - `none` — user must **not** be in any of the listed groups
+                 *  
+                 * @enum {string}
+                 */
                 matchType: "all" | "any" | "none";
+                /** @description Saved Group IDs to match against */
                 savedGroups: (string)[];
               })[];
             /**
@@ -15964,6 +16480,7 @@ export interface operations {
                  */
                 timestamp: string | null;
               })[];
+            id?: string;
             /** @description Enabled by default */
             enabled?: boolean;
             /** @enum {string} */
@@ -15971,16 +16488,56 @@ export interface operations {
             value: string;
           }) | ({
             description?: string;
-            /** @description Applied to everyone by default. */
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes — the rule only applies to users who match.
+             * Omit or pass `""` to match everyone.
+             * 
+             * Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+             * 
+             * Examples:
+             * - `{"country": "US"}` — exact match
+             * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+             * - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+             *  
+             * @example {"country": "US"}
+             */
             condition?: string;
+            /**
+             * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+             * All entries are combined with AND — a user must satisfy every entry.
+             */
             savedGroupTargeting?: ({
-                /** @enum {string} */
+                /**
+                 * @description How the user is matched against the listed groups:
+                 * - `all` — user must be in **all** of the listed groups
+                 * - `any` — user must be in **at least one** of the listed groups
+                 * - `none` — user must **not** be in any of the listed groups
+                 *  
+                 * @enum {string}
+                 */
                 matchType: "all" | "any" | "none";
+                /** @description Saved Group IDs to match against */
                 savedGroups: (string)[];
               })[];
+            /**
+             * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+             * Evaluated before the targeting condition. All prerequisites must pass (AND logic).
+             */
             prerequisites?: ({
-                /** @description Feature ID */
+                /** @description Feature flag ID of the prerequisite feature */
                 id: string;
+                /**
+                 * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                 * Uses the same MongoDB-style query syntax as `condition`.
+                 * 
+                 * Examples:
+                 * - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+                 * - `{"value": "premium"}` — prerequisite must equal "premium"
+                 * - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+                 *  
+                 * @example {"value": true}
+                 */
                 condition: string;
               })[];
             /**
@@ -15997,6 +16554,7 @@ export interface operations {
                  */
                 timestamp: string | null;
               })[];
+            id?: string;
             /** @description Enabled by default */
             enabled?: boolean;
             /** @enum {string} */
@@ -16012,29 +16570,46 @@ export interface operations {
             enabled?: boolean;
             /** @enum {string} */
             type: "experiment-ref";
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes — the rule only applies to users who match.
+             * Omit or pass `""` to match everyone.
+             * 
+             * Examples:
+             * - `{"country": "US"}` — exact match
+             * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+             *  
+             * @example {"country": "US"}
+             */
             condition?: string;
+            /**
+             * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+             * All entries are combined with AND — a user must satisfy every entry.
+             */
             savedGroupTargeting?: ({
-                /** @enum {string} */
+                /**
+                 * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                 * @enum {string}
+                 */
                 matchType: "all" | "any" | "none";
+                /** @description Saved Group IDs to match against */
                 savedGroups: (string)[];
               })[];
+            /**
+             * @description Prerequisite feature flags that must evaluate to specific values before this rule applies.
+             * All prerequisites must pass (AND logic).
+             */
             prerequisites?: ({
-                /** @description Feature ID */
+                /** @description Feature flag ID of the prerequisite feature */
                 id: string;
+                /**
+                 * @description A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                 * Example: `{"value": true}` (flag is on) or `{"value": {"$in": ["a", "b"]}}`
+                 *  
+                 * @example {"value": true}
+                 */
                 condition: string;
               })[];
-            /**
-             * @example [
-             *   {
-             *     "enabled": true,
-             *     "timestamp": null
-             *   },
-             *   {
-             *     "enabled": false,
-             *     "timestamp": "2025-06-23T16:09:37.769Z"
-             *   }
-             * ]
-             */
             scheduleRules?: ({
                 /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
                 enabled: boolean;
@@ -16063,10 +16638,29 @@ export interface operations {
             hashAttribute: string;
             trackingKey: string;
             seed: string;
+            /**
+             * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
+             * Evaluated against user attributes — the rule only applies to users who match.
+             * Omit or pass `""` to match everyone.
+             * 
+             * Examples:
+             * - `{"country": "US"}` — exact match
+             * - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+             *  
+             * @example {"country": "US"}
+             */
             condition?: string;
+            /**
+             * @description Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+             * All entries are combined with AND — a user must satisfy every entry.
+             */
             savedGroupTargeting?: ({
-                /** @enum {string} */
+                /**
+                 * @description `all` = user must be in all groups, `any` = at least one, `none` = not in any 
+                 * @enum {string}
+                 */
                 matchType: "all" | "any" | "none";
+                /** @description Saved Group IDs to match against */
                 savedGroups: (string)[];
               })[];
             scheduleRules?: ({

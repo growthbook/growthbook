@@ -31,8 +31,23 @@ requestBody:
           environment:
             type: string
           rule:
+            description: |
+              Full replacement for the rule identified by `:ruleId`. Accepted types: `force`, `rollout`, `experiment-ref`, `safe-rollout`.
+
+              **Note:** this endpoint uses the internal rule format (as returned by GET revision/feature endpoints).
+              Saved group targeting uses `savedGroups` (array of `{match, ids}` objects) rather than the
+              `savedGroupTargeting` / `{matchType, savedGroups}` shape used by `postFeature`/`updateFeature`.
+
+              **Targeting fields (applies to all rule types):**
+              - `condition` — JSON string using MongoDB-style query syntax against user attributes.
+                Omit or pass `""` to match everyone.
+                Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+              - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
+                `match: "all"` = user in all groups; `"any"` = at least one; `"none"` = not in any.
+              - `prerequisites` — array of `{id: string, condition: string}`.
+                `id` is a feature flag ID; `condition` is a JSON string checked against `{"value": <flag_value>}`.
+                Examples: `{"value": true}` · `{"value": {"$in": ["a","b"]}}`
             $ref: "../payload-schemas/postFeature/FeatureRule.yaml"
-            description: "Full replacement rule (same types accepted by postFeature/updateFeature — force, rollout, experiment-ref, safe-rollout; legacy experiment type not accepted)"
           rampAction:
             $ref: "../schemas/RevisionRampAction.yaml"
             description: "Optional ramp schedule action to associate with this rule"

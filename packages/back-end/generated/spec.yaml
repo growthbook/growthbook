@@ -432,9 +432,23 @@ paths:
                                   type: string
                                 condition:
                                   type: string
-                                  description: Applied to everyone by default.
+                                  description: |
+                                    Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                                    Evaluated against user attributes — the rule only applies to users who match.
+                                    Omit or pass `""` to match everyone.
+
+                                    Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+
+                                    Examples:
+                                    - `{"country": "US"}` — exact match
+                                    - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                                    - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                                  example: '{"country": "US"}'
                                 savedGroupTargeting:
                                   type: array
+                                  description: |
+                                    Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                                    All entries are combined with AND — a user must satisfy every entry.
                                   items:
                                     type: object
                                     required:
@@ -447,8 +461,14 @@ paths:
                                           - all
                                           - any
                                           - none
+                                        description: |
+                                          How the user is matched against the listed groups:
+                                          - `all` — user must be in **all** of the listed groups
+                                          - `any` — user must be in **at least one** of the listed groups
+                                          - `none` — user must **not** be in any of the listed groups
                                       savedGroups:
                                         type: array
+                                        description: Saved Group IDs to match against
                                         items:
                                           type: string
                                 scheduleRules:
@@ -457,6 +477,8 @@ paths:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
+                                id:
+                                  type: string
                                 enabled:
                                   type: boolean
                                   description: Enabled by default
@@ -478,9 +500,23 @@ paths:
                                   type: string
                                 condition:
                                   type: string
-                                  description: Applied to everyone by default.
+                                  description: |
+                                    Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                                    Evaluated against user attributes — the rule only applies to users who match.
+                                    Omit or pass `""` to match everyone.
+
+                                    Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+
+                                    Examples:
+                                    - `{"country": "US"}` — exact match
+                                    - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                                    - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+                                  example: '{"country": "US"}'
                                 savedGroupTargeting:
                                   type: array
+                                  description: |
+                                    Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                                    All entries are combined with AND — a user must satisfy every entry.
                                   items:
                                     type: object
                                     required:
@@ -493,12 +529,21 @@ paths:
                                           - all
                                           - any
                                           - none
+                                        description: |
+                                          How the user is matched against the listed groups:
+                                          - `all` — user must be in **all** of the listed groups
+                                          - `any` — user must be in **at least one** of the listed groups
+                                          - `none` — user must **not** be in any of the listed groups
                                       savedGroups:
                                         type: array
+                                        description: Saved Group IDs to match against
                                         items:
                                           type: string
                                 prerequisites:
                                   type: array
+                                  description: |
+                                    Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                                    Evaluated before the targeting condition. All prerequisites must pass (AND logic).
                                   items:
                                     type: object
                                     required:
@@ -507,15 +552,26 @@ paths:
                                     properties:
                                       id:
                                         type: string
-                                        description: Feature ID
+                                        description: Feature flag ID of the prerequisite feature
                                       condition:
                                         type: string
+                                        description: |
+                                          A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                                          Uses the same MongoDB-style query syntax as `condition`.
+
+                                          Examples:
+                                          - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+                                          - `{"value": "premium"}` — prerequisite must equal "premium"
+                                          - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+                                        example: '{"value": true}'
                                 scheduleRules:
                                   deprecated: true
                                   description: Deprecated — use the `schedule` shorthand on the endpoint body instead.
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
+                                id:
+                                  type: string
                                 enabled:
                                   type: boolean
                                   description: Enabled by default
@@ -550,8 +606,20 @@ paths:
                                     - experiment-ref
                                 condition:
                                   type: string
+                                  description: |
+                                    Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                                    Evaluated against user attributes — the rule only applies to users who match.
+                                    Omit or pass `""` to match everyone.
+
+                                    Examples:
+                                    - `{"country": "US"}` — exact match
+                                    - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                                  example: '{"country": "US"}'
                                 savedGroupTargeting:
                                   type: array
+                                  description: |
+                                    Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                                    All entries are combined with AND — a user must satisfy every entry.
                                   items:
                                     type: object
                                     required:
@@ -564,12 +632,17 @@ paths:
                                           - all
                                           - any
                                           - none
+                                        description: '`all` = user must be in all groups, `any` = at least one, `none` = not in any'
                                       savedGroups:
                                         type: array
+                                        description: Saved Group IDs to match against
                                         items:
                                           type: string
                                 prerequisites:
                                   type: array
+                                  description: |
+                                    Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                                    All prerequisites must pass (AND logic).
                                   items:
                                     type: object
                                     required:
@@ -578,18 +651,17 @@ paths:
                                     properties:
                                       id:
                                         type: string
-                                        description: Feature ID
+                                        description: Feature flag ID of the prerequisite feature
                                       condition:
                                         type: string
+                                        description: |
+                                          A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                                          Example: `{"value": true}` (flag is on) or `{"value": {"$in": ["a", "b"]}}`
+                                        example: '{"value": true}'
                                 scheduleRules:
                                   type: array
                                   items:
                                     $ref: '#/components/schemas/ScheduleRule'
-                                  example:
-                                    - enabled: true
-                                      timestamp: null
-                                    - enabled: false
-                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 variations:
                                   type: array
                                   items:
@@ -640,8 +712,20 @@ paths:
                                   type: string
                                 condition:
                                   type: string
+                                  description: |
+                                    Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                                    Evaluated against user attributes — the rule only applies to users who match.
+                                    Omit or pass `""` to match everyone.
+
+                                    Examples:
+                                    - `{"country": "US"}` — exact match
+                                    - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+                                  example: '{"country": "US"}'
                                 savedGroupTargeting:
                                   type: array
+                                  description: |
+                                    Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+                                    All entries are combined with AND — a user must satisfy every entry.
                                   items:
                                     type: object
                                     required:
@@ -654,8 +738,10 @@ paths:
                                           - all
                                           - any
                                           - none
+                                        description: '`all` = user must be in all groups, `any` = at least one, `none` = not in any'
                                       savedGroups:
                                         type: array
+                                        description: Saved Group IDs to match against
                                         items:
                                           type: string
                                 scheduleRules:
@@ -787,7 +873,10 @@ paths:
                     $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
                 prerequisites:
                   type: array
-                  description: Feature IDs. Each feature must evaluate to `true`
+                  description: |
+                    Feature-level prerequisite feature flag IDs. Each referenced feature must evaluate to `true`
+                    before any rules in this feature are evaluated. For rule-level prerequisites with conditions,
+                    use the `prerequisites` field on individual rules.
                   items:
                     type: string
                 jsonSchema:
@@ -1385,6 +1474,8 @@ paths:
                     `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
                     Use `experiment-ref` to link an existing experiment or bandit by ID.
                     `description` is optional and defaults to `""`. The server always generates the rule ID.
+
+                    All rule types accept `condition`, `savedGroups`, and `prerequisites` for targeting.
                   oneOf:
                     - title: Force / Rollout rule
                       type: object
@@ -1414,8 +1505,16 @@ paths:
                           type: boolean
                         condition:
                           type: string
+                          description: |
+                            Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                            Evaluated against user attributes. Omit or pass `""` to match everyone.
+
+                            Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}` · `{"$or": [{"country":"US"},{"country":"CA"}]}`
+                          example: '{"country": "US"}'
                         savedGroups:
                           type: array
+                          description: |
+                            Filter by Saved Groups (SDK Connections → Saved Groups). All entries are combined with AND.
                           items:
                             type: object
                             required:
@@ -1426,14 +1525,19 @@ paths:
                                 type: string
                                 enum:
                                   - all
-                                  - none
                                   - any
+                                  - none
+                                description: '`all` = user must be in all groups · `any` = at least one · `none` = not in any'
                               ids:
                                 type: array
+                                description: Saved Group IDs
                                 items:
                                   type: string
                         prerequisites:
                           type: array
+                          description: |
+                            Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                            All prerequisites are combined with AND.
                           items:
                             type: object
                             required:
@@ -1442,8 +1546,13 @@ paths:
                             properties:
                               id:
                                 type: string
+                                description: Feature flag ID of the prerequisite
                               condition:
                                 type: string
+                                description: |
+                                  A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                                  Examples: `{"value": true}` · `{"value": "premium"}` · `{"value": {"$in": ["a","b"]}}`
+                                example: '{"value": true}'
                     - title: Experiment-ref rule
                       description: Links an existing experiment or bandit by experiment ID
                       type: object
@@ -1471,6 +1580,46 @@ paths:
                                 description: 'Variation ID from the linked experiment. If omitted, values are mapped to variations by index order.'
                               value:
                                 type: string
+                        condition:
+                          type: string
+                          description: |
+                            Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                            Evaluated against user attributes. Omit or pass `""` to match everyone.
+                          example: '{"country": "US"}'
+                        savedGroups:
+                          type: array
+                          description: Filter by Saved Groups. All entries combined with AND.
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - any
+                                  - none
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                        prerequisites:
+                          type: array
+                          description: Prerequisite feature flags. All combined with AND.
+                          items:
+                            type: object
+                            required:
+                              - id
+                              - condition
+                            properties:
+                              id:
+                                type: string
+                                description: Feature flag ID
+                              condition:
+                                type: string
+                                description: 'JSON string against `{"value": ...}`. Example: `{"value": true}`'
                     - title: Safe-rollout rule
                       type: object
                       required:
@@ -1498,6 +1647,31 @@ paths:
                           type: string
                         seed:
                           type: string
+                        condition:
+                          type: string
+                          description: |
+                            Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                            Evaluated against user attributes. Omit or pass `""` to match everyone.
+                          example: '{"country": "US"}'
+                        savedGroups:
+                          type: array
+                          description: Filter by Saved Groups. All entries combined with AND.
+                          items:
+                            type: object
+                            required:
+                              - match
+                              - ids
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - any
+                                  - none
+                              ids:
+                                type: array
+                                items:
+                                  type: string
                 rampAction:
                   $ref: '#/components/schemas/RevisionRampAction'
                   description: Optional ramp schedule action to associate with this rule (create or detach)
@@ -1612,8 +1786,23 @@ paths:
                 environment:
                   type: string
                 rule:
+                  description: |
+                    Full replacement for the rule identified by `:ruleId`. Accepted types: `force`, `rollout`, `experiment-ref`, `safe-rollout`.
+
+                    **Note:** this endpoint uses the internal rule format (as returned by GET revision/feature endpoints).
+                    Saved group targeting uses `savedGroups` (array of `{match, ids}` objects) rather than the
+                    `savedGroupTargeting` / `{matchType, savedGroups}` shape used by `postFeature`/`updateFeature`.
+
+                    **Targeting fields (applies to all rule types):**
+                    - `condition` — JSON string using MongoDB-style query syntax against user attributes.
+                      Omit or pass `""` to match everyone.
+                      Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+                    - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
+                      `match: "all"` = user in all groups; `"any"` = at least one; `"none"` = not in any.
+                    - `prerequisites` — array of `{id: string, condition: string}`.
+                      `id` is a feature flag ID; `condition` is a JSON string checked against `{"value": <flag_value>}`.
+                      Examples: `{"value": true}` · `{"value": {"$in": ["a","b"]}}`
                   $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties/properties/rules/items'
-                  description: 'Full replacement rule (same types accepted by postFeature/updateFeature — force, rollout, experiment-ref, safe-rollout; legacy experiment type not accepted)'
                 rampAction:
                   $ref: '#/components/schemas/RevisionRampAction'
                   description: Optional ramp schedule action to associate with this rule

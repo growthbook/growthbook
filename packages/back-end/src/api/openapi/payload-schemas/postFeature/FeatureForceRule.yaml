@@ -7,9 +7,23 @@ properties:
     type: string
   condition:
     type: string
-    description: Applied to everyone by default.
+    description: |
+      Targeting condition as a **JSON string** using MongoDB-style query syntax.
+      Evaluated against user attributes — the rule only applies to users who match.
+      Omit or pass `""` to match everyone.
+
+      Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+
+      Examples:
+      - `{"country": "US"}` — exact match
+      - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+      - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+    example: '{"country": "US"}'
   savedGroupTargeting:
     type: array
+    description: |
+      Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+      All entries are combined with AND — a user must satisfy every entry.
     items:
       type: object
       required:
@@ -22,8 +36,14 @@ properties:
             - "all"
             - "any"
             - "none"
+          description: |
+            How the user is matched against the listed groups:
+            - `all` — user must be in **all** of the listed groups
+            - `any` — user must be in **at least one** of the listed groups
+            - `none` — user must **not** be in any of the listed groups
         savedGroups:
           type: array
+          description: "Saved Group IDs to match against"
           items:
             type: string
   scheduleRules:
@@ -32,6 +52,8 @@ properties:
     type: array
     items:
       $ref: "../../schemas/ScheduleRule.yaml"
+  id:
+    type: string
   enabled:
     type: boolean
     description: Enabled by default

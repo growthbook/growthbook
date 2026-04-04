@@ -32,8 +32,20 @@ properties:
     type: string
   condition:
     type: string
+    description: |
+      Targeting condition as a **JSON string** using MongoDB-style query syntax.
+      Evaluated against user attributes — the rule only applies to users who match.
+      Omit or pass `""` to match everyone.
+
+      Examples:
+      - `{"country": "US"}` — exact match
+      - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+    example: '{"country": "US"}'
   savedGroupTargeting:
     type: array
+    description: |
+      Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+      All entries are combined with AND — a user must satisfy every entry.
     items:
       type: object
       required:
@@ -46,8 +58,10 @@ properties:
             - "all"
             - "any"
             - "none"
+          description: "`all` = user must be in all groups, `any` = at least one, `none` = not in any"
         savedGroups:
           type: array
+          description: "Saved Group IDs to match against"
           items:
             type: string
   scheduleRules:
