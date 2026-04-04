@@ -1,6 +1,7 @@
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { resetReviewOnChange } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -64,7 +65,12 @@ export const deleteFeatureRevisionRule = createApiRequestHandler({
       subject: req.params.ruleId,
       value: JSON.stringify({ environment }),
     },
-    true,
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    }),
   );
 
   const updated = await getRevision({

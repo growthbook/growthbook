@@ -8,6 +8,7 @@ import {
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
+import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -145,7 +146,12 @@ export const putFeatureRevisionRule = createApiRequestHandler({
       subject: req.params.ruleId,
       value: JSON.stringify(rule),
     },
-    true,
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    }),
   );
 
   const updated = await getRevision({

@@ -13,6 +13,7 @@ import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 
 export const postFeatureRevisionPublish = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -95,6 +96,23 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     err.status = 409;
     err.conflicts = mergeResult.conflicts;
     throw err;
+  }
+
+  // Check publish permission for the environments this revision actually touches.
+  const allEnabledEnvs = Array.from(
+    getEnabledEnvironments(feature, environmentIds),
+  );
+  if (mergeResult.result.defaultValue !== undefined) {
+    if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      req.context.permissions.throwPermissionError();
+    }
+  } else {
+    const changedEnvs = Object.keys(mergeResult.result.rules || {});
+    if (changedEnvs.length > 0) {
+      if (!req.context.permissions.canPublishFeature(feature, changedEnvs)) {
+        req.context.permissions.throwPermissionError();
+      }
+    }
   }
 
   await publishRevision(

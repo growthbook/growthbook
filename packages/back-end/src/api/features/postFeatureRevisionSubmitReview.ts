@@ -43,7 +43,16 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
   const { action, comment } = req.body;
   const review = actionToReviewType[action];
 
-  // Block self-approval for named users (dashboard or PAC); anonymous API keys are service accounts
+  // Block the creator from any non-comment review action.
+  if (
+    isNamedUser(revision.createdBy) &&
+    revision.createdBy.id === req.context.userId &&
+    action !== "comment"
+  ) {
+    throw new Error("Cannot submit a review on a draft you created");
+  }
+
+  // Block contributors from self-approving when the org setting is enabled.
   if (action === "approve") {
     const requireReviews = req.context.org.settings?.requireReviews;
     const reviewSetting = Array.isArray(requireReviews)

@@ -169,35 +169,41 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     const apiBypassesReviews =
       !!req.context.org.settings?.restApiBypassesReviews;
 
-    if (!adminOverride) {
-      const liveRevision = await getRevision({
-        context,
-        organization: feature.organization,
-        featureId: feature.id,
-        version: feature.version,
-      });
-      if (!liveRevision) {
-        throw new Error("Could not load live revision for feature");
-      }
-      const reviewRequired = checkIfRevisionNeedsReview({
-        feature,
-        baseRevision: liveRevision,
-        revision,
-        allEnvironments: allEnvironmentIds,
-        settings: req.organization.settings,
-        requireApprovalsLicensed:
-          req.context.hasPremiumFeature("require-approvals"),
-      });
-      if (reviewRequired) {
+    const liveRevision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!liveRevision) {
+      throw new Error("Could not load live revision for feature");
+    }
+
+    const reviewRequired = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: liveRevision,
+      revision,
+      allEnvironments: allEnvironmentIds,
+      settings: req.organization.settings,
+      requireApprovalsLicensed:
+        req.context.hasPremiumFeature("require-approvals"),
+    });
+
+    if (reviewRequired) {
+      if (!adminOverride) {
         throw new PermissionError(
           "This revert requires approval before changes can be published. " +
             "Pass adminOverride: true if your organization allows REST API bypass.",
         );
       }
-    } else if (!apiBypassesReviews) {
-      throw new PermissionError(
-        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
-      );
+      if (!apiBypassesReviews) {
+        throw new PermissionError(
+          "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
+        );
+      }
+      if (!req.context.permissions.canBypassApprovalChecks(feature)) {
+        req.context.permissions.throwPermissionError();
+      }
     }
 
     const { revision: newRevision, updatedFeature } =
