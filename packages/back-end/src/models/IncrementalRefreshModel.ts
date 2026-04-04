@@ -1,5 +1,5 @@
 import uniqid from "uniqid";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
+import { UpdateProps } from "shared/types/base-model";
 import {
   IncrementalRefreshInterface,
   incrementalRefreshValidator,
@@ -30,9 +30,7 @@ export class IncrementalRefreshModel extends BaseClass {
   }
   public async upsertByExperimentId(
     experimentId: string,
-    data:
-      | CreateProps<IncrementalRefreshInterface>
-      | UpdateProps<IncrementalRefreshInterface>,
+    data: UpdateProps<IncrementalRefreshInterface>,
   ) {
     const existing = await this._findOne({ experimentId });
     if (existing) {

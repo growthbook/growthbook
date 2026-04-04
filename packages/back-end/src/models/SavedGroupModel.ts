@@ -34,9 +34,10 @@ export class SavedGroupModel extends BaseClass {
 
   protected canUpdate(
     existing: SavedGroupInterface,
-    updates: SavedGroupInterface,
+    _updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, updates);
+    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {
