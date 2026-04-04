@@ -9,9 +9,23 @@ properties:
     type: string
   condition:
     type: string
-    description: Applied to everyone by default.
+    description: |
+      Targeting condition as a **JSON string** using MongoDB-style query syntax.
+      Evaluated against user attributes — the rule only applies to users who match.
+      Omit or pass `""` to match everyone.
+
+      Operators: `$eq` `$ne` `$lt` `$lte` `$gt` `$gte` `$regex` `$in` `$nin` `$exists` `$type` `$not` `$or` `$nor` `$and` `$elemMatch` `$all` `$size`
+
+      Examples:
+      - `{"country": "US"}` — exact match
+      - `{"plan": {"$in": ["pro", "enterprise"]}}` — array membership
+      - `{"$or": [{"country": "US"}, {"country": "CA"}]}` — logical OR
+    example: '{"country": "US"}'
   savedGroupTargeting:
     type: array
+    description: |
+      Filter by Saved Groups defined in your GrowthBook organization (SDK Connections → Saved Groups).
+      All entries are combined with AND — a user must satisfy every entry.
     items:
       type: object
       required:
@@ -24,12 +38,21 @@ properties:
             - "all"
             - "any"
             - "none"
+          description: |
+            How the user is matched against the listed groups:
+            - `all` — user must be in **all** of the listed groups
+            - `any` — user must be in **at least one** of the listed groups
+            - `none` — user must **not** be in any of the listed groups
         savedGroups:
           type: array
+          description: "Saved Group IDs to match against"
           items:
             type: string
   prerequisites:
     type: array
+    description: |
+      Prerequisite feature flags that must evaluate to specific values before this rule applies.
+      Evaluated before the targeting condition. All prerequisites must pass (AND logic).
     items:
       type: object
       required:
@@ -38,18 +61,24 @@ properties:
       properties:
         id:
           type: string
-          description: "Feature ID"
+          description: "Feature flag ID of the prerequisite feature"
         condition:
           type: string
+          description: |
+            A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+            Uses the same MongoDB-style query syntax as `condition`.
+
+            Examples:
+            - `{"value": true}` — prerequisite must be truthy (boolean flag is on)
+            - `{"value": "premium"}` — prerequisite must equal "premium"
+            - `{"value": {"$in": ["a", "b"]}}` — prerequisite must be "a" or "b"
+          example: '{"value": true}'
   scheduleRules:
+    deprecated: true
+    description: "Deprecated — use the `schedule` shorthand on the endpoint body instead."
     type: array
     items:
       $ref: "../../schemas/ScheduleRule.yaml"
-    example:
-      - enabled: true
-        timestamp: null
-      - enabled: false
-        timestamp: "2025-06-23T16:09:37.769Z"
   id:
     type: string
   enabled:
@@ -63,6 +92,6 @@ properties:
     type: string
   coverage:
     type: number
-    description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+    description: "Rollout Percent (0–1). Percent of traffic included in this experiment. Users not included will skip this rule."
   hashAttribute:
     type: string

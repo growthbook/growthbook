@@ -23,7 +23,10 @@ properties:
       $ref: "./postFeature/FeatureEnvironment.yaml"
   prerequisites:
     type: array
-    description: "Feature IDs. Each feature must evaluate to `true`"
+    description: |
+      Feature-level prerequisite feature flag IDs. Each referenced feature must evaluate to `true`
+      before any rules in this feature are evaluated. For rule-level prerequisites with conditions,
+      use the `prerequisites` field on individual rules.
     items:
       type: string
   jsonSchema:
@@ -50,3 +53,9 @@ properties:
       value:
         type: string
         description: The feature value assigned to users in the holdout treatment group
+  adminOverride:
+    type: boolean
+    default: false
+    description: |
+      Pass `true` to bypass approval requirements and immediately publish the change.
+      Requires the organization setting "REST API always bypasses approval requirements" to be enabled.

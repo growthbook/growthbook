@@ -1,0 +1,176 @@
+summary: Update a rule in a draft revision
+description: |
+  Applies a partial patch to an existing rule. The rule type cannot be changed —
+  to switch types, delete the rule and add a new one.
+
+  For `force`/`rollout` rules, the type is automatically re-inferred after the patch:
+  if `coverage` ends up less than 1, the rule becomes a `rollout` (and `hashAttribute` is required);
+  otherwise it becomes a `force` rule.
+
+  Only supply the fields you want to change. Fields not included in the request are
+  left unchanged from the existing rule.
+
+  **Targeting fields** (all rule types):
+  - `condition` — JSON string, MongoDB-style query syntax. Omit or pass `""` to match everyone.
+    Example: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+  - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
+  - `prerequisites` — array of `{id: string, condition: string}` where `condition` is
+    evaluated against `{"value": <flag_value>}`. Example: `{"value": true}`
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+  - in: path
+    name: ruleId
+    required: true
+    schema:
+      type: string
+operationId: putFeatureRevisionRule
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+          - rule
+        properties:
+          environment:
+            type: string
+          rule:
+            type: object
+            description: |
+              Fields to update on the rule. Only the fields you supply are changed.
+              The rule **type cannot be changed** — include `type` only as an optional
+              re-assertion hint (useful for client-side schema selection in codegen or
+              IDE tooling). If provided and it doesn't match the existing rule type, a
+              400 is returned.
+
+              Fields by rule type:
+              - **force/rollout**: `value`, `coverage`, `hashAttribute`, `seed`, targeting fields
+              - **experiment-ref**: `experimentId`, `variations`, targeting fields
+              - **safe-rollout**: `controlValue`, `variationValue`, `hashAttribute`, targeting fields
+            properties:
+              type:
+                type: string
+                enum: [force, rollout, experiment-ref, safe-rollout]
+                description: |
+                  Optional re-assertion of the existing rule type. If provided, must match the
+                  server-stored type — this field cannot change the rule type. Supplying it enables
+                  client-side discriminated schema selection (e.g. in generated SDK clients).
+              description:
+                type: string
+              enabled:
+                type: boolean
+              condition:
+                type: string
+                description: "Targeting condition as a JSON string (MongoDB-style). Example: `{\"country\": \"US\"}`"
+              savedGroups:
+                type: array
+                description: "Saved-group targeting. Uses internal format: `[{match, ids}]`"
+                items:
+                  type: object
+                  required: [match, ids]
+                  properties:
+                    match:
+                      type: string
+                      enum: [all, any, none]
+                    ids:
+                      type: array
+                      items:
+                        type: string
+              prerequisites:
+                type: array
+                description: "Prerequisite feature flags. Condition evaluated against `{\"value\": <flag_value>}`"
+                items:
+                  type: object
+                  required: [id, condition]
+                  properties:
+                    id:
+                      type: string
+                      description: "Feature ID of the prerequisite"
+                    condition:
+                      type: string
+                      description: "JSON string against `{\"value\": ...}`. Example: `{\"value\": true}`"
+              value:
+                type: string
+                description: "*(force/rollout only)* The value to serve"
+              coverage:
+                type: number
+                minimum: 0
+                maximum: 1
+                description: |
+                  *(force/rollout only)* Rollout Percent (0–1). Setting this below 1 converts the rule
+                  to a `rollout` type; at 1 (or omitted) it becomes a `force` rule.
+              hashAttribute:
+                type: string
+                description: "*(rollout/safe-rollout)* User attribute used for bucketing"
+              seed:
+                type: string
+                description: "*(force/rollout)* Hash seed override"
+              experimentId:
+                type: string
+                description: "*(experiment-ref only)* Linked experiment ID"
+              variations:
+                type: array
+                description: "*(experiment-ref only)* Variation values"
+                items:
+                  type: object
+                  required: [variationId, value]
+                  properties:
+                    variationId:
+                      type: string
+                    value:
+                      type: string
+              controlValue:
+                type: string
+                description: "*(safe-rollout only)* Value served to the control group"
+              variationValue:
+                type: string
+                description: "*(safe-rollout only)* Value served to the variation group"
+          rampAction:
+            $ref: "../schemas/RevisionRampAction.yaml"
+            description: "Optional ramp schedule action to associate with this rule"
+          schedule:
+            type: object
+            description: |
+              Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules` directly.
+              Ignored when `rampAction` is also provided.
+              - `startDate` — enables the rule at this time (rule is set to disabled until then)
+              - `endDate` — disables the rule at this time
+              If the existing rule already uses legacy `scheduleRules`, those are updated in-place
+              instead of creating a ramp schedule.
+
+              **Error:** If this rule already has a ramp schedule (live or pending on this revision),
+              a 400 is returned with the schedule ID. Update the schedule directly via
+              `PUT /api/v1/ramp-schedules/{id}` instead.
+            properties:
+              startDate:
+                type: string
+                format: date-time
+                nullable: true
+              endDate:
+                type: string
+                format: date-time
+                nullable: true
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

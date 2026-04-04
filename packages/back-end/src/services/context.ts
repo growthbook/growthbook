@@ -243,7 +243,8 @@ export class ReqContextClass {
     this.auditUser = auditUser;
     this.teams = teams || [];
 
-    this.isApiRequest = auditUser?.type === "api_key";
+    this.isApiRequest =
+      auditUser?.type === "api_key" || auditUser?.type === "api";
     this.role = role;
     this.apiKey = apiKey;
     this.req = req;

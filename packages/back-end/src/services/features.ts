@@ -53,11 +53,11 @@ import {
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  SafeRolloutRule,
 } from "shared/validators";
 import {
   AttributeMap,
   ExperimentRefRule,
-  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -2007,25 +2007,27 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
       return experimentRefRule;
-    } else if (r.type === "experiment") {
-      const values = r.values || r.value;
-      if (!values) {
-        throw new Error("Missing values");
-      }
-      const experimentRule: ExperimentRule = {
-        // missing id will be filled in by addIdsToRules
+    } else if (r.type === "safe-rollout") {
+      const safeRolloutRule: SafeRolloutRule = {
         id: r.id ?? "",
-        type: r.type,
-        hashAttribute: r.hashAttribute ?? "",
-        coverage: r.coverage,
-        // missing tracking key will be filled in by addIdsToRules
-        trackingKey: r.trackingKey ?? "",
+        type: "safe-rollout",
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
-        values: values,
+        controlValue: r.controlValue,
+        variationValue: r.variationValue,
+        safeRolloutId: r.safeRolloutId,
+        hashAttribute: r.hashAttribute,
+        trackingKey: r.trackingKey,
+        seed: r.seed,
+        status: "running" as const,
+        condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
-      return experimentRule;
+      return safeRolloutRule;
     } else if (r.type === "force") {
       const forceRule: ForceRule = {
         // missing id will be filled in by addIdsToRules
@@ -2046,7 +2048,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     const rolloutRule: RolloutRule = {
       // missing id will be filled in by addIdsToRules
       id: r.id ?? "",
-      type: r.type,
+      type: "rollout",
       coverage: r.coverage,
       description: r.description ?? "",
       hashAttribute: r.hashAttribute,

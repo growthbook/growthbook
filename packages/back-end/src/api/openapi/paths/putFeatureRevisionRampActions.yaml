@@ -1,0 +1,49 @@
+summary: Upsert a ramp action on a draft revision
+description: |
+  Associates or clears a ramp schedule action for a specific rule on the draft.
+  When published, a `create` action creates a new ramp schedule; a `detach` action removes one.
+  Pass `null` for action to clear any pending ramp action for the ruleId.
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: putFeatureRevisionRampActions
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - ruleId
+          - action
+        properties:
+          ruleId:
+            type: string
+          action:
+            nullable: true
+            description: "The ramp action to set, or null to clear any pending action for this ruleId"
+            oneOf:
+              - $ref: "../schemas/RevisionRampAction.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

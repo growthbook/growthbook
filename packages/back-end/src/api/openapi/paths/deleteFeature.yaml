@@ -1,12 +1,21 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
+  - in: query
+    name: adminOverride
+    required: false
+    schema:
+      type: boolean
+      default: false
+    description: |
+      Pass `true` to bypass the live-feature guard and delete without archiving first.
+      Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
 tags:
   - features
 summary: Deletes a single feature
 description: |
   Permanently deletes a feature and all of its revisions.
 
-  Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+  Archived features can be deleted freely. Deleting a live (non-archived) feature requires passing `?adminOverride=true` and the org setting "REST API always bypasses approval requirements" to be enabled.
 operationId: deleteFeature
 x-codeSamples:
   - lang: "cURL"

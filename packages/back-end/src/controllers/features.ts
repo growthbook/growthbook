@@ -38,6 +38,7 @@ import {
   RevisionMetadata,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  isNamedUser,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -55,6 +56,7 @@ import { FeatureUsageRecords } from "shared/types/realtime";
 import {
   EventUserForResponseLocals,
   EventUserLoggedIn,
+  EventUserApi,
 } from "shared/types/events/event-types";
 import {
   FeatureRevisionInterface,
@@ -956,7 +958,7 @@ export async function postFeatureReviewOrComment(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const createdByUser = revision.createdBy as EventUserLoggedIn;
+  const createdByUser = revision.createdBy as EventUserLoggedIn | EventUserApi;
 
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
@@ -973,9 +975,7 @@ export async function postFeatureReviewOrComment(
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) =>
-          c?.type === "dashboard" &&
-          (c as EventUserLoggedIn).id === context.userId,
+        (c) => isNamedUser(c) && c.id === context.userId,
       );
       if (isSelfApproval) {
         throw new Error("You cannot approve a draft you contributed to.");

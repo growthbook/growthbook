@@ -209,7 +209,15 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    const canBypass = !!req.context.org.settings?.restApiBypassesReviews;
+    const adminOverride = !!req.body.adminOverride;
+    const canBypass =
+      adminOverride && !!req.context.org.settings?.restApiBypassesReviews;
+
+    if (adminOverride && !req.context.org.settings?.restApiBypassesReviews) {
+      throw new Error(
+        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
+      );
+    }
 
     // Tags go into the revision metadata; capture them before stripping from updates.
     const newTagsForDiff = updates.tags;

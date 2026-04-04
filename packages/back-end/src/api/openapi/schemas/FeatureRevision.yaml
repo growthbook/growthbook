@@ -1,110 +1,98 @@
 type: object
 required:
-  - baseVersion
+  - featureId
   - version
-  - comment
-  - date
+  - dateCreated
+  - dateUpdated
+  - createdBy
   - status
+  - comment
+  - baseVersion
+  - defaultValue
   - rules
 properties:
-  baseVersion:
-    type: integer
-  version:
-    type: integer
-  comment:
+  featureId:
     type: string
-  date:
+  version:
+    type: number
+  dateCreated:
     type: string
     format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  datePublished:
+    type: string
+    format: date-time
+    nullable: true
+  createdBy:
+    type: object
+    description: "User who created this revision"
+  publishedBy:
+    type: object
+    nullable: true
+    description: "User who published this revision"
   status:
     type: string
-  createdBy:
+    enum:
+      - draft
+      - published
+      - discarded
+      - approved
+      - changes-requested
+      - pending-review
+      - pending-parent
+  comment:
     type: string
-  publishedBy:
+    description: "Internal note attached to the revision"
+  title:
     type: string
+    description: "Short display title for the draft"
+  baseVersion:
+    type: number
+    description: "Version this draft was branched from"
   defaultValue:
     type: string
-    description: "The default value at the time this revision was created"
   rules:
     type: object
+    description: "Map of environment id → rule array for this revision"
     additionalProperties:
       type: array
       items:
         $ref: "./FeatureRule.yaml"
-  definitions:
-    type: object
-    additionalProperties:
-      type: string
-      description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
   environmentsEnabled:
     type: object
-    description: "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)"
     additionalProperties:
       type: boolean
-  envPrerequisites:
-    type: object
-    description: "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)"
-    additionalProperties:
-      type: array
-      items:
-        type: object
-        required:
-          - id
-          - condition
-        properties:
-          id:
-            type: string
-            description: "Feature ID"
-          condition:
-            type: string
   prerequisites:
     type: array
-    description: "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)"
     items:
       type: object
-      required:
-        - id
-        - condition
       properties:
         id:
           type: string
-          description: "Feature ID"
         condition:
           type: string
+  archived:
+    type: boolean
   metadata:
     type: object
-    description: "Metadata fields captured in this revision (only present when metadata gating is enabled)"
+    description: "Feature-level metadata snapshot at time of draft"
+  holdout:
+    type: object
+    nullable: true
     properties:
-      description:
+      id:
         type: string
-      owner:
+      value:
         type: string
-      project:
-        type: string
-      tags:
-        type: array
-        items:
-          type: string
-      neverStale:
-        type: boolean
-      valueType:
-        type: string
-      jsonSchema:
-        type: object
-        properties:
-          schemaType:
-            type: string
-            enum: ["schema", "simple"]
-          schema:
-            type: string
-          simple:
-            type: object
-            additionalProperties: true
-          date:
-            type: string
-            format: date-time
-          enabled:
-            type: boolean
-      customFields:
-        type: object
-        additionalProperties: true
+  contributors:
+    type: array
+    description: "Users who have edited this draft"
+    items:
+      type: object
+  rampActions:
+    type: array
+    description: "Pending ramp schedule actions to execute when this revision is published"
+    items:
+      $ref: "./RevisionRampAction.yaml"

@@ -1,0 +1,47 @@
+summary: Rebase a draft revision
+description: |
+  Resolves merge conflicts using per-field strategies and rebases the draft onto the current live version.
+  Provide an empty strategies object to auto-merge where possible.
+  If any conflicts remain unresolved, a 409 is returned with the remaining conflicts.
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: postFeatureRevisionRebase
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          strategies:
+            type: object
+            description: "Map of conflict key to resolution strategy"
+            additionalProperties:
+              type: string
+              enum:
+                - overwrite
+                - discard
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

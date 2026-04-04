@@ -1,0 +1,58 @@
+parameters:
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
+  - in: query
+    name: featureId
+    schema:
+      type: string
+    description: "Filter to revisions for a specific feature."
+  - in: query
+    name: status
+    schema:
+      type: string
+      enum:
+        - draft
+        - published
+        - discarded
+        - approved
+        - changes-requested
+        - pending-review
+        - pending-parent
+    description: "Filter by revision status."
+  - in: query
+    name: author
+    schema:
+      type: string
+    description: "Filter to revisions created by this user ID (matches `createdBy.id` for dashboard users)."
+summary: List feature revisions
+description: |
+  Returns a paginated list of feature revisions across all features in the organization.
+  Optionally filtered by feature, status, and/or author. Results are sorted newest-first.
+tags:
+  - feature-revisions
+operationId: listRevisions
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      # All open drafts
+      curl "https://api.growthbook.io/api/v1/revisions?status=draft" \
+        -u secret_abc123DEF456:
+
+      # Drafts by a specific user on a specific feature
+      curl "https://api.growthbook.io/api/v1/revisions?featureId=my_feature&author=usr_abc123" \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - revisions
+              properties:
+                revisions:
+                  type: array
+                  items:
+                    $ref: "../schemas/FeatureRevision.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

@@ -2,6 +2,24 @@ parameters:
   - $ref: "../parameters.yaml#/id"
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
+  - in: query
+    name: status
+    schema:
+      type: string
+      enum:
+        - draft
+        - published
+        - discarded
+        - approved
+        - changes-requested
+        - pending-review
+        - pending-parent
+    description: "Filter revisions by status."
+  - in: query
+    name: author
+    schema:
+      type: string
+    description: "Filter to revisions created by this user ID (matches `createdBy.id` for dashboard users)."
 summary: Get all revisions for a feature
 tags:
   - features
@@ -9,7 +27,7 @@ operationId: getFeatureRevisions
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&offset=0 \
+      curl "https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&status=draft" \
         -u secret_abc123DEF456:
 responses:
   "200":

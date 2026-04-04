@@ -1,0 +1,16 @@
+li[data-item-id="tag/feature-revisions"] > label span:first-of-type::after,
+[id="tag/feature-revisions"] h2::after {
+  content: "BETA";
+  background-color: #fbbf24;
+  color: #78350f;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0px 8px;
+  margin-left: 8px;
+  align-items: center;
+  display: inline-flex;
+  height: 18px;
+  vertical-align: middle;
+}

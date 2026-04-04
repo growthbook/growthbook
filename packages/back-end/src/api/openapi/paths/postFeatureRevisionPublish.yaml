@@ -1,0 +1,51 @@
+summary: Publish a revision
+description: |
+  Publishes the revision. Returns 409 if merge conflicts exist — call rebase first to resolve them.
+
+  If the feature requires approval, the revision must be in `approved` status unless `adminOverride: true`
+  is passed in the request body. Admin override requires the organization setting **"REST API always bypasses
+  approval requirements"** to be enabled and the caller to have bypass-approval permissions.
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: postFeatureRevisionPublish
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          comment:
+            type: string
+            default: ""
+          adminOverride:
+            type: boolean
+            default: false
+            description: |
+              Bypass approval requirements and publish regardless of revision status.
+              Requires the organization setting "REST API always bypasses approval requirements"
+              and appropriate bypass-approval permissions.
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

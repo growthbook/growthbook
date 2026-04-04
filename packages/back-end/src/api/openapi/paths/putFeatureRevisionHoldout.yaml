@@ -1,0 +1,52 @@
+summary: Set holdout in a draft revision
+description: |
+  Associates a holdout experiment with this revision. Pass null to clear.
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: putFeatureRevisionHoldout
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - holdout
+        properties:
+          holdout:
+            nullable: true
+            type: object
+            required:
+              - id
+              - value
+            properties:
+              id:
+                type: string
+                description: "Holdout experiment ID"
+              value:
+                type: string
+                description: "Value to serve to users in the holdout"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

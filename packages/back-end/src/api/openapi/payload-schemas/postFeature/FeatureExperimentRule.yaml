@@ -47,6 +47,7 @@ properties:
         maxItems: 2
   coverage:
     type: number
+    description: "Rollout Percent (0–1)"
   scheduleRules:
     type: array
     items:

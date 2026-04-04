@@ -48,6 +48,7 @@ import queryRouter from "./queries/queries.router";
 import settingsRouter from "./settings/settings.router";
 import informationSchemaTablesRouter from "./information-schema-tables/information-schema-tables.router";
 import rampSchedulesRouter from "./ramp-schedules/ramp-schedules.router";
+import revisionsRouter from "./revisions/revisions.router";
 import { defineRouterForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
@@ -161,6 +162,7 @@ router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.use("/information-schema-tables", informationSchemaTablesRouter);
 router.use("/ramp-schedules", rampSchedulesRouter);
+router.use("/revisions", revisionsRouter);
 router.post("/transform-copy", postCopyTransform);
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;

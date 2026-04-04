@@ -10,7 +10,11 @@ import {
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { EventUserLoggedIn } from "shared/types/events/event-types";
+import {
+  EventUserLoggedIn,
+  EventUserApi,
+} from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
   getSafeRolloutDaysLeft,
@@ -119,8 +123,8 @@ const NeedingAttention = (): React.ReactElement | null => {
           (item.status === "changes-requested" ||
             item.status === "approved" ||
             item.status === "draft") &&
-          item.createdBy?.type === "dashboard" &&
-          item.createdBy?.id === user?.id;
+          isNamedUser(item.createdBy) &&
+          item.createdBy.id === user?.id;
         const isArchived = item.featureMeta?.archived;
         const safeRolloutRequiresAttention =
           safeRolloutDecisionStatus?.status === "unhealthy" || !hasDaysLeft;
@@ -220,7 +224,10 @@ const NeedingAttention = (): React.ReactElement | null => {
   const revisions = useAddComputedFields(
     featuresAndRevisions,
     (revision) => {
-      const createdBy = revision?.createdBy as EventUserLoggedIn | null;
+      const createdBy = revision?.createdBy as
+        | EventUserLoggedIn
+        | EventUserApi
+        | null;
       let dateAndStatus = new Date(revision?.dateUpdated).getTime();
       switch (revision?.status) {
         case "draft":

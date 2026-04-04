@@ -1,0 +1,82 @@
+summary: Revert a feature to this revision
+description: |
+  Creates a new revision whose rules, default value, environment toggles, and prerequisites
+  match this (published) revision, effectively undoing all changes made since it was live.
+
+  Use `strategy: "draft"` (default) to create an editable draft you can review before publishing.
+  Use `strategy: "publish"` to create and immediately publish the revert — equivalent to the
+  feature-level `/revert` endpoint but scoped to a specific version number in the URL.
+
+  The target revision must be a **published** revision and must not be the current live version.
+
+  Pass `adminOverride: true` with `strategy: "publish"` to bypass approval requirements.
+  Requires the "REST API always bypasses approval requirements" organization setting.
+tags:
+  - feature-revisions
+operationId: postFeatureRevisionRevert
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Version number of the published revision to revert to"
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      # Create a revert draft
+      curl -X POST https://api.growthbook.io/api/v1/features/my_feature/revisions/3/revert \
+        -H "Content-Type: application/json" \
+        -d '{"strategy": "draft", "comment": "Rolling back bad release"}' \
+        -u secret_abc123DEF456:
+
+      # Immediately publish the revert (requires adminOverride if approval rules apply)
+      curl -X POST https://api.growthbook.io/api/v1/features/my_feature/revisions/3/revert \
+        -H "Content-Type: application/json" \
+        -d '{"strategy": "publish", "adminOverride": true}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          strategy:
+            type: string
+            enum:
+              - draft
+              - publish
+            default: draft
+            description: |
+              - `draft` — create an editable draft revision for review before publishing (default)
+              - `publish` — create and immediately publish the revert in one step
+          comment:
+            type: string
+            description: "Optional comment recorded on the new revision. Defaults to 'Revert to revision #N'."
+          title:
+            type: string
+            description: "Optional title for the new draft revision (only used with `strategy: \"draft\"`)."
+          adminOverride:
+            type: boolean
+            default: false
+            description: |
+              Pass `true` with `strategy: "publish"` to bypass approval requirements and publish immediately.
+              Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

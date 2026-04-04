@@ -1,0 +1,48 @@
+summary: Check merge status
+description: Returns whether the revision can be merged cleanly, along with any conflicts.
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+operationId: getFeatureRevisionMergeStatus
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - success
+            - conflicts
+          properties:
+            success:
+              type: boolean
+            conflicts:
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                  resolved:
+                    type: boolean
+                  base:
+                    type: string
+                  live:
+                    type: string
+                  revision:
+                    type: string
+            result:
+              type: object
+              description: "Merged result (only present when success is true)"

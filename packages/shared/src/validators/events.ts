@@ -38,6 +38,18 @@ const eventUserLoggedIn = z
 
 export type EventUserLoggedIn = z.infer<typeof eventUserLoggedIn>;
 
+// Actions performed via a Personal Access Token carry full user identity.
+const eventUserApi = z
+  .object({
+    type: z.literal("api"),
+    id: z.string(),
+    email: z.string(),
+    name: z.string(),
+  })
+  .strict();
+
+export type EventUserApi = z.infer<typeof eventUserApi>;
+
 const eventUserApiKey = z
   .object({
     type: z.literal("api_key"),
@@ -55,12 +67,20 @@ export type EventUserApiKey = z.infer<typeof eventUserApiKey>;
 
 export const eventUser = z.union([
   eventUserLoggedIn,
+  eventUserApi,
   eventUserApiKey,
   eventUserSystem,
   z.null(),
 ]);
 
 export type EventUser = z.infer<typeof eventUser>;
+
+/** True for users who have an identity (name/email), regardless of how they accessed the system. */
+export function isNamedUser(
+  user: EventUser | null | undefined,
+): user is EventUserLoggedIn | EventUserApi {
+  return user?.type === "dashboard" || user?.type === "api";
+}
 
 export const eventData = <T extends z.ZodTypeAny>(data: T) =>
   z

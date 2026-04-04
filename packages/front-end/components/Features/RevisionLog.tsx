@@ -3,6 +3,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { isNamedUser } from "shared/validators";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { date, datetime } from "shared/dates";
@@ -77,7 +78,7 @@ export function RevisionLogRow({
   const hasExpandable = !comment && valueContainsData;
 
   let name = "API";
-  if (log.user?.type === "dashboard") {
+  if (isNamedUser(log.user)) {
     name = users.get(log.user.id)?.name ?? "";
   }
 
@@ -115,7 +116,7 @@ export function RevisionLogRow({
           </Text>
         )}
         <Flex align="center" gap="1" ml="auto">
-          {log.user?.type === "dashboard" ? (
+          {isNamedUser(log.user) ? (
             <Avatar email={log.user.email} size={16} name={name} showEmail />
           ) : (
             <Text size="small" color="text-low">

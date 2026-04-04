@@ -277,7 +277,7 @@ export async function updateFactTable(
   // Allow changing columns even for API-managed fact tables
   if (
     factTable.managedBy === "api" &&
-    context.auditUser?.type !== "api_key" &&
+    !context.isApiRequest &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
@@ -573,7 +573,7 @@ export async function updateFactFilter(
   if (
     factTable.managedBy === "api" &&
     filters[filterIndex]?.managedBy === "api" &&
-    context.auditUser?.type !== "api_key"
+    !context.isApiRequest
   ) {
     throw new Error("This fact filter is managed by the API");
   }
@@ -610,7 +610,7 @@ export async function deleteFactTable(
   if (
     !bypassManagedByCheck &&
     factTable.managedBy === "api" &&
-    context.auditUser?.type !== "api_key"
+    !context.isApiRequest
   ) {
     throw new Error(
       "Cannot delete fact table managed by API if the request isn't from the API.",
@@ -659,7 +659,7 @@ export async function deleteFactFilter(
   if (
     factTable.managedBy === "api" &&
     filter?.managedBy === "api" &&
-    context.auditUser?.type !== "api_key"
+    !context.isApiRequest
   ) {
     throw new Error("This filter is managed by the API");
   }

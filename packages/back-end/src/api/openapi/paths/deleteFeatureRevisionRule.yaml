@@ -1,0 +1,42 @@
+summary: Delete a rule from a draft revision
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+  - in: path
+    name: ruleId
+    required: true
+    schema:
+      type: string
+operationId: deleteFeatureRevisionRule
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+        properties:
+          environment:
+            type: string
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

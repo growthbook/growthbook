@@ -4,7 +4,7 @@ import {
   MinimalFeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { RampScheduleInterface } from "shared/validators";
+import { RampScheduleInterface, isNamedUser } from "shared/validators";
 import React, {
   useCallback,
   useEffect,
@@ -812,12 +812,11 @@ function computeBeforeAfter(
 function LogEntryMeta({ log }: { log: RevisionLog }) {
   const { users } = useUser();
 
-  const displayName =
-    log.user?.type === "dashboard"
-      ? (users.get(log.user.id)?.name ?? log.user.name ?? "")
-      : log.user?.type === "api_key"
-        ? "API Key"
-        : "System";
+  const displayName = isNamedUser(log.user)
+    ? (users.get(log.user.id)?.name ?? log.user.name ?? "")
+    : log.user?.type === "api_key"
+      ? "API Key"
+      : "System";
 
   const rows: [string, React.ReactNode][] = [
     ...(log.subject
@@ -825,7 +824,7 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
       : []),
     [
       "Author",
-      log.user?.type === "dashboard" ? (
+      isNamedUser(log.user) ? (
         <Avatar email={log.user.email} size={24} name={displayName} showEmail />
       ) : (
         <Text size="small">{displayName}</Text>
@@ -2025,7 +2024,7 @@ export default function CompareRevisionsModal({
                                     </div>
                                     <Text size="small" color="text-low">
                                       {datetime(logEntry.timestamp)}
-                                      {logEntry.user?.type === "dashboard"
+                                      {isNamedUser(logEntry.user)
                                         ? ` · ${logEntry.user.name}`
                                         : logEntry.user?.type === "api_key"
                                           ? " · API"

@@ -7,7 +7,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { rampStep, rampStepAction } from "./ramp-schedule";
+import { rampStep, rampStepAction, rampEndTrigger } from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -272,12 +272,8 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // These are deferred and only executed when the revision is published.
 // Only create and detach are revision-bound; state changes (pause, resume, etc.)
 // are real-time and operate directly on the live ramp schedule.
-const revisionRampEndTrigger = z.object({
-  type: z.literal("scheduled"),
-  at: z.string(),
-});
 const revisionRampEndConditionSchema = z.object({
-  trigger: revisionRampEndTrigger.optional(),
+  trigger: rampEndTrigger.optional(),
 });
 
 export const revisionRampCreateAction = z.object({
@@ -346,6 +342,24 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
   .strict();
 
 export type FeatureRevisionInterface = z.infer<typeof featureRevisionInterface>;
+
+export const revisionChangesSchema = featureRevisionInterface
+  .pick({
+    title: true,
+    comment: true,
+    defaultValue: true,
+    rules: true,
+    baseVersion: true,
+    environmentsEnabled: true,
+    prerequisites: true,
+    archived: true,
+    metadata: true,
+    holdout: true,
+    rampActions: true,
+  })
+  .partial();
+
+export type RevisionChanges = z.infer<typeof revisionChangesSchema>;
 
 export const featureInterface = z
   .object({

@@ -19,6 +19,7 @@ import {
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -50,7 +51,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       version: version,
     });
     if (!revision) {
-      throw new Error("Could not find feature revision");
+      throw new NotFoundError("Could not find feature revision");
     }
 
     if (
@@ -114,6 +115,14 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       revision.prerequisites !== undefined &&
       !isEqual(revision.prerequisites, feature.prerequisites || [])
     ) {
+      if (
+        !context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, environmentIds)),
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
       changes.prerequisites = revision.prerequisites;
     }
 
@@ -162,36 +171,57 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         metadataChanges.valueType = m.valueType;
         hasMetaChange = true;
       }
-      if (hasMetaChange) changes.metadata = metadataChanges;
+      if (hasMetaChange) {
+        if (
+          !context.permissions.canPublishFeature(
+            feature,
+            Array.from(getEnabledEnvironments(feature, environmentIds)),
+          )
+        ) {
+          context.permissions.throwPermissionError();
+        }
+        changes.metadata = metadataChanges;
+      }
     }
 
+    const adminOverride = !!req.body.adminOverride;
     const apiBypassesReviews =
       !!req.context.org.settings?.restApiBypassesReviews;
 
-    if (!apiBypassesReviews) {
-      const liveRevision = await getRevision({
-        context,
-        organization: feature.organization,
-        featureId: feature.id,
-        version: feature.version,
-      });
-      if (!liveRevision) {
-        throw new Error("Could not load live revision for feature");
-      }
-      const reviewRequired = checkIfRevisionNeedsReview({
-        feature,
-        baseRevision: liveRevision,
-        revision,
-        allEnvironments: allEnvironmentIds,
-        settings: req.organization.settings,
-        requireApprovalsLicensed:
-          req.context.hasPremiumFeature("require-approvals"),
-      });
-      if (reviewRequired) {
+    const liveRevision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!liveRevision) {
+      throw new Error("Could not load live revision for feature");
+    }
+
+    const reviewRequired = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: liveRevision,
+      revision: { ...liveRevision, ...changes } as typeof liveRevision,
+      allEnvironments: allEnvironmentIds,
+      settings: req.organization.settings,
+      requireApprovalsLicensed:
+        req.context.hasPremiumFeature("require-approvals"),
+    });
+
+    if (reviewRequired) {
+      if (!adminOverride) {
         throw new PermissionError(
           "This revert requires approval before changes can be published. " +
-            "Enable 'REST API always bypasses approval requirements' in organization settings.",
+            "Pass adminOverride: true if your organization allows REST API bypass.",
         );
+      }
+      if (!apiBypassesReviews) {
+        throw new PermissionError(
+          "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
+        );
+      }
+      if (!req.context.permissions.canBypassApprovalChecks(feature)) {
+        req.context.permissions.throwPermissionError();
       }
     }
 
@@ -203,7 +233,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         org: req.organization,
         changes,
         comment: comment ?? `Reverted to revision #${version}`,
-        canBypassApprovalChecks: apiBypassesReviews,
+        canBypassApprovalChecks: adminOverride && apiBypassesReviews,
       });
 
     await req.audit({

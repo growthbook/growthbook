@@ -116,6 +116,7 @@ Triggered when a feature is created
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -161,6 +162,7 @@ Triggered when a feature is created
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -308,6 +310,7 @@ Triggered when a feature is created
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -353,6 +356,7 @@ Triggered when a feature is created
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -457,6 +461,11 @@ Triggered when a feature is created
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -566,6 +575,7 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -611,6 +621,7 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -758,6 +769,7 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -803,6 +815,7 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -980,6 +993,7 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1025,6 +1039,7 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1172,6 +1187,7 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1217,6 +1233,7 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -1330,6 +1347,11 @@ Triggered when a feature is updated
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1435,6 +1457,7 @@ Triggered when a feature is deleted
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1480,6 +1503,7 @@ Triggered when a feature is deleted
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1627,6 +1651,7 @@ Triggered when a feature is deleted
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1672,6 +1697,7 @@ Triggered when a feature is deleted
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -1780,6 +1806,11 @@ Triggered when a feature is deleted
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1817,6 +1848,11 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -1862,6 +1898,11 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1900,6 +1941,11 @@ Triggered when a safe rollout is failing a health check and may not be working a
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -1947,6 +1993,11 @@ Triggered when a ramp schedule is created for a feature
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -1984,6 +2035,11 @@ Triggered when a ramp schedule is deleted from a feature
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2031,6 +2087,11 @@ Triggered when a feature ramp schedule starts
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2070,6 +2131,11 @@ Triggered when a feature ramp schedule completes all steps
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2118,6 +2184,11 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2158,6 +2229,11 @@ Triggered when a feature ramp schedule is jumped to a specific step
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2205,6 +2281,11 @@ Triggered when a feature ramp schedule advances to the next step
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2245,6 +2326,11 @@ Triggered when a feature ramp step is waiting for approval
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -2312,6 +2398,7 @@ Triggered when an experiment is created
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2428,6 +2515,11 @@ Triggered when an experiment is created
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2491,6 +2583,7 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2634,6 +2727,7 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2755,6 +2849,11 @@ Triggered when an experiment is updated
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2818,6 +2917,7 @@ Triggered when an experiment is deleted
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2934,6 +3034,11 @@ Triggered when an experiment is deleted
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -2987,6 +3092,11 @@ Triggered when a warning condition is detected on an experiment
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3034,6 +3144,11 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3071,6 +3186,11 @@ Triggered when an experiment is ready to ship a variation.
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -3116,6 +3236,11 @@ Triggered when an experiment should be rolled back to the control.
         email: string;
         name: string;
     } | {
+        type: "api";
+        id: string;
+        email: string;
+        name: string;
+    } | {
         type: "api_key";
         apiKey: string;
     } | {
@@ -3153,6 +3278,11 @@ Triggered when an experiment has reached the desired power point, but the result
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;
@@ -3198,6 +3328,11 @@ Triggered when a user logs in
     };
     user: {
         type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api";
         id: string;
         email: string;
         name: string;

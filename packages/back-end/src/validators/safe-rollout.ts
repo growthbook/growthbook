@@ -3,6 +3,7 @@ import {
   createSafeRolloutValidator,
 } from "shared/validators";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
@@ -31,6 +32,24 @@ export async function validateCreateSafeRolloutFields(
   if (safeRolloutFields.datasourceId === undefined) {
     throw new Error("Datasource must be specified for safe rollouts");
   }
+  const datasource = await getDataSourceById(
+    context,
+    safeRolloutFields.datasourceId,
+  );
+  if (!datasource) {
+    throw new Error("Invalid datasource: " + safeRolloutFields.datasourceId);
+  }
+
+  const exposureQueries = datasource.settings?.queries?.exposure || [];
+  const exposureQueryExists = exposureQueries.some(
+    (q) => q.id === safeRolloutFields.exposureQueryId,
+  );
+  if (!exposureQueryExists) {
+    throw new Error(
+      "Invalid exposure query: " + safeRolloutFields.exposureQueryId,
+    );
+  }
+
   if (
     safeRolloutFields.guardrailMetricIds === undefined ||
     safeRolloutFields.guardrailMetricIds.length === 0

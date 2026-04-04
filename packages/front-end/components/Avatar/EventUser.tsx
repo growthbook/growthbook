@@ -1,4 +1,5 @@
 import { EventUser as EventUserType } from "shared/types/events/event-types";
+import { isNamedUser } from "shared/validators";
 import Avatar from "./Avatar";
 
 export interface Props {
@@ -7,7 +8,7 @@ export interface Props {
 }
 
 export default function EventUser({ user, display = "avatar" }: Props) {
-  if (user?.type === "dashboard" && user?.email) {
+  if (isNamedUser(user) && user.email) {
     if (display === "avatar-with-email") {
       return <Avatar email={user.email} name={user.name} size={22} showEmail />;
     }

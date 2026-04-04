@@ -1,0 +1,276 @@
+summary: Add a rule to a draft revision
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+  - in: path
+    name: version
+    required: true
+    schema:
+      type: integer
+    description: "Revision version number"
+operationId: postFeatureRevisionRuleAdd
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - environment
+          - rule
+        properties:
+          environment:
+            type: string
+          rule:
+            description: |
+              Rule to add. For force/rollout rules `type` is optional and inferred from rollout percent (`coverage`):
+              `coverage < 1` → rollout (requires `hashAttribute`); otherwise → force.
+              Use `experiment-ref` to link an existing experiment or bandit by ID.
+              `description` is optional and defaults to `""`. The server always generates the rule ID.
+
+              All rule types accept `condition`, `savedGroups`, and `prerequisites` for targeting.
+            oneOf:
+              - title: "Force / Rollout rule"
+                type: object
+                required:
+                  - value
+                properties:
+                  type:
+                    type: string
+                    enum: [force, rollout]
+                    description: "Optional — inferred from coverage when omitted"
+                  value:
+                    type: string
+                  coverage:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: "Rollout Percent (0–1). Values < 1 trigger rollout inference and require hashAttribute"
+                  hashAttribute:
+                    type: string
+                  seed:
+                    type: string
+                  description:
+                    type: string
+                  enabled:
+                    type: boolean
+                  condition:
+                    type: string
+                    description: |
+                      Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                      Evaluated against user attributes. Omit or pass `""` to match everyone.
+
+                      Examples: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}` · `{"$or": [{"country":"US"},{"country":"CA"}]}`
+                    example: '{"country": "US"}'
+                  savedGroups:
+                    type: array
+                    description: |
+                      Filter by Saved Groups (SDK Connections → Saved Groups). All entries are combined with AND.
+                    items:
+                      type: object
+                      required: [match, ids]
+                      properties:
+                        match:
+                          type: string
+                          enum: [all, any, none]
+                          description: "`all` = user must be in all groups · `any` = at least one · `none` = not in any"
+                        ids:
+                          type: array
+                          description: "Saved Group IDs"
+                          items:
+                            type: string
+                  prerequisites:
+                    type: array
+                    description: |
+                      Prerequisite feature flags that must evaluate to specific values before this rule applies.
+                      All prerequisites are combined with AND.
+                    items:
+                      type: object
+                      required: [id, condition]
+                      properties:
+                        id:
+                          type: string
+                          description: "Feature flag ID of the prerequisite"
+                        condition:
+                          type: string
+                          description: |
+                            A **JSON string** condition checked against `{"value": <feature_flag_value>}`.
+                            Examples: `{"value": true}` · `{"value": "premium"}` · `{"value": {"$in": ["a","b"]}}`
+                          example: '{"value": true}'
+              - title: "Experiment-ref rule"
+                description: "Links an existing experiment or bandit by experiment ID"
+                type: object
+                required:
+                  - type
+                  - experimentId
+                  - variations
+                properties:
+                  type:
+                    type: string
+                    enum: [experiment-ref]
+                  experimentId:
+                    type: string
+                    description: "ID of the existing experiment or bandit to link"
+                  variations:
+                    type: array
+                    items:
+                      type: object
+                      required: [value]
+                      properties:
+                        variationId:
+                          type: string
+                          description: "Variation ID from the linked experiment. If omitted, values are mapped to variations by index order."
+                        value:
+                          type: string
+                  condition:
+                    type: string
+                    description: |
+                      Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                      Evaluated against user attributes. Omit or pass `""` to match everyone.
+                    example: '{"country": "US"}'
+                  savedGroups:
+                    type: array
+                    description: "Filter by Saved Groups. All entries combined with AND."
+                    items:
+                      type: object
+                      required: [match, ids]
+                      properties:
+                        match:
+                          type: string
+                          enum: [all, any, none]
+                        ids:
+                          type: array
+                          items:
+                            type: string
+                  prerequisites:
+                    type: array
+                    description: "Prerequisite feature flags. All combined with AND."
+                    items:
+                      type: object
+                      required: [id, condition]
+                      properties:
+                        id:
+                          type: string
+                          description: "Feature flag ID"
+                        condition:
+                          type: string
+                          description: "JSON string against `{\"value\": ...}`. Example: `{\"value\": true}`"
+              - title: "Safe-rollout rule"
+                type: object
+                required:
+                  - type
+                  - controlValue
+                  - variationValue
+                  - hashAttribute
+                  - safeRolloutFields
+                properties:
+                  type:
+                    type: string
+                    enum: [safe-rollout]
+                  controlValue:
+                    type: string
+                    description: "Value served to the control group (baseline)"
+                  variationValue:
+                    type: string
+                    description: "Value served to the variation group being rolled out"
+                  hashAttribute:
+                    type: string
+                    description: "User attribute used for bucketing"
+                  trackingKey:
+                    type: string
+                    description: "Tracking key override (server-generated if omitted)"
+                  seed:
+                    type: string
+                    description: "Hash seed override (server-generated if omitted)"
+                  safeRolloutFields:
+                    type: object
+                    description: "Monitoring configuration for the safe rollout"
+                    required:
+                      - datasourceId
+                      - exposureQueryId
+                      - guardrailMetricIds
+                      - maxDuration
+                    properties:
+                      datasourceId:
+                        type: string
+                        description: "Data source ID for experiment analysis"
+                      exposureQueryId:
+                        type: string
+                        description: "Exposure query ID within the data source"
+                      guardrailMetricIds:
+                        type: array
+                        description: "Metric IDs to monitor for regressions (at least one required)"
+                        items:
+                          type: string
+                      maxDuration:
+                        type: object
+                        description: "Maximum monitoring window before auto-decision"
+                        required: [amount, unit]
+                        properties:
+                          amount:
+                            type: number
+                            minimum: 1
+                          unit:
+                            type: string
+                            enum: [weeks, days, hours, minutes]
+                      autoRollback:
+                        type: boolean
+                        default: false
+                        description: "Automatically roll back when a guardrail metric regresses"
+                  condition:
+                    type: string
+                    description: |
+                      Targeting condition as a **JSON string** using MongoDB-style query syntax.
+                      Evaluated against user attributes. Omit or pass `""` to match everyone.
+                    example: '{"country": "US"}'
+                  savedGroups:
+                    type: array
+                    description: "Filter by Saved Groups. All entries combined with AND."
+                    items:
+                      type: object
+                      required: [match, ids]
+                      properties:
+                        match:
+                          type: string
+                          enum: [all, any, none]
+                        ids:
+                          type: array
+                          items:
+                            type: string
+          rampAction:
+            $ref: "../schemas/RevisionRampAction.yaml"
+            description: "Optional ramp schedule action to associate with this rule (create or detach)"
+          schedule:
+            type: object
+            description: |
+              Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules`.
+              Ignored when `rampAction` is also provided.
+              - `startDate` — enables the rule at this time (rule is initially set to disabled)
+              - `endDate` — disables the rule at this time
+              A ramp schedule is created automatically with `ruleId` and `environment` inferred from context.
+            properties:
+              startDate:
+                type: string
+                format: date-time
+                nullable: true
+              endDate:
+                type: string
+                format: date-time
+                nullable: true
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"

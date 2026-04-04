@@ -258,18 +258,20 @@ export const createEvent = async <
       containsSecrets,
       user: context.userId
         ? {
-            type: "dashboard",
+            type: context.isApiRequest
+              ? "api" // personal access token
+              : "dashboard", // GB app
             id: context.userId,
             email: context.email,
             name: context.userName || "",
           }
         : context.apiKey
           ? {
-              type: "api_key",
+              type: "api_key", // system API key
               apiKey: context.apiKey,
             }
           : {
-              type: "system",
+              type: "system", // system event
             },
     },
     organizationId: context.org.id,

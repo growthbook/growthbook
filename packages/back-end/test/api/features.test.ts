@@ -800,7 +800,7 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalledWith(
-        expect.objectContaining({ canBypassApprovalChecks: true }),
+        expect.objectContaining({ canBypassApprovalChecks: false }),
       );
     });
 
@@ -813,7 +813,7 @@ describe("features API", () => {
       });
       const response = await request(app)
         .post("/api/v1/features/myfeature")
-        .send({ defaultValue: "true" });
+        .send({ defaultValue: "true", adminOverride: true });
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalledWith(

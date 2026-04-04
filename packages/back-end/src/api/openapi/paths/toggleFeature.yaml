@@ -6,6 +6,8 @@ post:
     Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
 
     Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+
+    Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
   tags:
     - features
   operationId: toggleFeature
@@ -39,6 +41,12 @@ post:
                   - 1
                   - 0
                   - ""
+            adminOverride:
+              type: boolean
+              default: false
+              description: |
+                Pass `true` to bypass approval requirements and immediately publish the change.
+                Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
   responses:
     "200":
       content:

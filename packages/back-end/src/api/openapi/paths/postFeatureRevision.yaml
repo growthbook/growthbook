@@ -1,0 +1,38 @@
+summary: Create a draft revision
+description: Creates a new draft revision branched from the specified base version (defaults to the current live version).
+tags:
+  - feature-revisions
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+    description: "Feature ID"
+operationId: postFeatureRevision
+requestBody:
+  required: false
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          comment:
+            type: string
+            default: ""
+          title:
+            type: string
+          baseVersion:
+            type: integer
+            description: "Version to branch from (defaults to current live version)"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - revision
+          properties:
+            revision:
+              $ref: "../schemas/FeatureRevision.yaml"
