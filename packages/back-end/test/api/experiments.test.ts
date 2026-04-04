@@ -77,6 +77,9 @@ describe("experiments API", () => {
             },
           }),
         },
+        factMetrics: {
+          getByIds: jest.fn().mockResolvedValue([]),
+        },
       },
       permissions: {
         canViewExperiment: () => true,
@@ -1250,6 +1253,127 @@ describe("experiments API", () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("message");
       expect(res.body.message).toContain("No results found");
+    });
+
+    it("marks missing fact metrics as deleted in results", async () => {
+      updateReqContext({
+        org,
+        models: {
+          factMetrics: {
+            getByIds: jest.fn().mockResolvedValue([]),
+          },
+        },
+      });
+
+      const experimentWithPhases = {
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: false },
+          },
+        ],
+        variations: [
+          {
+            id: "0",
+            key: "control",
+            name: "Control",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "1",
+            key: "variant",
+            name: "Variant",
+            description: "",
+            screenshots: [],
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
+      (getLatestSnapshot as jest.Mock).mockResolvedValue({
+        id: "snap_123",
+        organization: "org_1",
+        experiment: "exp_123",
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: new Date(),
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasCorrectedStats: false,
+        results: [],
+        analyses: [
+          {
+            settings: {
+              statsEngine: "bayesian",
+            },
+            status: "success",
+            results: [
+              {
+                name: "All Users",
+                srm: 0,
+                variations: [
+                  {
+                    users: 100,
+                    metrics: {
+                      fact__deleted_metric: {
+                        value: 1,
+                        users: 100,
+                      },
+                    },
+                  },
+                  {
+                    users: 100,
+                    metrics: {
+                      fact__deleted_metric: {
+                        value: 2,
+                        users: 100,
+                      },
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        settings: {
+          manual: false,
+          activationMetric: null,
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          experimentId: "exp_123",
+          statsEngine: "bayesian",
+          regressionAdjustmentEnabled: false,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueThreshold: 0.05,
+          pValueCorrection: null,
+          differenceType: "relative",
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.result.results[0].metrics[0]).toMatchObject({
+        metricId: "fact__deleted_metric",
+        deleted: true,
+      });
     });
   });
 
