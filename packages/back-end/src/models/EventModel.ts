@@ -259,19 +259,19 @@ export const createEvent = async <
       user: context.userId
         ? {
             type: context.isApiRequest
-              ? ("api" as const)
-              : ("dashboard" as const),
+              ? "api" // personal access token
+              : "dashboard", // GB app
             id: context.userId,
             email: context.email,
             name: context.userName || "",
           }
         : context.apiKey
           ? {
-              type: "api_key" as const,
+              type: "api_key", // system API key
               apiKey: context.apiKey,
             }
           : {
-              type: "system" as const,
+              type: "system", // system event
             },
     },
     organizationId: context.org.id,
