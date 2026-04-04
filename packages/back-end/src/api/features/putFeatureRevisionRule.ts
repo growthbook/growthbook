@@ -2,14 +2,21 @@ import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import {
-  featureRule,
+  savedGroupTargeting,
+  featurePrerequisite,
   revisionRampCreateAction,
   revisionRampDetachAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  ExperimentRefRule,
+  RolloutRule,
+  ForceRule,
+  SafeRolloutRule,
+  FeatureRule,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -23,6 +30,172 @@ const rampActionSchema = z.discriminatedUnion("mode", [
   revisionRampDetachAction,
 ]);
 
+const scheduleRuleInput = z.object({
+  timestamp: z.string().nullable(),
+  enabled: z.boolean(),
+});
+
+// Common editable fields shared by all rule types
+const commonPatch = {
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+  condition: z.string().optional(),
+  savedGroups: z.array(savedGroupTargeting).optional(),
+  prerequisites: z.array(featurePrerequisite).optional(),
+  scheduleRules: z.array(scheduleRuleInput).optional(),
+  scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
+};
+
+// Type-specific editable fields. All optional so callers send only what they want to change.
+const rulePatchSchema = z.object({
+  ...commonPatch,
+  // Force / rollout fields (coverage re-infers the type post-patch)
+  value: z.string().optional(),
+  coverage: z.number().min(0).max(1).optional(),
+  hashAttribute: z.string().optional(),
+  seed: z.string().optional(),
+  // Experiment-ref fields
+  experimentId: z.string().optional(),
+  variations: z
+    .array(z.object({ variationId: z.string(), value: z.string() }))
+    .optional(),
+  // Safe-rollout fields
+  controlValue: z.string().optional(),
+  variationValue: z.string().optional(),
+});
+
+type RulePatch = z.infer<typeof rulePatchSchema>;
+
+function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
+  const type = existing.type;
+
+  const commonUpdates = {
+    ...(patch.description !== undefined && { description: patch.description }),
+    ...(patch.enabled !== undefined && { enabled: patch.enabled }),
+    ...(patch.condition !== undefined && { condition: patch.condition }),
+    ...(patch.savedGroups !== undefined && { savedGroups: patch.savedGroups }),
+    ...(patch.prerequisites !== undefined && {
+      prerequisites: patch.prerequisites,
+    }),
+    ...(patch.scheduleRules !== undefined && {
+      scheduleRules: patch.scheduleRules,
+    }),
+    ...(patch.scheduleType !== undefined && {
+      scheduleType: patch.scheduleType,
+    }),
+  };
+
+  if (type === "experiment-ref") {
+    if (
+      patch.value !== undefined ||
+      patch.coverage !== undefined ||
+      patch.controlValue !== undefined
+    ) {
+      throw new Error(
+        "value, coverage, and controlValue cannot be set on an experiment-ref rule",
+      );
+    }
+    const updated: ExperimentRefRule = {
+      ...(existing as ExperimentRefRule),
+      ...commonUpdates,
+      ...(patch.experimentId !== undefined && {
+        experimentId: patch.experimentId,
+      }),
+      ...(patch.variations !== undefined && { variations: patch.variations }),
+    };
+    return updated;
+  }
+
+  if (type === "safe-rollout") {
+    if (patch.value !== undefined || patch.coverage !== undefined) {
+      throw new Error(
+        "value and coverage cannot be set on a safe-rollout rule",
+      );
+    }
+    if (patch.experimentId !== undefined || patch.variations !== undefined) {
+      throw new Error(
+        "experimentId and variations cannot be set on a safe-rollout rule",
+      );
+    }
+    const updated: SafeRolloutRule = {
+      ...(existing as SafeRolloutRule),
+      ...commonUpdates,
+      ...(patch.controlValue !== undefined && {
+        controlValue: patch.controlValue,
+      }),
+      ...(patch.variationValue !== undefined && {
+        variationValue: patch.variationValue,
+      }),
+      ...(patch.hashAttribute !== undefined && {
+        hashAttribute: patch.hashAttribute,
+      }),
+    };
+    return updated;
+  }
+
+  // Force / rollout: apply patch then re-infer type from effective coverage
+  if (type === "force" || type === "rollout") {
+    if (patch.experimentId !== undefined || patch.variations !== undefined) {
+      throw new Error(
+        "experimentId and variations cannot be set on a force/rollout rule",
+      );
+    }
+    if (
+      patch.controlValue !== undefined ||
+      patch.variationValue !== undefined
+    ) {
+      throw new Error(
+        "controlValue and variationValue cannot be set on a force/rollout rule",
+      );
+    }
+
+    const effectiveCoverage =
+      patch.coverage ?? (existing as RolloutRule).coverage;
+    const effectiveHashAttr =
+      patch.hashAttribute ?? (existing as RolloutRule).hashAttribute;
+    const effectiveValue =
+      patch.value ?? (existing as ForceRule | RolloutRule).value;
+
+    // Re-infer: coverage < 1 → rollout (hashAttribute required), otherwise → force
+    const isRollout = effectiveCoverage !== undefined && effectiveCoverage < 1;
+
+    if (isRollout) {
+      if (!effectiveHashAttr) {
+        throw new Error(
+          "hashAttribute is required for rollout rules (coverage < 100%)",
+        );
+      }
+      const updated: RolloutRule = {
+        ...(existing as RolloutRule),
+        ...commonUpdates,
+        type: "rollout",
+        value: effectiveValue ?? "",
+        coverage: effectiveCoverage,
+        hashAttribute: effectiveHashAttr,
+        ...(patch.seed !== undefined && { seed: patch.seed }),
+      };
+      return updated;
+    } else {
+      const updated: ForceRule = {
+        ...(existing as ForceRule),
+        ...commonUpdates,
+        type: "force",
+        value: effectiveValue ?? "",
+        ...(effectiveCoverage !== undefined && {
+          coverage: effectiveCoverage,
+        }),
+        ...(effectiveHashAttr !== undefined && {
+          hashAttribute: effectiveHashAttr,
+        }),
+        ...(patch.seed !== undefined && { seed: patch.seed }),
+      };
+      return updated;
+    }
+  }
+
+  throw new Error(`Unknown rule type: ${type}`);
+}
+
 export const putFeatureRevisionRule = createApiRequestHandler({
   paramsSchema: z.object({
     id: z.string(),
@@ -31,13 +204,8 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   }),
   bodySchema: z.object({
     environment: z.string(),
-    // Full replacement rule — caller provides the complete updated rule object.
-    // The rule.id must match the :ruleId param.
-    rule: featureRule,
+    rule: rulePatchSchema,
     rampAction: rampActionSchema.optional(),
-    // Simple date-based schedule shorthand. Preferred over setting rule.scheduleRules directly.
-    // Ignored when rampAction is also provided.
-    // If the existing rule already uses legacy scheduleRules, those are updated instead.
     schedule: z
       .object({
         startDate: z.string().optional().nullable(),
@@ -47,7 +215,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
@@ -62,20 +230,14 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
 
   const { environment, rampAction, schedule } = req.body;
-  const rule = req.body.rule;
-
-  if (rule.id !== req.params.ruleId) {
-    throw new Error(
-      `rule.id "${rule.id}" does not match the :ruleId param "${req.params.ruleId}"`,
-    );
-  }
+  const patch = req.body.rule;
 
   const newRules = cloneDeep(revision.rules ?? {});
   const envRules = newRules[environment] ?? [];
@@ -87,7 +249,34 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   }
 
   const oldRule = envRules[idx];
-  envRules[idx] = rule;
+
+  // Block creating a new schedule if the rule already has one (pending on this
+  // revision or already live). The caller should update it via PUT /ramp-schedules/:id.
+  const wantsNewSchedule =
+    rampAction?.mode === "create" ||
+    Boolean(schedule?.startDate) ||
+    Boolean(schedule?.endDate);
+  if (wantsNewSchedule) {
+    const hasPendingCreate = (revision.rampActions ?? []).some(
+      (a) => a.mode === "create" && a.ruleId === req.params.ruleId,
+    );
+    const liveSchedules =
+      await req.context.models.rampSchedules.findByTargetRule(
+        req.params.ruleId,
+        environment,
+      );
+    if (hasPendingCreate || liveSchedules.length > 0) {
+      const hint =
+        liveSchedules.length > 0
+          ? ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`
+          : " The schedule will be created when the revision is published; update the revision's rampActions instead.";
+      throw new Error(
+        `Rule "${req.params.ruleId}" already has a ramp schedule.${hint}`,
+      );
+    }
+  }
+  const updatedRule = applyPatch(oldRule, patch);
+  envRules[idx] = updatedRule;
   newRules[environment] = envRules;
 
   const changes: RevisionChanges = { rules: newRules };
@@ -101,17 +290,16 @@ export const putFeatureRevisionRule = createApiRequestHandler({
         oldRule.scheduleType !== "ramp");
 
     if (hasLegacySchedule) {
-      // Update legacy scheduleRules in-place on the submitted rule
-      rule.scheduleRules = [
+      // Update legacy scheduleRules in-place on the updated rule
+      updatedRule.scheduleRules = [
         { enabled: true, timestamp: schedule.startDate ?? null },
         { enabled: false, timestamp: schedule.endDate ?? null },
       ];
-      rule.scheduleType = "schedule";
+      updatedRule.scheduleType = "schedule";
     } else {
-      // No legacy schedule: create a ramp action
-      if (schedule.startDate) rule.enabled = false;
+      if (schedule.startDate) updatedRule.enabled = false;
       resolvedRampAction = buildScheduleRampAction(
-        rule.id,
+        updatedRule.id,
         environment,
         schedule.startDate,
         schedule.endDate,
@@ -144,7 +332,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
       user: req.context.auditUser,
       action: "edit rule",
       subject: req.params.ruleId,
-      value: JSON.stringify(rule),
+      value: JSON.stringify(updatedRule),
     },
     resetReviewOnChange({
       feature,

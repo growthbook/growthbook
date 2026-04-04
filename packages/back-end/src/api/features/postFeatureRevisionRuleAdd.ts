@@ -15,6 +15,7 @@ import type {
   FeatureRule,
   ForceRule,
   RolloutRule,
+  SafeRolloutRule,
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
@@ -25,7 +26,11 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { NotFoundError } from "back-end/src/util/errors";
 import { isDraftStatus, buildScheduleRampAction } from "./validations";
+
+const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
 const rampActionSchema = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
@@ -69,15 +74,25 @@ const experimentRefCreateInput = z.object({
   ),
 });
 
+// Safe rollout — safeRolloutId is server-generated; caller supplies monitoring config
 const safeRolloutCreateInput = z.object({
   ...commonCreateFields,
   type: z.literal("safe-rollout"),
   controlValue: z.string(),
   variationValue: z.string(),
-  safeRolloutId: z.string(),
   hashAttribute: z.string(),
-  trackingKey: z.string(),
-  seed: z.string(),
+  trackingKey: z.string().optional(),
+  seed: z.string().optional(),
+  safeRolloutFields: z.object({
+    datasourceId: z.string(),
+    exposureQueryId: z.string(),
+    guardrailMetricIds: z.array(z.string()),
+    maxDuration: z.object({
+      amount: z.number().positive(),
+      unit: z.enum(["weeks", "days", "hours", "minutes"]),
+    }),
+    autoRollback: z.boolean().optional().default(false),
+  }),
 });
 
 // Union tries experiment-ref/safe-rollout first (explicit `type` literal);
@@ -116,17 +131,20 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
   }
 
   if (input.type === "safe-rollout") {
-    return {
+    // safeRolloutId is filled in after entity creation in the handler
+    const rule: SafeRolloutRule = {
       ...base,
       type: "safe-rollout",
       controlValue: input.controlValue,
       variationValue: input.variationValue,
-      safeRolloutId: input.safeRolloutId,
+      safeRolloutId: "", // filled below
       hashAttribute: input.hashAttribute,
-      trackingKey: input.trackingKey,
-      seed: input.seed,
+      trackingKey:
+        input.trackingKey ?? `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`,
+      seed: input.seed ?? uuidv4(),
       status: "running",
     };
+    return rule;
   }
 
   // Force / rollout inference
@@ -176,7 +194,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
@@ -191,7 +209,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
@@ -221,6 +239,42 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   }
 
   const rule = buildRuleFromInput(ruleInput, uuidv4());
+
+  // Safe rollout: create the SafeRollout entity and link it to the rule
+  if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
+    if (!req.context.hasPremiumFeature("safe-rollout")) {
+      throw new Error("Safe Rollout rules require a premium plan.");
+    }
+
+    const validatedFields = await validateCreateSafeRolloutFields(
+      ruleInput.safeRolloutFields,
+      req.context,
+    );
+
+    const safeRollout = await req.context.models.safeRollout.create({
+      ...validatedFields,
+      environment,
+      featureId: feature.id,
+      status: "running",
+      autoSnapshots: true,
+      rampUpSchedule: {
+        enabled: false,
+        step: 0,
+        steps: [
+          { percent: 0.1 },
+          { percent: 0.25 },
+          { percent: 0.5 },
+          { percent: 0.75 },
+          { percent: 1 },
+        ],
+        rampUpCompleted: false,
+        nextUpdate: undefined,
+      },
+    });
+
+    if (!safeRollout) throw new Error("Failed to create safe rollout");
+    (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
+  }
 
   // Resolve which ramp action to attach (if any).
   // Priority: explicit rampAction > schedule shorthand > inline scheduleRules (legacy, deprecated)

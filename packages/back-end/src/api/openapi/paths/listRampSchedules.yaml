@@ -12,6 +12,16 @@ parameters:
       type: string
     description: "Filter to schedules attached to a specific feature"
   - in: query
+    name: ruleId
+    schema:
+      type: string
+    description: "Filter to the schedule(s) targeting a specific rule ID. Combine with `environment` for an exact match."
+  - in: query
+    name: environment
+    schema:
+      type: string
+    description: "Filter by environment (used together with `ruleId` to pinpoint a rule's schedule)"
+  - in: query
     name: status
     schema:
       type: string

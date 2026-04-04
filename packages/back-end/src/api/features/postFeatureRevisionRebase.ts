@@ -5,7 +5,6 @@ import {
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
-  MergeConflict,
   MergeStrategy,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
@@ -18,6 +17,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
+import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 
 export const postFeatureRevisionRebase = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -29,7 +29,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
@@ -44,7 +44,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   const rebasableStatuses = [
     "draft",
@@ -77,13 +77,10 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
   );
 
   if (!mergeResult.success) {
-    const err: Error & { status?: number; conflicts?: MergeConflict[] } =
-      new Error(
-        "Unresolved conflicts remain — provide strategies for all conflicting keys",
-      );
-    err.status = 409;
-    err.conflicts = mergeResult.conflicts;
-    throw err;
+    throw new ConflictError(
+      "Unresolved conflicts remain — provide strategies for all conflicting keys",
+      mergeResult.conflicts,
+    );
   }
 
   // Build fully-resolved rule/env maps (mirrors dashboard rebase logic)

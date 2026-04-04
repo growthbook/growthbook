@@ -1,6 +1,7 @@
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -17,7 +18,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
@@ -32,7 +33,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);

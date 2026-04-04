@@ -6,14 +6,15 @@ import {
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
-  MergeConflict,
 } from "shared/util";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 
 export const postFeatureRevisionPublish = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -23,7 +24,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!req.context.permissions.canUpdateFeature(feature, {})) {
     req.context.permissions.throwPermissionError();
@@ -35,7 +36,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(
@@ -53,10 +54,41 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     revision,
   });
 
+  // Run merge first so review requirements are evaluated against the effective
+  // post-merge state — mirrors what the controller and frontend do.
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    environmentIds,
+    {},
+  );
+
+  if (!mergeResult.success) {
+    throw new ConflictError(
+      "Merge conflicts exist — rebase before publishing",
+      mergeResult.conflicts,
+    );
+  }
+
+  // Build effectiveRevision from merged result layered on live (same as controller).
+  const filledLive = {
+    ...live,
+    ...liveRevisionFromFeature(live, feature),
+  };
+  const effectiveRevision = {
+    ...filledLive,
+    ...mergeResult.result,
+    rules: {
+      ...filledLive.rules,
+      ...(mergeResult.result.rules ?? {}),
+    },
+  };
+
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
-    baseRevision: base,
-    revision,
+    baseRevision: filledLive,
+    revision: effectiveRevision,
     allEnvironments: environmentIds,
     settings: req.organization.settings,
     requireApprovalsLicensed:
@@ -82,22 +114,6 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     }
   }
 
-  const mergeResult = autoMerge(
-    liveRevisionFromFeature(live, feature),
-    fillRevisionFromFeature(base, feature),
-    revision,
-    environmentIds,
-    {},
-  );
-
-  if (!mergeResult.success) {
-    const err: Error & { status?: number; conflicts?: MergeConflict[] } =
-      new Error("Merge conflicts exist — rebase before publishing");
-    err.status = 409;
-    err.conflicts = mergeResult.conflicts;
-    throw err;
-  }
-
   // Check publish permission for the environments this revision actually touches.
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
@@ -115,13 +131,25 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
     }
   }
 
-  await publishRevision(
+  const updatedFeature = await publishRevision(
     req.context,
     feature,
     revision,
     mergeResult.result,
     req.body.comment,
   );
+
+  await req.audit({
+    event: "feature.publish",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: revision.version,
+      comment: req.body.comment,
+    }),
+  });
 
   const updated = await getRevision({
     context: req.context,

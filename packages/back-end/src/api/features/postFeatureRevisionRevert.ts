@@ -7,6 +7,7 @@ import {
   checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isEqual } from "lodash";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   createRevision,
@@ -32,7 +33,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!req.context.permissions.canUpdateFeature(feature, {})) {
     req.context.permissions.throwPermissionError();
@@ -44,7 +45,8 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!targetRevision) throw new Error("Could not find feature revision");
+  if (!targetRevision)
+    throw new NotFoundError("Could not find feature revision");
 
   if (targetRevision.status !== "published") {
     throw new Error(

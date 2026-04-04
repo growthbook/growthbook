@@ -19,6 +19,7 @@ import {
   getSavedGroupMap,
 } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -50,7 +51,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       version: version,
     });
     if (!revision) {
-      throw new Error("Could not find feature revision");
+      throw new NotFoundError("Could not find feature revision");
     }
 
     if (
@@ -200,7 +201,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     const reviewRequired = checkIfRevisionNeedsReview({
       feature,
       baseRevision: liveRevision,
-      revision,
+      revision: { ...liveRevision, ...changes } as typeof liveRevision,
       allEnvironments: allEnvironmentIds,
       settings: req.organization.settings,
       requireApprovalsLicensed:

@@ -2,6 +2,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { getReviewSetting } from "shared/util";
 import { isNamedUser } from "shared/validators";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -26,7 +27,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!req.context.permissions.canReviewFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
@@ -38,7 +39,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   const { action, comment } = req.body;
   const review = actionToReviewType[action];

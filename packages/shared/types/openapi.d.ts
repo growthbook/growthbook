@@ -153,7 +153,25 @@ export interface paths {
     post: operations["postFeatureRevisionRulesReorder"];
   };
   "/features/{id}/revisions/{version}/rules/{ruleId}": {
-    /** Update a rule in a draft revision */
+    /**
+     * Update a rule in a draft revision 
+     * @description Applies a partial patch to an existing rule. The rule type cannot be changed —
+     * to switch types, delete the rule and add a new one.
+     * 
+     * For `force`/`rollout` rules, the type is automatically re-inferred after the patch:
+     * if `coverage` ends up less than 1, the rule becomes a `rollout` (and `hashAttribute` is required);
+     * otherwise it becomes a `force` rule.
+     * 
+     * Only supply the fields you want to change. Fields not included in the request are
+     * left unchanged from the existing rule.
+     * 
+     * **Targeting fields** (all rule types):
+     * - `condition` — JSON string, MongoDB-style query syntax. Omit or pass `""` to match everyone.
+     *   Example: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+     * - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
+     * - `prerequisites` — array of `{id: string, condition: string}` where `condition` is
+     *   evaluated against `{"value": <flag_value>}`. Example: `{"value": true}`
+     */
     put: operations["putFeatureRevisionRule"];
     /** Delete a rule from a draft revision */
     delete: operations["deleteFeatureRevisionRule"];
@@ -15945,12 +15963,36 @@ export interface operations {
           }, {
             /** @enum {string} */
             type: "safe-rollout";
+            /** @description Value served to the control group (baseline) */
             controlValue: string;
+            /** @description Value served to the variation group being rolled out */
             variationValue: string;
-            safeRolloutId: string;
+            /** @description User attribute used for bucketing */
             hashAttribute: string;
-            trackingKey: string;
-            seed: string;
+            /** @description Tracking key override (server-generated if omitted) */
+            trackingKey?: string;
+            /** @description Hash seed override (server-generated if omitted) */
+            seed?: string;
+            /** @description Monitoring configuration for the safe rollout */
+            safeRolloutFields: {
+              /** @description Data source ID for experiment analysis */
+              datasourceId: string;
+              /** @description Exposure query ID within the data source */
+              exposureQueryId: string;
+              /** @description Metric IDs to monitor for regressions (at least one required) */
+              guardrailMetricIds: (string)[];
+              /** @description Maximum monitoring window before auto-decision */
+              maxDuration: {
+                amount: number;
+                /** @enum {string} */
+                unit: "weeks" | "days" | "hours" | "minutes";
+              };
+              /**
+               * @description Automatically roll back when a guardrail metric regresses 
+               * @default false
+               */
+              autoRollback?: boolean;
+            };
             /**
              * @description Targeting condition as a **JSON string** using MongoDB-style query syntax.
              * Evaluated against user attributes. Omit or pass `""` to match everyone.
@@ -16890,9 +16932,26 @@ export interface operations {
     };
   };
   putFeatureRevisionRule: {
-    /** Update a rule in a draft revision */
+    /**
+     * Update a rule in a draft revision 
+     * @description Applies a partial patch to an existing rule. The rule type cannot be changed —
+     * to switch types, delete the rule and add a new one.
+     * 
+     * For `force`/`rollout` rules, the type is automatically re-inferred after the patch:
+     * if `coverage` ends up less than 1, the rule becomes a `rollout` (and `hashAttribute` is required);
+     * otherwise it becomes a `force` rule.
+     * 
+     * Only supply the fields you want to change. Fields not included in the request are
+     * left unchanged from the existing rule.
+     * 
+     * **Targeting fields** (all rule types):
+     * - `condition` — JSON string, MongoDB-style query syntax. Omit or pass `""` to match everyone.
+     *   Example: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
+     * - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
+     * - `prerequisites` — array of `{id: string, condition: string}` where `condition` is
+     *   evaluated against `{"value": <flag_value>}`. Example: `{"value": true}`
+     */
     parameters: {
-        /** @description Must match `rule.id` in the request body */
       path: {
         id: string;
         version: number;
@@ -16904,98 +16963,55 @@ export interface operations {
         "application/json": {
           environment: string;
           /**
-           * @description Full replacement for the rule identified by `:ruleId`. The `id` field must match the `:ruleId`
-           * path parameter. Accepted types: `force`, `rollout`, `experiment-ref`, `safe-rollout`.
+           * @description Fields to update on the rule. Only the fields you supply are changed.
+           * The rule type cannot be changed.
            * 
-           * This endpoint uses the **internal** rule format (matching what GET revision endpoints return).
-           * Saved-group targeting uses `savedGroups: [{match, ids}]` — **not** the
-           * `savedGroupTargeting: [{matchType, savedGroups}]` shape used by `postFeature`/`updateFeature`.
-           * 
-           * **Targeting fields** (all rule types):
-           * - `condition` — JSON string, MongoDB-style query syntax. Omit or pass `""` to match everyone.
-           *   Example: `{"country": "US"}` · `{"plan": {"$in": ["pro","enterprise"]}}`
-           * - `savedGroups` — array of `{match: "all"|"any"|"none", ids: string[]}`.
-           * - `prerequisites` — array of `{id: string, condition: string}` where `condition` is
-           *   evaluated against `{"value": <flag_value>}`. Example: `{"value": true}`
+           * Fields by rule type:
+           * - **force/rollout**: `value`, `coverage`, `hashAttribute`, `seed`, targeting fields
+           * - **experiment-ref**: `experimentId`, `variations`, targeting fields
+           * - **safe-rollout**: `controlValue`, `variationValue`, `hashAttribute`, targeting fields
            */
-          rule: OneOf<[{
-            id: string;
-            /** @enum {string} */
-            type: "force";
-            value: string;
+          rule: {
             description?: string;
             enabled?: boolean;
+            /** @description Targeting condition as a JSON string (MongoDB-style). Example: `{"country": "US"}` */
             condition?: string;
+            /** @description Saved-group targeting. Uses internal format: `[{match, ids}]` */
             savedGroups?: ({
                 /** @enum {string} */
                 match: "all" | "any" | "none";
                 ids: (string)[];
               })[];
+            /** @description Prerequisite feature flags. Condition evaluated against `{"value": <flag_value>}` */
             prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
                 id: string;
+                /** @description JSON string against `{"value": ...}`. Example: `{"value": true}` */
                 condition: string;
               })[];
-          }, {
-            id: string;
-            /** @enum {string} */
-            type: "rollout";
-            value: string;
-            /** @description Rollout Percent (0–1) */
-            coverage: number;
-            hashAttribute: string;
+            /** @description *(force/rollout only)* The value to serve */
+            value?: string;
+            /**
+             * @description *(force/rollout only)* Rollout Percent (0–1). Setting this below 1 converts the rule
+             * to a `rollout` type; at 1 (or omitted) it becomes a `force` rule.
+             */
+            coverage?: number;
+            /** @description *(rollout/safe-rollout)* User attribute used for bucketing */
+            hashAttribute?: string;
+            /** @description *(force/rollout)* Hash seed override */
             seed?: string;
-            description?: string;
-            enabled?: boolean;
-            condition?: string;
-            savedGroups?: ({
-                /** @enum {string} */
-                match: "all" | "any" | "none";
-                ids: (string)[];
-              })[];
-            prerequisites?: ({
-                id: string;
-                condition: string;
-              })[];
-          }, {
-            id: string;
-            /** @enum {string} */
-            type: "experiment-ref";
-            experimentId: string;
-            variations: ({
+            /** @description *(experiment-ref only)* Linked experiment ID */
+            experimentId?: string;
+            /** @description *(experiment-ref only)* Variation values */
+            variations?: ({
                 variationId: string;
                 value: string;
               })[];
-            description?: string;
-            enabled?: boolean;
-            condition?: string;
-            savedGroups?: ({
-                /** @enum {string} */
-                match: "all" | "any" | "none";
-                ids: (string)[];
-              })[];
-            prerequisites?: ({
-                id: string;
-                condition: string;
-              })[];
-          }, {
-            id: string;
-            /** @enum {string} */
-            type: "safe-rollout";
-            controlValue: string;
-            variationValue: string;
-            safeRolloutId: string;
-            hashAttribute: string;
-            trackingKey: string;
-            seed: string;
-            description?: string;
-            enabled?: boolean;
-            condition?: string;
-            savedGroups?: ({
-                /** @enum {string} */
-                match: "all" | "any" | "none";
-                ids: (string)[];
-              })[];
-          }]>;
+            /** @description *(safe-rollout only)* Value served to the control group */
+            controlValue?: string;
+            /** @description *(safe-rollout only)* Value served to the variation group */
+            variationValue?: string;
+          };
           /** @description Optional ramp schedule action to associate with this rule */
           rampAction?: OneOf<[{
             /** @enum {string} */
@@ -17072,6 +17088,10 @@ export interface operations {
            * - `endDate` — disables the rule at this time
            * If the existing rule already uses legacy `scheduleRules`, those are updated in-place
            * instead of creating a ramp schedule.
+           * 
+           * **Error:** If this rule already has a ramp schedule (live or pending on this revision),
+           * a 400 is returned with the schedule ID. Update the schedule directly via
+           * `PUT /api/v1/ramp-schedules/{id}` instead.
            */
           schedule?: {
             /** Format: date-time */
@@ -27703,11 +27723,15 @@ export interface operations {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter to schedules attached to a specific feature */
+        /** @description Filter to the schedule(s) targeting a specific rule ID. Combine with `environment` for an exact match. */
+        /** @description Filter by environment (used together with `ruleId` to pinpoint a rule's schedule) */
         /** @description Filter by schedule status */
       query: {
         limit?: number;
         offset?: number;
         featureId?: string;
+        ruleId?: string;
+        environment?: string;
         status?: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
       };
     };

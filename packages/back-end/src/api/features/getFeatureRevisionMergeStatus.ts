@@ -5,6 +5,7 @@ import {
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
 } from "shared/util";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -15,7 +16,7 @@ export const getFeatureRevisionMergeStatus = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({
     context: req.context,
@@ -23,7 +24,7 @@ export const getFeatureRevisionMergeStatus = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   const allEnvironments = getEnvironments(req.context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);

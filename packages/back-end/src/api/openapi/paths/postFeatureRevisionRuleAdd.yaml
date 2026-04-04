@@ -167,26 +167,62 @@ requestBody:
                   - type
                   - controlValue
                   - variationValue
-                  - safeRolloutId
                   - hashAttribute
-                  - trackingKey
-                  - seed
+                  - safeRolloutFields
                 properties:
                   type:
                     type: string
                     enum: [safe-rollout]
                   controlValue:
                     type: string
+                    description: "Value served to the control group (baseline)"
                   variationValue:
                     type: string
-                  safeRolloutId:
-                    type: string
+                    description: "Value served to the variation group being rolled out"
                   hashAttribute:
                     type: string
+                    description: "User attribute used for bucketing"
                   trackingKey:
                     type: string
+                    description: "Tracking key override (server-generated if omitted)"
                   seed:
                     type: string
+                    description: "Hash seed override (server-generated if omitted)"
+                  safeRolloutFields:
+                    type: object
+                    description: "Monitoring configuration for the safe rollout"
+                    required:
+                      - datasourceId
+                      - exposureQueryId
+                      - guardrailMetricIds
+                      - maxDuration
+                    properties:
+                      datasourceId:
+                        type: string
+                        description: "Data source ID for experiment analysis"
+                      exposureQueryId:
+                        type: string
+                        description: "Exposure query ID within the data source"
+                      guardrailMetricIds:
+                        type: array
+                        description: "Metric IDs to monitor for regressions (at least one required)"
+                        items:
+                          type: string
+                      maxDuration:
+                        type: object
+                        description: "Maximum monitoring window before auto-decision"
+                        required: [amount, unit]
+                        properties:
+                          amount:
+                            type: number
+                            minimum: 1
+                          unit:
+                            type: string
+                            enum: [weeks, days, hours, minutes]
+                      autoRollback:
+                        type: boolean
+                        default: false
+                        description: "Automatically roll back when a guardrail metric regresses"
                   condition:
                     type: string
                     description: |

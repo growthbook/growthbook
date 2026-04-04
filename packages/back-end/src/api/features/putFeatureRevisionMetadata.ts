@@ -2,13 +2,15 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { featureValueType, JSONSchemaDef } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
+import { addTagsDiff } from "back-end/src/models/TagModel";
+import { isDraftStatus, validateCustomFields } from "./validations";
 
 export const putFeatureRevisionMetadata = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -28,7 +30,7 @@ export const putFeatureRevisionMetadata = createApiRequestHandler({
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
-  if (!feature) throw new Error("Could not find feature");
+  if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
     !req.context.permissions.canUpdateFeature(feature, {}) ||
@@ -43,13 +45,21 @@ export const putFeatureRevisionMetadata = createApiRequestHandler({
     featureId: feature.id,
     version: req.params.version,
   });
-  if (!revision) throw new Error("Could not find feature revision");
+  if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
     throw new Error(`Cannot edit a revision with status "${revision.status}"`);
   }
 
   const { comment, title, ...metadataFields } = req.body;
+
+  if (metadataFields.customFields !== undefined) {
+    await validateCustomFields(
+      metadataFields.customFields,
+      req.context,
+      metadataFields.project ?? feature.project,
+    );
+  }
 
   const changes: RevisionChanges = {};
   if (comment !== undefined) changes.comment = comment;
@@ -68,6 +78,15 @@ export const putFeatureRevisionMetadata = createApiRequestHandler({
       version: req.params.version,
     });
     return { revision: omit(updated ?? revision, "organization") };
+  }
+
+  // Register any newly-introduced tags with the org
+  if (metadataFields.tags !== undefined && Array.isArray(metadataFields.tags)) {
+    await addTagsDiff(
+      req.organization.id,
+      feature.tags || [],
+      metadataFields.tags,
+    );
   }
 
   await updateRevision(
