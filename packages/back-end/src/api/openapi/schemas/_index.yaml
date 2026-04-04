@@ -48,6 +48,10 @@ ExperimentSnapshot:
   $ref: "./ExperimentSnapshot.yaml"
 ExperimentMetric:
   $ref: "./ExperimentMetric.yaml"
+ExperimentMetricOverrideEntry:
+  $ref: "./ExperimentMetricOverrideEntry.yaml"
+ExperimentDecisionFrameworkSettings:
+  $ref: "./ExperimentDecisionFrameworkSettings.yaml"
 ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
 LookbackOverride:
