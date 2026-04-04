@@ -3,6 +3,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
+import DeleteOrganizationModal from "@/components/Settings/DeleteOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -18,6 +19,7 @@ export default function OrganizationAndLicenseSettings({
 }) {
   const { installationName, license } = useUser();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const permissions = usePermissions();
   // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
   const canEdit = permissions.check("organizationSettings");
@@ -37,6 +39,12 @@ export default function OrganizationAndLicenseSettings({
           ownerEmail={org.ownerEmail || ""}
           close={() => setEditOpen(false)}
           mutate={refreshOrg}
+        />
+      )}
+      {deleteOpen && (
+        <DeleteOrganizationModal
+          close={() => setDeleteOpen(false)}
+          orgName={org.name || ""}
         />
       )}
       <Box className="appbox" p="5">
@@ -72,6 +80,19 @@ export default function OrganizationAndLicenseSettings({
                 <Box>
                   <Text weight="medium">Organization Id: </Text> {org.id}
                 </Box>
+                {canEdit && isCloud() && (
+                  <Box>
+                    <Button
+                      variant="outline"
+                      color="red"
+                      onClick={() => {
+                        setDeleteOpen(true);
+                      }}
+                    >
+                      Delete Organization
+                    </Button>
+                  </Box>
+                )}
                 {showInstallationName && (
                   <Box>
                     <Text weight="medium">Installation Name: </Text>{" "}
