@@ -7451,6 +7451,39 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
+                }) | ({
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "safe-rollout";
+                  /** @description The baseline value (shown to users NOT in the rollout). */
+                  controlValue: string;
+                  /** @description The new value being rolled out. */
+                  variationValue: string;
+                  /** @description The user attribute used for bucketing (e.g. "id"). */
+                  hashAttribute: string;
+                  /** @description Optional seed for hashing. Auto-generated if not provided. */
+                  seed?: string;
+                  /** @description Optional tracking key. Auto-generated if not provided. */
+                  trackingKey?: string;
+                  /** @description The data source used for analysis. */
+                  datasourceId: string;
+                  /** @description The exposure query used to calculate exposure. */
+                  exposureQueryId: string;
+                  /** @description List of metric IDs to use as guardrails. */
+                  guardrailMetricIds: (string)[];
+                  /** @description Maximum duration before the safe rollout expires. */
+                  maxDuration: {
+                    amount: number;
+                    /** @enum {string} */
+                    unit: "weeks" | "days" | "hours" | "minutes";
+                  };
+                  /** @description Automatically roll back if a guardrail metric fails. */
+                  autoRollback: boolean;
                 }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -7640,6 +7673,39 @@ export interface operations {
                         weight: number;
                         name?: string;
                       })[];
+                  }) | ({
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    /** @description The baseline value (shown to users NOT in the rollout). */
+                    controlValue: string;
+                    /** @description The new value being rolled out. */
+                    variationValue: string;
+                    /** @description The user attribute used for bucketing (e.g. "id"). */
+                    hashAttribute: string;
+                    /** @description Optional seed for hashing. Auto-generated if not provided. */
+                    seed?: string;
+                    /** @description Optional tracking key. Auto-generated if not provided. */
+                    trackingKey?: string;
+                    /** @description The data source used for analysis. */
+                    datasourceId: string;
+                    /** @description The exposure query used to calculate exposure. */
+                    exposureQueryId: string;
+                    /** @description List of metric IDs to use as guardrails. */
+                    guardrailMetricIds: (string)[];
+                    /** @description Maximum duration before the safe rollout expires. */
+                    maxDuration: {
+                      amount: number;
+                      /** @enum {string} */
+                      unit: "weeks" | "days" | "hours" | "minutes";
+                    };
+                    /** @description Automatically roll back if a guardrail metric fails. */
+                    autoRollback: boolean;
                   }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -9492,6 +9558,39 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
+                }) | ({
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "safe-rollout";
+                  /** @description The baseline value (shown to users NOT in the rollout). */
+                  controlValue: string;
+                  /** @description The new value being rolled out. */
+                  variationValue: string;
+                  /** @description The user attribute used for bucketing (e.g. "id"). */
+                  hashAttribute: string;
+                  /** @description Optional seed for hashing. Auto-generated if not provided. */
+                  seed?: string;
+                  /** @description Optional tracking key. Auto-generated if not provided. */
+                  trackingKey?: string;
+                  /** @description The data source used for analysis. */
+                  datasourceId: string;
+                  /** @description The exposure query used to calculate exposure. */
+                  exposureQueryId: string;
+                  /** @description List of metric IDs to use as guardrails. */
+                  guardrailMetricIds: (string)[];
+                  /** @description Maximum duration before the safe rollout expires. */
+                  maxDuration: {
+                    amount: number;
+                    /** @enum {string} */
+                    unit: "weeks" | "days" | "hours" | "minutes";
+                  };
+                  /** @description Automatically roll back if a guardrail metric fails. */
+                  autoRollback: boolean;
                 }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -9681,6 +9780,39 @@ export interface operations {
                         weight: number;
                         name?: string;
                       })[];
+                  }) | ({
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "safe-rollout";
+                    /** @description The baseline value (shown to users NOT in the rollout). */
+                    controlValue: string;
+                    /** @description The new value being rolled out. */
+                    variationValue: string;
+                    /** @description The user attribute used for bucketing (e.g. "id"). */
+                    hashAttribute: string;
+                    /** @description Optional seed for hashing. Auto-generated if not provided. */
+                    seed?: string;
+                    /** @description Optional tracking key. Auto-generated if not provided. */
+                    trackingKey?: string;
+                    /** @description The data source used for analysis. */
+                    datasourceId: string;
+                    /** @description The exposure query used to calculate exposure. */
+                    exposureQueryId: string;
+                    /** @description List of metric IDs to use as guardrails. */
+                    guardrailMetricIds: (string)[];
+                    /** @description Maximum duration before the safe rollout expires. */
+                    maxDuration: {
+                      amount: number;
+                      /** @enum {string} */
+                      unit: "weeks" | "days" | "hours" | "minutes";
+                    };
+                    /** @description Automatically roll back if a guardrail metric fails. */
+                    autoRollback: boolean;
                   }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;

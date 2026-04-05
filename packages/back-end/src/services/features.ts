@@ -53,6 +53,7 @@ import {
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  SafeRolloutRule,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -78,6 +79,8 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { v4 as uuidv4 } from "uuid";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
@@ -106,6 +109,7 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -1980,58 +1984,170 @@ export function sha256(str: string, salt: string): string {
     .digest("hex");
 }
 
-const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = async (
   feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules,
-): FeatureInterface["environmentSettings"][string]["rules"] =>
-  rules.map((r) => {
-    const conditionRes = validateCondition(r.condition);
-    if (!conditionRes.success) {
-      throw new Error(
-        "Invalid targeting condition JSON: " + conditionRes.error,
-      );
-    }
-
-    if (r.type === "experiment-ref") {
-      const experimentRefRule: ExperimentRefRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        enabled: r.enabled != null ? r.enabled : true,
-        description: r.description ?? "",
-        experimentId: r.experimentId,
-        variations: r.variations.map((v) => ({
-          variationId: v.variationId,
-          value: validateFeatureValue(feature, v.value),
-        })),
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRefRule;
-    } else if (r.type === "experiment") {
-      const values = r.values || r.value;
-      if (!values) {
-        throw new Error("Missing values");
+  context: ReqContext | ApiReqContext,
+  environmentId: string,
+): Promise<FeatureInterface["environmentSettings"][string]["rules"]> =>
+  Promise.all(
+    rules.map(async (r) => {
+      const conditionRes = validateCondition(r.condition);
+      if (!conditionRes.success) {
+        throw new Error(
+          "Invalid targeting condition JSON: " + conditionRes.error,
+        );
       }
-      const experimentRule: ExperimentRule = {
+
+      if (r.type === "experiment-ref") {
+        const experimentRefRule: ExperimentRefRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          experimentId: r.experimentId,
+          variations: r.variations.map((v) => ({
+            variationId: v.variationId,
+            value: validateFeatureValue(feature, v.value),
+          })),
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRefRule;
+      } else if (r.type === "experiment") {
+        const values = r.values || r.value;
+        if (!values) {
+          throw new Error("Missing values");
+        }
+        const experimentRule: ExperimentRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          hashAttribute: r.hashAttribute ?? "",
+          coverage: r.coverage,
+          // missing tracking key will be filled in by addIdsToRules
+          trackingKey: r.trackingKey ?? "",
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          values: values,
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return experimentRule;
+      } else if (r.type === "force") {
+        const forceRule: ForceRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: r.type,
+          description: r.description ?? "",
+          value: validateFeatureValue(feature, r.value),
+          condition: r.condition,
+          savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+            ids: s.savedGroups,
+            match: s.matchType,
+          })),
+          enabled: r.enabled != null ? r.enabled : true,
+          ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
+        };
+        return forceRule;
+      } else if (r.type === "safe-rollout") {
+        if (!context.hasPremiumFeature("safe-rollout")) {
+          throw new Error("Safe Rollout rules is a premium feature.");
+        }
+
+        // Check if a safe-rollout rule with this id already exists in the
+        // feature's current environment settings. If so, reuse the existing
+        // SafeRollout document instead of creating a new one — this prevents
+        // orphaning the old document (and its snapshot history) on every PUT.
+        const existingRule = r.id
+          ? (feature.environmentSettings[environmentId]?.rules ?? []).find(
+              (rule): rule is SafeRolloutRule =>
+                rule.type === "safe-rollout" && rule.id === r.id,
+            )
+          : undefined;
+
+        if (existingRule) {
+          const safeRolloutRule: SafeRolloutRule = {
+            id: existingRule.id,
+            type: "safe-rollout",
+            enabled: r.enabled != null ? r.enabled : existingRule.enabled,
+            description: r.description ?? existingRule.description,
+            condition: r.condition ?? existingRule.condition,
+            controlValue: validateFeatureValue(feature, r.controlValue),
+            variationValue: validateFeatureValue(feature, r.variationValue),
+            hashAttribute: r.hashAttribute,
+            seed: existingRule.seed,
+            trackingKey: existingRule.trackingKey,
+            safeRolloutId: existingRule.safeRolloutId,
+            status: existingRule.status,
+          };
+          return safeRolloutRule;
+        }
+
+        const validatedSafeRolloutFields =
+          await validateCreateSafeRolloutFields(
+            {
+              datasourceId: r.datasourceId,
+              exposureQueryId: r.exposureQueryId,
+              guardrailMetricIds: r.guardrailMetricIds,
+              maxDuration: r.maxDuration,
+              autoRollback: r.autoRollback,
+            },
+            context,
+          );
+
+        const seed = r.seed || uuidv4();
+        const trackingKey =
+          r.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
+
+        const safeRollout = await context.models.safeRollout.create({
+          ...validatedSafeRolloutFields,
+          environment: environmentId,
+          featureId: feature.id,
+          status: "running",
+          autoSnapshots: true,
+          rampUpSchedule: {
+            enabled: false,
+            step: 0,
+            steps: [
+              { percent: 0.1 },
+              { percent: 0.25 },
+              { percent: 0.5 },
+              { percent: 0.75 },
+              { percent: 1 },
+            ],
+            rampUpCompleted: false,
+            nextUpdate: undefined,
+          },
+        });
+
+        if (!safeRollout) {
+          throw new Error("Failed to create safe rollout");
+        }
+
+        const safeRolloutRule: SafeRolloutRule = {
+          // missing id will be filled in by addIdsToRules
+          id: r.id ?? "",
+          type: "safe-rollout",
+          enabled: r.enabled != null ? r.enabled : true,
+          description: r.description ?? "",
+          condition: r.condition ?? "",
+          controlValue: validateFeatureValue(feature, r.controlValue),
+          variationValue: validateFeatureValue(feature, r.variationValue),
+          hashAttribute: r.hashAttribute,
+          seed,
+          trackingKey,
+          safeRolloutId: safeRollout.id,
+          status: "running",
+        };
+        return safeRolloutRule;
+      }
+      const rolloutRule: RolloutRule = {
         // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
-        hashAttribute: r.hashAttribute ?? "",
         coverage: r.coverage,
-        // missing tracking key will be filled in by addIdsToRules
-        trackingKey: r.trackingKey ?? "",
-        enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
-        values: values,
-        ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-      };
-      return experimentRule;
-    } else if (r.type === "force") {
-      const forceRule: ForceRule = {
-        // missing id will be filled in by addIdsToRules
-        id: r.id ?? "",
-        type: r.type,
-        description: r.description ?? "",
+        hashAttribute: r.hashAttribute,
         value: validateFeatureValue(feature, r.value),
         condition: r.condition,
         savedGroups: (r.savedGroupTargeting || []).map((s) => ({
@@ -2041,67 +2157,54 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
       };
-      return forceRule;
-    }
-    const rolloutRule: RolloutRule = {
-      // missing id will be filled in by addIdsToRules
-      id: r.id ?? "",
-      type: r.type,
-      coverage: r.coverage,
-      description: r.description ?? "",
-      hashAttribute: r.hashAttribute,
-      value: validateFeatureValue(feature, r.value),
-      condition: r.condition,
-      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
-        ids: s.savedGroups,
-        match: s.matchType,
-      })),
-      enabled: r.enabled != null ? r.enabled : true,
-      ...(r.scheduleRules && { scheduleRules: r.scheduleRules }),
-    };
-    return rolloutRule;
-  });
+      return rolloutRule;
+    }),
+  );
 
-export const createInterfaceEnvSettingsFromApiEnvSettings = (
+export const createInterfaceEnvSettingsFromApiEnvSettings = async (
   feature: FeatureInterface,
   baseEnvs: Environment[],
   incomingEnvs: ApiFeatureEnvSettings,
-): FeatureInterface["environmentSettings"] =>
-  baseEnvs.reduce(
-    (acc, e) => ({
-      ...acc,
-      [e.id]: {
-        enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
-        rules: incomingEnvs?.[e.id]?.rules
-          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
-              feature,
-              incomingEnvs[e.id].rules,
-            )
-          : [],
-      },
-    }),
-    {} as Record<string, FeatureEnvironment>,
-  );
+  context: ReqContext | ApiReqContext,
+): Promise<FeatureInterface["environmentSettings"]> => {
+  const result: FeatureInterface["environmentSettings"] = {};
+  for (const e of baseEnvs) {
+    result[e.id] = {
+      enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
+      rules: incomingEnvs?.[e.id]?.rules
+        ? await fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+            feature,
+            incomingEnvs[e.id].rules,
+            context,
+            e.id,
+          )
+        : [],
+    };
+  }
+  return result;
+};
 
-export const updateInterfaceEnvSettingsFromApiEnvSettings = (
+export const updateInterfaceEnvSettingsFromApiEnvSettings = async (
   feature: FeatureInterface,
   incomingEnvs: ApiFeatureEnvSettings,
-): FeatureInterface["environmentSettings"] => {
+  context: ReqContext | ApiReqContext,
+): Promise<FeatureInterface["environmentSettings"]> => {
   const existing = feature.environmentSettings;
-  return Object.keys(incomingEnvs).reduce((acc, k) => {
-    return {
-      ...acc,
-      [k]: {
-        enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
-        rules: incomingEnvs[k].rules
-          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
-              feature,
-              incomingEnvs[k].rules,
-            )
-          : (existing[k]?.rules ?? []),
-      },
+  const result: FeatureInterface["environmentSettings"] = { ...existing };
+  for (const k of Object.keys(incomingEnvs)) {
+    result[k] = {
+      enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
+      rules: incomingEnvs[k].rules
+        ? await fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+            feature,
+            incomingEnvs[k].rules,
+            context,
+            k,
+          )
+        : (existing[k]?.rules ?? []),
     };
-  }, existing);
+  }
+  return result;
 };
 
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites

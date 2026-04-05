@@ -99,7 +99,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     Object.entries(req.body.environments).forEach(([envName, envSettings]) => {
       if (envSettings.rules) {
         envSettings.rules.forEach((rule, ruleIndex) => {
-          if (rule.scheduleRules) {
+          if (rule.type === "safe-rollout") return;
+          if ("scheduleRules" in rule && rule.scheduleRules) {
             // Validate that the org has access to schedule rules
             if (!req.context.hasPremiumFeature("schedule-feature-flag")) {
               throw new Error(
@@ -169,11 +170,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     customFields: req.body.customFields,
   };
 
-  const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
-    feature,
-    orgEnvs,
-    req.body.environments ?? {},
-  );
+  const environmentSettings =
+    await createInterfaceEnvSettingsFromApiEnvSettings(
+      feature,
+      orgEnvs,
+      req.body.environments ?? {},
+      req.context,
+    );
 
   feature.environmentSettings = environmentSettings;
 

@@ -700,6 +700,78 @@ paths:
                                         type: number
                                       name:
                                         type: string
+                            - title: Safe Rollout Rule
+                              type: object
+                              required:
+                                - type
+                                - controlValue
+                                - variationValue
+                                - hashAttribute
+                                - datasourceId
+                                - exposureQueryId
+                                - guardrailMetricIds
+                                - maxDuration
+                                - autoRollback
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - safe-rollout
+                                controlValue:
+                                  type: string
+                                  description: The baseline value (shown to users NOT in the rollout).
+                                variationValue:
+                                  type: string
+                                  description: The new value being rolled out.
+                                hashAttribute:
+                                  type: string
+                                  description: The user attribute used for bucketing (e.g. "id").
+                                seed:
+                                  type: string
+                                  description: Optional seed for hashing. Auto-generated if not provided.
+                                trackingKey:
+                                  type: string
+                                  description: Optional tracking key. Auto-generated if not provided.
+                                datasourceId:
+                                  type: string
+                                  description: The data source used for analysis.
+                                exposureQueryId:
+                                  type: string
+                                  description: The exposure query used to calculate exposure.
+                                guardrailMetricIds:
+                                  type: array
+                                  items:
+                                    type: string
+                                  description: List of metric IDs to use as guardrails.
+                                maxDuration:
+                                  type: object
+                                  required:
+                                    - amount
+                                    - unit
+                                  properties:
+                                    amount:
+                                      type: number
+                                    unit:
+                                      type: string
+                                      enum:
+                                        - weeks
+                                        - days
+                                        - hours
+                                        - minutes
+                                  description: Maximum duration before the safe rollout expires.
+                                autoRollback:
+                                  type: boolean
+                                  description: Automatically roll back if a guardrail metric fails.
                       definition:
                         type: string
                         description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
