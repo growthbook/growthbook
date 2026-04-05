@@ -1,6 +1,7 @@
 import Agenda from "agenda";
 import { Queries } from "shared/types/query";
 import {
+  errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
   findStalledRunningSnapshots,
   updateSnapshot,
@@ -27,6 +28,7 @@ import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
 
 const STALLED_SNAPSHOT_THRESHOLD_MS = 30 * 60 * 1000;
+const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
@@ -164,28 +166,32 @@ async function reapStalledSnapshots() {
     );
     if (!allTerminal) continue;
 
-    logger.info(
-      `Reaping stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
+    const latestFinishedAt = Math.max(
+      ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
     );
+    if (Date.now() - latestFinishedAt < STALLED_FINALIZE_GRACE_MS) continue;
 
     const statusById = new Map(statuses.map((s) => [s.id, s.status]));
     snapshot.queries.forEach((q) => {
       q.status = statusById.get(q.query) ?? q.status;
     });
 
-    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
-    await updateSnapshot({
-      organization: snapshot.organization,
-      id: snapshot.id,
-      updates: {
-        status: "error",
+    const reaped = await errorSnapshotIfStillRunning(
+      snapshot.organization,
+      snapshot.id,
+      {
         queries: snapshot.queries,
         error:
           "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.",
       },
-      context,
-    });
+    );
+    if (!reaped) continue;
 
+    logger.info(
+      `Reaped stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
+    );
+
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await context.models.incrementalRefresh
       .releaseLock(snapshot.experiment, snapshot.id)
       .catch((e) =>

@@ -440,6 +440,18 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function errorSnapshotIfStillRunning(
+  organization: string,
+  id: string,
+  updates: Partial<ExperimentSnapshotInterface>,
+): Promise<boolean> {
+  const res = await ExperimentSnapshotModel.updateOne(
+    { organization, id, status: "running" },
+    { $set: { ...updates, status: "error" } },
+  );
+  return res.modifiedCount > 0;
+}
+
 export async function findStalledRunningSnapshots(
   stalledBefore: Date,
   limit: number,

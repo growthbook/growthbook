@@ -83,13 +83,17 @@ export async function getQueriesByIds(
 export async function getQueryStatusesByIds(
   organization: string,
   ids: string[],
-): Promise<Pick<QueryInterface, "id" | "status">[]> {
+): Promise<Pick<QueryInterface, "id" | "status" | "finishedAt">[]> {
   if (!ids.length) return [];
   const docs = await QueryModel.find(
     { organization, id: { $in: ids } },
-    { id: 1, status: 1, _id: 0 },
+    { id: 1, status: 1, finishedAt: 1, _id: 0 },
   );
-  return docs.map((d) => ({ id: d.id, status: d.status }));
+  return docs.map((d) => ({
+    id: d.id,
+    status: d.status,
+    finishedAt: d.finishedAt,
+  }));
 }
 
 export async function getQueryById(
