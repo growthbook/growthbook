@@ -722,7 +722,7 @@ export function liveRevisionFromFeature(
     holdout:
       "holdout" in (feature as object)
         ? ((feature as { holdout?: RevisionFields["holdout"] }).holdout ?? null)
-        : liveRevision.holdout,
+        : (liveRevision.holdout ?? null),
     metadata: {
       description: feature.description ?? "",
       owner: feature.owner ?? "",
@@ -850,7 +850,10 @@ function revisionHasGlobalChange(
     return true;
   if (revision.archived !== undefined && revision.archived !== base.archived)
     return true;
-  if ("holdout" in revision && !isEqual(revision.holdout, base.holdout ?? null))
+  if (
+    "holdout" in revision &&
+    !isEqual(revision.holdout ?? null, base.holdout ?? null)
+  )
     return true;
   if (revision.defaultValue !== base.defaultValue) return true;
   if (
@@ -878,7 +881,7 @@ function revisionHasMetadataOnlyGlobalChange(
       !isEqual(revision.prerequisites, base.prerequisites || [])) ||
     (revision.archived !== undefined && revision.archived !== base.archived) ||
     ("holdout" in revision &&
-      !isEqual(revision.holdout, base.holdout ?? null)) ||
+      !isEqual(revision.holdout ?? null, base.holdout ?? null)) ||
     revision.defaultValue !== base.defaultValue;
   if (hasNonMetadata) return false;
   return (
