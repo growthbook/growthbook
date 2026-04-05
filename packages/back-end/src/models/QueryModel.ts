@@ -80,6 +80,18 @@ export async function getQueriesByIds(
   return queries;
 }
 
+export async function getQueryStatusesByIds(
+  organization: string,
+  ids: string[],
+): Promise<Pick<QueryInterface, "id" | "status">[]> {
+  if (!ids.length) return [];
+  const docs = await QueryModel.find(
+    { organization, id: { $in: ids } },
+    { id: 1, status: 1, _id: 0 },
+  );
+  return docs.map((d) => ({ id: d.id, status: d.status }));
+}
+
 export async function getQueryById(
   context: ReqContext | ApiReqContext,
   id: string,

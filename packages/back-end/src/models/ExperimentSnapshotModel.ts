@@ -440,6 +440,22 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function findStalledRunningSnapshots(
+  stalledBefore: Date,
+  limit: number,
+) {
+  // Only look back 24 hours to keep the scan bounded
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const docs = await ExperimentSnapshotModel.find({
+    status: "running",
+    dateCreated: { $gt: earliestDate, $lt: stalledBefore },
+  }).limit(limit);
+
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function findLatestRunningSnapshotByReportId(
   organization: string,
   report: string,

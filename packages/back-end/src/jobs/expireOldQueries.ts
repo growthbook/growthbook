@@ -2,6 +2,7 @@ import Agenda from "agenda";
 import { Queries } from "shared/types/query";
 import {
   findRunningSnapshotsByQueryId,
+  findStalledRunningSnapshots,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -12,7 +13,10 @@ import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import { getStaleQueries } from "back-end/src/models/QueryModel";
+import {
+  getQueryStatusesByIds,
+  getStaleQueries,
+} from "back-end/src/models/QueryModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -21,6 +25,9 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
+
+const STALLED_SNAPSHOT_THRESHOLD_MS = 30 * 60 * 1000;
+const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
   queries.forEach((q) => {
@@ -128,7 +135,61 @@ const expireOldQueries = async () => {
       error: "Queries were interupted. Please try refreshing the results.",
     });
   }
+
+  try {
+    await reapStalledSnapshots();
+  } catch (e) {
+    logger.error(e, "Failed to reap stalled snapshots");
+  }
 };
+
+async function reapStalledSnapshots() {
+  const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
+  const candidates = await findStalledRunningSnapshots(
+    stalledBefore,
+    STALLED_SNAPSHOT_REAP_LIMIT,
+  );
+
+  for (const snapshot of candidates) {
+    const queryIds = snapshot.queries.map((q) => q.query);
+    if (!queryIds.length) continue;
+
+    const statuses = await getQueryStatusesByIds(
+      snapshot.organization,
+      queryIds,
+    );
+    if (statuses.length !== queryIds.length) continue;
+    const allTerminal = statuses.every(
+      (q) => q.status === "succeeded" || q.status === "failed",
+    );
+    if (!allTerminal) continue;
+
+    logger.info(
+      `Reaping stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
+    );
+
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+    await updateSnapshot({
+      organization: snapshot.organization,
+      id: snapshot.id,
+      updates: {
+        status: "error",
+        error:
+          "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.",
+      },
+      context,
+    });
+
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(
+          e,
+          "Failed to release incremental lock for stalled snapshot",
+        ),
+      );
+  }
+}
 
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, expireOldQueries);
