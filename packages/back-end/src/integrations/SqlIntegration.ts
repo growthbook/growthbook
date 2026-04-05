@@ -2411,7 +2411,7 @@ export default abstract class SqlIntegration
           ${
             activationMetric
               ? `, ${this.ifElse(
-                  `first_activation_timestamp IS NULL`,
+                  `first_activation_timestamp IS NULL OR first_activation_timestamp > ${this.toTimestamp(settings.endDate)}`,
                   "'Not Activated'",
                   "'Activated'",
                 )} AS dim_activated`
@@ -3241,7 +3241,10 @@ export default abstract class SqlIntegration
     );
 
     const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
-      this.getDimensionCol(d),
+      this.getDimensionCol(d, {
+        endDate,
+        skipPartialData: settings.skipPartialData,
+      }),
     );
     // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
     // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
@@ -3435,9 +3438,7 @@ export default abstract class SqlIntegration
               )
               .join("\n")}
             ${
-              // CUPED pre-exposure covariate columns: emitted here so that
-              // __userCovariateMetric can aggregate them from __userMetricJoin
-              // instead of re-scanning __factTable. See getCovariateMetricCTE.
+              // CUPED pre-exposure covariate columns
               regressionAdjustedTableIndices.has(f.index)
                 ? regressionAdjustedMetrics
                     .map(
@@ -3819,7 +3820,10 @@ export default abstract class SqlIntegration
     `;
   }
 
-  getDimensionCol(dimension: Dimension): DimensionColumnData {
+  getDimensionCol(
+    dimension: Dimension,
+    options?: { endDate?: Date; skipPartialData?: boolean },
+  ): DimensionColumnData {
     switch (dimension.type) {
       case "experiment":
         return {
@@ -3838,15 +3842,24 @@ export default abstract class SqlIntegration
           )}`,
           alias: "dim_pre_date",
         };
-      case "activation":
+      case "activation": {
+        // When skipping partial data, activation slices should use the same
+        // cutoff boundary as activation-only user filtering.
+        const notActivatedCondition =
+          options?.skipPartialData && options.endDate
+            ? `first_activation_timestamp IS NULL OR first_activation_timestamp > ${this.toTimestamp(
+                options.endDate,
+              )}`
+            : "first_activation_timestamp IS NULL";
         return {
           value: this.ifElse(
-            `first_activation_timestamp IS NULL`,
+            notActivatedCondition,
             "'Not Activated'",
             "'Activated'",
           ),
           alias: "dim_activation",
         };
+      }
     }
   }
 
@@ -4040,7 +4053,12 @@ export default abstract class SqlIntegration
       ),
     );
 
-    const dimensionCols = params.dimensions.map((d) => this.getDimensionCol(d));
+    const dimensionCols = params.dimensions.map((d) =>
+      this.getDimensionCol(d, {
+        endDate,
+        skipPartialData: settings.skipPartialData,
+      }),
+    );
     // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
     // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
     // column specified. See `BANDIT_DIMENSION` in gbstats.py.
