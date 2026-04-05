@@ -151,7 +151,7 @@ async function reapStalledSnapshots() {
   );
 
   for (const snapshot of candidates) {
-    const queryIds = snapshot.queries.map((q) => q.query);
+    const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
     if (!queryIds.length) continue;
 
     const statuses = await getQueryStatusesByIds(
@@ -168,12 +168,18 @@ async function reapStalledSnapshots() {
       `Reaping stalled snapshot ${snapshot.id} (experiment ${snapshot.experiment}): all ${queryIds.length} queries terminal but status still running`,
     );
 
+    const statusById = new Map(statuses.map((s) => [s.id, s.status]));
+    snapshot.queries.forEach((q) => {
+      q.status = statusById.get(q.query) ?? q.status;
+    });
+
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     await updateSnapshot({
       organization: snapshot.organization,
       id: snapshot.id,
       updates: {
         status: "error",
+        queries: snapshot.queries,
         error:
           "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.",
       },
