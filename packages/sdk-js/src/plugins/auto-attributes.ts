@@ -4,8 +4,19 @@ import type {
   GrowthBookClient,
 } from "../GrowthBookClient";
 
+export type uuidCookieSettings = {
+  domain?: string;
+  path?: string;
+  maxAge?: number;
+  expires?: string;
+  secure?: boolean;
+  sameSite?: "lax" | "strict" | "none";
+  partitioned?: boolean;
+};
+
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
+  uuidCookieSettings?: uuidCookieSettings;
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
@@ -47,7 +58,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   const uuidKey = settings.uuidKey || "id";
   let uuid = settings.uuid || "";
   function persistUUID() {
-    setCookie(COOKIE_NAME, uuid);
+    setCookie(COOKIE_NAME, uuid, settings.uuidCookieSettings);
   }
   function getUUID() {
     // Already stored in memory, return
@@ -129,11 +140,33 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   };
 }
 
-function setCookie(name: string, value: string) {
+function getDefaultExpireOTCString() {
   const d = new Date();
   const COOKIE_DAYS = 400; // 400 days is the max cookie duration for chrome
   d.setTime(d.getTime() + 24 * 60 * 60 * 1000 * COOKIE_DAYS);
-  document.cookie = name + "=" + value + ";path=/;expires=" + d.toUTCString();
+  return d.toUTCString();
+}
+
+function setCookie(
+  name: string,
+  value: string,
+  settings: uuidCookieSettings = {},
+) {
+  document.cookie = [
+    `${name}=${value}`,
+    settings.maxAge !== undefined && settings.maxAge !== null
+      ? `max-age=${settings.maxAge}`
+      : `expires=${settings.expires ?? getDefaultExpireOTCString()}`,
+    `path=${settings.path ?? "/"}`,
+    settings.domain ? `domain=${settings.domain}` : "",
+    settings.sameSite ? `sameSite=${settings.sameSite}` : "",
+    settings.secure || settings.sameSite === "none" || settings.partitioned
+      ? "secure"
+      : "",
+    settings.partitioned ? "partitioned" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 function getCookie(name: string): string {

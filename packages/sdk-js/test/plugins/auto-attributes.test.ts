@@ -342,4 +342,239 @@ describe("autoAttributesPlugin", () => {
 
     gb.destroy();
   });
+
+  describe("uuidCookieSettings", () => {
+    let cookieSetCalls: string[] = [];
+    let originalCookieDescriptor: PropertyDescriptor | undefined;
+
+    beforeAll(() => {
+      originalCookieDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        "cookie",
+      );
+      Object.defineProperty(document, "cookie", {
+        get: () => "",
+        set: (value: string) => {
+          cookieSetCalls.push(value);
+        },
+        configurable: true,
+      });
+    });
+
+    beforeEach(() => {
+      cookieSetCalls = [];
+    });
+
+    it("passes domain setting to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { domain: "example.com" },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("domain=example.com");
+
+      gb.destroy();
+    });
+
+    it("passes path setting to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { path: "/app" },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("path=/app");
+
+      gb.destroy();
+    });
+
+    it("passes maxAge setting to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { maxAge: 86400 },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("max-age=86400");
+
+      gb.destroy();
+    });
+
+    it("passes expires setting to cookie setter", () => {
+      const expirationTime = new Date().toISOString();
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { expires: expirationTime },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("expires=");
+
+      gb.destroy();
+    });
+
+    it("passes sameSite=strict setting to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { sameSite: "strict" },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("sameSite=strict");
+
+      gb.destroy();
+    });
+
+    it("passes sameSite=lax setting to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { sameSite: "lax" },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("sameSite=lax");
+
+      gb.destroy();
+    });
+
+    it("passes sameSite=none with secure flag to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { sameSite: "none" },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("sameSite=none");
+      expect(cookieSetCalls[0]).toContain("secure");
+
+      gb.destroy();
+    });
+
+    it("passes secure setting to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { secure: true },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("secure");
+
+      gb.destroy();
+    });
+
+    it("passes partitioned setting with secure flag to cookie setter", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: { partitioned: true },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("secure");
+      expect(cookieSetCalls[0]).toContain("partitioned");
+
+      gb.destroy();
+    });
+
+    it("combines multiple cookie settings correctly", () => {
+      const plugin = autoAttributesPlugin({
+        uuidCookieSettings: {
+          domain: "example.com",
+          path: "/app",
+          maxAge: 604800,
+          sameSite: "lax",
+          secure: true,
+        },
+      });
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      const cookieString = cookieSetCalls[0];
+      expect(cookieString).toContain("domain=example.com");
+      expect(cookieString).toContain("path=/app");
+      expect(cookieString).toContain("max-age=604800");
+      expect(cookieString).toContain("sameSite=lax");
+      expect(cookieString).toContain("secure");
+
+      gb.destroy();
+    });
+
+    it("uses default path when uuidCookieSettings not provided", () => {
+      const plugin = autoAttributesPlugin();
+      const gb = new GrowthBook({
+        plugins: [plugin],
+      });
+
+      expect(cookieSetCalls.length).toBeGreaterThan(0);
+      expect(cookieSetCalls[0]).toContain("path=/");
+      expect(cookieSetCalls[0]).toContain("expires=");
+
+      gb.destroy();
+    });
+
+    it("respects cookie settings when persisting via growthbookpersist event", () => {
+      let localCookieSetCalls: string[] = [];
+      const originalCookieDescriptor = Object.getOwnPropertyDescriptor(
+        document,
+        "cookie",
+      );
+      Object.defineProperty(document, "cookie", {
+        get: () => "",
+        set: (value: string) => {
+          localCookieSetCalls.push(value);
+        },
+        configurable: true,
+      });
+
+      try {
+        const plugin = autoAttributesPlugin({
+          uuidAutoPersist: false,
+          uuidCookieSettings: { path: "/test", maxAge: 3600 },
+        });
+        const gb = new GrowthBook({
+          plugins: [plugin],
+        });
+
+        // No cookie set initially
+        expect(localCookieSetCalls.length).toBe(0);
+
+        // Trigger persist event
+        document.dispatchEvent(new Event("growthbookpersist"));
+
+        // Cookie should now be set with custom settings
+        expect(localCookieSetCalls.length).toBeGreaterThan(0);
+        // Verify that our custom cookie settings were passed
+        const cookieString = localCookieSetCalls.find((c) =>
+          c.includes("path=/test"),
+        );
+        expect(cookieString).toBeTruthy();
+
+        gb.destroy();
+      } finally {
+        if (originalCookieDescriptor) {
+          Object.defineProperty(document, "cookie", originalCookieDescriptor);
+        }
+      }
+    });
+  });
 });
