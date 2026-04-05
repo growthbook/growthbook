@@ -204,6 +204,22 @@ export abstract class QueryRunner<
             e,
             "Error refreshing query statuses for runner of " + this.model.id,
           );
+          if (this.status !== "finished") {
+            const error = "Error finalizing query results: " + e.message;
+            try {
+              this.model = await this.updateModel({
+                status: "failed",
+                queries: this.model.queries,
+                error,
+              });
+            } catch (writeErr) {
+              logger.error(
+                writeErr,
+                "Failed to persist error status for runner of " + this.model.id,
+              );
+            }
+            this.setStatus("finished", error);
+          }
         }
       }, 1000);
     } else {
