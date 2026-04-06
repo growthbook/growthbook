@@ -31,6 +31,7 @@ export function getLatestPhaseVariations(
   const allVariations = getAllVariations(experiment);
   const defaultResponse = allVariations.map((v, i) => ({
     ...v,
+    name: v.name ?? `Variation ${i}`,
     index: i,
     status: "active" as const,
   }));
@@ -52,6 +53,7 @@ export function getLatestPhaseVariations(
     }
     foundVariations.push({
       ...foundVariation,
+      name: foundVariation.name ?? `Variation ${foundVariation.index}`,
       // Add status from phase variation, if present
       status: v.status,
     });
