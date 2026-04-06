@@ -22,13 +22,10 @@ import {
   secondsUntilAICanBeUsedAgain,
 } from "back-end/src/enterprise/services/ai";
 import {
-  getConversation,
-  appendMessages,
-  setStreaming,
-  touchStreamedAt,
-  initConversation,
-  updateTitle,
-} from "back-end/src/enterprise/services/conversation-store";
+  type ConversationBuffer,
+  loadOrInitConversation,
+  persistConversation,
+} from "back-end/src/enterprise/services/conversation-buffer";
 import { stripForLLM } from "back-end/src/enterprise/services/ai-chat-for-llm";
 import { logger } from "back-end/src/util/logger";
 
@@ -49,13 +46,15 @@ export interface AgentConfig<TParams = unknown> {
 
   /**
    * Build the tool set for the current request.
-   * The `emit` function writes SSE events directly from within tool execute
-   * functions, allowing tools to stream rich artifacts (e.g. chart-result)
-   * before the AI SDK yields the tool-result stream part.
+   * The `buffer` provides sync access to the conversation's messages and
+   * metadata within tool execute functions. The `emit` function writes SSE
+   * events directly from within tool execute functions, allowing tools to
+   * stream rich artifacts (e.g. chart-result) before the AI SDK yields the
+   * tool-result stream part.
    */
   buildTools: (
     ctx: ReqContext,
-    conversationId: string,
+    buffer: ConversationBuffer,
     params: TParams,
     emit?: AgentEmit,
   ) => ToolSet;
@@ -127,8 +126,8 @@ type OrgAIPromptConfig = Awaited<
 // Body must include `message` and `conversationId`; extra fields go through
 // `config.parseParams`.
 //
-// Helpers below are plain `function` declarations so they can live after this
-// export without forward references issues at runtime.
+// The ConversationBuffer lives on the stack for the duration of the request
+// and is GC'd when the handler returns — no module-level state.
 
 export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
   return async (
@@ -149,13 +148,25 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     const params = config.parseParams(body);
     const { system, orgAdditionalPrompt, overrideModel } =
       await buildSystemPromptForRequest(context, config, params);
-    const { messages: messagesForLLM, isFirstMessage } =
-      prepareConversationMessages(conversationId, context, message);
-    setSseHeaders(res);
-    const emit = createEmit(flushableRes, conversationId);
-    const tools = config.buildTools(context, conversationId, params, emit);
 
-    setStreaming(conversationId, true);
+    const buffer = await loadOrInitConversation(
+      context.models.aiConversations,
+      conversationId,
+      context.userId,
+    );
+
+    const { messages: messagesForLLM, isFirstMessage } =
+      prepareConversationMessages(buffer, message);
+    setSseHeaders(res);
+    const emit = createEmit(flushableRes, buffer);
+    const tools = config.buildTools(context, buffer, params, emit);
+
+    buffer.setStreaming(true);
+
+    // Persist user message immediately so it survives a mid-stream server crash.
+    persistConversation(context.models.aiConversations, buffer).catch((err) => {
+      logger.error(err, "Failed to persist user message");
+    });
 
     // Fire title generation immediately from the user's message so it runs
     // concurrently with the main stream and resolves as early as possible.
@@ -181,7 +192,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
               .replace(/^["'`#*_\s]+|["'`#*_\s]+$/g, "")
               .slice(0, 100);
             if (trimmedTitle) {
-              updateTitle(conversationId, trimmedTitle);
+              buffer.updateTitle(trimmedTitle);
               emit("conversation-title", { title: trimmedTitle });
             }
           } catch {
@@ -209,9 +220,19 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       await streamAgentResponse(
         stream,
         config,
-        conversationId,
+        buffer,
         emit,
         abortController,
+        () => {
+          persistConversation(context.models.aiConversations, buffer).catch(
+            (err) => {
+              logger.error(
+                err,
+                "Failed to persist intermediate conversation state",
+              );
+            },
+          );
+        },
       );
 
       // Awaiting stream.response drains any buffered provider errors that
@@ -233,9 +254,18 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         // ignore cleanup errors
       }
 
-      setStreaming(conversationId, false);
+      buffer.setStreaming(false);
       emit("done", {});
       flushableRes.end();
+
+      // Persist final conversation state to DB after the response is closed.
+      // Fire-and-forget — the client has already received "done".
+      // The buffer is GC'd after this handler returns; no eviction needed.
+      persistConversation(context.models.aiConversations, buffer).catch(
+        (err) => {
+          logger.error(err, "Failed to persist conversation at stream end");
+        },
+      );
     }
   };
 }
@@ -304,25 +334,15 @@ async function buildSystemPromptForRequest<TParams>(
 }
 
 // =============================================================================
-// Conversation store: init, append user message, messages for the model
+// Conversation buffer: append user message, prepare messages for the model
 // =============================================================================
 
 function prepareConversationMessages(
-  conversationId: string,
-  context: ReqContext,
+  buffer: ConversationBuffer,
   message: string,
 ): { messages: ReturnType<typeof stripForLLM>; isFirstMessage: boolean } {
-  const history = getConversation(conversationId);
+  const history = buffer.getMessages();
   const isFirstMessage = history.length === 0;
-
-  if (isFirstMessage) {
-    initConversation(
-      conversationId,
-      context.userId,
-      context.org.id,
-      "New Chat",
-    );
-  }
 
   const userMessage: AIChatMessage = {
     role: "user",
@@ -330,9 +350,9 @@ function prepareConversationMessages(
     content: message,
     ts: Date.now(),
   };
-  appendMessages(conversationId, [userMessage]);
+  buffer.appendMessages([userMessage]);
   return {
-    messages: stripForLLM(getConversation(conversationId)),
+    messages: stripForLLM(buffer.getMessages()),
     isFirstMessage,
   };
 }
@@ -350,12 +370,12 @@ function setSseHeaders(res: Response): void {
 
 function createEmit(
   flushableRes: FlushableResponse,
-  conversationId: string,
+  buffer: ConversationBuffer,
 ): AgentEmit {
   return (event, data): void => {
     flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     flushableRes.flush?.();
-    touchStreamedAt(conversationId);
+    buffer.touchStreamedAt();
   };
 }
 
@@ -400,7 +420,7 @@ export function serializeUnknownForSSE(value: unknown): unknown {
 
 /**
  * Accumulates AI SDK stream parts into assistant/tool messages and flushes them
- * to the conversation store at step boundaries. Holds all mutable accumulator
+ * to the conversation buffer at step boundaries. Holds all mutable accumulator
  * state so it does not leak into the stream loop or callers.
  */
 const DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT = 3;
@@ -412,13 +432,17 @@ class StreamProcessor {
   private invalidToolCallIds = new Set<string>();
   private consecutiveToolErrors = 0;
   private aborted = false;
+  private readonly onStepPersist?: () => void;
 
   constructor(
-    private readonly conversationId: string,
+    private readonly buffer: ConversationBuffer,
     private readonly emit: AgentEmit,
     private readonly abortController: AbortController,
     private readonly maxConsecutiveToolErrors: number = DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT,
-  ) {}
+    onStepPersist?: () => void,
+  ) {
+    this.onStepPersist = onStepPersist;
+  }
 
   get isAborted(): boolean {
     return this.aborted;
@@ -448,7 +472,7 @@ class StreamProcessor {
   private flushAssistantMessage(): void {
     this.flushTextToAssistantParts();
     if (this.assistantParts.length > 0) {
-      appendMessages(this.conversationId, [
+      this.buffer.appendMessages([
         {
           role: "assistant",
           id: randomUUID(),
@@ -461,7 +485,7 @@ class StreamProcessor {
 
   private flushToolMessage(): void {
     if (this.pendingToolResults.length > 0) {
-      appendMessages(this.conversationId, [
+      this.buffer.appendMessages([
         {
           role: "tool",
           id: randomUUID(),
@@ -581,6 +605,11 @@ class StreamProcessor {
     } else {
       this.consecutiveToolErrors = 0;
     }
+
+    // Flush completed step to the buffer and persist so polling clients
+    // (e.g. user navigated away and back) see intermediate results.
+    this.flushToolMessage();
+    this.onStepPersist?.();
   }
 
   handleToolError(part: ToolErrorPart): void {
@@ -618,6 +647,9 @@ class StreamProcessor {
 
     this.consecutiveToolErrors++;
     this.triggerCircuitBreaker();
+
+    this.flushToolMessage();
+    this.onStepPersist?.();
   }
 
   /** Flush whatever remains after the stream ends. */
@@ -644,21 +676,23 @@ function debugNonTextPart(
 async function streamAgentResponse<TParams>(
   stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
   config: AgentConfig<TParams>,
-  conversationId: string,
+  buffer: ConversationBuffer,
   emit: AgentEmit,
   abortController: AbortController,
+  onStepPersist?: () => void,
 ): Promise<void> {
   const processor = new StreamProcessor(
-    conversationId,
+    buffer,
     emit,
     abortController,
     config.maxConsecutiveToolErrors,
+    onStepPersist,
   );
 
   try {
     for await (const part of stream.fullStream) {
       if (processor.isAborted) break;
-      debugNonTextPart(part, conversationId, config.promptType);
+      debugNonTextPart(part, buffer.conversationId, config.promptType);
 
       switch (part.type) {
         case "text-delta":

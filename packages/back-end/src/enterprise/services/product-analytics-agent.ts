@@ -18,10 +18,7 @@ import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
-import {
-  getConversation,
-  getLatestToolResult,
-} from "back-end/src/enterprise/services/conversation-store";
+import type { ConversationBuffer } from "back-end/src/enterprise/services/conversation-buffer";
 import {
   createAgentHandler,
   type AgentConfig,
@@ -172,10 +169,10 @@ async function buildProductAnalyticsSystemPrompt(
 // =============================================================================
 
 export function findSnapshot(
-  conversationId: string,
+  buffer: ConversationBuffer,
   snapshotId: string,
 ): AIChatToolResultPart | undefined {
-  const messages = getConversation(conversationId);
+  const messages = buffer.getMessages();
   for (const m of messages) {
     if (m.role !== "tool") continue;
     for (const part of m.content) {
@@ -374,8 +371,8 @@ function buildResultCsv(
   return csv;
 }
 
-function nextSnapshotId(conversationId: string): string {
-  const msgs = getConversation(conversationId);
+function nextSnapshotId(buffer: ConversationBuffer): string {
+  const msgs = buffer.getMessages();
   let count = 0;
   for (const m of msgs) {
     if (m.role !== "tool") continue;
@@ -383,7 +380,7 @@ function nextSnapshotId(conversationId: string): string {
       if (part.toolName === "runExploration") count++;
     }
   }
-  return `snap_${conversationId.slice(0, 8)}_${count + 1}`;
+  return `snap_${buffer.conversationId.slice(0, 8)}_${count + 1}`;
 }
 
 function explorationConfigFromLatestRun(
@@ -536,9 +533,9 @@ async function executeSearch(
 }
 
 async function executeGetCurrentConfig(
-  conversationId: string,
+  buffer: ConversationBuffer,
 ): Promise<string> {
-  const latest = getLatestToolResult(conversationId, "runExploration");
+  const latest = buffer.getLatestToolResult("runExploration");
   const cfg = explorationConfigFromLatestRun(latest);
   return cfg
     ? JSON.stringify(cfg, null, 2)
@@ -564,7 +561,7 @@ type RunExplorationToolResult =
 
 async function executeRunExploration(
   ctx: ReqContext,
-  conversationId: string,
+  buffer: ConversationBuffer,
   config: ExplorationConfig,
 ): Promise<RunExplorationToolResult> {
   try {
@@ -580,12 +577,12 @@ async function executeRunExploration(
     }
 
     const prevConfig = explorationConfigFromLatestRun(
-      getLatestToolResult(conversationId, "runExploration"),
+      buffer.getLatestToolResult("runExploration"),
     );
     const summary = buildSnapshotSummary(prevConfig, config);
     const resultCsv = buildResultCsv(exploration?.result?.rows ?? [], config);
 
-    const snapshotId = nextSnapshotId(conversationId);
+    const snapshotId = nextSnapshotId(buffer);
 
     return {
       summary,
@@ -616,10 +613,10 @@ function snapshotSummaryLineFromResult(r: unknown): string {
 }
 
 async function executeGetSnapshot(
-  conversationId: string,
+  buffer: ConversationBuffer,
   snapshotId: string,
 ): Promise<string> {
-  const part = findSnapshot(conversationId, snapshotId);
+  const part = findSnapshot(buffer, snapshotId);
   if (!part) {
     return `Snapshot "${snapshotId}" not found.`;
   }
@@ -1036,7 +1033,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
   buildSystemPrompt: (ctx, { datasourceId }) =>
     buildProductAnalyticsSystemPrompt(ctx, datasourceId),
 
-  buildTools: (ctx, conversationId, { datasourceId }) => {
+  buildTools: (ctx, buffer, { datasourceId }) => {
     let metricsCache: FactMetricInterface[] | null = null;
     const getMetrics = async (): Promise<FactMetricInterface[]> => {
       if (metricsCache) return metricsCache;
@@ -1079,7 +1076,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       getCurrentConfig: aiTool({
         description: GET_CURRENT_CONFIG_DESCRIPTION,
         inputSchema: emptyInputSchema,
-        execute: () => executeGetCurrentConfig(conversationId),
+        execute: () => executeGetCurrentConfig(buffer),
       }),
 
       getConfigSchema: aiTool({
@@ -1091,15 +1088,13 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       runExploration: aiTool({
         description: RUN_EXPLORATION_DESCRIPTION,
         inputSchema: runExplorationInputSchema,
-        execute: ({ config }) =>
-          executeRunExploration(ctx, conversationId, config),
+        execute: ({ config }) => executeRunExploration(ctx, buffer, config),
       }),
 
       getSnapshot: aiTool({
         description: GET_SNAPSHOT_DESCRIPTION,
         inputSchema: getSnapshotInputSchema,
-        execute: ({ snapshotId }) =>
-          executeGetSnapshot(conversationId, snapshotId),
+        execute: ({ snapshotId }) => executeGetSnapshot(buffer, snapshotId),
       }),
     };
   },

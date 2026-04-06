@@ -245,7 +245,9 @@ export default function ExplorerAIChat() {
   const { aiEnabled } = useAISettings();
   const { draftExploreState } = useExplorerContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const shouldAutoScrollRef = useRef(true);
 
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
@@ -328,9 +330,22 @@ export default function ExplorerAIChat() {
     return list;
   }, [listData?.conversations, conversationId, messages, loading]);
 
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, activeTurnItems]);
+
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
+  }, [conversationId]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -620,6 +635,8 @@ export default function ExplorerAIChat() {
         </Flex>
 
         <Flex
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
           direction="column"
           gap="3"
           px="4"

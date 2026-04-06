@@ -15,7 +15,7 @@ import {
   getConversationStatus,
   listConversations,
   type ConversationSummary,
-} from "back-end/src/enterprise/services/conversation-store";
+} from "back-end/src/enterprise/services/conversation-buffer";
 
 export { postChat } from "back-end/src/enterprise/services/product-analytics-agent";
 
@@ -58,8 +58,12 @@ export const getChat = async (
     messages: AIChatMessage[];
   }>,
 ) => {
+  const context = getContextFromReq(req);
   const { conversationId } = req.params;
-  const statusData = getConversationStatus(conversationId);
+  const statusData = await getConversationStatus(
+    context.models.aiConversations,
+    conversationId,
+  );
 
   if (!statusData) {
     return res.status(200).json({
@@ -86,7 +90,7 @@ export const listChats = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const conversations = listConversations(context.userId, context.org.id);
+  const conversations = await listConversations(context.models.aiConversations);
   return res.status(200).json({ status: 200, conversations });
 };
 
