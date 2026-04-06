@@ -13,7 +13,7 @@ import { StepperStep, Stepper } from '@site/src/components/Stepper'
 
 This guide walks you through the basics of a full integration of GrowthBook for both feature flagging and experimentation.
 
-## Set Up GrowthBook
+## Set up GrowthBook
 
 You can either **self-host** GrowthBook or use our **Cloud**.
 
@@ -33,7 +33,7 @@ After creating your account, it will walk you through the initial setup steps, i
   </StepperStep>
 
   <StepperStep>
-    ### Create a Feature Flag
+    ### Create a feature flag
     
     On the **Features** page, create your first feature flag.
 
@@ -47,7 +47,7 @@ After creating your account, it will walk you through the initial setup steps, i
 
   </StepperStep>
   <StepperStep>
-    ### Use the Feature in Your Application
+    ### Use the feature in your application
 
     When you create your first feature, you'll see instructions on how to use it in your application. Here's an example using our JavaScript SDK:
 
@@ -68,28 +68,24 @@ After creating your account, it will walk you through the initial setup steps, i
 
 <Stepper>
   <StepperStep>
-    ### Connect to Your Data Warehouse
+    ### Set up your data source
 
-    GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments. We support all major SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and ClickHouse.
+    GrowthBook connects to a data warehouse to query your experiment data. You have two options:
 
-    GrowthBook is extremely flexible and can support almost any schema structure with a bit of configuration.
+    **Fastest path: [Managed Warehouse](/app/managed-warehouse).** If you don't have an existing data warehouse, our Managed Warehouse gets you running quickly. We provision a fully managed database, create starter metrics, and provide built-in event tracking. No infrastructure setup required.
 
-    :::info **Don't have a data warehouse?**
+    **[Bring Your Own Warehouse](/warehouses).** If you already have event data in BigQuery, Snowflake, Databricks, Redshift, or another warehouse, you can connect it directly. GrowthBook supports almost any schema structure with a bit of configuration and only needs read-only access.
 
-    Our most popular option is to have [Google Analytics 4 (GA4) sync data to BigQuery](/guide/GA4-google-analytics). We also provide [guides on working with other popular data sources](/app/datasources).
-
+    :::tip Not sure which to pick?
+    See our [data path comparison](/app/choose-data-path) for help deciding.
     :::
 
-    To connect GrowthBook to your data warehouse, go to **Metrics and Data** &rarr; **Data Sources**. Select the type of data source to get started. We then ask you to select your event tracker. This step is optional, but highly recommended as it allows us to generate initial SQL that works out of the box. If you want to skip, just select **Custom**.
-
-    Lastly, fill out the connection details. This typically includes the host, port, database name, username, and password, although this varies by data warehouse type. GrowthBook only requires read-only access to the tables and views needed for your experiments and metrics.
-
-    Additional guides on [how to set up the data source for your specific data warehouse](/warehouses) are available.
+    To get started, go to **Metrics and Data** &rarr; **Data Sources** and pick your path.
 
   </StepperStep>
 
   <StepperStep>
-    ### Add a Metric or Two
+    ### Add a metric or two
 
     GrowthBook needs to know what metrics you want to measure for your experiments. This starts by creating one or more Fact Tables using SQL, which selects raw data from your warehouse. Metrics are then built on top of these Fact Tables.
 
@@ -111,7 +107,7 @@ After creating your account, it will walk you through the initial setup steps, i
   </StepperStep>
 
   <StepperStep>
-    ### View Experiment Results
+    ### View experiment results
 
     Go to the **Experiments** page. If you implemented an experiment using feature flags, your experiment will already be listed. Click through to it. If you ran your experiment outside of GrowthBook instead, that's fine, too! Add a new experiment and select the **Import Existing** option.
 
@@ -126,7 +122,7 @@ After creating your account, it will walk you through the initial setup steps, i
   </StepperStep>
 </Stepper>
 
-## Next Steps
+## Next steps
 
 <div className="button-card-grid">
     <ButtonCard
