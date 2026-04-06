@@ -28,6 +28,7 @@ import { featureHasEnvironment } from "./features";
 export * from "./features";
 export * from "./saved-groups";
 export * from "./metric-time-series";
+export * from "./numbers";
 export * from "./types";
 export * from "./errors";
 

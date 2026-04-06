@@ -21,7 +21,7 @@ import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
   planExperimentSnapshot,
-} from "back-end/src/controllers/experiments";
+} from "back-end/src/services/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
