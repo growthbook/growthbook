@@ -82,6 +82,13 @@ export interface AgentConfig<TParams = unknown> {
    * output, tool-call-error, reasoning-delta, error) are always emitted.
    */
   onLLMEvent?: (part: TextStreamPart<ToolSet>, emit: AgentEmit) => void;
+
+  /**
+   * Maximum consecutive tool-call errors (SDK errors, invalid inputs, or
+   * application-level `{ status: "error" }` results) before the agent aborts
+   * with a user-facing message. Defaults to 3.
+   */
+  maxConsecutiveToolErrors?: number;
 }
 
 // =============================================================================
@@ -183,6 +190,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         })()
       : Promise.resolve();
 
+    const abortController = new AbortController();
+
     try {
       const stream = await streamingChatCompletion({
         context,
@@ -194,9 +203,16 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         overrideModel,
         tools,
         maxSteps: config.maxSteps,
+        abortSignal: abortController.signal,
       });
 
-      await streamAgentResponse(stream, config, conversationId, emit);
+      await streamAgentResponse(
+        stream,
+        config,
+        conversationId,
+        emit,
+        abortController,
+      );
 
       // Awaiting stream.response drains any buffered provider errors that
       // surface after the fullStream async iterator completes. Errors here
@@ -315,7 +331,10 @@ function prepareConversationMessages(
     ts: Date.now(),
   };
   appendMessages(conversationId, [userMessage]);
-  return { messages: stripForLLM(getConversation(conversationId)), isFirstMessage };
+  return {
+    messages: stripForLLM(getConversation(conversationId)),
+    isFirstMessage,
+  };
 }
 
 // =============================================================================
@@ -384,15 +403,39 @@ export function serializeUnknownForSSE(value: unknown): unknown {
  * to the conversation store at step boundaries. Holds all mutable accumulator
  * state so it does not leak into the stream loop or callers.
  */
+const DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT = 3;
+
 class StreamProcessor {
   private assistantParts: (AIChatTextPart | AIChatToolCallPart)[] = [];
   private pendingToolResults: AIChatToolResultPart[] = [];
   private textBuffer = "";
+  private invalidToolCallIds = new Set<string>();
+  private consecutiveToolErrors = 0;
+  private aborted = false;
 
   constructor(
     private readonly conversationId: string,
     private readonly emit: AgentEmit,
+    private readonly abortController: AbortController,
+    private readonly maxConsecutiveToolErrors: number = DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT,
   ) {}
+
+  get isAborted(): boolean {
+    return this.aborted;
+  }
+
+  private triggerCircuitBreaker(): void {
+    if (this.aborted) return;
+    if (this.consecutiveToolErrors >= this.maxConsecutiveToolErrors) {
+      this.aborted = true;
+      this.emit("error", {
+        message:
+          "The assistant encountered repeated tool errors and stopped retrying. " +
+          "Please try rephrasing your request or adjusting the parameters.",
+      });
+      this.abortController.abort();
+    }
+  }
 
   private flushTextToAssistantParts(): void {
     const trimmed = this.textBuffer.trim();
@@ -466,6 +509,10 @@ class StreamProcessor {
         ? getErrorMessage(rawError, "Invalid tool input")
         : undefined;
 
+    if (invalid && toolCallId) {
+      this.invalidToolCallIds.add(toolCallId);
+    }
+
     this.emit("tool-call-input", {
       toolCallId,
       toolName,
@@ -483,7 +530,7 @@ class StreamProcessor {
     this.flushTextToAssistantParts();
 
     const args =
-      rawInput && typeof rawInput === "object" && rawInput !== null && !invalid
+      rawInput && typeof rawInput === "object" && rawInput !== null
         ? (rawInput as Record<string, unknown>)
         : undefined;
 
@@ -519,12 +566,21 @@ class StreamProcessor {
       this.flushAssistantMessage();
     }
 
+    const isError = this.invalidToolCallIds.has(part.toolCallId);
     this.pendingToolResults.push({
       type: "tool-result",
       toolCallId: part.toolCallId,
       toolName: part.toolName,
       result: stringifyToolResultForStorage(part.output),
+      ...(isError ? { isError: true } : {}),
     });
+
+    if (isError || isErrorToolOutput(part.output)) {
+      this.consecutiveToolErrors++;
+      this.triggerCircuitBreaker();
+    } else {
+      this.consecutiveToolErrors = 0;
+    }
   }
 
   handleToolError(part: ToolErrorPart): void {
@@ -546,7 +602,10 @@ class StreamProcessor {
     // Without this the conversation has an orphaned tool call with no matching
     // result, causing "No tool output found for function call" on subsequent
     // requests — and the model never learns what went wrong.
-    if (this.pendingToolResults.length === 0 && this.assistantParts.length > 0) {
+    if (
+      this.pendingToolResults.length === 0 &&
+      this.assistantParts.length > 0
+    ) {
       this.flushAssistantMessage();
     }
     this.pendingToolResults.push({
@@ -554,7 +613,11 @@ class StreamProcessor {
       toolCallId,
       toolName: toolName ?? "",
       result: message,
+      isError: true,
     });
+
+    this.consecutiveToolErrors++;
+    this.triggerCircuitBreaker();
   }
 
   /** Flush whatever remains after the stream ends. */
@@ -578,16 +641,23 @@ function debugNonTextPart(
   });
 }
 
-async function streamAgentResponse(
+async function streamAgentResponse<TParams>(
   stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
-  config: AgentConfig,
+  config: AgentConfig<TParams>,
   conversationId: string,
   emit: AgentEmit,
+  abortController: AbortController,
 ): Promise<void> {
-  const processor = new StreamProcessor(conversationId, emit);
+  const processor = new StreamProcessor(
+    conversationId,
+    emit,
+    abortController,
+    config.maxConsecutiveToolErrors,
+  );
 
   try {
     for await (const part of stream.fullStream) {
+      if (processor.isAborted) break;
       debugNonTextPart(part, conversationId, config.promptType);
 
       switch (part.type) {
@@ -627,7 +697,9 @@ async function streamAgentResponse(
       config.onLLMEvent?.(part, emit);
     }
   } catch (err) {
-    emit("error", { message: getErrorMessage(err, "An error occurred") });
+    if (!processor.isAborted) {
+      emit("error", { message: getErrorMessage(err, "An error occurred") });
+    }
   }
 
   processor.flush();
@@ -636,6 +708,13 @@ async function streamAgentResponse(
 // =============================================================================
 // Small utilities (stream parts + errors)
 // =============================================================================
+
+function isErrorToolOutput(output: unknown): boolean {
+  if (output && typeof output === "object" && "status" in output) {
+    return (output as { status: unknown }).status === "error";
+  }
+  return false;
+}
 
 function getStringProperty(value: unknown, key: string): string | undefined {
   if (!value || typeof value !== "object") return undefined;

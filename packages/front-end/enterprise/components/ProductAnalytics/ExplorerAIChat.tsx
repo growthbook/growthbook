@@ -9,7 +9,6 @@ import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
   PiSparkle,
-  PiCheckCircle,
   PiLightning,
   PiUserCircle,
   PiChartLine,
@@ -393,13 +392,12 @@ export default function ExplorerAIChat() {
           />
         );
       }
-      const isError = item.status === "error";
       return (
         <AssistantBubble key={item.toolCallId}>
           <Flex align="center" gap="2">
             <ToolStatusIcon status={item.status} />
             <Text size="small" color="text-low">
-              {isError && item.errorMessage ? item.errorMessage : item.label}
+              {item.label}
             </Text>
           </Flex>
           <ToolTransparencyBlock
@@ -518,7 +516,7 @@ export default function ExplorerAIChat() {
         return (
           <AssistantBubble key={`${msg.id}-r${i}`}>
             <Flex align="center" gap="2">
-              <PiCheckCircle size={12} color="var(--green-9)" />
+              <ToolStatusIcon status={part.isError ? "error" : "done"} />
               <Text size="small" color="text-low">
                 {TOOL_STATUS_LABELS[part.toolName] ??
                   toolResultPreviewLabel(part.result, part.toolName)}

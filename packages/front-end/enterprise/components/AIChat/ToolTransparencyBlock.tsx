@@ -72,7 +72,10 @@ export default function ToolTransparencyBlock({
   openStateRef,
 }: ToolTransparencyBlockProps) {
   const hasInputObj = toolInput && Object.keys(toolInput).length > 0;
-  const hasArgsText = argsTextPreview && argsTextPreview.length > 0;
+  // argsTextPreview is a streaming placeholder — suppress it once the fully
+  // parsed toolInput is available so we don't render two unlabeled input blocks.
+  const hasArgsText =
+    !hasInputObj && argsTextPreview && argsTextPreview.length > 0;
   const hasOutput = toolOutput !== undefined;
 
   const [open, setOpen] = useState<boolean>(() => {
@@ -103,11 +106,7 @@ export default function ToolTransparencyBlock({
       mt={embedded ? "0" : "2"}
       className={embedded ? styles.embedded : styles.wrap}
     >
-      <details
-        className={styles.details}
-        open={open}
-        onToggle={handleToggle}
-      >
+      <details className={styles.details} open={open} onToggle={handleToggle}>
         <summary className={styles.summary}>
           <Text size="small" color="text-low">
             {summaryLabel}

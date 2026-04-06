@@ -260,6 +260,7 @@ export const streamingChatCompletion = async ({
   overrideModel,
   tools,
   maxSteps = 1,
+  abortSignal,
 }: {
   context: ReqContext | ApiReqContext;
   system: string;
@@ -270,6 +271,7 @@ export const streamingChatCompletion = async ({
   overrideModel?: AIModel;
   tools?: ToolSet;
   maxSteps?: number;
+  abortSignal?: AbortSignal;
 }) => {
   const { defaultAIModel } = getAISettingsForOrg(context, true);
   const model = overrideModel || defaultAIModel;
@@ -285,6 +287,7 @@ export const streamingChatCompletion = async ({
     messages,
     ...(temperature != null ? { temperature } : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+    ...(abortSignal ? { abortSignal } : {}),
     onFinish: async ({ usage }) => {
       if (IS_CLOUD) {
         const numTokensUsed = usage?.totalTokens ?? 0;

@@ -145,6 +145,10 @@ export function processSSEEvent(
         (i) => i.kind === "tool-status" && i.toolCallId === toolCallId,
       );
 
+      const errorMsg = invalid
+        ? (errorText ?? "Invalid tool arguments")
+        : undefined;
+
       if (idx >= 0) {
         return {
           waitingForNextStep: false,
@@ -158,7 +162,8 @@ export function processSSEEvent(
                   ...(invalid
                     ? {
                         status: "error" as const,
-                        errorMessage: errorText ?? "Invalid tool arguments",
+                        errorMessage: errorMsg,
+                        toolOutput: errorMsg,
                       }
                     : {}),
                 }
@@ -179,8 +184,8 @@ export function processSSEEvent(
             label,
             status: invalid ? ("error" as const) : "running",
             ...(toolInput ? { toolInput } : {}),
-            ...(invalid
-              ? { errorMessage: errorText ?? "Invalid tool arguments" }
+            ...(errorMsg
+              ? { errorMessage: errorMsg, toolOutput: errorMsg }
               : {}),
           },
         ],
@@ -245,7 +250,11 @@ export function processSSEEvent(
                 ...(inputPatch ? { toolInput: inputPatch } : {}),
                 ...(hasOutput ? { toolOutput: output } : {}),
                 ...(toolResultData ? { toolResultData } : {}),
-                ...(!preliminary ? { status: "done" as const } : {}),
+                // Don't downgrade from "error" to "done" — validation failures
+                // arrive as error on tool-call-input then get a tool-call-end.
+                ...(!preliminary && item.status !== "error"
+                  ? { status: "done" as const }
+                  : {}),
               }
             : item,
         ),
@@ -269,6 +278,7 @@ export function processSSEEvent(
                 ...item,
                 status: "error" as const,
                 errorMessage: message,
+                toolOutput: message,
               }
             : item,
         ),

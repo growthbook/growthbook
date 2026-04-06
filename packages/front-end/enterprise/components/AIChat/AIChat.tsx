@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useMemo } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
-import { PiPaperPlaneRight, PiCheckCircle } from "react-icons/pi";
+import { PiPaperPlaneRight } from "react-icons/pi";
 import { toolResultPreviewLabel } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
@@ -167,13 +167,12 @@ export default function AIChat({
       );
     }
     if (item.kind === "tool-status") {
-      const isError = item.status === "error";
       return (
         <AssistantBubble key={item.id}>
           <Flex align="center" gap="2">
             <ToolStatusIcon status={item.status} />
             <Text size="small" color="text-low">
-              {isError && item.errorMessage ? item.errorMessage : item.label}
+              {item.label}
             </Text>
           </Flex>
           <ToolTransparencyBlock
@@ -241,7 +240,7 @@ export default function AIChat({
         return (
           <AssistantBubble key={`${msg.id}-r${i}`}>
             <Flex align="center" gap="2">
-              <PiCheckCircle size={12} color="var(--green-9)" />
+              <ToolStatusIcon status={part.isError ? "error" : "done"} />
               <Text size="small" color="text-low">
                 {label}
               </Text>

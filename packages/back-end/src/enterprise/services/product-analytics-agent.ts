@@ -75,6 +75,8 @@ const PA_SYSTEM_INSTRUCTIONS =
   "getColumnValues only works on string-typed columns.\n" +
   "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
   "If asked about metrics, fact tables, or tables that don't exist, let the user know.\n" +
+  "If a tool call returns an error, analyze the error, fix the config, and retry. " +
+  "If you get the same or a very similar error 2 times in a row, stop retrying — explain briefly what went wrong and suggest what the user can do differently.\n" +
   "Keep responses brief and actionable.";
 
 async function buildDatasourceTablesPreview(
