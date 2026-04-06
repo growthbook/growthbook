@@ -1,7 +1,6 @@
 import type { FeatureRule, FeaturePrerequisite } from "shared/validators";
 import {
   apiRevisionRampCreateAction,
-  ApiRevisionRampCreateAction,
   RevisionRampCreateAction,
   ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
@@ -22,7 +21,7 @@ export const inlineRampScheduleInput = apiRevisionRampCreateAction.omit({
   ruleId: true,
   environment: true,
 });
-export type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
+type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 
 /**
  * Standalone ramp schedule input — same as inline but adds environment.
@@ -31,13 +30,10 @@ export type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 export const standaloneRampScheduleInput = inlineRampScheduleInput.extend({
   environment: z.string(),
 });
-export type StandaloneRampScheduleInput = z.infer<
-  typeof standaloneRampScheduleInput
->;
 
 /** Normalize API input (optional targetType/targetId) to the stored type (required fields). */
-export function normalizeRevisionRampCreateAction(
-  input: ApiRevisionRampCreateAction,
+function normalizeRevisionRampCreateAction(
+  input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
   return {
     ...input,

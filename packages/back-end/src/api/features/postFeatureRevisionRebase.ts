@@ -22,6 +22,7 @@ import {
   ConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { isDraftStatus } from "./validations";
 
 export const postFeatureRevisionRebase = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -50,13 +51,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
-  const rebasableStatuses = [
-    "draft",
-    "pending-review",
-    "changes-requested",
-    "approved",
-  ];
-  if (!rebasableStatuses.includes(revision.status)) {
+  if (!isDraftStatus(revision.status)) {
     throw new BadRequestError(
       `Can only rebase active draft revisions (status is "${revision.status}")`,
     );
