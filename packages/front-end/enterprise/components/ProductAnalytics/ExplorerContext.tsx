@@ -106,9 +106,6 @@ export function ExplorerProvider({
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
 
-  console.log("explorerState: ", explorerState);
-  console.log("initialConfig: ", initialConfig);
-
   const draftExploreState: ExplorationConfig = explorerState.draftState;
 
   const setDraftExploreState = useCallback(
