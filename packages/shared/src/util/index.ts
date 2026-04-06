@@ -32,6 +32,7 @@ export * from "./numbers";
 export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
+export * from "./custom-fields";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
@@ -184,7 +185,7 @@ export function includeExperimentInPayload(
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
-  // Exclude if experiment is a draft and there are no visual changes (feature flags always ignore draft experiment rules)
+  // Exclude if experiment is a draft and there are no visual changes or redirects (feature flags always ignore draft experiment rules)
   if (
     !exp.hasVisualChangesets &&
     !exp.hasURLRedirects &&

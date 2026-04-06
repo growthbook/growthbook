@@ -8,10 +8,12 @@ import {
   startRampSchedule,
   pauseRampSchedule,
   resumeRampSchedule,
-  advanceRampSchedule,
-  rollbackRampSchedule,
   jumpRampSchedule,
   completeRampSchedule,
+  approveStepRampSchedule,
+  rollbackRampSchedule,
+  addTargetRampSchedule,
+  ejectTargetRampSchedule,
 } from "./rampScheduleActions";
 
 const router = Router();
@@ -29,9 +31,11 @@ router.delete("/:id", deleteRampSchedule);
 router.post("/:id/actions/start", startRampSchedule);
 router.post("/:id/actions/pause", pauseRampSchedule);
 router.post("/:id/actions/resume", resumeRampSchedule);
-router.post("/:id/actions/advance", advanceRampSchedule);
-router.post("/:id/actions/rollback", rollbackRampSchedule); // always resets to beginning
+router.post("/:id/actions/rollback", rollbackRampSchedule); // rolls back to start, lands in "paused" for restart
 router.post("/:id/actions/jump", jumpRampSchedule); // jump to a specific step
 router.post("/:id/actions/complete", completeRampSchedule);
+router.post("/:id/actions/approve-step", approveStepRampSchedule);
+router.post("/:id/actions/add-target", addTargetRampSchedule);
+router.post("/:id/actions/eject-target", ejectTargetRampSchedule);
 
 export default router;

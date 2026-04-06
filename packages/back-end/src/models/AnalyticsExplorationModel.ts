@@ -75,7 +75,7 @@ function makeExplorationHandler<
       return {
         exploration: toApiInterface(exploration),
         query: queryDoc ? toQueryApiInterface(queryDoc) : null,
-        explorationUrl: getProductAnalyticsExplorationUrl(exploration.config),
+        explorationUrl: getProductAnalyticsExplorationUrl(req.body),
       };
     },
   });

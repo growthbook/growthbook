@@ -6,6 +6,7 @@ import {
   checkIfRevisionNeedsReview,
   fillRevisionFromFeature,
   getDraftAffectedEnvironments,
+  getReviewSetting,
   mergeResultHasChanges,
   mergeRevision,
   RevisionFields,
@@ -1653,5 +1654,96 @@ describe("checkIfRevisionNeedsReview — metadata-only vs non-metadata global ch
         settings,
       }),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getReviewSetting
+// ---------------------------------------------------------------------------
+
+describe("getReviewSetting", () => {
+  const featureInProjA: FeatureInterface = {
+    ...baseFeature,
+    project: "proj-a",
+  };
+  const featureInProjB: FeatureInterface = {
+    ...baseFeature,
+    project: "proj-b",
+  };
+  const featureNoProject: FeatureInterface = {
+    ...baseFeature,
+    project: undefined,
+  };
+
+  it("returns undefined when the settings array is empty", () => {
+    expect(getReviewSetting([], featureInProjA)).toBeUndefined();
+  });
+
+  it("returns the catch-all rule (empty projects array) for any feature", () => {
+    const catchAll = makeReviewSetting({ projects: [] });
+    expect(getReviewSetting([catchAll], featureInProjA)).toBe(catchAll);
+    expect(getReviewSetting([catchAll], featureNoProject)).toBe(catchAll);
+  });
+
+  it("returns the matching project-scoped rule", () => {
+    const ruleA = makeReviewSetting({ projects: ["proj-a"] });
+    const ruleB = makeReviewSetting({ projects: ["proj-b"] });
+    expect(getReviewSetting([ruleA, ruleB], featureInProjA)).toBe(ruleA);
+    expect(getReviewSetting([ruleA, ruleB], featureInProjB)).toBe(ruleB);
+  });
+
+  it("returns undefined when no rule matches the feature's project", () => {
+    const ruleA = makeReviewSetting({ projects: ["proj-a"] });
+    expect(getReviewSetting([ruleA], featureInProjB)).toBeUndefined();
+  });
+
+  it("returns undefined for a feature with no project when all rules are project-scoped", () => {
+    const ruleA = makeReviewSetting({ projects: ["proj-a"] });
+    expect(getReviewSetting([ruleA], featureNoProject)).toBeUndefined();
+  });
+
+  it("returns the first matching rule when multiple rules match (project-scoped before catch-all)", () => {
+    const projectRule = makeReviewSetting({
+      projects: ["proj-a"],
+      requireReviewOn: true,
+    });
+    const catchAll = makeReviewSetting({
+      projects: [],
+      requireReviewOn: false,
+    });
+    expect(getReviewSetting([projectRule, catchAll], featureInProjA)).toBe(
+      projectRule,
+    );
+  });
+
+  it("falls through to catch-all when no project-scoped rule matches", () => {
+    const ruleA = makeReviewSetting({ projects: ["proj-a"] });
+    const catchAll = makeReviewSetting({ projects: [] });
+    expect(getReviewSetting([ruleA, catchAll], featureInProjB)).toBe(catchAll);
+  });
+
+  it("preserves blockSelfApproval on the returned rule", () => {
+    const rule = makeReviewSetting({ blockSelfApproval: true });
+    const result = getReviewSetting([rule], featureInProjA);
+    expect(result?.blockSelfApproval).toBe(true);
+  });
+
+  it("blockSelfApproval is absent (undefined) when not set on the rule", () => {
+    const rule = makeReviewSetting();
+    const result = getReviewSetting([rule], featureInProjA);
+    expect(result?.blockSelfApproval).toBeUndefined();
+  });
+
+  it("returns the project-scoped rule's blockSelfApproval even when catch-all differs", () => {
+    const projectRule = makeReviewSetting({
+      projects: ["proj-a"],
+      blockSelfApproval: true,
+    });
+    const catchAll = makeReviewSetting({
+      projects: [],
+      blockSelfApproval: false,
+    });
+    const result = getReviewSetting([projectRule, catchAll], featureInProjA);
+    expect(result?.blockSelfApproval).toBe(true);
   });
 });

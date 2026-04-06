@@ -23,6 +23,7 @@ import {
   mergeRevision,
   liveRevisionFromFeature,
   fillRevisionFromFeature,
+  getReviewSetting,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -101,6 +102,9 @@ import {
   getFeatureDefinitions,
   getSavedGroupMap,
   namespacesToMap,
+  getLiveAndBaseRevisionsForFeature,
+  getDraftRevision,
+  assertCanAutoPublish,
 } from "back-end/src/services/features";
 import {
   getSDKPayloadCacheLocation,
@@ -256,37 +260,6 @@ async function createOrUpdateDraftWithChanges(
   return newRevision;
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
-async function assertCanAutoPublish(
-  context: ReqContext,
-  feature: FeatureInterface,
-  draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
-
-  const baseRevision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version: draft.baseVersion,
-  });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
-
-  const requiresReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision,
-    revision: draft,
-    allEnvironments,
-    settings: org.settings,
-    requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
-  });
-
-  if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
-    context.permissions.throwPermissionError();
-  }
-}
-
 export type SDKPayloadParams = Pick<
   SDKConnectionInterface,
   | "key"
@@ -303,6 +276,10 @@ export type SDKPayloadParams = Pick<
   | "hashSecureAttributes"
   | "savedGroupReferencesEnabled"
   | "remoteEvalEnabled"
+  | "includeProjectIdInMetadata"
+  | "includeCustomFieldsInMetadata"
+  | "allowedCustomFieldsInMetadata"
+  | "includeTagsInMetadata"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
     // Extend languages to allow "legacy" for old API keys
@@ -341,6 +318,10 @@ export async function getPayloadParamsFromApiKey(
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
+      includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: connection.includeTagsInMetadata,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -453,6 +434,10 @@ export async function getFeatureDefinitionsWithCache({
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
       includeRuleIds: params.includeRuleIds,
+      includeProjectIdInMetadata: params.includeProjectIdInMetadata,
+      includeCustomFieldsInMetadata: params.includeCustomFieldsInMetadata,
+      allowedCustomFieldsInMetadata: params.allowedCustomFieldsInMetadata,
+      includeTagsInMetadata: params.includeTagsInMetadata,
       hashSecureAttributes: params.hashSecureAttributes,
       savedGroupReferencesEnabled:
         params.savedGroupReferencesEnabled !== undefined
@@ -812,29 +797,11 @@ export async function postFeatureRebase(
   if (!rebasableStatuses.includes(revision.status)) {
     throw new Error("Can only fix conflicts for active draft revisions");
   }
-
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
-    featureId: feature.id,
-    version: feature.version,
+    feature,
+    revision,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
 
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
@@ -995,6 +962,27 @@ export async function postFeatureReviewOrComment(
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
   }
+
+  // Block contributors from self-approving when the org setting is enabled.
+  // Note: contributors[] is only populated on drafts created after contributor tracking was
+  // deployed. Legacy drafts with no contributors[] bypass this check — there is no way to
+  // retroactively determine co-authors without reading revision logs.
+  if (review === "Approved") {
+    const requireReviews = context.org.settings?.requireReviews;
+    const reviewSetting = Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : undefined;
+    if (reviewSetting?.blockSelfApproval) {
+      const isSelfApproval = (revision.contributors ?? []).some(
+        (c) =>
+          c?.type === "dashboard" &&
+          (c as EventUserLoggedIn).id === context.userId,
+      );
+      if (isSelfApproval) {
+        throw new Error("You cannot approve a draft you contributed to.");
+      }
+    }
+  }
   // dont allow review unless you are adding a comment
   if (
     !(
@@ -1068,28 +1056,12 @@ export async function postFeaturePublish(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
-    featureId: feature.id,
-    version: feature.version,
+    feature,
+    revision,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
 
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
   // Compute merge result first so the review check can diff the merged outcome
   // against live — the same approach the frontend uses. This prevents spurious
   // review requirements when the draft's raw rules differ from base only because
@@ -1109,7 +1081,18 @@ export async function postFeaturePublish(
     ...liveRevisionFromFeature(live, feature),
   };
   const effectiveRevision = mergeResult.success
-    ? { ...filledLive, ...mergeResult.result }
+    ? {
+        ...filledLive,
+        ...mergeResult.result,
+        // Merge rules per-environment: mergeResult.result.rules is sparse
+        // (only changed envs). A top-level spread would replace filledLive.rules
+        // entirely, making untouched envs appear as [] and incorrectly triggering
+        // review requirements for environments the draft never touched.
+        rules: {
+          ...filledLive.rules,
+          ...(mergeResult.result.rules ?? {}),
+        },
+      }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
 
   const requiresReview = checkIfRevisionNeedsReview({
@@ -2170,50 +2153,6 @@ export async function postFeatureExperimentRefRule(
   });
 }
 
-async function getDraftRevision(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  version: number,
-): Promise<FeatureRevisionInterface> {
-  // This is the published version, create a new draft revision
-  const { org } = context;
-  if (version === feature.version) {
-    const newRevision = await createRevision({
-      context,
-      feature,
-      user: context.auditUser,
-      environments: getEnvironmentIdsFromOrg(context.org),
-      baseVersion: version,
-      org,
-    });
-
-    return newRevision;
-  }
-
-  // If this is already a draft, return it
-  const revision = await getRevision({
-    context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version,
-  });
-  if (!revision) {
-    throw new Error("Cannot find revision");
-  }
-  if (
-    !(
-      revision.status === "draft" ||
-      revision.status === "pending-review" ||
-      revision.status === "changes-requested" ||
-      revision.status === "approved"
-    )
-  ) {
-    throw new Error("Can only make changes to draft revisions");
-  }
-
-  return revision;
-}
-
 export async function putRevisionComment(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
   res: Response<{ status: 200 }, EventUserForResponseLocals>,
@@ -2457,28 +2396,11 @@ export async function putSafeRolloutStatus(
     resetReview,
   );
 
-  const live = await getRevision({
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
-    organization: org.id,
-    featureId: feature.id,
-    version: feature.version,
+    feature,
+    revision,
   });
-  if (!live) {
-    throw new Error("Could not lookup feature history");
-  }
-
-  const base =
-    revision.baseVersion === live.version
-      ? live
-      : await getRevision({
-          context,
-          organization: org.id,
-          featureId: feature.id,
-          version: revision.baseVersion,
-        });
-  if (!base) {
-    throw new Error("Could not lookup feature history");
-  }
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
@@ -3676,12 +3598,13 @@ export async function getFeatureRevisions(
     .map((v) => parseInt(v.trim(), 10))
     .filter((v) => !isNaN(v) && v > 0);
 
+  // Don't 400 on an empty/zero-only list. The frontend uses 0 as a sentinel
+  // ("no version yet") in several places — DraftSelectorForChanges,
+  // KillSwitchModal, and useFeaturePageData when the selected revision's
+  // baseVersion is 0 (initial revision on a brand-new feature). Returning an
+  // empty array lets those callers no-op instead of surfacing a 400 in the UI.
   if (!versions.length) {
-    return res.status(400).json({
-      status: 400,
-      message:
-        "versions query param is required (comma-separated list of version numbers)",
-    });
+    return res.status(200).json({ status: 200, revisions: [] });
   }
 
   const revisions = await getRevisionsByVersions({

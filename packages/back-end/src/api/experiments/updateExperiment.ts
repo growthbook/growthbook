@@ -20,7 +20,10 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { validateCustomFields } from "./validations";
+import {
+  assertExperimentPayloadCommercialFeatures,
+  validateCustomFields,
+} from "./validations";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
@@ -41,6 +44,13 @@ export const updateExperiment = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
     req.context.permissions.throwPermissionError();
   }
+
+  assertExperimentPayloadCommercialFeatures(req.context, {
+    postStratificationEnabled: req.body.postStratificationEnabled,
+    decisionFrameworkSettings: req.body.decisionFrameworkSettings,
+    metricOverrides: req.body.metricOverrides,
+    defaultDashboardId: req.body.defaultDashboardId,
+  });
 
   // validate datasource only if updating
   const datasourceId = req.body.datasourceId ?? experiment.datasource;
@@ -111,6 +121,15 @@ export const updateExperiment = createApiRequestHandler(
       req.context,
       req.body.project ?? experiment.project,
     );
+  }
+
+  if (req.body.defaultDashboardId) {
+    const dashboard = await req.context.models.dashboards.getById(
+      req.body.defaultDashboardId,
+    );
+    if (!dashboard) {
+      throw new Error(`Invalid dashboard: ${req.body.defaultDashboardId}`);
+    }
   }
 
   // Validate that specified metrics exist and belong to the organization
