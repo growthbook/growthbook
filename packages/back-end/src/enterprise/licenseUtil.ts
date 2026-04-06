@@ -30,7 +30,7 @@ import { LICENSE_PUBLIC_KEY } from "./public-key";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
-  "https://central_license_server.growthbook.io/api/v1/";
+  "https://central-license-server.growthbook.io/api/v1/";
 
 // mimic behavior in back-end/src/util/secrets.ts
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
