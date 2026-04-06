@@ -83,6 +83,7 @@ const organizationSchema = new mongoose.Schema({
       ...baseMemberFields,
       email: String,
       key: String,
+      invitedBy: String,
     },
   ],
   pendingMembers: [
