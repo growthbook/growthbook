@@ -13,6 +13,8 @@ export default function DataSourceDropdown() {
     useExplorerContext();
   const { datasources } = useDefinitions();
 
+  console.log("draftExploreState: ", draftExploreState);
+
   const triggerLabel =
     datasources.find((ds) => ds.id === draftExploreState?.datasource)?.name ||
     "Data Source";
