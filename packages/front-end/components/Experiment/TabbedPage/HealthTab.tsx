@@ -303,29 +303,23 @@ export default function HealthTab({
           />
         )}
       </div>
-      <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
-        {!isBandit && (
+      {!isBandit && (
+        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
           <CovariateImbalanceCard
             experiment={experiment}
             variations={variations}
             snapshot={snapshot}
             onNotify={handleHealthNotification}
           />
-        )}
-      </div>
+        </div>
+      )}
       {showMultipleExposures && (
-        <div className="row">
-          <div
-            className={!isBandit ? "col-8" : "col-12"}
-            id="multipleExposures"
-            style={{ scrollMarginTop: "100px" }}
-          >
-            <MultipleExposuresCard
-              totalUsers={totalUsers}
-              onNotify={handleHealthNotification}
-              snapshot={snapshot}
-            />
-          </div>
+        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+          <MultipleExposuresCard
+            totalUsers={totalUsers}
+            onNotify={handleHealthNotification}
+            snapshot={snapshot}
+          />
         </div>
       )}
 
