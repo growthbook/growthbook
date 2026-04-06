@@ -13,11 +13,6 @@ const phaseVariationPair = [
   { id: "1", status: "active" as const },
 ];
 
-const variationPair = [
-  { id: "0", key: "0", name: "Control", screenshots: [] },
-  { id: "1", key: "1", name: "Variation", screenshots: [] },
-];
-
 const makeExperiment = (
   overrides: Partial<ExperimentInterfaceStringDates>,
 ): ExperimentInterfaceStringDates => {

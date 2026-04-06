@@ -250,7 +250,11 @@ export default function ProjectTagBar({
                 ? "Phase Runtime"
                 : "Runtime"
             }
-            value={runtimeRange ? formatDateRangeForDisplay(runtimeRange) : "not started"}
+            value={
+              runtimeRange
+                ? formatDateRangeForDisplay(runtimeRange)
+                : "not started"
+            }
           />
         </Tooltip>
       </Flex>

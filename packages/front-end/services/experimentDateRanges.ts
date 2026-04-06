@@ -122,5 +122,8 @@ export function getTotalRuntimeRange({
 }
 
 export function getDateRangeDurationInDays(range: DateRange): number {
-  return daysBetween(range.startDate, range.endDate ?? new Date().toISOString());
+  return daysBetween(
+    range.startDate,
+    range.endDate ?? new Date().toISOString(),
+  );
 }
