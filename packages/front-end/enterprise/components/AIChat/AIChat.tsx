@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback, useMemo } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
-import { PiPaperPlaneRight } from "react-icons/pi";
+import { PiPaperPlaneRight, PiStopCircle } from "react-icons/pi";
 import { toolResultPreviewLabel } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
@@ -86,9 +86,11 @@ export default function AIChat({
     activeTurnItems,
     displayedTextMap,
     sendMessage,
+    cancelGeneration,
     newChat,
     loadConversation,
     loading,
+    isLocalStream,
     waitingForNextStep,
     isRemoteStream,
     error,
@@ -379,17 +381,31 @@ export default function AIChat({
           rows={2}
           disabled={loading}
         />
-        <IconButton
-          type="button"
-          variant="ghost"
-          color="violet"
-          disabled={!input.trim() || loading}
-          onClick={sendMessage}
-          style={{ flexShrink: 0 }}
-          aria-label="Send message"
-        >
-          <PiPaperPlaneRight size={16} />
-        </IconButton>
+        {isLocalStream ? (
+          <IconButton
+            type="button"
+            variant="ghost"
+            color="red"
+            onClick={cancelGeneration}
+            style={{ flexShrink: 0 }}
+            aria-label="Cancel generation"
+            title="Cancel generation"
+          >
+            <PiStopCircle size={16} />
+          </IconButton>
+        ) : (
+          <IconButton
+            type="button"
+            variant="ghost"
+            color="violet"
+            disabled={!input.trim() || loading}
+            onClick={sendMessage}
+            style={{ flexShrink: 0 }}
+            aria-label="Send message"
+          >
+            <PiPaperPlaneRight size={16} />
+          </IconButton>
+        )}
       </Flex>
     </Flex>
   );

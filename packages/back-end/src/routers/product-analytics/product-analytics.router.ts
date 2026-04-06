@@ -52,4 +52,12 @@ router.get(
   productAnalyticsController.getChat,
 );
 
+router.delete(
+  "/chat/:conversationId",
+  validateRequestMiddleware({
+    params: z.object({ conversationId: z.string().min(1) }).strict(),
+  }),
+  productAnalyticsController.deleteChat,
+);
+
 export { router as productAnalyticsRouter };

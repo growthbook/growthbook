@@ -16,6 +16,7 @@ import {
   PiArrowRightBold,
   PiArrowLineLeft,
   PiArrowLineRight,
+  PiStopCircle,
 } from "react-icons/pi";
 import {
   ExplorationConfig,
@@ -24,6 +25,7 @@ import {
 import { encodeExplorationConfig } from "shared/enterprise";
 import { toolResultPreviewLabel } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -251,6 +253,8 @@ export default function ExplorerAIChat() {
 
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
+  const { apiCall } = useAuth();
+
   const { data: listData, mutate: refreshList } = useApi<{
     conversations: ConversationSummary[];
   }>(CHAT_LIST_ENDPOINT);
@@ -260,9 +264,11 @@ export default function ExplorerAIChat() {
     activeTurnItems,
     displayedTextMap,
     sendMessage,
+    cancelGeneration,
     newChat,
     loadConversation,
     loading,
+    isLocalStream,
     waitingForNextStep,
     isRemoteStream,
     error,
@@ -277,7 +283,6 @@ export default function ExplorerAIChat() {
       datasourceId: draftExploreState.datasource,
     }),
     toolStatusLabels: TOOL_STATUS_LABELS,
-    conversationStorageKey: `pa-chat-${draftExploreState.datasource ?? "default"}`,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     onStreamAccepted: () => {
       void refreshList();
@@ -307,6 +312,21 @@ export default function ExplorerAIChat() {
     newChat();
     refreshList();
   }, [newChat, refreshList]);
+
+  const handleDeleteConversation = useCallback(
+    async (id: string) => {
+      try {
+        await apiCall(`/product-analytics/chat/${id}`, { method: "DELETE" });
+        if (id === conversationId) {
+          newChat();
+        }
+        await refreshList();
+      } catch {
+        // silently ignore — list will stay unchanged
+      }
+    },
+    [apiCall, conversationId, newChat, refreshList],
+  );
 
   const conversations = useMemo(() => {
     const list = listData?.conversations ?? [];
@@ -602,6 +622,7 @@ export default function ExplorerAIChat() {
         activeConversationId={conversationId}
         onSelect={loadConversation}
         onNewChat={handleNewChat}
+        onDelete={handleDeleteConversation}
         collapsed={!sidebarOpen}
       />
 
@@ -764,9 +785,20 @@ export default function ExplorerAIChat() {
               onKeyDown={handleKeyDown}
               disabled={loading}
             />
-            <Button onClick={sendMessage} disabled={!input.trim() || loading}>
-              <PiArrowRightBold size={16} />
-            </Button>
+            {isLocalStream ? (
+              <Button
+                color="red"
+                onClick={cancelGeneration}
+                title="Cancel generation"
+              >
+                <PiStopCircle size={16} />
+                Cancel
+              </Button>
+            ) : (
+              <Button onClick={sendMessage} disabled={!input.trim() || loading}>
+                <PiArrowRightBold size={16} />
+              </Button>
+            )}
           </Flex>
         </Flex>
       </Flex>

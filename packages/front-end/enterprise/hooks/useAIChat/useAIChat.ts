@@ -55,10 +55,14 @@ export function useAIChat({
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  /** True only while this tab is actively reading an SSE stream from `sendMessage`. */
+  const [isLocalStream, setIsLocalStream] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
   const [isRemoteStream, setIsRemoteStream] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  /** Distinguishes user-initiated cancels from implicit aborts (new chat, navigation). */
+  const userCancelledRef = useRef(false);
   const remotePollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
@@ -269,6 +273,16 @@ export function useAIChat({
   ]);
 
   // ---------------------------------------------------------------------------
+  // cancelGeneration: stop the active live stream
+  // ---------------------------------------------------------------------------
+
+  const cancelGeneration = useCallback(() => {
+    if (!isLocalStream) return;
+    userCancelledRef.current = true;
+    abortControllerRef.current?.abort();
+  }, [isLocalStream]);
+
+  // ---------------------------------------------------------------------------
   // sendMessage
   // ---------------------------------------------------------------------------
 
@@ -293,6 +307,7 @@ export function useAIChat({
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    userCancelledRef.current = false;
 
     let streamCompletedOk = false;
 
@@ -320,6 +335,7 @@ export function useAIChat({
       }
 
       onStreamAccepted?.();
+      setIsLocalStream(true);
 
       const reader = response.body?.getReader();
       if (!reader) {
@@ -362,14 +378,26 @@ export function useAIChat({
         setError("Failed to get a response. Please try again.");
       }
     } finally {
+      const wasCancelled = userCancelledRef.current;
+      userCancelledRef.current = false;
       setWaitingForNextStep(false);
       setLoading(false);
+      setIsLocalStream(false);
       abortControllerRef.current = null;
+
       if (getConversationEndpoint && streamCompletedOk) {
+        // Normal completion — sync the persisted messages from the server.
+        await syncMessagesFromServer();
+      } else if (getConversationEndpoint && wasCancelled) {
+        // User cancelled — give the backend a moment to flush and persist the
+        // partial response before syncing, then show whatever was saved.
+        await new Promise((resolve) => setTimeout(resolve, 600));
         await syncMessagesFromServer();
       } else if (getConversationEndpoint) {
+        // Navigation / new-chat abort — don't sync, just clear.
         setActive([]);
       } else {
+        // No server persistence — commit whatever was streamed locally.
         finalizeTurn();
         setActive([]);
       }
@@ -408,6 +436,7 @@ export function useAIChat({
     setActive([]);
     setError(null);
     setLoading(false);
+    setIsLocalStream(false);
     setWaitingForNextStep(false);
     setIsRemoteStream(false);
   }, [conversationStorageKey, clearRemotePoll, setActive]);
@@ -450,9 +479,11 @@ export function useAIChat({
     activeTurnItems,
     displayedTextMap,
     sendMessage,
+    cancelGeneration,
     newChat,
     loadConversation,
     loading,
+    isLocalStream,
     waitingForNextStep,
     isRemoteStream,
     error,

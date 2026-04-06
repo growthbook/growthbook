@@ -96,9 +96,13 @@ export interface UseAIChatReturn {
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
   sendMessage: () => void;
+  /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
+  cancelGeneration: () => void;
   newChat: () => void;
   loadConversation: (id: string) => Promise<void>;
   loading: boolean;
+  /** True only while this tab is actively reading an SSE stream from sendMessage. */
+  isLocalStream: boolean;
   waitingForNextStep: boolean;
   /** True when following a stream via polling (navigated away and back) rather
    *  than a live SSE connection on this tab. */

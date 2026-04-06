@@ -19,6 +19,24 @@ import {
 
 export { postChat } from "back-end/src/enterprise/services/product-analytics-agent";
 
+export const deleteChat = async (
+  req: AuthRequest<never, { conversationId: string }, never>,
+  res: Response<{ status: 200 } | { status: 404; message: string }>,
+) => {
+  const context = getContextFromReq(req);
+  const { conversationId } = req.params;
+
+  const doc = await context.models.aiConversations.getById(conversationId);
+  if (!doc) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Conversation not found" });
+  }
+
+  await context.models.aiConversations.deleteById(conversationId);
+  return res.status(200).json({ status: 200 });
+};
+
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
     { config: ExplorationConfig },

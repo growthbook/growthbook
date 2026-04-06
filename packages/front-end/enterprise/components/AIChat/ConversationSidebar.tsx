@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Box, Flex, ScrollArea, Separator } from "@radix-ui/themes";
-import { PiMagnifyingGlass, PiPlus, PiChat } from "react-icons/pi";
+import { PiMagnifyingGlass, PiPlus, PiChat, PiTrash } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 import CurrentDailyUsage from "./CurrentDailyUsage";
@@ -31,6 +32,7 @@ export interface ConversationSidebarProps {
   activeConversationId: string;
   onSelect: (id: string) => void;
   onNewChat: () => void;
+  onDelete?: (id: string) => void;
   loading?: boolean;
   collapsed?: boolean;
 }
@@ -44,11 +46,13 @@ export default function ConversationSidebar({
   activeConversationId,
   onSelect,
   onNewChat,
+  onDelete,
   collapsed = false,
 }: ConversationSidebarProps) {
   const [hoveredConversationId, setHoveredConversationId] = useState<
     string | null
   >(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   return (
     <Flex
@@ -62,6 +66,29 @@ export default function ConversationSidebar({
         transition: "width 220ms ease",
       }}
     >
+      {confirmDeleteId && onDelete && (
+        <Modal
+          trackingEventModalType=""
+          header="Delete conversation"
+          close={() => setConfirmDeleteId(null)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            onDelete(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }}
+          increasedElevation={true}
+        >
+          <Box px="4">
+            <Text as="p" color="text-mid">
+              Are you sure you want to delete this conversation? This action
+              cannot be undone.
+            </Text>
+          </Box>
+        </Modal>
+      )}
+
       {/* Inner wrapper fades out immediately so contents never look squished */}
       <Flex
         direction="column"
@@ -168,8 +195,8 @@ export default function ConversationSidebar({
                     onMouseLeave={() => setHoveredConversationId(null)}
                     style={{
                       display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
+                      flexDirection: "row",
+                      alignItems: "flex-start",
                       width: "100%",
                       padding: "7px 10px",
                       borderRadius: "var(--radius-2)",
@@ -187,55 +214,72 @@ export default function ConversationSidebar({
                     }}
                     onClick={() => onSelect(conv.conversationId)}
                   >
-                    {/* <span
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 500,
-                      lineHeight: 1.4,
-                      overflow: "hidden",
-                      whiteSpace: "nowrap",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {conv.title || "Untitled"}
-                  </span> */}
-                    <Text size="small" weight="semibold" color="text-high">
-                      {conv.title || "Untitled"}
-                    </Text>
-                    {conv.preview ? (
-                      <span
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      style={{ flex: 1, minWidth: 0 }}
+                    >
+                      <Text size="small" weight="semibold" color="text-high">
+                        {conv.title || "Untitled"}
+                      </Text>
+                      {conv.preview ? (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "var(--gray-a11)",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            lineHeight: 1.4,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {conv.preview}
+                        </span>
+                      ) : null}
+                      <Box
+                        as="span"
                         style={{
                           fontSize: 11,
-                          color: "var(--gray-a11)",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          lineHeight: 1.4,
-                          wordBreak: "break-word",
+                          color: "var(--gray-a10)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
                         }}
                       >
-                        {conv.preview}
-                      </span>
+                        {conv.isStreaming ? (
+                          <span
+                            title="Streaming"
+                            className={aiChatPrimitives.streamingDot}
+                          />
+                        ) : null}
+                        {relativeTime(conv.createdAt)}
+                      </Box>
+                    </Flex>
+                    {onDelete ? (
+                      <Box
+                        flexShrink="0"
+                        ml="1"
+                        style={{
+                          opacity: isHovered ? 1 : 0,
+                          transition: "opacity 100ms ease",
+                          pointerEvents: isHovered ? "auto" : "none",
+                        }}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          title="Delete conversation"
+                          stopPropagation
+                          onClick={() =>
+                            setConfirmDeleteId(conv.conversationId)
+                          }
+                        >
+                          <PiTrash size={13} />
+                        </Button>
+                      </Box>
                     ) : null}
-                    <Box
-                      as="span"
-                      style={{
-                        fontSize: 11,
-                        color: "var(--gray-a10)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      {conv.isStreaming ? (
-                        <span
-                          title="Streaming"
-                          className={aiChatPrimitives.streamingDot}
-                        />
-                      ) : null}
-                      {relativeTime(conv.createdAt)}
-                    </Box>
                   </button>
                 );
               })

@@ -203,6 +203,16 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const abortController = new AbortController();
 
+    // Abort the LLM stream when the client disconnects (e.g. user clicks Cancel).
+    // We listen on `res`, not `req`, because the request body has already been
+    // received — only the response's "close" fires when the SSE connection drops.
+    // The `writableFinished` guard prevents aborting during a normal `res.end()`.
+    res.on("close", () => {
+      if (!res.writableFinished) {
+        abortController.abort();
+      }
+    });
+
     try {
       const stream = await streamingChatCompletion({
         context,
@@ -255,8 +265,10 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       }
 
       buffer.setStreaming(false);
-      emit("done", {});
-      flushableRes.end();
+      if (!res.writableFinished) {
+        emit("done", {});
+        flushableRes.end();
+      }
 
       // Persist final conversation state to DB after the response is closed.
       // Fire-and-forget — the client has already received "done".
@@ -373,8 +385,12 @@ function createEmit(
   buffer: ConversationBuffer,
 ): AgentEmit {
   return (event, data): void => {
-    flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    flushableRes.flush?.();
+    try {
+      flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      flushableRes.flush?.();
+    } catch {
+      // Client disconnected — safe to ignore write failures
+    }
     buffer.touchStreamedAt();
   };
 }
