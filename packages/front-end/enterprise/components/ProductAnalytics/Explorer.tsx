@@ -143,8 +143,6 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     datasources[0]?.id ?? "",
   );
 
-  console.log("defaultDataSourceId: ", defaultDataSourceId);
-
   const resolvedDataSourceId = useMemo(() => {
     return datasources.some((d) => d.id === defaultDataSourceId)
       ? defaultDataSourceId
