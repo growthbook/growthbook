@@ -203,7 +203,9 @@ export function useDomain(
       return;
     }
 
-    const baseline = row.variations[variations[0].index];
+    const baselineVariation = variations?.[0];
+    if (baselineVariation?.index === undefined) return;
+    const baseline = row.variations[baselineVariation.index];
     if (!baseline) return;
     variations?.forEach((v: ExperimentReportVariation, i) => {
       // Skip for baseline

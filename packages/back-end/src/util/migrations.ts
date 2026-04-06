@@ -612,6 +612,13 @@ export function upgradeExperimentDoc(
           status: "active" as const,
         }));
       }
+      if (phase.variations && phase.variations.length === 0) {
+        // catch case where variations is an empty array
+        phase.variations = experiment.variations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        }));
+      }
     });
   }
 
