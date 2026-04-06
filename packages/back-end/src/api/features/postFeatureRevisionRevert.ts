@@ -3,11 +3,14 @@ import { z } from "zod";
 import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
-  PermissionError,
   checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   createRevision,
@@ -49,13 +52,13 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     throw new NotFoundError("Could not find feature revision");
 
   if (targetRevision.status !== "published") {
-    throw new Error(
+    throw new BadRequestError(
       "Can only revert to a published revision. " +
         `Revision #${req.params.version} has status "${targetRevision.status}".`,
     );
   }
   if (targetRevision.version === feature.version) {
-    throw new Error(
+    throw new BadRequestError(
       `Revision #${req.params.version} is already the live version — nothing to revert.`,
     );
   }
@@ -212,9 +215,10 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     featureId: feature.id,
     version: feature.version,
   });
-  if (!liveRevision) throw new Error("Could not load live revision");
+  if (!liveRevision)
+    throw new InternalServerError("Could not load live revision");
 
-  const allEnvironmentIds = getEnvironmentIdsFromOrg(req.organization);
+  const allEnvironmentIds = getEnvironmentIdsFromOrg(req.context.org);
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveRevision,
@@ -227,13 +231,13 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
 
   if (requiresReview) {
     if (!adminOverride) {
-      throw new PermissionError(
+      throw new BadRequestError(
         "This revert requires approval before changes can be published. " +
           "Pass adminOverride: true if your organization allows REST API bypass.",
       );
     }
     if (!apiBypassesReviews) {
-      throw new PermissionError(
+      throw new BadRequestError(
         "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
       );
     }

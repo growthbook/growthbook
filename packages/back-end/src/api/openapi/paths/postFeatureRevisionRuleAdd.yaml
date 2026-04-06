@@ -243,17 +243,24 @@ requestBody:
                           type: array
                           items:
                             type: string
-          rampAction:
-            $ref: "../schemas/RevisionRampAction.yaml"
-            description: "Optional ramp schedule action to associate with this rule (create or detach)"
+          rampSchedule:
+            $ref: "../schemas/InlineRampSchedule.yaml"
+            description: |
+              Advanced ramp schedule to create alongside this rule.
+              `ruleId` and `environment` are inferred from context — do not include them.
+
+              **Priority:** `rampSchedule` > `schedule`. When `rampSchedule` is provided, `schedule` is ignored.
+
+              For simple start/end date automation, prefer the `schedule` shorthand instead.
           schedule:
             type: object
             description: |
-              Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules`.
-              Ignored when `rampAction` is also provided.
+              Simple date-based schedule shorthand. Creates a ramp schedule with `ruleId` and
+              `environment` inferred from context.
               - `startDate` — enables the rule at this time (rule is initially set to disabled)
               - `endDate` — disables the rule at this time
-              A ramp schedule is created automatically with `ruleId` and `environment` inferred from context.
+
+              **Priority:** `rampSchedule` > `schedule`. Ignored when `rampSchedule` is also provided.
             properties:
               startDate:
                 type: string

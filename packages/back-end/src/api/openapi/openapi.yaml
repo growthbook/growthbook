@@ -155,6 +155,9 @@ paths:
       $ref: "./paths/getFeatureRevisions.yaml"
     post:
       $ref: "./paths/postFeatureRevision.yaml"
+  /features/{id}/revisions/latest:
+    get:
+      $ref: "./paths/getFeatureRevisionLatest.yaml"
   /features/{id}/revisions/{version}:
     get:
       $ref: "./paths/getFeatureRevision.yaml"
@@ -190,9 +193,11 @@ paths:
       $ref: "./paths/putFeatureRevisionRule.yaml"
     delete:
       $ref: "./paths/deleteFeatureRevisionRule.yaml"
-  /features/{id}/revisions/{version}/ramp-actions:
+  /features/{id}/revisions/{version}/rules/{ruleId}/ramp-schedule:
     put:
-      $ref: "./paths/putFeatureRevisionRampActions.yaml"
+      $ref: "./paths/putFeatureRevisionRuleRampSchedule.yaml"
+    delete:
+      $ref: "./paths/deleteFeatureRevisionRuleRampSchedule.yaml"
   /features/{id}/revisions/{version}/toggle:
     post:
       $ref: "./paths/postFeatureRevisionToggle.yaml"

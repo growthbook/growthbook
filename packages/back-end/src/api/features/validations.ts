@@ -1,9 +1,9 @@
 import type { FeatureRule, FeaturePrerequisite } from "shared/validators";
 import {
-  revisionRampDetachAction,
   apiRevisionRampCreateAction,
   ApiRevisionRampCreateAction,
   RevisionRampCreateAction,
+  ACTIVE_DRAFT_STATUSES,
 } from "shared/validators";
 import { z } from "zod";
 import { validateCondition } from "shared/util";
@@ -13,10 +13,27 @@ import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields"
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 
-export const rampActionSchema = z.discriminatedUnion("mode", [
-  apiRevisionRampCreateAction,
-  revisionRampDetachAction,
-]);
+/**
+ * Inline ramp schedule input — no mode/ruleId/environment needed; all inferred from context.
+ * Used for the `rampSchedule` field on rule add/edit endpoints.
+ */
+export const inlineRampScheduleInput = apiRevisionRampCreateAction.omit({
+  mode: true,
+  ruleId: true,
+  environment: true,
+});
+export type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
+
+/**
+ * Standalone ramp schedule input — same as inline but adds environment.
+ * Used for PUT /rules/:ruleId/ramp-schedule (ruleId is in the path).
+ */
+export const standaloneRampScheduleInput = inlineRampScheduleInput.extend({
+  environment: z.string(),
+});
+export type StandaloneRampScheduleInput = z.infer<
+  typeof standaloneRampScheduleInput
+>;
 
 /** Normalize API input (optional targetType/targetId) to the stored type (required fields). */
 export function normalizeRevisionRampCreateAction(
@@ -43,12 +60,25 @@ export function normalizeRevisionRampCreateAction(
   };
 }
 
-export const DRAFT_STATUSES = [
-  "draft",
-  "pending-review",
-  "changes-requested",
-  "approved",
-] as const;
+export const DRAFT_STATUSES = ACTIVE_DRAFT_STATUSES;
+
+/**
+ * Build a RevisionRampCreateAction from an inline ramp schedule input.
+ * ruleId and environment are injected from the calling context.
+ */
+export function normalizeInlineRampSchedule(
+  input: InlineRampScheduleInput,
+  ruleId: string,
+  environment: string,
+): RevisionRampCreateAction {
+  return normalizeRevisionRampCreateAction({
+    ...input,
+    mode: "create" as const,
+    ruleId,
+    environment,
+    steps: input.steps ?? [],
+  });
+}
 
 export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);

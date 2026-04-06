@@ -17,12 +17,16 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 
 export const postFeatureRevisionRebase = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
   bodySchema: z.object({
-    strategies: z
+    conflictResolutions: z
       .record(z.string(), z.enum(["overwrite", "discard"]))
       .optional()
       .default({}),
@@ -53,7 +57,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
     "approved",
   ];
   if (!rebasableStatuses.includes(revision.status)) {
-    throw new Error(
+    throw new BadRequestError(
       `Can only rebase active draft revisions (status is "${revision.status}")`,
     );
   }
@@ -73,7 +77,7 @@ export const postFeatureRevisionRebase = createApiRequestHandler({
     fillRevisionFromFeature(base, feature),
     revision,
     environmentIds,
-    req.body.strategies as Record<string, MergeStrategy>,
+    req.body.conflictResolutions as Record<string, MergeStrategy>,
   );
 
   if (!mergeResult.success) {

@@ -138,22 +138,31 @@ requestBody:
               variationValue:
                 type: string
                 description: "*(safe-rollout only)* Value served to the variation group"
-          rampAction:
-            $ref: "../schemas/RevisionRampAction.yaml"
-            description: "Optional ramp schedule action to associate with this rule"
+          rampSchedule:
+            $ref: "../schemas/InlineRampSchedule.yaml"
+            description: |
+              Advanced ramp schedule to create or replace on this rule. `ruleId` and `environment`
+              are inferred from context.
+
+              **Priority:** `rampSchedule` > `schedule`. When `rampSchedule` is provided, `schedule` is ignored.
+
+              Providing `rampSchedule` replaces any existing pending ramp schedule action for this
+              rule in the revision. If the rule already has a **live** schedule, a 400 is returned —
+              update it directly via `PUT /api/v1/ramp-schedules/{id}`.
+
+              To detach a ramp schedule, use `DELETE .../rules/{ruleId}/ramp-schedule`.
           schedule:
             type: object
             description: |
               Simple date-based schedule shorthand. Preferred over setting `rule.scheduleRules` directly.
-              Ignored when `rampAction` is also provided.
+              Ignored when `rampSchedule` is also provided.
               - `startDate` — enables the rule at this time (rule is set to disabled until then)
               - `endDate` — disables the rule at this time
               If the existing rule already uses legacy `scheduleRules`, those are updated in-place
               instead of creating a ramp schedule.
 
-              **Error:** If this rule already has a ramp schedule (live or pending on this revision),
-              a 400 is returned with the schedule ID. Update the schedule directly via
-              `PUT /api/v1/ramp-schedules/{id}` instead.
+              **Error:** If this rule already has a **live** ramp schedule, a 400 is returned with
+              the schedule ID. Update the schedule directly via `PUT /api/v1/ramp-schedules/{id}` instead.
             properties:
               startDate:
                 type: string

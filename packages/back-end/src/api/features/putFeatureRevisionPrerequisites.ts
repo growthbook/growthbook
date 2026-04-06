@@ -2,7 +2,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { featurePrerequisite } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
-import { NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError, BadRequestError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -40,7 +40,9 @@ export const putFeatureRevisionPrerequisites = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
   validatePrerequisiteConditions(req.body.prerequisites);

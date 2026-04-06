@@ -14,7 +14,11 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 
 export const postFeatureRevisionPublish = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -39,7 +43,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (revision.status === "published" || revision.status === "discarded") {
-    throw new Error(
+    throw new BadRequestError(
       `Cannot publish a revision with status "${revision.status}"`,
     );
   }
@@ -99,13 +103,13 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
 
   if (requiresReview && revision.status !== "approved") {
     if (!adminOverride) {
-      throw new Error(
+      throw new BadRequestError(
         `This revision requires approval before publishing (status: "${revision.status}"). ` +
           "Pass adminOverride: true if your organization allows REST API bypass.",
       );
     }
     if (!req.organization.settings?.restApiBypassesReviews) {
-      throw new Error(
+      throw new BadRequestError(
         "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
       );
     }

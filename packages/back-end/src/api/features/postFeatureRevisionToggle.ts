@@ -1,7 +1,7 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import { resetReviewOnChange } from "shared/util";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -25,7 +25,7 @@ export const postFeatureRevisionToggle = createApiRequestHandler({
 
   const allEnvironments = getEnvironments(req.context.org);
   if (!allEnvironments.some((e) => e.id === environment)) {
-    throw new Error(`Invalid environment: "${environment}"`);
+    throw new BadRequestError(`Invalid environment: "${environment}"`);
   }
 
   if (
@@ -48,7 +48,9 @@ export const postFeatureRevisionToggle = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
   const newEnabled = {

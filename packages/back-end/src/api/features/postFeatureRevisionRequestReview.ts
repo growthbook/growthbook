@@ -1,6 +1,6 @@
 import omit from "lodash/omit";
 import { z } from "zod";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -30,7 +30,7 @@ export const postFeatureRevisionRequestReview = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (revision.status !== "draft") {
-    throw new Error(
+    throw new BadRequestError(
       `Can only request review on a draft (status is "${revision.status}")`,
     );
   }

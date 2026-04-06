@@ -6,7 +6,6 @@ import {
   savedGroupTargeting,
   featurePrerequisite,
   RevisionRampCreateAction,
-  RevisionRampDetachAction,
 } from "shared/validators";
 import type {
   ExperimentRefRule,
@@ -32,8 +31,8 @@ import {
 } from "back-end/src/util/errors";
 import {
   isDraftStatus,
-  rampActionSchema,
-  normalizeRevisionRampCreateAction,
+  inlineRampScheduleInput,
+  normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleConditions,
   validateRuleReferences,
@@ -160,7 +159,7 @@ function buildRuleFromInput(input: RuleCreateInput, id: string): FeatureRule {
 
   if (isRollout) {
     if (!input.hashAttribute) {
-      throw new Error(
+      throw new BadRequestError(
         "hashAttribute is required for rollout rules (coverage < 100%)",
       );
     }
@@ -188,7 +187,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   bodySchema: z.object({
     environment: z.string(),
     rule: ruleCreateInput,
-    rampAction: rampActionSchema.optional(),
+    rampSchedule: inlineRampScheduleInput.optional(),
     schedule: z
       .object({
         startDate: z.string().optional().nullable(),
@@ -222,10 +221,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   }
 
   const { environment, schedule } = req.body;
-  const rampAction =
-    req.body.rampAction?.mode === "create"
-      ? normalizeRevisionRampCreateAction(req.body.rampAction)
-      : req.body.rampAction;
+  const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule;
 
   // Fill in missing variationIds from the linked experiment (by index order)
@@ -257,7 +253,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   // Safe rollout: create the SafeRollout entity and link it to the rule
   if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
     if (!req.context.hasPremiumFeature("safe-rollout")) {
-      throw new Error("Safe Rollout rules require a premium plan.");
+      req.context.throwPlanDoesNotAllowError(
+        "Safe Rollout rules require an Enterprise plan.",
+      );
     }
 
     const validatedFields = await validateCreateSafeRolloutFields(
@@ -292,8 +290,11 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   }
 
   // Resolve which ramp action to attach (if any).
-  // Priority: explicit rampAction > schedule shorthand > inline scheduleRules (legacy, deprecated)
-  let resolvedRampAction = rampAction;
+  // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy, deprecated).
+  // ruleId is injected here now that we have the server-generated rule ID.
+  let resolvedRampAction = inlineRampSchedule
+    ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id, environment)
+    : undefined;
   if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
     // New rule: always create a ramp action. If startDate set, the rule starts disabled.
     if (schedule.startDate) rule.enabled = false;
@@ -314,14 +315,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
     const existing = revision.rampActions ?? [];
     const filtered = existing.filter(
       (a) =>
-        !(
-          (a.mode === "create" &&
-            a.ruleId ===
-              (resolvedRampAction as RevisionRampCreateAction).ruleId) ||
-          (a.mode === "detach" &&
-            a.ruleId ===
-              (resolvedRampAction as RevisionRampDetachAction).ruleId)
-        ),
+        a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
     );
     changes.rampActions = [...filtered, resolvedRampAction];
   }

@@ -2,7 +2,7 @@ import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import { resetReviewOnChange } from "shared/util";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -40,7 +40,9 @@ export const deleteFeatureRevisionRule = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
   const { environment } = req.body;
@@ -50,7 +52,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler({
     (r) => r.id !== req.params.ruleId,
   );
   if (newRules[environment].length === before) {
-    throw new Error(
+    throw new NotFoundError(
       `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
     );
   }

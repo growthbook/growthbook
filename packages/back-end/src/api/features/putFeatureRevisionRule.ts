@@ -5,7 +5,6 @@ import {
   savedGroupTargeting,
   featurePrerequisite,
   RevisionRampCreateAction,
-  RevisionRampDetachAction,
   ExperimentRefRule,
   RolloutRule,
   ForceRule,
@@ -23,8 +22,8 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   isDraftStatus,
-  rampActionSchema,
-  normalizeRevisionRampCreateAction,
+  inlineRampScheduleInput,
+  normalizeInlineRampSchedule,
   buildScheduleRampAction,
   validateRuleConditions,
   validateRuleReferences,
@@ -218,7 +217,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   bodySchema: z.object({
     environment: z.string(),
     rule: rulePatchSchema,
-    rampAction: rampActionSchema.optional(),
+    rampSchedule: inlineRampScheduleInput.optional(),
     schedule: z
       .object({
         startDate: z.string().optional().nullable(),
@@ -252,10 +251,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   }
 
   const { environment, schedule } = req.body;
-  const rampAction =
-    req.body.rampAction?.mode === "create"
-      ? normalizeRevisionRampCreateAction(req.body.rampAction)
-      : req.body.rampAction;
+  const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule;
 
   const newRules = cloneDeep(revision.rules ?? {});
@@ -269,30 +265,23 @@ export const putFeatureRevisionRule = createApiRequestHandler({
 
   const oldRule = envRules[idx];
 
-  // Block creating a new schedule if the rule already has one (pending on this
-  // revision or already live). The caller should update it via PUT /ramp-schedules/:id.
-  // Only fire when we'd actually be creating a new schedule: an explicit create action,
-  // or the schedule shorthand (which is only used when no explicit rampAction is set).
+  // Block creating a new schedule if the rule already has a LIVE schedule.
+  // A pending create on this revision is allowed (it will be replaced below).
+  // Only check when we'd actually be creating a new schedule.
   const wantsNewSchedule =
-    rampAction?.mode === "create" ||
-    (!rampAction &&
+    Boolean(inlineRampSchedule) ||
+    (!inlineRampSchedule &&
       (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
   if (wantsNewSchedule) {
-    const hasPendingCreate = (revision.rampActions ?? []).some(
-      (a) => a.mode === "create" && a.ruleId === req.params.ruleId,
-    );
     const liveSchedules =
       await req.context.models.rampSchedules.findByTargetRule(
         req.params.ruleId,
         environment,
       );
-    if (hasPendingCreate || liveSchedules.length > 0) {
-      const hint =
-        liveSchedules.length > 0
-          ? ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`
-          : " The schedule will be created when the revision is published; update the revision's rampActions instead.";
+    if (liveSchedules.length > 0) {
       throw new BadRequestError(
-        `Rule "${req.params.ruleId}" already has a ramp schedule.${hint}`,
+        `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
+          ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
       );
     }
   }
@@ -331,8 +320,14 @@ export const putFeatureRevisionRule = createApiRequestHandler({
 
   const changes: RevisionChanges = { rules: newRules };
 
-  // Resolve schedule. Priority: explicit rampAction > schedule shorthand.
-  let resolvedRampAction = rampAction;
+  // Resolve schedule. Priority: rampSchedule > schedule shorthand (legacy: scheduleRules).
+  let resolvedRampAction = inlineRampSchedule
+    ? normalizeInlineRampSchedule(
+        inlineRampSchedule,
+        updatedRule.id,
+        environment,
+      )
+    : undefined;
   if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
     const hasLegacySchedule =
       oldRule.scheduleType === "schedule" ||
@@ -361,14 +356,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
     const existing = revision.rampActions ?? [];
     const filtered = existing.filter(
       (a) =>
-        !(
-          (a.mode === "create" &&
-            a.ruleId ===
-              (resolvedRampAction as RevisionRampCreateAction).ruleId) ||
-          (a.mode === "detach" &&
-            a.ruleId ===
-              (resolvedRampAction as RevisionRampDetachAction).ruleId)
-        ),
+        a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
     );
     changes.rampActions = [...filtered, resolvedRampAction];
   }

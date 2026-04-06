@@ -1,9 +1,6 @@
 import omit from "lodash/omit";
 import { z } from "zod";
-import {
-  RevisionRampCreateAction,
-  RevisionRampDetachAction,
-} from "shared/validators";
+import type { RevisionRampDetachAction } from "shared/validators";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -11,17 +8,16 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import {
-  isDraftStatus,
-  rampActionSchema,
-  normalizeRevisionRampCreateAction,
-} from "./validations";
+import { isDraftStatus } from "./validations";
 
-export const putFeatureRevisionRampActions = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
-  bodySchema: z.object({
+export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
+  paramsSchema: z.object({
+    id: z.string(),
+    version: z.coerce.number().int(),
     ruleId: z.string(),
-    action: rampActionSchema.nullable(),
+  }),
+  bodySchema: z.object({
+    environment: z.string(),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -48,25 +44,37 @@ export const putFeatureRevisionRampActions = createApiRequestHandler({
     );
   }
 
-  const { ruleId } = req.body;
-  const rawAction = req.body.action;
-  const action =
-    rawAction?.mode === "create"
-      ? normalizeRevisionRampCreateAction(rawAction)
-      : rawAction;
+  const { ruleId } = req.params;
+  const { environment } = req.body;
 
-  // Filter out any existing action for this ruleId, then optionally append the new one
   const existing = revision.rampActions ?? [];
-  const filtered = existing.filter(
-    (a) =>
-      !(
-        (a.mode === "create" &&
-          (a as RevisionRampCreateAction).ruleId === ruleId) ||
-        (a.mode === "detach" &&
-          (a as RevisionRampDetachAction).ruleId === ruleId)
-      ),
+  const hasPendingCreate = existing.some(
+    (a) => a.mode === "create" && a.ruleId === ruleId,
   );
-  const newRampActions = action ? [...filtered, action] : filtered;
+
+  // Check for a live schedule on this rule
+  const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(
+    ruleId,
+    environment,
+  );
+
+  if (!hasPendingCreate && liveSchedules.length === 0) {
+    throw new NotFoundError(`Rule "${ruleId}" has no ramp schedule to remove.`);
+  }
+
+  // Remove any pending action for this rule
+  const filtered = existing.filter((a) => a.ruleId !== ruleId);
+
+  // If there's a live schedule, queue a detach action
+  let newRampActions = filtered;
+  if (liveSchedules.length > 0) {
+    const detach: RevisionRampDetachAction = {
+      mode: "detach",
+      ruleId,
+      rampScheduleId: liveSchedules[0].id,
+    };
+    newRampActions = [...filtered, detach];
+  }
 
   await updateRevision(
     req.context,
@@ -75,11 +83,11 @@ export const putFeatureRevisionRampActions = createApiRequestHandler({
     { rampActions: newRampActions },
     {
       user: req.context.auditUser,
-      action: action ? "set ramp action" : "clear ramp action",
+      action: "clear ramp schedule",
       subject: ruleId,
-      value: JSON.stringify(action),
+      value: JSON.stringify({ ruleId, environment }),
     },
-    true,
+    false,
   );
 
   const updated = await getRevision({

@@ -7,13 +7,19 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
+import {
+  isDraftStatus,
+  standaloneRampScheduleInput,
+  normalizeInlineRampSchedule,
+} from "./validations";
 
-export const putFeatureRevisionArchive = createApiRequestHandler({
-  paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
-  bodySchema: z.object({
-    archived: z.boolean(),
+export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler({
+  paramsSchema: z.object({
+    id: z.string(),
+    version: z.coerce.number().int(),
+    ruleId: z.string(),
   }),
+  bodySchema: standaloneRampScheduleInput,
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -39,18 +45,45 @@ export const putFeatureRevisionArchive = createApiRequestHandler({
     );
   }
 
+  const { ruleId } = req.params;
+  const { environment, ...scheduleInput } = req.body;
+
+  // Block if the rule already has a live schedule — must update it directly.
+  const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(
+    ruleId,
+    environment,
+  );
+  if (liveSchedules.length > 0) {
+    throw new BadRequestError(
+      `Rule "${ruleId}" already has a live ramp schedule.` +
+        ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
+    );
+  }
+
+  const action = normalizeInlineRampSchedule(
+    scheduleInput,
+    ruleId,
+    environment,
+  );
+
+  // Replace any existing ramp action for this rule (pending create or detach)
+  const filtered = (revision.rampActions ?? []).filter(
+    (a) => a.ruleId !== ruleId,
+  );
+  const newRampActions = [...filtered, action];
+
   await updateRevision(
     req.context,
     feature,
     revision,
-    { archived: req.body.archived },
+    { rampActions: newRampActions },
     {
       user: req.context.auditUser,
-      action: req.body.archived ? "archive feature" : "unarchive feature",
-      subject: "",
-      value: JSON.stringify({ archived: req.body.archived }),
+      action: "set ramp schedule",
+      subject: ruleId,
+      value: JSON.stringify(action),
     },
-    true,
+    false,
   );
 
   const updated = await getRevision({

@@ -26,6 +26,8 @@ FeatureRevision:
   $ref: "./FeatureRevision.yaml"
 RevisionRampAction:
   $ref: "./RevisionRampAction.yaml"
+InlineRampSchedule:
+  $ref: "./InlineRampSchedule.yaml"
 FeatureRule:
   $ref: "./FeatureRule.yaml"
 FeatureBaseRule:

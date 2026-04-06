@@ -8,6 +8,7 @@ import { updateFeature } from "./updateFeature";
 import { deleteFeatureById } from "./deleteFeature";
 import { getFeatureRevisions } from "./getFeatureRevisions";
 import { getFeatureRevision } from "./getFeatureRevision";
+import { getFeatureRevisionLatest } from "./getFeatureRevisionLatest";
 import { postFeatureRevision } from "./postFeatureRevision";
 import { postFeatureRevisionDiscard } from "./postFeatureRevisionDiscard";
 import { postFeatureRevisionPublish } from "./postFeatureRevisionPublish";
@@ -19,7 +20,8 @@ import { postFeatureRevisionRuleAdd } from "./postFeatureRevisionRuleAdd";
 import { postFeatureRevisionRulesReorder } from "./postFeatureRevisionRulesReorder";
 import { putFeatureRevisionRule } from "./putFeatureRevisionRule";
 import { deleteFeatureRevisionRule } from "./deleteFeatureRevisionRule";
-import { putFeatureRevisionRampActions } from "./putFeatureRevisionRampActions";
+import { putFeatureRevisionRuleRampSchedule } from "./putFeatureRevisionRuleRampSchedule";
+import { deleteFeatureRevisionRuleRampSchedule } from "./deleteFeatureRevisionRuleRampSchedule";
 import { postFeatureRevisionToggle } from "./postFeatureRevisionToggle";
 import { putFeatureRevisionDefaultValue } from "./putFeatureRevisionDefaultValue";
 import { putFeatureRevisionPrerequisites } from "./putFeatureRevisionPrerequisites";
@@ -43,6 +45,9 @@ router.post("/:id/revert", revertFeature);
 // Revision list + create
 router.get("/:id/revisions", getFeatureRevisions);
 router.post("/:id/revisions", postFeatureRevision);
+
+// Latest active draft shortcut — registered before /:version to avoid shadowing
+router.get("/:id/revisions/latest", getFeatureRevisionLatest);
 
 // Single revision
 router.get("/:id/revisions/:version", getFeatureRevision);
@@ -81,10 +86,14 @@ router.delete(
   deleteFeatureRevisionRule,
 );
 
-// Ramp actions
+// Rule ramp schedule — set or remove the pending ramp schedule for a specific rule
 router.put(
-  "/:id/revisions/:version/ramp-actions",
-  putFeatureRevisionRampActions,
+  "/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  putFeatureRevisionRuleRampSchedule,
+);
+router.delete(
+  "/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  deleteFeatureRevisionRuleRampSchedule,
 );
 
 // Field edits

@@ -1,8 +1,10 @@
 summary: Rebase a draft revision
 description: |
-  Resolves merge conflicts using per-field strategies and rebases the draft onto the current live version.
-  Provide an empty strategies object to auto-merge where possible.
-  If any conflicts remain unresolved, a 409 is returned with the remaining conflicts.
+  Resolves merge conflicts using per-field resolutions and rebases the draft onto the current live version.
+  Provide an empty `conflictResolutions` object (or omit it) to auto-merge where possible.
+  If any conflicts remain unresolved, a 409 is returned with a `conflicts` array containing each
+  unresolved conflict key. Pass those keys back in `conflictResolutions` as `"overwrite"` (keep your
+  draft change) or `"discard"` (take the live value).
 tags:
   - feature-revisions
 parameters:
@@ -26,9 +28,11 @@ requestBody:
       schema:
         type: object
         properties:
-          strategies:
+          conflictResolutions:
             type: object
-            description: "Map of conflict key to resolution strategy"
+            description: |
+              Map of conflict key → resolution strategy. Keys come from the `conflicts` array
+              in the 409 response. Omit or pass an empty object for the first attempt (auto-merge).
             additionalProperties:
               type: string
               enum:

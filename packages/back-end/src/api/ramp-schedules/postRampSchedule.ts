@@ -13,6 +13,7 @@ import {
   dispatchRampEvent,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 const postBodyAction = z.object({
   targetType: z.literal("feature-rule").optional(),
@@ -131,7 +132,7 @@ export const postRampSchedule = createApiRequestHandler(
   if (body.featureId) {
     feature = await getFeature(req.context, body.featureId);
     if (!feature) {
-      throw new Error(`Feature '${body.featureId}' not found`);
+      throw new NotFoundError(`Feature '${body.featureId}' not found`);
     }
   }
 
@@ -140,7 +141,7 @@ export const postRampSchedule = createApiRequestHandler(
       feature!.environmentSettings?.[body.environment!]?.rules ?? [];
     const rule = envRules.find((r) => r.id === body.ruleId);
     if (!rule) {
-      throw new Error(
+      throw new NotFoundError(
         `Rule '${body.ruleId}' not found in environment '${body.environment}'. ` +
           `The rule must be published before attaching a ramp schedule.`,
       );
@@ -151,7 +152,7 @@ export const postRampSchedule = createApiRequestHandler(
       body.environment!,
     );
     if (conflicting.length > 0) {
-      throw new Error(
+      throw new BadRequestError(
         `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}' ` +
           `in environment '${body.environment}'. Delete it first before creating a new one.`,
       );
@@ -166,7 +167,7 @@ export const postRampSchedule = createApiRequestHandler(
       body.templateId,
     );
     if (!tmpl) {
-      throw new Error(`Template '${body.templateId}' not found`);
+      throw new NotFoundError(`Template '${body.templateId}' not found`);
     }
     template = tmpl;
   }

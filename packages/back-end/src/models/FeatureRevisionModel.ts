@@ -266,6 +266,26 @@ export async function getFeatureRevisionsByStatus({
   return docs.map((m) => toInterface(m, context));
 }
 
+/**
+ * Returns the most recently updated active draft for a specific feature, or null if none exist.
+ */
+export async function getLatestActiveDraftForFeature(
+  context: ReqContext | ApiReqContext,
+  organization: string,
+  featureId: string,
+): Promise<FeatureRevisionInterface | null> {
+  const doc = await FeatureRevisionModel.findOne(
+    {
+      organization,
+      featureId,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    },
+    { log: 0 },
+  ).sort({ dateUpdated: -1 });
+
+  return doc ? toInterface(doc, context) : null;
+}
+
 export async function getRevision({
   context,
   organization,

@@ -1,7 +1,7 @@
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -36,7 +36,9 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
   const { environment, ruleIds } = req.body;
@@ -46,7 +48,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
 
   const unknownIds = ruleIds.filter((id) => !ruleMap.has(id));
   if (unknownIds.length > 0) {
-    throw new Error(
+    throw new BadRequestError(
       `Unknown rule ID(s): ${unknownIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
     );
   }
@@ -58,12 +60,14 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
     return false;
   });
   if (duplicateIds.length > 0) {
-    throw new Error(`Duplicate rule ID(s): ${duplicateIds.join(", ")}.`);
+    throw new BadRequestError(
+      `Duplicate rule ID(s): ${duplicateIds.join(", ")}.`,
+    );
   }
 
   const missingIds = envRules.map((r) => r.id).filter((id) => !seen.has(id));
   if (missingIds.length > 0) {
-    throw new Error(
+    throw new BadRequestError(
       `Missing rule ID(s): ${missingIds.join(", ")}. ruleIds must contain exactly the existing rule IDs for this environment.`,
     );
   }

@@ -2,7 +2,7 @@ import omit from "lodash/omit";
 import { z } from "zod";
 import { getReviewSetting } from "shared/util";
 import { isNamedUser } from "shared/validators";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -50,7 +50,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
     revision.createdBy.id === req.context.userId &&
     action !== "comment"
   ) {
-    throw new Error("Cannot submit a review on a draft you created");
+    throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
   // Block contributors from self-approving when the org setting is enabled.
@@ -64,7 +64,9 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
         (c) => isNamedUser(c) && c.id === req.context.userId,
       );
       if (isSelfApproval) {
-        throw new Error("You cannot approve a draft you contributed to.");
+        throw new BadRequestError(
+          "You cannot approve a draft you contributed to.",
+        );
       }
     }
   }
@@ -75,7 +77,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
       revision.status,
     )
   ) {
-    throw new Error(
+    throw new BadRequestError(
       `Can only submit a review when review has been requested (status is "${revision.status}")`,
     );
   }
