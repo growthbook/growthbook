@@ -2439,6 +2439,35 @@ Triggered when an experiment is created
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -2447,6 +2476,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -2457,6 +2493,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -2467,6 +2510,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -2477,6 +2527,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -2506,6 +2563,8 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
     };
@@ -2624,6 +2683,35 @@ Triggered when an experiment is updated
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -2632,6 +2720,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -2642,6 +2737,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -2652,6 +2754,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -2662,6 +2771,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -2691,6 +2807,8 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
         previous_attributes: {
@@ -2768,6 +2886,35 @@ Triggered when an experiment is updated
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -2776,6 +2923,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -2786,6 +2940,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -2796,6 +2957,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -2806,6 +2974,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             } | undefined;
@@ -2835,6 +3010,8 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
         changes?: {
@@ -2958,6 +3135,35 @@ Triggered when an experiment is deleted
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -2966,6 +3172,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -2976,6 +3189,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -2986,6 +3206,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -2996,6 +3223,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -3025,6 +3259,8 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
     };

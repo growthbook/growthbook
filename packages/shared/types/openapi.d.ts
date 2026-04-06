@@ -5506,6 +5506,36 @@ export interface components {
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -5513,8 +5543,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -5524,8 +5563,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -5535,8 +5583,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -5546,8 +5603,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -5583,6 +5649,8 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      /** @description ID of the default dashboard for this experiment. */
+      defaultDashboardId?: string;
       templateId?: string;
     };
     ExperimentSnapshot: {
@@ -5597,9 +5665,46 @@ export interface components {
         windowHours?: number;
         /** @enum {string} */
         window?: "conversion" | "lookback" | "";
+        /** @deprecated */
         winRiskThreshold?: number;
+        /** @deprecated */
         loseRiskThreshold?: number;
+        properPriorOverride?: boolean;
+        properPriorEnabled?: boolean;
+        properPriorMean?: number;
+        properPriorStdDev?: number;
+        regressionAdjustmentOverride?: boolean;
+        regressionAdjustmentEnabled?: boolean;
+        regressionAdjustmentDays?: number;
       };
+    };
+    /** @description Per-metric analysis overrides stored on the experiment (matches internal metricOverrides). */
+    ExperimentMetricOverrideEntry: {
+      /** @description ID of the metric to override settings for. */
+      id: string;
+      /** @enum {string} */
+      windowType?: "conversion" | "lookback" | "";
+      windowHours?: number;
+      delayHours?: number;
+      /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+      properPriorOverride?: boolean;
+      properPriorEnabled?: boolean;
+      properPriorMean?: number;
+      properPriorStdDev?: number;
+      /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+      regressionAdjustmentOverride?: boolean;
+      regressionAdjustmentEnabled?: boolean;
+      regressionAdjustmentDays?: number;
+    };
+    /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+    ExperimentDecisionFrameworkSettings: {
+      decisionCriteriaId?: string;
+      decisionFrameworkMetricOverrides?: ({
+          /** @description ID of the metric to override settings for. */
+          id: string;
+          /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+          targetMDE?: number;
+        })[];
     };
     ExperimentAnalysisSettings: {
       datasourceId: string;
@@ -5634,6 +5739,36 @@ export interface components {
       regressionAdjustmentEnabled?: boolean;
       sequentialTestingEnabled?: boolean;
       sequentialTestingTuningParameter?: number;
+      /** @description When null, the organization default is used. */
+      postStratificationEnabled?: OneOf<[boolean, null]>;
+      /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+      decisionFrameworkSettings?: {
+        decisionCriteriaId?: string;
+        decisionFrameworkMetricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+            targetMDE?: number;
+          })[];
+      };
+      /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+      metricOverrides?: ({
+          /** @description ID of the metric to override settings for. */
+          id: string;
+          /** @enum {string} */
+          windowType?: "conversion" | "lookback" | "";
+          windowHours?: number;
+          delayHours?: number;
+          /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+          properPriorOverride?: boolean;
+          properPriorEnabled?: boolean;
+          properPriorMean?: number;
+          properPriorStdDev?: number;
+          /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
+        })[];
       goals: ({
           metricId: string;
           overrides: {
@@ -5641,8 +5776,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       secondaryMetrics: ({
@@ -5652,8 +5796,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       guardrails: ({
@@ -5663,8 +5816,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       activationMetric?: {
@@ -5674,8 +5836,17 @@ export interface components {
           windowHours?: number;
           /** @enum {string} */
           window?: "conversion" | "lookback" | "";
+          /** @deprecated */
           winRiskThreshold?: number;
+          /** @deprecated */
           loseRiskThreshold?: number;
+          properPriorOverride?: boolean;
+          properPriorEnabled?: boolean;
+          properPriorMean?: number;
+          properPriorStdDev?: number;
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
         };
       };
     };
@@ -5738,6 +5909,36 @@ export interface components {
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -5745,8 +5946,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -5756,8 +5966,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -5767,8 +5986,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -5778,8 +6006,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -5905,6 +6142,36 @@ export interface components {
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -5912,8 +6179,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -5923,8 +6199,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -5934,8 +6219,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -5945,8 +6239,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -5982,6 +6285,8 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      /** @description ID of the default dashboard for this experiment. */
+      defaultDashboardId?: string;
       templateId?: string;
     }) & ({
       enhancedStatus?: {
@@ -23337,6 +23642,36 @@ export interface operations {
                   regressionAdjustmentEnabled?: boolean;
                   sequentialTestingEnabled?: boolean;
                   sequentialTestingTuningParameter?: number;
+                  /** @description When null, the organization default is used. */
+                  postStratificationEnabled?: OneOf<[boolean, null]>;
+                  /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                  decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string;
+                    decisionFrameworkMetricOverrides?: ({
+                        /** @description ID of the metric to override settings for. */
+                        id: string;
+                        /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number;
+                      })[];
+                  };
+                  /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                  metricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @enum {string} */
+                      windowType?: "conversion" | "lookback" | "";
+                      windowHours?: number;
+                      delayHours?: number;
+                      /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
+                    })[];
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -23344,8 +23679,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   secondaryMetrics: ({
@@ -23355,8 +23699,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   guardrails: ({
@@ -23366,8 +23719,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   activationMetric?: {
@@ -23377,8 +23739,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   };
                 };
@@ -23414,6 +23785,8 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                /** @description ID of the default dashboard for this experiment. */
+                defaultDashboardId?: string;
                 templateId?: string;
               })[];
           }) & {
@@ -23563,6 +23936,38 @@ export interface operations {
           banditConversionWindowValue?: number;
           /** @enum {string} */
           banditConversionWindowUnit?: "days" | "hours";
+          /** @description When null, the organization default is used. */
+          postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+          decisionFrameworkSettings?: {
+            decisionCriteriaId?: string;
+            decisionFrameworkMetricOverrides?: ({
+                /** @description ID of the metric to override settings for. */
+                id: string;
+                /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                targetMDE?: number;
+              })[];
+          };
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
+          metricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @enum {string} */
+              windowType?: "conversion" | "lookback" | "";
+              windowHours?: number;
+              delayHours?: number;
+              /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+            })[];
+          /** @description ID of the default dashboard for this experiment. */
+          defaultDashboardId?: string;
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -23672,6 +24077,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -23679,8 +24114,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -23690,8 +24134,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -23701,8 +24154,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -23712,8 +24174,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -23749,6 +24220,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             };
           };
@@ -23881,6 +24354,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -23888,8 +24391,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -23899,8 +24411,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -23910,8 +24431,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -23921,8 +24451,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -23958,6 +24497,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             }) & ({
               enhancedStatus?: {
@@ -24120,6 +24661,38 @@ export interface operations {
           banditConversionWindowValue?: number;
           /** @enum {string} */
           banditConversionWindowUnit?: "days" | "hours";
+          /** @description When null, the organization default is used. */
+          postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+          decisionFrameworkSettings?: {
+            decisionCriteriaId?: string;
+            decisionFrameworkMetricOverrides?: ({
+                /** @description ID of the metric to override settings for. */
+                id: string;
+                /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                targetMDE?: number;
+              })[];
+          };
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
+          metricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @enum {string} */
+              windowType?: "conversion" | "lookback" | "";
+              windowHours?: number;
+              delayHours?: number;
+              /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+            })[];
+          /** @description ID of the default dashboard for this experiment. */
+          defaultDashboardId?: string;
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -24229,6 +24802,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -24236,8 +24839,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -24247,8 +24859,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -24258,8 +24879,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -24269,8 +24899,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -24306,6 +24945,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             };
           };
@@ -24455,6 +25096,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -24462,8 +25133,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -24473,8 +25153,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -24484,8 +25173,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -24495,8 +25193,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -25542,6 +26249,36 @@ export interface operations {
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -25549,8 +26286,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -25560,8 +26306,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -25571,8 +26326,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -25582,8 +26346,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -25619,6 +26392,8 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
               templateId?: string;
             };
           };
@@ -35481,6 +36256,8 @@ export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnection
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
+export type ApiExperimentMetricOverrideEntry = z.infer<typeof openApiValidators.apiExperimentMetricOverrideEntryValidator>;
+export type ApiExperimentDecisionFrameworkSettings = z.infer<typeof openApiValidators.apiExperimentDecisionFrameworkSettingsValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiLookbackOverride = z.infer<typeof openApiValidators.apiLookbackOverrideValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;

@@ -1,14 +1,21 @@
 import { z } from "zod";
-import { postMetricValidator, putMetricValidator } from "shared/validators";
+import {
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+} from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   applyVariationWeightsToLatestPhase,
+  postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
+  updateExperimentApiPayloadToInterface,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1273,6 +1280,71 @@ describe("putMetricApiPayloadToMetricInterface", () => {
 
       expect(next[0].variationWeights).toEqual([0.5, 0.5]);
       expect(next[1].variationWeights).toEqual([0.7, 0.3]);
+    });
+  });
+
+  describe("experiment API payload mappers", () => {
+    const org = { id: "org_test" } as OrganizationInterface;
+    const datasource = {
+      id: "ds_test",
+      settings: { queries: { exposure: [{ id: "exp_query_1" }] } },
+    } as DataSourceInterface;
+
+    it("postExperimentApiPayloadToInterface maps metricOverrides and decisionFrameworkSettings", () => {
+      const payload: z.infer<typeof postExperimentValidator.bodySchema> = {
+        trackingKey: "track_b",
+        name: "Experiment B",
+        assignmentQueryId: "exp_query_1",
+        variations: [
+          { key: "0", name: "Control" },
+          { key: "1", name: "Treatment" },
+        ],
+        metricOverrides: [
+          {
+            id: "met_1",
+            delayHours: 12,
+            winRisk: 0.05,
+          },
+        ],
+        decisionFrameworkSettings: {
+          decisionCriteriaId: "crit_1",
+          decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
+        },
+        postStratificationEnabled: false,
+      };
+
+      const out = postExperimentApiPayloadToInterface(payload, org, datasource);
+      expect(out.metricOverrides).toEqual([
+        { id: "met_1", delayHours: 12, winRisk: 0.05 },
+      ]);
+      expect(out.decisionFrameworkSettings).toEqual({
+        decisionCriteriaId: "crit_1",
+        decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
+      });
+      expect(out.postStratificationEnabled).toBe(false);
+    });
+
+    it("updateExperimentApiPayloadToInterface sets exposureQueryId from assignmentQueryId", () => {
+      const experiment = {
+        status: "draft",
+        type: "standard",
+        exposureQueryId: "old_query",
+      } as unknown as ExperimentInterface;
+
+      const payload: z.infer<typeof updateExperimentValidator.bodySchema> = {
+        assignmentQueryId: "new_query",
+      };
+
+      const changes = updateExperimentApiPayloadToInterface(
+        payload,
+        experiment,
+        new Map(),
+        org,
+      );
+      expect(changes.exposureQueryId).toBe("new_query");
+      expect(
+        (changes as { assignmentQueryId?: string }).assignmentQueryId,
+      ).toBe(undefined);
     });
   });
 });
