@@ -442,23 +442,11 @@ Whether you have thousands or millions of events, this query will always return 
 
 There are also functions like `toStartOfHour`, `toStartOfMonth`, etc. that you can use to group by different time intervals.
 
-## Pricing
-
-Managed Warehouse pricing is based on your GrowthBook plan:
-
-| Plan         | Included events/month | Overage rate       |
-| ------------ | --------------------- | ------------------ |
-| **Starter**  | 1 million             | $0.03 per 1K events |
-| **Pro**      | 2 million             | $0.03 per 1K events |
-| **Enterprise** | Custom              | Custom             |
-
-If you bring your own warehouse instead, there are no managed warehouse charges from GrowthBook. You only pay your warehouse provider directly.
-
 ## FAQ
 
 ### Can I use the Managed Warehouse alongside my own warehouse?
 
-Yes. You can add a separate data source for your own warehouse at any time and use both simultaneously.
+Yes. You can add a separate data source for your own warehouse at any time and use both simultaneously. Note that each experiment pulls data from a single data source, so you can't mix metrics from both warehouses within one experiment.
 
 ### How do I add custom identifiers like `user_id`?
 
@@ -466,7 +454,7 @@ Go to your data source settings page and add `user_id` as a new Key Attribute wi
 
 ### What happens if I exceed my event limit?
 
-You'll see a notification in GrowthBook when you're approaching your limit. Overage events are charged at the rate shown in [Pricing](#pricing). You can upgrade your plan or contact us for custom volume pricing.
+You'll see a notification in GrowthBook when you're approaching your limit. On free plans, events stop being tracked for the remainder of the month and reset the following month. On paid plans, overage charges apply.
 
 ### Can I export my data?
 
