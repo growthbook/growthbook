@@ -3596,12 +3596,13 @@ export async function getFeatureRevisions(
     .map((v) => parseInt(v.trim(), 10))
     .filter((v) => !isNaN(v) && v > 0);
 
+  // Don't 400 on an empty/zero-only list. The frontend uses 0 as a sentinel
+  // ("no version yet") in several places — DraftSelectorForChanges,
+  // KillSwitchModal, and useFeaturePageData when the selected revision's
+  // baseVersion is 0 (initial revision on a brand-new feature). Returning an
+  // empty array lets those callers no-op instead of surfacing a 400 in the UI.
   if (!versions.length) {
-    return res.status(400).json({
-      status: 400,
-      message:
-        "versions query param is required (comma-separated list of version numbers)",
-    });
+    return res.status(200).json({ status: 200, revisions: [] });
   }
 
   const revisions = await getRevisionsByVersions({

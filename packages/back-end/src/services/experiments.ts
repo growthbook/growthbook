@@ -2101,17 +2101,47 @@ function getExperimentMetric(
     overrides: {},
   };
 
-  if (overrides?.delayHours) {
+  if (!overrides) {
+    return ret;
+  }
+
+  if (overrides.delayHours !== undefined) {
     ret.overrides.delayHours = overrides.delayHours;
   }
-  if (overrides?.windowHours) {
+  if (overrides.windowHours !== undefined) {
     ret.overrides.windowHours = overrides.windowHours;
   }
-  if (overrides?.winRisk) {
+  if (overrides.windowType !== undefined) {
+    ret.overrides.window = overrides.windowType;
+  }
+  if (overrides.winRisk !== undefined) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
   }
-  if (overrides?.loseRisk) {
+  if (overrides.loseRisk !== undefined) {
     ret.overrides.loseRiskThreshold = overrides.loseRisk;
+  }
+  if (overrides.properPriorOverride !== undefined) {
+    ret.overrides.properPriorOverride = overrides.properPriorOverride;
+  }
+  if (overrides.properPriorEnabled !== undefined) {
+    ret.overrides.properPriorEnabled = overrides.properPriorEnabled;
+  }
+  if (overrides.properPriorMean !== undefined) {
+    ret.overrides.properPriorMean = overrides.properPriorMean;
+  }
+  if (overrides.properPriorStdDev !== undefined) {
+    ret.overrides.properPriorStdDev = overrides.properPriorStdDev;
+  }
+  if (overrides.regressionAdjustmentOverride !== undefined) {
+    ret.overrides.regressionAdjustmentOverride =
+      overrides.regressionAdjustmentOverride;
+  }
+  if (overrides.regressionAdjustmentEnabled !== undefined) {
+    ret.overrides.regressionAdjustmentEnabled =
+      overrides.regressionAdjustmentEnabled;
+  }
+  if (overrides.regressionAdjustmentDays !== undefined) {
+    ret.overrides.regressionAdjustmentDays = overrides.regressionAdjustmentDays;
   }
 
   return ret;
@@ -2135,7 +2165,7 @@ export async function toExperimentApiInterface(
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
-    // todo: experiment settings
+    experiment,
   });
   const experimentType = experiment.type || "standard";
 
@@ -2247,6 +2277,12 @@ export async function toExperimentApiInterface(
             activationMetric: getExperimentMetric(experiment, activationMetric),
           }
         : null),
+      postStratificationEnabled:
+        experiment.postStratificationEnabled !== undefined
+          ? experiment.postStratificationEnabled
+          : null,
+      decisionFrameworkSettings: experiment.decisionFrameworkSettings ?? {},
+      metricOverrides: experiment.metricOverrides ?? [],
     },
     ...(experiment.status === "stopped" && experiment.results
       ? {
@@ -2282,6 +2318,7 @@ export async function toExperimentApiInterface(
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
+    defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
 }
@@ -3342,8 +3379,8 @@ export function postExperimentApiPayloadToInterface(
     secondaryMetrics: payload.secondaryMetrics || [],
     guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: payload.activationMetric || "",
-    metricOverrides: [],
-    decisionFrameworkSettings: {},
+    metricOverrides: payload.metricOverrides ?? [],
+    decisionFrameworkSettings: payload.decisionFrameworkSettings ?? {},
     segment: payload.segmentId || "",
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
@@ -3381,10 +3418,16 @@ export function postExperimentApiPayloadToInterface(
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
+    ...(payload.postStratificationEnabled !== undefined
+      ? { postStratificationEnabled: payload.postStratificationEnabled }
+      : {}),
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
     templateId: payload.templateId || undefined,
+    ...(payload.defaultDashboardId !== undefined
+      ? { defaultDashboardId: payload.defaultDashboardId }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3617,6 +3660,10 @@ export function updateExperimentApiPayloadToInterface(
     banditScheduleUnit,
     banditBurnInValue,
     banditBurnInUnit,
+    metricOverrides,
+    decisionFrameworkSettings,
+    postStratificationEnabled,
+    defaultDashboardId,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -3624,7 +3671,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
-    ...(assignmentQueryId ? { assignmentQueryId } : {}),
+    ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
@@ -3684,6 +3731,14 @@ export function updateExperimentApiPayloadToInterface(
     ...(payload.banditConversionWindowUnit !== undefined
       ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
       : {}),
+    ...(metricOverrides !== undefined ? { metricOverrides } : {}),
+    ...(decisionFrameworkSettings !== undefined
+      ? { decisionFrameworkSettings }
+      : {}),
+    ...(postStratificationEnabled !== undefined
+      ? { postStratificationEnabled }
+      : {}),
+    ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
