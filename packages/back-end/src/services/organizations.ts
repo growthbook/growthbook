@@ -622,9 +622,11 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  invitedBy,
 }: {
   organization: OrganizationInterface;
   email: string;
+  invitedBy?: string;
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
@@ -670,6 +672,7 @@ export async function inviteUser({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      invitedBy,
     },
   ];
 
