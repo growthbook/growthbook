@@ -818,7 +818,9 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
       : log.user?.type === "api_key"
         ? log.user.name
           ? `${log.user.name} (API)`
-          : "API Key"
+          : log.user.email
+            ? `${log.user.email} (API)`
+            : "API Key"
         : "System";
 
   const rows: [string, React.ReactNode][] = [
@@ -2032,7 +2034,9 @@ export default function CompareRevisionsModal({
                                         : logEntry.user?.type === "api_key"
                                           ? logEntry.user.name
                                             ? ` · ${logEntry.user.name} (API)`
-                                            : " · API"
+                                            : logEntry.user.email
+                                              ? ` · ${logEntry.user.email} (API)`
+                                              : " · API"
                                           : ""}
                                     </Text>
                                   </Flex>

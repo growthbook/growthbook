@@ -100,7 +100,9 @@ function RawAuditRow({
     ("apiKey" in user
       ? user.name
         ? `${user.name} (API)`
-        : "API Key"
+        : "email" in user && user.email
+          ? `${user.email} (API)`
+          : "API Key"
       : false) ||
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
