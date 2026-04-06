@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
-import { date, daysBetween } from "shared/dates";
+import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
@@ -15,11 +15,18 @@ import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import ProjectBadges from "@/components/ProjectBadges";
+import {
+  formatDateRangeForDisplay,
+  getDateRangeDurationInDays,
+  getRuntimeRangeForSelectedPhase,
+  getTotalRuntimeRange,
+} from "@/services/experimentDateRanges";
 import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
+  selectedPhase?: number;
   setShowEditInfoModal: (value: boolean) => void;
   setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;
@@ -28,6 +35,7 @@ export interface Props {
 export default function ProjectTagBar({
   experiment,
   holdout,
+  selectedPhase,
   setShowEditInfoModal,
   setEditInfoFocusSelector,
   editTags,
@@ -60,85 +68,27 @@ export default function ProjectTagBar({
   const ownerName = getOwnerDisplay(experiment.owner);
 
   const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
-
-  const renderRuntime = () => {
-    const phases = experiment.phases || [];
-    const numPhases = phases.length;
-
-    // If no phases: If experiment start date ? `experiment start date - now` : "not started"
-    if (numPhases === 0) {
-      return "not started";
-    }
-
-    // If 1 phase: phase start date - {phase end date || now}
-    if (numPhases === 1) {
-      const phase = phases[0];
-      const startDate = date(phase?.dateStarted ?? "", "UTC");
-      const endDate = phase?.dateEnded ? date(phase.dateEnded, "UTC") : "now";
-
-      if (!startDate) {
-        return "not started";
-      }
-
-      return `${startDate} - ${endDate}`;
-    }
-
-    // If multiple phases, phase[0] start date - {phase[last] end date || now}
-    const firstPhase = phases[0];
-    const lastPhase = phases[phases.length - 1];
-    const startDate = date(firstPhase?.dateStarted ?? "", "UTC");
-    const endDate = lastPhase?.dateEnded
-      ? date(lastPhase.dateEnded, "UTC")
-      : "now";
-
-    if (!startDate) {
-      return "not started";
-    }
-
-    return `${startDate} - ${endDate}`;
-  };
+  const runtimeRange = getRuntimeRangeForSelectedPhase({
+    experiment,
+    selectedPhase,
+    holdoutAnalysisStartDate: holdout?.analysisStartDate,
+  });
+  const totalRuntimeRange = getTotalRuntimeRange({
+    experiment,
+    holdoutAnalysisStartDate: holdout?.analysisStartDate,
+  });
 
   const renderTotalRuntimeTooltip = (): JSX.Element | string => {
-    const phases = experiment.phases || [];
-    const numPhases = phases.length;
-    const isHoldout = experiment.type === "holdout";
-
-    if (numPhases === 0) {
+    if (!totalRuntimeRange) {
       return "";
     }
-
-    const firstPhase = phases[0];
-    const lastPhase = phases[phases.length - 1];
-
-    // Get the actual start date (not formatted)
-    const startDateStr =
-      firstPhase?.lookbackStartDate && isHoldout
-        ? firstPhase.lookbackStartDate
-        : firstPhase?.dateStarted;
-
-    if (!startDateStr) {
-      return "";
-    }
-
-    // Get the end date (or use now)
-    const endDateStr = lastPhase?.dateEnded || new Date().toISOString();
-
-    const days = daysBetween(startDateStr, endDateStr);
-
-    // Format the date range
-    const startDateFormatted =
-      firstPhase?.lookbackStartDate && isHoldout
-        ? date(firstPhase.lookbackStartDate, "UTC")
-        : date(firstPhase?.dateStarted ?? "", "UTC");
-    const endDateFormatted = lastPhase?.dateEnded
-      ? date(lastPhase.dateEnded, "UTC")
-      : "now";
+    const days = getDateRangeDurationInDays(totalRuntimeRange);
 
     return (
       <>
         <strong>Total runtime</strong>
         <br />
-        {startDateFormatted} - {endDateFormatted} ({days}{" "}
+        {formatDateRangeForDisplay(totalRuntimeRange)} ({days}{" "}
         {days === 1 ? "day" : "days"})
       </>
     );
@@ -297,10 +247,10 @@ export default function ProjectTagBar({
           <Metadata
             label={
               hasMultiplePhases && experiment.type !== "holdout"
-                ? "Latest Phase"
+                ? "Phase Runtime"
                 : "Runtime"
             }
-            value={renderRuntime()}
+            value={runtimeRange ? formatDateRangeForDisplay(runtimeRange) : "not started"}
           />
         </Tooltip>
       </Flex>

@@ -1104,6 +1104,7 @@ export default function ExperimentHeader({
         <ProjectTagBar
           experiment={experiment}
           holdout={holdout}
+          selectedPhase={phase}
           setShowEditInfoModal={setShowEditInfoModal}
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={editTags}

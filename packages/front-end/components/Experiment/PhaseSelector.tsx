@@ -1,9 +1,12 @@
-import { date } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
+import {
+  formatDateRangeForDisplay,
+  getPhaseDateRangeForDisplay,
+} from "@/services/experimentDateRanges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
@@ -57,6 +60,14 @@ export default function PhaseSelector({
     const phaseIndex = parseIntWithDefault(value, 0);
     const phase = (phases ?? experiment?.phases)?.[phaseIndex];
     if (!phase) return value;
+    const phaseRange = getPhaseDateRangeForDisplay({
+      phase,
+      isHoldout,
+      holdoutAnalysisStartDate: holdout?.analysisStartDate,
+    });
+    const phaseDateRangeText = phaseRange
+      ? formatDateRangeForDisplay(phaseRange)
+      : "not started - now";
 
     const isValueContext = meta?.context === "value";
 
@@ -90,15 +101,7 @@ export default function PhaseSelector({
             {!isHoldout && (
               <span className="font-weight-bold">{phaseIndex + 1}: </span>
             )}
-            <span className="date-label">
-              {phase.lookbackStartDate && isHoldout
-                ? date(
-                    holdout?.analysisStartDate ?? phase.lookbackStartDate,
-                    "UTC",
-                  )
-                : date(phase.dateStarted ?? "", "UTC")}{" "}
-              - {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
-            </span>
+            <span className="date-label">{phaseDateRangeText}</span>
           </>
         </Tooltip>
       );
@@ -111,10 +114,9 @@ export default function PhaseSelector({
         <span className="font-weight-bold">{phase.name}</span>
         <div className="break mt-1" />
         <span className="date-label mt-1">
-          {phase.lookbackStartDate && isHoldout
-            ? date(phase.lookbackStartDate, "UTC")
-            : date(phase.dateStarted ?? "", "UTC")}{" "}
-          — {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+          {phaseRange
+            ? formatDateRangeForDisplay(phaseRange, { delimiter: " — " })
+            : "not started — now"}
         </span>
         {!isHoldout && (
           <div className="small">{phaseSummary(phase, isBandit)}</div>
