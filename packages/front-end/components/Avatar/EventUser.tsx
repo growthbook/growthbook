@@ -7,72 +7,72 @@ export interface Props {
 }
 
 export default function EventUser({ user, display = "avatar" }: Props) {
-  if (user?.type === "dashboard" && user?.email) {
-    if (display === "avatar-with-email") {
-      return <Avatar email={user.email} name={user.name} size={22} showEmail />;
-    }
-    return (
-      <>
-        {display === "avatar" ? (
-          <Avatar email={user.email} name={user.name} size={30} />
-        ) : (
-          user.name
-        )}
-      </>
-    );
-  }
+  // Extract display info from the event user
+  let name: string | undefined;
+  let email: string | undefined;
+  let isApi = false;
 
-  if (user?.type === "api_key") {
+  if (user?.type === "dashboard") {
+    name = user.name;
+    email = user.email;
+  } else if (user?.type === "api_key") {
+    isApi = true;
     if (user.email) {
-      // Personal access token — show user identity with API badge
-      if (display === "avatar-with-email") {
-        return (
-          <>
-            <Avatar
-              email={user.email}
-              name={user.name || ""}
-              size={22}
-              showEmail
-            />
-            <span className="badge badge-secondary ml-1">API</span>
-          </>
-        );
-      }
+      // Personal access token
+      name = user.name || "";
+      email = user.email;
+    } else {
+      // Org-wide key — no avatar, just badge + optional description
       return (
         <>
-          {display === "avatar" ? (
-            <>
-              <Avatar email={user.email} name={user.name || ""} size={30} />
-              <span className="badge badge-secondary ml-1">API</span>
-            </>
-          ) : (
-            <>
-              {user.name || user.email}
-              <span className="badge badge-secondary ml-1">API</span>
-            </>
+          <span className="badge badge-secondary">API</span>
+          {user.name && (
+            <span className="ml-1" title={user.apiKey}>
+              {user.name}
+            </span>
           )}
         </>
       );
     }
+  }
+
+  if (!email) {
+    if (display === "name" || display === "avatar-with-email") {
+      return (
+        <span>
+          <em>unknown</em>
+        </span>
+      );
+    }
+    return null;
+  }
+
+  const apiBadge = isApi ? (
+    <span className="badge badge-secondary ml-1">API</span>
+  ) : null;
+
+  if (display === "avatar-with-email") {
     return (
       <>
-        <span className="badge badge-secondary">API</span>
-        {user.name && (
-          <span className="ml-1" title={user.apiKey}>
-            {user.name}
-          </span>
-        )}
+        <Avatar email={email} name={name || ""} size={22} showEmail />
+        {apiBadge}
       </>
     );
   }
 
-  if (display === "name" || display === "avatar-with-email") {
+  if (display === "avatar") {
     return (
-      <span>
-        <em>unknown</em>
-      </span>
+      <>
+        <Avatar email={email} name={name || ""} size={30} />
+        {apiBadge}
+      </>
     );
   }
 
-  return null;
+  return (
+    <>
+      {name || email}
+      {apiBadge}
+    </>
+  );
 }

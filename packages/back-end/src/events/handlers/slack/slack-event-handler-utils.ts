@@ -264,17 +264,21 @@ export const getEventUserFormatted = async (eventId: string) => {
   const event = await getEvent(eventId);
 
   if (!event || !event.data?.user) return "an unknown user";
-  if (event.data.user.type === "system") return "an automated process";
 
-  if (event.data.user.type === "api_key") {
-    if (event.data.user.name) {
-      return `${event.data.user.name} (via API)`;
-    }
-    return `an API request with key ending in ...${event.data.user.apiKey.slice(
-      -4,
-    )}`;
+  const { user } = event.data;
+
+  if (user.type === "system") return "an automated process";
+
+  const name = ("name" in user && user.name) || undefined;
+  const email = ("email" in user && user.email) || undefined;
+  const isApi = user.type === "api_key";
+
+  if (!name && !email && isApi) {
+    return `an API request with key ending in ...${user.apiKey.slice(-4)}`;
   }
-  return `${event.data.user.name} (${event.data.user.email})`;
+
+  const label = name && email ? `${name} (${email})` : (name ?? email);
+  return isApi ? `${label} (via API)` : `${label}`;
 };
 
 const buildSlackMessageForFeatureCreatedEvent = async (
