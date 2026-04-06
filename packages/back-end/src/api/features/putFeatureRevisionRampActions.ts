@@ -1,24 +1,21 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import {
-  revisionRampCreateAction,
-  revisionRampDetachAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
-
-const rampActionSchema = z.discriminatedUnion("mode", [
-  revisionRampCreateAction,
-  revisionRampDetachAction,
-]);
+import {
+  isDraftStatus,
+  rampActionSchema,
+  normalizeRevisionRampCreateAction,
+} from "./validations";
 
 export const putFeatureRevisionRampActions = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -46,10 +43,17 @@ export const putFeatureRevisionRampActions = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
-  const { ruleId, action } = req.body;
+  const { ruleId } = req.body;
+  const rawAction = req.body.action;
+  const action =
+    rawAction?.mode === "create"
+      ? normalizeRevisionRampCreateAction(rawAction)
+      : rawAction;
 
   // Filter out any existing action for this ruleId, then optionally append the new one
   const existing = revision.rampActions ?? [];

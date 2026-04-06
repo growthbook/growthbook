@@ -5,8 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import {
   savedGroupTargeting,
   featurePrerequisite,
-  revisionRampCreateAction,
-  revisionRampDetachAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
@@ -27,20 +25,21 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
-import { NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import {
   isDraftStatus,
+  rampActionSchema,
+  normalizeRevisionRampCreateAction,
   buildScheduleRampAction,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
-
-const rampActionSchema = z.discriminatedUnion("mode", [
-  revisionRampCreateAction,
-  revisionRampDetachAction,
-]);
 
 const scheduleRuleInput = z.object({
   timestamp: z.string().nullable(),
@@ -217,10 +216,16 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
-  const { environment, rampAction, schedule } = req.body;
+  const { environment, schedule } = req.body;
+  const rampAction =
+    req.body.rampAction?.mode === "create"
+      ? normalizeRevisionRampCreateAction(req.body.rampAction)
+      : req.body.rampAction;
   const ruleInput = req.body.rule;
 
   // Fill in missing variationIds from the linked experiment (by index order)
@@ -232,7 +237,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
         ruleInput.experimentId,
       );
       if (!experiment) {
-        throw new Error(
+        throw new NotFoundError(
           `Could not find experiment "${ruleInput.experimentId}" to resolve variation IDs`,
         );
       }
@@ -281,7 +286,8 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
       },
     });
 
-    if (!safeRollout) throw new Error("Failed to create safe rollout");
+    if (!safeRollout)
+      throw new InternalServerError("Failed to create safe rollout");
     (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
   }
 

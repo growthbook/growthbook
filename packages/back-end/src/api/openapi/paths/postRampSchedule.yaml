@@ -33,7 +33,6 @@ x-codeSamples:
     source: |
       curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
         -d '{
-          "name": "Coverage ramp",
           "featureId": "my-feature",
           "ruleId": "rule_abc",
           "environment": "production",
@@ -47,7 +46,7 @@ x-codeSamples:
     label: "Standalone (no target)"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
-        -d '{ "name": "My ramp skeleton" }' \
+        -d '{}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true
@@ -55,11 +54,10 @@ requestBody:
     application/json:
       schema:
         type: object
-        required:
-          - name
         properties:
           name:
             type: string
+            description: "Display name. Defaults to \"Ramp schedule – {Month YYYY}\" if omitted."
           featureId:
             type: string
             description: "Feature that anchors this schedule. Required when ruleId/environment are set."
@@ -106,6 +104,7 @@ requestBody:
                       - patch
                     properties:
                       targetType:
+                        type: string
                         enum: ["feature-rule"]
                         description: "Omit when using featureId+ruleId+environment (auto-injected)"
                       targetId:
@@ -126,6 +125,7 @@ requestBody:
                           condition:
                             type: string
                           force:
+                            nullable: true
                             description: "Force value (any JSON type)"
                 approvalNotes:
                   type: string
@@ -138,6 +138,7 @@ requestBody:
                 - patch
               properties:
                 targetType:
+                  type: string
                   enum: ["feature-rule"]
                   description: "Omit when using featureId+ruleId+environment (auto-injected)"
                 targetId:
@@ -156,6 +157,7 @@ requestBody:
                     condition:
                       type: string
                     force:
+                      nullable: true
                       description: "Force value (any JSON type)"
           startDate:
             type: string

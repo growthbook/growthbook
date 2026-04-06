@@ -7,7 +7,13 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { rampStep, rampStepAction, rampEndTrigger } from "./ramp-schedule";
+import {
+  featureRulePatch,
+  rampTrigger,
+  rampStep,
+  rampStepAction,
+  rampEndTrigger,
+} from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -276,20 +282,42 @@ const revisionRampEndConditionSchema = z.object({
   trigger: rampEndTrigger.optional(),
 });
 
+// API-facing step action for revision ramp actions — targetType and targetId are
+// inferred from the top-level ruleId at publish time.
+const revisionApiRampStepAction = z.object({
+  targetType: z.literal("feature-rule").optional(),
+  targetId: z.string().optional(),
+  patch: featureRulePatch.partial({ ruleId: true }),
+});
+
+const revisionApiRampStep = z.object({
+  trigger: rampTrigger,
+  actions: z.array(revisionApiRampStepAction).optional(),
+  approvalNotes: z.string().nullish(),
+});
+
+// Stored type — used by the FE and at publish time. Requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
-  name: z.string(),
-  /** If set, patches are scoped to this environment only.
-   *  If absent/null, patches apply to all environments sharing the ruleId. */
+  /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+  name: z.string().optional(),
+  /** If set, patches are scoped to this environment only; absent/null applies to all environments sharing the ruleId. */
   environment: z.string().optional().nullable(),
+  /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
+  templateId: z.string().optional(),
   steps: z.array(rampStep),
-  // Actions applied when the ramp completes (merged on top of accumulated step patches).
   endActions: z.array(rampStepAction).optional(),
-  // ISO datetime string — absent/empty means start immediately on publish.
+  /** ISO datetime string; absent/null means start immediately on publish. */
   startDate: z.string().optional().nullable(),
   endCondition: revisionRampEndConditionSchema.optional(),
-  /** Rule ID this ramp is being created for. Used at publish time to build the target. */
   ruleId: z.string(),
+});
+
+// API input variant — targetType/targetId are optional (server injects them at publish time).
+// Use this for REST body schemas; normalize to RevisionRampCreateAction before storing.
+export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
+  steps: z.array(revisionApiRampStep).optional(),
+  endActions: z.array(revisionApiRampStepAction).optional(),
 });
 
 export const revisionRampDetachAction = z.object({
@@ -307,6 +335,9 @@ const revisionRampAction = z.discriminatedUnion("mode", [
 ]);
 
 export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
+export type ApiRevisionRampCreateAction = z.infer<
+  typeof apiRevisionRampCreateAction
+>;
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 

@@ -3,8 +3,6 @@ oneOf:
     type: object
     required:
       - mode
-      - name
-      - steps
       - ruleId
     properties:
       mode:
@@ -12,10 +10,13 @@ oneOf:
         enum: [create]
       name:
         type: string
-        description: "Display name for the ramp schedule to be created"
+        description: "Display name for the ramp schedule. Defaults to \"Ramp schedule – {Month YYYY}\" if omitted."
       ruleId:
         type: string
         description: "Rule ID this action applies to"
+      templateId:
+        type: string
+        description: "Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template."
       environment:
         type: string
         nullable: true
@@ -27,12 +28,11 @@ oneOf:
         description: "When to start the ramp; absent or null means start immediately on publish"
       steps:
         type: array
-        description: "Ordered ramp steps"
+        description: "Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template."
         items:
           type: object
           required:
             - trigger
-            - actions
           properties:
             trigger:
               oneOf:
@@ -64,40 +64,116 @@ oneOf:
                 propertyName: type
             actions:
               type: array
+              description: "Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`."
               items:
                 type: object
                 required:
-                  - targetType
-                  - targetId
                   - patch
                 properties:
                   targetType:
                     type: string
                     enum: [feature-rule]
+                    description: "Auto-injected from context — omit unless you need to override."
                   targetId:
                     type: string
+                    description: "Auto-injected from context — omit unless you need to override."
                   patch:
                     type: object
-                    description: "Sparse rule patch applied at this step"
-                    additionalProperties: true
+                    description: "Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps."
+                    properties:
+                      coverage:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                        description: "Rollout percent (0–1)"
+                      condition:
+                        type: string
+                        description: "Targeting condition as a JSON string (MongoDB-style)"
+                      savedGroups:
+                        type: array
+                        items:
+                          type: object
+                          required: [match, ids]
+                          properties:
+                            match:
+                              type: string
+                              enum: [all, any, none]
+                            ids:
+                              type: array
+                              items:
+                                type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, condition]
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: string
+                      force:
+                        description: "Force value (any JSON type — boolean, string, number, or object)"
+                        nullable: true
+                      enabled:
+                        type: boolean
+                        description: "System-managed: injected as `true` when the ramp step fires"
+            approvalNotes:
+              type: string
+              nullable: true
       endActions:
         type: array
-        description: "Final patches applied when the ramp completes"
+        description: "Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected."
         items:
           type: object
           required:
-            - targetType
-            - targetId
             - patch
           properties:
             targetType:
               type: string
               enum: [feature-rule]
+              description: "Auto-injected — omit unless overriding."
             targetId:
               type: string
+              description: "Auto-injected — omit unless overriding."
             patch:
               type: object
-              additionalProperties: true
+              description: "Sparse rule patch. Same fields as step actions."
+              properties:
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                condition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    required: [match, ids]
+                    properties:
+                      match:
+                        type: string
+                        enum: [all, any, none]
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    required: [id, condition]
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                force:
+                  description: "Force value (any JSON type)"
+                  nullable: true
+                enabled:
+                  type: boolean
       endCondition:
         type: object
         description: "Optional condition that terminates the ramp early"

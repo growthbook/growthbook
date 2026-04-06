@@ -4,8 +4,6 @@ import { z } from "zod";
 import {
   savedGroupTargeting,
   featurePrerequisite,
-  revisionRampCreateAction,
-  revisionRampDetachAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
   ExperimentRefRule,
@@ -16,7 +14,7 @@ import {
 } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
@@ -25,15 +23,12 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   isDraftStatus,
+  rampActionSchema,
+  normalizeRevisionRampCreateAction,
   buildScheduleRampAction,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
-
-const rampActionSchema = z.discriminatedUnion("mode", [
-  revisionRampCreateAction,
-  revisionRampDetachAction,
-]);
 
 const scheduleRuleInput = z.object({
   timestamp: z.string().nullable(),
@@ -81,7 +76,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
   const type = existing.type;
 
   if (patch.type !== undefined && patch.type !== type) {
-    throw new Error(
+    throw new BadRequestError(
       `Rule type cannot be changed (existing: "${type}", provided: "${patch.type}"). ` +
         "Delete this rule and add a new one to change its type.",
     );
@@ -109,7 +104,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
       patch.coverage !== undefined ||
       patch.controlValue !== undefined
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "value, coverage, and controlValue cannot be set on an experiment-ref rule",
       );
     }
@@ -126,12 +121,12 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
 
   if (type === "safe-rollout") {
     if (patch.value !== undefined || patch.coverage !== undefined) {
-      throw new Error(
+      throw new BadRequestError(
         "value and coverage cannot be set on a safe-rollout rule",
       );
     }
     if (patch.experimentId !== undefined || patch.variations !== undefined) {
-      throw new Error(
+      throw new BadRequestError(
         "experimentId and variations cannot be set on a safe-rollout rule",
       );
     }
@@ -154,7 +149,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
   // Force / rollout: apply patch then re-infer type from effective coverage
   if (type === "force" || type === "rollout") {
     if (patch.experimentId !== undefined || patch.variations !== undefined) {
-      throw new Error(
+      throw new BadRequestError(
         "experimentId and variations cannot be set on a force/rollout rule",
       );
     }
@@ -162,7 +157,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
       patch.controlValue !== undefined ||
       patch.variationValue !== undefined
     ) {
-      throw new Error(
+      throw new BadRequestError(
         "controlValue and variationValue cannot be set on a force/rollout rule",
       );
     }
@@ -179,7 +174,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
 
     if (isRollout) {
       if (!effectiveHashAttr) {
-        throw new Error(
+        throw new BadRequestError(
           "hashAttribute is required for rollout rules (coverage < 100%)",
         );
       }
@@ -211,7 +206,7 @@ function applyPatch(existing: FeatureRule, patch: RulePatch): FeatureRule {
     }
   }
 
-  throw new Error(`Unknown rule type: ${type}`);
+  throw new BadRequestError(`Unknown rule type: ${type}`);
 }
 
 export const putFeatureRevisionRule = createApiRequestHandler({
@@ -251,17 +246,23 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   if (!revision) throw new NotFoundError("Could not find feature revision");
 
   if (!isDraftStatus(revision.status)) {
-    throw new Error(`Cannot edit a revision with status "${revision.status}"`);
+    throw new BadRequestError(
+      `Cannot edit a revision with status "${revision.status}"`,
+    );
   }
 
-  const { environment, rampAction, schedule } = req.body;
+  const { environment, schedule } = req.body;
+  const rampAction =
+    req.body.rampAction?.mode === "create"
+      ? normalizeRevisionRampCreateAction(req.body.rampAction)
+      : req.body.rampAction;
   const patch = req.body.rule;
 
   const newRules = cloneDeep(revision.rules ?? {});
   const envRules = newRules[environment] ?? [];
   const idx = envRules.findIndex((r) => r.id === req.params.ruleId);
   if (idx === -1) {
-    throw new Error(
+    throw new NotFoundError(
       `Rule "${req.params.ruleId}" not found in environment "${environment}"`,
     );
   }
@@ -290,7 +291,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
         liveSchedules.length > 0
           ? ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`
           : " The schedule will be created when the revision is published; update the revision's rampActions instead.";
-      throw new Error(
+      throw new BadRequestError(
         `Rule "${req.params.ruleId}" already has a ramp schedule.${hint}`,
       );
     }

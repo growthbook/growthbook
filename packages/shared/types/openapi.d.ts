@@ -4510,10 +4510,12 @@ export interface components {
       rampActions?: (OneOf<[{
           /** @enum {string} */
           mode: "create";
-          /** @description Display name for the ramp schedule to be created */
-          name: string;
+          /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+          name?: string;
           /** @description Rule ID this action applies to */
           ruleId: string;
+          /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+          templateId?: string;
           /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
           environment?: string | null;
           /**
@@ -4521,8 +4523,8 @@ export interface components {
            * @description When to start the ramp; absent or null means start immediately on publish
            */
           startDate?: string | null;
-          /** @description Ordered ramp steps */
-          steps: ({
+          /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+          steps?: ({
               trigger: OneOf<[{
                 /** @enum {string} */
                 type: "interval";
@@ -4537,23 +4539,63 @@ export interface components {
                 /** Format: date-time */
                 at: string;
               }]>;
-              actions: ({
-                  /** @enum {string} */
-                  targetType: "feature-rule";
-                  targetId: string;
-                  /** @description Sparse rule patch applied at this step */
+              /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+              actions?: ({
+                  /**
+                   * @description Auto-injected from context — omit unless you need to override. 
+                   * @enum {string}
+                   */
+                  targetType?: "feature-rule";
+                  /** @description Auto-injected from context — omit unless you need to override. */
+                  targetId?: string;
+                  /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                   patch: {
-                    [key: string]: unknown | undefined;
+                    /** @description Rollout percent (0–1) */
+                    coverage?: number;
+                    /** @description Targeting condition as a JSON string (MongoDB-style) */
+                    condition?: string;
+                    savedGroups?: ({
+                        /** @enum {string} */
+                        match: "all" | "any" | "none";
+                        ids: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[];
+                    /** @description Force value (any JSON type — boolean, string, number, or object) */
+                    force?: Record<string, unknown> | null;
+                    /** @description System-managed: injected as `true` when the ramp step fires */
+                    enabled?: boolean;
                   };
                 })[];
+              approvalNotes?: string | null;
             })[];
-          /** @description Final patches applied when the ramp completes */
+          /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
           endActions?: ({
-              /** @enum {string} */
-              targetType: "feature-rule";
-              targetId: string;
+              /**
+               * @description Auto-injected — omit unless overriding. 
+               * @enum {string}
+               */
+              targetType?: "feature-rule";
+              /** @description Auto-injected — omit unless overriding. */
+              targetId?: string;
+              /** @description Sparse rule patch. Same fields as step actions. */
               patch: {
-                [key: string]: unknown | undefined;
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "any" | "none";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Force value (any JSON type) */
+                force?: Record<string, unknown> | null;
+                enabled?: boolean;
               };
             })[];
           /** @description Optional condition that terminates the ramp early */
@@ -4579,10 +4621,12 @@ export interface components {
     RevisionRampAction: OneOf<[{
       /** @enum {string} */
       mode: "create";
-      /** @description Display name for the ramp schedule to be created */
-      name: string;
+      /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+      name?: string;
       /** @description Rule ID this action applies to */
       ruleId: string;
+      /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+      templateId?: string;
       /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
       environment?: string | null;
       /**
@@ -4590,8 +4634,8 @@ export interface components {
        * @description When to start the ramp; absent or null means start immediately on publish
        */
       startDate?: string | null;
-      /** @description Ordered ramp steps */
-      steps: ({
+      /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+      steps?: ({
           trigger: OneOf<[{
             /** @enum {string} */
             type: "interval";
@@ -4606,23 +4650,63 @@ export interface components {
             /** Format: date-time */
             at: string;
           }]>;
-          actions: ({
-              /** @enum {string} */
-              targetType: "feature-rule";
-              targetId: string;
-              /** @description Sparse rule patch applied at this step */
+          /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+          actions?: ({
+              /**
+               * @description Auto-injected from context — omit unless you need to override. 
+               * @enum {string}
+               */
+              targetType?: "feature-rule";
+              /** @description Auto-injected from context — omit unless you need to override. */
+              targetId?: string;
+              /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
               patch: {
-                [key: string]: unknown | undefined;
+                /** @description Rollout percent (0–1) */
+                coverage?: number;
+                /** @description Targeting condition as a JSON string (MongoDB-style) */
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "any" | "none";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Force value (any JSON type — boolean, string, number, or object) */
+                force?: Record<string, unknown> | null;
+                /** @description System-managed: injected as `true` when the ramp step fires */
+                enabled?: boolean;
               };
             })[];
+          approvalNotes?: string | null;
         })[];
-      /** @description Final patches applied when the ramp completes */
+      /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
       endActions?: ({
-          /** @enum {string} */
-          targetType: "feature-rule";
-          targetId: string;
+          /**
+           * @description Auto-injected — omit unless overriding. 
+           * @enum {string}
+           */
+          targetType?: "feature-rule";
+          /** @description Auto-injected — omit unless overriding. */
+          targetId?: string;
+          /** @description Sparse rule patch. Same fields as step actions. */
           patch: {
-            [key: string]: unknown | undefined;
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "any" | "none";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+            /** @description Force value (any JSON type) */
+            force?: Record<string, unknown> | null;
+            enabled?: boolean;
           };
         })[];
       /** @description Optional condition that terminates the ramp early */
@@ -12283,10 +12367,12 @@ export interface operations {
                 rampActions?: (OneOf<[{
                     /** @enum {string} */
                     mode: "create";
-                    /** @description Display name for the ramp schedule to be created */
-                    name: string;
+                    /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                    name?: string;
                     /** @description Rule ID this action applies to */
                     ruleId: string;
+                    /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                    templateId?: string;
                     /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                     environment?: string | null;
                     /**
@@ -12294,8 +12380,8 @@ export interface operations {
                      * @description When to start the ramp; absent or null means start immediately on publish
                      */
                     startDate?: string | null;
-                    /** @description Ordered ramp steps */
-                    steps: ({
+                    /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                    steps?: ({
                         trigger: OneOf<[{
                           /** @enum {string} */
                           type: "interval";
@@ -12310,23 +12396,63 @@ export interface operations {
                           /** Format: date-time */
                           at: string;
                         }]>;
-                        actions: ({
-                            /** @enum {string} */
-                            targetType: "feature-rule";
-                            targetId: string;
-                            /** @description Sparse rule patch applied at this step */
+                        /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                        actions?: ({
+                            /**
+                             * @description Auto-injected from context — omit unless you need to override. 
+                             * @enum {string}
+                             */
+                            targetType?: "feature-rule";
+                            /** @description Auto-injected from context — omit unless you need to override. */
+                            targetId?: string;
+                            /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                             patch: {
-                              [key: string]: unknown | undefined;
+                              /** @description Rollout percent (0–1) */
+                              coverage?: number;
+                              /** @description Targeting condition as a JSON string (MongoDB-style) */
+                              condition?: string;
+                              savedGroups?: ({
+                                  /** @enum {string} */
+                                  match: "all" | "any" | "none";
+                                  ids: (string)[];
+                                })[];
+                              prerequisites?: ({
+                                  id: string;
+                                  condition: string;
+                                })[];
+                              /** @description Force value (any JSON type — boolean, string, number, or object) */
+                              force?: Record<string, unknown> | null;
+                              /** @description System-managed: injected as `true` when the ramp step fires */
+                              enabled?: boolean;
                             };
                           })[];
+                        approvalNotes?: string | null;
                       })[];
-                    /** @description Final patches applied when the ramp completes */
+                    /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                     endActions?: ({
-                        /** @enum {string} */
-                        targetType: "feature-rule";
-                        targetId: string;
+                        /**
+                         * @description Auto-injected — omit unless overriding. 
+                         * @enum {string}
+                         */
+                        targetType?: "feature-rule";
+                        /** @description Auto-injected — omit unless overriding. */
+                        targetId?: string;
+                        /** @description Sparse rule patch. Same fields as step actions. */
                         patch: {
-                          [key: string]: unknown | undefined;
+                          coverage?: number;
+                          condition?: string;
+                          savedGroups?: ({
+                              /** @enum {string} */
+                              match: "all" | "any" | "none";
+                              ids: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              id: string;
+                              condition: string;
+                            })[];
+                          /** @description Force value (any JSON type) */
+                          force?: Record<string, unknown> | null;
+                          enabled?: boolean;
                         };
                       })[];
                     /** @description Optional condition that terminates the ramp early */
@@ -12722,10 +12848,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -12733,8 +12861,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -12749,23 +12877,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -13142,10 +13310,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -13153,8 +13323,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -13169,23 +13339,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -13562,10 +13772,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -13573,8 +13785,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -13589,23 +13801,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -14005,10 +14257,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -14016,8 +14270,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -14032,23 +14286,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -14463,10 +14757,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -14474,8 +14770,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -14490,23 +14786,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -14929,10 +15265,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -14940,8 +15278,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -14956,23 +15294,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -15357,10 +15735,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -15368,8 +15748,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -15384,23 +15764,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -15790,10 +16210,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -15801,8 +16223,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -15817,23 +16239,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -16011,10 +16473,12 @@ export interface operations {
           rampAction?: OneOf<[{
             /** @enum {string} */
             mode: "create";
-            /** @description Display name for the ramp schedule to be created */
-            name: string;
+            /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+            name?: string;
             /** @description Rule ID this action applies to */
             ruleId: string;
+            /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+            templateId?: string;
             /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
             environment?: string | null;
             /**
@@ -16022,8 +16486,8 @@ export interface operations {
              * @description When to start the ramp; absent or null means start immediately on publish
              */
             startDate?: string | null;
-            /** @description Ordered ramp steps */
-            steps: ({
+            /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+            steps?: ({
                 trigger: OneOf<[{
                   /** @enum {string} */
                   type: "interval";
@@ -16038,23 +16502,63 @@ export interface operations {
                   /** Format: date-time */
                   at: string;
                 }]>;
-                actions: ({
-                    /** @enum {string} */
-                    targetType: "feature-rule";
-                    targetId: string;
-                    /** @description Sparse rule patch applied at this step */
+                /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                actions?: ({
+                    /**
+                     * @description Auto-injected from context — omit unless you need to override. 
+                     * @enum {string}
+                     */
+                    targetType?: "feature-rule";
+                    /** @description Auto-injected from context — omit unless you need to override. */
+                    targetId?: string;
+                    /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                     patch: {
-                      [key: string]: unknown | undefined;
+                      /** @description Rollout percent (0–1) */
+                      coverage?: number;
+                      /** @description Targeting condition as a JSON string (MongoDB-style) */
+                      condition?: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "any" | "none";
+                          ids: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          id: string;
+                          condition: string;
+                        })[];
+                      /** @description Force value (any JSON type — boolean, string, number, or object) */
+                      force?: Record<string, unknown> | null;
+                      /** @description System-managed: injected as `true` when the ramp step fires */
+                      enabled?: boolean;
                     };
                   })[];
+                approvalNotes?: string | null;
               })[];
-            /** @description Final patches applied when the ramp completes */
+            /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
             endActions?: ({
-                /** @enum {string} */
-                targetType: "feature-rule";
-                targetId: string;
+                /**
+                 * @description Auto-injected — omit unless overriding. 
+                 * @enum {string}
+                 */
+                targetType?: "feature-rule";
+                /** @description Auto-injected — omit unless overriding. */
+                targetId?: string;
+                /** @description Sparse rule patch. Same fields as step actions. */
                 patch: {
-                  [key: string]: unknown | undefined;
+                  coverage?: number;
+                  condition?: string;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "any" | "none";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Force value (any JSON type) */
+                  force?: Record<string, unknown> | null;
+                  enabled?: boolean;
                 };
               })[];
             /** @description Optional condition that terminates the ramp early */
@@ -16431,10 +16935,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -16442,8 +16948,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -16458,23 +16964,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -16860,10 +17406,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -16871,8 +17419,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -16887,23 +17435,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -17027,10 +17615,12 @@ export interface operations {
           rampAction?: OneOf<[{
             /** @enum {string} */
             mode: "create";
-            /** @description Display name for the ramp schedule to be created */
-            name: string;
+            /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+            name?: string;
             /** @description Rule ID this action applies to */
             ruleId: string;
+            /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+            templateId?: string;
             /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
             environment?: string | null;
             /**
@@ -17038,8 +17628,8 @@ export interface operations {
              * @description When to start the ramp; absent or null means start immediately on publish
              */
             startDate?: string | null;
-            /** @description Ordered ramp steps */
-            steps: ({
+            /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+            steps?: ({
                 trigger: OneOf<[{
                   /** @enum {string} */
                   type: "interval";
@@ -17054,23 +17644,63 @@ export interface operations {
                   /** Format: date-time */
                   at: string;
                 }]>;
-                actions: ({
-                    /** @enum {string} */
-                    targetType: "feature-rule";
-                    targetId: string;
-                    /** @description Sparse rule patch applied at this step */
+                /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                actions?: ({
+                    /**
+                     * @description Auto-injected from context — omit unless you need to override. 
+                     * @enum {string}
+                     */
+                    targetType?: "feature-rule";
+                    /** @description Auto-injected from context — omit unless you need to override. */
+                    targetId?: string;
+                    /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                     patch: {
-                      [key: string]: unknown | undefined;
+                      /** @description Rollout percent (0–1) */
+                      coverage?: number;
+                      /** @description Targeting condition as a JSON string (MongoDB-style) */
+                      condition?: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "any" | "none";
+                          ids: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          id: string;
+                          condition: string;
+                        })[];
+                      /** @description Force value (any JSON type — boolean, string, number, or object) */
+                      force?: Record<string, unknown> | null;
+                      /** @description System-managed: injected as `true` when the ramp step fires */
+                      enabled?: boolean;
                     };
                   })[];
+                approvalNotes?: string | null;
               })[];
-            /** @description Final patches applied when the ramp completes */
+            /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
             endActions?: ({
-                /** @enum {string} */
-                targetType: "feature-rule";
-                targetId: string;
+                /**
+                 * @description Auto-injected — omit unless overriding. 
+                 * @enum {string}
+                 */
+                targetType?: "feature-rule";
+                /** @description Auto-injected — omit unless overriding. */
+                targetId?: string;
+                /** @description Sparse rule patch. Same fields as step actions. */
                 patch: {
-                  [key: string]: unknown | undefined;
+                  coverage?: number;
+                  condition?: string;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "any" | "none";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Force value (any JSON type) */
+                  force?: Record<string, unknown> | null;
+                  enabled?: boolean;
                 };
               })[];
             /** @description Optional condition that terminates the ramp early */
@@ -17452,10 +18082,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -17463,8 +18095,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -17479,23 +18111,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -17878,10 +18550,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -17889,8 +18563,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -17905,23 +18579,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -17972,10 +18686,12 @@ export interface operations {
           action: OneOf<[{
             /** @enum {string} */
             mode: "create";
-            /** @description Display name for the ramp schedule to be created */
-            name: string;
+            /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+            name?: string;
             /** @description Rule ID this action applies to */
             ruleId: string;
+            /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+            templateId?: string;
             /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
             environment?: string | null;
             /**
@@ -17983,8 +18699,8 @@ export interface operations {
              * @description When to start the ramp; absent or null means start immediately on publish
              */
             startDate?: string | null;
-            /** @description Ordered ramp steps */
-            steps: ({
+            /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+            steps?: ({
                 trigger: OneOf<[{
                   /** @enum {string} */
                   type: "interval";
@@ -17999,23 +18715,63 @@ export interface operations {
                   /** Format: date-time */
                   at: string;
                 }]>;
-                actions: ({
-                    /** @enum {string} */
-                    targetType: "feature-rule";
-                    targetId: string;
-                    /** @description Sparse rule patch applied at this step */
+                /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                actions?: ({
+                    /**
+                     * @description Auto-injected from context — omit unless you need to override. 
+                     * @enum {string}
+                     */
+                    targetType?: "feature-rule";
+                    /** @description Auto-injected from context — omit unless you need to override. */
+                    targetId?: string;
+                    /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                     patch: {
-                      [key: string]: unknown | undefined;
+                      /** @description Rollout percent (0–1) */
+                      coverage?: number;
+                      /** @description Targeting condition as a JSON string (MongoDB-style) */
+                      condition?: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "any" | "none";
+                          ids: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          id: string;
+                          condition: string;
+                        })[];
+                      /** @description Force value (any JSON type — boolean, string, number, or object) */
+                      force?: Record<string, unknown> | null;
+                      /** @description System-managed: injected as `true` when the ramp step fires */
+                      enabled?: boolean;
                     };
                   })[];
+                approvalNotes?: string | null;
               })[];
-            /** @description Final patches applied when the ramp completes */
+            /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
             endActions?: ({
-                /** @enum {string} */
-                targetType: "feature-rule";
-                targetId: string;
+                /**
+                 * @description Auto-injected — omit unless overriding. 
+                 * @enum {string}
+                 */
+                targetType?: "feature-rule";
+                /** @description Auto-injected — omit unless overriding. */
+                targetId?: string;
+                /** @description Sparse rule patch. Same fields as step actions. */
                 patch: {
-                  [key: string]: unknown | undefined;
+                  coverage?: number;
+                  condition?: string;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "any" | "none";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Force value (any JSON type) */
+                  force?: Record<string, unknown> | null;
+                  enabled?: boolean;
                 };
               })[];
             /** @description Optional condition that terminates the ramp early */
@@ -18379,10 +19135,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -18390,8 +19148,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -18406,23 +19164,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -18807,10 +19605,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -18818,8 +19618,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -18834,23 +19634,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -19234,10 +20074,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -19245,8 +20087,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -19261,23 +20103,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -19665,10 +20547,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -19676,8 +20560,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -19692,23 +20576,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -20104,10 +21028,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -20115,8 +21041,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -20131,23 +21057,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -20531,10 +21497,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -20542,8 +21510,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -20558,23 +21526,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -20966,10 +21974,12 @@ export interface operations {
               rampActions?: (OneOf<[{
                   /** @enum {string} */
                   mode: "create";
-                  /** @description Display name for the ramp schedule to be created */
-                  name: string;
+                  /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                  name?: string;
                   /** @description Rule ID this action applies to */
                   ruleId: string;
+                  /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                  templateId?: string;
                   /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                   environment?: string | null;
                   /**
@@ -20977,8 +21987,8 @@ export interface operations {
                    * @description When to start the ramp; absent or null means start immediately on publish
                    */
                   startDate?: string | null;
-                  /** @description Ordered ramp steps */
-                  steps: ({
+                  /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                  steps?: ({
                       trigger: OneOf<[{
                         /** @enum {string} */
                         type: "interval";
@@ -20993,23 +22003,63 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                       }]>;
-                      actions: ({
-                          /** @enum {string} */
-                          targetType: "feature-rule";
-                          targetId: string;
-                          /** @description Sparse rule patch applied at this step */
+                      /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                      actions?: ({
+                          /**
+                           * @description Auto-injected from context — omit unless you need to override. 
+                           * @enum {string}
+                           */
+                          targetType?: "feature-rule";
+                          /** @description Auto-injected from context — omit unless you need to override. */
+                          targetId?: string;
+                          /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                           patch: {
-                            [key: string]: unknown | undefined;
+                            /** @description Rollout percent (0–1) */
+                            coverage?: number;
+                            /** @description Targeting condition as a JSON string (MongoDB-style) */
+                            condition?: string;
+                            savedGroups?: ({
+                                /** @enum {string} */
+                                match: "all" | "any" | "none";
+                                ids: (string)[];
+                              })[];
+                            prerequisites?: ({
+                                id: string;
+                                condition: string;
+                              })[];
+                            /** @description Force value (any JSON type — boolean, string, number, or object) */
+                            force?: Record<string, unknown> | null;
+                            /** @description System-managed: injected as `true` when the ramp step fires */
+                            enabled?: boolean;
                           };
                         })[];
+                      approvalNotes?: string | null;
                     })[];
-                  /** @description Final patches applied when the ramp completes */
+                  /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                   endActions?: ({
-                      /** @enum {string} */
-                      targetType: "feature-rule";
-                      targetId: string;
+                      /**
+                       * @description Auto-injected — omit unless overriding. 
+                       * @enum {string}
+                       */
+                      targetType?: "feature-rule";
+                      /** @description Auto-injected — omit unless overriding. */
+                      targetId?: string;
+                      /** @description Sparse rule patch. Same fields as step actions. */
                       patch: {
-                        [key: string]: unknown | undefined;
+                        coverage?: number;
+                        condition?: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "any" | "none";
+                            ids: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[];
+                        /** @description Force value (any JSON type) */
+                        force?: Record<string, unknown> | null;
+                        enabled?: boolean;
                       };
                     })[];
                   /** @description Optional condition that terminates the ramp early */
@@ -27895,7 +28945,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          name: string;
+          /** @description Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+          name?: string;
           /** @description Feature that anchors this schedule. Required when ruleId/environment are set. */
           featureId?: string;
           /** @description Rule to attach as the initial target. Requires featureId and environment. */
@@ -27924,7 +28975,7 @@ export interface operations {
               actions?: ({
                   /**
                    * @description Omit when using featureId+ruleId+environment (auto-injected) 
-                   * @enum {unknown}
+                   * @enum {string}
                    */
                   targetType?: "feature-rule";
                   /** @description Auto-injected when featureId+ruleId+environment are provided */
@@ -27937,7 +28988,7 @@ export interface operations {
                     coverage?: number;
                     condition?: string;
                     /** @description Force value (any JSON type) */
-                    force?: any;
+                    force?: Record<string, unknown> | null;
                   };
                 })[];
               approvalNotes?: string;
@@ -27946,7 +28997,7 @@ export interface operations {
           endActions?: ({
               /**
                * @description Omit when using featureId+ruleId+environment (auto-injected) 
-               * @enum {unknown}
+               * @enum {string}
                */
               targetType?: "feature-rule";
               /** @description Auto-injected when featureId+ruleId+environment are provided */
@@ -27957,7 +29008,7 @@ export interface operations {
                 coverage?: number;
                 condition?: string;
                 /** @description Force value (any JSON type) */
-                force?: any;
+                force?: Record<string, unknown> | null;
               };
             })[];
           /**
@@ -29861,10 +30912,12 @@ export interface operations {
                 rampActions?: (OneOf<[{
                     /** @enum {string} */
                     mode: "create";
-                    /** @description Display name for the ramp schedule to be created */
-                    name: string;
+                    /** @description Display name for the ramp schedule. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
+                    name?: string;
                     /** @description Rule ID this action applies to */
                     ruleId: string;
+                    /** @description Load steps and endActions from a saved template. Explicit `steps`/`endActions` take precedence over the template. */
+                    templateId?: string;
                     /** @description Scope patches to this environment only; null applies to all environments sharing the ruleId */
                     environment?: string | null;
                     /**
@@ -29872,8 +30925,8 @@ export interface operations {
                      * @description When to start the ramp; absent or null means start immediately on publish
                      */
                     startDate?: string | null;
-                    /** @description Ordered ramp steps */
-                    steps: ({
+                    /** @description Ordered ramp steps. Omit when using `templateId` — the template's steps are used instead. Explicit steps always take precedence over the template. */
+                    steps?: ({
                         trigger: OneOf<[{
                           /** @enum {string} */
                           type: "interval";
@@ -29888,23 +30941,63 @@ export interface operations {
                           /** Format: date-time */
                           at: string;
                         }]>;
-                        actions: ({
-                            /** @enum {string} */
-                            targetType: "feature-rule";
-                            targetId: string;
-                            /** @description Sparse rule patch applied at this step */
+                        /** @description Patches to apply at this step. `targetType` and `targetId` are auto-injected from the top-level `ruleId`. */
+                        actions?: ({
+                            /**
+                             * @description Auto-injected from context — omit unless you need to override. 
+                             * @enum {string}
+                             */
+                            targetType?: "feature-rule";
+                            /** @description Auto-injected from context — omit unless you need to override. */
+                            targetId?: string;
+                            /** @description Sparse rule patch applied at this step. Only fields present are applied; absent fields accumulate from previous steps. */
                             patch: {
-                              [key: string]: unknown | undefined;
+                              /** @description Rollout percent (0–1) */
+                              coverage?: number;
+                              /** @description Targeting condition as a JSON string (MongoDB-style) */
+                              condition?: string;
+                              savedGroups?: ({
+                                  /** @enum {string} */
+                                  match: "all" | "any" | "none";
+                                  ids: (string)[];
+                                })[];
+                              prerequisites?: ({
+                                  id: string;
+                                  condition: string;
+                                })[];
+                              /** @description Force value (any JSON type — boolean, string, number, or object) */
+                              force?: Record<string, unknown> | null;
+                              /** @description System-managed: injected as `true` when the ramp step fires */
+                              enabled?: boolean;
                             };
                           })[];
+                        approvalNotes?: string | null;
                       })[];
-                    /** @description Final patches applied when the ramp completes */
+                    /** @description Final patches applied when the ramp completes. `targetType` and `targetId` are auto-injected. */
                     endActions?: ({
-                        /** @enum {string} */
-                        targetType: "feature-rule";
-                        targetId: string;
+                        /**
+                         * @description Auto-injected — omit unless overriding. 
+                         * @enum {string}
+                         */
+                        targetType?: "feature-rule";
+                        /** @description Auto-injected — omit unless overriding. */
+                        targetId?: string;
+                        /** @description Sparse rule patch. Same fields as step actions. */
                         patch: {
-                          [key: string]: unknown | undefined;
+                          coverage?: number;
+                          condition?: string;
+                          savedGroups?: ({
+                              /** @enum {string} */
+                              match: "all" | "any" | "none";
+                              ids: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              id: string;
+                              condition: string;
+                            })[];
+                          /** @description Force value (any JSON type) */
+                          force?: Record<string, unknown> | null;
+                          enabled?: boolean;
                         };
                       })[];
                     /** @description Optional condition that terminates the ramp early */

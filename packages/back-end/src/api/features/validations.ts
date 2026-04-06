@@ -1,15 +1,47 @@
-import type {
+import type { FeatureRule, FeaturePrerequisite } from "shared/validators";
+import {
+  revisionRampDetachAction,
+  apiRevisionRampCreateAction,
+  ApiRevisionRampCreateAction,
   RevisionRampCreateAction,
-  RampStep,
-  RampStepAction,
-  FeatureRule,
-  FeaturePrerequisite,
 } from "shared/validators";
+import { z } from "zod";
 import { validateCondition } from "shared/util";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
+
+export const rampActionSchema = z.discriminatedUnion("mode", [
+  apiRevisionRampCreateAction,
+  revisionRampDetachAction,
+]);
+
+/** Normalize API input (optional targetType/targetId) to the stored type (required fields). */
+export function normalizeRevisionRampCreateAction(
+  input: ApiRevisionRampCreateAction,
+): RevisionRampCreateAction {
+  return {
+    ...input,
+    steps: (input.steps ?? []).map((s) => ({
+      trigger: s.trigger,
+      actions: (s.actions ?? []).map((a) => ({
+        targetType: a.targetType ?? ("feature-rule" as const),
+        targetId: a.targetId ?? "t1",
+        patch:
+          a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
+      })),
+      approvalNotes: s.approvalNotes ?? undefined,
+    })),
+    endActions: input.endActions?.map((a) => ({
+      targetType: a.targetType ?? ("feature-rule" as const),
+      targetId: a.targetId ?? "t1",
+      patch:
+        a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
+    })),
+  };
+}
 
 export const DRAFT_STATUSES = [
   "draft",
@@ -34,22 +66,17 @@ export function buildScheduleRampAction(
   startDate?: string | null,
   endDate?: string | null,
 ): RevisionRampCreateAction {
-  const enableAction: RampStepAction = {
-    targetType: "feature-rule",
-    targetId: ruleId,
-    patch: { ruleId, enabled: true },
-  };
-  const disableAction: RampStepAction = {
-    targetType: "feature-rule",
-    targetId: ruleId,
-    patch: { ruleId, enabled: false },
-  };
-
-  const steps: RampStep[] = startDate
+  const steps: RevisionRampCreateAction["steps"] = startDate
     ? [
         {
           trigger: { type: "scheduled", at: new Date(startDate) },
-          actions: [enableAction],
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: "t1",
+              patch: { ruleId, enabled: true },
+            },
+          ],
         },
       ]
     : [];
@@ -66,7 +93,13 @@ export function buildScheduleRampAction(
     action.endCondition = {
       trigger: { type: "scheduled", at: new Date(endDate) },
     };
-    action.endActions = [disableAction];
+    action.endActions = [
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId, enabled: false },
+      },
+    ];
   }
 
   return action;
@@ -102,35 +135,31 @@ export async function validateRuleReferences(
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
   const savedGroupIds = new Set(allSavedGroups.map((sg) => sg.id));
 
-  // 1. savedGroups[] targeting array
   for (const sg of rule.savedGroups ?? []) {
     for (const id of sg.ids) {
       if (!savedGroupIds.has(id)) {
-        throw new Error(`Saved group "${id}" not found`);
+        throw new NotFoundError(`Saved group "${id}" not found`);
       }
     }
   }
 
-  // 2. Condition string — pass groupMap so $savedGroups refs are validated,
-  //    then additionally walk for bare $inGroup/$notInGroup IDs.
   if (rule.condition && rule.condition !== "{}") {
     const condRes = validateCondition(rule.condition, groupMap);
     if (!condRes.success) {
-      throw new Error(`Invalid rule condition: ${condRes.error}`);
+      throw new BadRequestError(`Invalid rule condition: ${condRes.error}`);
     }
     const inGroupError = findInvalidInGroupId(
       JSON.parse(rule.condition),
       savedGroupIds,
     );
     if (inGroupError)
-      throw new Error(`Invalid rule condition: ${inGroupError}`);
+      throw new BadRequestError(`Invalid rule condition: ${inGroupError}`);
   }
 
-  // 3. Prerequisite feature IDs
   for (const prereq of rule.prerequisites ?? []) {
     const prereqFeature = await getFeature(context, prereq.id);
     if (!prereqFeature) {
-      throw new Error(`Prerequisite feature "${prereq.id}" not found`);
+      throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
     }
   }
 }
@@ -153,14 +182,14 @@ export async function validatePrerequisiteReferences(
         savedGroupIds,
       );
       if (inGroupError) {
-        throw new Error(
+        throw new BadRequestError(
           `Invalid condition on prerequisite "${prereq.id}": ${inGroupError}`,
         );
       }
     }
     const prereqFeature = await getFeature(context, prereq.id);
     if (!prereqFeature) {
-      throw new Error(`Prerequisite feature "${prereq.id}" not found`);
+      throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
     }
   }
 }
@@ -204,7 +233,7 @@ export function validateRuleConditions(
   if (rule.condition) {
     const res = validateCondition(rule.condition);
     if (!res.success) {
-      throw new Error(`Invalid rule condition: ${res.error}`);
+      throw new BadRequestError(`Invalid rule condition: ${res.error}`);
     }
   }
   validatePrerequisiteConditions(rule.prerequisites ?? []);
@@ -217,17 +246,15 @@ export function validatePrerequisiteConditions(
     if (prereq.condition) {
       const res = validateCondition(prereq.condition);
       if (!res.success) {
-        throw new Error(
+        throw new BadRequestError(
           `Invalid condition on prerequisite "${prereq.id}": ${res.error}`,
         );
       }
-      // Semantic check: prereq conditions are evaluated against {"value": <flag_value>}
-      // so any non-operator key other than "value" will silently never match.
       const semanticError = checkPrerequisiteConditionKeys(
         JSON.parse(prereq.condition),
       );
       if (semanticError) {
-        throw new Error(
+        throw new BadRequestError(
           `Invalid condition on prerequisite "${prereq.id}": ${semanticError}`,
         );
       }

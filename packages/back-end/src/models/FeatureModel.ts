@@ -17,7 +17,9 @@ import {
   SafeRolloutRule,
   simpleSchemaValidator,
   RampScheduleInterface,
+  RampScheduleTemplateInterface,
   RevisionRampAction,
+  RevisionRampCreateAction,
   RampStepAction,
 } from "shared/validators";
 import {
@@ -41,6 +43,7 @@ import {
   getSavedGroupMap,
   queueSDKPayloadRefresh,
 } from "back-end/src/services/features";
+import { remapTemplateActions } from "back-end/src/services/rampSchedule";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -1391,9 +1394,36 @@ async function createRampSchedulesForRevision(
 
     const targetId = uuidv4();
 
-    // Remap "t1" placeholder targetId to the real UUID.
-    const remapTargetId = (a: RampStepAction): RampStepAction =>
-      a.targetId === "t1" ? { ...a, targetId } : a;
+    // Inject the ramp target UUID into every action — the caller's targetId is
+    // always ignored since there is exactly one target per RevisionRampCreateAction.
+    const normalizeAction = (
+      a: RevisionRampCreateAction["steps"][number]["actions"][number],
+    ): RampStepAction => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch: { ...a.patch, ruleId: action.ruleId } as RampStepAction["patch"],
+    });
+
+    // Resolve template if provided — explicit steps/endActions take precedence.
+    let template: RampScheduleTemplateInterface | undefined;
+    if (action.templateId) {
+      const tmpl = await context.models.rampScheduleTemplates.getById(
+        action.templateId,
+      );
+      if (!tmpl) {
+        logger.warn(
+          { templateId: action.templateId },
+          "Ramp schedule template not found at revision publish time — skipping template",
+        );
+      } else {
+        template = tmpl;
+      }
+    }
+
+    const defaultName = `Ramp schedule \u2013 ${new Date().toLocaleDateString(
+      "en-US",
+      { month: "short", year: "numeric" },
+    )}`;
 
     const startDate = action.startDate ? new Date(action.startDate) : undefined;
 
@@ -1401,15 +1431,43 @@ async function createRampSchedulesForRevision(
       ? { trigger: action.endCondition.trigger }
       : undefined;
 
-    const steps = action.steps.map((step) => ({
-      ...step,
-      actions: step.actions.map(remapTargetId),
-    }));
+    const steps: RampScheduleInterface["steps"] =
+      action.steps.length > 0
+        ? action.steps.map((step) => ({
+            ...step,
+            actions: step.actions.map(normalizeAction),
+          }))
+        : template
+          ? template.steps.map((s) => ({
+              trigger: s.trigger,
+              actions: remapTemplateActions(
+                s.actions,
+                targetId,
+                action.ruleId,
+                feature.valueType,
+              ),
+              approvalNotes: s.approvalNotes ?? undefined,
+            }))
+          : [];
 
-    const endActions = (action.endActions ?? []).map(remapTargetId);
+    const endActions: RampStepAction[] =
+      action.endActions !== undefined
+        ? action.endActions.map(normalizeAction)
+        : template?.endPatch && Object.keys(template.endPatch).length > 0
+          ? [
+              {
+                targetType: "feature-rule" as const,
+                targetId,
+                patch: {
+                  ruleId: action.ruleId,
+                  ...template.endPatch,
+                } as RampStepAction["patch"],
+              },
+            ]
+          : [];
 
     const created = await context.models.rampSchedules.create({
-      name: action.name,
+      name: action.name ?? defaultName,
       entityType: "feature",
       entityId: feature.id,
       targets: [
