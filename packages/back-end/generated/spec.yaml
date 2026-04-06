@@ -26623,7 +26623,7 @@ components:
           type: string
         owner:
           type: string
-          description: The userId of the owner
+          description: The userId of the owner (or raw owner name/email for legacy records)
         datasourceId:
           type: string
         name:

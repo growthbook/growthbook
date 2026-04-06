@@ -256,7 +256,7 @@ describe("features API", () => {
     expect(response.body.feature.feature.owner).toBe(testUser.id);
   });
 
-  it("rejects unknown owner when creating a feature", async () => {
+  it("passes through unresolvable email/name owner values unchanged", async () => {
     defaultContext();
 
     const response = await request(app)
@@ -264,7 +264,24 @@ describe("features API", () => {
       .send({
         defaultValue: "false",
         valueType: "boolean",
-        owner: "notamember@example.com",
+        owner: "Ben",
+        id: "id",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body.feature.feature.owner).toBe("Ben");
+  });
+
+  it("rejects an explicit userId that is not an org member", async () => {
+    defaultContext();
+
+    const response = await request(app)
+      .post("/api/v1/features")
+      .send({
+        defaultValue: "false",
+        valueType: "boolean",
+        owner: "u_notamember",
         id: "id",
       })
       .set("Authorization", "Bearer foo");
