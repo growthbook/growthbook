@@ -48,6 +48,9 @@ const BaseClass = MakeModelClass({
               normalizedIds,
             );
           const existingById = new Map(existingTemplates.map((t) => [t.id, t]));
+          // Failures mid-loop are not rolled back — earlier writes remain committed.
+          // This matches the behavior of other bulk-import endpoints (e.g. /bulk-import/facts).
+          // The upsert semantics make a full retry safe: already-written IDs resolve to updates.
           for (const { id, data } of req.body.templates) {
             const normalizedId = id.startsWith(ID_PREFIX)
               ? id
@@ -60,10 +63,14 @@ const BaseClass = MakeModelClass({
               );
               updated++;
             } else {
-              await req.context.models.experimentTemplates.create({
-                ...data,
-                id: normalizedId,
-              });
+              const created =
+                await req.context.models.experimentTemplates.create({
+                  ...data,
+                  id: normalizedId,
+                });
+              // Keep the map current so duplicate IDs in the same payload update
+              // rather than attempting a second create (which would fail on the unique index).
+              existingById.set(normalizedId, created);
               added++;
             }
           }
