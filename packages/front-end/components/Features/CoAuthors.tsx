@@ -93,9 +93,21 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
                 showEmail
               />
             ) : c.type === "api_key" ? (
-              <span key={i} className="badge badge-secondary">
-                API Key
-              </span>
+              c.email ? (
+                <span key={i}>
+                  <Avatar
+                    email={c.email}
+                    name={c.name ?? ""}
+                    size={22}
+                    showEmail
+                  />
+                  <span className="badge badge-secondary ml-1">API</span>
+                </span>
+              ) : (
+                <span key={i} className="badge badge-secondary">
+                  API Key
+                </span>
+              )
             ) : null,
           )}
         </Flex>

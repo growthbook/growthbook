@@ -828,7 +828,21 @@ export default function FeaturesOverview({
               return (
                 <Metadata
                   label="Revised by"
-                  value={<span className="badge badge-secondary">API</span>}
+                  value={
+                    cb.email ? (
+                      <>
+                        <Avatar
+                          email={cb.email}
+                          name={cb.name || ""}
+                          size={22}
+                          showEmail
+                        />
+                        <span className="badge badge-secondary ml-1">API</span>
+                      </>
+                    ) : (
+                      <span className="badge badge-secondary">API</span>
+                    )
+                  }
                 />
               );
             }

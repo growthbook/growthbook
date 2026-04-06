@@ -97,9 +97,13 @@ function RawAuditRow({
 }) {
   const user = event.user;
   const userDisplay =
+    ("apiKey" in user
+      ? user.name
+        ? `${user.name} (API)`
+        : "API Key"
+      : false) ||
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key") ||
     ("system" in user && "System");
 
   return (

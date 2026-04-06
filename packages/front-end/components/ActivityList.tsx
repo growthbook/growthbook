@@ -42,7 +42,7 @@ const ActivityList: FC<{
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {events.map((event) => {
           let name = "API";
-          if ("id" in event.user) {
+          if ("id" in event.user && event.user.id) {
             name = users.get(event.user.id)?.name ?? "";
           }
           return (

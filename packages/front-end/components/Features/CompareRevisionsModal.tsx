@@ -816,7 +816,9 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
     log.user?.type === "dashboard"
       ? (users.get(log.user.id)?.name ?? log.user.name ?? "")
       : log.user?.type === "api_key"
-        ? "API Key"
+        ? log.user.name
+          ? `${log.user.name} (API)`
+          : "API Key"
         : "System";
 
   const rows: [string, React.ReactNode][] = [
@@ -2028,7 +2030,9 @@ export default function CompareRevisionsModal({
                                       {logEntry.user?.type === "dashboard"
                                         ? ` · ${logEntry.user.name}`
                                         : logEntry.user?.type === "api_key"
-                                          ? " · API"
+                                          ? logEntry.user.name
+                                            ? ` · ${logEntry.user.name} (API)`
+                                            : " · API"
                                           : ""}
                                     </Text>
                                   </Flex>
