@@ -19999,8 +19999,6 @@ paths:
               properties:
                 project:
                   type: string
-                owner:
-                  type: string
                 templateMetadata:
                   type: object
                   properties:
@@ -20316,8 +20314,6 @@ paths:
               properties:
                 project:
                   type: string
-                owner:
-                  type: string
                 templateMetadata:
                   type: object
                   properties:
@@ -20446,7 +20442,6 @@ paths:
                       - slices
                     additionalProperties: false
               required:
-                - owner
                 - templateMetadata
                 - type
                 - datasource
@@ -20834,8 +20829,6 @@ paths:
                         properties:
                           project:
                             type: string
-                          owner:
-                            type: string
                           templateMetadata:
                             type: object
                             properties:
@@ -20964,7 +20957,6 @@ paths:
                                 - slices
                               additionalProperties: false
                         required:
-                          - owner
                           - templateMetadata
                           - type
                           - datasource

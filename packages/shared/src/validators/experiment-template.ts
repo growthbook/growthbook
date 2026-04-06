@@ -103,7 +103,6 @@ export const apiListExperimentTemplatesValidator = {
 
 export const apiCreateExperimentTemplateBody = z.strictObject({
   project: z.string().optional(),
-  owner: z.string(),
 
   templateMetadata: z.object({
     name: z.string(),

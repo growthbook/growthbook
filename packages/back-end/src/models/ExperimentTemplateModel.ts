@@ -27,6 +27,7 @@ const BaseClass = MakeModelClass({
   },
   globallyUniquePrimaryKeys: false,
   defaultValues: {
+    owner: "",
     targeting: {
       condition: "{}",
     },
@@ -67,6 +68,7 @@ const BaseClass = MakeModelClass({
                 await req.context.models.experimentTemplates.create({
                   ...data,
                   id: normalizedId,
+                  owner: "", // Will be inferred in BaseModel if possible
                 });
               // Keep the map current so duplicate IDs in the same payload update
               // rather than attempting a second create (which would fail on the unique index).

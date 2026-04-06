@@ -24515,7 +24515,6 @@ export interface operations {
       content: {
         "application/json": {
           project?: string;
-          owner?: string;
           templateMetadata?: {
             name: string;
             description?: string;
@@ -24717,7 +24716,6 @@ export interface operations {
       content: {
         "application/json": {
           project?: string;
-          owner: string;
           templateMetadata: {
             name: string;
             description?: string;
@@ -24836,7 +24834,6 @@ export interface operations {
               id: string;
               data: {
                 project?: string;
-                owner: string;
                 templateMetadata: {
                   name: string;
                   description?: string;
