@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -25,12 +26,7 @@ export default function RolloutSummary({
     <Box>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SAMPLE</Text> by{" "}
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute} />
       </Flex>
       <Box className="mb-3">
         <Flex gap="3" align="center">

@@ -1,4 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
+import { parseIntWithDefault } from "shared/util";
 
 export type TrackingType = "mixpanel" | "ga" | "segment" | "custom";
 
@@ -52,7 +54,7 @@ export function getTrackingCallback(
   if (t === "ga") {
     return `const action = ${experimentId}, label = ${variationId};
 ga("send", "event", "experiment", action, label, { 
-  dimension${parseInt(param) || "1"}: action + "::" + label
+  dimension${parseIntWithDefault(param, 1)}: action + "::" + label
 })`;
   }
   return `console.log({
@@ -76,7 +78,7 @@ export function generateJavascriptSnippet(
   tracking: TrackingType,
   param: string,
 ): string {
-  const n = exp.variations.length;
+  const n = getLatestPhaseVariations(exp).length;
   const phase = exp.phases?.[0];
 
   const weights = phase ? phase.variationWeights : new Array(n).fill(1 / n);

@@ -9,9 +9,8 @@ export const helpers: Record<string, Handlebars.HelperDelegate> = {};
  * Wraps a Handlebars helper so that any undefined argument (positional or named/hash)
  * will throw, similar to strict mode behavior for top-level variables.
  */
-export function strictHelper<T extends (...args: unknown[]) => unknown>(
-  fn: T,
-): T {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function strictHelper<T extends (...args: any[]) => any>(fn: T): T {
   const wrapped = function (this: unknown, ...args: unknown[]) {
     const options = args[args.length - 1] as HelperOptions;
 

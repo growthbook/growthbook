@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
@@ -77,7 +78,7 @@ export default function BanditSummaryResultsTab({
 
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
-  const users = experiment.variations.map(
+  const users = getLatestPhaseVariations(experiment).map(
     (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);

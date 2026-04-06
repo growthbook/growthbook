@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "execReport.update",
     deleteEvent: "execReport.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
 });
 
 export class ExecReportModel extends BaseClass {

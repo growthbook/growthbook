@@ -2,6 +2,7 @@ import type { Response } from "express";
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  ExplorationCacheQuery,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -14,7 +15,7 @@ export const postProductAnalyticsRun = async (
   req: AuthRequest<
     { config: ExplorationConfig },
     unknown,
-    { cache?: "preferred" | "required" | "never" }
+    ExplorationCacheQuery
   >,
   res: Response<{
     status: 200;
@@ -45,6 +46,7 @@ export const getExplorationById = async (
   res: Response<{
     status: 200;
     exploration: ProductAnalyticsExploration;
+    query: QueryInterface | null;
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -55,8 +57,12 @@ export const getExplorationById = async (
     throw new NotFoundError("Exploration not found");
   }
 
+  const queryId = exploration?.queries?.[0]?.query;
+  const query = queryId ? await getQueryById(context, queryId) : null;
+
   return res.status(200).json({
     status: 200,
     exploration,
+    query,
   });
 };

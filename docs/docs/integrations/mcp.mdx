@@ -387,7 +387,7 @@ You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes 
 
 - `create_feature_flag`: Create, add, or wrap an element with a feature flag. Accepts key, type, default value, and other metadata.
 - `get_feature_flags`: List feature flags in your GrowthBook instance. Include a feature ID to retrieve a single flag.
-- `get_stale_safe_rollouts`: List safe rollout rules that have been rolled back or released. This tools is helpful for removing stale flags from your codebase.
+- `get_stale_feature_flags`: Given a list of feature flag IDs, checks whether each one is stale and returns cleanup guidance including replacement values and SDK search patterns.
 - `create_force_rule`: Add a targeting condition (e.g., `country = CA`) to an existing flag.
 - `generate_flag_types`: Generate TypeScript types for feature flags.
 
@@ -424,6 +424,30 @@ You can add as many `GB_HTTP_HEADER_*` variables as needed — each one becomes 
 ### Documentation Search
 
 - `search_growthbook_docs`: Search the GrowthBook documentation for information on how to use a feature, by keyword or question.
+
+## Example Prompts
+
+Here are some prompts to try with your AI assistant once the MCP server is connected:
+
+### Feature Flags
+
+- "Create a boolean feature flag called `new-checkout-flow` that defaults to `false`"
+- "Show me the details and rules for the `dark-mode` feature flag"
+- "Add a force rule to `new-checkout-flow` that enables it for users where `country` is `US`"
+- "Check if these flags are stale and can be cleaned up: `old-banner`, `beta-pricing`, `temp-fix`"
+- "Generate TypeScript types for all my feature flags"
+
+### Experiments
+
+- "Summarize the results of my last 5 experiments"
+- "Create an A/B test on the `new-checkout-flow` flag with a control (`false`) and treatment (`true`)"
+- "Show me the full results for experiment `exp_abc123`, including metric breakdowns"
+
+### General
+
+- "What SDK connections do I have set up?"
+- "Search the GrowthBook docs for how to set up a fact metric"
+- "List all my projects and environments"
 
 ## Video Tutorial
 

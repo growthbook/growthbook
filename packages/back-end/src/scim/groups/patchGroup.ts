@@ -105,10 +105,9 @@ export async function patchGroup(
           }
         }
         await req.context.models.teams.update(team, {
-          ...team,
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,
-          role,
+          role: role || team.role,
         });
       } else {
         return res.status(400).json({

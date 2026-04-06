@@ -31,7 +31,7 @@ ARG NODE_OPTIONS="--max-old-space-size=8192"
 ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
-  npm install -g pnpm@10.28.2 node-gyp && \
+  npm install -g pnpm@10.32.1 node-gyp && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 # Fetch packages into pnpm store
@@ -83,7 +83,7 @@ ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
-  npm install -g pnpm@10.28.2 && \
+  npm install -g pnpm@10.32.1 && \
   rm -rf /usr/local/lib/node_modules/npm && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \

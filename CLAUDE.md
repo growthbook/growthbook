@@ -41,7 +41,7 @@ pnpm --filter shared test       # Shared only (Jest)
 pnpm --filter back-end test path/to/test.ts
 ```
 
-**Requirements:** Node.js 24+, pnpm 10.28.2, Python 3.9+ with Poetry (for stats engine), Docker (for MongoDB)
+**Requirements:** Node.js 24+, pnpm 10.32.1, Python 3.9+ with Poetry (for stats engine), Docker (for MongoDB)
 
 ## Architecture
 

@@ -42,6 +42,7 @@ interface Props
   ssrPolyfills?: SSRPolyfills;
   additionalButton?: React.ReactNode;
   minSampleSize?: number;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export default function ChangeColumn({
@@ -49,13 +50,14 @@ export default function ChangeColumn({
   stats,
   rowResults,
   statsEngine,
-  showPlusMinus = true,
+  showPlusMinus = false,
   showCI = false,
   differenceType,
   className,
   ssrPolyfills,
   additionalButton,
   minSampleSize = 0,
+  pValueAdjustmentEnabled,
   ...otherProps
 }: Props) {
   const _displayCurrency = useCurrency();
@@ -100,6 +102,7 @@ export default function ChangeColumn({
       minSampleSize,
       minPercentChange: rowResults.minPercentChange,
       currentMetricTotal: rowResults.currentMetricTotal,
+      pValueAdjustmentEnabled,
     },
   });
 

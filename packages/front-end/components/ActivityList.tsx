@@ -58,6 +58,7 @@ const ActivityList: FC<{
                       className="mr-2 float-left"
                       size={24}
                       name={name}
+                      showEmail
                     />
                   )}
                   <div className="d-flex flex-column flex-fill ">

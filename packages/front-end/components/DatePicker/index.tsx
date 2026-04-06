@@ -32,6 +32,7 @@ type Props = {
   clearButton?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;
+  disabled?: boolean;
 };
 
 const modifiersClassNames = {
@@ -62,6 +63,7 @@ export default function DatePicker({
   clearButton = false,
   wrapRangeInputs = false,
   compact = false,
+  disabled,
 }: Props) {
   const inputHeight = compact ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
@@ -207,6 +209,7 @@ export default function DatePicker({
                 >
                   <Field
                     id={id ?? ""}
+                    disabled={disabled}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -227,6 +230,7 @@ export default function DatePicker({
                     onBlur={() => debouncedSetDate.flush()}
                     onClick={(e) => {
                       e.preventDefault();
+                      if (disabled) return;
                       fieldClickedTime.current = new Date();
                       setOpen(true);
                     }}
@@ -236,7 +240,7 @@ export default function DatePicker({
                 {clearButton && !isRange && (
                   <Button
                     color="red"
-                    disabled={!bufferedDate}
+                    disabled={disabled || !bufferedDate}
                     variant="ghost"
                     size="sm"
                     onClick={() => {
@@ -270,6 +274,7 @@ export default function DatePicker({
                   }}
                 >
                   <Field
+                    disabled={disabled}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -287,9 +292,10 @@ export default function DatePicker({
                       setBufferedDate2(e.target.value);
                       debouncedSetDate(e.target.value, "date2");
                     }}
-                    onBlur={() => debouncedSetDate.flush()} // Ensure immediate validation on blur
+                    onBlur={() => debouncedSetDate.flush()}
                     onClick={(e) => {
                       e.preventDefault();
+                      if (disabled) return;
                       fieldClickedTime.current = new Date();
                       setOpen(true);
                     }}

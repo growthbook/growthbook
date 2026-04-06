@@ -18,6 +18,7 @@ import {
   SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
+import { useUser } from "@/services/UserContext";
 
 // Remove a single env value from a field token in the raw search string.
 // e.g. removeEnvValue("on:prod,staging off:dev", "on", "staging") → "on:prod off:dev"
@@ -92,6 +93,7 @@ const FeatureSearchFilters: FC<
     setSearchValue,
   });
   const environments = useEnvironments();
+  const { getOwnerDisplay } = useUser();
 
   const availableTags = useMemo(() => {
     const tags: string[] = [];
@@ -106,10 +108,10 @@ const FeatureSearchFilters: FC<
   const owners = useMemo(() => {
     const set = new Set<string>();
     features.forEach((f) => {
-      if (f.owner) set.add(f.owner);
+      if (f.owner) set.add(getOwnerDisplay(f.owner));
     });
     return Array.from(set);
-  }, [features]);
+  }, [features, getOwnerDisplay]);
 
   const availableFeatureTypes = useMemo(() => {
     const set = new Set<string>();

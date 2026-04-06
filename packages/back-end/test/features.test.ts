@@ -1,6 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
-import { FeatureDefinitionWithProject } from "shared/types/sdk";
+import { FeatureDefinition } from "shared/types/sdk";
 import { FeatureInterface, ScheduleRule } from "shared/types/feature";
 import {
   OrganizationInterface,
@@ -1183,6 +1183,9 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+        includeExperimentNames: true,
+        includeRuleIds: true,
       }),
     ).toEqual({
       defaultValue: true,
@@ -1225,6 +1228,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1240,6 +1244,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1254,12 +1259,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
       rules: [
         {
-          id: "abc",
           coverage: 0.8,
           hashAttribute: "user_id",
           hashVersion: 2,
@@ -1282,6 +1287,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1316,10 +1322,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+        includeExperimentNames: true,
+        includeRuleIds: true,
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
           id: "abc",
@@ -1371,13 +1379,12 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
-          id: "abc",
           force: false,
         },
       ],
@@ -1408,17 +1415,155 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
-      project: undefined,
       rules: [
         {
-          id: "abc",
           force: true,
         },
       ],
     });
+  });
+
+  it("Injects ExperimentMetadata into experiment-ref rules when metadataOptions are set", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.project = "proj_feature";
+    feature.tags = ["feature-tag"];
+    feature.customFields = { owner: "alice" };
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_meta",
+        description: "",
+        id: "rule_1",
+        enabled: true,
+        variations: [
+          { variationId: "v0", value: "false" },
+          { variationId: "v1", value: "true" },
+        ],
+      },
+    ];
+
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_meta",
+      metrics: [],
+      name: "Metadata Experiment",
+      organization: "",
+      owner: "",
+      project: "proj_exp",
+      tags: ["exp-tag"],
+      customFields: { owner: "bob", region: "us" },
+      phases: [
+        {
+          condition: "",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase 1",
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          namespace: { enabled: false, name: "", range: [0, 1] },
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      targetURLRegex: "",
+      trackingKey: "meta-exp-key",
+      variations: [
+        { id: "v0", key: "k0", name: "Control", screenshots: [] },
+        { id: "v1", key: "k1", name: "Variation", screenshots: [] },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+
+    const expMap = new Map([["exp_meta", exp]]);
+
+    const projFeature = {
+      id: "proj_feature",
+      publicId: "feature-project",
+      name: "Feature Project",
+    };
+    const projExp = {
+      id: "proj_exp",
+      publicId: "exp-project",
+      name: "Exp Project",
+    };
+    const projectsMap = new Map([
+      ["proj_feature", projFeature],
+      ["proj_exp", projExp],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any);
+
+    // Without metadataOptions: no metadata on rules or feature def
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap,
+        experimentMap: expMap,
+        safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
+        includeRuleIds: true,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      rules: [expect.objectContaining({ id: "rule_1", key: "meta-exp-key" })],
+    });
+
+    // With metadataOptions: experiment-ref rule gets ExperimentMetadata from the
+    // experiment (proj_exp / exp-tag / bob), NOT from the feature
+    const defWithMeta = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: {
+        includeProjectIdInMetadata: true,
+        includeCustomFieldsInMetadata: true,
+        allowedCustomFieldsInMetadata: ["owner"],
+        includeTagsInMetadata: true,
+      },
+      projectsMap,
+    });
+
+    expect(defWithMeta?.rules?.[0]).toEqual(
+      expect.objectContaining({
+        id: "rule_1",
+        metadata: {
+          projects: ["exp-project"],
+          tags: ["exp-tag"],
+          customFields: { owner: "bob" },
+        },
+      }),
+    );
+
+    // Confirm experiment metadata differs from what feature metadata would be
+    expect(defWithMeta?.rules?.[0]?.metadata).not.toEqual({
+      projects: ["feature-project"],
+      tags: ["feature-tag"],
+      customFields: { owner: "alice" },
+    });
+
+    // allowedCustomFieldsInMetadata filters keys — region is excluded
+    expect(defWithMeta?.rules?.[0]?.metadata?.customFields).not.toHaveProperty(
+      "region",
+    );
   });
 
   it("Gets Feature Definitions", () => {
@@ -1431,6 +1576,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1445,6 +1591,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual(null);
 
@@ -1455,6 +1602,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual(null);
 
@@ -1530,6 +1678,7 @@ describe("SDK Payloads", () => {
         groupMap: groupMap,
         experimentMap: experimentMap,
         safeRolloutMap: safeRolloutMap,
+        capabilities: ["looseUnmarshalling"],
       }),
     ).toEqual({
       defaultValue: true,
@@ -1539,13 +1688,11 @@ describe("SDK Payloads", () => {
             country: "US",
           },
           force: false,
-          id: "1",
         },
         {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
-          id: "2",
         },
         {
           coverage: 1,
@@ -1554,7 +1701,6 @@ describe("SDK Payloads", () => {
           meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
-          id: "3",
         },
       ],
     });
@@ -1581,11 +1727,10 @@ describe("SDK Payloads", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
-    const featureDef: FeatureDefinitionWithProject = {
+    const featureDef: FeatureDefinition = {
       defaultValue: true,
       rules: [
         {
-          id: "1",
           condition: {
             id: {
               $inGroup: "groupId",
@@ -1602,12 +1747,11 @@ describe("SDK Payloads", () => {
         experiments: [],
         dateUpdated: new Date(),
         projects: [],
-        capabilities: [],
+        capabilities: ["looseUnmarshalling"],
         usedSavedGroups: [cloneDeep(groupDef)],
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
-        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {
@@ -1639,7 +1783,6 @@ describe("SDK Payloads", () => {
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
-        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {

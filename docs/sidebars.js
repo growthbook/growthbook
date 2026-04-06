@@ -1016,6 +1016,7 @@ export default {
         },
       ],
     },
+    { type: "doc", id: "lib/open-feature", label: "OpenFeature Providers" },
     { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
   ],
 };

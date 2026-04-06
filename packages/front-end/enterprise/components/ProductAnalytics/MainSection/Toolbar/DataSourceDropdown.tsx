@@ -9,7 +9,8 @@ import Link from "@/ui/Link";
 
 export default function DataSourceDropdown() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { draftExploreState, clearAllDatasets } = useExplorerContext();
+  const { draftExploreState, clearAllDatasets, isSubmittable } =
+    useExplorerContext();
   const { datasources } = useDefinitions();
 
   const triggerLabel =
@@ -45,14 +46,26 @@ export default function DataSourceDropdown() {
         ) : (
           <DropdownMenuItem
             key={ds.id}
-            confirmation={{
-              confirmationTitle: "Change data source",
-              cta: "Change",
-              submitColor: "primary",
-              submit: () => clearAllDatasets(ds.id),
-              getConfirmationContent: async () =>
-                `Changing the data source will clear your current exploration. Are you sure you want to switch to "${ds.name}"?`,
-            }}
+            onClick={
+              isSubmittable
+                ? undefined
+                : () => {
+                    clearAllDatasets(ds.id);
+                    setDropdownOpen(false);
+                  }
+            }
+            confirmation={
+              isSubmittable
+                ? {
+                    confirmationTitle: "Change data source",
+                    cta: "Change",
+                    submitColor: "primary",
+                    submit: () => clearAllDatasets(ds.id),
+                    getConfirmationContent: async () =>
+                      `Changing the data source will clear your current exploration. Are you sure you want to switch to "${ds.name}"?`,
+                  }
+                : undefined
+            }
           >
             <Flex align="center" justify="between" gap="2">
               <Flex align="center" width="20px" />

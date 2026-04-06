@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { useRouter } from "next/router";
 import { startCase } from "lodash";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,6 +20,7 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 
 const NUM_PER_PAGE = 20;
 
@@ -29,15 +28,7 @@ const HoldoutsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("holdout_tabs", []);
-  const { getUserDisplay } = useUser();
-  const router = useRouter();
-  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
-
-  useEffect(() => {
-    if (!holdoutsEnabled) {
-      router.replace("/experiments");
-    }
-  }, [router, holdoutsEnabled]);
+  const { getOwnerDisplay } = useUser();
 
   const {
     holdouts,
@@ -101,7 +92,7 @@ const HoldoutsPage = (): React.ReactElement => {
         ? ": Analysis Phase"
         : "");
 
-    const ownerName = getUserDisplay(item.experiment.owner, false) || "";
+    const ownerName = getOwnerDisplay(item.experiment.owner);
     return {
       name: item.name,
       projects: projectsComputed,
@@ -165,7 +156,7 @@ const HoldoutsPage = (): React.ReactElement => {
 
   const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
 
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
+  const canAdd = permissionsUtil.canViewHoldoutModal(project, projects);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -362,7 +353,7 @@ const HoldoutsPage = (): React.ReactElement => {
                           </span>
                         </td>
                         <td className="nowrap" data-title="ID Type:">
-                          {holdout.hashAttribute}
+                          <AttributeBadge attributeId={holdout.hashAttribute} />
                         </td>
                         <td className="nowrap">{holdout.numExperiments}</td>
                         <td className="nowrap">{holdout.numFeatures}</td>

@@ -86,6 +86,25 @@ export default function AttributeModal({ close, attribute }: Props) {
     form.watch("projects") || [],
   );
 
+  const selectedProjects = form.watch("projects") || [];
+  const canCreateWithoutProject = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: [] },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: [] });
+  const hasProjectPermission = attribute
+    ? permissionsUtil.canUpdateAttribute(
+        { projects: current?.projects || [] },
+        { projects: selectedProjects },
+      )
+    : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
+  const ctaDisabledMessage = !hasProjectPermission
+    ? !selectedProjects.length && projectOptions.length > 0
+      ? "Select a project to continue."
+      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
+    : undefined;
+
   return (
     <Modal
       trackingEventModalType=""
@@ -93,6 +112,8 @@ export default function AttributeModal({ close, attribute }: Props) {
       close={close}
       header={title}
       cta="Save"
+      ctaEnabled={hasProjectPermission}
+      disabledMessage={ctaDisabledMessage}
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
@@ -188,7 +209,9 @@ export default function AttributeModal({ close, attribute }: Props) {
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder={
+              canCreateWithoutProject ? "All projects" : "Select projects..."
+            }
             value={form.watch("projects") || []}
             options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}

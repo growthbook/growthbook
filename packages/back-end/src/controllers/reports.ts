@@ -12,6 +12,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
+import { getAllVariations } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -136,11 +137,12 @@ export async function postReportFromSnapshot(
           "dateEnded",
           "name",
           "variationWeights",
+          "variations",
           "banditEvents",
           "coverage",
         ]),
       ),
-      variations: experiment.variations.map((variation) =>
+      variations: getAllVariations(experiment).map((variation) =>
         omit(variation, ["description", "screenshots"]),
       ),
     },

@@ -3,11 +3,14 @@ import Avatar from "./Avatar";
 
 export interface Props {
   user?: EventUserType;
-  display?: "avatar" | "name";
+  display?: "avatar" | "name" | "avatar-with-email";
 }
 
 export default function EventUser({ user, display = "avatar" }: Props) {
   if (user?.type === "dashboard" && user?.email) {
+    if (display === "avatar-with-email") {
+      return <Avatar email={user.email} name={user.name} size={22} showEmail />;
+    }
     return (
       <>
         {display === "avatar" ? (
@@ -23,7 +26,7 @@ export default function EventUser({ user, display = "avatar" }: Props) {
     return <span className="badge badge-secondary">API</span>;
   }
 
-  if (display === "name") {
+  if (display === "name" || display === "avatar-with-email") {
     return (
       <span>
         <em>unknown</em>

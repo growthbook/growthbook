@@ -27,6 +27,7 @@ import {
   isSubmittableConfig,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 type SetDraftStateAction =
@@ -43,6 +44,7 @@ export interface ExplorerContextValue {
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
   isStale: boolean;
+  needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
 
@@ -58,6 +60,9 @@ export interface ExplorerContextValue {
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
+export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
+  "product-analytics:explorer:datasource" as const;
+
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorationConfig;
@@ -72,8 +77,12 @@ export function ExplorerProvider({
   onRunComplete,
 }: ExplorerProviderProps) {
   const { loading, fetchData } = useExploreData();
-
   const { getFactTableById, getFactMetricById, datasources } = useDefinitions();
+
+  const [, setDefaultDataSourceId] = useLocalStorage<string>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    datasources[0]?.id ?? "",
+  );
 
   const [explorerState, setExplorerState] = useState<{
     draftState: ExplorationConfig;
@@ -386,8 +395,11 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
-      const datasourceId = newDatasourceId ?? datasources[0]?.id ?? "";
+      const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
+      if (datasourceId) {
+        setDefaultDataSourceId(datasourceId);
+      }
 
       setExplorerState((prev) => {
         const type = prev.draftState.dataset.type;
@@ -407,7 +419,7 @@ export function ExplorerProvider({
         };
       });
     },
-    [createDefaultValue, datasources, initialConfig],
+    [createDefaultValue, datasources, initialConfig, setDefaultDataSourceId],
   );
 
   const value = useMemo<ExplorerContextValue>(
@@ -426,6 +438,7 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isStale,
+      needsFetch,
       needsUpdate,
       isSubmittable,
       clearAllDatasets,
@@ -446,6 +459,7 @@ export function ExplorerProvider({
       updateTimestampColumn,
       changeChartType,
       isStale,
+      needsFetch,
       needsUpdate,
       isSubmittable,
       clearAllDatasets,

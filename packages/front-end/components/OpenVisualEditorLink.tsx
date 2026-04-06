@@ -3,7 +3,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
-import { appendQueryParamsToURL, growthbook } from "@/services/utils";
+import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
 import RadixButton from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -52,13 +52,11 @@ export async function openVisualEditor({
   const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
     `/meta/ai`,
   );
-  const isAiFeatureEnabled = growthbook.isOn("visual-editor-ai-enabled");
-
   url = appendQueryParamsToURL(url, {
     "vc-id": vc.id,
     "v-idx": 1,
     "exp-url": encodeURIComponent(window.location.href),
-    ...(aiFeatureMeta && isAiFeatureEnabled ? { "ai-enabled": "true" } : {}),
+    ...(aiFeatureMeta ? { "ai-enabled": "true" } : {}),
   });
 
   if (!bypassChecks) {

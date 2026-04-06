@@ -14,6 +14,7 @@ interface UseColumnStatusPopoversOptions {
   ssrPolyfills?: SSRPolyfills;
   minSampleSize?: number;
   showSuspicious?: boolean;
+  pValueAdjustmentEnabled?: boolean;
 }
 
 export type StatusType = "notEnoughData" | "draw" | "suspicious" | null;
@@ -27,6 +28,7 @@ export function useColumnStatusPopovers({
   ssrPolyfills,
   minSampleSize = 0,
   showSuspicious = true,
+  pValueAdjustmentEnabled,
 }: UseColumnStatusPopoversOptions) {
   const popoverEnabled = !!(metric && differenceType && statsEngine);
 
@@ -67,6 +69,7 @@ export function useColumnStatusPopovers({
       suspiciousChange: rowResults.suspiciousChange,
       notEnoughData: !rowResults.enoughData,
       timeRemainingMs,
+      pValueAdjustmentEnabled,
     },
   });
 

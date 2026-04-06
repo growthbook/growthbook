@@ -3,19 +3,23 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
-import { AISuggestionType, computeAIUsageData } from "shared/ai";
+import {
+  AISuggestionType,
+  computeAIUsageData,
+  formatAIRateLimitRetryMessage,
+} from "shared/ai";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OptInModal from "@/components/License/OptInModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
 
@@ -77,12 +81,7 @@ export default function EditHypothesisModal({
           },
           (responseData) => {
             if (responseData.status === 429) {
-              const retryAfter = parseInt(responseData.retryAfter);
-              const hours = Math.floor(retryAfter / 3600);
-              const minutes = Math.floor((retryAfter % 3600) / 60);
-              setError(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
-              );
+              setError(formatAIRateLimitRetryMessage(responseData.retryAfter));
             } else if (responseData.message) {
               setError(responseData.message);
             } else {
@@ -135,17 +134,13 @@ export default function EditHypothesisModal({
         cta="Save"
         ctaEnabled={initialValue !== form.watch("hypothesis")}
       >
-        <div style={{ paddingBottom: "4px" }}>
-          <Field
-            label="Hypothesis"
-            textarea
-            minRows={3}
-            placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
-            {...form.register("hypothesis")}
-            name="hypothesis"
-          />
-        </div>
-        <Box>
+        <MarkdownInput
+          value={form.watch("hypothesis")}
+          setValue={(value) => form.setValue("hypothesis", value)}
+          placeholder="e.g Making the signup button bigger will increase clicks and ultimately improve revenue"
+          showButtons={false}
+        />
+        <Box my="4">
           {!aiResponse && (
             <Flex align="start" justify="start">
               {hasAISuggestions ? (

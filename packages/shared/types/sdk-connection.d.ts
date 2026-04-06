@@ -10,6 +10,7 @@ export interface ProxyConnection {
   version: string;
   error: string;
   lastError: Date | null;
+  consecutiveFailures?: number;
 }
 
 export type EditSDKConnectionParams = {
@@ -27,6 +28,10 @@ export type EditSDKConnectionParams = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   eventTracker?: string;
 };
@@ -46,6 +51,10 @@ export type CreateSDKConnectionParams = {
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
   includeRuleIds: boolean;
+  includeProjectIdInMetadata: boolean;
+  includeCustomFieldsInMetadata: boolean;
+  allowedCustomFieldsInMetadata: string[];
+  includeTagsInMetadata: boolean;
   remoteEvalEnabled?: boolean;
   managedBy?: ManagedBy;
 };
@@ -78,6 +87,10 @@ export interface SDKConnectionInterface {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
+  includeProjectIdInMetadata?: boolean;
+  includeCustomFieldsInMetadata?: boolean;
+  allowedCustomFieldsInMetadata?: string[];
+  includeTagsInMetadata?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

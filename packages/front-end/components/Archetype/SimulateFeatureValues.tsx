@@ -75,7 +75,7 @@ export const SimulateFeatureValues: FC<{
   const tagsFilter = useTagsFilter("features");
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canCreateArchetype({ projects: [project] });
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const hasSimulateFeature = hasCommercialFeature("simulate");
 
   const { searchInputProps, items, SortableTH } = useSearch({
@@ -88,7 +88,7 @@ export const SimulateFeatureValues: FC<{
       is: (item) => [item.valueType ?? ""],
       tag: (item) => item.tags,
       project: (item) => [item.project ?? ""],
-      owner: (item) => item.owner,
+      owner: (item) => [item.owner, getOwnerDisplay(item.owner)],
     },
   });
 

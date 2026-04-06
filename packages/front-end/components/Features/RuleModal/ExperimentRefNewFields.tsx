@@ -7,7 +7,7 @@ import {
 } from "shared/types/feature";
 import React, { useMemo } from "react";
 import Collapsible from "react-collapsible";
-import { Flex, Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip, Separator } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -33,7 +33,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/ui/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
@@ -55,6 +55,10 @@ import {
 import HelperText from "@/ui/HelperText";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
+import {
+  AttributeOptionWithTooltip,
+  type AttributeOptionForTooltip,
+} from "@/components/Features/AttributeOptionTooltip";
 
 export default function ExperimentRefNewFields({
   step,
@@ -367,11 +371,19 @@ export default function ExperimentRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
+              withRadixThemedPortal
               label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+                .map((s) => ({
+                  label: s.property,
+                  value: s.property,
+                  description: s.description,
+                  tags: s.tags,
+                  datatype: s.datatype,
+                  hashAttribute: s.hashAttribute,
+                }))}
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
@@ -380,6 +392,16 @@ export default function ExperimentRefNewFields({
                 if (exposureQueryId) {
                   form.setValue("exposureQueryId", exposureQueryId);
                 }
+              }}
+              formatOptionLabel={(o, meta) => {
+                return (
+                  <AttributeOptionWithTooltip
+                    option={o as AttributeOptionForTooltip}
+                    context={meta.context}
+                  >
+                    {o.label}
+                  </AttributeOptionWithTooltip>
+                );
               }}
               helpText={
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
@@ -456,14 +478,14 @@ export default function ExperimentRefNewFields({
             setValue={setSavedGroupValue}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <ConditionInput
             defaultValue={defaultConditionValue}
             onChange={setConditionValue}
             key={conditionKey}
             project={project || ""}
           />
-          <hr />
+          <Separator size="4" my="5" />
           <PrerequisiteInput
             value={prerequisiteValue}
             setValue={setPrerequisiteValue}

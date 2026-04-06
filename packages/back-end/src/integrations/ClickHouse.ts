@@ -5,7 +5,7 @@ import {
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
-import { DateTruncGranularity } from "shared/types/sql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
@@ -30,6 +30,9 @@ export default class ClickHouse extends SqlIntegration {
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
+  }
+  getFormatDialect(): FormatDialect {
+    return "clickhouse";
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {

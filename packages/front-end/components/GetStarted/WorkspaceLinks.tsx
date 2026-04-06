@@ -24,7 +24,7 @@ import styles from "./WorkspaceLinks.module.scss";
 
 export default function WorkspaceLinks() {
   const permissionsUtils = usePermissionsUtil();
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
 
   const { browser } = useMemo(() => {
     const ua = navigator.userAgent;
@@ -71,7 +71,7 @@ export default function WorkspaceLinks() {
         url="/fact-tables"
         text="Configure Metric Library"
         disabled={
-          !permissionsUtils.canViewCreateFactTableModal(project) &&
+          !permissionsUtils.canViewCreateFactTableModal(project, projects) &&
           !permissionsUtils.canCreateFactMetric({
             projects: project ? [project] : [],
           })

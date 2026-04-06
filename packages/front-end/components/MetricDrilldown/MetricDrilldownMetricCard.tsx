@@ -12,8 +12,8 @@ import {
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
+  getRowFilterSQL,
 } from "shared/experiments";
-import { getRowFilterSQL } from "shared/src/experiments";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";

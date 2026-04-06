@@ -140,6 +140,16 @@ export function hasGoogleAIKey() {
   return env.hasGoogleAIKey || false;
 }
 
+export function hasAnyAIKey() {
+  return (
+    hasOpenAIKey() ||
+    hasAnthropicKey() ||
+    hasXaiKey() ||
+    hasMistralKey() ||
+    hasGoogleAIKey()
+  );
+}
+
 export function getExperimentRefreshFrequency() {
   return env.experimentRefreshFrequency;
 }

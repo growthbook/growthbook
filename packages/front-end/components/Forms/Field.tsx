@@ -33,6 +33,7 @@ export type BaseFieldProps = {
   containerStyle?: React.CSSProperties;
   inputGroupClassName?: string;
   labelClassName?: string;
+  customClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
   options?: SelectOptions;
@@ -115,6 +116,7 @@ const Field = forwardRef(
       type = "text",
       initialOption,
       comboBox,
+      customClassName: customClassNameProp,
       ...otherProps
     }: FieldProps,
     // eslint-disable-next-line
@@ -211,7 +213,7 @@ const Field = forwardRef(
       );
     }
 
-    const customClassName = otherProps?.["customClassName"] || "";
+    const customClassName = customClassNameProp || "";
     return (
       <div
         className={clsx(

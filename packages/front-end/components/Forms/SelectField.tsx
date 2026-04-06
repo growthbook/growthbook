@@ -1,4 +1,11 @@
-import { FC, useMemo, useRef, ReactNode, useState } from "react";
+import {
+  FC,
+  useMemo,
+  useRef,
+  ReactNode,
+  useState,
+  ComponentProps,
+} from "react";
 import ReactSelect, {
   components,
   InputProps,
@@ -8,7 +15,16 @@ import ReactSelect, {
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
+import { RadixTheme } from "@/services/RadixTheme";
 import Field, { FieldProps } from "./Field";
+
+export const RadixThemeMenuPortal = (
+  props: ComponentProps<typeof components.MenuPortal>,
+) => (
+  <RadixTheme>
+    <components.MenuPortal {...props} />
+  </RadixTheme>
+);
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -43,6 +59,7 @@ export type SelectFieldProps = Omit<
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
+  withRadixThemedPortal?: boolean;
 };
 
 export function useSelectOptions(
@@ -198,6 +215,7 @@ const SelectField: FC<SelectFieldProps> = ({
   forceUndefinedValueToNull = false,
   useMultilineLabels = false,
   containerStyles = {},
+  withRadixThemedPortal = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -339,6 +357,9 @@ const SelectField: FC<SelectFieldProps> = ({
                 components={{
                   Input,
                   IndicatorSeparator: () => null,
+                  ...(withRadixThemedPortal && {
+                    MenuPortal: RadixThemeMenuPortal,
+                  }),
                 }}
                 isOptionDisabled={isOptionDisabled}
               />
@@ -368,6 +389,9 @@ const SelectField: FC<SelectFieldProps> = ({
                 components={{
                   Input,
                   IndicatorSeparator: () => null,
+                  ...(withRadixThemedPortal && {
+                    MenuPortal: RadixThemeMenuPortal,
+                  }),
                 }}
                 isOptionDisabled={isOptionDisabled}
               />

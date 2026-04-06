@@ -8,7 +8,6 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
@@ -18,7 +17,6 @@ import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
-import { AppFeatures } from "@/types/app-features";
 import Text from "@/ui/Text";
 
 export interface Props {
@@ -56,14 +54,13 @@ export default function AnalysisSettings({
     getExperimentMetricById,
     getMetricById,
     getSegmentById,
+    segments,
     metricGroups,
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const growthbook = useGrowthBook<AppFeatures>();
   const hasDecisionFramework =
-    growthbook.isOn("decision-framework-criteria") &&
     organization?.settings?.decisionFrameworkEnabled &&
     hasCommercialFeature("decision-framework");
 
@@ -231,7 +228,7 @@ export default function AnalysisSettings({
                 </div>
               </div>
             )}
-            {!isHoldout && (
+            {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
                 <div className="h5">Segment</div>
                 <div>

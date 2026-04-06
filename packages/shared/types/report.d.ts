@@ -71,6 +71,7 @@ export type ExperimentReportPhase = Pick<
   | "dateEnded"
   | "name"
   | "variationWeights"
+  | "variations"
   | "banditEvents"
   | "coverage"
 >;
@@ -88,9 +89,6 @@ export interface ExperimentReportVariation {
   id: string;
   name: string;
   weight: number;
-}
-export interface ExperimentReportVariationWithIndex
-  extends ExperimentReportVariation {
   index: number;
 }
 export interface MetricSnapshotSettings {

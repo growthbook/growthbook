@@ -8,7 +8,6 @@ import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -30,7 +29,6 @@ const SegmentForm: FC<{
   current: Partial<SegmentInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
   const {
     datasources,
     getDatasourceById,
@@ -62,9 +60,6 @@ const SegmentForm: FC<{
         isProjectListValidForProject(d.projects, project),
     );
 
-  const currentOwner = memberUsernameOptions.find(
-    (member) => member.display === current.owner,
-  );
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -72,7 +67,7 @@ const SegmentForm: FC<{
       datasource:
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: currentOwner?.display || "",
+      owner: current.owner || "",
       description: current.description || "",
       projects: current.id
         ? current.projects || []
@@ -207,7 +202,6 @@ const SegmentForm: FC<{
           disabled={isReadOnly}
         />
         <SelectOwner
-          resourceType="segment"
           disabled={isReadOnly}
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}

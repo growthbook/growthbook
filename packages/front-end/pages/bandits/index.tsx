@@ -35,7 +35,7 @@ import { useExperimentSearch } from "@/services/experiments";
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project } = useDefinitions();
+  const { ready, project, projects } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
@@ -122,7 +122,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const hasExperiments = allExperiments.length > 0;
 
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
+  const canAdd = permissionsUtil.canViewExperimentModal(project, projects);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

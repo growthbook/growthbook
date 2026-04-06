@@ -5,6 +5,7 @@ import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import {
   ExperimentMetricInterface,
+  getLatestPhaseVariations,
   getMetricResultStatus,
   isSuspiciousUplift,
 } from "shared/experiments";
@@ -122,7 +123,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
       }
     }
     const baseline = variationResults?.[0];
-    e.variations.forEach((v, variationIndex) => {
+    getLatestPhaseVariations(e).forEach((v, variationIndex) => {
       if (variationIndex === 0) return;
       const expVariationData: MetricExperimentData = {
         id: e.id,
@@ -131,7 +132,7 @@ const ExperimentWithMetricsTable: FC<Props> = ({
         status: e.status,
         results: e.results,
         archived: e.archived,
-        variations: e.variations,
+        variations: getLatestPhaseVariations(e),
         statsEngine: statsEngine,
         variationIndex: variationIndex,
         variationName: v.name,

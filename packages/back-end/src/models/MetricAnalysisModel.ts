@@ -21,7 +21,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "metricAnalysis.update",
     deleteEvent: "metricAnalysis.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {
@@ -85,7 +85,11 @@ export class MetricAnalysisModel extends BaseClass {
     );
 
     // 2. Find the analysis that best matches the requested date range
-    const bestMatch = matches.reduce(
+    type ReduceAcc = {
+      analysis: MetricAnalysisInterface | null;
+      score: number;
+    };
+    const bestMatch = matches.reduce<ReduceAcc>(
       (max, current) => {
         const requestedRange =
           settings.endDate.getTime() - settings.startDate.getTime();

@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -21,7 +22,7 @@ export default function HoldoutSummary({
   holdoutWeight: number;
 }) {
   return (
-    <>
+    <Box>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">HOLDOUT</Text>
         <Badge
@@ -33,16 +34,13 @@ export default function HoldoutSummary({
           }
         />
         of
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute} />
       </Flex>
-      <Flex direction="row" gap="2">
-        <Text weight="medium">SERVE</Text>
-        <Box width="100%">
+      <Flex gap="3">
+        <Box>
+          <Text weight="medium">SERVE</Text>
+        </Box>
+        <Box flexGrow="1">
           <ValueDisplay
             value={value}
             type={feature.valueType}
@@ -51,6 +49,6 @@ export default function HoldoutSummary({
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />
-    </>
+    </Box>
   );
 }

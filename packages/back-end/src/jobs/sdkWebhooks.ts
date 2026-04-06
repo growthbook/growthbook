@@ -59,6 +59,10 @@ const fireWebhooks = async (job: SDKWebhookJob) => {
     return;
   }
 
+  if (webhook.disabled) {
+    return;
+  }
+
   const context = await getContextForAgendaJobByOrgId(webhook.organization);
   await fireSdkWebhook(context, webhook);
 };
@@ -116,7 +120,7 @@ export async function queueWebhooksByConnections(
   const webhooks =
     await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds(sdkKeys);
   for (const webhook of webhooks) {
-    if (webhook) await queueSingleSdkWebhookJob(webhook);
+    if (webhook && !webhook.disabled) await queueSingleSdkWebhookJob(webhook);
   }
 }
 

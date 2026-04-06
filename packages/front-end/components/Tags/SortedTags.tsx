@@ -9,6 +9,8 @@ export interface Props {
   skipFirstMargin?: boolean;
   useFlex?: boolean;
   showEllipsisAtIndex?: number;
+  /** When provided, used for the overflow label instead of "X more tag(s)...". Receives the count of hidden tags. */
+  ellipsisFormat?: (count: number) => string;
 }
 
 export default function SortedTags({
@@ -17,6 +19,7 @@ export default function SortedTags({
   skipFirstMargin = false,
   useFlex = false,
   showEllipsisAtIndex = 5,
+  ellipsisFormat,
 }: Props) {
   const { tags: all } = useDefinitions();
   //index starting at 0
@@ -31,9 +34,9 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
-    const moreTagsCopy = `${tags.length} more tag${
-      tags.length === 1 ? "" : "s"
-    }...`;
+    const moreTagsCopy = ellipsisFormat
+      ? ellipsisFormat(tags.length)
+      : `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
     const tagElements = renderTags(tags);
     return (
       <Tooltip

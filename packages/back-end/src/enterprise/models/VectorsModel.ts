@@ -11,7 +11,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "vector.update",
     deleteEvent: "vector.delete",
   },
-  globallyUniqueIds: true,
+  globallyUniquePrimaryKeys: true,
 });
 
 export class VectorsModel extends BaseClass {
