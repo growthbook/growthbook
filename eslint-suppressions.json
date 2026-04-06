@@ -569,11 +569,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/MetricDrilldown/MetricDrilldownOwnerTags.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -605,11 +600,6 @@
     }
   },
   "packages/front-end/components/Report/ReportAnalysisSettingsBar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Report/ReportMetaInfo.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

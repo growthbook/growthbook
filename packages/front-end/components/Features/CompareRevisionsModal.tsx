@@ -44,9 +44,7 @@ import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
 import EventUser from "@/components/Avatar/EventUser";
-import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
@@ -810,30 +808,15 @@ function computeBeforeAfter(
 }
 
 function LogEntryMeta({ log }: { log: RevisionLog }) {
-  const { users } = useUser();
-
-  const displayName =
-    log.user?.type === "dashboard"
-      ? (users.get(log.user.id)?.name ?? log.user.name ?? "")
-      : log.user?.type === "api_key"
-        ? log.user.name
-          ? `${log.user.name} (API)`
-          : log.user.email
-            ? `${log.user.email} (API)`
-            : "API Key"
-        : "System";
-
   const rows: [string, React.ReactNode][] = [
     ...(log.subject
       ? ([["Subject", log.subject]] as [string, React.ReactNode][])
       : []),
     [
       "Author",
-      log.user?.type === "dashboard" ? (
-        <Avatar email={log.user.email} size={24} name={displayName} showEmail />
-      ) : (
-        <Text size="small">{displayName}</Text>
-      ),
+      <Flex key="author" align="center" gap="2" wrap="wrap">
+        <EventUser user={log.user} display="avatar-with-email" size="sm" />
+      </Flex>,
     ],
     ["Date", datetime(log.timestamp)],
   ];

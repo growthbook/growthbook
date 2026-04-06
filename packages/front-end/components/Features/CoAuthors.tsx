@@ -5,7 +5,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.
 export const NON_CONTENT_ACTIONS = new Set([
@@ -83,31 +83,16 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
       </div>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">
-          {coAuthors.map((c, i) =>
-            c.type === "dashboard" ? (
-              <Avatar
-                key={c.id}
-                email={c.email}
-                name={c.name ?? ""}
-                size={22}
-                showEmail
-              />
-            ) : c.type === "api_key" ? (
-              c.email ? (
-                <span key={i}>
-                  <Avatar
-                    email={c.email}
-                    name={c.name ?? ""}
-                    size={22}
-                    showEmail
-                  />
-                  <span className="badge badge-secondary ml-1">API</span>
-                </span>
-              ) : (
-                <span key={i} className="badge badge-secondary">
-                  API Key
-                </span>
-              )
+          {coAuthors.map((c) =>
+            c.type === "dashboard" || c.type === "api_key" ? (
+              <Flex
+                key={c.type === "dashboard" ? c.id : c.apiKey}
+                align="center"
+                gap="2"
+                wrap="wrap"
+              >
+                <EventUser user={c} display="avatar-with-email" size="sm" />
+              </Flex>
             ) : null,
           )}
         </Flex>

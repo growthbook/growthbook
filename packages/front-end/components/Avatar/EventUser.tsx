@@ -1,78 +1,130 @@
 import { EventUser as EventUserType } from "shared/types/events/event-types";
-import Avatar from "./Avatar";
+import Badge from "@/ui/Badge";
+import type { Size } from "@/ui/Avatar";
+import { useUser } from "@/services/UserContext";
+import UserAvatar from "./UserAvatar";
 
 export interface Props {
-  user?: EventUserType;
+  user?: EventUserType | null;
   display?: "avatar" | "name" | "avatar-with-email";
+  size?: Size;
 }
 
-export default function EventUser({ user, display = "avatar" }: Props) {
-  // Extract display info from the event user
-  let name: string | undefined;
-  let email: string | undefined;
-  let isApi = false;
+function getUserLabel(user?: EventUserType | null) {
+  if (user?.type === "system") {
+    return <span>System</span>;
+  }
+  const name = user && "name" in user ? user.name : "";
+  const email = user && "email" in user ? user.email : "";
 
-  if (user?.type === "dashboard") {
-    name = user.name;
-    email = user.email;
-  } else if (user?.type === "api_key") {
-    isApi = true;
-    if (user.email) {
-      // Personal access token
-      name = user.name || "";
-      email = user.email;
-    } else {
-      // Org-wide key — no avatar, just badge + optional description
-      return (
-        <>
-          <span className="badge badge-secondary">API</span>
-          {user.name && (
-            <span className="ml-1" title={user.apiKey}>
-              {user.name}
-            </span>
-          )}
-        </>
-      );
-    }
+  if (name && !email) {
+    return <span>{name}</span>;
+  }
+  if (email && !name) {
+    return <span>{email}</span>;
   }
 
-  if (!email) {
-    if (display === "name" || display === "avatar-with-email") {
-      return (
-        <span>
-          <em>unknown</em>
-        </span>
-      );
-    }
-    return null;
-  }
-
-  const apiBadge = isApi ? (
-    <span className="badge badge-secondary ml-1">API</span>
-  ) : null;
-
-  if (display === "avatar-with-email") {
+  if (name && email) {
     return (
       <>
-        <Avatar email={email} name={name || ""} size={22} showEmail />
-        {apiBadge}
+        <span>{name}</span>
+        <span style={{ color: "var(--gray-9)" }}>
+          <span style={{ userSelect: "none" }}>&lt;</span>
+          {email}
+          <span style={{ userSelect: "none" }}>&gt;</span>
+        </span>
       </>
     );
   }
 
+  return <span>Unknown</span>;
+}
+
+export default function EventUser({
+  user,
+  display = "avatar",
+  size = "md",
+}: Props) {
+  const { users } = useUser();
+
+  if (user === null || user === undefined) {
+    if (display === "avatar") {
+      return <UserAvatar size={size} variant="soft" />;
+    }
+    if (display === "avatar-with-email") {
+      return (
+        <>
+          <UserAvatar size={size} variant="soft" />
+          <span>Unknown</span>
+        </>
+      );
+    }
+    return <span>Unknown</span>;
+  }
+
+  if (user.type === "system") {
+    if (display === "avatar") {
+      return <UserAvatar name="System" email="" size={size} variant="soft" />;
+    }
+    if (display === "avatar-with-email") {
+      return (
+        <>
+          <UserAvatar name="System" email="" size={size} variant="soft" />
+          <span>System</span>
+        </>
+      );
+    }
+    return <span>System</span>;
+  }
+
+  // Extract display info from the event user directly
+  let name = "name" in user ? user.name : "";
+  let email = "email" in user ? user.email : "";
+  const isApi = user.type === "api_key";
+
+  // Try to override name/email from latest user context values based on id
+  if (user.id) {
+    const latestUser = users.get(user.id);
+    if (latestUser) {
+      name = latestUser.name;
+      email = latestUser.email;
+    }
+  }
+
   if (display === "avatar") {
     return (
+      <UserAvatar
+        email={email}
+        name={name}
+        isApi={isApi}
+        size={size}
+        variant="soft"
+      />
+    );
+  }
+
+  const apiBadge = isApi ? <Badge variant="soft" label="API" ml="1" /> : null;
+
+  if (display === "avatar-with-email") {
+    return (
       <>
-        <Avatar email={email} name={name || ""} size={30} />
+        <UserAvatar
+          email={email}
+          name={name || ""}
+          isApi={isApi}
+          size={size}
+          variant="soft"
+        />
+        {getUserLabel(user)}
         {apiBadge}
       </>
     );
   }
 
   return (
-    <>
-      {name || email}
+    <span>
+      {getUserLabel(user)}
       {apiBadge}
-    </>
+    </span>
   );
 }

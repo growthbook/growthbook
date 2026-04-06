@@ -36,7 +36,7 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -274,7 +274,7 @@ export default function FeaturesOverview({
   const showKillSwitchManager = killSwitchTarget !== null;
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const commitTitleEdit = useCallback(async () => {
     if (!revision) return;
@@ -813,35 +813,18 @@ export default function FeaturesOverview({
         >
           {(() => {
             const cb = revision.createdBy;
-            if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id) ?? cb.name ?? "";
+            if (cb?.type === "dashboard" || cb?.type === "api_key") {
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    <Avatar email={cb.email} name={name} size={22} showEmail />
-                  }
-                />
-              );
-            }
-            if (cb?.type === "api_key") {
-              return (
-                <Metadata
-                  label="Revised by"
-                  value={
-                    cb.email ? (
-                      <>
-                        <Avatar
-                          email={cb.email}
-                          name={cb.name || ""}
-                          size={22}
-                          showEmail
-                        />
-                        <span className="badge badge-secondary ml-1">API</span>
-                      </>
-                    ) : (
-                      <span className="badge badge-secondary">API</span>
-                    )
+                    <Flex align="center" gap="2" wrap="wrap">
+                      <EventUser
+                        user={cb}
+                        display="avatar-with-email"
+                        size="sm"
+                      />
+                    </Flex>
                   }
                 />
               );

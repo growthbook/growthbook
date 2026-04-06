@@ -7,18 +7,36 @@ const Avatar: FC<{
   name: string;
   size?: number;
   className?: string;
-  showEmail?: boolean;
-}> = ({ email, size = 40, className, name, showEmail = false }) => {
-  const firstNameLetter = name?.charAt(0) || email.charAt(0);
+  showLabel?: boolean;
+  isApi?: boolean;
+}> = ({
+  email,
+  size = 40,
+  className,
+  name,
+  showLabel = false,
+  isApi = false,
+}) => {
+  const title = name
+    ? `${name}${email ? ` <${email}>` : ""}`
+    : email
+      ? email
+      : isApi
+        ? "API"
+        : "unknown";
+
+  const firstNameLetter = name?.charAt(0) || email.charAt(0) || title.charAt(0);
   const lastNameLetter = name?.split(" ")[1]?.charAt(0) || "";
-  const title = name ? `${name} <${email}>` : email;
-  const copy =
-    name.toLowerCase() === "api"
-      ? name.toUpperCase()
-      : `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
+
+  const initials =
+    title === "API"
+      ? title
+      : title === "unknown"
+        ? "?"
+        : `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
 
   const getFontSize = () => {
-    const copyLength = copy.length;
+    const copyLength = initials.length;
     switch (copyLength) {
       case 1:
         return 0.5 * size;
@@ -48,11 +66,11 @@ const Avatar: FC<{
         fontWeight: 600,
       }}
     >
-      {copy}
+      {initials}
     </div>
   );
 
-  if (!showEmail) return circle;
+  if (!showLabel) return circle;
 
   return (
     <span

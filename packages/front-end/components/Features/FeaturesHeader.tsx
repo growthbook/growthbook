@@ -27,7 +27,7 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Callout from "@/ui/Callout";
@@ -90,9 +90,7 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const { organization, hasCommercialFeature, getOwnerDisplay, users } =
-    useUser();
-  const ownerDisplay = getOwnerDisplay(feature.owner);
+  const { organization, hasCommercialFeature, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -513,14 +511,7 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {ownerDisplay ? (
-                <span>
-                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
-                  {ownerDisplay}
-                </span>
-              ) : (
-                <em className="text-muted">None</em>
-              )}
+              <Owner ownerId={feature.owner} gap="1" />
             </Box>
           </Flex>
           <Box mt="1" mb="3">

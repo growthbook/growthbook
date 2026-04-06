@@ -7,8 +7,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import metaDataStyles from "@/ui/Metadata.module.scss";
 import Link from "@/ui/Link";
@@ -38,7 +37,6 @@ export default function ProjectTagBar({
     getProjectById,
   } = useDefinitions();
 
-  const { getOwnerDisplay } = useUser();
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -56,8 +54,6 @@ export default function ProjectTagBar({
   const trackingKey = experiment.trackingKey;
 
   const createdDate = date(experiment.dateCreated);
-
-  const ownerName = getOwnerDisplay(experiment.owner);
 
   const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
 
@@ -146,16 +142,11 @@ export default function ProjectTagBar({
 
   const renderOwner = () => {
     return (
-      <>
-        <span>
-          {ownerName && (
-            <UserAvatar name={ownerName} size="sm" variant="soft" />
-          )}
-          <Text weight="regular" className={metaDataStyles.valueColor}>
-            {ownerName || "None"}
-          </Text>
-        </span>
-      </>
+      <Owner
+        ownerId={experiment.owner}
+        gap="1"
+        textClassName={metaDataStyles.valueColor}
+      />
     );
   };
 
