@@ -5,21 +5,21 @@ import {
 } from "shared/types/experiment";
 
 export type DateRange = {
-  startDate: string;
-  endDate?: string;
+  startDate: string | Date;
+  endDate?: string | Date;
 };
 
 type PhaseDateRangeOptions = {
   phase?: ExperimentPhaseStringDates;
   isHoldout?: boolean;
-  holdoutAnalysisStartDate?: string;
+  holdoutAnalysisStartDate?: string | Date;
 };
 
 export function getPhaseStartDateForDisplay({
   phase,
   isHoldout,
   holdoutAnalysisStartDate,
-}: PhaseDateRangeOptions): string | undefined {
+}: PhaseDateRangeOptions): string | Date | undefined {
   if (!phase) return undefined;
 
   if (isHoldout && phase.lookbackStartDate) {

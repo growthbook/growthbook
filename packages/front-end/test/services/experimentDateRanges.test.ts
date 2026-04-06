@@ -8,55 +8,45 @@ import {
   getTotalRuntimeRange,
 } from "@/services/experimentDateRanges";
 
-const baseExperiment: ExperimentInterfaceStringDates = {
-  id: "exp_1",
-  organization: "org_1",
-  owner: "user_1",
-  dateCreated: "2026-02-26T10:00:00.000Z",
-  dateUpdated: "2026-02-26T10:00:00.000Z",
-  project: "",
-  datasource: "",
-  userIdType: "user",
-  status: "draft",
-  archived: false,
-  type: "standard",
-  name: "Test Experiment",
-  hypothesis: "",
-  description: "",
-  variations: [
-    { id: "0", key: "0", name: "Control" },
-    { id: "1", key: "1", name: "Variation" },
-  ],
-  phases: [],
-  metrics: [],
-  goalMetrics: [],
-  secondaryMetrics: [],
-  guardrailMetrics: [],
-  tags: [],
-  results: "inconclusive",
+const phaseVariationPair = [
+  { id: "0", status: "active" as const },
+  { id: "1", status: "active" as const },
+];
+
+const variationPair = [
+  { id: "0", key: "0", name: "Control", screenshots: [] },
+  { id: "1", key: "1", name: "Variation", screenshots: [] },
+];
+
+const makeExperiment = (
+  overrides: Partial<ExperimentInterfaceStringDates>,
+): ExperimentInterfaceStringDates => {
+  return {
+    status: "draft",
+    type: "standard",
+    phases: [],
+    ...overrides,
+  } as unknown as ExperimentInterfaceStringDates;
 };
 
 describe("experimentDateRanges", () => {
   it("does not show runtime for draft experiments", () => {
-    const experiment: ExperimentInterfaceStringDates = {
-      ...baseExperiment,
+    const experiment = makeExperiment({
       status: "draft",
       phases: [
         {
           name: "Main",
           dateStarted: "2026-02-26T10:00:00.000Z",
+          reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
           condition: "",
           savedGroups: [],
           prerequisites: [],
-          variations: [
-            { id: "0", status: "active" },
-            { id: "1", status: "active" },
-          ],
+          variations: phaseVariationPair,
         },
       ],
-    };
+    });
 
     expect(
       getRuntimeRangeForSelectedPhase({
@@ -71,39 +61,34 @@ describe("experimentDateRanges", () => {
   });
 
   it("returns selected phase runtime range when experiment has started", () => {
-    const experiment: ExperimentInterfaceStringDates = {
-      ...baseExperiment,
+    const experiment = makeExperiment({
       status: "running",
       phases: [
         {
           name: "Main",
           dateStarted: "2026-02-26T10:00:00.000Z",
           dateEnded: "2026-03-01T10:00:00.000Z",
+          reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
           condition: "",
           savedGroups: [],
           prerequisites: [],
-          variations: [
-            { id: "0", status: "active" },
-            { id: "1", status: "active" },
-          ],
+          variations: phaseVariationPair,
         },
         {
           name: "Phase 2",
           dateStarted: "2026-03-01T10:00:00.000Z",
+          reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
           condition: "",
           savedGroups: [],
           prerequisites: [],
-          variations: [
-            { id: "0", status: "active" },
-            { id: "1", status: "active" },
-          ],
+          variations: phaseVariationPair,
         },
       ],
-    };
+    });
 
     const selectedRange = getRuntimeRangeForSelectedPhase({
       experiment,
@@ -120,7 +105,8 @@ describe("experimentDateRanges", () => {
     const range = getPhaseDateRangeForDisplay({
       phase: {
         name: "Analysis",
-        lookbackStartDate: "2026-02-20T00:00:00.000Z",
+        reason: "",
+        lookbackStartDate: new Date("2026-02-20T00:00:00.000Z"),
         dateStarted: "2026-02-26T00:00:00.000Z",
         dateEnded: "2026-03-03T00:00:00.000Z",
         coverage: 1,
@@ -128,10 +114,7 @@ describe("experimentDateRanges", () => {
         condition: "",
         savedGroups: [],
         prerequisites: [],
-        variations: [
-          { id: "0", status: "active" },
-          { id: "1", status: "active" },
-        ],
+        variations: phaseVariationPair,
       },
       isHoldout: true,
       holdoutAnalysisStartDate: "2026-02-24T00:00:00.000Z",
