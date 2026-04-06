@@ -6,7 +6,7 @@ import {
 } from "shared/types/experiment";
 import React from "react";
 import { validateAndFixCondition } from "shared/util";
-import { Text } from "@radix-ui/themes";
+import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
@@ -191,7 +191,7 @@ function TargetingForm({
         setValue={(v) => form.setValue("savedGroups", v)}
         project={experiment.project || ""}
       />
-      <hr />
+      <Separator size="4" my="5" />
       <ConditionInput
         defaultValue={form.watch("condition")}
         onChange={(condition) => form.setValue("condition", condition)}

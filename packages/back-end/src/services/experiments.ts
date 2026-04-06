@@ -122,6 +122,10 @@ import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
+} from "back-end/src/models/VisualChangesetModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -935,6 +939,83 @@ export function resetExperimentBanditSettings({
   } as ExperimentInterface);
 
   return changes;
+}
+
+/**
+ * Keeps visual changesets and URL redirects aligned when an experiment's
+ * variations or phases (e.g. weights) change.
+ */
+export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
+  context,
+  updated,
+}: {
+  context: ReqContext | ApiReqContext;
+  updated: ExperimentInterface;
+}): Promise<void> {
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    updated.id,
+    context.org.id,
+  );
+
+  if (visualChangesets.length) {
+    await Promise.all(
+      visualChangesets.map((vc) =>
+        syncVisualChangesWithVariations({
+          visualChangeset: vc,
+          experiment: updated,
+          context,
+        }),
+      ),
+    );
+  }
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    updated.id,
+  );
+  if (urlRedirects.length) {
+    await Promise.all(
+      urlRedirects.map((urlRedirect) =>
+        context.models.urlRedirects.syncURLRedirectsWithVariations(
+          urlRedirect,
+          updated,
+        ),
+      ),
+    );
+  }
+}
+
+/**
+ * Persists experiment changes and syncs linked visual changesets and URL
+ * redirects when `variations` are in the changeset.
+ */
+export async function updateExperimentAndSync({
+  context,
+  experiment,
+  changes,
+  bypassWebhooks = false,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+  bypassWebhooks?: boolean;
+}): Promise<ExperimentInterface> {
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes,
+    bypassWebhooks,
+  });
+
+  const shouldSyncLinked = changes.variations && updated;
+
+  if (shouldSyncLinked) {
+    await syncVisualChangesetsAndUrlRedirectsForExperiment({
+      context,
+      updated,
+    });
+  }
+
+  return updated;
 }
 
 export function updateExperimentBanditSettings({
@@ -1820,6 +1901,8 @@ async function getSnapshotAnalyses(
     string,
     ExperimentAnalysisParamsContextData
   >();
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
   // get queryMap for all snapshots
   const queryMap = await getQueryMap(
@@ -1833,6 +1916,16 @@ async function getSnapshotAnalyses(
       { experiment, organization, analysisSettings, metricMap, snapshot },
       i,
     ) => {
+      const expandedMetricMap = new Map(metricMap);
+      // Ensure slice metrics from existing snapshot query results can always
+      // be resolved during re-analysis, regardless of caller behavior.
+      expandAllSliceMetricsInMap({
+        metricMap: expandedMetricMap,
+        factTableMap,
+        experiment,
+        metricGroups,
+      });
+
       // check if analysis is possible
       if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
         logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
@@ -1874,7 +1967,7 @@ async function getSnapshotAnalyses(
 
       const mdat = getMetricsAndQueryDataForStatsEngine(
         queryMap,
-        metricMap,
+        expandedMetricMap,
         snapshot.settings,
       );
       const id = `${i}_${experiment.id}_${snapshot.id}`;
@@ -2008,17 +2101,47 @@ function getExperimentMetric(
     overrides: {},
   };
 
-  if (overrides?.delayHours) {
+  if (!overrides) {
+    return ret;
+  }
+
+  if (overrides.delayHours !== undefined) {
     ret.overrides.delayHours = overrides.delayHours;
   }
-  if (overrides?.windowHours) {
+  if (overrides.windowHours !== undefined) {
     ret.overrides.windowHours = overrides.windowHours;
   }
-  if (overrides?.winRisk) {
+  if (overrides.windowType !== undefined) {
+    ret.overrides.window = overrides.windowType;
+  }
+  if (overrides.winRisk !== undefined) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
   }
-  if (overrides?.loseRisk) {
+  if (overrides.loseRisk !== undefined) {
     ret.overrides.loseRiskThreshold = overrides.loseRisk;
+  }
+  if (overrides.properPriorOverride !== undefined) {
+    ret.overrides.properPriorOverride = overrides.properPriorOverride;
+  }
+  if (overrides.properPriorEnabled !== undefined) {
+    ret.overrides.properPriorEnabled = overrides.properPriorEnabled;
+  }
+  if (overrides.properPriorMean !== undefined) {
+    ret.overrides.properPriorMean = overrides.properPriorMean;
+  }
+  if (overrides.properPriorStdDev !== undefined) {
+    ret.overrides.properPriorStdDev = overrides.properPriorStdDev;
+  }
+  if (overrides.regressionAdjustmentOverride !== undefined) {
+    ret.overrides.regressionAdjustmentOverride =
+      overrides.regressionAdjustmentOverride;
+  }
+  if (overrides.regressionAdjustmentEnabled !== undefined) {
+    ret.overrides.regressionAdjustmentEnabled =
+      overrides.regressionAdjustmentEnabled;
+  }
+  if (overrides.regressionAdjustmentDays !== undefined) {
+    ret.overrides.regressionAdjustmentDays = overrides.regressionAdjustmentDays;
   }
 
   return ret;
@@ -2042,7 +2165,7 @@ export async function toExperimentApiInterface(
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
-    // todo: experiment settings
+    experiment,
   });
   const experimentType = experiment.type || "standard";
 
@@ -2154,6 +2277,12 @@ export async function toExperimentApiInterface(
             activationMetric: getExperimentMetric(experiment, activationMetric),
           }
         : null),
+      postStratificationEnabled:
+        experiment.postStratificationEnabled !== undefined
+          ? experiment.postStratificationEnabled
+          : null,
+      decisionFrameworkSettings: experiment.decisionFrameworkSettings ?? {},
+      metricOverrides: experiment.metricOverrides ?? [],
     },
     ...(experiment.status === "stopped" && experiment.results
       ? {
@@ -2189,6 +2318,7 @@ export async function toExperimentApiInterface(
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
+    defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
   };
 }
@@ -3242,8 +3372,8 @@ export function postExperimentApiPayloadToInterface(
     secondaryMetrics: payload.secondaryMetrics || [],
     guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: payload.activationMetric || "",
-    metricOverrides: [],
-    decisionFrameworkSettings: {},
+    metricOverrides: payload.metricOverrides ?? [],
+    decisionFrameworkSettings: payload.decisionFrameworkSettings ?? {},
     segment: payload.segmentId || "",
     queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
@@ -3281,10 +3411,16 @@ export function postExperimentApiPayloadToInterface(
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
+    ...(payload.postStratificationEnabled !== undefined
+      ? { postStratificationEnabled: payload.postStratificationEnabled }
+      : {}),
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
     customFields: payload.customFields,
     templateId: payload.templateId || undefined,
+    ...(payload.defaultDashboardId !== undefined
+      ? { defaultDashboardId: payload.defaultDashboardId }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -3374,13 +3510,17 @@ export function updateExperimentApiPayloadToInterface(
     banditScheduleUnit,
     banditBurnInValue,
     banditBurnInUnit,
+    metricOverrides,
+    decisionFrameworkSettings,
+    postStratificationEnabled,
+    defaultDashboardId,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
-    ...(assignmentQueryId ? { assignmentQueryId } : {}),
+    ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
@@ -3489,6 +3629,14 @@ export function updateExperimentApiPayloadToInterface(
     ...(payload.banditConversionWindowUnit !== undefined
       ? { banditConversionWindowUnit: payload.banditConversionWindowUnit }
       : {}),
+    ...(metricOverrides !== undefined ? { metricOverrides } : {}),
+    ...(decisionFrameworkSettings !== undefined
+      ? { decisionFrameworkSettings }
+      : {}),
+    ...(postStratificationEnabled !== undefined
+      ? { postStratificationEnabled }
+      : {}),
+    ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -3702,6 +3850,22 @@ export async function getLinkedFeatureInfo(
   });
 
   return linkedFeatureInfo;
+}
+
+/**
+ * Returns a new phases array with the latest phase's `variationWeights` set to the given values.
+ */
+export function applyVariationWeightsToLatestPhase(
+  experiment: ExperimentInterface,
+  variationWeights: number[],
+): ExperimentPhase[] {
+  const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
+  phases[lastIndex] = {
+    ...phases[lastIndex],
+    variationWeights,
+  };
+  return phases;
 }
 
 export async function getChangesToStartExperiment(

@@ -13,6 +13,6 @@ router.put("/:id", putVisualChangeset);
 router.post("/:id/visual-change", postVisualChange);
 router.put("/:id/visual-change/:visualChangeId", putVisualChange);
 
-// See experiment router for 'get all' endpoint
+// See experiment router for 'get all' and 'create' endpoints
 
 export default router;

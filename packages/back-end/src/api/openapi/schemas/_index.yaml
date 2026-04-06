@@ -1,5 +1,7 @@
 PaginationFields:
   $ref: "./PaginationFields.yaml"
+RampSchedule:
+  $ref: "./RampSchedule.yaml"
 Dimension:
   $ref: "./Dimension.yaml"
 Metric:
@@ -22,6 +24,8 @@ FeatureEnvironment:
   $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
   $ref: "./FeatureRule.yaml"
+FeatureBaseRule:
+  $ref: "./FeatureBaseRule.yaml"
 FeatureDefinition:
   $ref: "./FeatureDefinition.yaml"
 FeatureForceRule:
@@ -44,6 +48,10 @@ ExperimentSnapshot:
   $ref: "./ExperimentSnapshot.yaml"
 ExperimentMetric:
   $ref: "./ExperimentMetric.yaml"
+ExperimentMetricOverrideEntry:
+  $ref: "./ExperimentMetricOverrideEntry.yaml"
+ExperimentDecisionFrameworkSettings:
+  $ref: "./ExperimentDecisionFrameworkSettings.yaml"
 ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
 LookbackOverride:
@@ -84,3 +92,7 @@ Settings:
   $ref: "./Settings.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
+InformationSchema:
+  $ref: "./InformationSchema.yaml"
+InformationSchemaTable:
+  $ref: "./InformationSchemaTable.yaml"
