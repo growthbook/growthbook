@@ -5,7 +5,6 @@ import React, {
   useState,
   useMemo,
 } from "react";
-import { useRouter } from "next/router";
 import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
@@ -261,7 +260,6 @@ function ChartBubble({
 // ---------------------------------------------------------------------------
 
 export default function ExplorerAIChat() {
-  const router = useRouter();
   const prevLoadingRef = useRef(false);
   /** Persists the open/closed state of each ToolTransparencyBlock across the
    *  activeTurnItems → messages remount that happens at turn end. */
@@ -274,9 +272,7 @@ export default function ExplorerAIChat() {
         sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
         return stored.trim() || null;
       }
-      return typeof router.query.message === "string"
-        ? router.query.message.trim() || null
-        : null;
+      return null;
     })(),
   );
 
@@ -441,9 +437,8 @@ export default function ExplorerAIChat() {
     const msg = initialMessageRef.current;
     if (!msg) return;
     initialMessageRef.current = null;
-    void router.replace(router.pathname, undefined, { shallow: true });
     sendMessage(msg);
-  }, [sendMessage, router]);
+  }, [sendMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
