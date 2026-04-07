@@ -31,7 +31,6 @@ import track from "@/services/track";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -292,7 +291,7 @@ export default function ReportMetaInfo({
                     <Owner
                       ownerId={report.userId}
                       gap="1"
-                      textClassName={metaDataStyles.valueColor}
+                      textColor="text-mid"
                     />
                   }
                 />

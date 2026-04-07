@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
-import { Flex, Text } from "@radix-ui/themes";
-import styles from "./Metadata.module.scss";
+import { Flex } from "@radix-ui/themes";
+import Text from "@/ui/Text";
 
 type Props = {
   label: string;
@@ -14,7 +14,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
 ) {
   const renderLabel = () => {
     return (
-      <Text weight="medium" className={styles.labelColor}>
+      <Text weight="medium" color="text-high">
         {label}
       </Text>
     );
@@ -22,7 +22,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   const renderValue = () => {
     if (typeof value === "string") {
       return (
-        <Text weight="regular" className={styles.valueColor}>
+        <Text weight="regular" color="text-mid">
           {value}
         </Text>
       );
@@ -32,8 +32,12 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   };
   return (
     <Flex gap="1" style={style} {...props} ref={ref}>
-      <span className={styles.titleColor}>{renderLabel()}:</span>
-      <span className={styles.dataColor}>{renderValue()}</span>
+      <Text weight="medium" color="text-high">
+        {renderLabel()}:
+      </Text>
+      <Text weight="regular" color="text-mid">
+        {renderValue()}
+      </Text>
     </Flex>
   );
 });

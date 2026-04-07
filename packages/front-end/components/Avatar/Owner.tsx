@@ -8,7 +8,6 @@ export type Props = {
   ownerId?: string;
   gap?: "1" | "2" | "3";
   size?: Size;
-  textClassName?: string;
   textColor?: TextProps["color"];
   weight?: "regular" | "medium";
 };
@@ -17,27 +16,19 @@ export default function Owner({
   ownerId,
   gap = "2",
   size = "sm",
-  textClassName,
   textColor,
   weight = "regular",
 }: Props) {
   const { getOwnerDisplay } = useUser();
   const trimmed = ownerId?.trim();
   const display = trimmed ? getOwnerDisplay(trimmed) : "";
-  const hasOwner = Boolean(trimmed && display);
 
   return (
     <Flex align="center" gap={gap}>
-      <UserAvatar
-        name={hasOwner ? display : undefined}
-        size={size}
-        variant="soft"
-      />
-      <span className={textClassName}>
-        <Text weight={weight} color={textColor}>
-          {hasOwner ? display : "None"}
-        </Text>
-      </span>
+      <UserAvatar name={display} size={size} variant="soft" />
+      <Text weight={weight} color={textColor}>
+        {display || "None"}
+      </Text>
     </Flex>
   );
 }

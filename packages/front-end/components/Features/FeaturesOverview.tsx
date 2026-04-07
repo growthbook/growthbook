@@ -95,7 +95,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
@@ -860,12 +859,9 @@ export default function FeaturesOverview({
         </Flex>
         <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <span
-            className={metaDataStyles.labelColor}
-            style={{ fontWeight: 500 }}
-          >
+          <Text weight="semibold" color="text-high">
             Revision notes:
-          </span>{" "}
+          </Text>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>

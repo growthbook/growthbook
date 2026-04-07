@@ -1,15 +1,15 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -141,13 +141,7 @@ export default function ProjectTagBar({
   };
 
   const renderOwner = () => {
-    return (
-      <Owner
-        ownerId={experiment.owner}
-        gap="1"
-        textClassName={metaDataStyles.valueColor}
-      />
-    );
+    return <Owner ownerId={experiment.owner} gap="1" textColor="text-mid" />;
   };
 
   const RenderToolTipsAndValue = () => {
@@ -175,7 +169,7 @@ export default function ProjectTagBar({
     } else {
       return (
         projectId && (
-          <Text weight="regular" className={metaDataStyles.valueColor}>
+          <Text weight="regular" color="text-mid">
             {projectName}
           </Text>
         )
@@ -226,7 +220,7 @@ export default function ProjectTagBar({
           )}
         {!canUpdateHoldoutProjects(holdout.projects) &&
           holdout.projects.length === 0 && (
-            <Text weight="regular" className={metaDataStyles.valueColor}>
+            <Text weight="regular" color="text-mid">
               None
             </Text>
           )}
