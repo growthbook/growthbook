@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, useCallback, MutableRefObject } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  MutableRefObject,
+} from "react";
 import type { ActiveTurnItem } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -24,9 +30,9 @@ export function useTypewriter(
   displayedTextMapRef: MutableRefObject<Map<string, string>>;
   clearDisplayedText: () => void;
 } {
-  const [displayedTextMap, setDisplayedTextMap] = useState<
-    Map<string, string>
-  >(new Map());
+  const [displayedTextMap, setDisplayedTextMap] = useState<Map<string, string>>(
+    new Map(),
+  );
   const displayedTextMapRef = useRef<Map<string, string>>(new Map());
 
   const clearDisplayedText = useCallback(() => {

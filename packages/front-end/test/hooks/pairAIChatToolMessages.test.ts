@@ -55,7 +55,9 @@ describe("findToolCallPart", () => {
   });
 
   it("returns undefined for an unknown toolCallId", () => {
-    expect(findToolCallPart(messages, { toolCallId: "call_z" })).toBeUndefined();
+    expect(
+      findToolCallPart(messages, { toolCallId: "call_z" }),
+    ).toBeUndefined();
   });
 
   it("works across multiple turns", () => {

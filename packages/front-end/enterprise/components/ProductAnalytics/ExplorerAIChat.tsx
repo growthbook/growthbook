@@ -16,7 +16,7 @@ import {
   PiArrowRightBold,
   PiArrowLineLeft,
   PiArrowLineRight,
-  PiStopCircle,
+  PiStop,
 } from "react-icons/pi";
 import {
   ExplorationConfig,
@@ -880,13 +880,8 @@ export default function ExplorerAIChat() {
               disabled={loading}
             />
             {isLocalStream ? (
-              <Button
-                color="red"
-                onClick={cancelGeneration}
-                title="Cancel generation"
-              >
-                <PiStopCircle size={16} />
-                Cancel
+              <Button onClick={cancelGeneration} title="Cancel generation">
+                <PiStop size={16} />
               </Button>
             ) : (
               <Button onClick={sendMessage} disabled={!input.trim() || loading}>

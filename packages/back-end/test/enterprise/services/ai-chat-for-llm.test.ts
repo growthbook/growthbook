@@ -108,7 +108,12 @@ describe("stripForLLM", () => {
         id: "a1",
         ts: 2,
         content: [
-          { type: "tool-call", toolCallId: "c1", toolName: "runExploration", args: {} },
+          {
+            type: "tool-call",
+            toolCallId: "c1",
+            toolName: "runExploration",
+            args: {},
+          },
         ],
       },
       {
@@ -163,7 +168,12 @@ describe("stripForLLM", () => {
         id: "a1",
         ts: 2,
         content: [
-          { type: "tool-call", toolCallId: "c1", toolName: "runExploration", args: {} },
+          {
+            type: "tool-call",
+            toolCallId: "c1",
+            toolName: "runExploration",
+            args: {},
+          },
         ],
       },
       {

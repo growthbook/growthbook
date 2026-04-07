@@ -304,6 +304,7 @@ export default function ExplorerChart({
     textColor,
     gridLineColor,
     tooltipBackgroundColor,
+    animate,
   ]);
 
   const hasEmptyData = useMemo(() => {

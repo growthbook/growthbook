@@ -38,9 +38,9 @@ describe("tryParseToolResultJson", () => {
 
 describe("toolResultSnapshotId", () => {
   it("reads snapshotId from JSON string", () => {
-    expect(
-      toolResultSnapshotId(JSON.stringify({ snapshotId: "s1" })),
-    ).toBe("s1");
+    expect(toolResultSnapshotId(JSON.stringify({ snapshotId: "s1" }))).toBe(
+      "s1",
+    );
   });
 
   it("returns undefined for invalid or missing", () => {

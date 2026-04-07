@@ -52,7 +52,11 @@ function assistantContentToModel(
         mediaType: part.mediaType,
       };
     }
-    return { type: "file" as const, data: part.data, mediaType: part.mediaType };
+    return {
+      type: "file" as const,
+      data: part.data,
+      mediaType: part.mediaType,
+    };
   }) as never;
 }
 
