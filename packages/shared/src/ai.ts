@@ -168,7 +168,8 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
 export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
-    key === "generate-sql-query",
+    key === "generate-sql-query" ||
+    key === "product-analytics-chat",
 ) as AIPromptType[];
 
 export interface AIUsageData {

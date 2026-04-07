@@ -24,6 +24,7 @@ import {
 } from "shared/validators";
 import { encodeExplorationConfig } from "shared/enterprise";
 import { toolResultPreviewLabel } from "shared/ai-chat";
+import type { AIPromptInterface } from "shared/ai";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -54,12 +55,32 @@ import {
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
+import { isCloud } from "@/services/env";
+import { AI_MODEL_LABELS } from "@/services/aiModelSelectOptions";
+import Tooltip from "@/ui/Tooltip";
+import SelectField from "@/components/Forms/SelectField";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import SaveToDashboardModal from "./SaveToDashboardModal";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
+
+function explorerPaChatModelOptions(
+  orgPromptTypeOverride: string,
+  orgDefaultAIModel: string,
+): { value: string; label: string }[] {
+  const effectiveId =
+    orgPromptTypeOverride.trim() !== ""
+      ? orgPromptTypeOverride
+      : orgDefaultAIModel;
+  const entry = AI_MODEL_LABELS.find((m) => m.value === effectiveId);
+  const displayName = entry?.label ?? effectiveId;
+  return [
+    { value: "", label: `${displayName} (Organization Default)` },
+    ...AI_MODEL_LABELS,
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // PA-specific types
@@ -245,10 +266,12 @@ export default function ExplorerAIChat() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAiOptInModal, setShowAiOptInModal] = useState(false);
+  const [chatOverrideModel, setChatOverrideModel] = useState("");
 
   const { hasCommercialFeature } = useUser();
-  const { aiEnabled } = useAISettings();
+  const { aiEnabled, defaultAIModel } = useAISettings();
   const permissionsUtil = usePermissionsUtil();
+  const canPickModel = permissionsUtil.canManageOrgSettings();
   const { draftExploreState } = useExplorerContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -258,6 +281,33 @@ export default function ExplorerAIChat() {
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   const { apiCall } = useAuth();
+
+  const { data: promptsData } = useApi<{ prompts: AIPromptInterface[] }>(
+    `/ai/prompts`,
+    { shouldRun: () => !isCloud() },
+  );
+
+  const orgPaChatOverrideModel = useMemo(() => {
+    if (!promptsData?.prompts) return "";
+    return (
+      promptsData.prompts.find((p) => p.type === "product-analytics-chat")
+        ?.overrideModel ?? ""
+    );
+  }, [promptsData]);
+
+  const paChatModelSelectOptions = useMemo(() => {
+    return explorerPaChatModelOptions(orgPaChatOverrideModel, defaultAIModel);
+  }, [orgPaChatOverrideModel, defaultAIModel]);
+
+  const buildRequestBody = useCallback(
+    (message: string, cid: string) => ({
+      message,
+      conversationId: cid,
+      datasourceId: draftExploreState.datasource,
+      ...(chatOverrideModel ? { overrideModel: chatOverrideModel } : {}),
+    }),
+    [draftExploreState.datasource, chatOverrideModel],
+  );
 
   const { data: listData, mutate: refreshList } = useApi<{
     conversations: ConversationSummary[];
@@ -281,11 +331,7 @@ export default function ExplorerAIChat() {
     conversationId,
   } = useAIChat({
     endpoint: "/product-analytics/chat",
-    buildRequestBody: (message, cid) => ({
-      message,
-      conversationId: cid,
-      datasourceId: draftExploreState.datasource,
-    }),
+    buildRequestBody,
     toolStatusLabels: TOOL_STATUS_LABELS,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     onStreamAccepted: () => {
@@ -680,6 +726,26 @@ export default function ExplorerAIChat() {
               )}
             </Button>
             <DataSourceDropdown />
+            {!isCloud() && (
+              <Tooltip
+                enabled={!canPickModel}
+                content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+              >
+                <SelectField
+                  id="explorer-ai-chat-model"
+                  value={
+                    canPickModel ? chatOverrideModel : orgPaChatOverrideModel
+                  }
+                  onChange={(v) => {
+                    if (canPickModel) setChatOverrideModel(v);
+                  }}
+                  options={paChatModelSelectOptions}
+                  disabled={!canPickModel}
+                  placeholder="AI model"
+                  containerStyle={{ marginBottom: 0 }}
+                />
+              </Tooltip>
+            )}
           </Flex>
         </Flex>
 

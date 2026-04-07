@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
-import type { AIPromptType } from "shared/ai";
+import type { AIModel, AIPromptType } from "shared/ai";
 import type {
   AIChatMessage,
   AIChatTextPart,
@@ -112,6 +112,7 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 type AgentRequestBody = {
   message: string;
   conversationId: string;
+  overrideModel?: AIModel;
 } & Record<string, unknown>;
 type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
@@ -146,8 +147,17 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     }
 
     const params = config.parseParams(body);
-    const { system, orgAdditionalPrompt, overrideModel } =
-      await buildSystemPromptForRequest(context, config, params);
+    const {
+      system,
+      orgAdditionalPrompt,
+      overrideModel: dbOverrideModel,
+    } = await buildSystemPromptForRequest(context, config, params);
+
+    const requestModel = body.overrideModel;
+    const overrideModel =
+      requestModel && context.permissions.canManageOrgSettings()
+        ? requestModel
+        : dbOverrideModel;
 
     const buffer = await loadOrInitConversation(
       context.models.aiConversations,

@@ -1,6 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { explorationConfigValidator } from "shared/validators";
+import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawProductAnalyticsController from "./product-analytics.controller";
@@ -36,6 +37,7 @@ router.post(
         message: z.string().min(1),
         conversationId: z.string().min(1),
         datasourceId: z.string(),
+        overrideModel: aiModelValidator.optional(),
       })
       .strict(),
   }),
