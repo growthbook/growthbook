@@ -820,7 +820,7 @@ export default function FeaturesOverview({
                     <Flex align="center" gap="2" wrap="wrap">
                       <EventUser
                         user={cb}
-                        display="avatar-with-email"
+                        display="avatar-name-email"
                         size="sm"
                       />
                     </Flex>

@@ -85,14 +85,13 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
         <Flex direction="column" gap="2" mt="2" ml="3">
           {coAuthors.map((c) =>
             c.type === "dashboard" || c.type === "api_key" ? (
-              <Flex
+              <EventUser
+                user={c}
+                display="avatar-name-email"
+                size="sm"
+                wrap={true}
                 key={c.type === "dashboard" ? c.id : c.apiKey}
-                align="center"
-                gap="2"
-                wrap="wrap"
-              >
-                <EventUser user={c} display="avatar-with-email" size="sm" />
-              </Flex>
+              />
             ) : null,
           )}
         </Flex>

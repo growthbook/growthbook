@@ -1,4 +1,5 @@
 import { ReactElement } from "react";
+import { FaRobot } from "react-icons/fa";
 import Avatar, { Props as AvatarProps } from "@/ui/Avatar";
 
 type Props = {
@@ -12,11 +13,11 @@ const getUserAvatar = (
   name?: string,
   email?: string,
   isApi?: boolean,
-  icon?: ReactElement,
 ): string | ReactElement => {
-  if (icon) return icon;
-  if (name?.toLowerCase() === "api") return "API";
-  if (!name && !email) return isApi ? "API" : "?";
+  // Special display for API and System users when we don't have a real name or email
+  if (name?.toLowerCase() === "api") return <FaRobot />;
+  if (name?.toLowerCase() === "system") return <FaRobot />;
+  if (!name && !email) return isApi ? <FaRobot /> : "?";
 
   if (name) {
     const firstNameLetter = name.charAt(0);
@@ -36,7 +37,9 @@ export default function UserAvatar({
   icon,
   ...otherProps
 }: Props) {
-  return (
-    <Avatar {...otherProps}>{getUserAvatar(name, email, isApi, icon)}</Avatar>
-  );
+  if (icon) {
+    return <Avatar {...otherProps}>{icon}</Avatar>;
+  }
+
+  return <Avatar {...otherProps}>{getUserAvatar(name, email, isApi)}</Avatar>;
 }

@@ -44,17 +44,18 @@ import styles from "./CompareAuditEvents.module.scss";
 
 function AuditEntryAuthor({
   user,
+  display = "avatar-name-email",
 }: {
   user: CoarsenedAuditEntry<unknown>["user"];
+  display?: "avatar-name" | "avatar-name-email";
 }) {
   return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <EventUser
-        user={auditUserInfoToEventUser(user)}
-        display="avatar-with-email"
-        size="sm"
-      />
-    </Flex>
+    <EventUser
+      user={auditUserInfoToEventUser(user)}
+      display={display}
+      size="sm"
+      wrap={true}
+    />
   );
 }
 
@@ -384,7 +385,7 @@ export default function CompareAuditEvents<T>({
             )}
           </Flex>
           <Box mt="2">
-            <AuditEntryAuthor user={entry.user} />
+            <AuditEntryAuthor user={entry.user} display="avatar-name" />
           </Box>
           <Text as="div">
             {entry.count > 1

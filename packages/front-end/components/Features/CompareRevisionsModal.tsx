@@ -165,7 +165,7 @@ function RevisionCompareLabel({
           })()}
         {revA && (
           <Box mt="2">
-            <EventUser user={revA.createdBy} display="avatar-with-email" />
+            <EventUser user={revA.createdBy} display="avatar-name-email" />
             <CoAuthors rev={revA} logs={logsA} />
           </Box>
         )}
@@ -219,7 +219,7 @@ function RevisionCompareLabel({
           })()}
         {revB && (
           <Box mt="2">
-            <EventUser user={revB.createdBy} display="avatar-with-email" />
+            <EventUser user={revB.createdBy} display="avatar-name-email" />
             <CoAuthors rev={revB} logs={logsB} />
           </Box>
         )}
@@ -311,7 +311,7 @@ function RevisionCommentItem({
           notes
         </Text>
         {logEntry?.user && (
-          <EventUser user={logEntry.user} display="avatar-with-email" />
+          <EventUser user={logEntry.user} display="avatar-name-email" />
         )}
         {logEntry?.timestamp && (
           <Text size="small" color="text-low">
@@ -814,9 +814,13 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
       : []),
     [
       "Author",
-      <Flex key="author" align="center" gap="2" wrap="wrap">
-        <EventUser user={log.user} display="avatar-with-email" size="sm" />
-      </Flex>,
+      <EventUser
+        user={log.user}
+        display="avatar-name-email"
+        size="sm"
+        key="author"
+        wrap={true}
+      />,
     ],
     ["Date", datetime(log.timestamp)],
   ];

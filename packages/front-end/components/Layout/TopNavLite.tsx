@@ -208,7 +208,7 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
           <DropdownMenu
             variant="solid"
             trigger={
-              <div className="nav-link d-flex">
+              <div className="nav-link d-flex align-items-center">
                 <UserAvatar
                   email={email || ""}
                   name={name || ""}

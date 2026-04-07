@@ -107,9 +107,12 @@ export function RevisionLogRow({
           </Text>
         )}
         <Flex align="center" gap="1" ml="auto">
-          <Flex align="center" gap="1" wrap="wrap">
-            <EventUser user={log.user} display="avatar-with-email" size="sm" />
-          </Flex>
+          <EventUser
+            user={log.user}
+            display="avatar-name-email"
+            size="sm"
+            wrap={true}
+          />
           <Text size="small" color="text-low">
             {" · "}
             {datetime(log.timestamp)}

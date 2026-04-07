@@ -24,7 +24,7 @@ export default function Owner({
   const display = trimmed ? getOwnerDisplay(trimmed) : "";
 
   return (
-    <Flex align="center" gap={gap}>
+    <Flex align="center" gap={gap} display="inline-flex">
       <UserAvatar name={display} size={size} variant="soft" />
       <Text weight={weight} color={textColor}>
         {display || "None"}

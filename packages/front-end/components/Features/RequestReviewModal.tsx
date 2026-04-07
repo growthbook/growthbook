@@ -403,7 +403,7 @@ export default function RequestReviewModal({
                         <Flex key={lu.id} align="center" gap="1" wrap="wrap">
                           <EventUser
                             user={lu}
-                            display="avatar-with-email"
+                            display="avatar-name-email"
                             size="sm"
                           />
                         </Flex>

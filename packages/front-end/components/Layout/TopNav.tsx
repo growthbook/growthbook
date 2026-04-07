@@ -458,7 +458,7 @@ const TopNav: FC<{
               setDropdownOpen(!!o);
             }}
             trigger={
-              <div className="nav-link d-flex">
+              <div className="nav-link d-flex align-items-center">
                 <UserAvatar
                   email={email || ""}
                   name={name || ""}

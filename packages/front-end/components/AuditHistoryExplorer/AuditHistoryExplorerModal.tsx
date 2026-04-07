@@ -110,12 +110,10 @@ function RawAuditRow({
           {datetime(event.dateCreated)}
         </td>
         <td>
-          <Flex align="center" gap="2">
-            <EventUser
-              user={auditInterfaceUserToEventUser(event.user)}
-              display="name"
-            />
-          </Flex>
+          <EventUser
+            user={auditInterfaceUserToEventUser(event.user)}
+            display="name-email"
+          />
         </td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>

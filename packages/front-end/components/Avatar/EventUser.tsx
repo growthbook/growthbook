@@ -1,4 +1,5 @@
 import { EventUser as EventUserType } from "shared/types/events/event-types";
+import { Flex } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import type { Size } from "@/ui/Avatar";
 import { useUser } from "@/services/UserContext";
@@ -6,11 +7,20 @@ import UserAvatar from "./UserAvatar";
 
 export interface Props {
   user?: EventUserType | null;
-  display?: "avatar" | "name" | "avatar-with-email";
+  includeAvatar?: boolean;
+  includeName?: boolean;
+  includeEmail?: boolean;
+  display?:
+    | "avatar"
+    | "name"
+    | "name-email"
+    | "avatar-name"
+    | "avatar-name-email";
   size?: Size;
+  wrap?: boolean;
 }
 
-function getUserLabel(user?: EventUserType | null) {
+function getUserLabel(user?: EventUserType | null, bothNameAndEmail?: boolean) {
   if (user?.type === "system") {
     return <span>System</span>;
   }
@@ -28,11 +38,13 @@ function getUserLabel(user?: EventUserType | null) {
     return (
       <>
         <span>{name}</span>
-        <span style={{ color: "var(--gray-9)" }}>
-          <span style={{ userSelect: "none" }}>&lt;</span>
-          {email}
-          <span style={{ userSelect: "none" }}>&gt;</span>
-        </span>
+        {bothNameAndEmail && (
+          <span style={{ color: "var(--gray-9)" }}>
+            <span style={{ userSelect: "none" }}>&lt;</span>
+            {email}
+            <span style={{ userSelect: "none" }}>&gt;</span>
+          </span>
+        )}
       </>
     );
   }
@@ -44,6 +56,7 @@ export default function EventUser({
   user,
   display = "avatar",
   size = "md",
+  wrap = false,
 }: Props) {
   const { users } = useUser();
 
@@ -51,12 +64,17 @@ export default function EventUser({
     if (display === "avatar") {
       return <UserAvatar size={size} variant="soft" />;
     }
-    if (display === "avatar-with-email") {
+    if (display === "avatar-name" || display === "avatar-name-email") {
       return (
-        <>
+        <Flex
+          align="center"
+          gap="2"
+          wrap={wrap ? "wrap" : "nowrap"}
+          display="inline-flex"
+        >
           <UserAvatar size={size} variant="soft" />
           <span>Unknown</span>
-        </>
+        </Flex>
       );
     }
     return <span>Unknown</span>;
@@ -66,12 +84,17 @@ export default function EventUser({
     if (display === "avatar") {
       return <UserAvatar name="System" email="" size={size} variant="soft" />;
     }
-    if (display === "avatar-with-email") {
+    if (display === "avatar-name" || display === "avatar-name-email") {
       return (
-        <>
+        <Flex
+          align="center"
+          gap="2"
+          wrap={wrap ? "wrap" : "nowrap"}
+          display="inline-flex"
+        >
           <UserAvatar name="System" email="" size={size} variant="soft" />
           <span>System</span>
-        </>
+        </Flex>
       );
     }
     return <span>System</span>;
@@ -105,9 +128,14 @@ export default function EventUser({
 
   const apiBadge = isApi ? <Badge variant="soft" label="API" ml="1" /> : null;
 
-  if (display === "avatar-with-email") {
+  if (display === "avatar-name" || display === "avatar-name-email") {
     return (
-      <>
+      <Flex
+        align="center"
+        gap="2"
+        wrap={wrap ? "wrap" : "nowrap"}
+        display="inline-flex"
+      >
         <UserAvatar
           email={email}
           name={name || ""}
@@ -115,16 +143,21 @@ export default function EventUser({
           size={size}
           variant="soft"
         />
-        {getUserLabel(user)}
+        {getUserLabel(user, display === "avatar-name-email")}
         {apiBadge}
-      </>
+      </Flex>
     );
   }
 
   return (
-    <span>
-      {getUserLabel(user)}
+    <Flex
+      align="center"
+      gap="2"
+      wrap={wrap ? "wrap" : "nowrap"}
+      display="inline-flex"
+    >
+      {getUserLabel(user, display === "name-email")}
       {apiBadge}
-    </span>
+    </Flex>
   );
 }
