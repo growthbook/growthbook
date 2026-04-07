@@ -562,3 +562,5 @@ export function sortExplorationRows(
     return (groupTotals[groupB] ?? 0) - (groupTotals[groupA] ?? 0);
   });
 }
+
+export const PA_CHAT_CONVERSATION_KEY = "pa-chat-conversation-id";

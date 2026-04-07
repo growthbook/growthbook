@@ -214,7 +214,7 @@ export default function ConversationSidebar({
                         ? "1px solid var(--slate-a5)"
                         : "1px solid transparent",
                       background: isActive
-                        ? "var(--violet-8)"
+                        ? "var(--violet-2)"
                         : isHovered
                           ? "var(--gray-a3)"
                           : "none",

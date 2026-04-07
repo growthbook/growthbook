@@ -67,6 +67,21 @@ const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
   "product-analytics:explorer:datasource" as const;
 
+export function useDefaultDataSourceId(): string | undefined {
+  const { datasources } = useDefinitions();
+
+  const [defaultDataSourceId] = useLocalStorage<string | undefined>(
+    LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
+    datasources[0]?.id ?? "",
+  );
+
+  return useMemo(() => {
+    return datasources.some((d) => d.id === defaultDataSourceId)
+      ? defaultDataSourceId
+      : (datasources[0]?.id ?? "");
+  }, [datasources, defaultDataSourceId]);
+}
+
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorationConfig;
