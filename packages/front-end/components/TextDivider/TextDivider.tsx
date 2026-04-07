@@ -1,7 +1,6 @@
-import clsx from "clsx";
 import { FC, ReactNode } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
-import styles from "./TextDivider.module.scss";
 
 const TextDivider: FC<{
   children: ReactNode;
@@ -9,15 +8,25 @@ const TextDivider: FC<{
   className?: string;
 }> = ({ children, width = "100%", className }) => {
   return (
-    <div className={clsx(styles.outerWrapper, className)}>
-      <div className={styles.innerWrapper} style={{ width }}>
-        <div className={styles.line} />
+    <Flex justify="center" width="100%" className={className}>
+      <Flex align="center" style={{ width }}>
+        <Box
+          flexGrow="1"
+          height="1px"
+          mx="5"
+          style={{ backgroundColor: "var(--border-color-200)" }}
+        />
         <Text color="text-low" align="center" size="small">
           {children}
         </Text>
-        <div className={styles.line} />
-      </div>
-    </div>
+        <Box
+          flexGrow="1"
+          height="1px"
+          mx="5"
+          style={{ backgroundColor: "var(--border-color-200)" }}
+        />
+      </Flex>
+    </Flex>
   );
 };
 

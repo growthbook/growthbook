@@ -23,6 +23,7 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import { QUICK_ACTIONS } from "./ExplorerAIChat";
 import { PA_CHAT_CONVERSATION_KEY } from "./util";
+import { useDefaultDataSourceId } from "./ExplorerContext";
 
 export default function EmptyState() {
   const router = useRouter();
@@ -31,13 +32,15 @@ export default function EmptyState() {
   const { project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const defaultDataSourceId = useDefaultDataSourceId();
+
   const { input, setInput, sendMessage, loading } = useAIChat({
     endpoint: "/product-analytics/chat",
     conversationStorageKey: PA_CHAT_CONVERSATION_KEY,
     buildRequestBody: (message, cid) => ({
       message,
       conversationId: cid,
-      datasourceId: datasources[0]?.id ?? "",
+      datasourceId: defaultDataSourceId,
     }),
     onStreamAccepted: () => {
       router.push("/product-analytics/explore/ai-chat");
@@ -222,11 +225,16 @@ export default function EmptyState() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={loading}
+                  disabled={loading || !hasDatasources || !hasAISuggestions}
                 />
                 <Button
                   onClick={() => sendMessage()}
-                  disabled={!input.trim() || loading}
+                  disabled={
+                    !input.trim() ||
+                    loading ||
+                    !hasDatasources ||
+                    !hasAISuggestions
+                  }
                   size="md"
                 >
                   <PiArrowRightBold size={16} />
