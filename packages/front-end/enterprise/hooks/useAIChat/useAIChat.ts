@@ -286,142 +286,139 @@ export function useAIChat({
   // sendMessage
   // ---------------------------------------------------------------------------
 
-  const sendMessage = useCallback(
-    async (messageOverride?: string) => {
-      const trimmed = (messageOverride ?? input).trim();
-      if (!trimmed || loading) return;
+  const sendMessage = useCallback(async () => {
+    const trimmed = input.trim();
+    if (!trimmed || loading) return;
 
-      const userMessage: AIChatMessage = {
-        role: "user",
-        id: `msg_${messageCounterRef.current++}`,
-        content: trimmed,
-        ts: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-      setInput("");
-      setError(null);
-      clearRemotePoll();
-      setLoading(true);
-      setIsRemoteStream(false);
-      setActive([]);
-      setWaitingForNextStep(false);
+    const userMessage: AIChatMessage = {
+      role: "user",
+      id: `msg_${messageCounterRef.current++}`,
+      content: trimmed,
+      ts: Date.now(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setError(null);
+    clearRemotePoll();
+    setLoading(true);
+    setIsRemoteStream(false);
+    setActive([]);
+    setWaitingForNextStep(false);
 
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      userCancelledRef.current = false;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    userCancelledRef.current = false;
 
-      let streamCompletedOk = false;
+    let streamCompletedOk = false;
 
-      try {
-        const response = await fetchRaw(endpoint, {
-          method: "POST",
-          signal: controller.signal,
-          headers: { "x-no-compression": "1" },
-          body: JSON.stringify(buildRequestBody(trimmed, conversationId)),
-        });
+    try {
+      const response = await fetchRaw(endpoint, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "x-no-compression": "1" },
+        body: JSON.stringify(buildRequestBody(trimmed, conversationId)),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          if (response.status === 429 && errorData?.retryAfter) {
-            const retryAfter = parseInt(errorData.retryAfter);
-            const hours = Math.floor(retryAfter / 3600);
-            const minutes = Math.floor((retryAfter % 3600) / 60);
-            setError(
-              `AI request limit reached. Try again in ${hours}h ${minutes}m.`,
-            );
-          } else {
-            setError(errorData?.message || `Error: ${response.status}`);
-          }
-          return;
-        }
-
-        onStreamAccepted?.();
-        setIsLocalStream(true);
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          setError("Streaming not supported");
-          return;
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const { parsed, remaining } = parseSSEEvents(buffer);
-          buffer = remaining;
-
-          for (const event of parsed) {
-            onSSEEvent?.(event);
-
-            const result = processSSEEvent(
-              event,
-              activeTurnItemsRef.current,
-              toolStatusLabels,
-              nextId,
-            );
-            if (result.activeTurnItems) setActive(result.activeTurnItems);
-            if (result.waitingForNextStep !== undefined)
-              setWaitingForNextStep(result.waitingForNextStep);
-            if (result.error) setError(result.error);
-          }
-        }
-
-        streamCompletedOk = true;
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          // User cancelled — ignore
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (response.status === 429 && errorData?.retryAfter) {
+          const retryAfter = parseInt(errorData.retryAfter);
+          const hours = Math.floor(retryAfter / 3600);
+          const minutes = Math.floor((retryAfter % 3600) / 60);
+          setError(
+            `AI request limit reached. Try again in ${hours}h ${minutes}m.`,
+          );
         } else {
-          setError("Failed to get a response. Please try again.");
+          setError(errorData?.message || `Error: ${response.status}`);
         }
-      } finally {
-        const wasCancelled = userCancelledRef.current;
-        userCancelledRef.current = false;
-        setWaitingForNextStep(false);
-        setLoading(false);
-        setIsLocalStream(false);
-        abortControllerRef.current = null;
+        return;
+      }
 
-        if (getConversationEndpoint && streamCompletedOk) {
-          // Normal completion — sync the persisted messages from the server.
-          await syncMessagesFromServer();
-        } else if (getConversationEndpoint && wasCancelled) {
-          // User cancelled — give the backend a moment to flush and persist the
-          // partial response before syncing, then show whatever was saved.
-          await new Promise((resolve) => setTimeout(resolve, 600));
-          await syncMessagesFromServer();
-        } else if (getConversationEndpoint) {
-          // Navigation / new-chat abort — don't sync, just clear.
-          setActive([]);
-        } else {
-          // No server persistence — commit whatever was streamed locally.
-          finalizeTurn();
-          setActive([]);
+      onStreamAccepted?.();
+      setIsLocalStream(true);
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        setError("Streaming not supported");
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const { parsed, remaining } = parseSSEEvents(buffer);
+        buffer = remaining;
+
+        for (const event of parsed) {
+          onSSEEvent?.(event);
+
+          const result = processSSEEvent(
+            event,
+            activeTurnItemsRef.current,
+            toolStatusLabels,
+            nextId,
+          );
+          if (result.activeTurnItems) setActive(result.activeTurnItems);
+          if (result.waitingForNextStep !== undefined)
+            setWaitingForNextStep(result.waitingForNextStep);
+          if (result.error) setError(result.error);
         }
       }
-    },
-    [
-      input,
-      loading,
-      fetchRaw,
-      endpoint,
-      buildRequestBody,
-      conversationId,
-      toolStatusLabels,
-      onSSEEvent,
-      onStreamAccepted,
-      setActive,
-      finalizeTurn,
-      syncMessagesFromServer,
-      getConversationEndpoint,
-      nextId,
-      clearRemotePoll,
-    ],
-  );
+
+      streamCompletedOk = true;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // User cancelled — ignore
+      } else {
+        setError("Failed to get a response. Please try again.");
+      }
+    } finally {
+      const wasCancelled = userCancelledRef.current;
+      userCancelledRef.current = false;
+      setWaitingForNextStep(false);
+      setLoading(false);
+      setIsLocalStream(false);
+      abortControllerRef.current = null;
+
+      if (getConversationEndpoint && streamCompletedOk) {
+        // Normal completion — sync the persisted messages from the server.
+        await syncMessagesFromServer();
+      } else if (getConversationEndpoint && wasCancelled) {
+        // User cancelled — give the backend a moment to flush and persist the
+        // partial response before syncing, then show whatever was saved.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        await syncMessagesFromServer();
+      } else if (getConversationEndpoint) {
+        // Navigation / new-chat abort — don't sync, just clear.
+        setActive([]);
+      } else {
+        // No server persistence — commit whatever was streamed locally.
+        finalizeTurn();
+        setActive([]);
+      }
+    }
+  }, [
+    input,
+    loading,
+    fetchRaw,
+    endpoint,
+    buildRequestBody,
+    conversationId,
+    toolStatusLabels,
+    onSSEEvent,
+    onStreamAccepted,
+    setActive,
+    finalizeTurn,
+    syncMessagesFromServer,
+    getConversationEndpoint,
+    nextId,
+    clearRemotePoll,
+  ]);
 
   // ---------------------------------------------------------------------------
   // newChat

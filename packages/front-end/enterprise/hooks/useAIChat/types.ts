@@ -95,7 +95,7 @@ export interface UseAIChatReturn {
   messages: AIChatMessage[];
   activeTurnItems: ActiveTurnItem[];
   displayedTextMap: Map<string, string>;
-  sendMessage: (messageOverride?: string) => void;
+  sendMessage: () => void;
   /** Cancels the active live stream. No-op unless `isLocalStream` is true. */
   cancelGeneration: () => void;
   newChat: () => void;
