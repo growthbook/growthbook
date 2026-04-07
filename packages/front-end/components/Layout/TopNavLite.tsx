@@ -11,7 +11,7 @@ import {
 import { useMemo } from "react";
 import { safeLogout } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Avatar from "@/components/Avatar/Avatar";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { usePageHead } from "@/components/Layout/PageHead";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -209,11 +209,12 @@ export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {
             variant="solid"
             trigger={
               <div className="nav-link d-flex">
-                <Avatar
+                <UserAvatar
                   email={email || ""}
-                  size={26}
                   name={name || ""}
-                  className="mr-2"
+                  size="md"
+                  variant="soft"
+                  mr="2"
                 />{" "}
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>
