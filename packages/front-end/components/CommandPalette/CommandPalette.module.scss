@@ -86,6 +86,13 @@
   }
 }
 
+.showMore {
+  .itemName {
+    color: var(--text-color-muted);
+    font-weight: 500;
+  }
+}
+
 .itemIcon {
   color: var(--text-color-muted);
   flex-shrink: 0;

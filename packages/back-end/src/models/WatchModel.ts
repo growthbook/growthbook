@@ -53,6 +53,14 @@ export class WatchModel extends BaseClass {
     ).map((watcher) => watcher.userId);
   }
 
+  public async getFeatureWatchers(featureId: string): Promise<string[]> {
+    return (
+      await this._find({
+        features: featureId,
+      })
+    ).map((watcher) => watcher.userId);
+  }
+
   public async upsertWatch({ userId, item, type }: UpdateWatchOptions) {
     const existing = await this.getWatchedByUser(userId);
     if (existing) {

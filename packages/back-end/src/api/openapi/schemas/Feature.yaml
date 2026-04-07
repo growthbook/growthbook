@@ -74,3 +74,16 @@ properties:
   customFields:
     type: object
     additionalProperties: true
+  holdout:
+    nullable: true
+    type: object
+    required:
+      - id
+      - value
+    properties:
+      id:
+        type: string
+        description: Holdout ID
+      value:
+        type: string
+        description: The feature value assigned to users in the holdout treatment group

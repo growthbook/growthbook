@@ -18,6 +18,7 @@
 
 .listTrigger {
   cursor: pointer;
+  white-space: nowrap;
   &:hover {
     text-decoration: underline;
   }
@@ -25,18 +26,21 @@
 
 .permanentBadge {
   cursor: pointer;
+  white-space: nowrap;
   &:hover {
     background-color: var(--gray-5) !important;
   }
 }
 .staleBadge {
   cursor: pointer;
+  white-space: nowrap;
   &:hover {
     background-color: var(--yellow-7) !important;
   }
 }
 .freshBadge {
   cursor: pointer;
+  white-space: nowrap;
   &:hover {
     background-color: var(--green-6) !important;
   }

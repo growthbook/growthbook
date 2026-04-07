@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "shared/types/idea";
 import { date } from "shared/dates";
+import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
@@ -576,15 +577,10 @@ const MetricPage: FC = () => {
                             },
                             (responseData) => {
                               if (responseData.status === 429) {
-                                const retryAfter = parseInt(
-                                  responseData.retryAfter,
-                                );
-                                const hours = Math.floor(retryAfter / 3600);
-                                const minutes = Math.floor(
-                                  (retryAfter % 3600) / 60,
-                                );
                                 throw new Error(
-                                  `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                                  formatAIRateLimitRetryMessage(
+                                    responseData.retryAfter,
+                                  ),
                                 );
                               } else if (responseData.message) {
                                 throw new Error(responseData.message);

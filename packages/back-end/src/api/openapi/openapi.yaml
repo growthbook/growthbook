@@ -66,9 +66,12 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: ramp-schedules
+    x-displayName: Ramp Schedules
+    description: Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.
   - name: data-sources
     x-displayName: Data Sources
-    description: How GrowthBook connects and queries your data
+    description: How GrowthBook connects and queries your data, including cached database schema metadata (information schemas) for tables and columns.
   - name: fact-tables
     x-displayName: Fact Tables
     description: Fact Tables describe the shape of your data warehouse tables
@@ -227,7 +230,10 @@ paths:
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
   /experiments/{id}/visual-changesets:
-    $ref: "./paths/listVisualChangesets.yaml"
+    get:
+      $ref: "./paths/listVisualChangesets.yaml"
+    post:
+      $ref: "./paths/postVisualChangesets.yaml"
   /snapshots/{id}:
     $ref: "./paths/getExperimentSnapshot.yaml"
   /metrics:
@@ -370,6 +376,40 @@ paths:
   /settings:
     get:
       $ref: "./paths/getSettings.yaml"
+  /data-sources/{dataSourceId}/information-schema:
+    $ref: "./paths/getInformationSchema.yaml"
+  /information-schema-tables/{tableId}:
+    $ref: "./paths/getInformationSchemaTable.yaml"
+  /ramp-schedules:
+    get:
+      $ref: "./paths/listRampSchedules.yaml"
+    post:
+      $ref: "./paths/postRampSchedule.yaml"
+  /ramp-schedules/{id}:
+    get:
+      $ref: "./paths/getRampSchedule.yaml"
+    put:
+      $ref: "./paths/putRampSchedule.yaml"
+    delete:
+      $ref: "./paths/deleteRampSchedule.yaml"
+  /ramp-schedules/{id}/actions/start:
+    $ref: "./paths/rampScheduleActionStart.yaml"
+  /ramp-schedules/{id}/actions/pause:
+    $ref: "./paths/rampScheduleActionPause.yaml"
+  /ramp-schedules/{id}/actions/resume:
+    $ref: "./paths/rampScheduleActionResume.yaml"
+  /ramp-schedules/{id}/actions/approve-step:
+    $ref: "./paths/rampScheduleActionApproveStep.yaml"
+  /ramp-schedules/{id}/actions/rollback:
+    $ref: "./paths/rampScheduleActionRollback.yaml"
+  /ramp-schedules/{id}/actions/complete:
+    $ref: "./paths/rampScheduleActionComplete.yaml"
+  /ramp-schedules/{id}/actions/jump:
+    $ref: "./paths/rampScheduleActionJump.yaml"
+  /ramp-schedules/{id}/actions/add-target:
+    $ref: "./paths/rampScheduleActionAddTarget.yaml"
+  /ramp-schedules/{id}/actions/eject-target:
+    $ref: "./paths/rampScheduleActionEjectTarget.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

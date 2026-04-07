@@ -1,10 +1,18 @@
 import { ToggleFeatureResponse } from "shared/types/openapi";
 import { toggleFeatureValidator } from "shared/validators";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  checkIfRevisionNeedsReview,
+  getDraftAffectedEnvironments,
+  PermissionError,
+} from "shared/util";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
+  applyRevisionChanges,
   getFeature,
-  toggleMultipleEnvironments,
 } from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -38,35 +46,118 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       if (!environmentIds.includes(env)) {
         throw new Error(`Unknown environment: '${env}'`);
       }
-
       const state = [true, "true", "1", 1].includes(req.body.environments[env]);
       toggles[env] = state;
     });
 
-    const updatedFeature = await toggleMultipleEnvironments(
+    // Determine which envs actually changed
+    const changedToggles: Record<string, boolean> = {};
+    for (const [env, state] of Object.entries(toggles)) {
+      if (feature.environmentSettings?.[env]?.enabled !== state) {
+        changedToggles[env] = state;
+      }
+    }
+
+    if (Object.keys(changedToggles).length === 0) {
+      // No changes — return current state
+      const groupMap = await getSavedGroupMap(req.context);
+      const experimentMap = await getExperimentMapForFeature(
+        req.context,
+        feature.id,
+      );
+      const revision = await getRevision({
+        context: req.context,
+        organization: feature.organization,
+        featureId: feature.id,
+        version: feature.version,
+      });
+      const safeRolloutMap =
+        await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+      return {
+        feature: getApiFeatureObj({
+          feature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+          safeRolloutMap,
+        }),
+      };
+    }
+
+    const apiBypassesReviews =
+      !!req.context.org.settings?.restApiBypassesReviews;
+    // Build a minimal fake revision to check whether these toggle changes need review
+    const liveRevision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!liveRevision) {
+      throw new Error("Could not load live revision for feature");
+    }
+    const fakeRevision = {
+      ...liveRevision,
+      environmentsEnabled: changedToggles,
+    };
+    const reviewRequired = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: liveRevision,
+      revision: fakeRevision,
+      allEnvironments: environmentIds,
+      settings: req.organization.settings,
+      requireApprovalsLicensed:
+        req.context.hasPremiumFeature("require-approvals"),
+    });
+
+    if (reviewRequired && !apiBypassesReviews) {
+      const affectedEnvs = getDraftAffectedEnvironments(
+        fakeRevision,
+        liveRevision,
+        environmentIds,
+      );
+      const envList =
+        affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
+      throw new PermissionError(
+        `This feature requires a review before publishing changes to: ${envList}. ` +
+          "Enable 'REST API always bypasses approval requirements' in organization settings.",
+      );
+    }
+
+    const revision = await createRevision({
+      context: req.context,
+      feature,
+      user: req.eventAudit,
+      baseVersion: feature.version,
+      comment: "Created via REST API",
+      environments: environmentIds,
+      publish: true,
+      changes: { environmentsEnabled: changedToggles },
+      org: req.organization,
+      canBypassApprovalChecks: true, // review gate already enforced above
+    });
+
+    const updatedFeature = await applyRevisionChanges(
       req.context,
       feature,
-      toggles,
+      revision,
+      { environmentsEnabled: changedToggles },
     );
 
-    if (updatedFeature !== feature) {
-      await req.audit({
-        event: "feature.toggle",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(feature, updatedFeature),
-        reason: req.body.reason,
-      });
-    }
+    await req.audit({
+      event: "feature.toggle",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(feature, updatedFeature),
+      reason: req.body.reason,
+    });
 
     const groupMap = await getSavedGroupMap(req.context);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
       updatedFeature.id,
     );
-    const revision = await getRevision({
+    const latestRevision = await getRevision({
       context: req.context,
       organization: updatedFeature.organization,
       featureId: updatedFeature.id,
@@ -80,7 +171,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         organization: req.organization,
         groupMap,
         experimentMap,
-        revision,
+        revision: latestRevision,
         safeRolloutMap,
       }),
     };

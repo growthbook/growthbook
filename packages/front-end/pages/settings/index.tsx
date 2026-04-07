@@ -38,6 +38,7 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
+import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -130,8 +131,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
           resetReviewOnChange: false,
           environments: [],
           projects: [],
+          featureRequireEnvironmentReview: true,
+          featureRequireMetadataReview: true,
         },
       ],
+      restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disableMultiMetricQueries: false,
@@ -440,6 +444,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
             <TabsContent value="feature">
               <FeatureSettings />
+              <RampScheduleTemplates />
             </TabsContent>
 
             <TabsContent value="metrics">

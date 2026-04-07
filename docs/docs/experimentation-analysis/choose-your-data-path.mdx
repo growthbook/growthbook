@@ -1,0 +1,61 @@
+---
+title: Choose Your Data Path
+description: Decide between GrowthBook's Managed Warehouse and connecting your own data warehouse.
+sidebar_label: Choose Your Data Path
+slug: /app/choose-data-path
+---
+
+# Choose Your Data Path
+
+GrowthBook connects to a data warehouse to query your experiment data and calculate results. You have two options: our **Managed Warehouse** (we host a ClickHouse warehouse for you) or **Bring Your Own Warehouse** (BYOW — you connect your existing data infrastructure).
+
+## Quick decision
+
+**Do you already have a data warehouse with event data flowing into it?**
+
+- **Yes** &rarr; [Bring Your Own Warehouse](/warehouses) lets you keep your existing pipelines. GrowthBook integrates with all major warehouses and queries your data directly.
+- **No** &rarr; [Managed Warehouse](/app/managed-warehouse) gets you running quickly with zero infrastructure setup.
+
+**Not sure?** Read the comparison below.
+
+## Comparison
+
+|                          | Managed Warehouse                                    | Bring Your Own Warehouse                          |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------- |
+| **Setup time**           | Minutes. One click to provision.                     | Varies. Depends on your warehouse and permissions. |
+| **Infrastructure**       | Fully managed by GrowthBook (ClickHouse)             | You manage your own warehouse                     |
+| **Event tracking**       | Built-in via SDKs or Ingestion API                   | Use your existing event pipeline                  |
+| **Data ownership**       | Stored in GrowthBook-hosted ClickHouse               | Stays in your warehouse                           |
+| **Supported warehouses** | ClickHouse (managed)                                 | BigQuery, Snowflake, Redshift, Databricks, Postgres, ClickHouse, Athena, and more |
+| **Cost**                 | Included events by plan + overage pricing            | Free in GrowthBook; you pay your warehouse costs  |
+| **Best for**             | Teams getting started, no existing warehouse          | Teams with existing analytics infrastructure      |
+
+## Choose Managed Warehouse if...
+
+- You don't have a data warehouse set up yet.
+- You want the fastest path from signup to your first experiment result.
+- You're evaluating GrowthBook and want to see the full experience without infrastructure setup.
+- Your team is small and you'd rather not manage warehouse infrastructure.
+- You want built-in event tracking with automatic enrichment (geo, device, UTM data).
+
+[Get started with Managed Warehouse &rarr;](/app/managed-warehouse)
+
+## Choose Bring Your Own Warehouse if...
+
+- You already have event data flowing into BigQuery, Snowflake, Databricks, Redshift, or another warehouse.
+- You need to join experiment data with other business data (revenue, CRM, product usage).
+- Your organization has data governance requirements about where data is stored.
+- You want full control over your data pipeline and retention policies.
+- You're self-hosting GrowthBook.
+
+[Connect your warehouse &rarr;](/warehouses)
+
+## Can I switch later?
+
+Yes. You can add a BYOW data source alongside or instead of the Managed Warehouse at any time. You can also use both simultaneously. For example, use the Managed Warehouse for quick prototyping and your own warehouse for production experiments.
+
+## What's next
+
+- [Managed Warehouse setup guide](/app/managed-warehouse) — provision quickly and send your first event
+- [Connecting to your data warehouse](/warehouses) — step-by-step guides for each supported warehouse
+- [Metrics and Fact Tables](/app/metrics) — define what you want to measure in your experiments

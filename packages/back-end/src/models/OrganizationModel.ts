@@ -229,6 +229,17 @@ export async function createOrganization({
         { property: "utmContent", datatype: "string" },
       ],
       disablePrecomputedDimensions: false,
+      restApiBypassesReviews: false,
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+          featureRequireEnvironmentReview: true,
+          featureRequireMetadataReview: false,
+        },
+      ],
     },
     getStartedChecklistItems: [],
     isVercelIntegration,
