@@ -908,7 +908,10 @@ export default function ExplorerAIChat() {
                 <PiStop size={16} />
               </Button>
             ) : (
-              <Button onClick={sendMessage} disabled={!input.trim() || loading}>
+              <Button
+                onClick={() => sendMessage()}
+                disabled={!input.trim() || loading}
+              >
                 <PiArrowRightBold size={16} />
               </Button>
             )}
