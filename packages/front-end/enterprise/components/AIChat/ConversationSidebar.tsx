@@ -6,7 +6,7 @@ import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
-import CurrentDailyUsage from "./CurrentDailyUsage";
+import AIUsageWidget from "./AIUsageWidget";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,7 +58,7 @@ export default function ConversationSidebar({
     <Flex
       direction="column"
       style={{
-        width: collapsed ? 0 : 220,
+        width: collapsed ? 0 : 259,
         flexShrink: 0,
         borderRight: collapsed ? "none" : "1px solid var(--gray-a6)",
         background: "var(--color-panel-solid)",
@@ -94,7 +94,7 @@ export default function ConversationSidebar({
         direction="column"
         p="2"
         style={{
-          width: 220,
+          width: 259,
           flex: 1,
           minHeight: 0,
           opacity: collapsed ? 0 : 1,
@@ -286,7 +286,7 @@ export default function ConversationSidebar({
             )}
           </Flex>
         </ScrollArea>
-        <CurrentDailyUsage />
+        <AIUsageWidget />
       </Flex>
     </Flex>
   );
