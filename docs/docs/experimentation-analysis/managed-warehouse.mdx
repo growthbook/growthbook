@@ -1,34 +1,160 @@
 ---
 title: Managed Warehouse
-description: Learn about GrowthBook Cloud's Managed Warehouse service
+description: Get started with GrowthBook's fully managed data warehouse. One-click setup, built-in event tracking, and auto-created metrics.
 sidebar_label: Managed Warehouse
 slug: /app/managed-warehouse
 ---
 
 # Managed Warehouse
 
-GrowthBook Cloud offers a fully managed data warehouse and event tracking pipeline. This is primarily intended for users who want to use GrowthBook's experimentation and analysis features without needing to set up their own data warehouse.
+GrowthBook Cloud offers a fully managed data warehouse and event tracking pipeline. Provision it in one click, send events from your app, and GrowthBook handles the rest. No infrastructure setup required.
+
+:::info Not sure if Managed Warehouse is right for you?
+See [Choose Your Data Path](/app/choose-data-path) for a side-by-side comparison with connecting your own warehouse.
+:::
+
+## What you get
+
+When you provision the Managed Warehouse, GrowthBook automatically sets up your data source with everything pre-configured:
+
+### Tables
+
+We create 3 tables in a ClickHouse database managed by GrowthBook:
+
+| Table                | What it stores                                          | Indexed by                     |
+| -------------------- | ------------------------------------------------------- | ------------------------------ |
+| **events**           | All custom events (page views, purchases, clicks, etc.) | `event_name`, `timestamp`      |
+| **experiment_views** | Experiment exposure events                              | `experiment_id`, `timestamp`   |
+| **feature_usage**    | Feature flag evaluation events                          | `feature`, `timestamp`         |
+
+### Fact Table
+
+An **Events** fact table is pre-built on top of the `events` table. This is the base you use to define metrics. It includes 16+ standard columns (timestamp, event name, device ID, and all your key attributes) and is ready to use immediately.
+
+### Starter metrics
+
+Three metrics are auto-created to get you started:
+
+| Metric                 | Type  | What it measures                   |
+| ---------------------- | ----- | ---------------------------------- |
+| **Page Views per User** | Mean  | Average number of page views       |
+| **Sessions per User**   | Mean  | Average number of sessions         |
+| **Pages per Session**   | Ratio | Page views divided by sessions     |
+
+You can edit these or create your own. Read more about [metrics and fact tables](/app/metrics).
+
+### Default key attributes
+
+Key attributes are extracted from event data and stored as top-level columns for fast querying. We set up these defaults:
+
+- **Identifier:** `device_id`
+- **Dimensions:** `geo_country`, `ua_browser`, `ua_os`, `ua_device_type`, `utm_source`, `utm_medium`, `utm_campaign`
+
+You can add more key attributes on the data source settings page. See [Key Attributes](#key-attributes-materialized-columns) for details.
+
+## Getting started
+
+### 1. Provision the Managed Warehouse
+
+Go to **Metrics and Data** &rarr; **Data Sources** and click **Create** on the Managed Warehouse option. GrowthBook provisions your ClickHouse database, tables, fact table, and starter metrics in seconds.
+
+### 2. Install the SDK with tracking
+
+Add the GrowthBook SDK to your application with the tracking plugin enabled. Here are the two most common setups:
+
+**HTML Script Tag**: add one line to your page:
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY"
+  data-tracking="growthbook"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+**JavaScript / React**: install the SDK and enable the tracking plugin:
+
+```js
+import { GrowthBook } from "@growthbook/growthbook";
+import {
+  autoAttributesPlugin,
+  growthbookTrackingPlugin
+} from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+    clientKey: "YOUR_CLIENT_KEY",
+    plugins: [
+        autoAttributesPlugin(),
+        growthbookTrackingPlugin()
+    ]
+});
+```
+
+The tracking plugin automatically sends feature usage and experiment view events. You can also log custom events:
+
+```js
+gb.logEvent("Purchase", { amount: 49.99 });
+```
+
+See [all supported SDKs](#with-sdks) for more options including Node.js, Python, Java, PHP, Go, and Flutter.
+
+### 3. Verify events are flowing
+
+Open the **SQL Explorer** in GrowthBook and run a quick query to confirm events are arriving:
+
+```sql
+SELECT event_name, COUNT(*) AS count
+FROM events
+WHERE timestamp >= now() - INTERVAL 1 HOUR
+GROUP BY event_name
+ORDER BY count DESC
+```
+
+You should see your events appear within seconds of sending them.
+
+### 4. Create your first metric
+
+Your auto-created metrics (Page Views per User, Sessions per User, Pages per Session) are ready to use immediately. To create a custom metric:
+
+1. Go to **Metrics and Data** &rarr; **Fact Tables**.
+2. Open the **Events** fact table.
+3. Click **Add Metric** and configure it (for example, a Proportion metric filtered to `event_name = 'Purchase'` to track purchase conversion rate).
+
+Read more about [metric types and configuration](/app/metrics).
+
+### 5. Run your first experiment
+
+With events flowing and metrics defined, you're ready to experiment:
+
+1. Create a feature flag in **Features**.
+2. Add an **Experiment** rule to it.
+3. Start the experiment and watch results flow in on the **Results** tab.
+
+For a detailed walkthrough, see our [guide to running Feature Flag Experiments](/feature-flag-experiments).
+
+---
 
 ## Benefits
 
-- **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
-- **Seamless Integration**: One-click installation + built-in tracking in our SDKs.
-- **Raw SQL Access**: Use our SQL Explorer to run custom queries against your data.
+- **Fully managed**: No infrastructure management, scaling, or maintenance.
+- **Seamless integration**: One-click setup + built-in tracking in our SDKs.
+- **Instant data**: Events are enriched and available within seconds.
+- **Raw SQL access**: Use the SQL Explorer to run custom queries against your data.
 
-## How it Works
+## How it works
 
-We use ClickHouse, a database optimized for real-time analytics, to store your event data. The process is simple:
+We use ClickHouse, a database optimized for real-time analytics, to store your event data. The process is:
 
-1. You send analytics events to our scalable ingestion API
-2. We enrich and store them in ClickHouse within seconds
-3. You can query the data with SQL, define metrics, and analyze experiment results with our powerful stats engine.
+1. You send analytics events to our scalable ingestion API.
+2. We enrich and store them in ClickHouse within seconds.
+3. You can query the data with SQL, define metrics, and analyze experiment results with our stats engine.
 
-## Sending Events
+## Sending events
 
 There are 2 ways to send events to GrowthBook Cloud's Managed Warehouse:
 
-1. With our [SDKs](#with-sdks) (limited language support)
-2. With our [Ingestion API](#ingestion-api)
+1. With our [SDKs](#with-sdks) (limited language support).
+2. With our [Ingestion API](#ingestion-api).
 
 ### With SDKs
 
@@ -49,11 +175,11 @@ For everything else, use the [Ingestion API](#ingestion-api).
 
 When the plugin is added, these SDKs will automatically send feature usage and experiment view events to GrowthBook. They also expose a helper method to log additional custom events with optional properties.
 
-All of the attributes in the SDK are sent along with events as context. Because of this, make sure you do not include any sensitive information in your attributes (or if you do, anonymize it first).
+All of the attributes in the SDK are sent along with events as context. Make sure you do not include any sensitive information in your attributes (or if you do, anonymize it first).
 
 #### HTML Script Tag
 
-Simply add `data-tracking="growthbook"` to your script tag to enable.
+Add `data-tracking="growthbook"` to your script tag to enable.
 
 ```html
 <script async
@@ -172,7 +298,7 @@ curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 
 Make sure you do not include any sensitive information in your events (or if you do, anonymize it first).
 
-#### Experiment View Events
+#### Experiment view events
 
 In order to use GrowthBook's experiment analysis features, you must send an event every time a user views an experiment. It must match the following format:
 
@@ -183,7 +309,7 @@ In order to use GrowthBook's experiment analysis features, you must send an even
 
 In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing.
 
-#### Feature Usage Events
+#### Feature usage events
 
 To take advantage of GrowthBook's feature usage analytics, you must send an event every time a feature is evaluated with a specific format.
 
@@ -201,38 +327,38 @@ Attributes are key-value pairs that provide context about the user or environmen
 
 It's recommended to include the same attributes you use in your GrowthBook SDK.
 
-Some attributes are enriched in the ingestion API if provided:
+Some attributes are automatically enriched by the ingestion API:
 
-- `ip` - a geoip lookup is done and the following attributes are added. If an ip attribute is not provided, we will use the IP address of the request.
+- `ip`: a geoip lookup is done and the following attributes are added. If an ip attribute is not provided, we use the IP address of the request.
   - `geo_country`
   - `geo_city`
   - `geo_lat`
   - `geo_lon`
-- `ua` - the user agent is parsed and the following attributes are added. If a user agent attribute is not provided, we will use the user agent of the request.
+- `ua`: the user agent is parsed and the following attributes are added. If a user agent attribute is not provided, we use the user agent of the request.
   - `ua_browser` (e.g. Safari)
   - `ua_os` (e.g. macOS)
   - `ua_device_type` (e.g. mobile)
-- `url` - the URL is parsed and the following attributes are added:
+- `url`: the URL is parsed and the following attributes are added:
   - `url_path` (e.g. /products/123)
   - `url_host` (e.g. www.example.com)
   - `url_query` (e.g. ?utm_source=google)
   - `url_fragment` (e.g. #section1)
 
-It's also recommend to include attributes about which SDK is being used. This can help with debugging.
+It's also recommended to include attributes about which SDK is being used. This helps with debugging.
 
 - `sdk_language` (e.g. python)
 - `sdk_version` (e.g. 1.2.3)
 
 #### Limits
 
-When calling the ingestion API directly, please be aware of the following default limits:
+When calling the ingestion API directly, be aware of the following default limits:
 
-- Maximum of 100 events per request
-- Maximum of 1 request per second
+- Maximum of 100 events per request.
+- Maximum of 1 request per second.
 
-If you need to send more than this, please reach out and we can increase your limits.
+If you need to send more than this, reach out and we can increase your limits.
 
-## Key Attributes (Materialized Columns)
+## Key attributes (materialized columns)
 
 By default, all attributes are stored as a JSON string in the `attributes` column of the `events` table. This keeps the table structure clean, but it can be more tedious and slow to query.
 
@@ -240,52 +366,46 @@ On the data source settings page, you can pick a set of "Key Attributes" that wi
 
 There are 2 main types of Key Attributes you should add:
 
-1. **Identifiers** - used to split traffic in experiments. Common examples are `user_id`, `anonymous_id`, and `session_id`.
-2. **Dimensions** - used to slice and dice your experiment results. Common examples are `geo_country`, `ua_device_type`, and `account_plan`.
+1. **Identifiers**: used to split traffic in experiments. Common examples are `user_id`, `anonymous_id`, and `session_id`.
+2. **Dimensions**: used to slice and dice your experiment results. Common examples are `geo_country`, `ua_device_type`, and `account_plan`.
 
 You can also select `Other` as the type for any attributes that don't fit into the above categories. This will add them as top-level columns, but they won't be used for splitting traffic or slicing results.
 
-Note: Adding new Key Attributes does not apply retroactively to existing events. It will only affect new events going forward. The GrowthBook team can help you backfill existing events with Key Attributes if needed.
-
-## Creating Metrics
-
-When you set up a Managed Warehouse data source, GrowthBook will create a Fact Table for you called `Events`. You can use this as a base to define metrics.
-
-Read more about [fact tables and metrics](/app/metrics) and how to use them in GrowthBook.
+:::note
+Adding new Key Attributes does not apply retroactively to existing events. It only affects new events going forward. The GrowthBook team can help you backfill existing events with Key Attributes if needed.
+:::
 
 ## SQL Explorer
 
-You can use the SQL Explorer to run ad-hoc queries against your events. This can be useful for exploring your data, debugging issues, or creating custom reports.
+You can use the SQL Explorer to run ad-hoc queries against your events. This is useful for exploring your data, debugging issues, or creating custom reports.
 
 :::note
-
 The SQL Explorer only allows read-only SELECT queries. Write operations (INSERT, UPDATE, etc.) are prevented from being executed by the platform.
-
 :::
 
 You will see 3 tables in the SQL Explorer:
 
-- **feature_usage** - contains all feature usage events
-- **experiment_views** - contains all experiment view events
-- **events** - contains all other events
+- **feature_usage**: contains all feature usage events
+- **experiment_views**: contains all experiment view events
+- **events**: contains all other events
 
-### SQL Best Practices
+### SQL best practices
 
-#### Use Indexes
+#### Use indexes
 
 For best performance, take advantage of the indexed columns in each table:
 
 - **events** table:
-  - `timestamp` - the time the event occurred
-  - `event_name` - the name of the event (e.g., "Purchase", "Button Click")
+  - `timestamp`: the time the event occurred
+  - `event_name`: the name of the event (e.g., "Purchase", "Button Click")
 - **feature_usage** table:
-  - `timestamp` - the time the event occurred
-  - `feature` - the name of the feature being evaluated
+  - `timestamp`: the time the event occurred
+  - `feature`: the name of the feature being evaluated
 - **experiment_views** table:
-  - `timestamp` - the time the event occurred
-  - `experimentId` - the ID of the experiment being viewed
+  - `timestamp`: the time the event occurred
+  - `experimentId`: the ID of the experiment being viewed
 
-#### Querying Attributes and Properties
+#### Querying attributes and properties
 
 If you need to access data inside attributes or properties, you can use the `JSONExtract` functions from ClickHouse to extract values from the JSON string. Here's an example:
 
@@ -298,13 +418,13 @@ WHERE timestamp >= '2025-06-01 00:00:00'
   AND event_name = 'Purchase'
 ```
 
-For attributes that are commonly used in queries, you can also define them as [Key Attributes](#key-attributes-materialized-columns) which will pull them out as top-level columns. This makes it easier to query and improves performance.
+For attributes that are commonly used in queries, define them as [Key Attributes](#key-attributes-materialized-columns) to pull them out as top-level columns. This makes querying easier and improves performance.
 
-#### Large Queries
+#### Large queries
 
 There is a limit of 1000 rows in the SQL Explorer. Returning raw events over a large time period will quickly exceed this limit.
 
-To work around this, you can use `GROUP BY` in your queries to aggregate results.
+To work around this, use `GROUP BY` in your queries to aggregate results.
 
 One common aggregation is by time intervals. You can use the `toStartOf...` functions in ClickHouse for this. For example, to get daily event counts:
 
@@ -318,6 +438,28 @@ GROUP BY day
 ORDER BY day ASC
 ```
 
-Now, whether you have thousands or millions of events, this query will always return a manageable number of rows (one per day).
+Whether you have thousands or millions of events, this query will always return a manageable number of rows (one per day).
 
 There are also functions like `toStartOfHour`, `toStartOfMonth`, etc. that you can use to group by different time intervals.
+
+## FAQ
+
+### Can I use the Managed Warehouse alongside my own warehouse?
+
+Yes. You can add a separate data source for your own warehouse at any time and use both simultaneously. Note that each experiment pulls data from a single data source, so you can't mix metrics from both warehouses within one experiment.
+
+### How do I add custom identifiers like `user_id`?
+
+Go to your data source settings page and add `user_id` as a new Key Attribute with type **Identifier**. Once added, include `user_id` in the `attributes` of your events and it will be extracted as a top-level column.
+
+### What happens if I exceed my event limit?
+
+You'll see a notification in GrowthBook when you're approaching your limit. On free plans, events stop being tracked for the remainder of the month and reset the following month. On paid plans, overage charges apply.
+
+### Can I export my data?
+
+You can query and export results through the SQL Explorer.
+
+### Can I use the Managed Warehouse when self-hosting?
+
+The Managed Warehouse is only available on GrowthBook Cloud. Self-hosted instances should [connect their own data warehouse](/warehouses).

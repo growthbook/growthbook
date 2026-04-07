@@ -248,7 +248,7 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
-      variations: [phaseVariation],
+      variations: { type: [phaseVariation], default: undefined },
       groups: [String],
       banditEvents: [
         {
