@@ -5,6 +5,7 @@ import React, {
   useState,
   useMemo,
 } from "react";
+import { useRouter } from "next/router";
 import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
@@ -63,7 +64,7 @@ import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import SaveToDashboardModal from "./SaveToDashboardModal";
-import { PA_CHAT_CONVERSATION_KEY } from "./util";
+import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
@@ -260,10 +261,24 @@ function ChartBubble({
 // ---------------------------------------------------------------------------
 
 export default function ExplorerAIChat() {
+  const router = useRouter();
   const prevLoadingRef = useRef(false);
   /** Persists the open/closed state of each ToolTransparencyBlock across the
    *  activeTurnItems → messages remount that happens at turn end. */
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
+
+  const initialMessageRef = useRef<string | null>(
+    (() => {
+      const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
+      if (stored) {
+        sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
+        return stored.trim() || null;
+      }
+      return typeof router.query.message === "string"
+        ? router.query.message.trim() || null
+        : null;
+    })(),
+  );
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAiOptInModal, setShowAiOptInModal] = useState(false);
@@ -333,7 +348,6 @@ export default function ExplorerAIChat() {
   } = useAIChat({
     endpoint: "/product-analytics/chat",
     buildRequestBody,
-    conversationStorageKey: PA_CHAT_CONVERSATION_KEY,
     toolStatusLabels: TOOL_STATUS_LABELS,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     onStreamAccepted: () => {
@@ -422,6 +436,14 @@ export default function ExplorerAIChat() {
   useEffect(() => {
     inputRef.current?.focus();
   }, [conversationId]);
+
+  useEffect(() => {
+    const msg = initialMessageRef.current;
+    if (!msg) return;
+    initialMessageRef.current = null;
+    void router.replace(router.pathname, undefined, { shallow: true });
+    sendMessage(msg);
+  }, [sendMessage, router]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

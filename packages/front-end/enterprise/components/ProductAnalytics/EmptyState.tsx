@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Flex, Box } from "@radix-ui/themes";
 import {
@@ -14,7 +14,6 @@ import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
@@ -22,8 +21,7 @@ import TextDivider from "@/components/TextDivider/TextDivider";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import { QUICK_ACTIONS } from "./ExplorerAIChat";
-import { PA_CHAT_CONVERSATION_KEY } from "./util";
-import { useDefaultDataSourceId } from "./ExplorerContext";
+import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 
 export default function EmptyState() {
   const router = useRouter();
@@ -31,39 +29,29 @@ export default function EmptyState() {
   const { datasources } = useDefinitions();
   const { project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [input, setInput] = useState("");
 
-  const defaultDataSourceId = useDefaultDataSourceId();
-
-  const { input, setInput, sendMessage, loading } = useAIChat({
-    endpoint: "/product-analytics/chat",
-    conversationStorageKey: PA_CHAT_CONVERSATION_KEY,
-    buildRequestBody: (message, cid) => ({
-      message,
-      conversationId: cid,
-      datasourceId: defaultDataSourceId,
-    }),
-    onStreamAccepted: () => {
-      router.push("/product-analytics/explore/ai-chat");
-    },
-  });
+  const handleSubmit = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    sessionStorage.setItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY, trimmed);
+    router.push("/product-analytics/explore/ai-chat");
+  }, [input, router]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        sendMessage();
+        handleSubmit();
       }
     },
-    [sendMessage],
+    [handleSubmit],
   );
 
-  const handleQuickAction = useCallback(
-    (prompt: string) => {
-      setInput(prompt);
-      inputRef.current?.focus();
-    },
-    [setInput],
-  );
+  const handleQuickAction = useCallback((prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+  }, []);
 
   const hasDatasources = datasources.length > 0;
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
@@ -225,15 +213,12 @@ export default function EmptyState() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={loading || !hasDatasources || !hasAISuggestions}
+                  disabled={!hasDatasources || !hasAISuggestions}
                 />
                 <Button
-                  onClick={() => sendMessage()}
+                  onClick={handleSubmit}
                   disabled={
-                    !input.trim() ||
-                    loading ||
-                    !hasDatasources ||
-                    !hasAISuggestions
+                    !input.trim() || !hasDatasources || !hasAISuggestions
                   }
                   size="md"
                 >
