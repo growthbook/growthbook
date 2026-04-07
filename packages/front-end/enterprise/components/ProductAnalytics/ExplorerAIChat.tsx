@@ -588,14 +588,7 @@ export default function ExplorerAIChat() {
             onClose={() => setShowAiOptInModal(false)}
           />
         ) : null}
-        <Flex
-          align="center"
-          justify="center"
-          direction="column"
-          gap="3"
-          p="6"
-          // style={{ height: "100%" }}
-        >
+        <Flex align="center" justify="center" direction="column" gap="3" p="6">
           <BsStars size={28} />
           {!hasAISuggestions ? (
             <Text align="center" color="text-mid">
