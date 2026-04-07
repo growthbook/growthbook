@@ -360,6 +360,8 @@ export function getAdditionalExperimentAnalysisSettings(
   additionalAnalyses.push({
     ...defaultAnalysisSettings,
     differenceType: "absolute",
+    statsEngine: "frequentist",
+    sequentialTesting: false,
     useCovariateAsResponse: true,
   });
 

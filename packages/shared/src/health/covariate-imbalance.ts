@@ -57,10 +57,6 @@ function statSigFrequentist(pValue: number, pValueThreshold: number): boolean {
   return pValue < pValueThreshold;
 }
 
-function statSigBayesian(chanceToWin: number, threshold: number): boolean {
-  return chanceToWin < threshold || chanceToWin > 1 - threshold;
-}
-
 export interface CovariateImbalanceTableRow {
   metricId: string;
   variation: number;
@@ -131,13 +127,6 @@ function tabulateCovariateImbalanceByGroup(
             pValueThreshold,
           );
           pValueForTable = treatmentMetric.pValue;
-        } else if (typeof treatmentMetric.chanceToWin === "number") {
-          const chanceThreshold = 0.5 * pValueThreshold;
-          metricIsImbalanced = statSigBayesian(
-            treatmentMetric.chanceToWin,
-            chanceThreshold,
-          );
-          pValueForTable = pValueFromChanceToWin(treatmentMetric.chanceToWin);
         }
 
         if (pValueForTable === undefined) {
