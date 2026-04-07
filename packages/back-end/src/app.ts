@@ -12,7 +12,7 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import { stringToBoolean } from "shared/util";
+import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
@@ -130,6 +130,8 @@ import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
+import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
@@ -144,7 +146,14 @@ if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
 
 // Some platforms set the PORT env var, causing the back-end and front-end to both try to listen on the same port.
 // BACKEND_PORT allows specifying a different port for the back-end to mitigate this conflict.
-app.set("port", process.env.BACKEND_PORT || process.env.PORT || 3100);
+app.set(
+  "port",
+  parseEnvInt(process.env.BACKEND_PORT || process.env.PORT, 3100, {
+    min: 0,
+    max: 65535,
+    name: "BACKEND_PORT/PORT",
+  }),
+);
 app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
@@ -651,6 +660,10 @@ app.post(
   "/experiment/:id/targeting",
   experimentsController.postExperimentTargeting,
 );
+app.post(
+  "/experiment/:id/features",
+  experimentsController.postExperimentFeatureValues,
+);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",
@@ -757,6 +770,12 @@ app.use("/url-redirects", urlRedirectRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
+
+// Ramp Schedules
+app.use("/ramp-schedule", rampScheduleRouter);
+
+// Ramp Schedule Templates
+app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 
 // Holdouts
 app.use("/holdout", holdoutRouter);
@@ -885,6 +904,10 @@ app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
+app.post(
+  "/datasource/:id/query/:queryId/cancel",
+  datasourcesController.cancelDataSourceQuery,
+);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery,

@@ -8,6 +8,14 @@
 | **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
 | **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
 | **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
+| **[feature.rampSchedule.created](#featurerampSchedulecreated)** | Triggered when a ramp schedule is created for a feature |
+| **[feature.rampSchedule.deleted](#featurerampScheduledeleted)** | Triggered when a ramp schedule is deleted from a feature |
+| **[feature.rampSchedule.actions.started](#featurerampScheduleactionsstarted)** | Triggered when a feature ramp schedule starts |
+| **[feature.rampSchedule.actions.completed](#featurerampScheduleactionscompleted)** | Triggered when a feature ramp schedule completes all steps |
+| **[feature.rampSchedule.actions.rolledBack](#featurerampScheduleactionsrolledBack)** | Triggered when a feature ramp schedule is rolled back or reset to start |
+| **[feature.rampSchedule.actions.jumped](#featurerampScheduleactionsjumped)** | Triggered when a feature ramp schedule is jumped to a specific step |
+| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances to the next step |
+| **[feature.rampSchedule.actions.step.approvalRequired](#featurerampScheduleactionsstepapprovalRequired)** | Triggered when a feature ramp step is waiting for approval |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -46,52 +54,101 @@ Triggered when a feature is created
             environments: Record<string, {
                 enabled: boolean;
                 defaultValue: string;
-                rules: ({
+                rules: (({
                     description: string;
-                    condition: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
+                    scheduleRules?: {
+                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /** ISO timestamp when the rule should activate. */
+                        timestamp: string | null;
+                    }[] | undefined;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "force";
+                    value: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** Optional seed for the hash function; defaults to the rule id */
+                    seed?: string | undefined;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
                     type: "experiment";
                     trackingKey?: string | undefined;
                     hashAttribute?: string | undefined;
@@ -105,113 +162,185 @@ Triggered when a feature is created
                         range: number[];
                     } | undefined;
                     coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
+                    /** Variation values with weights */
                     value?: {
                         value: string;
                         weight: number;
                         name?: string | undefined;
                     }[] | undefined;
-                } | {
+                }) | ({
                     description: string;
+                    condition?: string | undefined;
                     id: string;
                     enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "experiment-ref";
+                    variations: {
+                        value: string;
+                        variationId: string;
+                    }[];
+                    experimentId: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
                     id: string;
-                    trackingKey?: string | undefined;
                     enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                })[];
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string | undefined;
+                    hashAttribute?: string | undefined;
+                    trackingKey?: string | undefined;
+                    safeRolloutId?: string | undefined;
+                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                }))[];
                 /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string | undefined;
                 draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
-                        condition: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "force";
+                        value: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** Optional seed for the hash function; defaults to the rule id */
+                        seed?: string | undefined;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
                         type: "experiment";
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
@@ -225,62 +354,85 @@ Triggered when a feature is created
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
+                        /** Variation values with weights */
                         value?: {
                             value: string;
                             weight: number;
                             name?: string | undefined;
                         }[] | undefined;
-                    } | {
+                    }) | ({
                         description: string;
+                        condition?: string | undefined;
                         id: string;
                         enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "experiment-ref";
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
                         enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                    })[];
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        trackingKey?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    }))[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
                 } | undefined;
@@ -311,8 +463,13 @@ Triggered when a feature is created
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -350,52 +507,101 @@ Triggered when a feature is updated
             environments: Record<string, {
                 enabled: boolean;
                 defaultValue: string;
-                rules: ({
+                rules: (({
                     description: string;
-                    condition: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
+                    scheduleRules?: {
+                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /** ISO timestamp when the rule should activate. */
+                        timestamp: string | null;
+                    }[] | undefined;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "force";
+                    value: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** Optional seed for the hash function; defaults to the rule id */
+                    seed?: string | undefined;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
                     type: "experiment";
                     trackingKey?: string | undefined;
                     hashAttribute?: string | undefined;
@@ -409,113 +615,185 @@ Triggered when a feature is updated
                         range: number[];
                     } | undefined;
                     coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
+                    /** Variation values with weights */
                     value?: {
                         value: string;
                         weight: number;
                         name?: string | undefined;
                     }[] | undefined;
-                } | {
+                }) | ({
                     description: string;
+                    condition?: string | undefined;
                     id: string;
                     enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "experiment-ref";
+                    variations: {
+                        value: string;
+                        variationId: string;
+                    }[];
+                    experimentId: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
                     id: string;
-                    trackingKey?: string | undefined;
                     enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                })[];
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string | undefined;
+                    hashAttribute?: string | undefined;
+                    trackingKey?: string | undefined;
+                    safeRolloutId?: string | undefined;
+                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                }))[];
                 /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string | undefined;
                 draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
-                        condition: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "force";
+                        value: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** Optional seed for the hash function; defaults to the rule id */
+                        seed?: string | undefined;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
                         type: "experiment";
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
@@ -529,62 +807,85 @@ Triggered when a feature is updated
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
+                        /** Variation values with weights */
                         value?: {
                             value: string;
                             weight: number;
                             name?: string | undefined;
                         }[] | undefined;
-                    } | {
+                    }) | ({
                         description: string;
+                        condition?: string | undefined;
                         id: string;
                         enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "experiment-ref";
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
                         enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                    })[];
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        trackingKey?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    }))[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
                 } | undefined;
@@ -620,52 +921,101 @@ Triggered when a feature is updated
             environments?: Record<string, {
                 enabled: boolean;
                 defaultValue: string;
-                rules: ({
+                rules: (({
                     description: string;
-                    condition: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
+                    scheduleRules?: {
+                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /** ISO timestamp when the rule should activate. */
+                        timestamp: string | null;
+                    }[] | undefined;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "force";
+                    value: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** Optional seed for the hash function; defaults to the rule id */
+                    seed?: string | undefined;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
                     type: "experiment";
                     trackingKey?: string | undefined;
                     hashAttribute?: string | undefined;
@@ -679,113 +1029,185 @@ Triggered when a feature is updated
                         range: number[];
                     } | undefined;
                     coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
+                    /** Variation values with weights */
                     value?: {
                         value: string;
                         weight: number;
                         name?: string | undefined;
                     }[] | undefined;
-                } | {
+                }) | ({
                     description: string;
+                    condition?: string | undefined;
                     id: string;
                     enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "experiment-ref";
+                    variations: {
+                        value: string;
+                        variationId: string;
+                    }[];
+                    experimentId: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
                     id: string;
-                    trackingKey?: string | undefined;
                     enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                })[];
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string | undefined;
+                    hashAttribute?: string | undefined;
+                    trackingKey?: string | undefined;
+                    safeRolloutId?: string | undefined;
+                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                }))[];
                 /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string | undefined;
                 draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
-                        condition: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "force";
+                        value: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** Optional seed for the hash function; defaults to the rule id */
+                        seed?: string | undefined;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
                         type: "experiment";
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
@@ -799,62 +1221,85 @@ Triggered when a feature is updated
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
+                        /** Variation values with weights */
                         value?: {
                             value: string;
                             weight: number;
                             name?: string | undefined;
                         }[] | undefined;
-                    } | {
+                    }) | ({
                         description: string;
+                        condition?: string | undefined;
                         id: string;
                         enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "experiment-ref";
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
                         enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                    })[];
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        trackingKey?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    }))[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
                 } | undefined;
@@ -890,8 +1335,13 @@ Triggered when a feature is updated
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -929,52 +1379,101 @@ Triggered when a feature is deleted
             environments: Record<string, {
                 enabled: boolean;
                 defaultValue: string;
-                rules: ({
+                rules: (({
                     description: string;
-                    condition: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
+                    scheduleRules?: {
+                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /** ISO timestamp when the rule should activate. */
+                        timestamp: string | null;
+                    }[] | undefined;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "force";
+                    value: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "force";
-                    value: string;
-                } | {
-                    description: string;
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "rollout";
+                    value: string;
+                    coverage: number;
+                    hashAttribute: string;
+                    /** Optional seed for the hash function; defaults to the rule id */
+                    seed?: string | undefined;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
+                    id: string;
+                    enabled: boolean;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    id: string;
-                    enabled: boolean;
-                    type: "rollout";
-                    value: string;
-                    coverage: number;
-                    hashAttribute: string;
-                } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
                     type: "experiment";
                     trackingKey?: string | undefined;
                     hashAttribute?: string | undefined;
@@ -988,113 +1487,185 @@ Triggered when a feature is deleted
                         range: number[];
                     } | undefined;
                     coverage?: number | undefined;
-                    scheduleRules?: {
-                        /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                        enabled: boolean;
-                        /** ISO timestamp when the rule should activate. */
-                        timestamp: string | null;
-                    }[] | undefined;
+                    /** Variation values with weights */
                     value?: {
                         value: string;
                         weight: number;
                         name?: string | undefined;
                     }[] | undefined;
-                } | {
+                }) | ({
                     description: string;
+                    condition?: string | undefined;
                     id: string;
                     enabled: boolean;
-                    type: "experiment-ref";
-                    condition?: string | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                    variations: {
-                        value: string;
-                        variationId: string;
-                    }[];
-                    experimentId: string;
-                } | {
-                    condition: string;
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                     savedGroupTargeting?: {
                         matchType: "all" | "any" | "none";
                         savedGroups: string[];
                     }[] | undefined;
                     prerequisites?: {
-                        /** Feature ID */
+                        /** Feature ID of the prerequisite */
                         id: string;
                         condition: string;
                     }[] | undefined;
+                } & {
+                    type: "experiment-ref";
+                    variations: {
+                        value: string;
+                        variationId: string;
+                    }[];
+                    experimentId: string;
+                }) | ({
+                    description: string;
+                    condition?: string | undefined;
                     id: string;
-                    trackingKey?: string | undefined;
                     enabled: boolean;
-                    type: "safe-rollout";
-                    controlValue: string;
-                    variationValue: string;
-                    seed?: string | undefined;
-                    hashAttribute?: string | undefined;
-                    safeRolloutId?: string | undefined;
-                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    /** Simple time-based on/off schedule for this rule */
                     scheduleRules?: {
                         /** Whether the rule should be enabled or disabled at the specified timestamp. */
                         enabled: boolean;
                         /** ISO timestamp when the rule should activate. */
                         timestamp: string | null;
                     }[] | undefined;
-                })[];
+                    /**
+                     * UI hint for which scheduling mode is active:
+                     * - `none` – no schedule
+                     * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                     * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                     */
+                    scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                    savedGroupTargeting?: {
+                        matchType: "all" | "any" | "none";
+                        savedGroups: string[];
+                    }[] | undefined;
+                    prerequisites?: {
+                        /** Feature ID of the prerequisite */
+                        id: string;
+                        condition: string;
+                    }[] | undefined;
+                } & {
+                    type: "safe-rollout";
+                    controlValue: string;
+                    variationValue: string;
+                    seed?: string | undefined;
+                    hashAttribute?: string | undefined;
+                    trackingKey?: string | undefined;
+                    safeRolloutId?: string | undefined;
+                    status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                }))[];
                 /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string | undefined;
                 draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
-                        condition: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "force";
+                        value: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "force";
-                        value: string;
-                    } | {
-                        description: string;
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** Optional seed for the hash function; defaults to the rule id */
+                        seed?: string | undefined;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
+                        id: string;
+                        enabled: boolean;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        id: string;
-                        enabled: boolean;
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                    } | {
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
                         type: "experiment";
                         trackingKey?: string | undefined;
                         hashAttribute?: string | undefined;
@@ -1108,62 +1679,85 @@ Triggered when a feature is deleted
                             range: number[];
                         } | undefined;
                         coverage?: number | undefined;
-                        scheduleRules?: {
-                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /** ISO timestamp when the rule should activate. */
-                            timestamp: string | null;
-                        }[] | undefined;
+                        /** Variation values with weights */
                         value?: {
                             value: string;
                             weight: number;
                             name?: string | undefined;
                         }[] | undefined;
-                    } | {
+                    }) | ({
                         description: string;
+                        condition?: string | undefined;
                         id: string;
                         enabled: boolean;
-                        type: "experiment-ref";
-                        condition?: string | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                        variations: {
-                            value: string;
-                            variationId: string;
-                        }[];
-                        experimentId: string;
-                    } | {
-                        condition: string;
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
                         prerequisites?: {
-                            /** Feature ID */
+                            /** Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                         }[] | undefined;
+                    } & {
+                        type: "experiment-ref";
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    }) | ({
+                        description: string;
+                        condition?: string | undefined;
                         id: string;
-                        trackingKey?: string | undefined;
                         enabled: boolean;
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string | undefined;
-                        hashAttribute?: string | undefined;
-                        safeRolloutId?: string | undefined;
-                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        /** Simple time-based on/off schedule for this rule */
                         scheduleRules?: {
                             /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
                             /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
-                    })[];
+                        /**
+                         * UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         */
+                        scheduleType?: ("none" | "schedule" | "ramp") | undefined;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
+                    } & {
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        trackingKey?: string | undefined;
+                        safeRolloutId?: string | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                    }))[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
                 } | undefined;
@@ -1194,8 +1788,13 @@ Triggered when a feature is deleted
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1233,8 +1832,13 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1272,8 +1876,13 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1312,8 +1921,382 @@ Triggered when a safe rollout is failing a health check and may not be working a
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.created
+
+Triggered when a ramp schedule is created for a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.created";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            entityType: string;
+            entityId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.deleted
+
+Triggered when a ramp schedule is deleted from a feature
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.deleted";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.started
+
+Triggered when a feature ramp schedule starts
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.started";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.completed
+
+Triggered when a feature ramp schedule completes all steps
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.completed";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.rolledBack
+
+Triggered when a feature ramp schedule is rolled back or reset to start
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.rolledBack";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.jumped
+
+Triggered when a feature ramp schedule is jumped to a specific step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.jumped";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            targetStepIndex: number;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.advanced
+
+Triggered when a feature ramp schedule advances to the next step
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.advanced";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.step.approvalRequired
+
+Triggered when a feature ramp step is waiting for approval
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.step.approvalRequired";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+            approvalNotes?: (string | null) | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1411,6 +2394,35 @@ Triggered when an experiment is created
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1419,6 +2431,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1429,6 +2448,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1439,6 +2465,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1449,6 +2482,13 @@ Triggered when an experiment is created
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -1478,6 +2518,8 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
     };
@@ -1489,8 +2531,13 @@ Triggered when an experiment is created
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1588,6 +2635,35 @@ Triggered when an experiment is updated
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1596,6 +2672,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1606,6 +2689,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1616,6 +2706,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1626,6 +2723,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -1655,6 +2759,8 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
         previous_attributes: {
@@ -1731,6 +2837,35 @@ Triggered when an experiment is updated
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1739,6 +2874,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1749,6 +2891,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1759,6 +2908,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1769,6 +2925,13 @@ Triggered when an experiment is updated
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             } | undefined;
@@ -1798,6 +2961,8 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
         changes?: {
@@ -1814,8 +2979,13 @@ Triggered when an experiment is updated
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -1913,6 +3083,35 @@ Triggered when an experiment is deleted
                 regressionAdjustmentEnabled?: boolean | undefined;
                 sequentialTestingEnabled?: boolean | undefined;
                 sequentialTestingTuningParameter?: number | undefined;
+                /** When null, the organization default is used. */
+                postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string | undefined;
+                    decisionFrameworkMetricOverrides?: {
+                        /** ID of the metric to override settings for. */
+                        id: string;
+                        /** The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number | undefined;
+                    }[] | undefined;
+                } | undefined;
+                /** Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: {
+                    /** ID of the metric to override settings for. */
+                    id: string;
+                    windowType?: ("conversion" | "lookback" | "") | undefined;
+                    windowHours?: number | undefined;
+                    delayHours?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean | undefined;
+                    properPriorEnabled?: boolean | undefined;
+                    properPriorMean?: number | undefined;
+                    properPriorStdDev?: number | undefined;
+                    /** Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean | undefined;
+                    regressionAdjustmentEnabled?: boolean | undefined;
+                    regressionAdjustmentDays?: number | undefined;
+                }[] | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1921,6 +3120,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 secondaryMetrics: {
@@ -1931,6 +3137,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 guardrails: {
@@ -1941,6 +3154,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 }[];
                 activationMetric?: {
@@ -1951,6 +3171,13 @@ Triggered when an experiment is deleted
                         window?: ("conversion" | "lookback" | "") | undefined;
                         winRiskThreshold?: number | undefined;
                         loseRiskThreshold?: number | undefined;
+                        properPriorOverride?: boolean | undefined;
+                        properPriorEnabled?: boolean | undefined;
+                        properPriorMean?: number | undefined;
+                        properPriorStdDev?: number | undefined;
+                        regressionAdjustmentOverride?: boolean | undefined;
+                        regressionAdjustmentEnabled?: boolean | undefined;
+                        regressionAdjustmentDays?: number | undefined;
                     };
                 } | undefined;
             };
@@ -1980,6 +3207,8 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            /** ID of the default dashboard for this experiment. */
+            defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
         };
     };
@@ -1991,8 +3220,13 @@ Triggered when an experiment is deleted
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2042,8 +3276,13 @@ Triggered when a warning condition is detected on an experiment
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2087,8 +3326,13 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2126,8 +3370,13 @@ Triggered when an experiment is ready to ship a variation.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2165,8 +3414,13 @@ Triggered when an experiment should be rolled back to the control.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2204,8 +3458,13 @@ Triggered when an experiment has reached the desired power point, but the result
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];
@@ -2247,8 +3506,13 @@ Triggered when a user logs in
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
     } | null;
     tags: string[];
     environments: string[];

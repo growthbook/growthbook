@@ -75,18 +75,21 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       changes.defaultValue = revision.defaultValue;
     }
 
+    // Always write all envs into changes.rules so createRevision doesn't
+    // fall back to [] for any env absent from a sparse map.
+    changes.rules = {};
     const changedEnvs: string[] = [];
     environmentIds.forEach((env) => {
-      if (
-        revision.rules?.[env] &&
-        !isEqual(
-          revision.rules[env],
-          feature.environmentSettings?.[env]?.rules || [],
-        )
-      ) {
+      const currentRules = feature.environmentSettings?.[env]?.rules || [];
+      // If the target revision has rules for this env, restore them;
+      // otherwise preserve current state (env didn't exist at revision time).
+      const targetRules =
+        revision.rules && env in revision.rules
+          ? revision.rules[env]
+          : currentRules;
+      changes.rules![env] = targetRules;
+      if (!isEqual(targetRules, currentRules)) {
         changedEnvs.push(env);
-        changes.rules = changes.rules || {};
-        changes.rules[env] = revision.rules[env];
       }
 
       if (

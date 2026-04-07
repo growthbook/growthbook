@@ -17,7 +17,7 @@ import { RadixTheme } from "@/services/RadixTheme";
 import { GBInfo } from "@/components/Icons";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
-  body: string | JSX.Element;
+  body: ReactNode;
   popperClassName?: string;
   popperStyle?: CSSProperties;
   tipMinWidth?: string;
@@ -58,28 +58,39 @@ const Tooltip: FC<Props> = ({
   const [alreadyHovered, setAlreadyHovered] = useState(false);
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const nestedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const clearTimeouts = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-  }, [timeoutRef]);
+    if (nestedTimeoutRef.current) {
+      clearTimeout(nestedTimeoutRef.current);
+      nestedTimeoutRef.current = null;
+    }
+  }, []);
 
   const handleMouseEnter = useCallback(() => {
     clearTimeouts();
     timeoutRef.current = setTimeout(() => {
       setOpen(true);
-      setTimeout(() => setFadeIn(true), 50);
+      nestedTimeoutRef.current = setTimeout(() => setFadeIn(true), 50);
     }, delay);
-  }, [clearTimeouts, timeoutRef, setOpen, setFadeIn, delay]);
+  }, [clearTimeouts, delay]);
 
   const handleMouseLeave = useCallback(() => {
     clearTimeouts();
     timeoutRef.current = setTimeout(() => {
       setFadeIn(false);
-      setTimeout(() => setOpen(false), 300);
+      nestedTimeoutRef.current = setTimeout(() => setOpen(false), 300);
     }, 200);
+  }, [clearTimeouts]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeouts();
+    };
   }, [clearTimeouts]);
 
   useEffect(() => {

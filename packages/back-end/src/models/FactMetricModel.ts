@@ -1,3 +1,4 @@
+import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -25,6 +26,7 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
+import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 import { getDataSourceById } from "./DataSourceModel";
 import { getFactTableMap } from "./FactTableModel";
@@ -45,6 +47,8 @@ const BaseClass = MakeModelClass({
     owner: "",
     tags: [],
   },
+  // Compound indexes for API list filtering
+  additionalIndexes: [{ fields: { organization: 1, datasource: 1 } }],
 });
 
 // extra checks on user filter
@@ -151,6 +155,25 @@ export class FactMetricModel extends BaseClass {
   }
   protected canDelete(doc: FactMetricInterface): boolean {
     return this.context.permissions.canDeleteFactMetric(doc);
+  }
+
+  /**
+   * Get all fact metrics with optional filters and DB-level sorting by id
+   */
+  public getAllSorted(options?: {
+    datasourceId?: string;
+    factTableId?: string;
+    projectId?: string;
+  }) {
+    const filter: FilterQuery<FactMetricInterface> = {
+      ...(options?.datasourceId && { datasource: options.datasourceId }),
+      ...(options?.factTableId && {
+        "numerator.factTableId": options.factTableId,
+      }),
+      ...(options?.projectId && projectFilterQuery(options.projectId)),
+    };
+
+    return this._find(filter, { sort: { id: 1 } });
   }
 
   public static upgradeFactMetricDoc(

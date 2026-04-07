@@ -36,6 +36,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
+  registerRevisionPublishedHook: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
