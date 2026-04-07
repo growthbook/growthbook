@@ -116,7 +116,6 @@ Triggered when a feature is created
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -162,7 +161,6 @@ Triggered when a feature is created
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -310,7 +308,6 @@ Triggered when a feature is created
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -356,7 +353,6 @@ Triggered when a feature is created
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -465,13 +461,11 @@ Triggered when a feature is created
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -575,7 +569,6 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -621,7 +614,6 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -769,7 +761,6 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -815,7 +806,6 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -993,7 +983,6 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1039,7 +1028,6 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1187,7 +1175,6 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1233,7 +1220,6 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -1347,13 +1333,11 @@ Triggered when a feature is updated
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1457,7 +1441,6 @@ Triggered when a feature is deleted
                 } & {
                     type: "rollout";
                     value: string;
-                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1503,7 +1486,6 @@ Triggered when a feature is deleted
                         name: string;
                         range: number[];
                     } | undefined;
-                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1651,7 +1633,6 @@ Triggered when a feature is deleted
                     } & {
                         type: "rollout";
                         value: string;
-                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1697,7 +1678,6 @@ Triggered when a feature is deleted
                             name: string;
                             range: number[];
                         } | undefined;
-                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -1806,13 +1786,11 @@ Triggered when a feature is deleted
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1852,13 +1830,11 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1898,13 +1874,11 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1945,13 +1919,11 @@ Triggered when a safe rollout is failing a health check and may not be working a
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1993,13 +1965,11 @@ Triggered when a ramp schedule is created for a feature
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2039,13 +2009,11 @@ Triggered when a ramp schedule is deleted from a feature
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2087,13 +2055,11 @@ Triggered when a feature ramp schedule starts
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2135,13 +2101,11 @@ Triggered when a feature ramp schedule completes all steps
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2184,13 +2148,11 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2233,13 +2195,11 @@ Triggered when a feature ramp schedule is jumped to a specific step
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2281,13 +2241,11 @@ Triggered when a feature ramp schedule advances to the next step
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2330,13 +2288,11 @@ Triggered when a feature ramp step is waiting for approval
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2398,7 +2354,6 @@ Triggered when an experiment is created
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2574,13 +2529,11 @@ Triggered when an experiment is created
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2642,7 +2595,6 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2845,7 +2797,6 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -3026,13 +2977,11 @@ Triggered when an experiment is updated
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3094,7 +3043,6 @@ Triggered when an experiment is deleted
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
-                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -3270,13 +3218,11 @@ Triggered when an experiment is deleted
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3328,13 +3274,11 @@ Triggered when a warning condition is detected on an experiment
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3380,13 +3324,11 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3426,13 +3368,11 @@ Triggered when an experiment is ready to ship a variation.
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3472,13 +3412,11 @@ Triggered when an experiment should be rolled back to the control.
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3518,13 +3456,11 @@ Triggered when an experiment has reached the desired power point, but the result
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3568,13 +3504,11 @@ Triggered when a user logs in
         email: string;
         name: string;
     } | {
-        type: "api";
-        id: string;
-        email: string;
-        name: string;
-    } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;

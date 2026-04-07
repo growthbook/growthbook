@@ -5,8 +5,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { isNamedUser } from "shared/validators";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.
 export const NON_CONTENT_ACTIONS = new Set([
@@ -33,7 +32,8 @@ interface Props {
 export default function CoAuthors({ rev, logs, mt, mb }: Props) {
   const [open, setOpen] = useState(false);
 
-  const createdById = isNamedUser(rev.createdBy) ? rev.createdBy.id : null;
+  const createdById =
+    rev.createdBy?.type === "dashboard" ? rev.createdBy.id : null;
 
   const storedContributors = (rev.contributors ?? []).filter(
     (c): c is NonNullable<typeof c> => c != null,
@@ -43,18 +43,21 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
     storedContributors.length === 0 && logs
       ? logs
           .filter(
-            (l) => !NON_CONTENT_ACTIONS.has(l.action) && isNamedUser(l.user),
+            (l) =>
+              !NON_CONTENT_ACTIONS.has(l.action) &&
+              l.user?.type === "dashboard",
           )
           .map((l) => l.user!)
           .filter(
             (u, i, arr) =>
-              isNamedUser(u) &&
-              arr.findIndex((x) => isNamedUser(x) && x.id === u.id) === i,
+              u.type === "dashboard" &&
+              arr.findIndex((x) => x.type === "dashboard" && x.id === u.id) ===
+                i,
           )
       : storedContributors;
 
   const coAuthors = derivedContributors.filter(
-    (c) => !(isNamedUser(c) && c.id === createdById),
+    (c) => !(c.type === "dashboard" && c.id === createdById),
   );
 
   if (coAuthors.length === 0) return null;
@@ -80,19 +83,15 @@ export default function CoAuthors({ rev, logs, mt, mb }: Props) {
       </div>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">
-          {coAuthors.map((c, i) =>
-            isNamedUser(c) ? (
-              <Avatar
-                key={c.id}
-                email={c.email}
-                name={c.name ?? ""}
-                size={22}
-                showEmail
+          {coAuthors.map((c) =>
+            c.type === "dashboard" || c.type === "api_key" ? (
+              <EventUser
+                user={c}
+                display="avatar-name-email"
+                size="sm"
+                wrap={true}
+                key={c.type === "dashboard" ? c.id : c.apiKey}
               />
-            ) : c?.type === "api_key" ? (
-              <span key={i} className="badge badge-secondary">
-                API Key
-              </span>
             ) : null,
           )}
         </Flex>

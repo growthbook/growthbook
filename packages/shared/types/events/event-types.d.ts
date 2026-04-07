@@ -7,9 +7,7 @@ import { EventUser } from "shared/validators";
 export {
   EventUser,
   EventUserLoggedIn,
-  EventUserApi,
   EventUserApiKey,
-  isNamedUser,
 } from "shared/validators";
 
 /**

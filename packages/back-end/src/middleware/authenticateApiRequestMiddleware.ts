@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { EventUser } from "shared/types/events/event-types";
+import { EventUserApiKey } from "shared/types/events/event-types";
 import { OrganizationInterface, Permission } from "shared/types/organization";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
@@ -115,20 +115,19 @@ export default function authenticateApiRequestMiddleware(
 
       const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
 
-      // Personal Access Tokens carry a userId — emit user identity so audit logs
-      // and approval flows correctly attribute actions to the person, not just a key ID.
-      const eventAudit: EventUser =
-        userId && req.user
+      const eventAudit: EventUserApiKey = {
+        type: "api_key",
+        apiKey: id || "unknown",
+        ...(userId && req.user
           ? {
-              type: "api",
               id: req.user.id,
+              name: req.user.name || "",
               email: req.user.email,
-              name: req.user.name ?? "",
             }
           : {
-              type: "api_key",
-              apiKey: id || "unknown",
-            };
+              name: apiKeyDoc.description || "",
+            }),
+      };
 
       req.context = new ReqContextClass({
         org,

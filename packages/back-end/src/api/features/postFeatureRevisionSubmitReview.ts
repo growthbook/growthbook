@@ -1,7 +1,6 @@
 import omit from "lodash/omit";
 import { z } from "zod";
 import { getReviewSetting } from "shared/util";
-import { isNamedUser } from "shared/validators";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -46,7 +45,8 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
 
   // Block the creator from any non-comment review action.
   if (
-    isNamedUser(revision.createdBy) &&
+    revision.createdBy != null &&
+    "id" in revision.createdBy &&
     revision.createdBy.id === req.context.userId &&
     action !== "comment"
   ) {
@@ -61,7 +61,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler({
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) => isNamedUser(c) && c.id === req.context.userId,
+        (c) => c != null && "id" in c && c.id === req.context.userId,
       );
       if (isSelfApproval) {
         throw new BadRequestError(

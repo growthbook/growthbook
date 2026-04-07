@@ -4269,7 +4269,9 @@ paths:
                         type: number
                         description: Rollout Percent (0–1)
                       trafficSplit:
+                        deprecated: true
                         type: array
+                        description: Deprecated and unused. Use variationWeights instead.
                         items:
                           type: object
                           required:

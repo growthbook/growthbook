@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef } from "react";
-import { RampScheduleInterface, isNamedUser } from "shared/validators";
+import { RampScheduleInterface } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   autoMerge,
@@ -13,13 +13,13 @@ import {
 } from "shared/util";
 import { useForm } from "react-hook-form";
 import {
-  EventUserApi,
   EventUserLoggedIn,
+  EventUserApiKey,
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -87,7 +87,7 @@ export default function RequestReviewModal({
     revision?.status === "changes-requested";
   const createdBy = revision?.createdBy as
     | EventUserLoggedIn
-    | EventUserApi
+    | EventUserApiKey
     | undefined;
   const requireReviews = organization?.settings?.requireReviews;
   const reviewSetting = Array.isArray(requireReviews)
@@ -96,7 +96,7 @@ export default function RequestReviewModal({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some(
-      (c) => isNamedUser(c) && c.id === user?.id,
+      (c) => c != null && "id" in c && c.id === user?.id,
     );
   const canReview =
     isPendingReview &&
@@ -397,21 +397,28 @@ export default function RequestReviewModal({
                 <Flex align="center" gap="2" wrap="wrap" mt="1">
                   {[revision.createdBy, ...revision.contributors]
                     .filter(
-                      (u): u is EventUserLoggedIn | EventUserApi =>
-                        u != null && isNamedUser(u),
+                      (u): u is EventUserLoggedIn | EventUserApiKey =>
+                        u != null &&
+                        (u.type === "dashboard" || u.type === "api_key"),
                     )
                     .filter(
                       (u, idx, arr) =>
-                        arr.findIndex((x) => x.id === u.id) === idx,
+                        arr.findIndex(
+                          (x) => "id" in x && "id" in u && x.id === u.id,
+                        ) === idx,
                     )
                     .map((lu) => {
                       return (
-                        <Flex key={lu.id} align="center" gap="1">
-                          <Avatar
-                            email={lu.email}
-                            size={18}
-                            name={lu.name}
-                            showEmail
+                        <Flex
+                          key={"id" in lu ? lu.id : lu.apiKey}
+                          align="center"
+                          gap="1"
+                          wrap="wrap"
+                        >
+                          <EventUser
+                            user={lu}
+                            display="avatar-name-email"
+                            size="sm"
                           />
                         </Flex>
                       );

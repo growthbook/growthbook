@@ -4,8 +4,8 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import {
-  EventUserApi,
   EventUserLoggedIn,
+  EventUserApiKey,
 } from "shared/types/events/event-types";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -37,7 +37,7 @@ export default function FeaturesDraftTable() {
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
     const createdBy = revision?.createdBy as
       | EventUserLoggedIn
-      | EventUserApi
+      | EventUserApiKey
       | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {

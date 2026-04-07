@@ -25703,6 +25703,10 @@ export interface operations {
               seed?: string;
               /** @description Rollout Percent (0–1) */
               coverage?: number;
+              /**
+               * @deprecated 
+               * @description Deprecated and unused. Use variationWeights instead.
+               */
               trafficSplit?: ({
                   variationId: string;
                   weight: number;

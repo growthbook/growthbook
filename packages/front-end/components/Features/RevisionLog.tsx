@@ -3,7 +3,6 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
-import { isNamedUser } from "shared/validators";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { date, datetime } from "shared/dates";
@@ -17,9 +16,8 @@ import stringify from "json-stringify-pretty-compact";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 
 export type MutateLog = {
@@ -57,8 +55,6 @@ export function RevisionLogRow({
   first: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const { users } = useUser();
-
   let value = log.value;
   let valueContainsData = false;
   try {
@@ -76,11 +72,6 @@ export function RevisionLogRow({
   }
 
   const hasExpandable = !comment && valueContainsData;
-
-  let name = "API";
-  if (isNamedUser(log.user)) {
-    name = users.get(log.user.id)?.name ?? "";
-  }
 
   const color = actionColor(log.action);
 
@@ -116,13 +107,12 @@ export function RevisionLogRow({
           </Text>
         )}
         <Flex align="center" gap="1" ml="auto">
-          {isNamedUser(log.user) ? (
-            <Avatar email={log.user.email} size={16} name={name} showEmail />
-          ) : (
-            <Text size="small" color="text-low">
-              {"API"}
-            </Text>
-          )}
+          <EventUser
+            user={log.user}
+            display="avatar-name-email"
+            size="sm"
+            wrap={true}
+          />
           <Text size="small" color="text-low">
             {" · "}
             {datetime(log.timestamp)}

@@ -124,6 +124,7 @@ const PHASE_SUB_KEYS: Record<
   namespace: "targeting-phases",
   seed: "targeting-phases",
   variationWeights: "targeting-phases",
+  variations: "targeting-phases",
   // "Phase info" section (denylist via stripSubKeys — see comment above)
   dateStarted: "phase-info",
   dateEnded: "phase-info",
