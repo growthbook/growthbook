@@ -26,6 +26,8 @@ import { dateGranularity, explorationConfigValidator } from "shared/validators";
 
 export { mapDatabaseTypeToEnum };
 
+export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
+
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
   label: string;
@@ -562,5 +564,3 @@ export function sortExplorationRows(
     return (groupTotals[groupB] ?? 0) - (groupTotals[groupA] ?? 0);
   });
 }
-
-export const PA_CHAT_CONVERSATION_KEY = "pa-chat-conversation-id";

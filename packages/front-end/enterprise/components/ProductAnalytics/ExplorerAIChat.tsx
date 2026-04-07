@@ -63,7 +63,7 @@ import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import SaveToDashboardModal from "./SaveToDashboardModal";
-import { PA_CHAT_CONVERSATION_KEY } from "./util";
+import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
@@ -265,6 +265,17 @@ export default function ExplorerAIChat() {
    *  activeTurnItems → messages remount that happens at turn end. */
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
 
+  const initialMessageRef = useRef<string | null>(
+    (() => {
+      const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
+      if (stored) {
+        sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY);
+        return stored.trim() || null;
+      }
+      return null;
+    })(),
+  );
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAiOptInModal, setShowAiOptInModal] = useState(false);
   const [chatOverrideModel, setChatOverrideModel] = useState("");
@@ -333,7 +344,6 @@ export default function ExplorerAIChat() {
   } = useAIChat({
     endpoint: "/product-analytics/chat",
     buildRequestBody,
-    conversationStorageKey: PA_CHAT_CONVERSATION_KEY,
     toolStatusLabels: TOOL_STATUS_LABELS,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     onStreamAccepted: () => {
@@ -422,6 +432,13 @@ export default function ExplorerAIChat() {
   useEffect(() => {
     inputRef.current?.focus();
   }, [conversationId]);
+
+  useEffect(() => {
+    const msg = initialMessageRef.current;
+    if (!msg) return;
+    initialMessageRef.current = null;
+    sendMessage(msg);
+  }, [sendMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -886,7 +903,10 @@ export default function ExplorerAIChat() {
                 <PiStop size={16} />
               </Button>
             ) : (
-              <Button onClick={sendMessage} disabled={!input.trim() || loading}>
+              <Button
+                onClick={() => sendMessage()}
+                disabled={!input.trim() || loading}
+              >
                 <PiArrowRightBold size={16} />
               </Button>
             )}
