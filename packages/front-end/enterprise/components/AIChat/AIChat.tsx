@@ -399,7 +399,7 @@ export default function AIChat({
             variant="ghost"
             color="violet"
             disabled={!input.trim() || loading}
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             style={{ flexShrink: 0 }}
             aria-label="Send message"
           >
