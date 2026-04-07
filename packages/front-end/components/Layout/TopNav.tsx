@@ -469,7 +469,7 @@ const TopNav: FC<{
               >
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>
-                    <Text weight={"bold"} style={{ fontSize: 14 }}>
+                    <Text weight="semibold" size="small">
                       {email}
                     </Text>
                   </OverflowText>{" "}

@@ -58,13 +58,10 @@ export default function EmptyState() {
           Product Analytics
         </Heading>
         <Badge color="indigo" label="Beta" ml="2" variant="solid" />
-      </Flex>
-      <Box mt="5">
-        <Flex align="center" gap="2">
-          <Text color="text-low">Data source:</Text>
+        <Flex align="center" gap="2" ml="3">
           <DataSourceDropdown />
         </Flex>
-      </Box>
+      </Flex>
       <Box
         mt="5"
         style={{
