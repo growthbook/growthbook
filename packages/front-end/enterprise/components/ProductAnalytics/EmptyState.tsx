@@ -20,7 +20,6 @@ import Badge from "@/ui/Badge";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
-import { QUICK_ACTIONS } from "./ExplorerAIChat";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 
 export default function EmptyState() {
@@ -47,11 +46,6 @@ export default function EmptyState() {
     },
     [handleSubmit],
   );
-
-  const handleQuickAction = useCallback((prompt: string) => {
-    setInput(prompt);
-    inputRef.current?.focus();
-  }, []);
 
   const hasDatasources = datasources.length > 0;
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
@@ -224,21 +218,6 @@ export default function EmptyState() {
                 >
                   <PiArrowRightBold size={16} />
                 </Button>
-              </Flex>
-              <Flex align="center" gap="2" wrap="wrap">
-                {QUICK_ACTIONS.map((action) => (
-                  <Button
-                    key={action.label}
-                    variant="outline"
-                    size="xs"
-                    onClick={() => handleQuickAction(action.prompt)}
-                  >
-                    <Flex align="center" gap="1">
-                      {action.icon}
-                      {action.label}
-                    </Flex>
-                  </Button>
-                ))}
               </Flex>
             </Flex>
           </Flex>

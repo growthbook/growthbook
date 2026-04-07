@@ -9,10 +9,6 @@ import { Flex, Box } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import {
   PiSparkle,
-  PiLightning,
-  PiUserCircle,
-  PiChartLine,
-  PiArrowsLeftRight,
   PiArrowRightBold,
   PiArrowLineLeft,
   PiArrowLineRight,
@@ -101,33 +97,6 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   getCurrentConfig: "Reading current config...",
   getConfigSchema: "Loading config schema...",
 };
-
-export const QUICK_ACTIONS: {
-  label: string;
-  icon: React.ReactNode;
-  prompt: string;
-}[] = [
-  {
-    label: "User Growth",
-    icon: <PiUserCircle size={16} />,
-    prompt: "Show me user growth trends over time",
-  },
-  {
-    label: "Conversion Analysis",
-    icon: <PiChartLine size={16} />,
-    prompt: "Analyze conversion rates across key funnel steps",
-  },
-  {
-    label: "Revenue Trends",
-    icon: <PiArrowsLeftRight size={16} />,
-    prompt: "Show revenue trends over the last 30 days",
-  },
-  {
-    label: "Top Metrics",
-    icon: <PiChartLine size={16} />,
-    prompt: "What are our top performing metrics right now?",
-  },
-];
 
 function groupIntoBlocks(
   msgs: AIChatMessage[],
@@ -448,14 +417,6 @@ export default function ExplorerAIChat() {
       }
     },
     [sendMessage],
-  );
-
-  const handleQuickAction = useCallback(
-    (prompt: string) => {
-      setInput(prompt);
-      inputRef.current?.focus();
-    },
-    [setInput],
   );
 
   // ---------------------------------------------------------------------------
@@ -864,30 +825,6 @@ export default function ExplorerAIChat() {
             background: "var(--color-panel-solid)",
           }}
         >
-          <Flex align="center" gap="1" wrap="wrap">
-            <Flex align="center" gap="1" mr="2" style={{ flexShrink: 0 }}>
-              <PiLightning size={16} />
-              <Text size="small" color="text-low" weight="semibold">
-                Quick actions:
-              </Text>
-            </Flex>
-            <Flex align="center" gap="2" wrap="wrap">
-              {QUICK_ACTIONS.map((action) => (
-                <Button
-                  key={action.label}
-                  variant="outline"
-                  size="xs"
-                  onClick={() => handleQuickAction(action.prompt)}
-                >
-                  <Flex align="center" gap="1">
-                    {action.icon}
-                    {action.label}
-                  </Flex>
-                </Button>
-              ))}
-            </Flex>
-          </Flex>
-
           <Flex gap="2" width="100%" align="center" justify="center">
             <Field
               placeholder="Ask about metrics, experiments, or setup..."
