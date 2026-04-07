@@ -332,7 +332,11 @@ def get_configured_test(
     if analysis.use_covariate_as_response:
         num_variations = len(analysis.var_names)
         # if there are no goal metrics, just use 1 as the number of tests
-        num_tests = max(1, (num_variations - 1) * analysis.num_goal_metrics)
+        num_tests = max(
+            1,
+            (num_variations - 1)
+            * (analysis.num_goal_metrics + analysis.num_guardrail_metrics),
+        )
         alpha = analysis.alpha / num_tests
     else:
         alpha = analysis.alpha

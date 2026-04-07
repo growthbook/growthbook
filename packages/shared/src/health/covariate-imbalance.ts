@@ -61,10 +61,6 @@ function statSigBayesian(chanceToWin: number, threshold: number): boolean {
   return chanceToWin < threshold || chanceToWin > 1 - threshold;
 }
 
-function pValueFromChanceToWin(chanceToWin: number): number {
-  return Math.min(0.5 * (1 - chanceToWin), 0.5 * chanceToWin);
-}
-
 export interface CovariateImbalanceTableRow {
   metricId: string;
   variation: number;

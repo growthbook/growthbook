@@ -135,6 +135,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueThreshold?: number;
   baselineVariationIndex?: number;
   numGoalMetrics: number;
+  numGuardrailMetrics: number;
   oneSidedIntervals?: boolean;
   holdoutAnalysisWindow?: {
     start: Date;

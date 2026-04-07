@@ -28,6 +28,7 @@ class AnalysisSettingsForStatsEngine:
     max_dimensions: int = 20
     traffic_percentage: float = 1
     num_goal_metrics: int = 1
+    num_guardrail_metrics: int = 0
     one_sided_intervals: bool = False
     use_covariate_as_response: bool = False
     post_stratification_enabled: bool = False

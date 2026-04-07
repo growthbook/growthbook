@@ -117,6 +117,7 @@ export function getMetricForSafeRolloutSnapshot(
 
 export function getAnalysisSettingsFromSafeRolloutArgs(
   args: SafeRolloutSnapshotAnalysisSettings,
+  numGuardrailMetrics: number,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: [],
@@ -129,6 +130,7 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
     differenceType: "absolute",
     baselineVariationIndex: 0,
     numGoalMetrics: 0,
+    numGuardrailMetrics,
     oneSidedIntervals: true,
   };
 }
@@ -177,6 +179,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(
     args.analyses[0].settings,
+    args.settings.guardrailMetrics.length,
   );
   return { snapshotSettings, analysisSettings };
 }
@@ -266,6 +269,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: 0,
+    numGuardrailMetrics: 0,
   };
 }
 

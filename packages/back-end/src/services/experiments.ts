@@ -339,6 +339,7 @@ export function getDefaultExperimentAnalysisSettings({
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: experiment.goalMetrics.length,
+    numGuardrailMetrics: (experiment.guardrailMetrics ?? []).length,
   };
 }
 
