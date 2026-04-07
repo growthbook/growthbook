@@ -1,3 +1,5 @@
+import React from "react";
+import { PiUserCircle, PiChartLine, PiArrowsLeftRight } from "react-icons/pi";
 import {
   ColumnInterface,
   FactMetricInterface,
@@ -564,3 +566,30 @@ export function sortExplorationRows(
 }
 
 export const PA_CHAT_CONVERSATION_KEY = "pa-chat-conversation-id";
+
+export const QUICK_ACTIONS: {
+  label: string;
+  icon: React.ReactNode;
+  prompt: string;
+}[] = [
+  {
+    label: "User Growth",
+    icon: <PiUserCircle size={16} />,
+    prompt: "Show me user growth trends over time",
+  },
+  {
+    label: "Conversion Analysis",
+    icon: <PiChartLine size={16} />,
+    prompt: "Analyze conversion rates across key funnel steps",
+  },
+  {
+    label: "Revenue Trends",
+    icon: <PiArrowsLeftRight size={16} />,
+    prompt: "Show revenue trends over the last 30 days",
+  },
+  {
+    label: "Top Metrics",
+    icon: <PiChartLine size={16} />,
+    prompt: "What are our top performing metrics right now?",
+  },
+];

@@ -1,0 +1,24 @@
+.outerWrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.innerWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-color-200);
+  margin: 0 var(--space-5);
+}
+
+.text {
+  flex-shrink: 0;
+  color: var(--text-color-muted);
+  font-size: 13px;
+  line-height: 1;
+}

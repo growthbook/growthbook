@@ -1,20 +1,66 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
+import { useRouter } from "next/router";
 import { Flex, Box } from "@radix-ui/themes";
-import { PiChartBar, PiCode, PiDatabase, PiTable } from "react-icons/pi";
+import {
+  PiArrowRightBold,
+  PiChartBar,
+  PiCode,
+  PiDatabase,
+  PiTable,
+} from "react-icons/pi";
 import { BsStars } from "react-icons/bs";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
+import TextDivider from "@/components/TextDivider/TextDivider";
+import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
+import { QUICK_ACTIONS } from "./ExplorerAIChat";
+import { PA_CHAT_CONVERSATION_KEY } from "./util";
 
 export default function EmptyState() {
+  const router = useRouter();
   const { permissionsUtil, hasCommercialFeature } = useUser();
   const { datasources } = useDefinitions();
   const { project } = useDefinitions();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { input, setInput, sendMessage, loading } = useAIChat({
+    endpoint: "/product-analytics/chat",
+    conversationStorageKey: PA_CHAT_CONVERSATION_KEY,
+    buildRequestBody: (message, cid) => ({
+      message,
+      conversationId: cid,
+      datasourceId: datasources[0]?.id ?? "",
+    }),
+    onStreamAccepted: () => {
+      router.push("/product-analytics/explore/ai-chat");
+    },
+  });
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    },
+    [sendMessage],
+  );
+
+  const handleQuickAction = useCallback(
+    (prompt: string) => {
+      setInput(prompt);
+      inputRef.current?.focus();
+    },
+    [setInput],
+  );
 
   const hasDatasources = datasources.length > 0;
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
@@ -31,7 +77,6 @@ export default function EmptyState() {
         align="center"
         justify="center"
         direction="column"
-        gap="3"
         mt="6"
         style={{
           minHeight: "400px",
@@ -40,13 +85,14 @@ export default function EmptyState() {
           borderRadius: "var(--radius-4)",
         }}
       >
-        <Heading as="h2" size="x-large" weight="medium">
-          Select an Explorer Type
-        </Heading>
-        <Text color="text-low" align="center">
-          Create powerful visualizations & custom dashboards built on your
-          Metrics, Fact Tables, and Data Sources
-        </Text>
+        <Flex direction="column" align="center" pb="6">
+          <Heading as="h2" size="x-large" weight="medium">
+            Select an Explorer Type
+          </Heading>
+          <Text color="text-low" align="center" size="large">
+            Choose how you want to explore your data
+          </Text>
+        </Flex>
 
         <Flex direction="column" gap="3">
           {!hasDatasources && (
@@ -55,7 +101,7 @@ export default function EmptyState() {
               <Link href="/datasources">connect a Data Source.</Link>
             </Callout>
           )}
-          <Flex gap="3" mt="3">
+          <Flex gap="3">
             <LinkButton
               href="/product-analytics/explore/metrics"
               variant="outline"
@@ -160,6 +206,48 @@ export default function EmptyState() {
                 <Text weight="medium">AI Chat</Text>
               </Flex>
             </LinkButton>
+          </Flex>
+          <Flex justify="center" direction="column" gap="5" mt="3">
+            <TextDivider width={435}>or ask anything with AI</TextDivider>
+            <Flex align="center" gap="3" direction="column" justify="center">
+              <Flex gap="2" width="100%" align="center" justify="center">
+                <Field
+                  placeholder="Ask about metrics, experiments, or setup..."
+                  containerStyle={{
+                    maxWidth: "800px",
+                    flex: 1,
+                  }}
+                  style={{ height: "40px" }}
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={loading}
+                />
+                <Button
+                  onClick={() => sendMessage()}
+                  disabled={!input.trim() || loading}
+                  size="md"
+                >
+                  <PiArrowRightBold size={16} />
+                </Button>
+              </Flex>
+              <Flex align="center" gap="2" wrap="wrap">
+                {QUICK_ACTIONS.map((action) => (
+                  <Button
+                    key={action.label}
+                    variant="outline"
+                    size="xs"
+                    onClick={() => handleQuickAction(action.prompt)}
+                  >
+                    <Flex align="center" gap="1">
+                      {action.icon}
+                      {action.label}
+                    </Flex>
+                  </Button>
+                ))}
+              </Flex>
+            </Flex>
           </Flex>
         </Flex>
       </Flex>

@@ -63,6 +63,7 @@ import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import SaveToDashboardModal from "./SaveToDashboardModal";
+import { PA_CHAT_CONVERSATION_KEY } from "./util";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
@@ -101,7 +102,7 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   getConfigSchema: "Loading config schema...",
 };
 
-const QUICK_ACTIONS: {
+export const QUICK_ACTIONS: {
   label: string;
   icon: React.ReactNode;
   prompt: string;
@@ -332,6 +333,7 @@ export default function ExplorerAIChat() {
   } = useAIChat({
     endpoint: "/product-analytics/chat",
     buildRequestBody,
+    conversationStorageKey: PA_CHAT_CONVERSATION_KEY,
     toolStatusLabels: TOOL_STATUS_LABELS,
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     onStreamAccepted: () => {
