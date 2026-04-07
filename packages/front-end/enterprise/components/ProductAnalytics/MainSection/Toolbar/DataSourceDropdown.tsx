@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { ChevronDownIcon, Flex } from "@radix-ui/themes";
 import { PiDatabase, PiCheck } from "react-icons/pi";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -26,9 +26,10 @@ export default function DataSourceDropdown() {
       onOpenChange={setDropdownOpen}
       trigger={
         <Link>
-          <Flex align="center" gap="2">
+          <Flex align="center" gap="1">
             <PiDatabase />
             <Text weight="medium">{triggerLabel}</Text>
+            <ChevronDownIcon />
           </Flex>
         </Link>
       }

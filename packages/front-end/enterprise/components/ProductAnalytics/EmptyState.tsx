@@ -1,6 +1,7 @@
-import React, { useCallback, useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { Flex, Box } from "@radix-ui/themes";
+import React, { useCallback, useRef, useState } from "react";
+import { BsStars } from "react-icons/bs";
 import {
   PiArrowRightBold,
   PiChartBar,
@@ -8,19 +9,19 @@ import {
   PiDatabase,
   PiTable,
 } from "react-icons/pi";
-import { BsStars } from "react-icons/bs";
-import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
-import LinkButton from "@/ui/LinkButton";
-import { useUser } from "@/services/UserContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
-import Badge from "@/ui/Badge";
-import TextDivider from "@/components/TextDivider/TextDivider";
 import Field from "@/components/Forms/Field";
+import TextDivider from "@/components/TextDivider/TextDivider";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
+import Text from "@/ui/Text";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
+import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
 export default function EmptyState() {
   const router = useRouter();
@@ -58,16 +59,23 @@ export default function EmptyState() {
         </Heading>
         <Badge color="indigo" label="Beta" ml="2" variant="solid" />
       </Flex>
-      <Flex
-        align="center"
-        justify="center"
-        direction="column"
-        mt="6"
+      <Box mt="5">
+        <Flex align="center" gap="2">
+          <Text color="text-low">Data source:</Text>
+          <DataSourceDropdown />
+        </Flex>
+      </Box>
+      <Box
+        mt="5"
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
           minHeight: "400px",
-          color: "var(--color-text-mid)",
-          border: "2px dashed var(--gray-a3)",
-          borderRadius: "var(--radius-4)",
+          border: "1px solid var(--slate-a3)",
+          borderRadius: "4px",
+          backgroundColor: "var(--surface-background-color)",
         }}
       >
         <Flex direction="column" align="center" pb="6">
@@ -222,7 +230,7 @@ export default function EmptyState() {
             </Flex>
           </Flex>
         </Flex>
-      </Flex>
+      </Box>
     </Box>
   );
 }
