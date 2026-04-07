@@ -46,7 +46,6 @@ Triggered when a feature is created
             dateUpdated: string;
             archived: boolean;
             description: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
@@ -464,6 +463,9 @@ Triggered when a feature is created
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -497,7 +499,6 @@ Triggered when a feature is updated
             dateUpdated: string;
             archived: boolean;
             description: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
@@ -912,7 +913,6 @@ Triggered when a feature is updated
             dateUpdated?: string | undefined;
             archived?: boolean | undefined;
             description?: string | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             project?: string | undefined;
             valueType?: ("boolean" | "string" | "number" | "json") | undefined;
@@ -1335,6 +1335,9 @@ Triggered when a feature is updated
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1368,7 +1371,6 @@ Triggered when a feature is deleted
             dateUpdated: string;
             archived: boolean;
             description: string;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             project: string;
             valueType: "boolean" | "string" | "number" | "json";
@@ -1786,6 +1788,9 @@ Triggered when a feature is deleted
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1827,6 +1832,9 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1868,6 +1876,9 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1910,6 +1921,9 @@ Triggered when a safe rollout is failing a health check and may not be working a
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1953,6 +1967,9 @@ Triggered when a ramp schedule is created for a feature
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -1994,6 +2011,9 @@ Triggered when a ramp schedule is deleted from a feature
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2037,6 +2057,9 @@ Triggered when a feature ramp schedule starts
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2080,6 +2103,9 @@ Triggered when a feature ramp schedule completes all steps
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2124,6 +2150,9 @@ Triggered when a feature ramp schedule is rolled back or reset to start
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2168,6 +2197,9 @@ Triggered when a feature ramp schedule is jumped to a specific step
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2211,6 +2243,9 @@ Triggered when a feature ramp schedule advances to the next step
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2255,6 +2290,9 @@ Triggered when a feature ramp step is waiting for approval
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2293,7 +2331,6 @@ Triggered when an experiment is created
             hypothesis: string;
             description: string;
             tags: string[];
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             archived: boolean;
             status: string;
@@ -2494,6 +2531,9 @@ Triggered when an experiment is created
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2532,7 +2572,6 @@ Triggered when an experiment is updated
             hypothesis: string;
             description: string;
             tags: string[];
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             archived: boolean;
             status: string;
@@ -2735,7 +2774,6 @@ Triggered when an experiment is updated
             hypothesis?: string | undefined;
             description?: string | undefined;
             tags?: string[] | undefined;
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner?: string | undefined;
             archived?: boolean | undefined;
             status?: string | undefined;
@@ -2941,6 +2979,9 @@ Triggered when an experiment is updated
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -2979,7 +3020,6 @@ Triggered when an experiment is deleted
             hypothesis: string;
             description: string;
             tags: string[];
-            /** The userId of the owner (or raw owner name/email for legacy records) */
             owner: string;
             archived: boolean;
             status: string;
@@ -3180,6 +3220,9 @@ Triggered when an experiment is deleted
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3233,6 +3276,9 @@ Triggered when a warning condition is detected on an experiment
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3280,6 +3326,9 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3321,6 +3370,9 @@ Triggered when an experiment is ready to ship a variation.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3362,6 +3414,9 @@ Triggered when an experiment should be rolled back to the control.
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3403,6 +3458,9 @@ Triggered when an experiment has reached the desired power point, but the result
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
@@ -3448,6 +3506,9 @@ Triggered when a user logs in
     } | {
         type: "api_key";
         apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
     } | {
         type: "system";
         subtype?: string | undefined;
