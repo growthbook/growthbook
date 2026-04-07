@@ -7,6 +7,7 @@ import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 import AIUsageWidget from "./AIUsageWidget";
+import ChatSearchModal from "./ChatSearchModal";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -53,6 +54,7 @@ export default function ConversationSidebar({
     string | null
   >(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <Flex
@@ -66,6 +68,14 @@ export default function ConversationSidebar({
         transition: "width 220ms ease",
       }}
     >
+      {searchOpen && (
+        <ChatSearchModal
+          conversations={conversations}
+          onSelect={onSelect}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+
       {confirmDeleteId && onDelete && (
         <Modal
           trackingEventModalType=""
@@ -132,7 +142,7 @@ export default function ConversationSidebar({
             </Flex>
           </Button>
 
-          <Button variant="soft">
+          <Button variant="soft" onClick={() => setSearchOpen(true)}>
             <Flex align="center" justify="center" gap="1">
               <PiMagnifyingGlass size={13} />
               <Text size="medium" weight="medium">
