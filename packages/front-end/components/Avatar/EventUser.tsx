@@ -126,7 +126,14 @@ export default function EventUser({
     );
   }
 
-  const apiBadge = isApi ? <Badge variant="soft" label="API" ml="1" /> : null;
+  const apiBadge = isApi ? (
+    <Badge
+      variant="outline"
+      label="API"
+      ml="1"
+      title="via API Key or Personal Access Token"
+    />
+  ) : null;
 
   if (display === "avatar-name" || display === "avatar-name-email") {
     return (
