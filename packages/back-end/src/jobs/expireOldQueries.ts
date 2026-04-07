@@ -27,7 +27,9 @@ import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
 
-const STALLED_SNAPSHOT_THRESHOLD_MS = 30 * 60 * 1000;
+// The time after which a snapshot is considered stalled
+const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
+// The allowable time between the last query finishing and the snapshot being finalized
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 
