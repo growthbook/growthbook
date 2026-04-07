@@ -1,7 +1,10 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import { experimentHasLinkedChanges } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  parseIntWithDefaultCapped,
+} from "shared/util";
 import {
   getRoles,
   areProjectRolesValid,
@@ -47,6 +50,7 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  setLicenseKey,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -253,7 +257,7 @@ export async function getAllHistory(
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -336,7 +340,7 @@ export async function getHistory(
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
-  const limit = Math.min(parseInt(req.query.limit || "50"), 100); // Max 100 per page
+  const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
   if (!isValidAuditEntityType(type)) {
@@ -1712,12 +1716,21 @@ export async function postApiKey(
   req: AuthRequest<{
     description?: string;
     type: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ProjectMemberRole[];
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { userId } = context;
-  const { description = "", type } = req.body;
+  const {
+    description = "",
+    type,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1741,6 +1754,9 @@ export async function postApiKey(
     const key = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     });
 
     return res.status(200).json({
@@ -2170,20 +2186,6 @@ export async function putAdminResetUserPassword(
   res.status(200).json({
     status: 200,
   });
-}
-
-export async function setLicenseKey(
-  org: OrganizationInterface,
-  licenseKey: string,
-) {
-  if (!IS_CLOUD && IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites.",
-    );
-  }
-
-  org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(

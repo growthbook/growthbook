@@ -6,6 +6,7 @@ import {
   generateSigningKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -17,6 +18,10 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   idPrefix: "key_",
   additionalIndexes: [{ fields: { id: 1 } }],
+  defaultValues: {
+    limitAccessByEnvironment: false,
+    environments: [],
+  },
 });
 
 export class ApiKeyModel extends BaseClass {
@@ -66,20 +71,88 @@ export class ApiKeyModel extends BaseClass {
     return { ...doc, key: "", encryptionKey: undefined };
   }
 
+  protected async customValidation(doc: ApiKeyInterface) {
+    if (doc.userId) {
+      // PATs inherit permissions from their user — scoping fields must not be set
+      if (doc.limitAccessByEnvironment) {
+        this.context.throwBadRequestError(
+          "PATs do not support environment restrictions.",
+        );
+      }
+      if (doc.projectRoles) {
+        this.context.throwBadRequestError(
+          "PATs do not support project-scoped roles.",
+        );
+      }
+    } else {
+      // Org API keys — validate role, environments, project roles, and commercial features
+      this.validateRole(doc.role);
+      if (
+        doc.limitAccessByEnvironment &&
+        !this.context.hasPremiumFeature("advanced-permissions")
+      ) {
+        this.context.throwPlanDoesNotAllowError(
+          "Your plan does not support restricting API key permissions by environment.",
+        );
+      }
+      this.validateEnvironments(doc.environments);
+      if (doc.projectRoles) {
+        if (!this.context.hasPremiumFeature("advanced-permissions")) {
+          this.context.throwPlanDoesNotAllowError(
+            "Your plan does not support project-level permissions on API keys.",
+          );
+        }
+        for (const pr of doc.projectRoles) {
+          this.validateRole(pr.role);
+          await this.validateProject(pr.project);
+          this.validateEnvironments(pr.environments);
+        }
+      }
+    }
+  }
+
+  private validateRole(role: string | undefined) {
+    if (role === undefined) return;
+    if (this.context.org.deactivatedRoles?.includes(role)) {
+      this.context.throwBadRequestError(`Role has been deactivated: ${role}`);
+    }
+    if (!getRoleById(role, this.context.org)) {
+      this.context.throwBadRequestError(`Invalid role: ${role}`);
+    }
+  }
+
+  private validateEnvironments(environments: string[]) {
+    if (!environments.length) return;
+    const orgEnvIds = getEnvironmentIdsFromOrg(this.context.org);
+    for (const env of environments) {
+      if (!orgEnvIds.includes(env)) {
+        this.context.throwBadRequestError(`Invalid environment: ${env}`);
+      }
+    }
+  }
+
+  private async validateProject(projectId: string) {
+    const project = (await this.context.getProjects()).find(
+      ({ id }) => id === projectId,
+    );
+    if (!project) {
+      this.context.throwBadRequestError(`Invalid project: ${projectId}`);
+    }
+  }
+
   public async createOrganizationApiKey({
     description,
     roleId,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
   }: {
     description: string;
     roleId: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
-    if (this.context.org.deactivatedRoles?.includes(roleId)) {
-      this.context.throwBadRequestError(`Role has been deactivated: ${roleId}`);
-    }
-    const role = getRoleById(roleId, this.context.org);
-    if (!role) {
-      this.context.throwBadRequestError(`Invalid role: ${roleId}`);
-    }
     return await this.createApiKey({
       secret: true,
       encryptSDK: false,
@@ -87,6 +160,9 @@ export class ApiKeyModel extends BaseClass {
       environment: "",
       project: "",
       role: roleId,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
     });
   }
 
@@ -214,6 +290,9 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK,
     userId,
     role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
   }: {
     environment: string;
     project: string;
@@ -222,6 +301,9 @@ export class ApiKeyModel extends BaseClass {
     encryptSDK: boolean;
     userId?: string;
     role?: string;
+    limitAccessByEnvironment?: boolean;
+    environments?: string[];
+    projectRoles?: ApiKeyInterface["projectRoles"];
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -246,6 +328,9 @@ export class ApiKeyModel extends BaseClass {
       userId,
       role,
       encryptionKey: encryptSDK ? await generateEncryptionKey() : undefined,
+      limitAccessByEnvironment: limitAccessByEnvironment ?? false,
+      environments: environments ?? [],
+      projectRoles,
     });
   }
 }

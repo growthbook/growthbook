@@ -11,7 +11,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "./LoadingSpinner";
-import Avatar from "./Avatar/Avatar";
+import EventUser from "./Avatar/EventUser";
 import DeleteButton from "./DeleteButton/DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
@@ -62,10 +62,18 @@ const DiscussionThread: FC<{
             const user = users.get(comment.userId);
             const email = user ? user.email : comment.userEmail;
             const name = user ? user.name : comment.userName;
+            const eventUser = {
+              type: "dashboard" as const,
+              id: comment.userId,
+              email: email ?? "",
+              name: name ?? "",
+            };
 
             return (
               <li className="media mb-3" key={i}>
-                <Avatar email={email} className="mr-2" name={name} />
+                <div className="mr-2">
+                  <EventUser user={eventUser} display="avatar" size="sm" />
+                </div>
                 <div className="media-body">
                   {edit === i ? (
                     <CommentForm
@@ -84,8 +92,10 @@ const DiscussionThread: FC<{
                   ) : (
                     <div className="card">
                       <div className="card-header">
-                        <strong>{name || email}</strong> commented on{" "}
-                        {date(comment.date)}
+                        <strong>
+                          <EventUser user={eventUser} display="name" />
+                        </strong>{" "}
+                        commented on {date(comment.date)}
                         {comment.edited && (
                           <em className="ml-3 text-muted">&bull; edited</em>
                         )}

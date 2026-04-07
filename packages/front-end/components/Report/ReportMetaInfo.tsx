@@ -1,7 +1,7 @@
 import { ExperimentSnapshotReportInterface } from "shared/types/report";
 import React, { useEffect, useRef, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
@@ -15,7 +15,6 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/ui/LinkButton";
 import SplitButton from "@/ui/SplitButton";
-import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
@@ -29,10 +28,9 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Link from "@/ui/Link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import track from "@/services/track";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -71,9 +69,6 @@ export default function ReportMetaInfo({
     : `${HOST}/report/${report.id}`;
 
   const { apiCall } = useAuth();
-  const { getUserDisplay } = useUser();
-  const ownerName =
-    (report.userId ? getUserDisplay(report.userId, false) : "") || "";
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -293,18 +288,11 @@ export default function ReportMetaInfo({
                 <Metadata
                   label="Report by"
                   value={
-                    <>
-                      {ownerName !== "" && (
-                        <UserAvatar name={ownerName} size="sm" variant="soft" />
-                      )}
-                      <Text
-                        weight="regular"
-                        className={metaDataStyles.valueColor}
-                        ml="1"
-                      >
-                        {ownerName === "" ? "None" : ownerName}
-                      </Text>
-                    </>
+                    <Owner
+                      ownerId={report.userId}
+                      gap="1"
+                      textColor="text-mid"
+                    />
                   }
                 />
               )}

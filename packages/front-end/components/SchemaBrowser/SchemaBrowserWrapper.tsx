@@ -1,8 +1,10 @@
 import { InformationSchemaInterface } from "shared/types/integrations";
 import { FaDatabase, FaRedo } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Field from "@/components/Forms/Field";
 import { AreaWithHeader } from "./SqlExplorerModal";
 
 export default function SchemaBrowserWrapper({
@@ -14,6 +16,8 @@ export default function SchemaBrowserWrapper({
   setFetching,
   setError,
   fetching,
+  tableFilter,
+  onTableFilterChange,
 }: {
   children: React.ReactNode;
   datasourceName: string;
@@ -23,6 +27,8 @@ export default function SchemaBrowserWrapper({
   setFetching: (fetching: boolean) => void;
   canRunQueries: boolean;
   fetching: boolean;
+  tableFilter: string;
+  onTableFilterChange: (value: string) => void;
 }) {
   const { apiCall } = useAuth();
 
@@ -30,59 +36,79 @@ export default function SchemaBrowserWrapper({
     <AreaWithHeader
       backgroundColor="var(--color-surface)"
       header={
-        <div className="d-flex justify-content-between px-2">
-          <label className="font-weight-bold mb-1 d-flex align-items-center">
-            <FaDatabase className="mr-2" />
-            <span className="pl-1">{datasourceName}</span>
-          </label>
-          {informationSchema && !informationSchema.error && (
-            <label className="pl-5">
-              <Tooltip
-                body={
-                  <div>
-                    <div>
-                      {`Last Updated: ${new Date(
-                        informationSchema.dateUpdated,
-                      ).toLocaleString()}`}
-                    </div>
-                    {!canRunQueries ? (
-                      <div className="alert alert-warning mt-2">
-                        You do not have permission to refresh this information
-                        schema.
-                      </div>
-                    ) : null}
-                  </div>
-                }
-                tipPosition="top"
-              >
-                <button
-                  className="btn btn-link p-0 text-secondary"
-                  disabled={fetching || !canRunQueries}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    setError(null);
-                    try {
-                      await apiCall<{
-                        status: number;
-                        message?: string;
-                      }>(`/datasource/${datasourceId}/schema`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          informationSchemaId: informationSchema.id,
-                        }),
-                      });
-                      setFetching(true);
-                    } catch (e) {
-                      setError(e.message);
-                    }
-                  }}
-                >
-                  {fetching ? <LoadingSpinner /> : <FaRedo />}
-                </button>
-              </Tooltip>
+        <>
+          <div className="d-flex justify-content-between px-2">
+            <label className="font-weight-bold mb-1 d-flex align-items-center">
+              <FaDatabase className="mr-2" />
+              <span className="pl-1">{datasourceName}</span>
             </label>
+            {informationSchema && !informationSchema.error && (
+              <div className="d-flex align-items-center pl-5">
+                <label className="ml-3 mb-0">
+                  <Tooltip
+                    body={
+                      <div>
+                        <div>
+                          {`Last Updated: ${new Date(
+                            informationSchema.dateUpdated,
+                          ).toLocaleString()}`}
+                        </div>
+                        {!canRunQueries ? (
+                          <div className="alert alert-warning mt-2">
+                            You do not have permission to refresh this
+                            information schema.
+                          </div>
+                        ) : null}
+                      </div>
+                    }
+                    tipPosition="top"
+                  >
+                    <button
+                      className="btn btn-link p-0 text-secondary"
+                      disabled={fetching || !canRunQueries}
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        setError(null);
+                        try {
+                          await apiCall<{
+                            status: number;
+                            message?: string;
+                          }>(`/datasource/${datasourceId}/schema`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              informationSchemaId: informationSchema.id,
+                            }),
+                          });
+                          setFetching(true);
+                        } catch (e) {
+                          setError(e.message);
+                        }
+                      }}
+                    >
+                      {fetching ? <LoadingSpinner /> : <FaRedo />}
+                    </button>
+                  </Tooltip>
+                </label>
+              </div>
+            )}
+          </div>
+          {informationSchema && !informationSchema.error && (
+            <Box mt="1">
+              <Field
+                type="search"
+                value={tableFilter}
+                onChange={(e) => onTableFilterChange(e.target.value)}
+                placeholder="Search..."
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                  }
+                }}
+              />
+            </Box>
           )}
-        </div>
+        </>
       }
     >
       {children}

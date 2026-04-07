@@ -1,16 +1,15 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -38,7 +37,6 @@ export default function ProjectTagBar({
     getProjectById,
   } = useDefinitions();
 
-  const { getOwnerDisplay } = useUser();
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -56,8 +54,6 @@ export default function ProjectTagBar({
   const trackingKey = experiment.trackingKey;
 
   const createdDate = date(experiment.dateCreated);
-
-  const ownerName = getOwnerDisplay(experiment.owner);
 
   const hasMultiplePhases = (experiment.phases?.length ?? 0) > 1;
 
@@ -145,18 +141,7 @@ export default function ProjectTagBar({
   };
 
   const renderOwner = () => {
-    return (
-      <>
-        <span>
-          {ownerName && (
-            <UserAvatar name={ownerName} size="sm" variant="soft" />
-          )}
-          <Text weight="regular" className={metaDataStyles.valueColor}>
-            {ownerName || "None"}
-          </Text>
-        </span>
-      </>
-    );
+    return <Owner ownerId={experiment.owner} gap="1" textColor="text-mid" />;
   };
 
   const RenderToolTipsAndValue = () => {
@@ -184,7 +169,7 @@ export default function ProjectTagBar({
     } else {
       return (
         projectId && (
-          <Text weight="regular" className={metaDataStyles.valueColor}>
+          <Text weight="regular" color="text-mid">
             {projectName}
           </Text>
         )
@@ -235,7 +220,7 @@ export default function ProjectTagBar({
           )}
         {!canUpdateHoldoutProjects(holdout.projects) &&
           holdout.projects.length === 0 && (
-            <Text weight="regular" className={metaDataStyles.valueColor}>
+            <Text weight="regular" color="text-mid">
               None
             </Text>
           )}

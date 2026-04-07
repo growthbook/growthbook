@@ -209,11 +209,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ProjectTagBar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -289,11 +284,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ConditionInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -324,11 +314,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/FeaturesHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Features/ForceSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -349,22 +334,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/PrerequisiteInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/Rule.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -385,11 +360,6 @@
     }
   },
   "packages/front-end/components/Features/SafeRolloutSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SavedGroupTargetingField.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -589,11 +559,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/MetricDrilldown/MetricDrilldownOwnerTags.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -625,11 +590,6 @@
     }
   },
   "packages/front-end/components/Report/ReportAnalysisSettingsBar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Report/ReportMetaInfo.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -930,11 +890,6 @@
     }
   },
   "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/tags.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

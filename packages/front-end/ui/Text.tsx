@@ -13,6 +13,7 @@ type TextWhiteSpace =
   | "pre-wrap"
   | "pre-line"
   | "break-spaces";
+type TextFontStyle = "normal" | "italic" | "oblique";
 // NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
 type TextColors = "text-high" | "text-mid" | "text-low" | "text-disabled";
 
@@ -43,6 +44,7 @@ export interface TextProps {
   truncate?: boolean;
   overflowWrap?: TextOverflowWrap;
   whiteSpace?: TextWhiteSpace;
+  fontStyle?: TextFontStyle;
   textTransform?: "uppercase" | "lowercase" | "capitalize";
 
   // Margin props
@@ -69,6 +71,7 @@ export default forwardRef<
     title,
     overflowWrap = "normal",
     whiteSpace = "normal",
+    fontStyle = "normal",
     truncate = false,
     textTransform,
     m,
@@ -84,6 +87,7 @@ export default forwardRef<
   const style: React.CSSProperties = {
     overflowWrap: overflowWrap,
     whiteSpace: whiteSpace,
+    fontStyle: fontStyle,
   };
   if (textTransform) style.textTransform = textTransform;
 

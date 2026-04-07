@@ -2,9 +2,9 @@ import type { Response } from "express";
 import {
   CustomFieldSection,
   CustomFieldsInterface,
-  CustomFieldTypes,
   CreateCustomFieldProps,
 } from "shared/types/custom-fields";
+import { ALL_SECTIONS } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
@@ -41,9 +41,8 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index,
     projects,
-    section,
+    sections,
   } = req.body;
 
   const context = getContextFromReq(req);
@@ -55,25 +54,6 @@ export const postCustomField = async (
     return context.throwBadRequestError("Must specify field key");
   }
 
-  if (!id.match(/^[a-z0-9_-]+$/)) {
-    return context.throwBadRequestError(
-      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
-    );
-  }
-  const existingFields = await context.models.customFields.getCustomFields();
-
-  // check if this name already exists:
-  if (existingFields) {
-    const existingCustomField = existingFields.fields.find(
-      (field) => field.name === name && field.section === section,
-    );
-    if (existingCustomField) {
-      return context.throwBadRequestError(
-        "Custom field name already exists for this section",
-      );
-    }
-  }
-
   const updated = await context.models.customFields.addCustomField({
     id,
     name,
@@ -83,9 +63,8 @@ export const postCustomField = async (
     type,
     values,
     required,
-    index: !!index,
     projects,
-    section,
+    sections: sections?.length ? sections : [...ALL_SECTIONS],
   });
 
   if (!updated) {
@@ -134,7 +113,6 @@ export const postReorderCustomFields = async (
 
   const existingFields = await context.models.customFields.getCustomFields();
 
-  // check if this name already exists:
   if (!existingFields || !existingFields.fields) {
     return res.status(403).json({
       status: 403,
@@ -170,12 +148,11 @@ type PutCustomFieldRequest = AuthRequest<
     description: string;
     placeholder: string;
     defaultValue?: boolean | string;
-    type: CustomFieldTypes;
     values?: string;
     required: boolean;
-    index?: boolean;
     projects?: string[];
-    section: CustomFieldSection;
+    sections?: CustomFieldSection[];
+    active?: boolean;
   },
   { id: string }
 >;
@@ -201,12 +178,11 @@ export const putCustomField = async (
     description,
     placeholder,
     defaultValue,
-    type,
     values,
     required,
-    index,
     projects,
-    section,
+    sections,
+    active,
   } = req.body;
   const { id } = req.params;
 
@@ -216,6 +192,15 @@ export const putCustomField = async (
 
   req.checkPermissions("manageCustomFields");
 
+  const existingField =
+    await context.models.customFields.getCustomFieldByFieldId(id, {
+      includeInactive: true,
+    });
+
+  if (!existingField) {
+    return context.throwNotFoundError("Custom field not found");
+  }
+
   const newCustomFields = await context.models.customFields.updateCustomField(
     id,
     {
@@ -223,12 +208,11 @@ export const putCustomField = async (
       description,
       placeholder,
       defaultValue,
-      type,
       values,
       required,
-      index: !!index,
       projects,
-      section,
+      sections: sections ?? existingField.sections ?? [...ALL_SECTIONS],
+      ...(active !== undefined && { active }),
     },
   );
 
@@ -248,12 +232,14 @@ export const putCustomField = async (
 type DeleteCustomFieldRequest = AuthRequest<
   Record<string, never>,
   { id: string },
-  Record<string, never>
+  { index?: number }
 >;
 
 /**
  * DELETE /custom-fields/:id
- * Delete one custom-field resource by ID
+ * Delete one custom-field resource by ID. For legacy data with duplicate ids,
+ * pass ?index=N as tiebreaker; if index doesn't match, the first occurrence
+ * is deleted.
  * @param req
  * @param res
  */
@@ -264,9 +250,13 @@ export const deleteCustomField = async (
   req.checkPermissions("manageCustomFields");
 
   const { id } = req.params;
+  const { index } = req.query;
   const context = getContextFromReq(req);
 
-  const customFields = await context.models.customFields.deleteCustomField(id);
+  const customFields = await context.models.customFields.deleteCustomField(
+    id,
+    index,
+  );
 
   if (!customFields) {
     return context.throwNotFoundError("Custom field not found");
