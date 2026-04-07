@@ -248,6 +248,7 @@ export const statsServerPool = createPool(
     testOnBorrow: true,
     evictionRunIntervalMillis: 60000,
     numTestsPerEvictionRun: 2,
+    acquireTimeoutMillis: STATS_ENGINE_TIMEOUT_MS,
   },
 );
 
