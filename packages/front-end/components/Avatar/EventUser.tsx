@@ -105,6 +105,8 @@ export default function EventUser({
 
   const apiBadge = isApi ? <Badge variant="soft" label="API" ml="1" /> : null;
 
+  const freshUser = { ...user, name, email } as EventUserType;
+
   if (display === "avatar-with-email") {
     return (
       <>
@@ -115,7 +117,7 @@ export default function EventUser({
           size={size}
           variant="soft"
         />
-        {getUserLabel(user)}
+        {getUserLabel(freshUser)}
         {apiBadge}
       </>
     );
@@ -123,7 +125,7 @@ export default function EventUser({
 
   return (
     <span>
-      {getUserLabel(user)}
+      {getUserLabel(freshUser)}
       {apiBadge}
     </span>
   );
