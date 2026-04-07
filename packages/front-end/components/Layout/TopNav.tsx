@@ -165,7 +165,7 @@ const TopNav: FC<{
         <DropdownMenuGroup style={{ marginBottom: 4 }}>
           <DropdownMenuLabel style={{ height: "inherit" }}>
             {name && (
-              <Text weight="medium" color="text-high">
+              <Text weight="semibold" color="text-high">
                 {name}
               </Text>
             )}

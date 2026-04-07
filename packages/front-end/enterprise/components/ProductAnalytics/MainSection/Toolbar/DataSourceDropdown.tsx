@@ -26,7 +26,7 @@ export default function DataSourceDropdown() {
       onOpenChange={setDropdownOpen}
       trigger={
         <Link>
-          <Flex align="center" gap="1">
+          <Flex align="center" gap="2">
             <PiDatabase />
             <Text weight="medium">{triggerLabel}</Text>
             <ChevronDownIcon />
