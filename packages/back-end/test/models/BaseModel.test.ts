@@ -731,13 +731,13 @@ describe("BaseModel", () => {
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
       existing,
-      { name: "gni", dateUpdated: expect.any(Date) },
+      { name: "gni" },
       expectedSet,
       { option: true },
     );
     expect(model.afterUpdateMock).toHaveBeenCalledWith(
       existing,
-      { name: "gni", dateUpdated: expect.any(Date) },
+      { name: "gni" },
       expectedSet,
       { option: true },
     );
