@@ -27,6 +27,8 @@ import { toolResultPreviewLabel } from "shared/ai-chat";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import OptInModal from "@/components/License/OptInModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Markdown from "@/components/Markdown/Markdown";
@@ -242,9 +244,11 @@ export default function ExplorerAIChat() {
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showAiOptInModal, setShowAiOptInModal] = useState(false);
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
+  const permissionsUtil = usePermissionsUtil();
   const { draftExploreState } = useExplorerContext();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -577,20 +581,51 @@ export default function ExplorerAIChat() {
 
   if (!hasAISuggestions || !aiEnabled) {
     return (
-      <Flex
-        align="center"
-        justify="center"
-        direction="column"
-        gap="3"
-        p="6"
-        style={{ height: "100%" }}
-      >
-        <BsStars size={28} />
-        <Text align="center" color="text-mid">
-          {hasAISuggestions
-            ? "Org admins can enable AI in General Settings."
-            : "Your current plan does not include AI Chat."}
-        </Text>
+      <Flex style={{ height: "80vh" }} align="center" justify="center">
+        {showAiOptInModal ? (
+          <OptInModal
+            agreement="ai"
+            onClose={() => setShowAiOptInModal(false)}
+          />
+        ) : null}
+        <Flex
+          align="center"
+          justify="center"
+          direction="column"
+          gap="3"
+          p="6"
+          // style={{ height: "100%" }}
+        >
+          <BsStars size={28} />
+          {!hasAISuggestions ? (
+            <Text align="center" color="text-mid">
+              Your current plan does not include AI Chat.
+            </Text>
+          ) : permissionsUtil.canManageOrgSettings() ? (
+            <>
+              <Text align="center" color="text-mid">
+                Enable AI for your organization to use AI Chat here and across
+                GrowthBook.
+              </Text>
+              <Flex gap="2" direction="column" pt="4">
+                <Button
+                  color="violet"
+                  onClick={() => setShowAiOptInModal(true)}
+                >
+                  Enable AI
+                </Button>
+                <LinkButton href="/settings/#ai" variant="ghost" color="violet">
+                  Open General Settings
+                </LinkButton>
+              </Flex>
+            </>
+          ) : (
+            <Text align="center" color="text-mid">
+              AI Chat is not enabled for your organization. Ask an org admin to
+              enable AI in General Settings.
+            </Text>
+          )}
+        </Flex>
       </Flex>
     );
   }
