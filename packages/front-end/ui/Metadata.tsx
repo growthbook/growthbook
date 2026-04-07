@@ -12,32 +12,18 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   { label, value, style, ...props },
   ref,
 ) {
-  const renderLabel = () => {
-    return (
-      <Text weight="medium" color="text-high">
-        {label}
-      </Text>
-    );
-  };
-  const renderValue = () => {
-    if (typeof value === "string") {
-      return (
-        <Text weight="regular" color="text-mid">
-          {value}
-        </Text>
-      );
-    } else {
-      return value;
-    }
-  };
   return (
     <Flex gap="1" style={style} {...props} ref={ref}>
       <Text weight="medium" color="text-high">
-        {renderLabel()}:
+        {label}:
       </Text>
-      <Text weight="regular" color="text-mid">
-        {renderValue()}
-      </Text>
+      {typeof value === "string" ? (
+        <Text weight="regular" color="text-mid">
+          {value}
+        </Text>
+      ) : (
+        value
+      )}
     </Flex>
   );
 });

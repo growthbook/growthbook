@@ -277,7 +277,8 @@ export const getEventUserFormatted = async (eventId: string) => {
     return `an API request with key ending in ...${user.apiKey.slice(-4)}`;
   }
 
-  const label = name && email ? `${name} (${email})` : (name ?? email);
+  const label =
+    name && email ? `${name} (${email})` : (name ?? email ?? "unknown");
   return isApi ? `${label} (via API)` : `${label}`;
 };
 

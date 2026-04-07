@@ -135,6 +135,8 @@ export default function EventUser({
     />
   ) : null;
 
+  const freshUser = { ...user, name, email } as EventUserType;
+
   if (display === "avatar-name" || display === "avatar-name-email") {
     return (
       <Flex
@@ -150,7 +152,7 @@ export default function EventUser({
           size={size}
           variant="soft"
         />
-        {getUserLabel(user, display === "avatar-name-email")}
+        {getUserLabel(freshUser, display === "avatar-name-email")}
         {apiBadge}
       </Flex>
     );
@@ -163,7 +165,7 @@ export default function EventUser({
       wrap={wrap ? "wrap" : "nowrap"}
       display="inline-flex"
     >
-      {getUserLabel(user, display === "name-email")}
+      {getUserLabel(freshUser, display === "name-email")}
       {apiBadge}
     </Flex>
   );
