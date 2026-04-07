@@ -678,6 +678,7 @@ export default function AISettings({
                                   promptForm.setValue(
                                     `${prompt.promptType}-model`,
                                     v,
+                                    { shouldDirty: true },
                                   )
                                 }
                                 options={PROMPT_MODEL_LABELS}
