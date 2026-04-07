@@ -2,7 +2,7 @@ import React, { ReactNode } from "react";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import {
-  ExperimentReportVariationWithIndex,
+  ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import {
@@ -41,10 +41,10 @@ export interface AnalysisResultSummaryProps {
       dimension: string;
       levels: string[];
     }>;
-    variation: ExperimentReportVariationWithIndex;
+    variation: ExperimentReportVariation;
     stats: SnapshotMetric;
     baseline: SnapshotMetric;
-    baselineVariation: ExperimentReportVariationWithIndex;
+    baselineVariation: ExperimentReportVariation;
     rowResults: RowResults;
     statsEngine: StatsEngine;
     pValueCorrection?: PValueCorrection;

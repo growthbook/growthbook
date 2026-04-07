@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import { useUser } from "@/services/UserContext";
 
 const SegmentPage: FC = () => {
   const {
@@ -32,6 +33,7 @@ const SegmentPage: FC = () => {
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const { getOwnerDisplay } = useUser();
 
   const hasCreatePermission = permissionsUtil.canCreateSegment({
     projects: [project],
@@ -271,7 +273,7 @@ const SegmentPage: FC = () => {
                           ) : null}
                         </>
                       </td>
-                      <td>{s.owner}</td>
+                      <td>{getOwnerDisplay(s.owner)}</td>
                       <td className="col-2">
                         {s && (s.projects || []).length > 0 ? (
                           <ProjectBadges

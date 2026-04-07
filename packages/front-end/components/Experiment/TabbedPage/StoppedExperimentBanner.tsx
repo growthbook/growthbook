@@ -1,3 +1,4 @@
+import { getAllVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -38,17 +39,17 @@ export default function StoppedExperimentBanner({
   if (experiment.status !== "stopped") return null;
 
   const result = experiment.results;
+  const variations = getAllVariations(experiment);
 
   const winningVariation =
     (result === "lost"
-      ? experiment.variations[0]?.name
+      ? variations[0]?.name
       : result === "won"
-        ? experiment.variations[experiment.winner || 1]?.name
+        ? variations[experiment.winner || 1]?.name
         : "") || "";
 
   const releasedVariation =
-    experiment.variations.find((v) => v.id === experiment.releasedVariationId)
-      ?.name || "";
+    variations.find((v) => v.id === experiment.releasedVariationId)?.name || "";
 
   return (
     <div className="appbox">

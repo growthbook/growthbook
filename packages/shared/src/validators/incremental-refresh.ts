@@ -39,6 +39,9 @@ const incrementalRefresh = z
     metricCovariateSources: z.array(
       incrementalRefreshMetricCovariateSourceValidator,
     ),
+
+    // Incremental refresh lock
+    currentExecutionSnapshotId: z.string().nullable(),
   })
   .strict();
 

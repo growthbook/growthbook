@@ -8,10 +8,11 @@ sources:
 
 type: application
 
-# Increment this right before each release
-version: "4.3.0"
+# This should generally match the appVersion
+# We can increment the patch version if changes to the chart itself are needed
+version: "4.3.1"
 
-# Increment this right before each release
+# This should match the version in the root package.json
 appVersion: "4.3.0"
 
 dependencies:
@@ -26,7 +27,7 @@ dependencies:
     version: "0.0.0"
     alias: backend
 
-# Increment the version right before each release
+# This should match the version in the root package.json
 annotations:
   artifacthub.io/images: |
     - name: growthbook

@@ -109,6 +109,7 @@ export default function ReportMetaInfo({
   const variations = report.experimentMetadata.variations.map(
     (variation, i) => ({
       id: variation.id,
+      index: i,
       name: variation.name,
       weight:
         report.experimentMetadata.phases?.[snapshot?.phase || 0]

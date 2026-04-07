@@ -349,6 +349,7 @@ const CompactResults: FC<{
             <MultipleExposureWarning
               totalUsers={totalUsers}
               multipleExposures={multipleExposures}
+              experimentType={experimentType}
             />
           </Flex>
         </>

@@ -15,8 +15,16 @@ import {
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
+  RampScheduleStepApprovalRequiredPayload,
 } from "shared/validators";
-import { DiffResult } from "shared/types/events/diff";
+import {
+  DiffResult,
+  HierarchicalValue,
+  HierarchicalModification,
+  SimpleModification,
+  ItemFieldChange,
+  type ModificationItem,
+} from "shared/types/events/diff";
 import {
   FilterDataForNotificationEvent,
   getFilterDataForNotificationEvent,
@@ -116,6 +124,20 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
+
+    case "feature.rampSchedule.created":
+    case "feature.rampSchedule.deleted":
+    case "feature.rampSchedule.actions.started":
+    case "feature.rampSchedule.actions.completed":
+    case "feature.rampSchedule.actions.rolledBack":
+    case "feature.rampSchedule.actions.jumped":
+    case "feature.rampSchedule.actions.step.advanced":
+    case "feature.rampSchedule.actions.step.approvalRequired":
+      return buildSlackMessageForRampScheduleEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
 
     default:
       invalidEvent = event;
@@ -427,6 +449,78 @@ const buildSlackMessageForSafeRolloutUnhealthyEvent = (
 };
 
 // endregion Event-specific messages -> Feature
+
+// region Event-specific messages -> Ramp Schedule
+
+type RampBasePayload = {
+  rampName: string;
+  currentStepIndex?: number;
+  targetStepIndex?: number;
+};
+
+const buildSlackMessageForRampScheduleEvent = (
+  eventType: string,
+  data: RampBasePayload & Partial<RampScheduleStepApprovalRequiredPayload>,
+  eventId: string,
+): SlackMessage => {
+  const name = `*${data.rampName}*`;
+  const step = (data.currentStepIndex ?? -1) + 1;
+  const jumpTarget = (data.targetStepIndex ?? 0) + 1;
+
+  let text: string;
+  switch (eventType) {
+    case "feature.rampSchedule.created":
+      text = `Ramp schedule ${name} was created`;
+      break;
+    case "feature.rampSchedule.deleted":
+      text = `Ramp schedule ${name} was deleted`;
+      break;
+    case "feature.rampSchedule.actions.started":
+      text = `Ramp schedule ${name} has started`;
+      break;
+    case "feature.rampSchedule.actions.completed":
+      text = `Ramp schedule ${name} has completed`;
+      break;
+    case "feature.rampSchedule.actions.rolledBack":
+      text = `Ramp schedule ${name} was rolled back to start`;
+      break;
+    case "feature.rampSchedule.actions.jumped":
+      text = `Ramp schedule ${name} jumped to step ${jumpTarget}`;
+      break;
+    case "feature.rampSchedule.actions.step.advanced":
+      text = `Ramp schedule ${name} advanced to step ${step}`;
+      break;
+    case "feature.rampSchedule.actions.step.approvalRequired":
+      text = `Ramp schedule ${name} step ${step} requires approval`;
+      break;
+    default:
+      text = `Ramp schedule ${name}: ${eventType}`;
+  }
+
+  const blocks: KnownBlock[] = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: text + getEventUrlFormatted(eventId),
+      },
+    },
+  ];
+
+  if (
+    eventType === "feature.rampSchedule.actions.step.approvalRequired" &&
+    data.approvalNotes
+  ) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: `*Approval notes:* ${data.approvalNotes}` },
+    });
+  }
+
+  return { text, blocks };
+};
+
+// endregion Event-specific messages -> Ramp Schedule
 
 // region Event-specific messages -> Experiment
 
@@ -999,76 +1093,6 @@ export interface FormatOptions {
   fieldFormatters?: Record<string, (value: unknown) => string>;
 }
 
-interface ItemFieldChange {
-  field: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
-interface HierarchicalValue {
-  key: string;
-  changes?: {
-    added?: Record<string, unknown>[];
-    removed?: Record<string, unknown>[];
-    modified?: Array<{
-      id: string;
-      oldValue?: unknown;
-      newValue: unknown;
-      fieldChanges?: ItemFieldChange[];
-      oldIndex?: number;
-      newIndex?: number;
-      steps?: number;
-    }>;
-    orderSummaries?: Array<
-      | {
-          type: "insertShift";
-          insertIndex: number;
-          direction: "down" | "up";
-          affectedCount: number;
-        }
-      | {
-          type: "reorderShift";
-          movedId: string;
-          fromIndex: number;
-          toIndex: number;
-          direction: "down" | "up";
-          affectedCount: number;
-        }
-      | {
-          type: "deleteShift";
-          deleteIndex: number;
-          direction: "up" | "down";
-          affectedCount: number;
-        }
-    >;
-  };
-  added?: Record<string, unknown>;
-  removed?: Record<string, unknown>;
-  modified?: Array<{
-    key: string;
-    oldValue?: unknown;
-    newValue?: unknown;
-    values?: HierarchicalValue[];
-  }>;
-  values?: HierarchicalValue[];
-}
-
-interface SimpleModification {
-  key: string;
-  oldValue: unknown;
-  newValue: unknown;
-}
-
-interface HierarchicalModification {
-  key: string;
-  values: HierarchicalValue[];
-  added: Record<string, unknown>;
-  removed: Record<string, unknown>;
-  modified: Array<SimpleModification | HierarchicalModification>;
-}
-
-type ModificationItem = SimpleModification | HierarchicalModification;
-
 const isSimpleModification = (
   mod: ModificationItem,
 ): mod is SimpleModification => {
@@ -1588,7 +1612,7 @@ export function formatDiffForSlack(
           }
 
           if (value.modified && value.modified.length > 0) {
-            value.modified.forEach((change: ModificationItem) => {
+            value.modified.forEach((change) => {
               if (isSimpleModification(change)) {
                 sections.push(
                   `\t⊳ *modified ${change.key}:* ${getItemLabel(change.oldValue)} → ${getItemLabel(change.newValue)}`,

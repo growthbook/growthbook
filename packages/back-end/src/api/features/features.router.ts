@@ -7,7 +7,6 @@ import { postFeature } from "./postFeature";
 import { updateFeature } from "./updateFeature";
 import { deleteFeatureById } from "./deleteFeature";
 import { getFeatureRevisions } from "./getFeatureRevisions";
-
 const router = Router();
 
 // Feature Endpoints

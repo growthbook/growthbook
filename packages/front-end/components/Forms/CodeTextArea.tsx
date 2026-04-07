@@ -1,5 +1,12 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState, useRef, createElement, useId } from "react";
+import {
+  type ComponentType,
+  useEffect,
+  useState,
+  useRef,
+  createElement,
+  useId,
+} from "react";
 import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import clsx from "clsx";
@@ -23,73 +30,56 @@ interface AceEditorProps extends IAceEditorProps {
   completions?: AceCompletion[];
 }
 
+interface AceModule {
+  config: { setModuleUrl: (path: string, url: string) => void };
+  require: (path: string) => unknown;
+}
+
+interface LangTools {
+  setCompleters: (completers: unknown[]) => void;
+  addCompleter: (completer: unknown) => void;
+}
+
 const AceEditor = dynamic(
   async () => {
-    const [ace, reactAce, jsonWorkerUrl, jsWorkerUrl, yamlWorkerUrl] =
-      await Promise.all([
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/ace"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "react-ace"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/worker-json"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/worker-javascript"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/worker-yaml"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/ext-language_tools"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/ext-searchbox"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-sql"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-javascript"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-python"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-yaml"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/mode-json"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/theme-textmate"
-        ),
-        import(
-          /* webpackChunkName: "ace-editor" */
-          "ace-builds/src-min-noconflict/theme-tomorrow_night"
-        ),
-      ]);
+    // Load ace first - other modules expect global `ace`
+    const aceModule = await import("ace-builds/src-min-noconflict/ace");
+    const ace = (aceModule as { default?: AceModule }).default ?? aceModule;
+    if (typeof window !== "undefined") {
+      (window as unknown as { ace: unknown }).ace = ace;
+    }
 
-    ace.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl.default);
-    ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);
-    ace.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl.default);
+    const [reactAce, jsonWorker, jsWorker, yamlWorker] = await Promise.all([
+      import("react-ace"),
+      import("ace-builds/src-min-noconflict/worker-json"),
+      import("ace-builds/src-min-noconflict/worker-javascript"),
+      import("ace-builds/src-min-noconflict/worker-yaml"),
+      import("ace-builds/src-min-noconflict/ext-language_tools"),
+      import("ace-builds/src-min-noconflict/ext-searchbox"),
+      import("ace-builds/src-min-noconflict/mode-sql"),
+      import("ace-builds/src-min-noconflict/mode-javascript"),
+      import("ace-builds/src-min-noconflict/mode-python"),
+      import("ace-builds/src-min-noconflict/mode-yaml"),
+      import("ace-builds/src-min-noconflict/mode-json"),
+      import("ace-builds/src-min-noconflict/theme-textmate"),
+      import("ace-builds/src-min-noconflict/theme-tomorrow_night"),
+    ]);
 
-    const langTools = ace.require("ace/ext/language_tools");
+    // Workers: raw-loader gives us source; create blob: URLs for Ace
+    const toWorkerUrl = (mod: { default: string }) =>
+      URL.createObjectURL(
+        new Blob([mod.default], { type: "application/javascript" }),
+      );
+    const jsonWorkerUrl = toWorkerUrl(jsonWorker);
+    const jsWorkerUrl = toWorkerUrl(jsWorker);
+    const yamlWorkerUrl = toWorkerUrl(yamlWorker);
+
+    const aceTyped = ace as AceModule;
+    aceTyped.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl);
+    aceTyped.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl);
+    aceTyped.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl);
+
+    const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
 
     // Return a wrapper component that handles completions
     const AceEditorWithCompletions = (props: AceEditorProps) => {
@@ -163,10 +153,10 @@ const AceEditor = dynamic(
         }
       }, [editor, completions]); // Depend on both editor and completions
 
-      return createElement(reactAce.default, {
-        ...otherProps,
-        onLoad: handleLoad,
-      });
+      return createElement(
+        (reactAce as { default: ComponentType<IAceEditorProps> }).default,
+        { ...otherProps, onLoad: handleLoad },
+      );
     };
 
     AceEditorWithCompletions.displayName = "AceEditorWithCompletions";

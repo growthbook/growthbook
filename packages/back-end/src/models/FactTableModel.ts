@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
@@ -15,6 +15,7 @@ import { ApiFactTable, ApiFactTableFilter } from "shared/types/openapi";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
+import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 
 const audit = createModelAuditLogger({
@@ -79,6 +80,8 @@ const factTableSchema = new mongoose.Schema({
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
+// Compound indexes for API list filtering
+factTableSchema.index({ organization: 1, datasource: 1 });
 
 type FactTableDocument = mongoose.Document & FactTableInterface;
 
@@ -96,7 +99,10 @@ function createPropsToInterface(
   context: ReqContext | ApiReqContext,
   rawProps: CreateFactTableProps,
 ): FactTableInterface {
-  const props = { ...rawProps, owner: rawProps.owner || context.userName };
+  const props = {
+    ...rawProps,
+    owner: rawProps.owner || context.userId,
+  };
   const id = props.id || uniqid("ftb_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
     throw new Error(
@@ -142,8 +148,18 @@ function createPropsToInterface(
 
 export async function getAllFactTablesForOrganization(
   context: ReqContext | ApiReqContext,
+  options?: {
+    datasourceId?: string;
+    projectId?: string;
+  },
 ) {
-  const docs = await FactTableModel.find({ organization: context.org.id });
+  const query: FilterQuery<FactTableInterface> = {
+    organization: context.org.id,
+    ...(options?.datasourceId && { datasource: options.datasourceId }),
+    ...(options?.projectId && projectFilterQuery(options.projectId)),
+  };
+
+  const docs = await FactTableModel.find(query).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -260,9 +276,9 @@ export async function updateFactTable(
 ) {
   // Allow changing columns even for API-managed fact tables
   if (
-    Object.keys(changes).some((k) => k !== "columns") &&
     factTable.managedBy === "api" &&
-    context.auditUser?.type !== "api_key"
+    context.auditUser?.type !== "api_key" &&
+    Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
       "Cannot update fact table managed by API if the request isn't from the API.",
@@ -305,25 +321,42 @@ export async function updateFactTable(
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
 }
 
+const ALLOWED_COLUMN_UPDATE_FIELDS = [
+  "columns",
+  "columnsError",
+  "columnRefreshPending",
+  "userIdTypes",
+] as const;
+
 // This is called from a background cronjob to re-sync all of the columns
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
-  changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>,
-  context?: ReqContext | ApiReqContext,
+  changes: Partial<
+    Pick<FactTableInterface, (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number]>
+  >,
+  context: ReqContext | ApiReqContext,
 ) {
+  const safeChanges = Object.fromEntries(
+    Object.entries(changes).filter(([key]) =>
+      ALLOWED_COLUMN_UPDATE_FIELDS.includes(
+        key as (typeof ALLOWED_COLUMN_UPDATE_FIELDS)[number],
+      ),
+    ),
+  );
+
   await FactTableModel.updateOne(
     {
       id: factTable.id,
       organization: factTable.organization,
     },
     {
-      $set: changes,
+      $set: safeChanges,
     },
   );
 
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
-  if (context && changes.columns) {
+  if (changes.columns) {
     const removedColumns = detectRemovedColumns(
       factTable.columns || [],
       changes.columns,

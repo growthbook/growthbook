@@ -5,6 +5,8 @@ sidebar_label: SQL Templates
 slug: /app/sql-templates
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 # SQL Templates
 
 SQL in GrowthBook is first run through a templating engine (Handlebars) to allow for dynamic SQL generation. This allows for several advanced use cases, outlined below.
@@ -93,7 +95,9 @@ The filter will still be added above even when the phase index is `0`, despite t
 
 ## Custom Field Filters
 
-Enterprise customers can define Custom Fields for experiments, which can then be used in SQL templates to add additional filtering logic. For example, if you have a Custom Field called `region`, you can use that in your Fact Table definition to filter data based on the region for a specific experiment.
+<CommercialFeature feature="custom-metadata" />
+
+Custom Fields for experiments can be used in SQL templates to add additional filtering logic. For example, if you have a Custom Field called `region`, you can use that in your Fact Table definition to filter data based on the region for a specific experiment.
 
 Like phases, Custom Fields are not always defined, so you must wrap them in a conditional block. Here's an example:
 

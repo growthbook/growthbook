@@ -31,7 +31,7 @@ export type CustomApiHandler<
   operationId: string;
   validator: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema>;
   zodReturnObject: ReturnShape;
-  summary?: string;
+  summary: string; // For generating docs, e.g. "Get all dashboards for an experiment"
   reqHandler: (
     req: ApiRequest<
       z.infer<ReturnShape>,

@@ -6,7 +6,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "shared/types/stats";
-import { ExperimentStatus } from "shared/types/experiment";
+import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
@@ -39,6 +39,7 @@ interface MetricDrilldownOverviewProps {
   localDifferenceType: DifferenceType;
   setLocalDifferenceType: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
+  lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
 }
 
@@ -63,6 +64,7 @@ function MetricDrilldownOverview({
   localDifferenceType,
   setLocalDifferenceType,
   sequentialTestingEnabled,
+  lookbackOverride,
   timeSeriesMessage,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
@@ -170,7 +172,11 @@ function MetricDrilldownOverview({
         <Text size="4" weight="medium">
           Metric definition
         </Text>
-        <MetricDrilldownMetadata statsEngine={statsEngine} row={row} />
+        <MetricDrilldownMetadata
+          statsEngine={statsEngine}
+          lookbackOverride={lookbackOverride}
+          row={row}
+        />
         {isAuthenticated && (
           <Flex direction="row" gap="5">
             <MetricDrilldownMetricCard metric={metric} type="numerator" />

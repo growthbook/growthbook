@@ -5,6 +5,7 @@ slug: /app/metrics
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
 # Metrics and Fact Tables
 
@@ -308,8 +309,7 @@ You can read more about Bayesian priors on [our statistical details page](/stati
 
 ## Metric Slices
 
-:::info Metric slices are available for Enterprise customers only.
-:::
+<CommercialFeature feature="metric-slices" />
 
 Many metrics are easily decomposed, and you may want to learn about the different elements.
 For example, you may want to see revenue across different product types (e.g. "apparel", "equipment").
@@ -411,9 +411,11 @@ For more advanced analysis, use our [Product Analytics](/app/product-analytics) 
 
 ## Metric Groups
 
+<CommercialFeature feature="metric-groups" />
+
 There are often groups of metrics you want to add together to an experiment. For example, 5 key revenue metrics that you add to anything touching the checkout flow.
 
-GrowthBook Enterprise customers can define Metric Groups to accomplish this. Add multiple metrics, drag & drop to order them, and add them in bulk to experiments as Goals, Guardrails, or Secondary Metrics.
+Define Metric Groups to accomplish this. Add multiple metrics, drag & drop to order them, and add them in bulk to experiments as Goals, Guardrails, or Secondary Metrics.
 
 ## Database Cost Optimization
 

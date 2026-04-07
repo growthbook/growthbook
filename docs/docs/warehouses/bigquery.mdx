@@ -6,6 +6,7 @@ slug: /guide/bigquery
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
+import CommercialFeature from '@site/src/components/CommercialFeature';
 
 This document outlines the steps needed to add your BigQuery database to GrowthBook.
 
@@ -93,9 +94,11 @@ table (which will be `experiment_viewed` if you use Segment or Rudderstack).
 
 When you click save, GrowthBook will test the connection to make sure the credentials are correct. If the connection is successful, you should see a success message on the next page.
 
-## Enabling Data Pipeline Mode (Enterprise)
+## Enabling Data Pipeline Mode
 
-Enterprise customers can enable pipeline mode, which can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
+<CommercialFeature feature="pipeline-mode" />
+
+Pipeline mode can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
 
 [More details can be found here.](/app/data-pipeline)
 

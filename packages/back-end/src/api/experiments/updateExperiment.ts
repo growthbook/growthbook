@@ -14,11 +14,16 @@ import {
 import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateVariationIds,
 } from "back-end/src/services/experiments";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { validateCustomFields } from "./validation";
+import {
+  assertExperimentPayloadCommercialFeatures,
+  validateCustomFields,
+} from "./validations";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
@@ -31,7 +36,7 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+  // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (req.body.project) {
     await req.context.models.projects.ensureProjectsExist([req.body.project]);
   }
@@ -39,6 +44,13 @@ export const updateExperiment = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
     req.context.permissions.throwPermissionError();
   }
+
+  assertExperimentPayloadCommercialFeatures(req.context, {
+    postStratificationEnabled: req.body.postStratificationEnabled,
+    decisionFrameworkSettings: req.body.decisionFrameworkSettings,
+    metricOverrides: req.body.metricOverrides,
+    defaultDashboardId: req.body.defaultDashboardId,
+  });
 
   // validate datasource only if updating
   const datasourceId = req.body.datasourceId ?? experiment.datasource;
@@ -82,7 +94,8 @@ export const updateExperiment = createApiRequestHandler(
   // check if tracking key is unique
   if (
     req.body.trackingKey != null &&
-    req.body.trackingKey !== experiment.trackingKey
+    req.body.trackingKey !== experiment.trackingKey &&
+    !req.body.bypassDuplicateKeyCheck
   ) {
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
@@ -95,13 +108,28 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  // check if the custom fields are valid
-  if (req.body.customFields) {
+  const projectChanged =
+    req.body.project !== undefined && req.body.project !== experiment.project;
+  const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
+    existingCustomFieldValues: experiment.customFields,
+    updatedCustomFieldValues: req.body.customFields,
+  });
+
+  if (projectChanged || customFieldsChanged) {
     await validateCustomFields(
-      req.body.customFields,
+      req.body.customFields ?? experiment.customFields,
       req.context,
-      experiment.project,
+      req.body.project ?? experiment.project,
     );
+  }
+
+  if (req.body.defaultDashboardId) {
+    const dashboard = await req.context.models.dashboards.getById(
+      req.body.defaultDashboardId,
+    );
+    if (!dashboard) {
+      throw new Error(`Invalid dashboard: ${req.body.defaultDashboardId}`);
+    }
   }
 
   // Validate that specified metrics exist and belong to the organization
@@ -172,6 +200,29 @@ export const updateExperiment = createApiRequestHandler(
     throw new Error("Can only convert experiment types while in draft mode.");
   }
 
+  // Validate attributionModel + lookbackOverride consistency
+  const effectiveAttrModel =
+    req.body.attributionModel ?? experiment.attributionModel;
+  const effectiveLookback =
+    req.body.lookbackOverride !== undefined
+      ? req.body.lookbackOverride
+      : experiment.lookbackOverride;
+  if (effectiveAttrModel === "lookbackOverride" && !effectiveLookback) {
+    throw new Error(
+      "lookbackOverride is required when attributionModel is 'lookbackOverride'",
+    );
+  }
+  // If lookbackOverride is provided in the payload, it must have the right
+  // attribution model
+  if (
+    effectiveAttrModel !== "lookbackOverride" &&
+    req.body.lookbackOverride !== undefined
+  ) {
+    throw new Error(
+      "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+    );
+  }
+
   const updatedExperiment = await updateExperimentToDb({
     context: req.context,
     experiment: experiment,
@@ -186,6 +237,16 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
+
+  await req.audit({
+    event: "experiment.update",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsUpdate(experiment, updatedExperiment),
+  });
+
   const apiExperiment = await toExperimentApiInterface(
     req.context,
     updatedExperiment as ExperimentInterfaceExcludingHoldouts,

@@ -19,18 +19,24 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
   allConfig: js.configs.all,
 });
+// Strip invalid "name" property from Next.js flat config (ESLint 9 rejects it)
+const { name: _nextName, ...nextRecommendedConfig } =
+  nextEslintPluginNext.configs.recommended;
 
 export default defineConfig([
   globalIgnores([
     "**/.next",
     "**/dist",
     "**/coverage",
+    "**/.venv",
+    "**/node_modules",
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
   ]),
+  nextRecommendedConfig,
   {
     extends: fixupConfigRules(
       compat.extends(
@@ -41,7 +47,6 @@ export default defineConfig([
         "plugin:@typescript-eslint/eslint-recommended",
         "plugin:@typescript-eslint/recommended",
         "plugin:prettier/recommended",
-        "plugin:@next/eslint-plugin-next/recommended",
         "plugin:react-hooks/recommended",
       ),
     ),
@@ -50,7 +55,6 @@ export default defineConfig([
       react: fixupPluginRules(react),
       "@typescript-eslint": fixupPluginRules(typescriptEslint),
       prettier: fixupPluginRules(prettier),
-      "@next/next": fixupPluginRules(nextEslintPluginNext),
       "no-async-foreach": noAsyncForeach,
     },
 
@@ -86,7 +90,10 @@ export default defineConfig([
 
         typescript: {
           alwaysTryTypes: true,
-          project: ["packages/*/tsconfig.json"],
+          project: [
+            "packages/*/tsconfig.json",
+            "packages/back-end/test/tsconfig.json",
+          ],
         },
       },
     },
@@ -329,6 +336,59 @@ export default defineConfig([
             {
               group: ["*front-end*", "**/sdk-{js,react}*"],
               message: "back-end can only import from shared or itself.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      "./packages/back-end/src/controllers/**/*.ts",
+      "./packages/back-end/src/routers/**/*.controller.ts",
+      "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+    ],
+
+    rules: {
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
             },
           ],
         },

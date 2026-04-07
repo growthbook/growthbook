@@ -5,13 +5,11 @@ sidebar_label: Data Pipeline
 slug: /app/data-pipeline
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 # Data Pipeline Mode
 
-:::info Enterprise only
-
-Pipeline mode is only available for Enterprise customers availability differs by warehouse and pipeline strategy.
-
-:::
+<CommercialFeature feature="pipeline-mode" description="Availability differs by warehouse and pipeline strategy." />
 
 Pipeline mode will provide substantial savings for experimenters with lots of data and/or long-running experiments. With **Pipeline Mode**, GrowthBook writes intermediate tables back to your warehouse and re-uses those across metric analyses in an experiment.
 

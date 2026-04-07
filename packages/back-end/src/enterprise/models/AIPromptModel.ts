@@ -12,7 +12,7 @@ const BaseClass = MakeModelClass({
     updateEvent: "aiPrompt.update",
     deleteEvent: "aiPrompt.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
       fields: {

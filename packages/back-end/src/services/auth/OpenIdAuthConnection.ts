@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import {
   Issuer,
@@ -56,7 +57,29 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   throw new Error("Could not find SSO connection - " + ssoConnectionId);
 }, 30);
 
-const clientMap: Map<SSOConnectionInterface, Client> = new Map();
+// A stable key for clientMap
+// Cache key must include all fields that affect the OpenID Client, so updates
+// (e.g. clientSecret rotation) invalidate the cache. Otherwise users could be
+// locked out until server restart.
+function getConnectionCacheKey(connection: SSOConnectionInterface): string {
+  const baseId =
+    connection.id ??
+    `${connection.clientId}:${connection.metadata?.issuer ?? ""}`;
+  const configHash = crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        clientId: connection.clientId,
+        clientSecret: connection.clientSecret ?? "",
+        metadata: connection.metadata,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
+  return `${baseId}:${configHash}`;
+}
+
+const clientMap: Map<string, Client> = new Map();
 
 const jwksMiddlewareCache: { [key: string]: RequestHandler } = {};
 
@@ -199,7 +222,12 @@ export class OpenIdAuthConnection implements AuthConnection {
               if (err) return reject(err);
               resolve(key);
             };
-            jwksClient(req, token?.header, token?.payload, callback);
+            jwksClient(
+              req,
+              token?.header,
+              token?.payload,
+              callback as (err: Error | null, secret?: unknown) => void,
+            );
           });
         };
 
@@ -329,7 +357,8 @@ async function getConnectionFromRequest(req: Request, res: Response) {
   }
 
   // Then, get the corresponding OpenID Client
-  let client = clientMap.get(connection);
+  const cacheKey = getConnectionCacheKey(connection);
+  let client = clientMap.get(cacheKey);
   if (!client) {
     const issuer = new Issuer(connection.metadata as IssuerMetadata);
     client = new issuer.Client({
@@ -341,7 +370,7 @@ async function getConnectionFromRequest(req: Request, res: Response) {
         ? "client_secret_basic"
         : "none",
     });
-    clientMap.set(connection, client);
+    clientMap.set(cacheKey, client);
   }
 
   // If we've made it this far, the connection was found and we should persist it in a cookie

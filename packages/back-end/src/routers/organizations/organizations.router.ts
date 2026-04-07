@@ -3,6 +3,7 @@ import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
+  postApiKeyValidator,
   putDefaultRoleValidator,
   putMemberProjectRoleValidator,
 } from "./organizations.validators";
@@ -85,7 +86,13 @@ router.get(
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
-router.post("/keys", organizationsController.postApiKey);
+router.post(
+  "/keys",
+  validateRequestMiddleware({
+    body: postApiKeyValidator,
+  }),
+  organizationsController.postApiKey,
+);
 router.delete("/keys", organizationsController.deleteApiKey);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 

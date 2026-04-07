@@ -7,18 +7,18 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
       body={
         <div>
           <div className="mb-2">
-            Determines whether we respect conversion windows (lookback windows
-            cannot be overriden this way).
+            <strong>Use Metric Settings</strong> - Respect each metric{"'"}s
+            window (none, conversion, or lookback) settings.
           </div>
           <div className="mb-2">
-            <strong>Respect Conversion Windows</strong> - Builds a single
-            conversion window off of each user{"'"}s first exposure for metrics
-            with conversion windows.
+            <strong>Ignore Conversion Windows</strong> - Count all metric values
+            from user{"'"}s first exposure to the end of the experiment,
+            regardless of the metrics{"'"} conversion or lookback window.
           </div>
           <div>
-            <strong>Ignore Conversion Windows</strong> - Override all metric
-            conversion windows and count all metric values from user{"'"}s first
-            exposure to the end of the experiment.
+            <strong>Use Custom Lookback Window</strong> - Override all metric
+            windows with a lookback period to either a fixed date or set time in
+            the past until the end of the experiment.
           </div>
         </div>
       }

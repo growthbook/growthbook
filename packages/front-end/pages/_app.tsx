@@ -38,6 +38,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
+import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
 import { AIChatProvider } from "@/services/AIChatContext";
 
@@ -194,20 +195,22 @@ function App({
                           {organizationRequired ? (
                             <GetStartedProvider>
                               <DefinitionsProvider>
-                                <AIChatProvider>
-                                  {liteLayout ? <LayoutLite /> : <Layout />}
-                                  <CommandPaletteLauncher />
-                                  <main className={`main ${parts[0]}`}>
-                                    <GuidedGetStartedBar />
-                                    <OrganizationMessagesContainer />
-                                    <DemoDataSourceGlobalBannerContainer />
-                                    <DefinitionsGuard>
-                                      <Component
-                                        {...{ ...pageProps, envReady: ready }}
-                                      />
-                                    </DefinitionsGuard>
-                                  </main>
-                                </AIChatProvider>
+                                <FeatureStaleStatesProvider>
+                                  <AIChatProvider>
+                                    {liteLayout ? <LayoutLite /> : <Layout />}
+                                    <CommandPaletteLauncher />
+                                    <main className={`main ${parts[0]}`}>
+                                      <GuidedGetStartedBar />
+                                      <OrganizationMessagesContainer />
+                                      <DemoDataSourceGlobalBannerContainer />
+                                      <DefinitionsGuard>
+                                        <Component
+                                          {...{ ...pageProps, envReady: ready }}
+                                        />
+                                      </DefinitionsGuard>
+                                    </main>
+                                  </AIChatProvider>
+                                </FeatureStaleStatesProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>
                           ) : (

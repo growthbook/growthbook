@@ -84,19 +84,37 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
-        <label>Query User</label>
-        <input
-          type="text"
-          className="form-control"
-          name="user"
-          value={params.user || "growthbook"}
-          onChange={onParamChange}
-        />
-        <small className="form-text text-muted">
-          The user to connect as. Defaults to &quot;growthbook&quot;.
-        </small>
-      </div>
+      {params.engine === "trino" ? (
+        <div className="form-group col-md-12">
+          <label>Trino User</label>
+          <input
+            type="text"
+            className="form-control"
+            name="trinoUser"
+            value={params.trinoUser || ""}
+            onChange={onParamChange}
+            placeholder="growthbook"
+          />
+          <small className="form-text text-muted">
+            The user for X-Trino-User header. It is not sent if empty.
+          </small>
+        </div>
+      ) : (
+        <div className="form-group col-md-12">
+          <label>Query User</label>
+          <input
+            type="text"
+            className="form-control"
+            name="user"
+            value={params.user || "growthbook"}
+            onChange={onParamChange}
+          />
+          <small className="form-text text-muted">
+            The user for X-Presto-User header. Defaults to
+            &quot;growthbook&quot;.
+          </small>
+        </div>
+      )}
       <div className="col-md-12">
         <SelectField
           label="Authentication Method"
@@ -220,13 +238,20 @@ const PrestoForm: FC<{
           type="number"
           className="form-control"
           name="requestTimeout"
-          value={params.requestTimeout || ""}
+          value={
+            params.requestTimeout === undefined ||
+            params.requestTimeout === null
+              ? ""
+              : String(params.requestTimeout)
+          }
           onChange={onParamChange}
-          placeholder="(optional - in seconds. If empty or 0, there will be no limit)"
+          placeholder="Optional — seconds (default 3600 if unset)"
         />
         <div className="form-text text-muted small">
-          The number of seconds before a request will timeout. Set to 0 to
-          disable timeout.
+          Seconds GrowthBook waits for each query (including the connection test
+          when you save). If empty, default is 3600 (one hour). Set to 0 to turn
+          off this client-side limit only; Trino/Presto may still enforce
+          server-side timeouts.
         </div>
       </div>
       <div className="form-group col-md-12">

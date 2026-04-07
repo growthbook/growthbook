@@ -13,6 +13,7 @@ export const projectValidator = baseSchema
   .extend({
     name: z.string(),
     description: z.string().optional(),
+    publicId: z.string().optional(),
     settings: projectSettingsValidator.optional(),
     managedBy: managedByValidator.optional(),
   })

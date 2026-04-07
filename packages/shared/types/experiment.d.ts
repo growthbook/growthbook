@@ -14,6 +14,8 @@ import { ExperimentRefVariation, FeatureInterface } from "./feature";
 export {
   AttributionModel,
   ImplementationType,
+  LookbackOverride,
+  LookbackOverrideValueUnit,
   MetricOverride,
   BanditResult,
   ExperimentStatus,
@@ -28,12 +30,15 @@ export {
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
+  PhaseVariation,
   Screenshot,
   Variation,
+  VariationStatus,
 } from "shared/validators";
 
 export {
   ExperimentTemplateInterface,
+  ApiExperimentTemplateInterface,
   CreateTemplateProps,
   UpdateTemplateProps,
 } from "shared/validators";
@@ -207,6 +212,7 @@ export type ExperimentTargetingData = Pick<
   | "namespace"
   | "seed"
   | "variationWeights"
+  | "variations"
   | "savedGroups"
   | "prerequisites"
 > &

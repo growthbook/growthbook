@@ -36,6 +36,10 @@ export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 // Post-Stratification:
 export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 
+// Lookback Override:
+export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
+export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
 export const DEFAULT_USE_STICKY_BUCKETING = false;
@@ -45,6 +49,7 @@ export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
+export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 // Colors:
@@ -96,17 +101,21 @@ export const SAFE_ROLLOUT_VARIATIONS = [
     id: "0",
     name: "Control",
     weight: 0.5,
+    index: 0,
   },
   {
     id: "1",
     name: "Rollout Value",
     weight: 0.5,
+    index: 1,
   },
 ];
 
 export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
   "quantile",
 ] as const;
+
+export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 
 export const sdkLanguages = [
   "nocode-webflow",
@@ -218,6 +227,10 @@ export const entityEvents = {
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
+  rampSchedule: ["create", "update", "delete"],
+  rampScheduleTemplate: ["create", "update", "delete"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];
+
+export const WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD = 10;

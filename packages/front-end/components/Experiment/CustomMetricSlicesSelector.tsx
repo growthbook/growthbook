@@ -13,7 +13,6 @@ import {
   SliceLevelsData,
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { CustomMetricSlice } from "shared/validators";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -49,10 +48,8 @@ export default function CustomMetricSlicesSelector({
   customMetricSlices,
   setCustomMetricSlices,
 }: CustomMetricSlicesSelectorProps) {
-  const growthbook = useGrowthBook();
-  const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
-
   const { hasCommercialFeature } = useUser();
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   const [editState, setEditState] = useState<"adding" | "editing" | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -240,8 +237,7 @@ export default function CustomMetricSlicesSelector({
 
   return (
     <>
-      {hasCommercialFeature("metric-slices") &&
-      metricsWithStringColumns.length > 0 ? (
+      {metricsWithStringColumns.length > 0 ? (
         <div className="my-4">
           <label className="font-weight-bold mb-1">Custom Metric Slices</label>
 

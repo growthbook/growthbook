@@ -1,9 +1,8 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getFeatureDefinitions } from "back-end/src/services/features";
+import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
+import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   clearProxyError,
@@ -64,6 +63,13 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
+  if (
+    (connection.proxy.consecutiveFailures || 0) >=
+    WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD
+  ) {
+    return;
+  }
+
   if (!useCloudProxy && !connection.proxy.host) {
     logger.error(
       {
@@ -75,32 +81,12 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
     return;
   }
 
-  const environmentDoc = context.org?.settings?.environments?.find(
-    (e) => e.id === connection.environment,
+  const payload = JSON.stringify(
+    await getFeatureDefinitionsWithCache({
+      context,
+      params: connection,
+    }),
   );
-  const filteredProjects = filterProjectsByEnvironmentWithNull(
-    connection.projects,
-    environmentDoc,
-    true,
-  );
-
-  const defs = await getFeatureDefinitions({
-    context,
-    capabilities: getConnectionSDKCapabilities(connection),
-    environment: connection.environment,
-    projects: filteredProjects,
-    encryptionKey: connection.encryptPayload
-      ? connection.encryptionKey
-      : undefined,
-    includeVisualExperiments: connection.includeVisualExperiments,
-    includeDraftExperiments: connection.includeDraftExperiments,
-    includeExperimentNames: connection.includeExperimentNames,
-    includeRedirectExperiments: connection.includeRedirectExperiments,
-    includeRuleIds: connection.includeRuleIds,
-    hashSecureAttributes: connection.hashSecureAttributes,
-  });
-
-  const payload = JSON.stringify(defs);
 
   // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
   const signature = createHmac("sha256", connection.proxy.signingKey)

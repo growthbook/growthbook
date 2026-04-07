@@ -172,6 +172,7 @@ export async function getCreateMetricPropsFromBody(
   if (cappingSettings?.type && cappingSettings?.type !== "none") {
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
+    data.cappingSettings.ignoreZeros = cappingSettings.ignoreZeros || false;
   }
 
   if (windowSettings?.type && windowSettings?.type !== "none") {

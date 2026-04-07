@@ -14,8 +14,8 @@ export const userAuthenticationValidator = z.object({
 // This is only the things that look interesting.
 export const systemAuthenticationValidator = z.object({
   payload: z.object({
-    installation_id: z.string(),
-    account_id: z.string(),
+    installation_id: z.string().optional(),
+    account_id: z.string().optional(),
   }),
 });
 

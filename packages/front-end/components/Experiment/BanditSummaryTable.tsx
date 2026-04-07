@@ -3,7 +3,10 @@ import { CSSTransition } from "react-transition-group";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { BanditEvent } from "shared/validators";
 import clsx from "clsx";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { getVariationColor } from "@/services/features";
 import ResultsVariationsFilter from "@/components/Experiment/ResultsVariationsFilter";
@@ -63,10 +66,10 @@ export default function BanditSummaryTable({
 
   const phaseObj = experiment.phases[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v) => {
     return {
-      id: v.key || i + "",
-      index: i,
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
     };
   });

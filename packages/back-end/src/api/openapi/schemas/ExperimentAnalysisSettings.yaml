@@ -30,7 +30,10 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
-    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
+      - lookbackOverride
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.
+  lookbackOverride:
+    $ref: "./LookbackOverride.yaml"
   statsEngine:
     enum:
       - bayesian
@@ -41,6 +44,20 @@ properties:
     type: boolean
   sequentialTestingTuningParameter:
     type: number
+  postStratificationEnabled:
+    type:
+      - boolean
+      - "null"
+    description: When null, the organization default is used.
+  decisionFrameworkSettings:
+    $ref: "./ExperimentDecisionFrameworkSettings.yaml"
+  metricOverrides:
+    type: array
+    items:
+      $ref: "./ExperimentMetricOverrideEntry.yaml"
+    description: >-
+      Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable.
+      On create/update, this replaces the entire stored array (it does not patch individual entries).
   goals:
     type: array
     items:

@@ -28,6 +28,7 @@ const POLL_TIMEOUT_MS = 60000; // Give up after 1 minute
 
 export default function ColumnList({ factTable, canEdit = false }: Props) {
   const [editOpen, setEditOpen] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const { mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
 
@@ -111,15 +112,21 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
             <Button
               size="xs"
               variant="outline"
+              loading={refreshing || !!factTable.columnRefreshPending}
               onClick={async () => {
-                await apiCall(
-                  `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
-                  {
-                    method: "PUT",
-                    body: JSON.stringify({}),
-                  },
-                );
-                mutateDefinitions();
+                setRefreshing(true);
+                try {
+                  await apiCall(
+                    `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                    {
+                      method: "PUT",
+                      body: JSON.stringify({}),
+                    },
+                  );
+                  await mutateDefinitions();
+                } finally {
+                  setRefreshing(false);
+                }
               }}
             >
               Refresh

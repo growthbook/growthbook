@@ -118,19 +118,21 @@ export default function RefreshResultsButton<
                   })
                 : undefined;
 
-            await apiCall<{ snapshot: T }>(snapshotEndpoint, {
-              method: "POST",
-              ...(body && { body }),
-            })
-              .then((res) => {
-                onSubmitSuccess?.(res.snapshot);
-                mutate();
-                mutateAdditional?.();
-                setRefreshError("");
-              })
-              .catch((e) => {
-                setRefreshError(e.message);
+            try {
+              const res = await apiCall<{ snapshot: T }>(snapshotEndpoint, {
+                method: "POST",
+                ...(body && { body }),
               });
+              onSubmitSuccess?.(res.snapshot);
+              setRefreshError("");
+            } catch (e) {
+              setRefreshError(e.message);
+            } finally {
+              // Always refresh, regardless of success or failure
+              // to give the UI a chance to catch up
+              mutate();
+              mutateAdditional?.();
+            }
           }}
         />
       ) : shouldRenderExperimentButton ? (

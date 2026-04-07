@@ -20,7 +20,7 @@ import {
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { Queries, QueryStatus } from "shared/types/query";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -98,6 +98,7 @@ export default function DashboardSnapshotProvider({
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
     metricAnalyses: MetricAnalysisInterface[];
+    explorations: ProductAnalyticsExploration[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
     shouldRun: () => !!dashboard?.id && dashboard.id !== "new",
   });
@@ -116,6 +117,7 @@ export default function DashboardSnapshotProvider({
     const allSnapshots = allSnapshotsData?.snapshots || [];
     const allSavedQueries = allSnapshotsData?.savedQueries || [];
     const allMetricAnalyses = allSnapshotsData?.metricAnalyses || [];
+    const allExplorations = allSnapshotsData?.explorations || [];
     const savedQueriesMap = new Map(
       allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery]),
     );
@@ -140,10 +142,17 @@ export default function DashboardSnapshotProvider({
         allMetricAnalyses.flatMap(
           (metricAnalysis) => metricAnalysis.queries || [],
         ),
+      )
+      .concat(
+        allExplorations.flatMap((exploration) => exploration.queries || []),
       );
-    const snapshotError = allSnapshots.find(
-      (snapshot) => snapshot.error,
-    )?.error;
+    const snapshotError: string | undefined =
+      (allSnapshots.find((snapshot) => snapshot.error)?.error ||
+        allMetricAnalyses.find((metricAnalysis) => metricAnalysis.error)
+          ?.error ||
+        allExplorations.find((exploration) => exploration.error)?.error ||
+        allSavedQueries.find((q) => q.results?.error)?.results?.error) ??
+      undefined;
     const { status } = getQueryStatus(allQueries, snapshotError);
 
     return {

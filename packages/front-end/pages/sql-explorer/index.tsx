@@ -50,9 +50,9 @@ export default function SqlExplorer() {
   return (
     <div className="container pagecontents">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>SQL Explorer</h1>
+        <h1>Custom SQL Reports</h1>
         {hasDatasource && canCreateSavedQueries && (
-          <Button onClick={() => setShowModal(true)}>New SQL Query</Button>
+          <Button onClick={() => setShowModal(true)}>New SQL Report</Button>
         )}
       </div>
 
@@ -73,8 +73,8 @@ export default function SqlExplorer() {
           <div className="appbox p-5 text-center">
             <h2>Explore Your Data</h2>
             <p>
-              Write SQL, view results, create visualizations, and share with
-              your team.
+              Write custom SQL queries, create visualizations from the results,
+              and optionally add them to your Product Analytics Dashboards.
             </p>
             <div className="mt-3">
               {!hasDatasource ? (
@@ -99,8 +99,8 @@ export default function SqlExplorer() {
         <div>
           <div className="mb-3">
             <p className="text-muted">
-              Write SQL, view results, create visualizations, and share with
-              your team.
+              Write custom SQL queries, create visualizations from the results,
+              and optionally add them to your Product Analytics Dashboards.
             </p>
           </div>
           <SavedQueriesList savedQueries={savedQueries} mutate={mutate} />

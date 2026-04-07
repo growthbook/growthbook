@@ -13,6 +13,7 @@ import emoji from "@jukben/emoji-search";
 import { useDropzone } from "react-dropzone";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PiArrowClockwise } from "react-icons/pi";
+import { AISuggestionType } from "shared/ai";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -22,6 +23,7 @@ import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import track from "@/services/track";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
@@ -36,7 +38,6 @@ function getLinkLabelFromUrl(url: string): string {
     return "Link";
   }
 }
-
 const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;
@@ -53,6 +54,9 @@ const MarkdownInput: FC<{
   onCancel?: () => void;
   hidePreview?: boolean;
   showButtons?: boolean;
+  maxRows?: number;
+  onAISuggestionReceived?: (result: string) => void;
+  trackingSource?: string;
 }> = ({
   value,
   setValue,
@@ -69,6 +73,9 @@ const MarkdownInput: FC<{
   onOptInModalOpen, // If this component is in Modal itself this can be used to close that modal when the OptInModal opens
   onOptInModalClose, // ... And this can be used to open that modal when the OptInModal closes
   showButtons = true,
+  maxRows = 6,
+  onAISuggestionReceived,
+  trackingSource,
 }) => {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [activeControlledTab, setActiveControlledTab] = useState<
@@ -160,8 +167,9 @@ const MarkdownInput: FC<{
     HTMLDivElement
   >;
 
-  const doAISuggestion = async () => {
+  const doAISuggestion = async (type?: AISuggestionType) => {
     if (aiSuggestFunction && aiEnabled) {
+      track("ai-suggestion", { source: trackingSource, type });
       setError("");
       try {
         setLoading(true);
@@ -169,6 +177,9 @@ const MarkdownInput: FC<{
         setActiveControlledTab("write");
         const suggestedText = await aiSuggestFunction();
         if (suggestedText) {
+          if (onAISuggestionReceived) {
+            onAISuggestionReceived(suggestedText);
+          }
           if (!value || !value.trim()) {
             setValue(suggestedText);
           } else {
@@ -216,7 +227,7 @@ const MarkdownInput: FC<{
             <div className="position-relative" {...typedRootProps}>
               <ReactTextareaAutocomplete
                 className="form-control mb-1"
-                rows={6}
+                rows={maxRows}
                 loadingComponent={Loading}
                 minChar={0}
                 dropdownStyle={{
@@ -321,7 +332,7 @@ const MarkdownInput: FC<{
                   <Button
                     variant="soft"
                     disabled={loading}
-                    onClick={doAISuggestion}
+                    onClick={() => doAISuggestion("suggest")}
                   >
                     <BsStars /> {loading ? "Generating..." : aiButtonText}
                   </Button>
@@ -365,7 +376,10 @@ const MarkdownInput: FC<{
                     {aiSuggestionHeader}:
                   </Heading>
                   <Flex gap="2">
-                    <Button variant="ghost" onClick={doAISuggestion}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => doAISuggestion("try-again")}
+                    >
                       <PiArrowClockwise /> Try Again
                     </Button>
                     {aiSuggestionText && value != aiSuggestionText && (
@@ -375,6 +389,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setRevertValue(value);
                             setValue(aiSuggestionText);
+                            track("use-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Use Suggested
@@ -388,6 +405,9 @@ const MarkdownInput: FC<{
                           onClick={() => {
                             setValue(revertValue);
                             setRevertValue(null);
+                            track("revert-ai-suggestion", {
+                              source: trackingSource,
+                            });
                           }}
                         >
                           Revert

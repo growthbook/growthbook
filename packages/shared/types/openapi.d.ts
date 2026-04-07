@@ -24,13 +24,28 @@ export interface paths {
   "/features/{id}": {
     /** Get a single feature */
     get: operations["getFeature"];
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["updateFeature"];
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["toggleFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -40,7 +55,12 @@ export interface paths {
     };
   };
   "/features/{id}/revert": {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     post: operations["revertFeature"];
     parameters: {
         /** @description The id of the requested resource */
@@ -52,6 +72,10 @@ export interface paths {
   "/features/{id}/revisions": {
     /** Get all revisions for a feature */
     get: operations["getFeatureRevisions"];
+  };
+  "/stale-features": {
+    /** Get stale status for one or more features */
+    get: operations["getFeatureStale"];
   };
   "/feature-keys": {
     /** Get list of feature keys */
@@ -157,6 +181,22 @@ export interface paths {
       };
     };
   };
+  "/experiments/{id}/variation/{variationId}/screenshot/upload": {
+    /** Upload a variation screenshot */
+    post: operations["postVariationImageUpload"];
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+  };
+  "/experiments/{id}/variation/{variationId}/screenshot": {
+    /** Delete a variation screenshot */
+    delete: operations["deleteVariationScreenshot"];
+  };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
     get: operations["getExperimentResults"];
@@ -170,6 +210,8 @@ export interface paths {
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
     get: operations["listVisualChangesets"];
+    /** Create a visual changeset for an experiment */
+    post: operations["postVisualChangesets"];
   };
   "/snapshots/{id}": {
     /** Get an experiment snapshot status */
@@ -382,6 +424,247 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/data-sources/{dataSourceId}/information-schema": {
+    /**
+     * Get a Data Source's Information Schema 
+     * @description Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.
+     */
+    get: operations["getInformationSchema"];
+    parameters: {
+        /** @description The id of the data source */
+      path: {
+        dataSourceId: string;
+      };
+    };
+  };
+  "/information-schema-tables/{tableId}": {
+    /**
+     * Get a single Information Schema Table by id 
+     * @description Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.
+     */
+    get: operations["getInformationSchemaTable"];
+    parameters: {
+        /** @description The id of the information schema table */
+      path: {
+        tableId: string;
+      };
+    };
+  };
+  "/ramp-schedules": {
+    /**
+     * List ramp schedules 
+     * @description Returns all ramp schedules for the organization, with optional filters.
+     */
+    get: operations["listRampSchedules"];
+    /**
+     * Create a ramp schedule 
+     * @description Creates a new ramp schedule, optionally attaching it to a published feature rule.
+     * 
+     * ### Target attachment (optional)
+     * 
+     * Provide `featureId`, `ruleId`, and `environment` together to attach the schedule
+     * to a specific rule on creation. The rule must already be live (published). Each
+     * `[ruleId, environment]` pair can only be controlled by one schedule at a time.
+     * 
+     * When all three are supplied, **`targetId` and `patch.ruleId` are auto-injected**
+     * into every step action and endAction — callers only need to supply the patch
+     * values (`coverage`, `condition`, etc.).
+     * 
+     * If omitted, the schedule is created as a free-standing skeleton in `pending`
+     * status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach rules later,
+     * and `POST /ramp-schedules/{id}/actions/start` to start it.
+     * 
+     * ### Using templates
+     * 
+     * Provide `templateId` to inherit steps and endActions from a saved template.
+     * Explicit `steps` / `endActions` in the request body take precedence over the
+     * template. Template auto-population requires `featureId`, `ruleId`, and
+     * `environment` to be set (so targetId can be injected).
+     * 
+     * Requires an **Enterprise** plan.
+     */
+    post: operations["postRampSchedule"];
+  };
+  "/ramp-schedules/{id}": {
+    /** Get a single ramp schedule */
+    get: operations["getRampSchedule"];
+    /**
+     * Update a ramp schedule 
+     * @description Updates the name, steps, endActions, startDate, or endCondition of a ramp schedule.
+     * 
+     * Only allowed when the schedule is in `pending`, `ready`, or `paused` status.
+     * 
+     * **targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`
+     * (or pass `"t1"`) in each action. If the schedule has exactly one active target, the server
+     * will resolve it automatically. For schedules with multiple targets, provide the explicit
+     * target UUID from `targets[].id`.
+     */
+    put: operations["putRampSchedule"];
+    /**
+     * Delete a ramp schedule 
+     * @description Permanently deletes a ramp schedule. This does not undo any rule patches that
+     * were already applied by completed steps.
+     */
+    delete: operations["deleteRampSchedule"];
+  };
+  "/ramp-schedules/{id}/actions/start": {
+    /**
+     * Start a ramp schedule 
+     * @description Transitions the schedule from `ready` to `running` and processes the first
+     * step immediately if eligible.
+     */
+    post: operations["startRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/pause": {
+    /**
+     * Pause a ramp schedule 
+     * @description Pauses a `running` or `pending-approval` schedule. The schedule can be
+     * resumed from the same position with the `/actions/resume` endpoint.
+     */
+    post: operations["pauseRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/resume": {
+    /**
+     * Resume a paused ramp schedule 
+     * @description Resumes a `paused` schedule. Adjusts timing anchors to account for the
+     * pause duration so step intervals continue from where they left off.
+     */
+    post: operations["resumeRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/approve-step": {
+    /**
+     * Approve the current pending-approval step 
+     * @description Approves the current step on a schedule in `pending-approval` status and
+     * advances to the next step. Requires the caller to have feature review
+     * permissions for the associated feature.
+     */
+    post: operations["approveStepRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/rollback": {
+    /**
+     * Roll back a ramp schedule 
+     * @description Rolls back to the starting position and lands in `paused` status so the
+     * schedule can be restarted with `/actions/start` or `/actions/resume`.
+     */
+    post: operations["rollbackRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/complete": {
+    /**
+     * Complete a ramp schedule immediately 
+     * @description Applies end actions and marks the schedule as `completed`, regardless of
+     * how many steps remain.
+     */
+    post: operations["completeRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/jump": {
+    /**
+     * Jump to a specific step 
+     * @description Moves the schedule directly to `targetStepIndex` (forward or backward) and
+     * pauses. Use `-1` to jump to the pre-start position without rolling back rule
+     * patches.
+     */
+    post: operations["jumpRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/add-target": {
+    /**
+     * Add a target rule to a ramp schedule 
+     * @description Attaches an additional feature rule to this ramp schedule. The
+     * `[ruleId, environment]` pair must identify a rule that is already published
+     * and must not already be controlled by another schedule.
+     */
+    post: operations["addTargetRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/ramp-schedules/{id}/actions/eject-target": {
+    /**
+     * Remove a target rule from a ramp schedule 
+     * @description Detaches a target rule from this ramp schedule. Identify the target either
+     * by its `targetId` or by the `[ruleId, environment]` pair.
+     * 
+     * If this is the last target on the schedule, the schedule is deleted entirely
+     * and the response contains `deleted: true` instead of `rampSchedule`.
+     */
+    post: operations["ejectTargetRampSchedule"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/product-analytics/metric-exploration": {
+    /** Create a Metric based visualization */
+    post: operations["postMetricExploration"];
+  };
+  "/product-analytics/fact-table-exploration": {
+    /** Run a Fact Table based visualization */
+    post: operations["postFactTableExploration"];
+  };
+  "/product-analytics/data-source-exploration": {
+    /** Create a Data Source based visualization */
+    post: operations["postDataSourceExploration"];
+  };
+  "/custom-fields": {
+    /** Get all custom fields */
+    get: operations["listCustomFields"];
+    /** Create a single customField */
+    post: operations["createCustomField"];
+  };
+  "/custom-fields/{id}": {
+    /** Get a single customField */
+    get: operations["getCustomField"];
+    /** Update a single customField */
+    put: operations["updateCustomField"];
+    /** Delete a single customField */
+    delete: operations["deleteCustomField"];
+  };
   "/dashboards/{id}": {
     /** Get a single dashboard */
     get: operations["getDashboard"];
@@ -400,19 +683,9 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
-  "/custom-fields": {
-    /** Get all custom fields */
-    get: operations["listCustomFields"];
-    /** Create a single customField */
-    post: operations["createCustomField"];
-  };
-  "/custom-fields/{id}": {
-    /** Get a single customField */
-    get: operations["getCustomField"];
-    /** Update a single customField */
-    put: operations["updateCustomField"];
-    /** Delete a single customField */
-    delete: operations["deleteCustomField"];
+  "/experiment-templates": {
+    /** Get all experimentTemplates */
+    get: operations["listExperimentTemplates"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -428,12 +701,286 @@ export interface paths {
     /** Create a single metricGroup */
     post: operations["createMetricGroup"];
   };
+  "/ramp-schedule-templates/{id}": {
+    /** Get a single rampScheduleTemplate */
+    get: operations["getRampScheduleTemplate"];
+    /** Update a single rampScheduleTemplate */
+    put: operations["updateRampScheduleTemplate"];
+    /** Delete a single rampScheduleTemplate */
+    delete: operations["deleteRampScheduleTemplate"];
+  };
+  "/ramp-schedule-templates": {
+    /** Get all rampScheduleTemplates */
+    get: operations["listRampScheduleTemplates"];
+    /** Create a single rampScheduleTemplate */
+    post: operations["createRampScheduleTemplate"];
+  };
+  "/teams/{id}": {
+    /** Get a single team */
+    get: operations["getTeam"];
+    /** Update a single team */
+    put: operations["updateTeam"];
+  };
+  "/teams": {
+    /** Get all teams */
+    get: operations["listTeams"];
+    /** Create a single team */
+    post: operations["createTeam"];
+  };
+  "/teams/{teamId}/members": {
+    /** Add members to team */
+    post: operations["addTeamMembers"];
+    /** Remove members from team */
+    delete: operations["removeTeamMember"];
+  };
+  "/teams/{teamId}/": {
+    /** Delete a single team */
+    delete: operations["deleteTeam"];
+  };
 }
 
 export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    AnalyticsExploration: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      datasource: string;
+      /** @enum {string} */
+      status: "running" | "success" | "error";
+      dateStart: string;
+      dateEnd: string;
+      error?: string | null;
+      result: {
+        rows: ({
+            dimensions: (string | null)[];
+            values: ({
+                metricId: string;
+                numerator: number | null;
+                denominator: number | null;
+              })[];
+          })[];
+      };
+      config: ({
+        /** @description ID of the datasource to query */
+        datasource: string;
+        dimensions: (({
+            /** @constant */
+            dimensionType: "date";
+            column: string | null;
+            /** @enum {string} */
+            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+          }) | ({
+            /** @constant */
+            dimensionType: "dynamic";
+            column: string | null;
+            maxValues: number;
+          }) | {
+            /** @constant */
+            dimensionType: "static";
+            column: string;
+            values: (string)[];
+          } | ({
+            /** @constant */
+            dimensionType: "slice";
+            slices: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          }))[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        /** @constant */
+        type: "metric";
+        dataset: {
+          /** @constant */
+          type: "metric";
+          values: ({
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @constant */
+              type: "metric";
+              metricId: string;
+              unit: string | null;
+              denominatorUnit: string | null;
+            })[];
+        };
+      }) | ({
+        /** @description ID of the datasource to query */
+        datasource: string;
+        dimensions: (({
+            /** @constant */
+            dimensionType: "date";
+            column: string | null;
+            /** @enum {string} */
+            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+          }) | ({
+            /** @constant */
+            dimensionType: "dynamic";
+            column: string | null;
+            maxValues: number;
+          }) | {
+            /** @constant */
+            dimensionType: "static";
+            column: string;
+            values: (string)[];
+          } | ({
+            /** @constant */
+            dimensionType: "slice";
+            slices: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          }))[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        /** @constant */
+        type: "fact_table";
+        dataset: {
+          /** @constant */
+          type: "fact_table";
+          factTableId: string | null;
+          values: ({
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @constant */
+              type: "fact_table";
+              /** @enum {string} */
+              valueType: "unit_count" | "count" | "sum";
+              valueColumn: string | null;
+              unit: string | null;
+            })[];
+        };
+      }) | ({
+        /** @description ID of the datasource to query */
+        datasource: string;
+        dimensions: (({
+            /** @constant */
+            dimensionType: "date";
+            column: string | null;
+            /** @enum {string} */
+            dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+          }) | ({
+            /** @constant */
+            dimensionType: "dynamic";
+            column: string | null;
+            maxValues: number;
+          }) | {
+            /** @constant */
+            dimensionType: "static";
+            column: string;
+            values: (string)[];
+          } | ({
+            /** @constant */
+            dimensionType: "slice";
+            slices: ({
+                name: string;
+                filters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+              })[];
+          }))[];
+        /** @enum {string} */
+        chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+        dateRange: {
+          /** @enum {string} */
+          predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+          lookbackValue: number | null;
+          lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+          startDate: string | null;
+          endDate: string | null;
+        };
+        /** @constant */
+        type: "data_source";
+        dataset: {
+          /** @constant */
+          type: "data_source";
+          table: string;
+          path: string;
+          timestampColumn: string;
+          columnTypes: {
+            [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+          };
+          values: ({
+              name: string;
+              rowFilters: ({
+                  /** @enum {string} */
+                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                  column?: string;
+                  values?: (string)[];
+                })[];
+              /** @constant */
+              type: "data_source";
+              /** @enum {string} */
+              valueType: "unit_count" | "count" | "sum";
+              valueColumn: string | null;
+              unit: string | null;
+            })[];
+        };
+      });
+    };
+    CustomField: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      placeholder?: string;
+      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      /** @enum {string} */
+      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+      values?: string;
+      required: boolean;
+      creator?: string;
+      projects?: (string)[];
+      sections: ("feature" | "experiment")[];
+      active?: boolean;
+    };
     Dashboard: {
       id: string;
       uid: string;
@@ -600,28 +1147,288 @@ export interface components {
           savedQueryId: string;
           dataVizConfigIndex?: number;
           blockConfig: (string)[];
-        })[];
+        } | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "metric-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            /** @description ID of the datasource to query */
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "metric";
+            dataset: {
+              /** @constant */
+              type: "metric";
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "metric";
+                  metricId: string;
+                  unit: string | null;
+                  denominatorUnit: string | null;
+                })[];
+            };
+          };
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "fact-table-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            /** @description ID of the datasource to query */
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "fact_table";
+            dataset: {
+              /** @constant */
+              type: "fact_table";
+              factTableId: string | null;
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "fact_table";
+                  /** @enum {string} */
+                  valueType: "unit_count" | "count" | "sum";
+                  valueColumn: string | null;
+                  unit: string | null;
+                })[];
+            };
+          };
+        }) | ({
+          organization: string;
+          id: string;
+          uid: string;
+          /** @constant */
+          type: "data-source-exploration";
+          title: string;
+          description: string;
+          snapshotId?: string;
+          explorerAnalysisId: string;
+          config: {
+            /** @description ID of the datasource to query */
+            datasource: string;
+            dimensions: (({
+                /** @constant */
+                dimensionType: "date";
+                column: string | null;
+                /** @enum {string} */
+                dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+              }) | ({
+                /** @constant */
+                dimensionType: "dynamic";
+                column: string | null;
+                maxValues: number;
+              }) | {
+                /** @constant */
+                dimensionType: "static";
+                column: string;
+                values: (string)[];
+              } | ({
+                /** @constant */
+                dimensionType: "slice";
+                slices: ({
+                    name: string;
+                    filters: ({
+                        /** @enum {string} */
+                        operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                        column?: string;
+                        values?: (string)[];
+                      })[];
+                  })[];
+              }))[];
+            /** @enum {string} */
+            chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+            dateRange: {
+              /** @enum {string} */
+              predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+              lookbackValue: number | null;
+              lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+              startDate: string | null;
+              endDate: string | null;
+            };
+            /** @constant */
+            type: "data_source";
+            dataset: {
+              /** @constant */
+              type: "data_source";
+              table: string;
+              path: string;
+              timestampColumn: string;
+              columnTypes: {
+                [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+              };
+              values: ({
+                  name: string;
+                  rowFilters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                  /** @constant */
+                  type: "data_source";
+                  /** @enum {string} */
+                  valueType: "unit_count" | "count" | "sum";
+                  valueColumn: string | null;
+                  unit: string | null;
+                })[];
+            };
+          };
+        }))[];
     };
-    CustomField: {
+    ExperimentTemplate: {
       id: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
-      name: string;
+      project?: string;
+      owner: string;
+      templateMetadata: {
+        name: string;
+        description?: string;
+      };
+      /** @enum {string} */
+      type: "standard";
+      hypothesis?: string;
       description?: string;
-      placeholder?: string;
-      defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+      tags?: (string)[];
+      customFields?: {
+        [key: string]: string | undefined;
+      };
+      datasource: string;
+      exposureQueryId: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: boolean;
+      goalMetrics?: (string)[];
+      secondaryMetrics?: (string)[];
+      guardrailMetrics?: (string)[];
+      activationMetric?: string;
       /** @enum {string} */
-      type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-      values?: string;
-      required: boolean;
-      index?: boolean;
-      creator?: string;
-      projects?: (string)[];
-      /** @enum {string} */
-      section: "feature" | "experiment";
-      active?: boolean;
+      statsEngine: "bayesian" | "frequentist";
+      segment?: string;
+      skipPartialData?: boolean;
+      targeting: {
+        coverage: number;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+        condition: string;
+      };
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     MetricGroup: {
       id: string;
@@ -638,6 +1445,91 @@ export interface components {
       datasource: string;
       archived: boolean;
     };
+    RampScheduleTemplate: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      steps: ({
+          trigger: {
+            /** @constant */
+            type: "interval";
+            seconds: number;
+          } | {
+            /** @constant */
+            type: "approval";
+          } | {
+            /** @constant */
+            type: "scheduled";
+            at: string;
+          };
+          actions: ({
+              /** @constant */
+              targetType: "feature-rule";
+              targetId: string;
+              patch: {
+                ruleId: string;
+                coverage?: number | null;
+                condition?: string | null;
+                savedGroups?: (({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[]) | null;
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[] | null;
+                enabled?: boolean | null;
+              };
+            })[];
+          approvalNotes?: string | null;
+        })[];
+      endPatch?: {
+        coverage?: number;
+        condition?: string;
+        savedGroups?: ({
+            /** @enum {string} */
+            match: "all" | "none" | "any";
+            ids: (string)[];
+          })[];
+        prerequisites?: ({
+            id: string;
+            condition: string;
+          })[];
+      };
+      official?: boolean;
+    };
+    Team: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      createdBy: string;
+      description: string;
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: (string)[];
+      projectRoles?: ({
+          role: string;
+          limitAccessByEnvironment: boolean;
+          environments: (string)[];
+          teams?: (string)[];
+          project: string;
+        })[];
+      members: readonly (string)[];
+      managedByIdp: boolean;
+      managedBy?: {
+        /** @constant */
+        type: "vercel";
+        resourceId: string;
+      };
+      defaultProject?: string;
+    };
     PaginationFields: {
       limit: number;
       offset: number;
@@ -645,6 +1537,106 @@ export interface components {
       total: number;
       hasMore: boolean;
       nextOffset: OneOf<[number, null]>;
+    };
+    RampSchedule: {
+      /** @description Unique identifier (rs_ prefix) */
+      id: string;
+      organization: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      /** @enum {string} */
+      entityType: "feature";
+      entityId: string;
+      /** @description Controlled entity references */
+      targets: ({
+          id: string;
+          /** @enum {string} */
+          entityType: "feature";
+          entityId: string;
+          ruleId?: string;
+          environment?: string;
+          /** @enum {string} */
+          status: "pending-join" | "active";
+          /** @description Feature revision version that activates this ramp; cleared once published */
+          activatingRevisionVersion?: number;
+        })[];
+      /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+      endActions?: ({
+          /** @enum {unknown} */
+          targetType: "feature-rule";
+          targetId: string;
+          patch: {
+            ruleId: string;
+            coverage?: number;
+            condition?: string;
+            /** @description Force value (any JSON type) */
+            force?: any;
+          };
+        })[];
+      /** @description Ordered ramp steps */
+      steps: ({
+          trigger: {
+            /** @enum {string} */
+            type: "interval" | "approval" | "scheduled";
+            /** @description Hold duration (interval triggers only) */
+            seconds?: number;
+            /**
+             * Format: date-time 
+             * @description Absolute fire time (scheduled triggers only)
+             */
+            at?: string;
+          };
+          actions: ({
+              /** @enum {unknown} */
+              targetType: "feature-rule";
+              targetId: string;
+              patch: {
+                ruleId: string;
+                coverage?: number;
+                condition?: string;
+                /** @description Force value (any JSON type) */
+                force?: any;
+              };
+            })[];
+          approvalNotes?: string;
+        })[];
+      /**
+       * Format: date-time 
+       * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+       */
+      startDate?: string | null;
+      /** @description Optional hard deadline for standard (no-step) schedules */
+      endCondition?: {
+        trigger?: {
+          /** @enum {string} */
+          type?: "scheduled";
+          /** Format: date-time */
+          at?: string;
+        };
+      };
+      /** @enum {string} */
+      status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+      /** @description Index of current step; -1 = not yet started */
+      currentStepIndex: number;
+      /** Format: date-time */
+      startedAt?: string;
+      /**
+       * Format: date-time 
+       * @description Anchor for cumulative interval timing; resets after each approval gate
+       */
+      phaseStartedAt?: string;
+      /** Format: date-time */
+      pausedAt?: string;
+      /**
+       * Format: date-time 
+       * @description When the next step fires; null for approval steps and terminal states
+       */
+      nextStepAt: string | null;
+      /** @description Milliseconds since startedAt (computed at response time, not stored) */
+      elapsedMs?: number;
     };
     Dimension: {
       id: string;
@@ -774,6 +1766,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       description?: string;
+      /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+      publicId?: string;
       settings?: {
         statsEngine?: string;
       };
@@ -861,20 +1855,64 @@ export interface components {
         [key: string]: ({
           enabled: boolean;
           defaultValue: string;
-          rules: (({
+          rules: ((({
               description: string;
-              condition: string;
+              condition?: string;
+              id: string;
+              enabled: boolean;
+              /**
+               * @description Simple time-based on/off schedule for this rule 
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
               savedGroupTargeting?: ({
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
               prerequisites?: ({
-                  /** @description Feature ID */
+                  /** @description Feature ID of the prerequisite */
                   id: string;
                   condition: string;
                 })[];
+            }) & {
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | (({
+              description: string;
+              condition?: string;
+              id: string;
+              enabled: boolean;
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -896,20 +1934,40 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-              id: string;
-              enabled: boolean;
-              /** @enum {string} */
-              type: "force";
-              value: string;
-            }) | ({
-              description: string;
-              condition: string;
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
               savedGroupTargeting?: ({
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID of the prerequisite */
+                  id: string;
+                  condition: string;
+                })[];
+            }) & {
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+              /** @description Optional seed for the hash function; defaults to the rule id */
+              seed?: string;
+            }) | (({
+              description: string;
+              condition?: string;
+              id: string;
+              enabled: boolean;
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -931,18 +1989,26 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-              id: string;
-              enabled: boolean;
-              /** @enum {string} */
-              type: "rollout";
-              value: string;
-              coverage: number;
-              hashAttribute: string;
-            }) | ({
-              description: string;
-              condition: string;
-              id: string;
-              enabled: boolean;
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID of the prerequisite */
+                  id: string;
+                  condition: string;
+                })[];
+            }) & {
               /** @enum {string} */
               type: "experiment";
               trackingKey?: string;
@@ -957,41 +2023,19 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
-              /**
-               * @example [
-               *   {
-               *     "enabled": true,
-               *     "timestamp": null
-               *   },
-               *   {
-               *     "enabled": false,
-               *     "timestamp": "2025-06-23T16:09:37.769Z"
-               *   }
-               * ]
-               */
-              scheduleRules?: ({
-                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                  enabled: boolean;
-                  /**
-                   * Format: date-time 
-                   * @description ISO timestamp when the rule should activate. 
-                   * @example 2025-06-23T16:09:37.769Z
-                   */
-                  timestamp: string | null;
-                })[];
+              /** @description Variation values with weights */
               value?: ({
                   value: string;
                   weight: number;
                   name?: string;
                 })[];
-            }) | ({
+            }) | (({
               description: string;
+              condition?: string;
               id: string;
               enabled: boolean;
-              /** @enum {string} */
-              type: "experiment-ref";
-              condition?: string;
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -1013,36 +2057,40 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-              variations: ({
-                  value: string;
-                  variationId: string;
-                })[];
-              experimentId: string;
-            }) | ({
-              condition: string;
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
               savedGroupTargeting?: ({
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
               prerequisites?: ({
-                  /** @description Feature ID */
+                  /** @description Feature ID of the prerequisite */
                   id: string;
                   condition: string;
                 })[];
+            }) & {
+              /** @enum {string} */
+              type: "experiment-ref";
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            }) | (({
+              description: string;
+              condition?: string;
               id: string;
-              trackingKey?: string;
               enabled: boolean;
-              /** @enum {string} */
-              type: "safe-rollout";
-              controlValue: string;
-              variationValue: string;
-              seed?: string;
-              hashAttribute?: string;
-              safeRolloutId?: string;
-              /** @enum {string} */
-              status?: "running" | "released" | "rolled-back" | "stopped";
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -1064,26 +2112,100 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-            }))[];
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID of the prerequisite */
+                  id: string;
+                  condition: string;
+                })[];
+            }) & ({
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              trackingKey?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+            })))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
             enabled: boolean;
             defaultValue: string;
-            rules: (({
+            rules: ((({
                 description: string;
-                condition: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
+                /**
+                 * @description Simple time-based on/off schedule for this rule 
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
                 prerequisites?: ({
-                    /** @description Feature ID */
+                    /** @description Feature ID of the prerequisite */
                     id: string;
                     condition: string;
                   })[];
+              }) & {
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | (({
+                description: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1105,20 +2227,40 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                id: string;
-                enabled: boolean;
-                /** @enum {string} */
-                type: "force";
-                value: string;
-              }) | ({
-                description: string;
-                condition: string;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & {
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+                /** @description Optional seed for the hash function; defaults to the rule id */
+                seed?: string;
+              }) | (({
+                description: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1140,18 +2282,26 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                id: string;
-                enabled: boolean;
-                /** @enum {string} */
-                type: "rollout";
-                value: string;
-                coverage: number;
-                hashAttribute: string;
-              }) | ({
-                description: string;
-                condition: string;
-                id: string;
-                enabled: boolean;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & {
                 /** @enum {string} */
                 type: "experiment";
                 trackingKey?: string;
@@ -1166,41 +2316,19 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
-                /**
-                 * @example [
-                 *   {
-                 *     "enabled": true,
-                 *     "timestamp": null
-                 *   },
-                 *   {
-                 *     "enabled": false,
-                 *     "timestamp": "2025-06-23T16:09:37.769Z"
-                 *   }
-                 * ]
-                 */
-                scheduleRules?: ({
-                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                    enabled: boolean;
-                    /**
-                     * Format: date-time 
-                     * @description ISO timestamp when the rule should activate. 
-                     * @example 2025-06-23T16:09:37.769Z
-                     */
-                    timestamp: string | null;
-                  })[];
+                /** @description Variation values with weights */
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              }) | ({
+              }) | (({
                 description: string;
+                condition?: string;
                 id: string;
                 enabled: boolean;
-                /** @enum {string} */
-                type: "experiment-ref";
-                condition?: string;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1222,36 +2350,40 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                variations: ({
-                    value: string;
-                    variationId: string;
-                  })[];
-                experimentId: string;
-              }) | ({
-                condition: string;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
                 prerequisites?: ({
-                    /** @description Feature ID */
+                    /** @description Feature ID of the prerequisite */
                     id: string;
                     condition: string;
                   })[];
+              }) & {
+                /** @enum {string} */
+                type: "experiment-ref";
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              }) | (({
+                description: string;
+                condition?: string;
                 id: string;
-                trackingKey?: string;
                 enabled: boolean;
-                /** @enum {string} */
-                type: "safe-rollout";
-                controlValue: string;
-                variationValue: string;
-                seed?: string;
-                hashAttribute?: string;
-                safeRolloutId?: string;
-                /** @enum {string} */
-                status?: "running" | "released" | "rolled-back" | "stopped";
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1273,7 +2405,37 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-              }))[];
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & ({
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                trackingKey?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              })))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
@@ -1286,11 +2448,18 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
+        createdBy: string;
         publishedBy: string;
       };
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     };
     FeatureWithRevisions: ({
       id: string;
@@ -1310,20 +2479,64 @@ export interface components {
         [key: string]: ({
           enabled: boolean;
           defaultValue: string;
-          rules: (({
+          rules: ((({
               description: string;
-              condition: string;
+              condition?: string;
+              id: string;
+              enabled: boolean;
+              /**
+               * @description Simple time-based on/off schedule for this rule 
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
               savedGroupTargeting?: ({
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
               prerequisites?: ({
-                  /** @description Feature ID */
+                  /** @description Feature ID of the prerequisite */
                   id: string;
                   condition: string;
                 })[];
+            }) & {
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | (({
+              description: string;
+              condition?: string;
+              id: string;
+              enabled: boolean;
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -1345,20 +2558,40 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-              id: string;
-              enabled: boolean;
-              /** @enum {string} */
-              type: "force";
-              value: string;
-            }) | ({
-              description: string;
-              condition: string;
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
               savedGroupTargeting?: ({
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID of the prerequisite */
+                  id: string;
+                  condition: string;
+                })[];
+            }) & {
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+              /** @description Optional seed for the hash function; defaults to the rule id */
+              seed?: string;
+            }) | (({
+              description: string;
+              condition?: string;
+              id: string;
+              enabled: boolean;
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -1380,18 +2613,26 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-              id: string;
-              enabled: boolean;
-              /** @enum {string} */
-              type: "rollout";
-              value: string;
-              coverage: number;
-              hashAttribute: string;
-            }) | ({
-              description: string;
-              condition: string;
-              id: string;
-              enabled: boolean;
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID of the prerequisite */
+                  id: string;
+                  condition: string;
+                })[];
+            }) & {
               /** @enum {string} */
               type: "experiment";
               trackingKey?: string;
@@ -1406,41 +2647,19 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
-              /**
-               * @example [
-               *   {
-               *     "enabled": true,
-               *     "timestamp": null
-               *   },
-               *   {
-               *     "enabled": false,
-               *     "timestamp": "2025-06-23T16:09:37.769Z"
-               *   }
-               * ]
-               */
-              scheduleRules?: ({
-                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                  enabled: boolean;
-                  /**
-                   * Format: date-time 
-                   * @description ISO timestamp when the rule should activate. 
-                   * @example 2025-06-23T16:09:37.769Z
-                   */
-                  timestamp: string | null;
-                })[];
+              /** @description Variation values with weights */
               value?: ({
                   value: string;
                   weight: number;
                   name?: string;
                 })[];
-            }) | ({
+            }) | (({
               description: string;
+              condition?: string;
               id: string;
               enabled: boolean;
-              /** @enum {string} */
-              type: "experiment-ref";
-              condition?: string;
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -1462,36 +2681,40 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-              variations: ({
-                  value: string;
-                  variationId: string;
-                })[];
-              experimentId: string;
-            }) | ({
-              condition: string;
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
               savedGroupTargeting?: ({
                   /** @enum {string} */
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
               prerequisites?: ({
-                  /** @description Feature ID */
+                  /** @description Feature ID of the prerequisite */
                   id: string;
                   condition: string;
                 })[];
+            }) & {
+              /** @enum {string} */
+              type: "experiment-ref";
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            }) | (({
+              description: string;
+              condition?: string;
               id: string;
-              trackingKey?: string;
               enabled: boolean;
-              /** @enum {string} */
-              type: "safe-rollout";
-              controlValue: string;
-              variationValue: string;
-              seed?: string;
-              hashAttribute?: string;
-              safeRolloutId?: string;
-              /** @enum {string} */
-              status?: "running" | "released" | "rolled-back" | "stopped";
               /**
+               * @description Simple time-based on/off schedule for this rule 
                * @example [
                *   {
                *     "enabled": true,
@@ -1513,26 +2736,100 @@ export interface components {
                    */
                   timestamp: string | null;
                 })[];
-            }))[];
+              /**
+               * @description UI hint for which scheduling mode is active:
+               * - `none` – no schedule
+               * - `schedule` – simple time-based enable/disable via `scheduleRules`
+               * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+               *  
+               * @enum {string}
+               */
+              scheduleType?: "none" | "schedule" | "ramp";
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID of the prerequisite */
+                  id: string;
+                  condition: string;
+                })[];
+            }) & ({
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              trackingKey?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+            })))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
             enabled: boolean;
             defaultValue: string;
-            rules: (({
+            rules: ((({
                 description: string;
-                condition: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
+                /**
+                 * @description Simple time-based on/off schedule for this rule 
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
                 prerequisites?: ({
-                    /** @description Feature ID */
+                    /** @description Feature ID of the prerequisite */
                     id: string;
                     condition: string;
                   })[];
+              }) & {
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | (({
+                description: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1554,20 +2851,40 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                id: string;
-                enabled: boolean;
-                /** @enum {string} */
-                type: "force";
-                value: string;
-              }) | ({
-                description: string;
-                condition: string;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & {
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+                /** @description Optional seed for the hash function; defaults to the rule id */
+                seed?: string;
+              }) | (({
+                description: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1589,18 +2906,26 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                id: string;
-                enabled: boolean;
-                /** @enum {string} */
-                type: "rollout";
-                value: string;
-                coverage: number;
-                hashAttribute: string;
-              }) | ({
-                description: string;
-                condition: string;
-                id: string;
-                enabled: boolean;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & {
                 /** @enum {string} */
                 type: "experiment";
                 trackingKey?: string;
@@ -1615,41 +2940,19 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
-                /**
-                 * @example [
-                 *   {
-                 *     "enabled": true,
-                 *     "timestamp": null
-                 *   },
-                 *   {
-                 *     "enabled": false,
-                 *     "timestamp": "2025-06-23T16:09:37.769Z"
-                 *   }
-                 * ]
-                 */
-                scheduleRules?: ({
-                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                    enabled: boolean;
-                    /**
-                     * Format: date-time 
-                     * @description ISO timestamp when the rule should activate. 
-                     * @example 2025-06-23T16:09:37.769Z
-                     */
-                    timestamp: string | null;
-                  })[];
+                /** @description Variation values with weights */
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              }) | ({
+              }) | (({
                 description: string;
+                condition?: string;
                 id: string;
                 enabled: boolean;
-                /** @enum {string} */
-                type: "experiment-ref";
-                condition?: string;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1671,36 +2974,40 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                variations: ({
-                    value: string;
-                    variationId: string;
-                  })[];
-                experimentId: string;
-              }) | ({
-                condition: string;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
                 prerequisites?: ({
-                    /** @description Feature ID */
+                    /** @description Feature ID of the prerequisite */
                     id: string;
                     condition: string;
                   })[];
+              }) & {
+                /** @enum {string} */
+                type: "experiment-ref";
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              }) | (({
+                description: string;
+                condition?: string;
                 id: string;
-                trackingKey?: string;
                 enabled: boolean;
-                /** @enum {string} */
-                type: "safe-rollout";
-                controlValue: string;
-                variationValue: string;
-                seed?: string;
-                hashAttribute?: string;
-                safeRolloutId?: string;
-                /** @enum {string} */
-                status?: "running" | "released" | "rolled-back" | "stopped";
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1722,7 +3029,37 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-              }))[];
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & ({
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                trackingKey?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              })))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
@@ -1735,11 +3072,18 @@ export interface components {
         comment: string;
         /** Format: date-time */
         date: string;
+        createdBy: string;
         publishedBy: string;
       };
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      holdout?: {
+        /** @description Holdout ID */
+        id: string;
+        /** @description The feature value assigned to users in the holdout treatment group */
+        value: string;
+      } | null;
     }) & ({
       revisions?: ({
           baseVersion: number;
@@ -1748,22 +3092,69 @@ export interface components {
           /** Format: date-time */
           date: string;
           status: string;
+          createdBy?: string;
           publishedBy?: string;
+          /** @description The default value at the time this revision was created */
+          defaultValue?: string;
           rules: {
-            [key: string]: ((({
+            [key: string]: (((({
                 description: string;
-                condition: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
+                /**
+                 * @description Simple time-based on/off schedule for this rule 
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
                 prerequisites?: ({
-                    /** @description Feature ID */
+                    /** @description Feature ID of the prerequisite */
                     id: string;
                     condition: string;
                   })[];
+              }) & {
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | (({
+                description: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1785,20 +3176,40 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                id: string;
-                enabled: boolean;
-                /** @enum {string} */
-                type: "force";
-                value: string;
-              }) | ({
-                description: string;
-                condition: string;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & {
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+                /** @description Optional seed for the hash function; defaults to the rule id */
+                seed?: string;
+              }) | (({
+                description: string;
+                condition?: string;
+                id: string;
+                enabled: boolean;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1820,18 +3231,26 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                id: string;
-                enabled: boolean;
-                /** @enum {string} */
-                type: "rollout";
-                value: string;
-                coverage: number;
-                hashAttribute: string;
-              }) | ({
-                description: string;
-                condition: string;
-                id: string;
-                enabled: boolean;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & {
                 /** @enum {string} */
                 type: "experiment";
                 trackingKey?: string;
@@ -1846,41 +3265,19 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
-                /**
-                 * @example [
-                 *   {
-                 *     "enabled": true,
-                 *     "timestamp": null
-                 *   },
-                 *   {
-                 *     "enabled": false,
-                 *     "timestamp": "2025-06-23T16:09:37.769Z"
-                 *   }
-                 * ]
-                 */
-                scheduleRules?: ({
-                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                    enabled: boolean;
-                    /**
-                     * Format: date-time 
-                     * @description ISO timestamp when the rule should activate. 
-                     * @example 2025-06-23T16:09:37.769Z
-                     */
-                    timestamp: string | null;
-                  })[];
+                /** @description Variation values with weights */
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              }) | ({
+              }) | (({
                 description: string;
+                condition?: string;
                 id: string;
                 enabled: boolean;
-                /** @enum {string} */
-                type: "experiment-ref";
-                condition?: string;
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1902,36 +3299,40 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-                variations: ({
-                    value: string;
-                    variationId: string;
-                  })[];
-                experimentId: string;
-              }) | ({
-                condition: string;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
                 savedGroupTargeting?: ({
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
                 prerequisites?: ({
-                    /** @description Feature ID */
+                    /** @description Feature ID of the prerequisite */
                     id: string;
                     condition: string;
                   })[];
+              }) & {
+                /** @enum {string} */
+                type: "experiment-ref";
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              }) | (({
+                description: string;
+                condition?: string;
                 id: string;
-                trackingKey?: string;
                 enabled: boolean;
-                /** @enum {string} */
-                type: "safe-rollout";
-                controlValue: string;
-                variationValue: string;
-                seed?: string;
-                hashAttribute?: string;
-                safeRolloutId?: string;
-                /** @enum {string} */
-                status?: "running" | "released" | "rolled-back" | "stopped";
                 /**
+                 * @description Simple time-based on/off schedule for this rule 
                  * @example [
                  *   {
                  *     "enabled": true,
@@ -1953,30 +3354,145 @@ export interface components {
                      */
                     timestamp: string | null;
                   })[];
-              }))[]) | undefined;
+                /**
+                 * @description UI hint for which scheduling mode is active:
+                 * - `none` – no schedule
+                 * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                 * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                 *  
+                 * @enum {string}
+                 */
+                scheduleType?: "none" | "schedule" | "ramp";
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID of the prerequisite */
+                    id: string;
+                    condition: string;
+                  })[];
+              }) & ({
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                trackingKey?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+              })))[]) | undefined;
           };
           definitions?: {
             [key: string]: string | undefined;
+          };
+          /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+          environmentsEnabled?: {
+            [key: string]: boolean | undefined;
+          };
+          /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          envPrerequisites?: {
+            [key: string]: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[] | undefined;
+          };
+          /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+          metadata?: {
+            description?: string;
+            owner?: string;
+            project?: string;
+            tags?: (string)[];
+            neverStale?: boolean;
+            valueType?: string;
+            jsonSchema?: {
+              /** @enum {string} */
+              schemaType?: "schema" | "simple";
+              schema?: string;
+              simple?: {
+                [key: string]: unknown | undefined;
+              };
+              /** Format: date-time */
+              date?: string;
+              enabled?: boolean;
+            };
+            customFields?: {
+              [key: string]: unknown | undefined;
+            };
           };
         })[];
     });
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
-      rules: (({
+      rules: ((({
           description: string;
-          condition: string;
+          condition?: string;
+          id: string;
+          enabled: boolean;
+          /**
+           * @description Simple time-based on/off schedule for this rule 
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
+            })[];
+          /**
+           * @description UI hint for which scheduling mode is active:
+           * - `none` – no schedule
+           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+           *  
+           * @enum {string}
+           */
+          scheduleType?: "none" | "schedule" | "ramp";
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
           prerequisites?: ({
-              /** @description Feature ID */
+              /** @description Feature ID of the prerequisite */
               id: string;
               condition: string;
             })[];
+        }) & {
+          /** @enum {string} */
+          type: "force";
+          value: string;
+        }) | (({
+          description: string;
+          condition?: string;
+          id: string;
+          enabled: boolean;
           /**
+           * @description Simple time-based on/off schedule for this rule 
            * @example [
            *   {
            *     "enabled": true,
@@ -1998,20 +3514,40 @@ export interface components {
                */
               timestamp: string | null;
             })[];
-          id: string;
-          enabled: boolean;
-          /** @enum {string} */
-          type: "force";
-          value: string;
-        }) | ({
-          description: string;
-          condition: string;
+          /**
+           * @description UI hint for which scheduling mode is active:
+           * - `none` – no schedule
+           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+           *  
+           * @enum {string}
+           */
+          scheduleType?: "none" | "schedule" | "ramp";
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
+          prerequisites?: ({
+              /** @description Feature ID of the prerequisite */
+              id: string;
+              condition: string;
+            })[];
+        }) & {
+          /** @enum {string} */
+          type: "rollout";
+          value: string;
+          coverage: number;
+          hashAttribute: string;
+          /** @description Optional seed for the hash function; defaults to the rule id */
+          seed?: string;
+        }) | (({
+          description: string;
+          condition?: string;
+          id: string;
+          enabled: boolean;
           /**
+           * @description Simple time-based on/off schedule for this rule 
            * @example [
            *   {
            *     "enabled": true,
@@ -2033,18 +3569,26 @@ export interface components {
                */
               timestamp: string | null;
             })[];
-          id: string;
-          enabled: boolean;
-          /** @enum {string} */
-          type: "rollout";
-          value: string;
-          coverage: number;
-          hashAttribute: string;
-        }) | ({
-          description: string;
-          condition: string;
-          id: string;
-          enabled: boolean;
+          /**
+           * @description UI hint for which scheduling mode is active:
+           * - `none` – no schedule
+           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+           *  
+           * @enum {string}
+           */
+          scheduleType?: "none" | "schedule" | "ramp";
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID of the prerequisite */
+              id: string;
+              condition: string;
+            })[];
+        }) & {
           /** @enum {string} */
           type: "experiment";
           trackingKey?: string;
@@ -2059,41 +3603,19 @@ export interface components {
             range: (number)[];
           };
           coverage?: number;
-          /**
-           * @example [
-           *   {
-           *     "enabled": true,
-           *     "timestamp": null
-           *   },
-           *   {
-           *     "enabled": false,
-           *     "timestamp": "2025-06-23T16:09:37.769Z"
-           *   }
-           * ]
-           */
-          scheduleRules?: ({
-              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-              enabled: boolean;
-              /**
-               * Format: date-time 
-               * @description ISO timestamp when the rule should activate. 
-               * @example 2025-06-23T16:09:37.769Z
-               */
-              timestamp: string | null;
-            })[];
+          /** @description Variation values with weights */
           value?: ({
               value: string;
               weight: number;
               name?: string;
             })[];
-        }) | ({
+        }) | (({
           description: string;
+          condition?: string;
           id: string;
           enabled: boolean;
-          /** @enum {string} */
-          type: "experiment-ref";
-          condition?: string;
           /**
+           * @description Simple time-based on/off schedule for this rule 
            * @example [
            *   {
            *     "enabled": true,
@@ -2115,36 +3637,40 @@ export interface components {
                */
               timestamp: string | null;
             })[];
-          variations: ({
-              value: string;
-              variationId: string;
-            })[];
-          experimentId: string;
-        }) | ({
-          condition: string;
+          /**
+           * @description UI hint for which scheduling mode is active:
+           * - `none` – no schedule
+           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+           *  
+           * @enum {string}
+           */
+          scheduleType?: "none" | "schedule" | "ramp";
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
           prerequisites?: ({
-              /** @description Feature ID */
+              /** @description Feature ID of the prerequisite */
               id: string;
               condition: string;
             })[];
+        }) & {
+          /** @enum {string} */
+          type: "experiment-ref";
+          variations: ({
+              value: string;
+              variationId: string;
+            })[];
+          experimentId: string;
+        }) | (({
+          description: string;
+          condition?: string;
           id: string;
-          trackingKey?: string;
           enabled: boolean;
-          /** @enum {string} */
-          type: "safe-rollout";
-          controlValue: string;
-          variationValue: string;
-          seed?: string;
-          hashAttribute?: string;
-          safeRolloutId?: string;
-          /** @enum {string} */
-          status?: "running" | "released" | "rolled-back" | "stopped";
           /**
+           * @description Simple time-based on/off schedule for this rule 
            * @example [
            *   {
            *     "enabled": true,
@@ -2166,26 +3692,100 @@ export interface components {
                */
               timestamp: string | null;
             })[];
-        }))[];
+          /**
+           * @description UI hint for which scheduling mode is active:
+           * - `none` – no schedule
+           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+           *  
+           * @enum {string}
+           */
+          scheduleType?: "none" | "schedule" | "ramp";
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID of the prerequisite */
+              id: string;
+              condition: string;
+            })[];
+        }) & ({
+          /** @enum {string} */
+          type: "safe-rollout";
+          controlValue: string;
+          variationValue: string;
+          seed?: string;
+          hashAttribute?: string;
+          trackingKey?: string;
+          safeRolloutId?: string;
+          /** @enum {string} */
+          status?: "running" | "released" | "rolled-back" | "stopped";
+        })))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
       draft?: {
         enabled: boolean;
         defaultValue: string;
-        rules: (({
+        rules: ((({
             description: string;
-            condition: string;
+            condition?: string;
+            id: string;
+            enabled: boolean;
+            /**
+             * @description Simple time-based on/off schedule for this rule 
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
             savedGroupTargeting?: ({
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
             prerequisites?: ({
-                /** @description Feature ID */
+                /** @description Feature ID of the prerequisite */
                 id: string;
                 condition: string;
               })[];
+          }) & {
+            /** @enum {string} */
+            type: "force";
+            value: string;
+          }) | (({
+            description: string;
+            condition?: string;
+            id: string;
+            enabled: boolean;
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2207,20 +3807,40 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-            id: string;
-            enabled: boolean;
-            /** @enum {string} */
-            type: "force";
-            value: string;
-          }) | ({
-            description: string;
-            condition: string;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
             savedGroupTargeting?: ({
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
+                id: string;
+                condition: string;
+              })[];
+          }) & {
+            /** @enum {string} */
+            type: "rollout";
+            value: string;
+            coverage: number;
+            hashAttribute: string;
+            /** @description Optional seed for the hash function; defaults to the rule id */
+            seed?: string;
+          }) | (({
+            description: string;
+            condition?: string;
+            id: string;
+            enabled: boolean;
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2242,18 +3862,26 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-            id: string;
-            enabled: boolean;
-            /** @enum {string} */
-            type: "rollout";
-            value: string;
-            coverage: number;
-            hashAttribute: string;
-          }) | ({
-            description: string;
-            condition: string;
-            id: string;
-            enabled: boolean;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
+                id: string;
+                condition: string;
+              })[];
+          }) & {
             /** @enum {string} */
             type: "experiment";
             trackingKey?: string;
@@ -2268,41 +3896,19 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
-            /**
-             * @example [
-             *   {
-             *     "enabled": true,
-             *     "timestamp": null
-             *   },
-             *   {
-             *     "enabled": false,
-             *     "timestamp": "2025-06-23T16:09:37.769Z"
-             *   }
-             * ]
-             */
-            scheduleRules?: ({
-                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                enabled: boolean;
-                /**
-                 * Format: date-time 
-                 * @description ISO timestamp when the rule should activate. 
-                 * @example 2025-06-23T16:09:37.769Z
-                 */
-                timestamp: string | null;
-              })[];
+            /** @description Variation values with weights */
             value?: ({
                 value: string;
                 weight: number;
                 name?: string;
               })[];
-          }) | ({
+          }) | (({
             description: string;
+            condition?: string;
             id: string;
             enabled: boolean;
-            /** @enum {string} */
-            type: "experiment-ref";
-            condition?: string;
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2324,36 +3930,40 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-            variations: ({
-                value: string;
-                variationId: string;
-              })[];
-            experimentId: string;
-          }) | ({
-            condition: string;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
             savedGroupTargeting?: ({
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
             prerequisites?: ({
-                /** @description Feature ID */
+                /** @description Feature ID of the prerequisite */
                 id: string;
                 condition: string;
               })[];
+          }) & {
+            /** @enum {string} */
+            type: "experiment-ref";
+            variations: ({
+                value: string;
+                variationId: string;
+              })[];
+            experimentId: string;
+          }) | (({
+            description: string;
+            condition?: string;
             id: string;
-            trackingKey?: string;
             enabled: boolean;
-            /** @enum {string} */
-            type: "safe-rollout";
-            controlValue: string;
-            variationValue: string;
-            seed?: string;
-            hashAttribute?: string;
-            safeRolloutId?: string;
-            /** @enum {string} */
-            status?: "running" | "released" | "rolled-back" | "stopped";
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2375,25 +3985,99 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-          }))[];
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
+                id: string;
+                condition: string;
+              })[];
+          }) & ({
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            trackingKey?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+          })))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
       };
     };
-    FeatureRule: ({
+    FeatureRule: (({
       description: string;
-      condition: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
+      /**
+       * @description Simple time-based on/off schedule for this rule 
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
       savedGroupTargeting?: ({
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
       prerequisites?: ({
-          /** @description Feature ID */
+          /** @description Feature ID of the prerequisite */
           id: string;
           condition: string;
         })[];
+    }) & {
+      /** @enum {string} */
+      type: "force";
+      value: string;
+    }) | (({
+      description: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2415,20 +4099,40 @@ export interface components {
            */
           timestamp: string | null;
         })[];
-      id: string;
-      enabled: boolean;
-      /** @enum {string} */
-      type: "force";
-      value: string;
-    }) | ({
-      description: string;
-      condition: string;
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
       savedGroupTargeting?: ({
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
+        })[];
+    }) & {
+      /** @enum {string} */
+      type: "rollout";
+      value: string;
+      coverage: number;
+      hashAttribute: string;
+      /** @description Optional seed for the hash function; defaults to the rule id */
+      seed?: string;
+    }) | (({
+      description: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2450,18 +4154,26 @@ export interface components {
            */
           timestamp: string | null;
         })[];
-      id: string;
-      enabled: boolean;
-      /** @enum {string} */
-      type: "rollout";
-      value: string;
-      coverage: number;
-      hashAttribute: string;
-    }) | ({
-      description: string;
-      condition: string;
-      id: string;
-      enabled: boolean;
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
+        })[];
+    }) & {
       /** @enum {string} */
       type: "experiment";
       trackingKey?: string;
@@ -2476,41 +4188,19 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
-      /**
-       * @example [
-       *   {
-       *     "enabled": true,
-       *     "timestamp": null
-       *   },
-       *   {
-       *     "enabled": false,
-       *     "timestamp": "2025-06-23T16:09:37.769Z"
-       *   }
-       * ]
-       */
-      scheduleRules?: ({
-          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-          enabled: boolean;
-          /**
-           * Format: date-time 
-           * @description ISO timestamp when the rule should activate. 
-           * @example 2025-06-23T16:09:37.769Z
-           */
-          timestamp: string | null;
-        })[];
+      /** @description Variation values with weights */
       value?: ({
           value: string;
           weight: number;
           name?: string;
         })[];
-    }) | ({
+    }) | (({
       description: string;
+      condition?: string;
       id: string;
       enabled: boolean;
-      /** @enum {string} */
-      type: "experiment-ref";
-      condition?: string;
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2532,36 +4222,40 @@ export interface components {
            */
           timestamp: string | null;
         })[];
-      variations: ({
-          value: string;
-          variationId: string;
-        })[];
-      experimentId: string;
-    }) | ({
-      condition: string;
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
       savedGroupTargeting?: ({
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
       prerequisites?: ({
-          /** @description Feature ID */
+          /** @description Feature ID of the prerequisite */
           id: string;
           condition: string;
         })[];
+    }) & {
+      /** @enum {string} */
+      type: "experiment-ref";
+      variations: ({
+          value: string;
+          variationId: string;
+        })[];
+      experimentId: string;
+    }) | (({
+      description: string;
+      condition?: string;
       id: string;
-      trackingKey?: string;
       enabled: boolean;
-      /** @enum {string} */
-      type: "safe-rollout";
-      controlValue: string;
-      variationValue: string;
-      seed?: string;
-      hashAttribute?: string;
-      safeRolloutId?: string;
-      /** @enum {string} */
-      status?: "running" | "released" | "rolled-back" | "stopped";
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2583,7 +4277,89 @@ export interface components {
            */
           timestamp: string | null;
         })[];
-    });
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
+        })[];
+    }) & ({
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      trackingKey?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
+    }));
+    /**
+     * @description Common fields shared by all feature rule types. Specific rule types extend
+     * this base with their own required properties (value, coverage, etc.).
+     */
+    FeatureBaseRule: {
+      description: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
+      /**
+       * @description Simple time-based on/off schedule for this rule 
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
+        })[];
+    };
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
       rules?: ({
@@ -2599,20 +4375,65 @@ export interface components {
           };
         })[];
     };
-    FeatureForceRule: {
+    FeatureForceRule: ({
       description: string;
-      condition: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
+      /**
+       * @description Simple time-based on/off schedule for this rule 
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
       savedGroupTargeting?: ({
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
       prerequisites?: ({
-          /** @description Feature ID */
+          /** @description Feature ID of the prerequisite */
           id: string;
           condition: string;
         })[];
+    }) & {
+      /** @enum {string} */
+      type: "force";
+      value: string;
+    };
+    FeatureRolloutRule: ({
+      description: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2634,75 +4455,100 @@ export interface components {
            */
           timestamp: string | null;
         })[];
-      id: string;
-      enabled: boolean;
-      /** @enum {string} */
-      type: "force";
-      value: string;
-    };
-    FeatureRolloutRule: {
-      description: string;
-      condition: string;
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
       savedGroupTargeting?: ({
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
-      /**
-       * @example [
-       *   {
-       *     "enabled": true,
-       *     "timestamp": null
-       *   },
-       *   {
-       *     "enabled": false,
-       *     "timestamp": "2025-06-23T16:09:37.769Z"
-       *   }
-       * ]
-       */
-      scheduleRules?: ({
-          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-          enabled: boolean;
-          /**
-           * Format: date-time 
-           * @description ISO timestamp when the rule should activate. 
-           * @example 2025-06-23T16:09:37.769Z
-           */
-          timestamp: string | null;
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
         })[];
-      id: string;
-      enabled: boolean;
+    }) & {
       /** @enum {string} */
       type: "rollout";
       value: string;
       coverage: number;
       hashAttribute: string;
+      /** @description Optional seed for the hash function; defaults to the rule id */
+      seed?: string;
     };
-    FeatureSafeRolloutRule: {
-      condition: string;
+    FeatureSafeRolloutRule: ({
+      description: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
+      /**
+       * @description Simple time-based on/off schedule for this rule 
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
       savedGroupTargeting?: ({
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
       prerequisites?: ({
-          /** @description Feature ID */
+          /** @description Feature ID of the prerequisite */
           id: string;
           condition: string;
         })[];
-      id: string;
-      trackingKey?: string;
-      enabled: boolean;
+    }) & ({
       /** @enum {string} */
       type: "safe-rollout";
       controlValue: string;
       variationValue: string;
       seed?: string;
       hashAttribute?: string;
+      trackingKey?: string;
       safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
+    });
+    FeatureExperimentRule: ({
+      description: string;
+      condition?: string;
+      id: string;
+      enabled: boolean;
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2724,12 +4570,26 @@ export interface components {
            */
           timestamp: string | null;
         })[];
-    };
-    FeatureExperimentRule: {
-      description: string;
-      condition: string;
-      id: string;
-      enabled: boolean;
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
+        })[];
+    }) & {
       /** @enum {string} */
       type: "experiment";
       trackingKey?: string;
@@ -2744,42 +4604,20 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
-      /**
-       * @example [
-       *   {
-       *     "enabled": true,
-       *     "timestamp": null
-       *   },
-       *   {
-       *     "enabled": false,
-       *     "timestamp": "2025-06-23T16:09:37.769Z"
-       *   }
-       * ]
-       */
-      scheduleRules?: ({
-          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-          enabled: boolean;
-          /**
-           * Format: date-time 
-           * @description ISO timestamp when the rule should activate. 
-           * @example 2025-06-23T16:09:37.769Z
-           */
-          timestamp: string | null;
-        })[];
+      /** @description Variation values with weights */
       value?: ({
           value: string;
           weight: number;
           name?: string;
         })[];
     };
-    FeatureExperimentRefRule: {
+    FeatureExperimentRefRule: ({
       description: string;
+      condition?: string;
       id: string;
       enabled: boolean;
-      /** @enum {string} */
-      type: "experiment-ref";
-      condition?: string;
       /**
+       * @description Simple time-based on/off schedule for this rule 
        * @example [
        *   {
        *     "enabled": true,
@@ -2801,6 +4639,28 @@ export interface components {
            */
           timestamp: string | null;
         })[];
+      /**
+       * @description UI hint for which scheduling mode is active:
+       * - `none` – no schedule
+       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+       *  
+       * @enum {string}
+       */
+      scheduleType?: "none" | "schedule" | "ramp";
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID of the prerequisite */
+          id: string;
+          condition: string;
+        })[];
+    }) & {
+      /** @enum {string} */
+      type: "experiment-ref";
       variations: ({
           value: string;
           variationId: string;
@@ -2814,22 +4674,69 @@ export interface components {
       /** Format: date-time */
       date: string;
       status: string;
+      createdBy?: string;
       publishedBy?: string;
+      /** @description The default value at the time this revision was created */
+      defaultValue?: string;
       rules: {
-        [key: string]: ((({
+        [key: string]: (((({
             description: string;
-            condition: string;
+            condition?: string;
+            id: string;
+            enabled: boolean;
+            /**
+             * @description Simple time-based on/off schedule for this rule 
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
             savedGroupTargeting?: ({
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
             prerequisites?: ({
-                /** @description Feature ID */
+                /** @description Feature ID of the prerequisite */
                 id: string;
                 condition: string;
               })[];
+          }) & {
+            /** @enum {string} */
+            type: "force";
+            value: string;
+          }) | (({
+            description: string;
+            condition?: string;
+            id: string;
+            enabled: boolean;
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2851,20 +4758,40 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-            id: string;
-            enabled: boolean;
-            /** @enum {string} */
-            type: "force";
-            value: string;
-          }) | ({
-            description: string;
-            condition: string;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
             savedGroupTargeting?: ({
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
+                id: string;
+                condition: string;
+              })[];
+          }) & {
+            /** @enum {string} */
+            type: "rollout";
+            value: string;
+            coverage: number;
+            hashAttribute: string;
+            /** @description Optional seed for the hash function; defaults to the rule id */
+            seed?: string;
+          }) | (({
+            description: string;
+            condition?: string;
+            id: string;
+            enabled: boolean;
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2886,18 +4813,26 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-            id: string;
-            enabled: boolean;
-            /** @enum {string} */
-            type: "rollout";
-            value: string;
-            coverage: number;
-            hashAttribute: string;
-          }) | ({
-            description: string;
-            condition: string;
-            id: string;
-            enabled: boolean;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
+                id: string;
+                condition: string;
+              })[];
+          }) & {
             /** @enum {string} */
             type: "experiment";
             trackingKey?: string;
@@ -2912,41 +4847,19 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
-            /**
-             * @example [
-             *   {
-             *     "enabled": true,
-             *     "timestamp": null
-             *   },
-             *   {
-             *     "enabled": false,
-             *     "timestamp": "2025-06-23T16:09:37.769Z"
-             *   }
-             * ]
-             */
-            scheduleRules?: ({
-                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                enabled: boolean;
-                /**
-                 * Format: date-time 
-                 * @description ISO timestamp when the rule should activate. 
-                 * @example 2025-06-23T16:09:37.769Z
-                 */
-                timestamp: string | null;
-              })[];
+            /** @description Variation values with weights */
             value?: ({
                 value: string;
                 weight: number;
                 name?: string;
               })[];
-          }) | ({
+          }) | (({
             description: string;
+            condition?: string;
             id: string;
             enabled: boolean;
-            /** @enum {string} */
-            type: "experiment-ref";
-            condition?: string;
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -2968,36 +4881,40 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-            variations: ({
-                value: string;
-                variationId: string;
-              })[];
-            experimentId: string;
-          }) | ({
-            condition: string;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
             savedGroupTargeting?: ({
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
             prerequisites?: ({
-                /** @description Feature ID */
+                /** @description Feature ID of the prerequisite */
                 id: string;
                 condition: string;
               })[];
+          }) & {
+            /** @enum {string} */
+            type: "experiment-ref";
+            variations: ({
+                value: string;
+                variationId: string;
+              })[];
+            experimentId: string;
+          }) | (({
+            description: string;
+            condition?: string;
             id: string;
-            trackingKey?: string;
             enabled: boolean;
-            /** @enum {string} */
-            type: "safe-rollout";
-            controlValue: string;
-            variationValue: string;
-            seed?: string;
-            hashAttribute?: string;
-            safeRolloutId?: string;
-            /** @enum {string} */
-            status?: "running" | "released" | "rolled-back" | "stopped";
             /**
+             * @description Simple time-based on/off schedule for this rule 
              * @example [
              *   {
              *     "enabled": true,
@@ -3019,10 +4936,81 @@ export interface components {
                  */
                 timestamp: string | null;
               })[];
-          }))[]) | undefined;
+            /**
+             * @description UI hint for which scheduling mode is active:
+             * - `none` – no schedule
+             * - `schedule` – simple time-based enable/disable via `scheduleRules`
+             * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+             *  
+             * @enum {string}
+             */
+            scheduleType?: "none" | "schedule" | "ramp";
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID of the prerequisite */
+                id: string;
+                condition: string;
+              })[];
+          }) & ({
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            trackingKey?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+          })))[]) | undefined;
       };
       definitions?: {
         [key: string]: string | undefined;
+      };
+      /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+      environmentsEnabled?: {
+        [key: string]: boolean | undefined;
+      };
+      /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      envPrerequisites?: {
+        [key: string]: ({
+            /** @description Feature ID */
+            id: string;
+            condition: string;
+          })[] | undefined;
+      };
+      /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+      metadata?: {
+        description?: string;
+        owner?: string;
+        project?: string;
+        tags?: (string)[];
+        neverStale?: boolean;
+        valueType?: string;
+        jsonSchema?: {
+          /** @enum {string} */
+          schemaType?: "schema" | "simple";
+          schema?: string;
+          simple?: {
+            [key: string]: unknown | undefined;
+          };
+          /** Format: date-time */
+          date?: string;
+          enabled?: boolean;
+        };
+        customFields?: {
+          [key: string]: unknown | undefined;
+        };
       };
     };
     SdkConnection: {
@@ -3046,6 +5034,10 @@ export interface components {
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
       includeRuleIds?: boolean;
+      includeProjectIdInMetadata?: boolean;
+      includeCustomFieldsInMetadata?: boolean;
+      allowedCustomFieldsInMetadata?: (string)[];
+      includeTagsInMetadata?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -3122,15 +5114,60 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -3138,8 +5175,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -3149,8 +5195,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -3160,8 +5215,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -3171,8 +5235,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -3192,6 +5265,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -3205,6 +5281,9 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      /** @description ID of the default dashboard for this experiment. */
+      defaultDashboardId?: string;
+      templateId?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -3218,9 +5297,46 @@ export interface components {
         windowHours?: number;
         /** @enum {string} */
         window?: "conversion" | "lookback" | "";
+        /** @deprecated */
         winRiskThreshold?: number;
+        /** @deprecated */
         loseRiskThreshold?: number;
+        properPriorOverride?: boolean;
+        properPriorEnabled?: boolean;
+        properPriorMean?: number;
+        properPriorStdDev?: number;
+        regressionAdjustmentOverride?: boolean;
+        regressionAdjustmentEnabled?: boolean;
+        regressionAdjustmentDays?: number;
       };
+    };
+    /** @description Per-metric analysis overrides stored on the experiment (matches internal metricOverrides). */
+    ExperimentMetricOverrideEntry: {
+      /** @description ID of the metric to override settings for. */
+      id: string;
+      /** @enum {string} */
+      windowType?: "conversion" | "lookback" | "";
+      windowHours?: number;
+      delayHours?: number;
+      /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+      properPriorOverride?: boolean;
+      properPriorEnabled?: boolean;
+      properPriorMean?: number;
+      properPriorStdDev?: number;
+      /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+      regressionAdjustmentOverride?: boolean;
+      regressionAdjustmentEnabled?: boolean;
+      regressionAdjustmentDays?: number;
+    };
+    /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+    ExperimentDecisionFrameworkSettings: {
+      decisionCriteriaId?: string;
+      decisionFrameworkMetricOverrides?: ({
+          /** @description ID of the metric to override settings for. */
+          id: string;
+          /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+          targetMDE?: number;
+        })[];
     };
     ExperimentAnalysisSettings: {
       datasourceId: string;
@@ -3231,15 +5347,60 @@ export interface components {
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
       /**
-       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+       * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
        * @enum {unknown}
        */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+      /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+      lookbackOverride?: {
+        /** @enum {unknown} */
+        type: "date" | "window";
+        /**
+         * Format: date-time 
+         * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+         */
+        value: OneOf<[number, string]>;
+        /**
+         * @description Used when type is "window". Defaults to "days". 
+         * @enum {unknown}
+         */
+        valueUnit?: "minutes" | "hours" | "days" | "weeks";
+      };
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
       sequentialTestingEnabled?: boolean;
       sequentialTestingTuningParameter?: number;
+      /** @description When null, the organization default is used. */
+      postStratificationEnabled?: OneOf<[boolean, null]>;
+      /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+      decisionFrameworkSettings?: {
+        decisionCriteriaId?: string;
+        decisionFrameworkMetricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+            targetMDE?: number;
+          })[];
+      };
+      /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+      metricOverrides?: ({
+          /** @description ID of the metric to override settings for. */
+          id: string;
+          /** @enum {string} */
+          windowType?: "conversion" | "lookback" | "";
+          windowHours?: number;
+          delayHours?: number;
+          /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+          properPriorOverride?: boolean;
+          properPriorEnabled?: boolean;
+          properPriorMean?: number;
+          properPriorStdDev?: number;
+          /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
+        })[];
       goals: ({
           metricId: string;
           overrides: {
@@ -3247,8 +5408,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       secondaryMetrics: ({
@@ -3258,8 +5428,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       guardrails: ({
@@ -3269,8 +5448,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         })[];
       activationMetric?: {
@@ -3280,10 +5468,34 @@ export interface components {
           windowHours?: number;
           /** @enum {string} */
           window?: "conversion" | "lookback" | "";
+          /** @deprecated */
           winRiskThreshold?: number;
+          /** @deprecated */
           loseRiskThreshold?: number;
+          properPriorOverride?: boolean;
+          properPriorEnabled?: boolean;
+          properPriorMean?: number;
+          properPriorStdDev?: number;
+          regressionAdjustmentOverride?: boolean;
+          regressionAdjustmentEnabled?: boolean;
+          regressionAdjustmentDays?: number;
         };
       };
+    };
+    /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+    LookbackOverride: {
+      /** @enum {unknown} */
+      type: "date" | "window";
+      /**
+       * Format: date-time 
+       * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+       */
+      value: OneOf<[number, string]>;
+      /**
+       * @description Used when type is "window". Defaults to "days". 
+       * @enum {unknown}
+       */
+      valueUnit?: "minutes" | "hours" | "days" | "weeks";
     };
     ExperimentResults: {
       id: string;
@@ -3305,15 +5517,60 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -3321,8 +5578,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -3332,8 +5598,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -3343,8 +5618,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -3354,8 +5638,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -3456,15 +5749,60 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /**
-         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
          * @enum {unknown}
          */
-        attributionModel: "firstExposure" | "experimentDuration";
+        attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+        /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+        lookbackOverride?: {
+          /** @enum {unknown} */
+          type: "date" | "window";
+          /**
+           * Format: date-time 
+           * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+           */
+          value: OneOf<[number, string]>;
+          /**
+           * @description Used when type is "window". Defaults to "days". 
+           * @enum {unknown}
+           */
+          valueUnit?: "minutes" | "hours" | "days" | "weeks";
+        };
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
         sequentialTestingEnabled?: boolean;
         sequentialTestingTuningParameter?: number;
+        /** @description When null, the organization default is used. */
+        postStratificationEnabled?: OneOf<[boolean, null]>;
+        /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+        decisionFrameworkSettings?: {
+          decisionCriteriaId?: string;
+          decisionFrameworkMetricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+              targetMDE?: number;
+            })[];
+        };
+        /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+        metricOverrides?: ({
+            /** @description ID of the metric to override settings for. */
+            id: string;
+            /** @enum {string} */
+            windowType?: "conversion" | "lookback" | "";
+            windowHours?: number;
+            delayHours?: number;
+            /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
+          })[];
         goals: ({
             metricId: string;
             overrides: {
@@ -3472,8 +5810,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         secondaryMetrics: ({
@@ -3483,8 +5830,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         guardrails: ({
@@ -3494,8 +5850,17 @@ export interface components {
               windowHours?: number;
               /** @enum {string} */
               window?: "conversion" | "lookback" | "";
+              /** @deprecated */
               winRiskThreshold?: number;
+              /** @deprecated */
               loseRiskThreshold?: number;
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
             };
           })[];
         activationMetric?: {
@@ -3505,8 +5870,17 @@ export interface components {
             windowHours?: number;
             /** @enum {string} */
             window?: "conversion" | "lookback" | "";
+            /** @deprecated */
             winRiskThreshold?: number;
+            /** @deprecated */
             loseRiskThreshold?: number;
+            properPriorOverride?: boolean;
+            properPriorEnabled?: boolean;
+            properPriorMean?: number;
+            properPriorStdDev?: number;
+            regressionAdjustmentOverride?: boolean;
+            regressionAdjustmentEnabled?: boolean;
+            regressionAdjustmentDays?: number;
           };
         };
       };
@@ -3526,6 +5900,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      banditConversionWindowValue?: number;
+      /** @enum {string} */
+      banditConversionWindowUnit?: "days" | "hours";
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
@@ -3539,6 +5916,9 @@ export interface components {
               levels: (string)[];
             })[];
         })[];
+      /** @description ID of the default dashboard for this experiment. */
+      defaultDashboardId?: string;
+      templateId?: string;
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -4025,7 +6405,7 @@ export interface components {
       sequentialTestingEnabled: boolean;
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
-      attributionModel: "firstExposure" | "experimentDuration";
+      attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
       targetMDE: number;
       delayHours: number;
       windowType: string;
@@ -4034,12 +6414,17 @@ export interface components {
       loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
+      /** @enum {string} */
+      featureKillSwitchBehavior?: "off" | "warn";
       requireReviews: ({
           requireReviewOn?: boolean;
           resetReviewOnChange?: boolean;
           environments?: (string)[];
           projects?: (string)[];
+          featureRequireEnvironmentReview?: boolean;
+          featureRequireMetadataReview?: boolean;
         })[];
+      restApiBypassesReviews?: boolean;
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -4083,6 +6468,64 @@ export interface components {
           flagKey: string;
         })[];
     };
+    InformationSchema: {
+      id: string;
+      datasourceId: string;
+      /** @enum {string} */
+      status: "PENDING" | "COMPLETE";
+      error?: {
+        /** @enum {string} */
+        errorType: "generic" | "not_supported" | "missing_params";
+        message: string;
+      };
+      databases: ({
+          databaseName: string;
+          path?: string;
+          /** Format: date-time */
+          dateCreated: string;
+          /** Format: date-time */
+          dateUpdated: string;
+          schemas: ({
+              schemaName: string;
+              path?: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              tables: ({
+                  tableName: string;
+                  path?: string;
+                  id: string;
+                  numOfColumns: number;
+                  /** Format: date-time */
+                  dateCreated: string;
+                  /** Format: date-time */
+                  dateUpdated: string;
+                })[];
+            })[];
+        })[];
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
+    InformationSchemaTable: {
+      id: string;
+      datasourceId: string;
+      informationSchemaId: string;
+      tableName: string;
+      tableSchema: string;
+      databaseName: string;
+      columns: ({
+          columnName: string;
+          dataType: string;
+        })[];
+      refreshMS: number;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
   };
   responses: {
     Error: never;
@@ -4102,6 +6545,10 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
+    /** @description The id of the data source */
+    dataSourceId: string;
+    /** @description The id of the information schema table */
+    tableId: string;
     /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
     repo: string;
     /** @description Name of branch for git repo. */
@@ -4176,20 +6623,64 @@ export interface operations {
                   [key: string]: ({
                     enabled: boolean;
                     defaultValue: string;
-                    rules: (({
+                    rules: ((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -4211,20 +6702,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -4246,18 +6757,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -4272,41 +6791,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -4328,36 +6825,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -4379,26 +6880,100 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                     draft?: {
                       enabled: boolean;
                       defaultValue: string;
-                      rules: (({
+                      rules: ((({
                           description: string;
-                          condition: string;
+                          condition?: string;
+                          id: string;
+                          enabled: boolean;
+                          /**
+                           * @description Simple time-based on/off schedule for this rule 
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
+                            })[];
+                          /**
+                           * @description UI hint for which scheduling mode is active:
+                           * - `none` – no schedule
+                           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                           *  
+                           * @enum {string}
+                           */
+                          scheduleType?: "none" | "schedule" | "ramp";
                           savedGroupTargeting?: ({
                               /** @enum {string} */
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
                           prerequisites?: ({
-                              /** @description Feature ID */
+                              /** @description Feature ID of the prerequisite */
                               id: string;
                               condition: string;
                             })[];
+                        }) & {
+                          /** @enum {string} */
+                          type: "force";
+                          value: string;
+                        }) | (({
+                          description: string;
+                          condition?: string;
+                          id: string;
+                          enabled: boolean;
                           /**
+                           * @description Simple time-based on/off schedule for this rule 
                            * @example [
                            *   {
                            *     "enabled": true,
@@ -4420,20 +6995,40 @@ export interface operations {
                                */
                               timestamp: string | null;
                             })[];
-                          id: string;
-                          enabled: boolean;
-                          /** @enum {string} */
-                          type: "force";
-                          value: string;
-                        }) | ({
-                          description: string;
-                          condition: string;
+                          /**
+                           * @description UI hint for which scheduling mode is active:
+                           * - `none` – no schedule
+                           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                           *  
+                           * @enum {string}
+                           */
+                          scheduleType?: "none" | "schedule" | "ramp";
                           savedGroupTargeting?: ({
                               /** @enum {string} */
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
+                          prerequisites?: ({
+                              /** @description Feature ID of the prerequisite */
+                              id: string;
+                              condition: string;
+                            })[];
+                        }) & {
+                          /** @enum {string} */
+                          type: "rollout";
+                          value: string;
+                          coverage: number;
+                          hashAttribute: string;
+                          /** @description Optional seed for the hash function; defaults to the rule id */
+                          seed?: string;
+                        }) | (({
+                          description: string;
+                          condition?: string;
+                          id: string;
+                          enabled: boolean;
                           /**
+                           * @description Simple time-based on/off schedule for this rule 
                            * @example [
                            *   {
                            *     "enabled": true,
@@ -4455,18 +7050,26 @@ export interface operations {
                                */
                               timestamp: string | null;
                             })[];
-                          id: string;
-                          enabled: boolean;
-                          /** @enum {string} */
-                          type: "rollout";
-                          value: string;
-                          coverage: number;
-                          hashAttribute: string;
-                        }) | ({
-                          description: string;
-                          condition: string;
-                          id: string;
-                          enabled: boolean;
+                          /**
+                           * @description UI hint for which scheduling mode is active:
+                           * - `none` – no schedule
+                           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                           *  
+                           * @enum {string}
+                           */
+                          scheduleType?: "none" | "schedule" | "ramp";
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID of the prerequisite */
+                              id: string;
+                              condition: string;
+                            })[];
+                        }) & {
                           /** @enum {string} */
                           type: "experiment";
                           trackingKey?: string;
@@ -4481,41 +7084,19 @@ export interface operations {
                             range: (number)[];
                           };
                           coverage?: number;
-                          /**
-                           * @example [
-                           *   {
-                           *     "enabled": true,
-                           *     "timestamp": null
-                           *   },
-                           *   {
-                           *     "enabled": false,
-                           *     "timestamp": "2025-06-23T16:09:37.769Z"
-                           *   }
-                           * ]
-                           */
-                          scheduleRules?: ({
-                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                              enabled: boolean;
-                              /**
-                               * Format: date-time 
-                               * @description ISO timestamp when the rule should activate. 
-                               * @example 2025-06-23T16:09:37.769Z
-                               */
-                              timestamp: string | null;
-                            })[];
+                          /** @description Variation values with weights */
                           value?: ({
                               value: string;
                               weight: number;
                               name?: string;
                             })[];
-                        }) | ({
+                        }) | (({
                           description: string;
+                          condition?: string;
                           id: string;
                           enabled: boolean;
-                          /** @enum {string} */
-                          type: "experiment-ref";
-                          condition?: string;
                           /**
+                           * @description Simple time-based on/off schedule for this rule 
                            * @example [
                            *   {
                            *     "enabled": true,
@@ -4537,36 +7118,40 @@ export interface operations {
                                */
                               timestamp: string | null;
                             })[];
-                          variations: ({
-                              value: string;
-                              variationId: string;
-                            })[];
-                          experimentId: string;
-                        }) | ({
-                          condition: string;
+                          /**
+                           * @description UI hint for which scheduling mode is active:
+                           * - `none` – no schedule
+                           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                           *  
+                           * @enum {string}
+                           */
+                          scheduleType?: "none" | "schedule" | "ramp";
                           savedGroupTargeting?: ({
                               /** @enum {string} */
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
                           prerequisites?: ({
-                              /** @description Feature ID */
+                              /** @description Feature ID of the prerequisite */
                               id: string;
                               condition: string;
                             })[];
+                        }) & {
+                          /** @enum {string} */
+                          type: "experiment-ref";
+                          variations: ({
+                              value: string;
+                              variationId: string;
+                            })[];
+                          experimentId: string;
+                        }) | (({
+                          description: string;
+                          condition?: string;
                           id: string;
-                          trackingKey?: string;
                           enabled: boolean;
-                          /** @enum {string} */
-                          type: "safe-rollout";
-                          controlValue: string;
-                          variationValue: string;
-                          seed?: string;
-                          hashAttribute?: string;
-                          safeRolloutId?: string;
-                          /** @enum {string} */
-                          status?: "running" | "released" | "rolled-back" | "stopped";
                           /**
+                           * @description Simple time-based on/off schedule for this rule 
                            * @example [
                            *   {
                            *     "enabled": true,
@@ -4588,7 +7173,37 @@ export interface operations {
                                */
                               timestamp: string | null;
                             })[];
-                        }))[];
+                          /**
+                           * @description UI hint for which scheduling mode is active:
+                           * - `none` – no schedule
+                           * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                           * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                           *  
+                           * @enum {string}
+                           */
+                          scheduleType?: "none" | "schedule" | "ramp";
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID of the prerequisite */
+                              id: string;
+                              condition: string;
+                            })[];
+                        }) & ({
+                          /** @enum {string} */
+                          type: "safe-rollout";
+                          controlValue: string;
+                          variationValue: string;
+                          seed?: string;
+                          hashAttribute?: string;
+                          trackingKey?: string;
+                          safeRolloutId?: string;
+                          /** @enum {string} */
+                          status?: "running" | "released" | "rolled-back" | "stopped";
+                        })))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
                     };
@@ -4601,11 +7216,18 @@ export interface operations {
                   comment: string;
                   /** Format: date-time */
                   date: string;
+                  createdBy: string;
                   publishedBy: string;
                 };
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                holdout?: {
+                  /** @description Holdout ID */
+                  id: string;
+                  /** @description The feature value assigned to users in the holdout treatment group */
+                  value: string;
+                } | null;
               })[];
           }) & {
             limit: number;
@@ -5056,20 +7678,64 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: (({
+                  rules: ((({
                       description: string;
-                      condition: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5091,20 +7757,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "force";
-                      value: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5126,18 +7812,26 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "rollout";
-                      value: string;
-                      coverage: number;
-                      hashAttribute: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
-                      id: string;
-                      enabled: boolean;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
                       /** @enum {string} */
                       type: "experiment";
                       trackingKey?: string;
@@ -5152,41 +7846,19 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /**
-                       * @example [
-                       *   {
-                       *     "enabled": true,
-                       *     "timestamp": null
-                       *   },
-                       *   {
-                       *     "enabled": false,
-                       *     "timestamp": "2025-06-23T16:09:37.769Z"
-                       *   }
-                       * ]
-                       */
-                      scheduleRules?: ({
-                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                          enabled: boolean;
-                          /**
-                           * Format: date-time 
-                           * @description ISO timestamp when the rule should activate. 
-                           * @example 2025-06-23T16:09:37.769Z
-                           */
-                          timestamp: string | null;
-                        })[];
+                      /** @description Variation values with weights */
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    }) | ({
+                    }) | (({
                       description: string;
+                      condition?: string;
                       id: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "experiment-ref";
-                      condition?: string;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5208,36 +7880,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      variations: ({
-                          value: string;
-                          variationId: string;
-                        })[];
-                      experimentId: string;
-                    }) | ({
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
                       id: string;
-                      trackingKey?: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "safe-rollout";
-                      controlValue: string;
-                      variationValue: string;
-                      seed?: string;
-                      hashAttribute?: string;
-                      safeRolloutId?: string;
-                      /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back" | "stopped";
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5259,26 +7935,100 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                    }))[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: (({
+                    rules: ((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5300,20 +8050,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5335,18 +8105,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -5361,41 +8139,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5417,36 +8173,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5468,7 +8228,37 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -5481,11 +8271,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -5526,20 +8323,64 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: (({
+                  rules: ((({
                       description: string;
-                      condition: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5561,20 +8402,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "force";
-                      value: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5596,18 +8457,26 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "rollout";
-                      value: string;
-                      coverage: number;
-                      hashAttribute: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
-                      id: string;
-                      enabled: boolean;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
                       /** @enum {string} */
                       type: "experiment";
                       trackingKey?: string;
@@ -5622,41 +8491,19 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /**
-                       * @example [
-                       *   {
-                       *     "enabled": true,
-                       *     "timestamp": null
-                       *   },
-                       *   {
-                       *     "enabled": false,
-                       *     "timestamp": "2025-06-23T16:09:37.769Z"
-                       *   }
-                       * ]
-                       */
-                      scheduleRules?: ({
-                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                          enabled: boolean;
-                          /**
-                           * Format: date-time 
-                           * @description ISO timestamp when the rule should activate. 
-                           * @example 2025-06-23T16:09:37.769Z
-                           */
-                          timestamp: string | null;
-                        })[];
+                      /** @description Variation values with weights */
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    }) | ({
+                    }) | (({
                       description: string;
+                      condition?: string;
                       id: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "experiment-ref";
-                      condition?: string;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5678,36 +8525,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      variations: ({
-                          value: string;
-                          variationId: string;
-                        })[];
-                      experimentId: string;
-                    }) | ({
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
                       id: string;
-                      trackingKey?: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "safe-rollout";
-                      controlValue: string;
-                      variationValue: string;
-                      seed?: string;
-                      hashAttribute?: string;
-                      safeRolloutId?: string;
-                      /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back" | "stopped";
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -5729,26 +8580,100 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                    }))[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: (({
+                    rules: ((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5770,20 +8695,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5805,18 +8750,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -5831,41 +8784,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5887,36 +8818,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -5938,7 +8873,37 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -5951,11 +8916,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             }) & ({
               revisions?: ({
                   baseVersion: number;
@@ -5964,22 +8936,69 @@ export interface operations {
                   /** Format: date-time */
                   date: string;
                   status: string;
+                  createdBy?: string;
                   publishedBy?: string;
+                  /** @description The default value at the time this revision was created */
+                  defaultValue?: string;
                   rules: {
-                    [key: string]: ((({
+                    [key: string]: (((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6001,20 +9020,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6036,18 +9075,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -6062,41 +9109,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6118,36 +9143,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6169,10 +9198,81 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[]) | undefined;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[]) | undefined;
                   };
                   definitions?: {
                     [key: string]: string | undefined;
+                  };
+                  /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                  environmentsEnabled?: {
+                    [key: string]: boolean | undefined;
+                  };
+                  /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  envPrerequisites?: {
+                    [key: string]: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[] | undefined;
+                  };
+                  /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                  metadata?: {
+                    description?: string;
+                    owner?: string;
+                    project?: string;
+                    tags?: (string)[];
+                    neverStale?: boolean;
+                    valueType?: string;
+                    jsonSchema?: {
+                      /** @enum {string} */
+                      schemaType?: "schema" | "simple";
+                      schema?: string;
+                      simple?: {
+                        [key: string]: unknown | undefined;
+                      };
+                      /** Format: date-time */
+                      date?: string;
+                      enabled?: boolean;
+                    };
+                    customFields?: {
+                      [key: string]: unknown | undefined;
+                    };
                   };
                 })[];
             });
@@ -6182,7 +9282,12 @@ export interface operations {
     };
   };
   updateFeature: {
-    /** Partially update a feature */
+    /**
+     * Partially update a feature 
+     * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -6589,6 +9694,13 @@ export interface operations {
           customFields?: {
             [key: string]: string | undefined;
           };
+          /** @description Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged. */
+          holdout?: {
+            /** @description Holdout ID */
+            id: string;
+            /** @description The feature value assigned to users in the holdout treatment group */
+            value: string;
+          } | null;
         };
       };
     };
@@ -6614,20 +9726,64 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: (({
+                  rules: ((({
                       description: string;
-                      condition: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -6649,20 +9805,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "force";
-                      value: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -6684,18 +9860,26 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "rollout";
-                      value: string;
-                      coverage: number;
-                      hashAttribute: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
-                      id: string;
-                      enabled: boolean;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
                       /** @enum {string} */
                       type: "experiment";
                       trackingKey?: string;
@@ -6710,41 +9894,19 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /**
-                       * @example [
-                       *   {
-                       *     "enabled": true,
-                       *     "timestamp": null
-                       *   },
-                       *   {
-                       *     "enabled": false,
-                       *     "timestamp": "2025-06-23T16:09:37.769Z"
-                       *   }
-                       * ]
-                       */
-                      scheduleRules?: ({
-                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                          enabled: boolean;
-                          /**
-                           * Format: date-time 
-                           * @description ISO timestamp when the rule should activate. 
-                           * @example 2025-06-23T16:09:37.769Z
-                           */
-                          timestamp: string | null;
-                        })[];
+                      /** @description Variation values with weights */
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    }) | ({
+                    }) | (({
                       description: string;
+                      condition?: string;
                       id: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "experiment-ref";
-                      condition?: string;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -6766,36 +9928,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      variations: ({
-                          value: string;
-                          variationId: string;
-                        })[];
-                      experimentId: string;
-                    }) | ({
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
                       id: string;
-                      trackingKey?: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "safe-rollout";
-                      controlValue: string;
-                      variationValue: string;
-                      seed?: string;
-                      hashAttribute?: string;
-                      safeRolloutId?: string;
-                      /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back" | "stopped";
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -6817,26 +9983,100 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                    }))[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: (({
+                    rules: ((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6858,20 +10098,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6893,18 +10153,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -6919,41 +10187,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -6975,36 +10221,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7026,7 +10276,37 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -7039,11 +10319,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7051,7 +10338,12 @@ export interface operations {
     };
   };
   deleteFeature: {
-    /** Deletes a single feature */
+    /**
+     * Deletes a single feature 
+     * @description Permanently deletes a feature and all of its revisions.
+     * 
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.
+     */
     parameters: {
         /** @description The id of the requested resource */
       path: {
@@ -7073,7 +10365,12 @@ export interface operations {
     };
   };
   toggleFeature: {
-    /** Toggle a feature in one or more environments */
+    /**
+     * Toggle a feature in one or more environments 
+     * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -7106,20 +10403,64 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: (({
+                  rules: ((({
                       description: string;
-                      condition: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7141,20 +10482,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "force";
-                      value: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7176,18 +10537,26 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "rollout";
-                      value: string;
-                      coverage: number;
-                      hashAttribute: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
-                      id: string;
-                      enabled: boolean;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
                       /** @enum {string} */
                       type: "experiment";
                       trackingKey?: string;
@@ -7202,41 +10571,19 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /**
-                       * @example [
-                       *   {
-                       *     "enabled": true,
-                       *     "timestamp": null
-                       *   },
-                       *   {
-                       *     "enabled": false,
-                       *     "timestamp": "2025-06-23T16:09:37.769Z"
-                       *   }
-                       * ]
-                       */
-                      scheduleRules?: ({
-                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                          enabled: boolean;
-                          /**
-                           * Format: date-time 
-                           * @description ISO timestamp when the rule should activate. 
-                           * @example 2025-06-23T16:09:37.769Z
-                           */
-                          timestamp: string | null;
-                        })[];
+                      /** @description Variation values with weights */
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    }) | ({
+                    }) | (({
                       description: string;
+                      condition?: string;
                       id: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "experiment-ref";
-                      condition?: string;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7258,36 +10605,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      variations: ({
-                          value: string;
-                          variationId: string;
-                        })[];
-                      experimentId: string;
-                    }) | ({
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
                       id: string;
-                      trackingKey?: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "safe-rollout";
-                      controlValue: string;
-                      variationValue: string;
-                      seed?: string;
-                      hashAttribute?: string;
-                      safeRolloutId?: string;
-                      /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back" | "stopped";
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7309,26 +10660,100 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                    }))[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: (({
+                    rules: ((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7350,20 +10775,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7385,18 +10830,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -7411,41 +10864,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7467,36 +10898,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7518,7 +10953,37 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -7531,11 +10996,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -7543,7 +11015,12 @@ export interface operations {
     };
   };
   revertFeature: {
-    /** Revert a feature to a specific revision */
+    /**
+     * Revert a feature to a specific revision 
+     * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
+     * 
+     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
+     */
     requestBody: {
       content: {
         "application/json": {
@@ -7574,20 +11051,64 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: (({
+                  rules: ((({
                       description: string;
-                      condition: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7609,20 +11130,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "force";
-                      value: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7644,18 +11185,26 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "rollout";
-                      value: string;
-                      coverage: number;
-                      hashAttribute: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
-                      id: string;
-                      enabled: boolean;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
                       /** @enum {string} */
                       type: "experiment";
                       trackingKey?: string;
@@ -7670,41 +11219,19 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /**
-                       * @example [
-                       *   {
-                       *     "enabled": true,
-                       *     "timestamp": null
-                       *   },
-                       *   {
-                       *     "enabled": false,
-                       *     "timestamp": "2025-06-23T16:09:37.769Z"
-                       *   }
-                       * ]
-                       */
-                      scheduleRules?: ({
-                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                          enabled: boolean;
-                          /**
-                           * Format: date-time 
-                           * @description ISO timestamp when the rule should activate. 
-                           * @example 2025-06-23T16:09:37.769Z
-                           */
-                          timestamp: string | null;
-                        })[];
+                      /** @description Variation values with weights */
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    }) | ({
+                    }) | (({
                       description: string;
+                      condition?: string;
                       id: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "experiment-ref";
-                      condition?: string;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7726,36 +11253,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      variations: ({
-                          value: string;
-                          variationId: string;
-                        })[];
-                      experimentId: string;
-                    }) | ({
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
                       id: string;
-                      trackingKey?: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "safe-rollout";
-                      controlValue: string;
-                      variationValue: string;
-                      seed?: string;
-                      hashAttribute?: string;
-                      safeRolloutId?: string;
-                      /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back" | "stopped";
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -7777,26 +11308,100 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                    }))[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: (({
+                    rules: ((({
                         description: string;
-                        condition: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
+                        /**
+                         * @description Simple time-based on/off schedule for this rule 
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7818,20 +11423,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "force";
-                        value: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @description Optional seed for the hash function; defaults to the rule id */
+                        seed?: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
+                        id: string;
+                        enabled: boolean;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7853,18 +11478,26 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        id: string;
-                        enabled: boolean;
-                        /** @enum {string} */
-                        type: "rollout";
-                        value: string;
-                        coverage: number;
-                        hashAttribute: string;
-                      }) | ({
-                        description: string;
-                        condition: string;
-                        id: string;
-                        enabled: boolean;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & {
                         /** @enum {string} */
                         type: "experiment";
                         trackingKey?: string;
@@ -7879,41 +11512,19 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
-                        /**
-                         * @example [
-                         *   {
-                         *     "enabled": true,
-                         *     "timestamp": null
-                         *   },
-                         *   {
-                         *     "enabled": false,
-                         *     "timestamp": "2025-06-23T16:09:37.769Z"
-                         *   }
-                         * ]
-                         */
-                        scheduleRules?: ({
-                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                            enabled: boolean;
-                            /**
-                             * Format: date-time 
-                             * @description ISO timestamp when the rule should activate. 
-                             * @example 2025-06-23T16:09:37.769Z
-                             */
-                            timestamp: string | null;
-                          })[];
+                        /** @description Variation values with weights */
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      }) | ({
+                      }) | (({
                         description: string;
+                        condition?: string;
                         id: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "experiment-ref";
-                        condition?: string;
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7935,36 +11546,40 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                        variations: ({
-                            value: string;
-                            variationId: string;
-                          })[];
-                        experimentId: string;
-                      }) | ({
-                        condition: string;
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
                         savedGroupTargeting?: ({
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
                         prerequisites?: ({
-                            /** @description Feature ID */
+                            /** @description Feature ID of the prerequisite */
                             id: string;
                             condition: string;
                           })[];
+                      }) & {
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | (({
+                        description: string;
+                        condition?: string;
                         id: string;
-                        trackingKey?: string;
                         enabled: boolean;
-                        /** @enum {string} */
-                        type: "safe-rollout";
-                        controlValue: string;
-                        variationValue: string;
-                        seed?: string;
-                        hashAttribute?: string;
-                        safeRolloutId?: string;
-                        /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back" | "stopped";
                         /**
+                         * @description Simple time-based on/off schedule for this rule 
                          * @example [
                          *   {
                          *     "enabled": true,
@@ -7986,7 +11601,37 @@ export interface operations {
                              */
                             timestamp: string | null;
                           })[];
-                      }))[];
+                        /**
+                         * @description UI hint for which scheduling mode is active:
+                         * - `none` – no schedule
+                         * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                         * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                         *  
+                         * @enum {string}
+                         */
+                        scheduleType?: "none" | "schedule" | "ramp";
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID of the prerequisite */
+                            id: string;
+                            condition: string;
+                          })[];
+                      }) & ({
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        trackingKey?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                      })))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -7999,11 +11644,18 @@ export interface operations {
                 comment: string;
                 /** Format: date-time */
                 date: string;
+                createdBy: string;
                 publishedBy: string;
               };
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              holdout?: {
+                /** @description Holdout ID */
+                id: string;
+                /** @description The feature value assigned to users in the holdout treatment group */
+                value: string;
+              } | null;
             };
           };
         };
@@ -8035,22 +11687,69 @@ export interface operations {
                 /** Format: date-time */
                 date: string;
                 status: string;
+                createdBy?: string;
                 publishedBy?: string;
+                /** @description The default value at the time this revision was created */
+                defaultValue?: string;
                 rules: {
-                  [key: string]: ((({
+                  [key: string]: (((({
                       description: string;
-                      condition: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
+                      /**
+                       * @description Simple time-based on/off schedule for this rule 
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -8072,20 +11771,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "force";
-                      value: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @description Optional seed for the hash function; defaults to the rule id */
+                      seed?: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
+                      id: string;
+                      enabled: boolean;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -8107,18 +11826,26 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      id: string;
-                      enabled: boolean;
-                      /** @enum {string} */
-                      type: "rollout";
-                      value: string;
-                      coverage: number;
-                      hashAttribute: string;
-                    }) | ({
-                      description: string;
-                      condition: string;
-                      id: string;
-                      enabled: boolean;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & {
                       /** @enum {string} */
                       type: "experiment";
                       trackingKey?: string;
@@ -8133,41 +11860,19 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
-                      /**
-                       * @example [
-                       *   {
-                       *     "enabled": true,
-                       *     "timestamp": null
-                       *   },
-                       *   {
-                       *     "enabled": false,
-                       *     "timestamp": "2025-06-23T16:09:37.769Z"
-                       *   }
-                       * ]
-                       */
-                      scheduleRules?: ({
-                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
-                          enabled: boolean;
-                          /**
-                           * Format: date-time 
-                           * @description ISO timestamp when the rule should activate. 
-                           * @example 2025-06-23T16:09:37.769Z
-                           */
-                          timestamp: string | null;
-                        })[];
+                      /** @description Variation values with weights */
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    }) | ({
+                    }) | (({
                       description: string;
+                      condition?: string;
                       id: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "experiment-ref";
-                      condition?: string;
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -8189,36 +11894,40 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                      variations: ({
-                          value: string;
-                          variationId: string;
-                        })[];
-                      experimentId: string;
-                    }) | ({
-                      condition: string;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
                       savedGroupTargeting?: ({
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
                       prerequisites?: ({
-                          /** @description Feature ID */
+                          /** @description Feature ID of the prerequisite */
                           id: string;
                           condition: string;
                         })[];
+                    }) & {
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | (({
+                      description: string;
+                      condition?: string;
                       id: string;
-                      trackingKey?: string;
                       enabled: boolean;
-                      /** @enum {string} */
-                      type: "safe-rollout";
-                      controlValue: string;
-                      variationValue: string;
-                      seed?: string;
-                      hashAttribute?: string;
-                      safeRolloutId?: string;
-                      /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back" | "stopped";
                       /**
+                       * @description Simple time-based on/off schedule for this rule 
                        * @example [
                        *   {
                        *     "enabled": true,
@@ -8240,10 +11949,81 @@ export interface operations {
                            */
                           timestamp: string | null;
                         })[];
-                    }))[]) | undefined;
+                      /**
+                       * @description UI hint for which scheduling mode is active:
+                       * - `none` – no schedule
+                       * - `schedule` – simple time-based enable/disable via `scheduleRules`
+                       * - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+                       *  
+                       * @enum {string}
+                       */
+                      scheduleType?: "none" | "schedule" | "ramp";
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID of the prerequisite */
+                          id: string;
+                          condition: string;
+                        })[];
+                    }) & ({
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      trackingKey?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                    })))[]) | undefined;
                 };
                 definitions?: {
                   [key: string]: string | undefined;
+                };
+                /** @description Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled) */
+                environmentsEnabled?: {
+                  [key: string]: boolean | undefined;
+                };
+                /** @description Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                envPrerequisites?: {
+                  [key: string]: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[] | undefined;
+                };
+                /** @description Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled) */
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /** @description Metadata fields captured in this revision (only present when metadata gating is enabled) */
+                metadata?: {
+                  description?: string;
+                  owner?: string;
+                  project?: string;
+                  tags?: (string)[];
+                  neverStale?: boolean;
+                  valueType?: string;
+                  jsonSchema?: {
+                    /** @enum {string} */
+                    schemaType?: "schema" | "simple";
+                    schema?: string;
+                    simple?: {
+                      [key: string]: unknown | undefined;
+                    };
+                    /** Format: date-time */
+                    date?: string;
+                    enabled?: boolean;
+                  };
+                  customFields?: {
+                    [key: string]: unknown | undefined;
+                  };
                 };
               })[];
           }) & {
@@ -8253,6 +12033,54 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  getFeatureStale: {
+    /** Get stale status for one or more features */
+    parameters: {
+        /** @description Comma-separated list of feature IDs (URL-encoded if needed). Example: `my_feature,another_feature` */
+      query: {
+        ids: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /** @description Map of feature ID to stale status. Only requested features that were found and readable are included. */
+            features: {
+              [key: string]: ({
+                /** @description The feature key */
+                featureId: string;
+                /** @description Whether the feature is considered stale overall (all enabled environments are stale). Always false when neverStale is true. */
+                isStale: boolean;
+                /**
+                 * @description Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).
+                 *  
+                 * @enum {string|null}
+                 */
+                staleReason: "never-stale" | "recently-updated" | "active-draft" | "has-dependents" | "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | null;
+                /** @description When true the feature is permanently excluded from stale detection. */
+                neverStale: boolean;
+                /** @description Per-environment staleness breakdown, keyed by environment ID. Present when environments exist and neverStale is false. */
+                staleByEnv?: {
+                  [key: string]: ({
+                    /** @description Whether this environment is stale */
+                    isStale: boolean;
+                    /**
+                     * @description Reason for the stale status in this environment 
+                     * @enum {string|null}
+                     */
+                    reason: "no-rules" | "rules-one-sided" | "abandoned-draft" | "toggled-off" | "active-experiment" | "has-rules" | "recently-updated" | "active-draft" | "has-dependents" | null;
+                    /** @description The deterministic value this feature evaluates to in this environment. Uses the same raw string encoding as `feature.defaultValue`. Only present when the value is deterministic or the environment is toggled off. */
+                    evaluatesTo?: string;
+                  }) | undefined;
+                };
+              }) | undefined;
+            };
           };
         };
       };
@@ -8296,6 +12124,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 description?: string;
+                /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+                publicId?: string;
                 settings?: {
                   statsEngine?: string;
                 };
@@ -8319,6 +12149,8 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
+          /** @description URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided. */
+          publicId?: string;
           /** @description Project settings. */
           settings?: {
             /** @description Stats engine. */
@@ -8339,6 +12171,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -8368,6 +12202,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -8392,6 +12228,8 @@ export interface operations {
           name?: string;
           /** @description Project description. */
           description?: string;
+          /** @description URL-safe slug (lowercase letters, numbers, dashes). */
+          publicId?: string;
           /** @description Project settings. */
           settings?: {
             /** @description Stats engine. */
@@ -8412,6 +12250,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               description?: string;
+              /** @description URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided. */
+              publicId?: string;
               settings?: {
                 statsEngine?: string;
               };
@@ -8934,6 +12774,10 @@ export interface operations {
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
                 includeRuleIds?: boolean;
+                includeProjectIdInMetadata?: boolean;
+                includeCustomFieldsInMetadata?: boolean;
+                allowedCustomFieldsInMetadata?: (string)[];
+                includeTagsInMetadata?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -8971,6 +12815,10 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectIdInMetadata?: boolean;
+          includeCustomFieldsInMetadata?: boolean;
+          allowedCustomFieldsInMetadata?: (string)[];
+          includeTagsInMetadata?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -9004,6 +12852,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9051,6 +12903,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9087,6 +12943,10 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectIdInMetadata?: boolean;
+          includeCustomFieldsInMetadata?: boolean;
+          allowedCustomFieldsInMetadata?: (string)[];
+          includeTagsInMetadata?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -9120,6 +12980,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9185,6 +13049,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9395,15 +13263,60 @@ export interface operations {
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
                   /**
-                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                   * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                    * @enum {unknown}
                    */
-                  attributionModel: "firstExposure" | "experimentDuration";
+                  attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                  /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                  lookbackOverride?: {
+                    /** @enum {unknown} */
+                    type: "date" | "window";
+                    /**
+                     * Format: date-time 
+                     * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                     */
+                    value: OneOf<[number, string]>;
+                    /**
+                     * @description Used when type is "window". Defaults to "days". 
+                     * @enum {unknown}
+                     */
+                    valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                  };
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
                   sequentialTestingEnabled?: boolean;
                   sequentialTestingTuningParameter?: number;
+                  /** @description When null, the organization default is used. */
+                  postStratificationEnabled?: OneOf<[boolean, null]>;
+                  /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                  decisionFrameworkSettings?: {
+                    decisionCriteriaId?: string;
+                    decisionFrameworkMetricOverrides?: ({
+                        /** @description ID of the metric to override settings for. */
+                        id: string;
+                        /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                        targetMDE?: number;
+                      })[];
+                  };
+                  /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                  metricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @enum {string} */
+                      windowType?: "conversion" | "lookback" | "";
+                      windowHours?: number;
+                      delayHours?: number;
+                      /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
+                    })[];
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -9411,8 +13324,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   secondaryMetrics: ({
@@ -9422,8 +13344,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   guardrails: ({
@@ -9433,8 +13364,17 @@ export interface operations {
                         windowHours?: number;
                         /** @enum {string} */
                         window?: "conversion" | "lookback" | "";
+                        /** @deprecated */
                         winRiskThreshold?: number;
+                        /** @deprecated */
                         loseRiskThreshold?: number;
+                        properPriorOverride?: boolean;
+                        properPriorEnabled?: boolean;
+                        properPriorMean?: number;
+                        properPriorStdDev?: number;
+                        regressionAdjustmentOverride?: boolean;
+                        regressionAdjustmentEnabled?: boolean;
+                        regressionAdjustmentDays?: number;
                       };
                     })[];
                   activationMetric?: {
@@ -9444,8 +13384,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   };
                 };
@@ -9465,6 +13414,9 @@ export interface operations {
                 banditBurnInValue?: number;
                 /** @enum {string} */
                 banditBurnInUnit?: "days" | "hours";
+                banditConversionWindowValue?: number;
+                /** @enum {string} */
+                banditConversionWindowUnit?: "days" | "hours";
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
@@ -9478,6 +13430,9 @@ export interface operations {
                         levels: (string)[];
                       })[];
                   })[];
+                /** @description ID of the default dashboard for this experiment. */
+                defaultDashboardId?: string;
+                templateId?: string;
               })[];
           }) & {
             limit: number;
@@ -9496,17 +13451,21 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          /** @description ID for the [DataSource](#tag/DataSource_model). Can only be set if a templateId is not provided. */
           datasourceId?: string;
-          /** @description The ID property of one of the assignment query objects associated with the datasource */
-          assignmentQueryId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource. Can only be set if a templateId is not provided. */
+          assignmentQueryId?: string;
           trackingKey: string;
+          /** @description If true, allow creating an experiment even if another experiment with the same tracking key already exists */
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name: string;
           /** @enum {string} */
           type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
+          /** @description ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields. */
+          templateId?: string;
           /** @description Hypothesis of the experiment */
           hypothesis?: string;
           /** @description Description of the experiment */
@@ -9539,10 +13498,25 @@ export interface operations {
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description Used when type is "window". Defaults to "days". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations: ({
@@ -9603,6 +13577,41 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
+          /** @description When null, the organization default is used. */
+          postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+          decisionFrameworkSettings?: {
+            decisionCriteriaId?: string;
+            decisionFrameworkMetricOverrides?: ({
+                /** @description ID of the metric to override settings for. */
+                id: string;
+                /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                targetMDE?: number;
+              })[];
+          };
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
+          metricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @enum {string} */
+              windowType?: "conversion" | "lookback" | "";
+              windowHours?: number;
+              delayHours?: number;
+              /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+            })[];
+          /** @description ID of the default dashboard for this experiment. */
+          defaultDashboardId?: string;
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -9687,15 +13696,60 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -9703,8 +13757,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -9714,8 +13777,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -9725,8 +13797,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -9736,8 +13817,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -9757,6 +13847,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -9770,6 +13863,9 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
+              templateId?: string;
             };
           };
         };
@@ -9876,15 +13972,60 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -9892,8 +14033,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -9903,8 +14053,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -9914,8 +14073,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -9925,8 +14093,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -9946,6 +14123,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -9959,6 +14139,9 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
+              templateId?: string;
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -9986,6 +14169,8 @@ export interface operations {
           datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
+          /** @description If true, allow updating the tracking key even if another experiment with the same tracking key already exists */
+          bypassDuplicateKeyCheck?: boolean;
           /** @description Name of the experiment */
           name?: string;
           /** @enum {string} */
@@ -10019,15 +14204,41 @@ export interface operations {
           disableStickyBucketing?: boolean;
           bucketVersion?: number;
           minBucketVersion?: number;
+          /**
+           * @description The result status of the experiment. Maps to resultSummary.status in the GET response. 
+           * @enum {string}
+           */
+          results?: "dnf" | "won" | "lost" | "inconclusive";
+          /** @description The index of the winning variation (0-indexed). Maps to resultSummary.winner (variation ID) in the GET response. */
+          winner?: number;
+          /** @description Analysis summary or conclusions for the experiment. Maps to resultSummary.conclusions in the GET response. */
+          analysis?: string;
+          /** @description The ID of the released variation. Maps to resultSummary.releasedVariationId in the GET response. */
           releasedVariationId?: string;
+          /** @description If true, the experiment is excluded from the SDK payload. Maps to resultSummary.excludeFromPayload in the GET response. */
           excludeFromPayload?: boolean;
           /** @enum {string} */
           inProgressConversions?: "loose" | "strict";
           /**
-           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+           * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
            * @enum {string}
            */
-          attributionModel?: "firstExposure" | "experimentDuration";
+          attributionModel?: "firstExposure" | "experimentDuration" | "lookbackOverride";
+          /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+          lookbackOverride?: {
+            /** @enum {unknown} */
+            type: "date" | "window";
+            /**
+             * Format: date-time 
+             * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+             */
+            value: OneOf<[number, string]>;
+            /**
+             * @description Used when type is "window". Defaults to "days". 
+             * @enum {unknown}
+             */
+            valueUnit?: "minutes" | "hours" | "days" | "weeks";
+          };
           /** @enum {string} */
           statsEngine?: "bayesian" | "frequentist";
           variations?: ({
@@ -10051,6 +14262,10 @@ export interface operations {
               reasonForStopping?: string;
               seed?: string;
               coverage?: number;
+              /**
+               * @deprecated 
+               * @description Deprecated and unused. Use variationWeights instead.
+               */
               trafficSplit?: ({
                   variationId: string;
                   weight: number;
@@ -10088,6 +14303,41 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          banditConversionWindowValue?: number;
+          /** @enum {string} */
+          banditConversionWindowUnit?: "days" | "hours";
+          /** @description When null, the organization default is used. */
+          postStratificationEnabled?: OneOf<[boolean, null]>;
+          /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+          decisionFrameworkSettings?: {
+            decisionCriteriaId?: string;
+            decisionFrameworkMetricOverrides?: ({
+                /** @description ID of the metric to override settings for. */
+                id: string;
+                /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                targetMDE?: number;
+              })[];
+          };
+          /** @description Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries). */
+          metricOverrides?: ({
+              /** @description ID of the metric to override settings for. */
+              id: string;
+              /** @enum {string} */
+              windowType?: "conversion" | "lookback" | "";
+              windowHours?: number;
+              delayHours?: number;
+              /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+              properPriorOverride?: boolean;
+              properPriorEnabled?: boolean;
+              properPriorMean?: number;
+              properPriorStdDev?: number;
+              /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+              regressionAdjustmentOverride?: boolean;
+              regressionAdjustmentEnabled?: boolean;
+              regressionAdjustmentDays?: number;
+            })[];
+          /** @description ID of the default dashboard for this experiment. */
+          defaultDashboardId?: string;
           customFields?: {
             [key: string]: string | undefined;
           };
@@ -10172,15 +14422,60 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -10188,8 +14483,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -10199,8 +14503,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -10210,8 +14523,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -10221,8 +14543,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -10242,6 +14573,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -10255,6 +14589,9 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
+              templateId?: string;
             };
           };
         };
@@ -10284,6 +14621,65 @@ export interface operations {
               status: string;
             };
           };
+        };
+      };
+    };
+  };
+  postVariationImageUpload: {
+    /** Upload a variation screenshot */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Base64-encoded screenshot data */
+          screenshot: string;
+          /**
+           * @description MIME type of the screenshot 
+           * @enum {string}
+           */
+          contentType: "image/png" | "image/jpeg" | "image/gif";
+          /** @description Optional description for the screenshot */
+          description?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            screenshot: {
+              /** @description URL or path to the uploaded screenshot */
+              path: string;
+              /** @description Description of the screenshot */
+              description: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteVariationScreenshot: {
+    /** Delete a variation screenshot */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The variation ID (e.g. var_abc123) from the experiment's variations */
+      path: {
+        id: string;
+        variationId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The screenshot path/URL to delete (from upload response) */
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Screenshot deleted successfully */
+      200: {
+        content: {
+          "application/json": any;
         };
       };
     };
@@ -10320,15 +14716,60 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -10336,8 +14777,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -10347,8 +14797,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -10358,8 +14817,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -10369,8 +14837,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -10447,6 +14924,64 @@ export interface operations {
                       })[];
                   })[];
               })[];
+          };
+        };
+      };
+    };
+  };
+  postVisualChangesets: {
+    /** Create a visual changeset for an experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description URL of the page opened in the visual editor when creating this changeset */
+          editorUrl: string;
+          /** @description URL patterns that determine which pages this visual changeset applies to */
+          urlPatterns: ({
+              include?: boolean;
+              /** @enum {string} */
+              type: "simple" | "regex";
+              pattern: string;
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            visualChangeset: {
+              id?: string;
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "regex";
+                  pattern: string;
+                })[];
+              editorUrl: string;
+              experiment: string;
+              visualChanges: ({
+                  description?: string;
+                  css?: string;
+                  js?: string;
+                  variation: string;
+                  domMutations: ({
+                      selector: string;
+                      /** @enum {string} */
+                      action: "append" | "set" | "remove";
+                      attribute: string;
+                      value?: string;
+                      parentSelector?: string;
+                      insertBeforeSelector?: string;
+                    })[];
+                })[];
+            };
           };
         };
       };
@@ -11333,15 +15868,60 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /**
-                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+                 * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided. 
                  * @enum {unknown}
                  */
-                attributionModel: "firstExposure" | "experimentDuration";
+                attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
+                /** @description Controls the lookback override for the experiment. For type "window", value must be a non-negative number and valueUnit is required. */
+                lookbackOverride?: {
+                  /** @enum {unknown} */
+                  type: "date" | "window";
+                  /**
+                   * Format: date-time 
+                   * @description For "window" type - non-negative numeric value (e.g. 7 for 7 days). For "date" type a date string.
+                   */
+                  value: OneOf<[number, string]>;
+                  /**
+                   * @description Used when type is "window". Defaults to "days". 
+                   * @enum {unknown}
+                   */
+                  valueUnit?: "minutes" | "hours" | "days" | "weeks";
+                };
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
                 sequentialTestingEnabled?: boolean;
                 sequentialTestingTuningParameter?: number;
+                /** @description When null, the organization default is used. */
+                postStratificationEnabled?: OneOf<[boolean, null]>;
+                /** @description Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
+                decisionFrameworkSettings?: {
+                  decisionCriteriaId?: string;
+                  decisionFrameworkMetricOverrides?: ({
+                      /** @description ID of the metric to override settings for. */
+                      id: string;
+                      /** @description The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0. */
+                      targetMDE?: number;
+                    })[];
+                };
+                /** @description Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries). */
+                metricOverrides?: ({
+                    /** @description ID of the metric to override settings for. */
+                    id: string;
+                    /** @enum {string} */
+                    windowType?: "conversion" | "lookback" | "";
+                    windowHours?: number;
+                    delayHours?: number;
+                    /** @description Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present. */
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    /** @description Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present. */
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
+                  })[];
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -11349,8 +15929,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 secondaryMetrics: ({
@@ -11360,8 +15949,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 guardrails: ({
@@ -11371,8 +15969,17 @@ export interface operations {
                       windowHours?: number;
                       /** @enum {string} */
                       window?: "conversion" | "lookback" | "";
+                      /** @deprecated */
                       winRiskThreshold?: number;
+                      /** @deprecated */
                       loseRiskThreshold?: number;
+                      properPriorOverride?: boolean;
+                      properPriorEnabled?: boolean;
+                      properPriorMean?: number;
+                      properPriorStdDev?: number;
+                      regressionAdjustmentOverride?: boolean;
+                      regressionAdjustmentEnabled?: boolean;
+                      regressionAdjustmentDays?: number;
                     };
                   })[];
                 activationMetric?: {
@@ -11382,8 +15989,17 @@ export interface operations {
                     windowHours?: number;
                     /** @enum {string} */
                     window?: "conversion" | "lookback" | "";
+                    /** @deprecated */
                     winRiskThreshold?: number;
+                    /** @deprecated */
                     loseRiskThreshold?: number;
+                    properPriorOverride?: boolean;
+                    properPriorEnabled?: boolean;
+                    properPriorMean?: number;
+                    properPriorStdDev?: number;
+                    regressionAdjustmentOverride?: boolean;
+                    regressionAdjustmentEnabled?: boolean;
+                    regressionAdjustmentDays?: number;
                   };
                 };
               };
@@ -11403,6 +16019,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              banditConversionWindowValue?: number;
+              /** @enum {string} */
+              banditConversionWindowUnit?: "days" | "hours";
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
@@ -11416,6 +16035,9 @@ export interface operations {
                       levels: (string)[];
                     })[];
                 })[];
+              /** @description ID of the default dashboard for this experiment. */
+              defaultDashboardId?: string;
+              templateId?: string;
             };
           };
         };
@@ -14447,7 +19069,7 @@ export interface operations {
               sequentialTestingEnabled: boolean;
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
-              attributionModel: "firstExposure" | "experimentDuration";
+              attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
               targetMDE: number;
               delayHours: number;
               windowType: string;
@@ -14456,12 +19078,17 @@ export interface operations {
               loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
+              /** @enum {string} */
+              featureKillSwitchBehavior?: "off" | "warn";
               requireReviews: ({
                   requireReviewOn?: boolean;
                   resetReviewOnChange?: boolean;
                   environments?: (string)[];
                   projects?: (string)[];
+                  featureRequireEnvironmentReview?: boolean;
+                  featureRequireMetadataReview?: boolean;
                 })[];
+              restApiBypassesReviews?: boolean;
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;
@@ -14475,6 +19102,2607 @@ export interface operations {
               preferredEnvironment?: string | null;
               maxMetricSliceLevels?: number;
             };
+          };
+        };
+      };
+    };
+  };
+  getInformationSchema: {
+    /**
+     * Get a Data Source's Information Schema 
+     * @description Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            informationSchema: {
+              id: string;
+              datasourceId: string;
+              /** @enum {string} */
+              status: "PENDING" | "COMPLETE";
+              error?: {
+                /** @enum {string} */
+                errorType: "generic" | "not_supported" | "missing_params";
+                message: string;
+              };
+              databases: ({
+                  databaseName: string;
+                  path?: string;
+                  /** Format: date-time */
+                  dateCreated: string;
+                  /** Format: date-time */
+                  dateUpdated: string;
+                  schemas: ({
+                      schemaName: string;
+                      path?: string;
+                      /** Format: date-time */
+                      dateCreated: string;
+                      /** Format: date-time */
+                      dateUpdated: string;
+                      tables: ({
+                          tableName: string;
+                          path?: string;
+                          id: string;
+                          numOfColumns: number;
+                          /** Format: date-time */
+                          dateCreated: string;
+                          /** Format: date-time */
+                          dateUpdated: string;
+                        })[];
+                    })[];
+                })[];
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getInformationSchemaTable: {
+    /**
+     * Get a single Information Schema Table by id 
+     * @description Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            informationSchemaTable: {
+              id: string;
+              datasourceId: string;
+              informationSchemaId: string;
+              tableName: string;
+              tableSchema: string;
+              databaseName: string;
+              columns: ({
+                  columnName: string;
+                  dataType: string;
+                })[];
+              refreshMS: number;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  listRampSchedules: {
+    /**
+     * List ramp schedules 
+     * @description Returns all ramp schedules for the organization, with optional filters.
+     */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter to schedules attached to a specific feature */
+        /** @description Filter by schedule status */
+      query: {
+        limit?: number;
+        offset?: number;
+        featureId?: string;
+        status?: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            rampSchedules: ({
+                /** @description Unique identifier (rs_ prefix) */
+                id: string;
+                organization: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                /** @enum {string} */
+                entityType: "feature";
+                entityId: string;
+                /** @description Controlled entity references */
+                targets: ({
+                    id: string;
+                    /** @enum {string} */
+                    entityType: "feature";
+                    entityId: string;
+                    ruleId?: string;
+                    environment?: string;
+                    /** @enum {string} */
+                    status: "pending-join" | "active";
+                    /** @description Feature revision version that activates this ramp; cleared once published */
+                    activatingRevisionVersion?: number;
+                  })[];
+                /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+                endActions?: ({
+                    /** @enum {unknown} */
+                    targetType: "feature-rule";
+                    targetId: string;
+                    patch: {
+                      ruleId: string;
+                      coverage?: number;
+                      condition?: string;
+                      /** @description Force value (any JSON type) */
+                      force?: any;
+                    };
+                  })[];
+                /** @description Ordered ramp steps */
+                steps: ({
+                    trigger: {
+                      /** @enum {string} */
+                      type: "interval" | "approval" | "scheduled";
+                      /** @description Hold duration (interval triggers only) */
+                      seconds?: number;
+                      /**
+                       * Format: date-time 
+                       * @description Absolute fire time (scheduled triggers only)
+                       */
+                      at?: string;
+                    };
+                    actions: ({
+                        /** @enum {unknown} */
+                        targetType: "feature-rule";
+                        targetId: string;
+                        patch: {
+                          ruleId: string;
+                          coverage?: number;
+                          condition?: string;
+                          /** @description Force value (any JSON type) */
+                          force?: any;
+                        };
+                      })[];
+                    approvalNotes?: string;
+                  })[];
+                /**
+                 * Format: date-time 
+                 * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+                 */
+                startDate?: string | null;
+                /** @description Optional hard deadline for standard (no-step) schedules */
+                endCondition?: {
+                  trigger?: {
+                    /** @enum {string} */
+                    type?: "scheduled";
+                    /** Format: date-time */
+                    at?: string;
+                  };
+                };
+                /** @enum {string} */
+                status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+                /** @description Index of current step; -1 = not yet started */
+                currentStepIndex: number;
+                /** Format: date-time */
+                startedAt?: string;
+                /**
+                 * Format: date-time 
+                 * @description Anchor for cumulative interval timing; resets after each approval gate
+                 */
+                phaseStartedAt?: string;
+                /** Format: date-time */
+                pausedAt?: string;
+                /**
+                 * Format: date-time 
+                 * @description When the next step fires; null for approval steps and terminal states
+                 */
+                nextStepAt: string | null;
+                /** @description Milliseconds since startedAt (computed at response time, not stored) */
+                elapsedMs?: number;
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postRampSchedule: {
+    /**
+     * Create a ramp schedule 
+     * @description Creates a new ramp schedule, optionally attaching it to a published feature rule.
+     * 
+     * ### Target attachment (optional)
+     * 
+     * Provide `featureId`, `ruleId`, and `environment` together to attach the schedule
+     * to a specific rule on creation. The rule must already be live (published). Each
+     * `[ruleId, environment]` pair can only be controlled by one schedule at a time.
+     * 
+     * When all three are supplied, **`targetId` and `patch.ruleId` are auto-injected**
+     * into every step action and endAction — callers only need to supply the patch
+     * values (`coverage`, `condition`, etc.).
+     * 
+     * If omitted, the schedule is created as a free-standing skeleton in `pending`
+     * status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach rules later,
+     * and `POST /ramp-schedules/{id}/actions/start` to start it.
+     * 
+     * ### Using templates
+     * 
+     * Provide `templateId` to inherit steps and endActions from a saved template.
+     * Explicit `steps` / `endActions` in the request body take precedence over the
+     * template. Template auto-population requires `featureId`, `ruleId`, and
+     * `environment` to be set (so targetId can be injected).
+     * 
+     * Requires an **Enterprise** plan.
+     */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          /** @description Feature that anchors this schedule. Required when ruleId/environment are set. */
+          featureId?: string;
+          /** @description Rule to attach as the initial target. Requires featureId and environment. */
+          ruleId?: string;
+          /** @description Environment of the target rule. Requires featureId and ruleId. */
+          environment?: string;
+          /** @description Load steps and endActions from a saved template (featureId+ruleId+environment must also be set for auto-injection) */
+          templateId?: string;
+          /**
+           * @description Ordered ramp steps. When featureId+ruleId+environment are provided,
+           * `targetId` and `patch.ruleId` in actions are auto-injected — only
+           * supply the patch fields you want to change.
+           */
+          steps?: ({
+              trigger: {
+                /** @enum {string} */
+                type: "interval" | "approval" | "scheduled";
+                /** @description Hold duration in seconds (interval triggers only) */
+                seconds?: number;
+                /**
+                 * Format: date-time 
+                 * @description Absolute fire time (scheduled triggers only)
+                 */
+                at?: string;
+              };
+              actions?: ({
+                  /**
+                   * @description Omit when using featureId+ruleId+environment (auto-injected) 
+                   * @enum {unknown}
+                   */
+                  targetType?: "feature-rule";
+                  /** @description Auto-injected when featureId+ruleId+environment are provided */
+                  targetId?: string;
+                  /** @description Sparse patch — only fields present are applied; absent fields accumulate from previous steps */
+                  patch: {
+                    /** @description Auto-injected when ruleId is provided at the top level */
+                    ruleId?: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              approvalNotes?: string;
+            })[];
+          /** @description Actions applied when the ramp completes. targetId and patch.ruleId are auto-injected when featureId+ruleId+environment are provided. */
+          endActions?: ({
+              /**
+               * @description Omit when using featureId+ruleId+environment (auto-injected) 
+               * @enum {unknown}
+               */
+              targetType?: "feature-rule";
+              /** @description Auto-injected when featureId+ruleId+environment are provided */
+              targetId?: string;
+              patch: {
+                ruleId?: string;
+                coverage?: number;
+                condition?: string;
+                /** @description Force value (any JSON type) */
+                force?: any;
+              };
+            })[];
+          /**
+           * Format: date-time 
+           * @description When to start. Absent/null = immediately on start action.
+           */
+          startDate?: string | null;
+          /** @description Optional hard deadline */
+          endCondition?: {
+            trigger?: {
+              /** @enum {string} */
+              type?: "scheduled";
+              /** Format: date-time */
+              at?: string;
+            };
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  getRampSchedule: {
+    /** Get a single ramp schedule */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  putRampSchedule: {
+    /**
+     * Update a ramp schedule 
+     * @description Updates the name, steps, endActions, startDate, or endCondition of a ramp schedule.
+     * 
+     * Only allowed when the schedule is in `pending`, `ready`, or `paused` status.
+     * 
+     * **targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`
+     * (or pass `"t1"`) in each action. If the schedule has exactly one active target, the server
+     * will resolve it automatically. For schedules with multiple targets, provide the explicit
+     * target UUID from `targets[].id`.
+     */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          steps?: ({
+              trigger: {
+                /** @enum {string} */
+                type: "interval" | "approval" | "scheduled";
+                seconds?: number;
+                /** Format: date-time */
+                at?: string;
+              };
+              actions?: ({
+                  /** @enum {unknown} */
+                  targetType?: "feature-rule";
+                  targetId?: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              approvalNotes?: string;
+            })[];
+          endActions?: ({
+              /** @enum {unknown} */
+              targetType?: "feature-rule";
+              targetId?: string;
+              patch: {
+                ruleId: string;
+                coverage?: number;
+                condition?: string;
+                /** @description Force value (any JSON type) */
+                force?: any;
+              };
+            })[];
+          /** Format: date-time */
+          startDate?: string | null;
+          endCondition?: {
+            trigger?: {
+              /** @enum {string} */
+              type?: "scheduled";
+              /** Format: date-time */
+              at?: string;
+            };
+          } | null;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteRampSchedule: {
+    /**
+     * Delete a ramp schedule 
+     * @description Permanently deletes a ramp schedule. This does not undo any rule patches that
+     * were already applied by completed steps.
+     */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  startRampSchedule: {
+    /**
+     * Start a ramp schedule 
+     * @description Transitions the schedule from `ready` to `running` and processes the first
+     * step immediately if eligible.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  pauseRampSchedule: {
+    /**
+     * Pause a ramp schedule 
+     * @description Pauses a `running` or `pending-approval` schedule. The schedule can be
+     * resumed from the same position with the `/actions/resume` endpoint.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  resumeRampSchedule: {
+    /**
+     * Resume a paused ramp schedule 
+     * @description Resumes a `paused` schedule. Adjusts timing anchors to account for the
+     * pause duration so step intervals continue from where they left off.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  approveStepRampSchedule: {
+    /**
+     * Approve the current pending-approval step 
+     * @description Approves the current step on a schedule in `pending-approval` status and
+     * advances to the next step. Requires the caller to have feature review
+     * permissions for the associated feature.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  rollbackRampSchedule: {
+    /**
+     * Roll back a ramp schedule 
+     * @description Rolls back to the starting position and lands in `paused` status so the
+     * schedule can be restarted with `/actions/start` or `/actions/resume`.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  completeRampSchedule: {
+    /**
+     * Complete a ramp schedule immediately 
+     * @description Applies end actions and marks the schedule as `completed`, regardless of
+     * how many steps remain.
+     */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  jumpRampSchedule: {
+    /**
+     * Jump to a specific step 
+     * @description Moves the schedule directly to `targetStepIndex` (forward or backward) and
+     * pauses. Use `-1` to jump to the pre-start position without rolling back rule
+     * patches.
+     */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Zero-based index of the step to jump to; -1 = pre-start */
+          targetStepIndex: number;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  addTargetRampSchedule: {
+    /**
+     * Add a target rule to a ramp schedule 
+     * @description Attaches an additional feature rule to this ramp schedule. The
+     * `[ruleId, environment]` pair must identify a rule that is already published
+     * and must not already be controlled by another schedule.
+     */
+    requestBody: {
+      content: {
+        "application/json": {
+          featureId: string;
+          ruleId: string;
+          environment: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          };
+        };
+      };
+    };
+  };
+  ejectTargetRampSchedule: {
+    /**
+     * Remove a target rule from a ramp schedule 
+     * @description Detaches a target rule from this ramp schedule. Identify the target either
+     * by its `targetId` or by the `[ruleId, environment]` pair.
+     * 
+     * If this is the last target on the schedule, the schedule is deleted entirely
+     * and the response contains `deleted: true` instead of `rampSchedule`.
+     */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Target ID (from the targets array) */
+          targetId?: string;
+          /** @description Rule ID — use with environment as an alternative to targetId */
+          ruleId?: string;
+          /** @description Environment — use with ruleId as an alternative to targetId */
+          environment?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": OneOf<[{
+            rampSchedule: {
+              /** @description Unique identifier (rs_ prefix) */
+              id: string;
+              organization: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              /** @enum {string} */
+              entityType: "feature";
+              entityId: string;
+              /** @description Controlled entity references */
+              targets: ({
+                  id: string;
+                  /** @enum {string} */
+                  entityType: "feature";
+                  entityId: string;
+                  ruleId?: string;
+                  environment?: string;
+                  /** @enum {string} */
+                  status: "pending-join" | "active";
+                  /** @description Feature revision version that activates this ramp; cleared once published */
+                  activatingRevisionVersion?: number;
+                })[];
+              /** @description Actions applied on top of all step patches when the ramp completes. Represents the final desired rule state. */
+              endActions?: ({
+                  /** @enum {unknown} */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number;
+                    condition?: string;
+                    /** @description Force value (any JSON type) */
+                    force?: any;
+                  };
+                })[];
+              /** @description Ordered ramp steps */
+              steps: ({
+                  trigger: {
+                    /** @enum {string} */
+                    type: "interval" | "approval" | "scheduled";
+                    /** @description Hold duration (interval triggers only) */
+                    seconds?: number;
+                    /**
+                     * Format: date-time 
+                     * @description Absolute fire time (scheduled triggers only)
+                     */
+                    at?: string;
+                  };
+                  actions: ({
+                      /** @enum {unknown} */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number;
+                        condition?: string;
+                        /** @description Force value (any JSON type) */
+                        force?: any;
+                      };
+                    })[];
+                  approvalNotes?: string;
+                })[];
+              /**
+               * Format: date-time 
+               * @description When the ramp fires. Absent/null means immediately on publish; set to a future datetime to delay start and keep the rule disabled until that time.
+               */
+              startDate?: string | null;
+              /** @description Optional hard deadline for standard (no-step) schedules */
+              endCondition?: {
+                trigger?: {
+                  /** @enum {string} */
+                  type?: "scheduled";
+                  /** Format: date-time */
+                  at?: string;
+                };
+              };
+              /** @enum {string} */
+              status: "pending" | "ready" | "running" | "paused" | "pending-approval" | "completed" | "rolled-back";
+              /** @description Index of current step; -1 = not yet started */
+              currentStepIndex: number;
+              /** Format: date-time */
+              startedAt?: string;
+              /**
+               * Format: date-time 
+               * @description Anchor for cumulative interval timing; resets after each approval gate
+               */
+              phaseStartedAt?: string;
+              /** Format: date-time */
+              pausedAt?: string;
+              /**
+               * Format: date-time 
+               * @description When the next step fires; null for approval steps and terminal states
+               */
+              nextStepAt: string | null;
+              /** @description Milliseconds since startedAt (computed at response time, not stored) */
+              elapsedMs?: number;
+            };
+          }, {
+            deleted: boolean;
+            rampScheduleId: string;
+          }]>;
+        };
+      };
+    };
+  };
+  postMetricExploration: {
+    /** Create a Metric based visualization */
+    parameters: {
+      query: {
+        cache?: "preferred" | "required" | "never";
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID of the datasource to query */
+          datasource: string;
+          dimensions: (({
+              /** @constant */
+              dimensionType: "date";
+              column: string | null;
+              /** @enum {string} */
+              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+            }) | ({
+              /** @constant */
+              dimensionType: "dynamic";
+              column: string | null;
+              maxValues: number;
+            }) | {
+              /** @constant */
+              dimensionType: "static";
+              column: string;
+              values: (string)[];
+            } | ({
+              /** @constant */
+              dimensionType: "slice";
+              slices: ({
+                  name: string;
+                  filters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                })[];
+            }))[];
+          /** @enum {string} */
+          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+          dateRange: {
+            /** @enum {string} */
+            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+            lookbackValue: number | null;
+            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+            startDate: string | null;
+            endDate: string | null;
+          };
+          /** @constant */
+          type: "metric";
+          dataset: {
+            /** @constant */
+            type: "metric";
+            values: ({
+                name: string;
+                rowFilters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+                /** @constant */
+                type: "metric";
+                metricId: string;
+                unit: string | null;
+                denominatorUnit: string | null;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            exploration: ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              datasource: string;
+              /** @enum {string} */
+              status: "running" | "success" | "error";
+              dateStart: string;
+              dateEnd: string;
+              error?: string | null;
+              result: {
+                rows: ({
+                    dimensions: (string | null)[];
+                    values: ({
+                        metricId: string;
+                        numerator: number | null;
+                        denominator: number | null;
+                      })[];
+                  })[];
+              };
+              config: {
+                /** @description ID of the datasource to query */
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "metric";
+                dataset: {
+                  /** @constant */
+                  type: "metric";
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "metric";
+                      metricId: string;
+                      unit: string | null;
+                      denominatorUnit: string | null;
+                    })[];
+                };
+              };
+            }) | null;
+            query: ({
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            }) | null;
+            /** @description A direct link to view this exploration in the GrowthBook Application. */
+            explorationUrl?: string;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
+            message?: string;
+          };
+        };
+      };
+    };
+  };
+  postFactTableExploration: {
+    /** Run a Fact Table based visualization */
+    parameters: {
+      query: {
+        cache?: "preferred" | "required" | "never";
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID of the datasource to query */
+          datasource: string;
+          dimensions: (({
+              /** @constant */
+              dimensionType: "date";
+              column: string | null;
+              /** @enum {string} */
+              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+            }) | ({
+              /** @constant */
+              dimensionType: "dynamic";
+              column: string | null;
+              maxValues: number;
+            }) | {
+              /** @constant */
+              dimensionType: "static";
+              column: string;
+              values: (string)[];
+            } | ({
+              /** @constant */
+              dimensionType: "slice";
+              slices: ({
+                  name: string;
+                  filters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                })[];
+            }))[];
+          /** @enum {string} */
+          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+          dateRange: {
+            /** @enum {string} */
+            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+            lookbackValue: number | null;
+            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+            startDate: string | null;
+            endDate: string | null;
+          };
+          /** @constant */
+          type: "fact_table";
+          dataset: {
+            /** @constant */
+            type: "fact_table";
+            factTableId: string | null;
+            values: ({
+                name: string;
+                rowFilters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+                /** @constant */
+                type: "fact_table";
+                /** @enum {string} */
+                valueType: "unit_count" | "count" | "sum";
+                valueColumn: string | null;
+                unit: string | null;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            exploration: ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              datasource: string;
+              /** @enum {string} */
+              status: "running" | "success" | "error";
+              dateStart: string;
+              dateEnd: string;
+              error?: string | null;
+              result: {
+                rows: ({
+                    dimensions: (string | null)[];
+                    values: ({
+                        metricId: string;
+                        numerator: number | null;
+                        denominator: number | null;
+                      })[];
+                  })[];
+              };
+              config: {
+                /** @description ID of the datasource to query */
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "fact_table";
+                dataset: {
+                  /** @constant */
+                  type: "fact_table";
+                  factTableId: string | null;
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "fact_table";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            }) | null;
+            query: ({
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            }) | null;
+            /** @description A direct link to view this exploration in the GrowthBook Application. */
+            explorationUrl?: string;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
+            message?: string;
+          };
+        };
+      };
+    };
+  };
+  postDataSourceExploration: {
+    /** Create a Data Source based visualization */
+    parameters: {
+      query: {
+        cache?: "preferred" | "required" | "never";
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID of the datasource to query */
+          datasource: string;
+          dimensions: (({
+              /** @constant */
+              dimensionType: "date";
+              column: string | null;
+              /** @enum {string} */
+              dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+            }) | ({
+              /** @constant */
+              dimensionType: "dynamic";
+              column: string | null;
+              maxValues: number;
+            }) | {
+              /** @constant */
+              dimensionType: "static";
+              column: string;
+              values: (string)[];
+            } | ({
+              /** @constant */
+              dimensionType: "slice";
+              slices: ({
+                  name: string;
+                  filters: ({
+                      /** @enum {string} */
+                      operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                      column?: string;
+                      values?: (string)[];
+                    })[];
+                })[];
+            }))[];
+          /** @enum {string} */
+          chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+          dateRange: {
+            /** @enum {string} */
+            predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+            lookbackValue: number | null;
+            lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+            startDate: string | null;
+            endDate: string | null;
+          };
+          /** @constant */
+          type: "data_source";
+          dataset: {
+            /** @constant */
+            type: "data_source";
+            table: string;
+            path: string;
+            timestampColumn: string;
+            columnTypes: {
+              [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+            };
+            values: ({
+                name: string;
+                rowFilters: ({
+                    /** @enum {string} */
+                    operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                    column?: string;
+                    values?: (string)[];
+                  })[];
+                /** @constant */
+                type: "data_source";
+                /** @enum {string} */
+                valueType: "unit_count" | "count" | "sum";
+                valueColumn: string | null;
+                unit: string | null;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            exploration: ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              datasource: string;
+              /** @enum {string} */
+              status: "running" | "success" | "error";
+              dateStart: string;
+              dateEnd: string;
+              error?: string | null;
+              result: {
+                rows: ({
+                    dimensions: (string | null)[];
+                    values: ({
+                        metricId: string;
+                        numerator: number | null;
+                        denominator: number | null;
+                      })[];
+                  })[];
+              };
+              config: {
+                /** @description ID of the datasource to query */
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "data_source";
+                dataset: {
+                  /** @constant */
+                  type: "data_source";
+                  table: string;
+                  path: string;
+                  timestampColumn: string;
+                  columnTypes: {
+                    [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                  };
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "data_source";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            }) | null;
+            query: ({
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            }) | null;
+            /** @description A direct link to view this exploration in the GrowthBook Application. */
+            explorationUrl?: string;
+            /** @description Present when `exploration` is null, explaining why no result was returned. */
+            message?: string;
+          };
+        };
+      };
+    };
+  };
+  listCustomFields: {
+    /** Get all custom fields */
+    parameters: {
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              creator?: string;
+              projects?: (string)[];
+              sections: ("feature" | "experiment")[];
+              active?: boolean;
+            })[];
+        };
+      };
+    };
+  };
+  createCustomField: {
+    /** Create a single customField */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The unique key for the custom field */
+          id: string;
+          /** @description The display name of the custom field */
+          name: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          /**
+           * @description The type of value this custom field will take 
+           * @enum {string}
+           */
+          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+          values?: string;
+          required: boolean;
+          projects?: (string)[];
+          /** @description What types of objects this custom field is applicable to (feature, experiment) */
+          sections: ("feature" | "experiment")[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              creator?: string;
+              projects?: (string)[];
+              sections: ("feature" | "experiment")[];
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getCustomField: {
+    /** Get a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              creator?: string;
+              projects?: (string)[];
+              sections: ("feature" | "experiment")[];
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateCustomField: {
+    /** Update a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the custom field */
+          name?: string;
+          description?: string;
+          placeholder?: string;
+          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+          values?: string;
+          required?: boolean;
+          projects?: (string)[];
+          /** @description What types of objects this custom field is applicable to (feature, experiment) */
+          sections?: ("feature" | "experiment")[];
+          active?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            customField: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              placeholder?: string;
+              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
+              /** @enum {string} */
+              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
+              values?: string;
+              required: boolean;
+              creator?: string;
+              projects?: (string)[];
+              sections: ("feature" | "experiment")[];
+              active?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteCustomField: {
+    /** Delete a single customField */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -14657,7 +21885,235 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -14944,7 +22400,235 @@ export interface operations {
               savedQueryId: string;
               dataVizConfigIndex?: number;
               blockConfig: (string)[];
-            }))[];
+            } | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "metric-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                /** @description ID of the datasource to query */
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "metric";
+                dataset: {
+                  /** @constant */
+                  type: "metric";
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "metric";
+                      metricId: string;
+                      unit: string | null;
+                      denominatorUnit: string | null;
+                    })[];
+                };
+              };
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "fact-table-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                /** @description ID of the datasource to query */
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "fact_table";
+                dataset: {
+                  /** @constant */
+                  type: "fact_table";
+                  factTableId: string | null;
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "fact_table";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            }) | ({
+              organization: string;
+              id: string;
+              uid: string;
+              /** @constant */
+              type: "data-source-exploration";
+              title: string;
+              description: string;
+              snapshotId?: string;
+              explorerAnalysisId: string;
+              config: {
+                /** @description ID of the datasource to query */
+                datasource: string;
+                dimensions: (({
+                    /** @constant */
+                    dimensionType: "date";
+                    column: string | null;
+                    /** @enum {string} */
+                    dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                  }) | ({
+                    /** @constant */
+                    dimensionType: "dynamic";
+                    column: string | null;
+                    maxValues: number;
+                  }) | {
+                    /** @constant */
+                    dimensionType: "static";
+                    column: string;
+                    values: (string)[];
+                  } | ({
+                    /** @constant */
+                    dimensionType: "slice";
+                    slices: ({
+                        name: string;
+                        filters: ({
+                            /** @enum {string} */
+                            operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                            column?: string;
+                            values?: (string)[];
+                          })[];
+                      })[];
+                  }))[];
+                /** @enum {string} */
+                chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                dateRange: {
+                  /** @enum {string} */
+                  predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                  lookbackValue: number | null;
+                  lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                  startDate: string | null;
+                  endDate: string | null;
+                };
+                /** @constant */
+                type: "data_source";
+                dataset: {
+                  /** @constant */
+                  type: "data_source";
+                  table: string;
+                  path: string;
+                  timestampColumn: string;
+                  columnTypes: {
+                    [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                  };
+                  values: ({
+                      name: string;
+                      rowFilters: ({
+                          /** @enum {string} */
+                          operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                          column?: string;
+                          values?: (string)[];
+                        })[];
+                      /** @constant */
+                      type: "data_source";
+                      /** @enum {string} */
+                      valueType: "unit_count" | "count" | "sum";
+                      valueColumn: string | null;
+                      unit: string | null;
+                    })[];
+                };
+              };
+            })))[];
         };
       };
     };
@@ -15118,7 +22802,235 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -15314,7 +23226,235 @@ export interface operations {
                     savedQueryId: string;
                     dataVizConfigIndex?: number;
                     blockConfig: (string)[];
-                  })[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      /** @description ID of the datasource to query */
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "metric";
+                      dataset: {
+                        /** @constant */
+                        type: "metric";
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "metric";
+                            metricId: string;
+                            unit: string | null;
+                            denominatorUnit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "fact-table-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      /** @description ID of the datasource to query */
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "fact_table";
+                      dataset: {
+                        /** @constant */
+                        type: "fact_table";
+                        factTableId: string | null;
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "fact_table";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "data-source-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      /** @description ID of the datasource to query */
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "data_source";
+                      dataset: {
+                        /** @constant */
+                        type: "data_source";
+                        table: string;
+                        path: string;
+                        timestampColumn: string;
+                        columnTypes: {
+                          [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                        };
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "data_source";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }))[];
               })[];
           };
         };
@@ -15638,7 +23778,235 @@ export interface operations {
                   savedQueryId: string;
                   dataVizConfigIndex?: number;
                   blockConfig: (string)[];
-                })[];
+                } | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "metric-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "metric";
+                    dataset: {
+                      /** @constant */
+                      type: "metric";
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "metric";
+                          metricId: string;
+                          unit: string | null;
+                          denominatorUnit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "fact-table-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "fact_table";
+                    dataset: {
+                      /** @constant */
+                      type: "fact_table";
+                      factTableId: string | null;
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "fact_table";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }) | ({
+                  organization: string;
+                  id: string;
+                  uid: string;
+                  /** @constant */
+                  type: "data-source-exploration";
+                  title: string;
+                  description: string;
+                  snapshotId?: string;
+                  explorerAnalysisId: string;
+                  config: {
+                    /** @description ID of the datasource to query */
+                    datasource: string;
+                    dimensions: (({
+                        /** @constant */
+                        dimensionType: "date";
+                        column: string | null;
+                        /** @enum {string} */
+                        dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                      }) | ({
+                        /** @constant */
+                        dimensionType: "dynamic";
+                        column: string | null;
+                        maxValues: number;
+                      }) | {
+                        /** @constant */
+                        dimensionType: "static";
+                        column: string;
+                        values: (string)[];
+                      } | ({
+                        /** @constant */
+                        dimensionType: "slice";
+                        slices: ({
+                            name: string;
+                            filters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                          })[];
+                      }))[];
+                    /** @enum {string} */
+                    chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                    dateRange: {
+                      /** @enum {string} */
+                      predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                      lookbackValue: number | null;
+                      lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                      startDate: string | null;
+                      endDate: string | null;
+                    };
+                    /** @constant */
+                    type: "data_source";
+                    dataset: {
+                      /** @constant */
+                      type: "data_source";
+                      table: string;
+                      path: string;
+                      timestampColumn: string;
+                      columnTypes: {
+                        [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                      };
+                      values: ({
+                          name: string;
+                          rowFilters: ({
+                              /** @enum {string} */
+                              operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                              column?: string;
+                              values?: (string)[];
+                            })[];
+                          /** @constant */
+                          type: "data_source";
+                          /** @enum {string} */
+                          valueType: "unit_count" | "count" | "sum";
+                          valueColumn: string | null;
+                          unit: string | null;
+                        })[];
+                    };
+                  };
+                }))[];
             };
           };
         };
@@ -15822,15 +24190,243 @@ export interface operations {
                     savedQueryId: string;
                     dataVizConfigIndex?: number;
                     blockConfig: (string)[];
-                  })[];
+                  } | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "metric-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      /** @description ID of the datasource to query */
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "metric";
+                      dataset: {
+                        /** @constant */
+                        type: "metric";
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "metric";
+                            metricId: string;
+                            unit: string | null;
+                            denominatorUnit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "fact-table-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      /** @description ID of the datasource to query */
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "fact_table";
+                      dataset: {
+                        /** @constant */
+                        type: "fact_table";
+                        factTableId: string | null;
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "fact_table";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }) | ({
+                    organization: string;
+                    id: string;
+                    uid: string;
+                    /** @constant */
+                    type: "data-source-exploration";
+                    title: string;
+                    description: string;
+                    snapshotId?: string;
+                    explorerAnalysisId: string;
+                    config: {
+                      /** @description ID of the datasource to query */
+                      datasource: string;
+                      dimensions: (({
+                          /** @constant */
+                          dimensionType: "date";
+                          column: string | null;
+                          /** @enum {string} */
+                          dateGranularity: "auto" | "hour" | "day" | "week" | "month" | "year";
+                        }) | ({
+                          /** @constant */
+                          dimensionType: "dynamic";
+                          column: string | null;
+                          maxValues: number;
+                        }) | {
+                          /** @constant */
+                          dimensionType: "static";
+                          column: string;
+                          values: (string)[];
+                        } | ({
+                          /** @constant */
+                          dimensionType: "slice";
+                          slices: ({
+                              name: string;
+                              filters: ({
+                                  /** @enum {string} */
+                                  operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                  column?: string;
+                                  values?: (string)[];
+                                })[];
+                            })[];
+                        }))[];
+                      /** @enum {string} */
+                      chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber";
+                      dateRange: {
+                        /** @enum {string} */
+                        predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange";
+                        lookbackValue: number | null;
+                        lookbackUnit: ("hour" | "day" | "week" | "month") | null;
+                        startDate: string | null;
+                        endDate: string | null;
+                      };
+                      /** @constant */
+                      type: "data_source";
+                      dataset: {
+                        /** @constant */
+                        type: "data_source";
+                        table: string;
+                        path: string;
+                        timestampColumn: string;
+                        columnTypes: {
+                          [key: string]: ("string" | "number" | "date" | "boolean" | "other") | undefined;
+                        };
+                        values: ({
+                            name: string;
+                            rowFilters: ({
+                                /** @enum {string} */
+                                operator: "=" | "!=" | "<" | "<=" | ">" | ">=" | "in" | "not_in" | "contains" | "not_contains" | "starts_with" | "ends_with" | "is_null" | "not_null" | "is_true" | "is_false" | "sql_expr" | "saved_filter";
+                                column?: string;
+                                values?: (string)[];
+                              })[];
+                            /** @constant */
+                            type: "data_source";
+                            /** @enum {string} */
+                            valueType: "unit_count" | "count" | "sum";
+                            valueColumn: string | null;
+                            unit: string | null;
+                          })[];
+                      };
+                    };
+                  }))[];
               })[];
           };
         };
       };
     };
   };
-  listCustomFields: {
-    /** Get all custom fields */
+  listExperimentTemplates: {
+    /** Get all experimentTemplates */
     parameters: {
       query: {
         projectId?: string;
@@ -15839,201 +24435,60 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": ({
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            })[];
-        };
-      };
-    };
-  };
-  createCustomField: {
-    /** Create a single customField */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The unique key for the custom field */
-          id: string;
-          /** @description The display name of the custom field */
-          name: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
           "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  getCustomField: {
-    /** Get a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  updateCustomField: {
-    /** Update a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The display name of the custom field */
-          name?: string;
-          description?: string;
-          placeholder?: string;
-          defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-          /**
-           * @description The type of value this custom field will take 
-           * @enum {string}
-           */
-          type?: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-          values?: string;
-          required?: boolean;
-          index?: boolean;
-          projects?: (string)[];
-          /**
-           * @description What type of objects this custom field is applicable to 
-           * @enum {string}
-           */
-          section?: "feature" | "experiment";
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            customField: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              name: string;
-              description?: string;
-              placeholder?: string;
-              defaultValue?: string | number | boolean | string | string | (string)[] | (number)[] | (boolean)[] | (string)[] | (string)[];
-              /** @enum {string} */
-              type: "text" | "textarea" | "markdown" | "enum" | "multiselect" | "url" | "number" | "boolean" | "date" | "datetime";
-              values?: string;
-              required: boolean;
-              index?: boolean;
-              creator?: string;
-              projects?: (string)[];
-              /** @enum {string} */
-              section: "feature" | "experiment";
-              active?: boolean;
-            };
-          };
-        };
-      };
-    };
-  };
-  deleteCustomField: {
-    /** Delete a single customField */
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            deletedId: string;
+            experimentTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                project?: string;
+                owner: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              })[];
           };
         };
       };
@@ -16200,12 +24655,712 @@ export interface operations {
       };
     };
   };
+  getRampScheduleTemplate: {
+    /** Get a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+              };
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateRampScheduleTemplate: {
+    /** Update a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          steps?: ({
+              trigger: {
+                /** @constant */
+                type: "interval";
+                seconds: number;
+              } | {
+                /** @constant */
+                type: "approval";
+              } | {
+                /** @constant */
+                type: "scheduled";
+                at: string;
+              };
+              actions: ({
+                  /** @constant */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number | null;
+                    condition?: string | null;
+                    savedGroups?: (({
+                        /** @enum {string} */
+                        match: "all" | "none" | "any";
+                        ids: (string)[];
+                      })[]) | null;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[] | null;
+                    enabled?: boolean | null;
+                  };
+                })[];
+              approvalNotes?: string | null;
+            })[];
+          endPatch?: {
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+          };
+          official?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+              };
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteRampScheduleTemplate: {
+    /** Delete a single rampScheduleTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listRampScheduleTemplates: {
+    /** Get all rampScheduleTemplates */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplates: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                steps: ({
+                    trigger: {
+                      /** @constant */
+                      type: "interval";
+                      seconds: number;
+                    } | {
+                      /** @constant */
+                      type: "approval";
+                    } | {
+                      /** @constant */
+                      type: "scheduled";
+                      at: string;
+                    };
+                    actions: ({
+                        /** @constant */
+                        targetType: "feature-rule";
+                        targetId: string;
+                        patch: {
+                          ruleId: string;
+                          coverage?: number | null;
+                          condition?: string | null;
+                          savedGroups?: (({
+                              /** @enum {string} */
+                              match: "all" | "none" | "any";
+                              ids: (string)[];
+                            })[]) | null;
+                          prerequisites?: ({
+                              id: string;
+                              condition: string;
+                            })[] | null;
+                          enabled?: boolean | null;
+                        };
+                      })[];
+                    approvalNotes?: string | null;
+                  })[];
+                endPatch?: {
+                  coverage?: number;
+                  condition?: string;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                };
+                official?: boolean;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createRampScheduleTemplate: {
+    /** Create a single rampScheduleTemplate */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          steps: ({
+              trigger: {
+                /** @constant */
+                type: "interval";
+                seconds: number;
+              } | {
+                /** @constant */
+                type: "approval";
+              } | {
+                /** @constant */
+                type: "scheduled";
+                at: string;
+              };
+              actions: ({
+                  /** @constant */
+                  targetType: "feature-rule";
+                  targetId: string;
+                  patch: {
+                    ruleId: string;
+                    coverage?: number | null;
+                    condition?: string | null;
+                    savedGroups?: (({
+                        /** @enum {string} */
+                        match: "all" | "none" | "any";
+                        ids: (string)[];
+                      })[]) | null;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[] | null;
+                    enabled?: boolean | null;
+                  };
+                })[];
+              approvalNotes?: string | null;
+            })[];
+          endPatch?: {
+            coverage?: number;
+            condition?: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+          };
+          official?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            rampScheduleTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              steps: ({
+                  trigger: {
+                    /** @constant */
+                    type: "interval";
+                    seconds: number;
+                  } | {
+                    /** @constant */
+                    type: "approval";
+                  } | {
+                    /** @constant */
+                    type: "scheduled";
+                    at: string;
+                  };
+                  actions: ({
+                      /** @constant */
+                      targetType: "feature-rule";
+                      targetId: string;
+                      patch: {
+                        ruleId: string;
+                        coverage?: number | null;
+                        condition?: string | null;
+                        savedGroups?: (({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[]) | null;
+                        prerequisites?: ({
+                            id: string;
+                            condition: string;
+                          })[] | null;
+                        enabled?: boolean | null;
+                      };
+                    })[];
+                  approvalNotes?: string | null;
+                })[];
+              endPatch?: {
+                coverage?: number;
+                condition?: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+              };
+              official?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getTeam: {
+    /** Get a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members: readonly (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateTeam: {
+    /** Update a single team */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          createdBy?: string;
+          description?: string;
+          /** @description The global role for members of this team */
+          role?: string;
+          limitAccessByEnvironment?: boolean;
+          /** @description An empty array means 'all environments' */
+          environments?: (string)[];
+          projectRoles?: ({
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              teams?: (string)[];
+              project: string;
+            })[];
+          managedBy?: {
+            /** @constant */
+            type: "vercel";
+            resourceId: string;
+          };
+          defaultProject?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members: readonly (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  listTeams: {
+    /** Get all teams */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            teams: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                createdBy: string;
+                description: string;
+                role: string;
+                limitAccessByEnvironment: boolean;
+                environments: (string)[];
+                projectRoles?: ({
+                    role: string;
+                    limitAccessByEnvironment: boolean;
+                    environments: (string)[];
+                    teams?: (string)[];
+                    project: string;
+                  })[];
+                members: readonly (string)[];
+                managedByIdp: boolean;
+                managedBy?: {
+                  /** @constant */
+                  type: "vercel";
+                  resourceId: string;
+                };
+                defaultProject?: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  createTeam: {
+    /** Create a single team */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          createdBy?: string;
+          description: string;
+          /** @description The global role for members of this team */
+          role: string;
+          limitAccessByEnvironment?: boolean;
+          /** @description An empty array means 'all environments' */
+          environments?: (string)[];
+          projectRoles?: ({
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              teams?: (string)[];
+              project: string;
+            })[];
+          managedBy?: {
+            /** @constant */
+            type: "vercel";
+            resourceId: string;
+          };
+          defaultProject?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            team: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              createdBy: string;
+              description: string;
+              role: string;
+              limitAccessByEnvironment: boolean;
+              environments: (string)[];
+              projectRoles?: ({
+                  role: string;
+                  limitAccessByEnvironment: boolean;
+                  environments: (string)[];
+                  teams?: (string)[];
+                  project: string;
+                })[];
+              members: readonly (string)[];
+              managedByIdp: boolean;
+              managedBy?: {
+                /** @constant */
+                type: "vercel";
+                resourceId: string;
+              };
+              defaultProject?: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  addTeamMembers: {
+    /** Add members to team */
+    parameters: {
+      path: {
+        teamId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          members: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
+          };
+        };
+      };
+    };
+  };
+  removeTeamMember: {
+    /** Remove members from team */
+    parameters: {
+      path: {
+        teamId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          members: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            status: number;
+          };
+        };
+      };
+    };
+  };
+  deleteTeam: {
+    /** Delete a single team */
+    parameters: {
+      query: {
+        deleteMembers?: string;
+      };
+      path: {
+        teamId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "shared/validators";
 
 // Schemas
 export type ApiPaginationFields = z.infer<typeof openApiValidators.apiPaginationFieldsValidator>;
+export type ApiRampSchedule = z.infer<typeof openApiValidators.apiRampScheduleValidator>;
 export type ApiDimension = z.infer<typeof openApiValidators.apiDimensionValidator>;
 export type ApiMetric = z.infer<typeof openApiValidators.apiMetricValidator>;
 export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
@@ -16217,6 +25372,7 @@ export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
 export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
 export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
+export type ApiFeatureBaseRule = z.infer<typeof openApiValidators.apiFeatureBaseRuleValidator>;
 export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
 export type ApiFeatureForceRule = z.infer<typeof openApiValidators.apiFeatureForceRuleValidator>;
 export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureRolloutRuleValidator>;
@@ -16228,7 +25384,10 @@ export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnection
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
+export type ApiExperimentMetricOverrideEntry = z.infer<typeof openApiValidators.apiExperimentMetricOverrideEntryValidator>;
+export type ApiExperimentDecisionFrameworkSettings = z.infer<typeof openApiValidators.apiExperimentDecisionFrameworkSettingsValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
+export type ApiLookbackOverride = z.infer<typeof openApiValidators.apiLookbackOverrideValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
 export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
@@ -16247,6 +25406,8 @@ export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidato
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
+export type ApiInformationSchema = z.infer<typeof openApiValidators.apiInformationSchemaValidator>;
+export type ApiInformationSchemaTable = z.infer<typeof openApiValidators.apiInformationSchemaTableValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -16257,6 +25418,7 @@ export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureStaleResponse = operations["getFeatureStale"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
@@ -16287,8 +25449,11 @@ export type GetExperimentNamesResponse = operations["getExperimentNames"]["respo
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
+export type PostVariationImageUploadResponse = operations["postVariationImageUpload"]["responses"]["200"]["content"]["application/json"];
+export type DeleteVariationScreenshotResponse = operations["deleteVariationScreenshot"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
+export type PostVisualChangesetsResponse = operations["postVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
@@ -16346,3 +25511,19 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
+export type GetInformationSchemaResponse = operations["getInformationSchema"]["responses"]["200"]["content"]["application/json"];
+export type GetInformationSchemaTableResponse = operations["getInformationSchemaTable"]["responses"]["200"]["content"]["application/json"];
+export type ListRampSchedulesResponse = operations["listRampSchedules"]["responses"]["200"]["content"]["application/json"];
+export type PostRampScheduleResponse = operations["postRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type GetRampScheduleResponse = operations["getRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type PutRampScheduleResponse = operations["putRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type DeleteRampScheduleResponse = operations["deleteRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type StartRampScheduleResponse = operations["startRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type PauseRampScheduleResponse = operations["pauseRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type ResumeRampScheduleResponse = operations["resumeRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type ApproveStepRampScheduleResponse = operations["approveStepRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type RollbackRampScheduleResponse = operations["rollbackRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type CompleteRampScheduleResponse = operations["completeRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type JumpRampScheduleResponse = operations["jumpRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type AddTargetRampScheduleResponse = operations["addTargetRampSchedule"]["responses"]["200"]["content"]["application/json"];
+export type EjectTargetRampScheduleResponse = operations["ejectTargetRampSchedule"]["responses"]["200"]["content"]["application/json"];

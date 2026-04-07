@@ -1,10 +1,10 @@
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { isDefined } from "shared/util";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -12,6 +12,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 
 type ConditionWithParentId = Condition & { parentId?: string };
@@ -139,13 +140,13 @@ export function MultiValuesDisplay({
               <Link
                 href={`/saved-groups/${group.id}`}
                 target="_blank"
-                color="violet"
                 title={`Manage Saved Group: ${displayValue}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
                   overflow: "hidden",
+                  color: "var(--accent-11)",
                 }}
               >
                 <span
@@ -158,7 +159,6 @@ export function MultiValuesDisplay({
                 >
                   {displayValue}
                 </span>
-                <PiArrowSquareOut style={{ flexShrink: 0 }} />
               </Link>
             }
           />
@@ -248,6 +248,7 @@ function MultiValueDisplay({
 function getConditionOrParts({
   conditions,
   savedGroups,
+  attributeIds,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
@@ -255,6 +256,7 @@ function getConditionOrParts({
 }: {
   conditions: ConditionWithParentId[][];
   savedGroups?: SavedGroupWithoutValues[];
+  attributeIds: Set<string>;
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
@@ -265,6 +267,7 @@ function getConditionOrParts({
     return getConditionParts({
       conditions: conditions[0],
       savedGroups,
+      attributeIds,
       initialAnd,
       renderPrerequisite,
       keyPrefix,
@@ -300,6 +303,7 @@ function getConditionOrParts({
     const groupContent = getConditionParts({
       conditions: condGroup,
       savedGroups,
+      attributeIds,
       initialAnd: false,
       renderPrerequisite,
       keyPrefix: `${keyPrefix}or-${i}-`,
@@ -334,6 +338,7 @@ function getConditionOrParts({
 function getConditionParts({
   conditions,
   savedGroups,
+  attributeIds,
   initialAnd = false,
   renderPrerequisite = false,
   keyPrefix = "",
@@ -341,13 +346,16 @@ function getConditionParts({
 }: {
   conditions: ConditionWithParentId[];
   savedGroups?: SavedGroupWithoutValues[];
+  attributeIds: Set<string>;
   initialAnd?: boolean;
   renderPrerequisite?: boolean;
   keyPrefix?: string;
   prefix?: ReactNode;
 }) {
   return conditions.map(({ field, operator, value, parentId }, i) => {
-    let fieldEl: ReactNode = (
+    let fieldEl: ReactNode = attributeIds.has(field) ? (
+      <AttributeBadge attributeId={field} />
+    ) : (
       <Badge
         color="gray"
         className="text-ellipsis d-inline-block"
@@ -473,13 +481,13 @@ function getConditionParts({
                   <Link
                     href={`/saved-groups/${group.id}`}
                     target="_blank"
-                    color="violet"
                     title={`Manage Saved Group: ${group.groupName}`}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: "4px",
                       overflow: "hidden",
+                      color: "var(--accent-11)",
                     }}
                   >
                     <span
@@ -492,7 +500,6 @@ function getConditionParts({
                     >
                       {group.groupName}
                     </span>
-                    <PiArrowSquareOut style={{ flexShrink: 0 }} />
                   </Link>
                 }
               />
@@ -534,9 +541,6 @@ function ParentIdLink({ parentId }: { parentId: string }) {
   return (
     <Badge
       color="gray"
-      className="text-ellipsis d-inline-block"
-      style={{ maxWidth: 300 }}
-      title={parentId}
       label={
         <Link
           href={`/features/${parentId}`}
@@ -580,6 +584,7 @@ export default function ConditionDisplay({
 }) {
   const { savedGroups } = useDefinitions();
   const attributes = useAttributeMap();
+  const attributeIds = useMemo(() => new Set(attributes.keys()), [attributes]);
 
   const parts: ReactNode[] = [];
   let partId = 0;
@@ -653,6 +658,7 @@ export default function ConditionDisplay({
     const prereqParts = getConditionParts({
       conditions: prereqConds,
       savedGroups,
+      attributeIds,
       renderPrerequisite: true,
       initialAnd: prefixUsed,
       keyPrefix: `${partId++}-prereq-`,
@@ -677,6 +683,7 @@ export default function ConditionDisplay({
       const conditionParts = getConditionOrParts({
         conditions: conds,
         savedGroups,
+        attributeIds,
         keyPrefix: `${partId++}-condition-`,
         initialAnd: prefixUsed,
         prefix: !prefixUsed ? prefix : undefined,

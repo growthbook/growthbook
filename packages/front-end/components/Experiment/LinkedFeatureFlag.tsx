@@ -1,3 +1,4 @@
+import { getLatestPhaseVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -18,7 +19,8 @@ type Props = {
 };
 
 export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
-  const orderedValues = experiment.variations.map((v) => {
+  const variations = getLatestPhaseVariations(experiment);
+  const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
 
@@ -114,9 +116,9 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                       </span>
                       <span
                         className="d-inline-block text-ellipsis"
-                        title={experiment.variations[j]?.name}
+                        title={variations[j]?.name}
                       >
-                        {experiment.variations[j]?.name}
+                        {variations[j]?.name}
                       </span>
                     </Flex>
                     <Box flexGrow="1">

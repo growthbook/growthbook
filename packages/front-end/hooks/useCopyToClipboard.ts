@@ -59,20 +59,16 @@ export const useCopyToClipboard = ({
 
   useEffect(
     function flipSuccessAfterDelay() {
-      if (timeout === -1) return;
+      if (timeout === -1 || !success) return;
 
-      if (success) {
-        const timer = window.setTimeout(() => {
-          setSuccess(false);
-          if (cooldown && cooldown > 0) {
-            setInCooldown(true);
-          }
-        }, timeout);
+      const timer = window.setTimeout(() => {
+        setSuccess(false);
+        if (cooldown && cooldown > 0) {
+          setInCooldown(true);
+        }
+      }, timeout);
 
-        return () => {
-          window.clearTimeout(timer);
-        };
-      }
+      return () => window.clearTimeout(timer);
     },
     [success, timeout, cooldown],
   );

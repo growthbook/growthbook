@@ -3,7 +3,10 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { generateTrackingKey } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import { VisualChange } from "shared/types/visual-changeset";
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
@@ -91,6 +94,12 @@ const banditResultObject = {
   weightsWereUpdated: Boolean,
 };
 
+const phaseVariation = {
+  _id: false,
+  id: String,
+  status: String,
+};
+
 const experimentSchema = new mongoose.Schema({
   id: String,
   uid: String,
@@ -140,6 +149,14 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
+  lookbackOverride: {
+    type: { type: String, enum: ["date", "window"] },
+    value: mongoose.Schema.Types.Mixed, // Date for "date" type, Number for "window" type
+    valueUnit: {
+      type: String,
+      enum: ["minutes", "hours", "days", "weeks"],
+    },
+  },
   decisionFrameworkSettings: {
     decisionCriteriaId: String,
     decisionFrameworkMetricOverrides: [
@@ -231,6 +248,7 @@ const experimentSchema = new mongoose.Schema({
       namespace: {},
       seed: String,
       variationWeights: [Number],
+      variations: [phaseVariation],
       groups: [String],
       banditEvents: [
         {
@@ -276,6 +294,8 @@ const experimentSchema = new mongoose.Schema({
   banditScheduleUnit: String,
   banditBurnInValue: Number,
   banditBurnInUnit: String,
+  banditConversionWindowValue: Number,
+  banditConversionWindowUnit: String,
   customFields: {},
   templateId: String,
   shareLevel: String,
@@ -328,6 +348,11 @@ const experimentSchema = new mongoose.Schema({
     },
   ],
 });
+
+// Compound indexes for API list filtering
+experimentSchema.index({ organization: 1, datasource: 1 });
+experimentSchema.index({ organization: 1, project: 1 });
+experimentSchema.index({ organization: 1, trackingKey: 1 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -402,10 +427,16 @@ export async function getAllExperiments(
     project,
     includeArchived = false,
     type,
+    datasourceId,
+    trackingKey,
+    sortBy,
   }: {
     project?: string;
     includeArchived?: boolean;
     type?: ExperimentType;
+    datasourceId?: string;
+    trackingKey?: string;
+    sortBy?: SortFilter;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -414,6 +445,14 @@ export async function getAllExperiments(
 
   if (project) {
     query.project = project;
+  }
+
+  if (datasourceId) {
+    query.datasource = datasourceId;
+  }
+
+  if (trackingKey) {
+    query.trackingKey = trackingKey;
   }
 
   if (!includeArchived) {
@@ -430,7 +469,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query);
+  return await findExperiments(context, query, undefined, sortBy);
 }
 
 export async function hasArchivedExperiments(
@@ -1723,13 +1762,12 @@ const getExperimentChanges = (
     "releasedVariationId",
     "excludeFromPayload",
     "autoAssign",
-    "variations",
     "phases",
   ];
 
   return {
     ...pick(experiment, importantKeys),
-    variations: experiment.variations.map((v) =>
+    variations: getLatestPhaseVariations(experiment).map((v) =>
       pick(v, ["id", "name", "key"]),
     ),
   };

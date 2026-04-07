@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
@@ -33,13 +33,20 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
+  const lastPhaseVariations = getLatestPhaseVariations(experiment);
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
       variationWeights:
         prevPhase.variationWeights ||
-        getEqualWeights(experiment.variations.length),
+        getEqualWeights(lastPhaseVariations.length),
+      variations:
+        prevPhase.variations ??
+        lastPhaseVariations.map((v) => ({
+          id: v.id,
+          status: "active" as const,
+        })),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
@@ -158,9 +165,8 @@ const NewPhaseForm: FC<{
         setWeight={(i, weight) =>
           form.setValue(`variationWeights.${i}`, weight)
         }
-        valueAsId={true}
         variations={
-          experiment.variations.map((v, i) => {
+          getLatestPhaseVariations(experiment).map((v, i) => {
             return {
               value: v.key || i + "",
               name: v.name,

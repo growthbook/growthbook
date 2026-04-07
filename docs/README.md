@@ -71,3 +71,43 @@ Then, structure your steps within the component:
 ```
 
 Each `Step` can have a `title` (or other props) and step content inside. This helps present procedures in a consistent, visually appealing format.
+
+### CommercialFeature
+
+Use `CommercialFeature` to indicate that a feature requires a paid plan (Pro or Enterprise). It renders a styled notice with the plan badge and feature name. To use it, import the component at the top of your MDX file:
+
+```jsx
+import CommercialFeature from "@site/src/components/CommercialFeature";
+```
+
+Then add the notice by passing a valid `feature` key:
+
+```jsx
+<CommercialFeature feature="multi-org" />
+```
+
+This renders a notice like: **[Enterprise]** **Multi Org** is available on Enterprise plans.
+
+The component accepts the following props:
+
+- **feature** (_string, required_): The feature key matching an entry in `docs/src/data/commercialFeatures.ts`. The plan level (Pro or Enterprise) and display name are resolved automatically from this key.
+- **description** (_string, optional_): Extra text appended after the default plan description. Use this to add context specific to the page.
+
+Example with a custom description:
+
+```jsx
+<CommercialFeature
+  feature="schedule-feature-flag"
+  description="Contact sales for a demo."
+/>
+```
+
+#### Keeping the feature data up to date
+
+The data file `docs/src/data/commercialFeatures.ts` is **auto-generated** from the source of truth in `packages/shared/src/enterprise/license-consts.ts`. Do not edit it by hand. If you need to add or change a commercial feature, update `license-consts.ts` and then run:
+
+```bash
+pnpm --filter shared gen-commercial-features-for-docs
+```
+
+This will also run automatically via the pre-commit hook whenever `license-consts.ts` or the generation script changes.

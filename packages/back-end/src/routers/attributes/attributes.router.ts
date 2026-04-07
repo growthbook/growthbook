@@ -9,6 +9,14 @@ const router = express.Router();
 
 const AttributeController = wrapController(rawAttributesController);
 
+router.get(
+  "/references",
+  validateRequestMiddleware({
+    query: z.object({ ids: z.string().optional() }).strict(),
+  }),
+  AttributeController.getAttributeReferences,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({

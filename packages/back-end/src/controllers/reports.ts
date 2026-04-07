@@ -12,6 +12,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
+import { getAllVariations } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsByIds,
@@ -136,11 +137,12 @@ export async function postReportFromSnapshot(
           "dateEnded",
           "name",
           "variationWeights",
+          "variations",
           "banditEvents",
           "coverage",
         ]),
       ),
-      variations: experiment.variations.map((variation) =>
+      variations: getAllVariations(experiment).map((variation) =>
         omit(variation, ["description", "screenshots"]),
       ),
     },
@@ -492,6 +494,16 @@ export async function putReport(
         updates.experimentAnalysisSettings.dateEnded = getValidDate(
           updates.experimentAnalysisSettings.dateEnded,
         );
+      }
+      if (
+        updates.experimentAnalysisSettings.lookbackOverride?.type === "date"
+      ) {
+        updates.experimentAnalysisSettings.lookbackOverride = {
+          type: "date",
+          value: getValidDate(
+            updates.experimentAnalysisSettings.lookbackOverride.value,
+          ),
+        };
       }
     }
 

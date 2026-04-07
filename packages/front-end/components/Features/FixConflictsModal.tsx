@@ -1,24 +1,41 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
-import { FaAngleDown, FaAngleRight, FaCheck } from "react-icons/fa";
+import Collapsible from "react-collapsible";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { datetime } from "shared/dates";
 import {
   MergeConflict,
   MergeStrategy,
   autoMerge,
+  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   mergeResultHasChanges,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import clsx from "clsx";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import { useEnvironments } from "@/services/features";
+import EventUser from "@/components/Avatar/EventUser";
+import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Features/RevisionLabel";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
+  mergeResultToDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
+import Callout from "@/ui/Callout";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
@@ -33,104 +50,192 @@ export function ExpandableConflict({
   conflict,
   strategy,
   setStrategy,
+  liveRevision,
+  draftRevision,
 }: {
   conflict: MergeConflict;
   strategy: MergeStrategy;
   setStrategy: (strategy: MergeStrategy) => void;
+  liveRevision?: FeatureRevisionInterface;
+  draftRevision?: FeatureRevisionInterface;
 }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="appbox mb-4">
-      <div className="d-flex align-items-center bg-light px-3 py-2 border-bottom">
+    // Border lives on the outer wrapper so it stays fully drawn during the
+    // Collapsible animation. overflow:hidden clips the sliding content cleanly.
+    <div
+      className="diff-wrapper mb-4"
+      style={{
+        border: "1px solid var(--gray-a6)",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header — no individual border; outer wrapper supplies the outline */}
+      <div
+        className="list-group-item list-group-item-action d-flex align-items-center"
+        style={{
+          cursor: "pointer",
+          gap: "0.5rem",
+          border: "none",
+          borderBottom: "1px solid var(--gray-a6)",
+          borderRadius: 0,
+        }}
+        onClick={() => setOpen((o) => !o)}
+      >
         {strategy && (
-          <div className="mr-2">
-            <FaCheck className="text-success" />
-          </div>
+          <span style={{ color: "var(--green-9)", lineHeight: 1 }}>
+            <PiCheckBold size={20} />
+          </span>
         )}
-        <h3 className="mb-0">{conflict.name}</h3>
-        <div className="ml-4">Pick one:</div>
-        <div className="btn-group ml-2">
-          <button
-            type="button"
-            className={clsx("btn", {
-              "btn-primary btn-active": strategy === "discard",
-              "btn-outline-primary": strategy !== "discard",
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              setStrategy("discard");
-              setOpen(false);
-            }}
-          >
-            Keep External Change
-          </button>
-          <button
-            type="button"
-            className={clsx("btn", {
-              "btn-primary btn-active": strategy === "overwrite",
-              "btn-outline-primary": strategy !== "overwrite",
-            })}
-            onClick={(e) => {
-              e.preventDefault();
-              setStrategy("overwrite");
-              setOpen(false);
-            }}
-          >
-            Keep Your Change
-          </button>
-        </div>
+        <span className="text-muted" style={{ whiteSpace: "nowrap" }}>
+          Conflict:
+        </span>
+        <strong>{conflict.name}</strong>
         <div className="ml-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setOpen(!open);
-            }}
-          >
-            {open ? "Hide" : "Show"} Full Diff{" "}
-            {open ? <FaAngleDown /> : <FaAngleRight />}
-          </a>
+          {open ? <FaAngleDown /> : <FaAngleRight />}
         </div>
       </div>
-      {open && (
-        <div className="diff-wrapper px-3">
-          <div className="row">
-            <div className="col border-right pt-2 pb-3">
-              <div className="my-2 d-flex">
-                <h4 className="mb-0">External Change</h4>
-                <div className="ml-3">The change that is currently live</div>
-              </div>
+
+      {/* Two-column diff body — animated collapse */}
+      <Collapsible
+        open={open}
+        trigger=""
+        triggerDisabled
+        transitionTime={250}
+        easing="ease-out"
+      >
+        <div className="p-0" style={{ background: "var(--color-surface)" }}>
+          <Grid columns="2">
+            <Box
+              px="3"
+              pt="2"
+              pb="3"
+              style={{ borderRight: "1px solid var(--gray-a5)" }}
+            >
+              <Flex align="center" justify="between" gap="2" mb="2">
+                <Flex align="center" gap="2" wrap="wrap">
+                  <Heading as="h4" size="x-small" mb="0">
+                    {liveRevision ? (
+                      <OverflowText
+                        maxWidth={200}
+                        title={revisionLabelText(
+                          liveRevision.version,
+                          liveRevision.title,
+                        )}
+                      >
+                        <RevisionLabel
+                          version={liveRevision.version}
+                          title={liveRevision.title}
+                        />
+                      </OverflowText>
+                    ) : (
+                      "External Change"
+                    )}
+                  </Heading>
+                  {liveRevision && (
+                    <RevisionStatusBadge
+                      revision={liveRevision}
+                      liveVersion={liveRevision.version}
+                    />
+                  )}
+                  {liveRevision?.createdBy && (
+                    <Text size="small" color="text-low">
+                      <EventUser user={liveRevision.createdBy} display="name" />
+                    </Text>
+                  )}
+                  {liveRevision && (
+                    <Text size="small" color="text-low">
+                      {datetime(
+                        liveRevision.datePublished ?? liveRevision.dateUpdated,
+                      )}
+                    </Text>
+                  )}
+                </Flex>
+                <Button
+                  size="sm"
+                  variant={strategy === "discard" ? "solid" : "outline"}
+                  style={{ flexShrink: 0 }}
+                  preventDefault
+                  onClick={() => {
+                    setStrategy("discard");
+                    setTimeout(() => setOpen(false), 50);
+                  }}
+                >
+                  Use External Change
+                </Button>
+              </Flex>
               <ReactDiffViewer
                 oldValue={conflict.base}
                 newValue={conflict.live}
                 compareMethod={DiffMethod.LINES}
-                styles={{
-                  contentText: {
-                    wordBreak: "break-all",
-                  },
-                }}
+                styles={COMPACT_DIFF_STYLES}
               />
-            </div>
-            <div className="col pt-2 pb-3">
-              <div className="my-2 d-flex">
-                <h4 className="mb-0">Your Change</h4>
-                <div className="ml-3">The change in this draft</div>
-              </div>
+            </Box>
+            <Box px="3" pt="2" pb="3">
+              <Flex align="center" justify="between" gap="2" mb="2">
+                <Flex align="center" gap="2" wrap="wrap">
+                  <Heading as="h4" size="x-small" mb="0">
+                    {draftRevision ? (
+                      <OverflowText
+                        maxWidth={200}
+                        title={revisionLabelText(
+                          draftRevision.version,
+                          draftRevision.title,
+                        )}
+                      >
+                        <RevisionLabel
+                          version={draftRevision.version}
+                          title={draftRevision.title}
+                        />
+                      </OverflowText>
+                    ) : (
+                      "Your Change"
+                    )}
+                  </Heading>
+                  {draftRevision && (
+                    <RevisionStatusBadge
+                      revision={draftRevision}
+                      liveVersion={-1}
+                    />
+                  )}
+                  {draftRevision?.createdBy && (
+                    <Text size="small" color="text-low">
+                      <EventUser
+                        user={draftRevision.createdBy}
+                        display="name"
+                      />
+                    </Text>
+                  )}
+                  {draftRevision && (
+                    <Text size="small" color="text-low">
+                      {datetime(draftRevision.dateUpdated)}
+                    </Text>
+                  )}
+                </Flex>
+                <Button
+                  size="sm"
+                  variant={strategy === "overwrite" ? "solid" : "outline"}
+                  style={{ flexShrink: 0 }}
+                  preventDefault
+                  onClick={() => {
+                    setStrategy("overwrite");
+                    setTimeout(() => setOpen(false), 250);
+                  }}
+                >
+                  Use My Change
+                </Button>
+              </Flex>
               <ReactDiffViewer
                 oldValue={conflict.base}
                 newValue={conflict.revision}
                 compareMethod={DiffMethod.LINES}
-                styles={{
-                  contentText: {
-                    wordBreak: "break-all",
-                  },
-                }}
+                styles={COMPACT_DIFF_STYLES}
               />
-            </div>
-          </div>
+            </Box>
+          </Grid>
         </div>
-      )}
+      </Collapsible>
     </div>
   );
 }
@@ -158,27 +263,24 @@ export default function FixConflictsModal({
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
+  const envIds = environments.map((e) => e.id);
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
-      liveRevision,
-      baseRevision,
+      liveRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
       revision,
-      environments.map((e) => e.id),
+      envIds,
       strategies,
     );
-  }, [revision, baseRevision, liveRevision, environments, strategies]);
+  }, [revision, baseRevision, liveRevision, envIds, strategies, feature]);
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: mergeResult?.success
-      ? {
-          // Use current values as fallback when merge result doesn't have changes
-          defaultValue:
-            mergeResult.result.defaultValue ?? currentRevisionData.defaultValue,
-          rules: mergeResult.result.rules ?? currentRevisionData.rules,
-        }
+      ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
       : currentRevisionData,
   });
 
@@ -212,6 +314,7 @@ export default function FixConflictsModal({
       close={close}
       closeCta="Cancel"
       size="max"
+      useRadixButton={true}
     >
       <Page
         display="Fix Conflicts"
@@ -222,10 +325,137 @@ export default function FixConflictsModal({
           }
         }}
       >
-        <div className="alert alert-danger">
-          Conflicting changes have been published since you created this draft.
-          Review the conflicts below and decide how you want to proceed.
-        </div>
+        <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
+          <Callout
+            status="info"
+            contentsAs="div"
+            icon={<PiGitMergeBold size={18} />}
+          >
+            <Text as="p">
+              Your changes{" "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                <Text
+                  as="span"
+                  size="medium"
+                  weight="semibold"
+                  color="text-high"
+                >
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(revision.version, revision.title)}
+                  >
+                    <RevisionLabel
+                      version={revision.version}
+                      title={revision.title}
+                    />
+                  </OverflowText>
+                </Text>
+                <RevisionStatusBadge
+                  revision={revision}
+                  liveVersion={liveRevision?.version ?? -1}
+                />
+              </span>{" "}
+              are based on{" "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                <Text
+                  as="span"
+                  size="medium"
+                  weight="semibold"
+                  color="text-high"
+                >
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(
+                      baseRevision?.version ?? 0,
+                      baseRevision?.title,
+                    )}
+                  >
+                    <RevisionLabel
+                      version={baseRevision?.version ?? 0}
+                      title={baseRevision?.title}
+                    />
+                  </OverflowText>
+                </Text>
+                {baseRevision && (
+                  <RevisionStatusBadge
+                    revision={baseRevision}
+                    liveVersion={liveRevision?.version ?? -1}
+                  />
+                )}
+              </span>
+              {", but "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                <Text
+                  as="span"
+                  size="medium"
+                  weight="semibold"
+                  color="text-high"
+                >
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(
+                      liveRevision?.version ?? 0,
+                      liveRevision?.title,
+                    )}
+                  >
+                    <RevisionLabel
+                      version={liveRevision?.version ?? 0}
+                      title={liveRevision?.title}
+                    />
+                  </OverflowText>
+                </Text>
+                {liveRevision && (
+                  <RevisionStatusBadge
+                    revision={liveRevision}
+                    liveVersion={liveRevision.version}
+                  />
+                )}
+              </span>{" "}
+              has since been published with conflicting changes.
+            </Text>
+            <Text as="p">
+              Resolve each conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
+            </Text>
+          </Callout>
+        </Box>
+
         {mergeResult.conflicts.map((conflict) => (
           <ExpandableConflict
             conflict={conflict}
@@ -237,26 +467,170 @@ export default function FixConflictsModal({
                 [conflict.key]: strategy,
               });
             }}
+            liveRevision={liveRevision}
+            draftRevision={revision}
           />
         ))}
       </Page>
 
       <Page display="Review Changes">
-        <h3>Merge Result</h3>
+        <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
+          <Callout
+            status="info"
+            contentsAs="div"
+            icon={<PiGitMergeBold size={18} />}
+          >
+            <Text as="p">
+              Almost done —{" "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                <Text as="span" weight="semibold" color="text-high">
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(revision.version, revision.title)}
+                  >
+                    <RevisionLabel
+                      version={revision.version}
+                      title={revision.title}
+                    />
+                  </OverflowText>
+                </Text>
+                <RevisionStatusBadge
+                  revision={revision}
+                  liveVersion={liveRevision?.version ?? -1}
+                />
+              </span>{" "}
+              has been successfully rebased onto{" "}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "var(--space-1)",
+                  whiteSpace: "nowrap",
+                  backgroundColor: "var(--gray-a2)",
+                  padding: "1px 4px",
+                  margin: "2px",
+                  borderRadius: "var(--radius-2)",
+                }}
+              >
+                <Text as="span" weight="semibold" color="text-high">
+                  <OverflowText
+                    maxWidth={200}
+                    title={revisionLabelText(
+                      liveRevision?.version ?? 0,
+                      liveRevision?.title,
+                    )}
+                  >
+                    <RevisionLabel
+                      version={liveRevision?.version ?? 0}
+                      title={liveRevision?.title}
+                    />
+                  </OverflowText>
+                </Text>
+                {liveRevision && (
+                  <RevisionStatusBadge
+                    revision={liveRevision}
+                    liveVersion={liveRevision.version}
+                  />
+                )}
+              </span>
+              . Review the changes below, then click{" "}
+              <Text as="span" weight="semibold">
+                Update Draft
+              </Text>{" "}
+              to apply them.
+            </Text>
+          </Callout>
+        </Box>
         {hasChanges ? (
-          <>
-            <p>
-              Below is the final result of the merge. These are the changes that
-              will go live when you publish your draft. Please review them.
-            </p>
-            <div className="list-group mb-4">
-              {resultDiffs.map((diff) => (
-                <ExpandableDiff {...diff} key={diff.title} />
+          <Flex direction="column" gap="4">
+            {resultDiffs
+              .filter((d) => d.a !== d.b)
+              .map((diff) => (
+                <ExpandableDiff
+                  key={diff.title}
+                  {...diff}
+                  defaultOpen
+                  styles={COMPACT_DIFF_STYLES}
+                  leftTitle={
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-1)",
+                        fontFamily: "var(--default-font-family)",
+                        marginBottom: "var(--space-2)",
+                      }}
+                    >
+                      <Text as="span" weight="semibold" color="text-high">
+                        <OverflowText
+                          maxWidth={200}
+                          title={revisionLabelText(
+                            liveRevision?.version ?? 0,
+                            liveRevision?.title,
+                          )}
+                        >
+                          <RevisionLabel
+                            version={liveRevision?.version ?? 0}
+                            title={liveRevision?.title}
+                          />
+                        </OverflowText>
+                      </Text>
+                      {liveRevision && (
+                        <RevisionStatusBadge
+                          revision={liveRevision}
+                          liveVersion={liveRevision.version}
+                        />
+                      )}
+                    </span>
+                  }
+                  rightTitle={
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-1)",
+                        fontFamily: "var(--default-font-family)",
+                        marginBottom: "var(--space-2)",
+                      }}
+                    >
+                      <Text as="span" weight="semibold" color="text-high">
+                        <OverflowText
+                          maxWidth={200}
+                          title={revisionLabelText(
+                            revision.version,
+                            revision.title,
+                          )}
+                        >
+                          <RevisionLabel
+                            version={revision.version}
+                            title={revision.title}
+                          />
+                        </OverflowText>
+                      </Text>
+                      <RevisionStatusBadge
+                        revision={revision}
+                        liveVersion={liveRevision?.version ?? -1}
+                      />
+                    </span>
+                  }
+                />
               ))}
-            </div>
-          </>
+          </Flex>
         ) : (
-          <p>Your draft and the live version are identical.</p>
+          <Text as="p" color="text-low">
+            Your draft and the live version are identical.
+          </Text>
         )}
       </Page>
     </PagedModal>

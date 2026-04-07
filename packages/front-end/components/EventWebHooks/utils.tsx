@@ -56,6 +56,15 @@ export const notificationEventNames = [
   "experiment.decision.ship",
   "experiment.decision.rollback",
   "experiment.decision.review",
+  // Ramp Schedules
+  "feature.rampSchedule.created",
+  "feature.rampSchedule.deleted",
+  "feature.rampSchedule.actions.started",
+  "feature.rampSchedule.actions.completed",
+  "feature.rampSchedule.actions.rolledBack",
+  "feature.rampSchedule.actions.jumped",
+  "feature.rampSchedule.actions.step.advanced",
+  "feature.rampSchedule.actions.step.approvalRequired",
   // User
   "user.login",
 ] as const;
@@ -76,6 +85,39 @@ export const eventWebHookEventOptions: {
   {
     id: "feature.deleted",
     name: "feature.deleted",
+  },
+  // Ramp Schedules
+  {
+    id: "feature.rampSchedule.created",
+    name: "feature.rampSchedule.created",
+  },
+  {
+    id: "feature.rampSchedule.deleted",
+    name: "feature.rampSchedule.deleted",
+  },
+  {
+    id: "feature.rampSchedule.actions.started",
+    name: "feature.rampSchedule.actions.started",
+  },
+  {
+    id: "feature.rampSchedule.actions.completed",
+    name: "feature.rampSchedule.actions.completed",
+  },
+  {
+    id: "feature.rampSchedule.actions.rolledBack",
+    name: "feature.rampSchedule.actions.rolledBack",
+  },
+  {
+    id: "feature.rampSchedule.actions.jumped",
+    name: "feature.rampSchedule.actions.jumped",
+  },
+  {
+    id: "feature.rampSchedule.actions.step.advanced",
+    name: "feature.rampSchedule.actions.step.advanced",
+  },
+  {
+    id: "feature.rampSchedule.actions.step.approvalRequired",
+    name: "feature.rampSchedule.actions.step.approvalRequired",
   },
   // Safe Rollouts
   {

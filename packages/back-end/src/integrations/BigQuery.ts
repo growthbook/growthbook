@@ -4,7 +4,7 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { FormatDialect } from "shared/types/sql";
+import { DateTruncGranularity, FormatDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -82,6 +82,9 @@ export default class BigQuery extends SqlIntegration {
       labels: { integration: "growthbook" },
       query: sql,
       useLegacySql: false,
+      ...(this.params.reservation
+        ? { reservation: this.params.reservation }
+        : {}),
     });
 
     if (setExternalId && job.id) {
@@ -155,8 +158,8 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  dateTrunc(col: string) {
-    return `date_trunc(${col}, DAY)`;
+  dateTrunc(col: string, granularity: DateTruncGranularity = "day") {
+    return `date_trunc(${col}, ${granularity.toUpperCase()})`;
   }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff(${endCol}, ${startCol}, DAY)`;
@@ -190,6 +193,37 @@ export default class BigQuery extends SqlIntegration {
   }
   hllCardinality(col: string): string {
     return `HLL_COUNT.EXTRACT(${col})`;
+  }
+  hasQuantileKLL(): boolean {
+    return true;
+  }
+  kllInit(col: string): string {
+    // Precision is hardcoded to 1000 (BigQuery default). Mixed-precision
+    // sketches merge silently with degraded accuracy, so we never parameterize it.
+    return `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`;
+  }
+  kllMergePartial(col: string): string {
+    return `KLL_QUANTILES.MERGE_PARTIAL(${col})`;
+  }
+  kllExtractPoint(col: string, quantile: number): string {
+    return `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`;
+  }
+  kllExtractQuantiles(col: string, numQuantiles: number): string {
+    return `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`;
+  }
+  kllRankApprox(
+    sketchCol: string,
+    thresholdCol: string,
+    nEventsCol: string,
+    numQuantiles: number,
+  ): string {
+    // EXTRACT_FLOAT64(sketch, N) returns N+1 points at levels {0, 1/N, ..., 1}.
+    // If the threshold is at percentile p, the count of points strictly below
+    // it is ≈ N*p, so dividing by N (not N+1) gives an unbiased estimate of p.
+    // UNNEST(NULL) yields zero rows, so COUNT(*) is 0 for users with no events.
+    const cdfArray = this.kllExtractQuantiles(sketchCol, numQuantiles);
+    const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
+    return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
@@ -287,6 +321,8 @@ export default class BigQuery extends SqlIntegration {
       case "timestamp":
         return "TIMESTAMP";
       case "hll":
+        return "BYTES";
+      case "kll":
         return "BYTES";
       default: {
         const _: never = dataType;

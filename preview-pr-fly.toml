@@ -3,9 +3,9 @@ primary_region = 'sjc'
 
 [build]
   dockerfile = 'preview/Dockerfile.generated'
+
   [build.args]
-    PYPI_MIRROR_URL = 'https://mirrors.aliyun.com/pypi/simple/'
-    UPGRADE_PIP = 'false'
+    NODE_OPTIONS = '--max-old-space-size=14336'
 
 [deploy]
   strategy = 'immediate'
@@ -50,6 +50,6 @@ primary_region = 'sjc'
     handlers = ['tls', 'http']
 
 [[vm]]
-  memory = '1gb'
+  memory = '2gb'
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 4

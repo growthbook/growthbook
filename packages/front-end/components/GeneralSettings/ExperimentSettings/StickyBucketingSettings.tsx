@@ -1,6 +1,5 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import React from "react";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";

@@ -1,20 +1,7 @@
 import type { Response } from "express";
-import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { TeamInterface } from "shared/types/team";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import {
-  createTeam,
-  deleteTeam,
-  findTeamById,
-  findTeamByName,
-  updateTeamMetadata,
-} from "back-end/src/models/TeamModel";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "back-end/src/services/audit";
 import {
   addMembersToTeam,
   getContextFromReq,
@@ -61,7 +48,7 @@ export const postTeam = async (
     context.permissions.throwPermissionError();
   }
 
-  const existingTeamWithName = await findTeamByName(name, org.id);
+  const existingTeamWithName = await context.models.teams.findByName(name);
 
   if (existingTeamWithName) {
     return res.status(400).json({
@@ -71,35 +58,13 @@ export const postTeam = async (
     });
   }
 
-  // Ensure role is valid
-  if (
-    !isRoleValid(permissions.role, org) ||
-    !areProjectRolesValid(permissions.projectRoles, org)
-  ) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
-    });
-  }
-
-  const team = await createTeam({
+  const team = await context.models.teams.create({
     name,
     createdBy: userName,
     description,
     defaultProject,
-    organization: org.id,
     managedByIdp: false,
     ...permissions,
-  });
-
-  await req.audit({
-    event: "team.create",
-    entity: {
-      object: "team",
-      id: team.id,
-      name: name,
-    },
-    details: auditDetailsCreate(team),
   });
 
   return res.status(200).json({
@@ -139,15 +104,13 @@ export const updateTeam = async (
   res: Response<PutTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
-  const { name, description, permissions, defaultProject } = req.body;
   const { id } = req.params;
 
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
 
-  const team = await findTeamById(id, org.id);
+  const team = await context.models.teams.getById(id);
 
   if (!team) {
     return res.status(404).json({
@@ -156,34 +119,12 @@ export const updateTeam = async (
     });
   }
 
-  const changes = await updateTeamMetadata(id, org.id, {
-    name,
-    description,
+  const { permissions, ...updates } = req.body;
+  await context.models.teams.update(team, {
+    ...updates,
     projectRoles: [],
-    defaultProject,
     ...permissions,
     managedByIdp: team.managedByIdp,
-  });
-
-  // Ensure role is valid
-  if (
-    !isRoleValid(permissions.role, org) ||
-    !areProjectRolesValid(permissions.projectRoles, org)
-  ) {
-    return res.status(400).json({
-      status: 400,
-      message: "Invalid role",
-    });
-  }
-
-  await req.audit({
-    event: "team.update",
-    entity: {
-      object: "team",
-      id: id,
-      name: name,
-    },
-    details: auditDetailsUpdate(team, { ...team, ...changes }),
   });
 
   return res.status(200).json({
@@ -211,43 +152,16 @@ export const deleteTeamById = async (
   res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
 
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
 
-  const team = await findTeamById(id, org.id);
+  const team = await context.models.teams.getById(id);
+  if (!team) return context.throwNotFoundError();
 
-  const members = org.members.filter((member) => member.teams?.includes(id));
-
-  if (members.length !== 0) {
-    return res.status(400).json({
-      status: 400,
-      message:
-        "Cannot delete a team that has members. Please delete members before retrying.",
-    });
-  }
-
-  if (team?.managedByIdp) {
-    return res.status(400).json({
-      status: 400,
-      message:
-        "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
-    });
-  }
-
-  await deleteTeam(id, org.id);
-
-  await req.audit({
-    event: "team.delete",
-    entity: {
-      object: "team",
-      id,
-    },
-    details: auditDetailsDelete(team),
-  });
+  await context.models.teams.delete(team);
 
   return res.status(200).json({
     status: 200,
@@ -277,7 +191,7 @@ export const addTeamMembers = async (
     context.permissions.throwPermissionError();
   }
 
-  const team = await findTeamById(id, org.id);
+  const team = await context.models.teams.getById(id);
 
   if (!team) {
     return res.status(400).json({
@@ -290,23 +204,6 @@ export const addTeamMembers = async (
     organization: org,
     userIds: members,
     teamId: team.id,
-  });
-
-  const teamMembers = org.members.filter((member) =>
-    member.teams?.includes(id),
-  );
-
-  await req.audit({
-    event: "team.update",
-    entity: {
-      object: "team",
-      id: id,
-      name: team.name,
-    },
-    details: auditDetailsUpdate(team, {
-      ...team,
-      members: teamMembers.map((m) => m.id),
-    }),
   });
 
   return res.status(200).json({
@@ -335,7 +232,7 @@ export const deleteTeamMember = async (
     context.permissions.throwPermissionError();
   }
 
-  const team = await findTeamById(id, org.id);
+  const team = await context.models.teams.getById(id);
 
   if (!team) {
     return res.status(400).json({
@@ -360,19 +257,6 @@ export const deleteTeamMember = async (
     organization: org,
     userIds: [memberId],
     teamId: id,
-  });
-
-  await req.audit({
-    event: "team.update",
-    entity: {
-      object: "team",
-      id: id,
-      name: team.name,
-    },
-    details: auditDetailsUpdate(team, {
-      ...team,
-      members: team.members?.filter((m) => m !== memberId),
-    }),
   });
 
   return res.status(200).json({

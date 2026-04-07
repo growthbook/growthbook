@@ -1,7 +1,7 @@
 import React, { Fragment, ReactElement } from "react";
 import { ExperimentMetadataBlockInterface } from "shared/enterprise";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { ScrollArea, Separator, Text } from "@radix-ui/themes";
-import { Box } from "spectacle";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import { BlockProps } from ".";
@@ -12,7 +12,7 @@ export default function ExperimentMetadataBlock({
 }: BlockProps<ExperimentMetadataBlockInterface>) {
   const variationsList =
     (variationIds ?? []).length === 0
-      ? experiment.variations.map(({ id }) => id)
+      ? getLatestPhaseVariations(experiment).map(({ id }) => id)
       : variationIds;
 
   const blockParts: ReactElement[] = [];
@@ -24,7 +24,7 @@ export default function ExperimentMetadataBlock({
           Description
         </Text>
         {experiment.description ? (
-          <Box as="div" py="2" style={{ opacity: 0.8 }}>
+          <div className="py-2" style={{ opacity: 0.8 }}>
             <ScrollArea
               style={{
                 maxHeight: "491px",
@@ -32,11 +32,11 @@ export default function ExperimentMetadataBlock({
             >
               <Markdown>{experiment.description}</Markdown>
             </ScrollArea>
-          </Box>
+          </div>
         ) : (
-          <Box as="div" className="font-italic text-muted" py="2">
+          <div className="font-italic text-muted py-2">
             This experiment doesn&apos;t have a description yet.
-          </Box>
+          </div>
         )}
       </>,
     );
@@ -48,13 +48,13 @@ export default function ExperimentMetadataBlock({
           Hypothesis
         </Text>
         {experiment.hypothesis ? (
-          <Box as="div" py="2" style={{ opacity: 0.8 }}>
+          <div className="py-2" style={{ opacity: 0.8 }}>
             {experiment.hypothesis}
-          </Box>
+          </div>
         ) : (
-          <Box as="div" className="font-italic text-muted" py="2">
+          <div className="font-italic text-muted py-2">
             This experiment doesn&apos;t have a hypothesis yet.
-          </Box>
+          </div>
         )}
       </>,
     );

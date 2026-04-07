@@ -18,7 +18,7 @@ import Button from "@/ui/Button";
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
 
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     ideas: IdeaInterface[];
@@ -43,7 +43,7 @@ const IdeasPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project);
+  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project, projects);
 
   if (!data.ideas.length) {
     return (

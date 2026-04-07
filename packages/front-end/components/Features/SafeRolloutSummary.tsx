@@ -11,6 +11,7 @@ import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -86,12 +87,7 @@ export default function SafeRolloutSummary({
     <Flex direction="column" gap="3">
       <Flex direction="row" gap="2">
         <Text weight="medium">SAMPLE</Text> by{" "}
-        <Badge
-          color="gray"
-          label={
-            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
-          }
-        />
+        <AttributeBadge attributeId={hashAttribute} />
       </Flex>
       <Flex direction="row" gap="2">
         <Text weight="medium">MONITOR</Text>

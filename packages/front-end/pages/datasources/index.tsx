@@ -5,7 +5,6 @@ import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DocLink } from "@/components/DocLink";
 import DataSources from "@/components/Settings/DataSources";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -124,10 +123,8 @@ const DataSourcesPage: FC = () => {
     currentProjectIsDemo,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const { mutateDefinitions, setProject, project, datasources } =
+  const { mutateDefinitions, setProject, project, projects, datasources } =
     useDefinitions();
-
-  const gb = useGrowthBook();
 
   const router = useRouter();
 
@@ -149,11 +146,10 @@ const DataSourcesPage: FC = () => {
   const showManagedWarehouse =
     isCloud() &&
     filteredDatasources.length === 0 &&
-    permissionsUtil.canViewCreateDataSourceModal(project) &&
+    permissionsUtil.canViewCreateDataSourceModal(project, projects) &&
     (effectiveAccountPlan === "starter" ||
       license?.isTrial ||
-      !!license?.orbSubscription) &&
-    gb.isOn("inbuilt-data-warehouse");
+      !!license?.orbSubscription);
 
   return (
     <div className="container-fluid pagecontents">
@@ -203,7 +199,7 @@ const DataSourcesPage: FC = () => {
           </LinkButton>
         ) : null}
         {!hasFileConfig() &&
-          permissionsUtil.canViewCreateDataSourceModal(project) && (
+          permissionsUtil.canViewCreateDataSourceModal(project, projects) && (
             <Button
               disabled={currentProjectIsDemo}
               title={

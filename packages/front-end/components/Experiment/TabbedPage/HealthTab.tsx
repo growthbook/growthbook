@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
@@ -46,7 +47,11 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
+  const {
+    runHealthTrafficQuery,
+    decisionFrameworkEnabled,
+    useStickyBucketing,
+  } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -68,6 +73,11 @@ export default function HealthTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const orgStickyBucketing = !!useStickyBucketing;
+
+  const showMultipleExposures =
+    !isBandit ||
+    (isBandit && orgStickyBucketing && !experiment.disableStickyBucketing);
 
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
@@ -250,9 +260,10 @@ export default function HealthTab({
 
   const phaseObj = experiment.phases?.[phase];
 
-  const variations = experiment.variations.map((v, i) => {
+  const variations = getLatestPhaseVariations(experiment).map((v, i) => {
     return {
-      id: v.key || i + "",
+      id: v.key || v.index + "",
+      index: v.index,
       name: v.name,
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
@@ -288,19 +299,21 @@ export default function HealthTab({
         )}
       </div>
 
-      <div className="row">
-        <div
-          className={!isBandit ? "col-8" : "col-12"}
-          id="multipleExposures"
-          style={{ scrollMarginTop: "100px" }}
-        >
-          <MultipleExposuresCard
-            totalUsers={totalUsers}
-            onNotify={handleHealthNotification}
-            snapshot={snapshot}
-          />
+      {showMultipleExposures && (
+        <div className="row">
+          <div
+            className={!isBandit ? "col-8" : "col-12"}
+            id="multipleExposures"
+            style={{ scrollMarginTop: "100px" }}
+          >
+            <MultipleExposuresCard
+              totalUsers={totalUsers}
+              onNotify={handleHealthNotification}
+              snapshot={snapshot}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {!isBandit &&
       !isHoldout &&

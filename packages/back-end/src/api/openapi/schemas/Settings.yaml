@@ -121,6 +121,7 @@ properties:
     enum:
       - "firstExposure"
       - "experimentDuration"
+      - "lookbackOverride"
   targetMDE:
     type: number
   delayHours:
@@ -137,6 +138,11 @@ properties:
     type: string
   killswitchConfirmation:
     type: boolean
+  featureKillSwitchBehavior:
+    type: string
+    enum:
+      - "off"
+      - "warn"
   requireReviews:
     type: array
     items:
@@ -154,6 +160,12 @@ properties:
           type: array
           items:
             type: string
+        featureRequireEnvironmentReview:
+          type: boolean
+        featureRequireMetadataReview:
+          type: boolean
+  restApiBypassesReviews:
+    type: boolean
   featureKeyExample:
     type: string
   featureRegexValidator:

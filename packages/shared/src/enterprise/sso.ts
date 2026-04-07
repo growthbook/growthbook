@@ -1,6 +1,6 @@
 import type { IssuerMetadata } from "openid-client";
-import { stringToBoolean } from "shared/util";
 import type { SSOConnectionInterface } from "shared/types/sso-connection";
+import { stringToBoolean } from "../util";
 
 // Self-hosted SSO
 function getSSOConfig() {

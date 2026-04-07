@@ -1,22 +1,25 @@
 ---
-title: Feature Flag Targeting
-description: Learn about how to target with GrowthBook
-sidebar_label: Targeting
+title: Targeting Conditions
+description: Define who sees a feature using attributes, conditions, and saved groups.
+sidebar_label: Targeting Conditions
 slug: /features/targeting
 ---
 
-# Targeting
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-GrowthBook lets you target a specific feature value or experiment to a subset of your users. This is accomplished with **Attributes**, **Conditions**, **Saved Groups**, and **Prerequisites**.
+Add targeting conditions to a [rule](/features/rules) to control which values a user sees. Conditions are evaluated against **attributes** you pass into the SDK — like user ID, country, plan type, or any custom property.
+
+This page covers how to set up attributes, write conditions, and use Saved Groups for reusable targeting.
 
 ## Attributes
 
-In order for targeting to work, you must pass
-attributes into the GrowthBook SDK and also list them in the GrowthBook App.
+For targeting to work, you need to pass attributes into the GrowthBook SDK and define them in the GrowthBook app. Here's a quick overview of how to do both.
 
-Attributes are passed into your SDKs as key-value pairs. The keys you use are completely custom and there are no requirements or restrictions. Use whatever makes sense for your application.
+### Passing Attributes into the SDK
 
-Here's an example from our JavaScript SDK:
+Attributes are passed into your SDKs as key-value pairs. The keys are completely customizable — use whatever fits your application's data model.
+
+Here's an example from the JavaScript SDK:
 
 ```ts
 growthbook.setAttributes({
@@ -30,244 +33,280 @@ growthbook.setAttributes({
 });
 ```
 
-In addition to passing attributes into the SDK, you also must update the GrowthBook App with these same attribute keys. You can do this under **SDK Connections** → **Attributes**:
+### Defining Attributes in GrowthBook
 
-![List of targeting attributes](/images/edit-targeting-attributes.png)
+In addition to passing attributes into the SDK, define the same attribute keys in the GrowthBook app under **SDK Connections** → **Attributes**:
 
-:::note
+<MaxWidthImage border>
+  ![List of targeting attributes](/images/features/edit-targeting-attributes-2.png)
+</MaxWidthImage>
 
-The actual values of the targeting attributes (e.g., the user IDs, emails, etc.) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture
-eliminates huge potential security holes and keeps your user's PII safe and secure.
-
+:::info Attribute Values Are Never Sent to GrowthBook
+The actual values of targeting attributes (e.g., user IDs, emails) are never sent to GrowthBook. They are only stored in memory locally within the SDK. This architecture keeps your users' PII safe and secure.
 :::
 
 Each attribute has 4 parts:
 
-- The **attribute name** itself. This is how the attribute will be referenced in the SDK.
-- The **data type** of the attribute
-- Whether it's an **identifier**. Identifiers are attributes which uniquely identify something—typically either a person, account, company, or device—and are used for experiment assignments.
-- The **projects** that the attribute is associated with. This is useful if some attributes are only relevant to certain projects. If no projects are selected, the attribute will be available for all projects.
+- **Attribute name** — How the attribute is referenced in the SDK.
+- **Data Type** — The type of value the attribute holds.
+- **Identifier** — Whether this attribute uniquely identifies a person, account, company, or device. Identifiers are used for experiment assignments.
+- **Projects** — Which projects the attribute is available in. If no projects are selected, the attribute is available everywhere.
 
 ### Attribute Data Types
 
 GrowthBook supports the following attribute data types:
 
-- Boolean: True or false
-- Number: Floats or integers
-- String: Freeform text
-- Enum: Short list of pre-defined values
-- Secure String: Like a string, but the values will be hashed before passing to the SDK
-- Array of Strings: Useful for data like tags
-- Array of Numbers: Useful anytime you have multiple numeric values
-- Array of Secure Strings: Useful for passing multiple values that you want to keep secure
+| Data Type                   | Description                                            | Example                            |
+| --------------------------- | ------------------------------------------------------ | ---------------------------------- |
+| **Boolean**                 | true or false value                                    | `true`, `false`                    |
+| **Number**                  | Floats or integers                                     | `25`, `3.14`, `-8`                 |
+| **String**                  | Freeform text                                          | `"alice@example.com"`, `"blue"`    |
+| **Enum**                    | Short list of predefined string values                 | `"basic"`, `"pro"`, `"enterprise"` |
+| **Secure String**           | String values hashed before passing to SDK for privacy | `"secure-id-123"`                  |
+| **Array of Strings**        | List of strings, useful for tags or categories         | `["admin", "editor"]`              |
+| **Array of Numbers**        | List of numeric values                                 | `[1, 2, 3, 5, 8]`                  |
+| **Array of Secure Strings** | Multiple hashed string values for secure targeting     | `["user123", "user456"]`           |
 
 #### Semantic Version Targeting
 
-In version 2.2, we introduced support for semantic version string comparisons. Without this, the string `1.0.9` will be seen as "greater" than `1.0.10`.
+GrowthBook supports semantic version string comparisons, so that `1.0.10` is correctly treated as greater than `1.0.9`.
 
-To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations → Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
+To use this, create or edit a String attribute under **SDK Configurations** → **Attributes** and select **Version string** in the format dropdown.
 
-![Version string attribute](/images/targeting-semantic-versions.png)
+<MaxWidthImage border>
+  ![Version string attribute](/images/features/targeting-semantic-versions-2.png)
+</MaxWidthImage>
 
-After saving, the targeting operators (e.g. `is greater than`) will automatically start using a version-safe comparison function.
+After saving, targeting operators (e.g., `is greater than`) automatically use a version-safe comparison function.
 
-:::note
-
-This is only supported in some of our SDKs. Check the release notes for the specific SDK you are using to make sure you have a compatible version installed.
-
+:::warning SDK Compatibility
+Semantic version targeting is only supported in some SDKs. Check the release notes for your specific SDK to confirm compatibility.
 :::
 
 #### Date Targeting
 
-In version 3.1, we introduced a new Date format for string attributes that makes it easier to target by date.
+GrowthBook supports a date format for string attributes that makes it easier to target by date.
 
-To leverage this feature, you first need to create a date string attribute. Navigate to **SDK Configurations → Attributes** and create or edit a String attribute. In the format dropdown, select: **Date string.**
+To use this, create or edit a string attribute under **SDK Configurations → Attributes** and select **Date string** in the format dropdown.
 
-![Date string attribute](/images/targeting-dates.png)
+<MaxWidthImage border>
+  ![Date string attribute](/images/features/targeting-dates-2.png)
+</MaxWidthImage>
 
-After saving, certain targeting operators (e.g. `is after or on` or `is equal to`) will display a date picker input. Dates entered with the date picker will be saved as an ISO-formatted Date string (e.g. `2024-07-23T20:06`).
+After saving, certain targeting operators (e.g., `is after or on` or `is equal to`) display a date picker input. Dates entered with the date picker are saved as ISO-formatted date strings (e.g., `2024-07-23T20:06`).
 
 #### Country Code Targeting
 
 Use [2-character ISO country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2) to simplify targeting by country.
 
-How to implement country code targeting:
+To set up country code targeting:
 
-- Create an attribute and set the **Data Type** to `String`
-- Change the **String Format** to `ISO Country Code (2 letter)`
-- Save the attribute
+- Create an attribute and set the **Data Type** to `String`.
+- Change the **String Format** to `ISO Country Code (2 letter)`.
+- Save the attribute.
 
-Now, when setting targeting rules, you'll get a dropdown to directly select a country to target.
+When setting targeting rules, you'll get a dropdown to select a country directly.
 
-![Country code targeting dropdown](/images/features/feature-country-code.gif)
+<video autoPlay loop muted style={{width: '100%', height: "auto"}} controls allowFullScreen>
+  <source src="/videos/feature-country-code.mp4" type="video/mp4" />
+</video>
 
-## Targeting Conditions
+### Defining Conditions
 
-GrowthBook provides a nice UI for defining simple targeting conditions using your attributes.
+GrowthBook provides a visual UI for defining targeting conditions using your attributes.
 
-![Simple targeting conditions](/images/targeting-simple.png)
+<MaxWidthImage border>
+  ![Simple targeting conditions](/images/features/targeting-simple-2.png)
+</MaxWidthImage>
+
+By default, string attributes are _case sensitive_. For example, if you pass `us` into the SDK, it will not match `US`. To make string attributes case insensitive, enable the **Case insensitive** toggle:
+
+<MaxWidthImage border>
+  ![Case insensitive toggle](/images/features/feature-case-insensitive-toggle.png)
+</MaxWidthImage>
 
 ### Advanced Mode
 
-If you need support for something more advanced you can enter targeting conditions with JSON instead by clicking the "Advanced Mode" link.
+For more advanced targeting, enter conditions as JSON by clicking **Advanced Mode**.
 
-The JSON structure is inspired by the MongoDB Query syntax. Multiple conditions are always joined with `AND` (except when explicitly using `$or`/`$nor`). Below are all of the supported operators with examples.
+The JSON structure uses a MongoDB-inspired query syntax. Multiple conditions are always joined with `AND` (except when explicitly using `$or`/`$nor`). Below are all supported operators with examples.
 
-- Key/value pairs for simple equality
-  ```json
-  {
-    "attribute1": "value1",
-    "attribute2": 123,
-    "attribute3": false
+#### Simple Equality
+
+Key/value pairs for exact matches:
+
+```json
+{
+  "attribute1": "value1",
+  "attribute2": 123,
+  "attribute3": false
+}
+```
+
+#### Comparison Operators
+
+Basic comparison operators for string/number attributes:
+
+- `$eq` (equals)
+- `$ne` (not equals)
+- `$lt` (less than)
+- `$lte` (less than or equal to)
+- `$gt` (greater than)
+- `$gte` (greater than or equal to)
+- `$regex` (regular expression match, string attributes only)
+- `$in` (in array)
+- `$nin` (not in array)
+
+```json
+{
+  "foo": {
+    "$gt": 10,
+    "$lte": 99
+  },
+  "bar": {
+    "$in": ["a","b","c"]
+  },
+  "baz": {
+    "$regex": "^test-([0-9]+)$"
   }
-  ```
-- Basic comparison operators for string/number attributes
-  - `$eq` (equals)
-  - `$ne` (not equals)
-  - `$lt` (less than)
-  - `$lte` (less than or equal to)
-  - `$gt` (greater than)
-  - `$gte` (greater than or equal to)
-  - `$regex` (regular expression match, string attributes only)
-  - `$in` (in array)
-  - `$nin` (not in array)
-  ```json
-  {
-    "foo": {
-      "$gt": 10,
-      "$lte": 99
-    },
-    "bar": {
-      "$in": ["a","b","c"]
-    },
-    "baz": {
-      "$regex": "^test-([0-9]+)$"
+}
+```
+
+#### Semantic Version Operators
+
+Comparison operators for semantic version strings:
+
+- `$veq` (equals)
+- `$vne` (not equals)
+- `$vlt` (less than)
+- `$vlte` (less than or equal to)
+- `$vgt` (greater than)
+- `$vgte` (greater than or equal to)
+
+```json
+{
+  "appVersion": {
+    "$vgt": "1.5.6",
+    "$vlte": "5.4.0"
+  }
+}
+```
+
+#### Array Operators
+
+Operators for array attributes:
+
+- `$elemMatch` (at least one element must match the specified condition)
+- `$all` (all of the specified values must exist in the array)
+- `$size` (array length must match the specified condition)
+
+```json
+{
+  "emails": {
+    "$elemMatch": {
+      "$regex": "@gmail.com$"
+    }
+  },
+  "hobbies": {
+    "$all": ["hiking","tennis","chess"]
+  },
+  "tags": {
+    "$size": {
+      "$gt": 5
     }
   }
-  ```
-- Comparison operators for semantic version strings (semver):
-  - `$veq` (equals)
-  - `$vne` (not equals)
-  - `$vlt` (less than)
-  - `$vlte` (less than or equal to)
-  - `$vgt` (greater than)
-  - `$vgte` (greater than or equal to)
-  ```json
-  {
-    "appVersion": {
-      "$vgt": "1.5.6",
-      "$vlte": "5.4.0"
+}
+```
+
+#### Miscellaneous Operators
+
+- `$exists` (tests if the attribute value is null or not)
+- `$type` (tests if the attribute's type matches the type specified)
+- `$not` (inverts a nested condition)
+
+```json
+{
+  "alternateEmail": {
+    "$exists": true
+  },
+  "foo": {
+    "$type": "string"
+  },
+  "name": {
+    "$not": {
+      "$regex": "^J"
     }
   }
-  ```
-- Operators for array attributes
-  - `$elemMatch` (at least one element must match the specified condition)
-  - `$all` (all of the specified values must exist in the array)
-  - `$size` (array length must match the specified condition)
-  ```json
-  {
-    "emails": {
-      "$elemMatch": {
-        "$regex": "@gmail.com$"
-      }
-    },
-    "hobbies": {
-      "$all": ["hiking","tennis","chess"]
-    },
-    "tags": {
-      "$size": {
-        "$gt": 5
-      }
-    }
-  }
-  ```
-- Misc operators
-  - `$exists` (tests if the attribute value is null or not)
-  - `$type` (tests if the attribute's type matches the type specified)
-  - `$not` (inverts a nested condition)
-  ```json
-  {
-    "alternateEmail": {
-      "$exists": true
-    },
-    "foo": {
-      "$type": "string"
-    },
-    "name": {
+}
+```
+
+#### Logical Operators
+
+Logical operators with arbitrary nesting levels:
+
+- `$or`
+- `$nor`
+- `$and`
+- `$not`
+
+```json
+{
+  "$or": [
+    {
       "$not": {
-        "$regex": "^J"
+        "foo": "abc"
       }
+    },
+    {
+      "$and": [
+        {"bar": true},
+        {"baz": 123}
+      ]
     }
-  }
-  ```
-- Logical operators with arbitrary nesting levels
-  - `$or`
-  - `$nor`
-  - `$and`
-  - `$not`
-  ```json
-  {
-    "$or": [
-      {
-        "$not": {
-          "foo": "abc"
-        }
-      },
-      {
-        "$and": [
-          {"bar": true},
-          {"baz": 123}
-        ]
-      }
-    ]
-  }
-  ```
+  ]
+}
+```
 
-:::note
-
-We use the MongoDB query syntax because it is easy to read and write and is well documented. The conditions are never actually executed against a database. Instead, our SDKs include a light-weight interpreter for this syntax that runs entirely locally.
-
+:::info MongoDB-style Query Syntax
+GrowthBook uses MongoDB query syntax because it is easy to read, write, and well documented. Conditions are never executed against a database — the SDKs include a lightweight interpreter for this syntax that runs entirely locally.
 :::
 
 ## Saved Groups
 
-<iframe style={{width: "100%", height: "auto", aspectRatio: "16 / 9", marginBottom: "1rem"}} src="https://www.youtube.com/embed/YAfGx1OY1jM?si=cjAnZfAX8BhPEPrc" title="Advanced Targeting with Saved Groups" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe style={{width: "100%", height: "auto", aspectRatio: "16 / 9", marginBottom: "1rem"}} src="https://www.youtube.com/embed/YAfGx1OY1jM?si=cjAnZfAX8BhPEPrc" title="Advanced Targeting with Saved Groups" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
 
-Target the same group of users across multiple features and experiments with Saved Groups, ensuring consistent user targeting across your projects. For instance, easily manage beta testers or high-value customers by defining a group once and reusing it everywhere.
+Saved Groups let you target the same group of users across multiple features and experiments. Define a group once and reuse it everywhere — for example, beta testers or high-value customers.
 
-![Saved groups overview](/images/saved-groups-overview.png)
+<MaxWidthImage border>
+![Saved groups overview](/images/features/saved-groups-overview.png)
+</MaxWidthImage>
 
-### Types of Saved Groups
+### Condition Groups
 
-#### Condition Groups
+Define targeting rules based on user attributes. For example, target users who are located in the US and on a mobile device.
 
-Define advanced targeting rules based on user attributes. For example, target users who are located in the US and on a mobile device.
+![Saved groups condition, showing how to add a US user on a mobile device](/images/features/saved-groups-condition.png)
 
-![Saved groups condition, showing how to add a US user on a mobile device](/images/saved-groups-condition.png)
+### ID Lists
 
-#### ID Lists
+Manually define targeted users via text input or by uploading a CSV. For example, create a beta testers group by uploading a CSV of user IDs.
 
-Manually define targeted users via text input or by uploading a CSV. For example, create a beta testers saved group by uploading a CSV of user IDs.
+![Saved Group UI, focusing on adding an ID list](/images/features/saved-groups-id-list.png)
 
-![Saved Group UI, focusing on adding an ID list](/images/saved-groups-id-list.png)
+ID Lists are limited to 1 MB. Using multiple large ID Lists may impact performance as it increases the SDK payload. Keep ID Lists as concise as possible.
 
-ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
+ID Lists accept the following attribute types: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
 
-ID Lists accept the following types of attributes: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
-
-:::note
-Empty lists would previously be ignored in the SDK payloads, causing targeting conditions referencing those
-lists to always evaluate to true. ID Lists created after the behavior was changed will properly use the empty
-list, so rules checking whether a value is in the list will always be false. Lists created before the
-change will preserve the old behavior so as not to break existing features.
-
-To make an ID list with the legacy behavior evaluate to false instead of true for conditions, you can add a single fake value such as "" or "\_" so that the list isn't empty
+:::tip Optimized ID lists
+Enterprise users can use optimized ID lists to reduce payload size. Enable this feature by editing your SDK connection and toggling on **Pass ID Lists by reference**. If the toggle isn't visible, your SDK is not compatible with this feature.
 :::
 
-:::note
-Enterprise users can use optimized ID lists to reduce payload size. Enable this feature by editing your SDK connection and toggling on **Pass ID Lists by reference**. If the the toggle isn't visible, your SDK is not compatible with this feature.
+For more advanced targeting based on the state of other feature flags, see [Prerequisite Features](/features/prerequisites).
+
+---
+
+:::note Legacy behavior for empty ID lists
+Empty lists would previously be ignored in the SDK payloads, causing targeting conditions referencing those lists to always evaluate to true. ID Lists created after the behavior was changed properly use the empty list, so rules checking whether a value is in the list always evaluate to false. Lists created before the change preserve the old behavior so as not to break existing features.
+
+To make an ID list with the legacy behavior evaluate to false instead of true, add a single placeholder value such as "" or "\_" so that the list isn't empty.
 :::
-
-## Prerequisite Targeting
-
-You can add prerequisite targeting to any feature or experiment. For more information, see the [Prerequisite Features](/features/prerequisites#inline-prerequisite-targeting) page.

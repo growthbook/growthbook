@@ -51,7 +51,9 @@ export class LruCache<T, K> {
     if (this.store.size >= this.maxEntries) {
       // items are stored in insertion order, so the first key is the oldest
       const keyToDelete = this.store.keys().next().value;
-      this.store.delete(keyToDelete);
+      if (keyToDelete !== undefined) {
+        this.store.delete(keyToDelete);
+      }
     }
     this.store.set(key, value);
   }
