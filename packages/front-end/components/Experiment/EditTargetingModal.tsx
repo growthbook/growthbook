@@ -1,4 +1,4 @@
-import { useForm, UseFormReturn, useWatch } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -9,8 +9,7 @@ import isEqual from "lodash/isEqual";
 import { useEffect, useMemo, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { Flex, Box, Text, Separator } from "@radix-ui/themes";
-import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
+import { Flex, Box, Text } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -34,16 +33,17 @@ import SelectField from "@/components//Forms/SelectField";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
+import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
 import RemoveVariationsSection, {
   RemoveVariationDraftVariation,
   RemoveVariationMode,
 } from "@/components/Experiment/RemoveVariationsSection";
+import VariationSplitTable from "@/components/Experiment/VariationSplitTable";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -124,25 +124,11 @@ export default function EditTargetingModal({
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
-    namespace: (() => {
-      const saved = lastPhase?.namespace;
-      if (!saved) {
-        // Canonical blank shape; matches what NamespaceSelector writes so
-        // `isEqual(watched, defaults)` can't misfire from shape drift.
-        return {
-          enabled: false,
-          name: "",
-          format: "legacy" as const,
-          ranges: [] as [number, number][],
-        };
-      }
-      // Fold legacy `range` → `ranges` so defaults line up with the shape
-      // NamespaceSelector produces immediately on mount.
-      if ("range" in saved && !("ranges" in saved)) {
-        return { ...omit(saved, "range"), ranges: [saved.range] };
-      }
-      return saved;
-    })(),
+    namespace: lastPhase?.namespace || {
+      enabled: false,
+      name: "",
+      range: [0, 1],
+    },
     seed: lastPhase?.seed ?? "",
     trackingKey: experiment.trackingKey || "",
     variationWeights:
@@ -162,16 +148,26 @@ export default function EditTargetingModal({
     defaultValues,
   });
 
-  // useWatch so that form.setValue calls from NamespaceSelector (a child)
-  // trigger a re-render here. Control flags are excluded because they're
-  // mutated programmatically by the change-type step, not by the user.
-  const watchedValues = useWatch({ control: form.control });
-  const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
-    omit(v, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
-  const hasChanges = !isEqual(
-    pickForCompare(watchedValues),
-    pickForCompare(defaultValues),
-  );
+  const _formValues = omit(form.watch(), [
+    "newPhase",
+    "reseed",
+    "bucketVersion",
+    "minBucketVersion",
+  ]);
+  const _defaultValues = omit(defaultValues, [
+    "newPhase",
+    "reseed",
+    "bucketVersion",
+    "minBucketVersion",
+  ]);
+  const hasChanges = !isEqual(_formValues, _defaultValues);
+  /** Draft selections are authoritative; form sync runs in an effect so `getValues()` can lag one render. */
+  const hasRemoveVariationChanges =
+    changeType === "remove-variation" &&
+    removeVariationDraft.some(
+      (v) => !v.locked && (v.state === "passThrough" || v.state === "removed"),
+    );
+  const hasEffectiveChanges = hasChanges || hasRemoveVariationChanges;
 
   useEffect(() => {
     if (changeType !== "advanced") {
@@ -355,17 +351,6 @@ export default function EditTargetingModal({
       throw new Error("Prerequisite targeting issues must be resolved");
     }
 
-    // Collapse contiguous / overlapping namespace ranges on save so the
-    // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
-    // [0.6, 1]). We do this here rather than while the user is editing so
-    // ranges don't flicker and collapse mid-edit.
-    const ns = value.namespace as
-      | { enabled?: boolean; ranges?: [number, number][] }
-      | undefined;
-    if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
-      ns.ranges = mergeContiguousRanges(ns.ranges);
-    }
-
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -379,13 +364,14 @@ export default function EditTargetingModal({
 
   if (safeToEdit) {
     return (
-      <DialogLayout
+      <Modal
         trackingEventModalType=""
         open={true}
         close={close}
-        header="Edit Targeting"
+        header={`Edit Targeting`}
         ctaEnabled={canSubmit}
         submit={onSubmit}
+        cta="Save"
         size="lg"
       >
         <TargetingForm
@@ -399,7 +385,7 @@ export default function EditTargetingModal({
           setRemoveVariationDraft={setRemoveVariationDraft}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
-      </DialogLayout>
+      </Modal>
     );
   }
 
@@ -411,7 +397,7 @@ export default function EditTargetingModal({
     ctaEnabled = false;
     blockSteps = [1, 2];
   } else {
-    if (changeType !== "phase" && !hasChanges) {
+    if (changeType !== "phase" && !hasEffectiveChanges) {
       if (step === 1) {
         cta = "No changes";
         ctaEnabled = false;
@@ -531,6 +517,8 @@ export default function EditTargetingModal({
             changeType={changeType}
             releasePlan={releasePlan}
             setReleasePlan={setReleasePlan}
+            removeVariationDraft={removeVariationDraft}
+            removeVariationMode={removeVariationMode}
           />
         </div>
       </Page>
@@ -667,6 +655,11 @@ function TargetingForm({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
 
+  const phaseVariations = useMemo(
+    () => getLatestPhaseVariations(experiment),
+    [experiment],
+  );
+
   return (
     <div className="pt-2">
       {safeToEdit && (
@@ -755,14 +748,14 @@ function TargetingForm({
             setValue={(v) => form.setValue("savedGroups", v)}
             project={experiment.project || ""}
           />
-          <Separator size="4" my="5" />
+          <hr />
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
             project={experiment.project || ""}
           />
-          <Separator size="4" my="5" />
+          <hr />
           <PrerequisiteInput
             value={form.watch("prerequisites") || []}
             setValue={(prerequisites) =>
@@ -784,45 +777,125 @@ function TargetingForm({
             form={form}
             featureId={experiment.trackingKey}
             trackingKey={experiment.trackingKey}
-            experimentHashAttribute={form.watch("hashAttribute")}
-            fallbackAttribute={form.watch("fallbackAttribute")}
           />
           {["advanced"].includes(changeType) && <hr />}
         </>
       )}
 
-      {["traffic", "weights", "advanced"].includes(changeType) && (
-        <FeatureVariationsInput
-          valueType={"string"}
-          coverage={form.watch("coverage")}
-          setCoverage={(coverage) => form.setValue("coverage", coverage)}
-          setWeight={(i, weight) =>
-            form.setValue(`variationWeights.${i}`, weight)
-          }
-          variations={
-            getLatestPhaseVariations(experiment).map((v, i) => {
-              return {
+      {["traffic", "weights", "advanced"].includes(changeType) &&
+        (changeType === "advanced" ? (
+          <>
+            <FeatureVariationsInput
+              valueType={"string"}
+              coverage={form.watch("coverage")}
+              setCoverage={(coverage) => form.setValue("coverage", coverage)}
+              valueAsId={true}
+              variations={phaseVariations.map((v, i) => ({
                 value: v.key || i + "",
                 name: v.name,
                 weight: form.watch(`variationWeights.${i}`),
                 id: v.id,
-              };
-            }) || []
-          }
-          showPreview={false}
-          disableCoverage={changeType === "weights"}
-          disableVariations={changeType === "traffic"}
-          hideVariations={type === "multi-armed-bandit"}
-          label={
-            changeType === "traffic" || type === "multi-armed-bandit"
-              ? "Traffic Percentage"
-              : changeType === "weights"
-                ? "Variation Weights"
-                : "Traffic Percentage & Variation Weights"
-          }
-          startEditingSplits={true}
-        />
-      )}
+              }))}
+              showPreview={false}
+              hideVariations={true}
+              label="Traffic Percentage"
+            />
+            {type !== "multi-armed-bandit" && (
+              <VariationSplitTable
+                label="Variation Weights"
+                rows={phaseVariations}
+                getRowKey={(v) => v.id}
+                getWeightIndex={(row) =>
+                  phaseVariations.findIndex((v) => v.id === row.id)
+                }
+                weights={phaseVariations.map((_, i) =>
+                  form.watch(`variationWeights.${i}`),
+                )}
+                onApplyWeights={(next) => {
+                  next.forEach((w, i) => {
+                    form.setValue(`variationWeights.${i}`, w, {
+                      shouldDirty: true,
+                    });
+                  });
+                }}
+                startEditingSplits={true}
+                splitsAreEqual={(() => {
+                  const wts = phaseVariations.map((_, i) =>
+                    form.watch(`variationWeights.${i}`),
+                  );
+                  return (
+                    wts.length <= 1 ||
+                    wts.every((w) => Math.abs(w - wts[0]) < 0.0001)
+                  );
+                })()}
+                onSetEqualWeights={() => {
+                  const equal = getEqualWeights(phaseVariations.length, 4);
+                  equal.forEach((w, i) => {
+                    form.setValue(`variationWeights.${i}`, w, {
+                      shouldDirty: true,
+                    });
+                  });
+                }}
+                renderVariationCell={(v) => (
+                  <Flex
+                    align="center"
+                    className={`variation variation${v.index} with-variation-label`}
+                    style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
+                  >
+                    <span
+                      className="label"
+                      style={{
+                        width: 20,
+                        height: 20,
+                        flex: "none",
+                        marginTop: "-1px",
+                      }}
+                    >
+                      {v.index}
+                    </span>
+                    <Text
+                      style={{
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                        lineHeight: "1.4",
+                      }}
+                    >
+                      {v.name}
+                    </Text>
+                  </Flex>
+                )}
+              />
+            )}
+          </>
+        ) : (
+          <FeatureVariationsInput
+            valueType={"string"}
+            coverage={form.watch("coverage")}
+            setCoverage={(coverage) => form.setValue("coverage", coverage)}
+            setWeight={(i, weight) =>
+              form.setValue(`variationWeights.${i}`, weight)
+            }
+            valueAsId={true}
+            variations={phaseVariations.map((v, i) => ({
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
+            }))}
+            showPreview={false}
+            disableCoverage={changeType === "weights"}
+            disableVariations={changeType === "traffic"}
+            hideVariations={type === "multi-armed-bandit"}
+            label={
+              changeType === "traffic" || type === "multi-armed-bandit"
+                ? "Traffic Percentage"
+                : changeType === "weights"
+                  ? "Variation Weights"
+                  : "Traffic Percentage & Variation Weights"
+            }
+            startEditingSplits={true}
+          />
+        ))}
 
       {changeType === "remove-variation" && (
         <RemoveVariationsSection
@@ -830,6 +903,7 @@ function TargetingForm({
           setVariations={setRemoveVariationDraft}
           mode={removeVariationMode}
           setMode={setRemoveVariationMode}
+          usedViaRemoveVariation={true}
         />
       )}
     </div>

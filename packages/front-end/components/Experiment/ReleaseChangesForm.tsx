@@ -30,6 +30,10 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
+import {
+  type RemoveVariationDraftVariation,
+  type RemoveVariationMode,
+} from "@/components/Experiment/RemoveVariationsSection";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -37,6 +41,8 @@ export interface Props {
   changeType?: ChangeType;
   releasePlan?: ReleasePlan;
   setReleasePlan: (releasePlan: ReleasePlan) => void;
+  removeVariationDraft?: RemoveVariationDraftVariation[];
+  removeVariationMode?: RemoveVariationMode;
 }
 
 export default function ReleaseChangesForm({
@@ -45,6 +51,8 @@ export default function ReleaseChangesForm({
   changeType,
   releasePlan,
   setReleasePlan,
+  removeVariationDraft = [],
+  removeVariationMode,
 }: Props) {
   const settings = useOrgSettings();
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -301,6 +309,14 @@ export default function ReleaseChangesForm({
               showChanges={true}
               showFullTargetingInfo={showFullTargetingInfo}
               changes={form.getValues()}
+              removeVariationDraft={
+                changeType === "remove-variation" ? removeVariationDraft : []
+              }
+              removeVariationMode={
+                changeType === "remove-variation"
+                  ? removeVariationMode
+                  : undefined
+              }
             />
           </div>
         </div>
@@ -332,8 +348,6 @@ function ImpactTooltips({
     releasePlan === "same-phase-everyone" &&
     !!recommendedRolloutData.reasons.disableVariation;
 
-  console.log("recommendedRolloutData", recommendedRolloutData);
-  console.log("samePhaseBlockingWithoutSticky", releasePlan);
   let recommendStickyBucketing = false;
   if (riskLevel !== "safe") {
     if (

@@ -18,6 +18,20 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
+import {
+  type RemoveVariationDraftVariation,
+  type RemoveVariationMode,
+} from "@/components/Experiment/RemoveVariationsSection";
+
+function getRemovedVariationsForReview(
+  draft: RemoveVariationDraftVariation[],
+  mode: RemoveVariationMode,
+): RemoveVariationDraftVariation[] {
+  if (mode === "same-phase-skip") {
+    return draft.filter((v) => v.state === "passThrough" && !v.locked);
+  }
+  return draft.filter((v) => v.state === "removed");
+}
 
 export interface Props {
   phaseIndex?: number | null;
@@ -32,6 +46,9 @@ export interface Props {
   changes?: ExperimentTargetingData;
   showFullTargetingInfo?: boolean;
   horizontalView?: boolean;
+  /** When set with `removeVariationMode`, shows removed-variation summary (e.g. review deploy). */
+  removeVariationDraft?: RemoveVariationDraftVariation[];
+  removeVariationMode?: RemoveVariationMode;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -75,10 +92,17 @@ export default function TargetingInfo({
   changes,
   showFullTargetingInfo = true,
   horizontalView,
+  removeVariationDraft,
+  removeVariationMode,
 }: Props) {
   const { namespaces } = useOrgSettings();
 
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
+
+  const removedVariationsForReview =
+    removeVariationDraft?.length && removeVariationMode
+      ? getRemovedVariationsForReview(removeVariationDraft, removeVariationMode)
+      : [];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
   // Calculate total namespace allocation
@@ -104,6 +128,10 @@ export default function TargetingInfo({
     showChanges &&
     JSON.stringify(changes?.variationWeights || []) !==
       JSON.stringify(phase.variationWeights || []);
+  const hasVariationsMetaChanges =
+    showChanges &&
+    JSON.stringify(changes?.variations || []) !==
+      JSON.stringify(phase.variations || []);
   const hasNamespaceChanges =
     showChanges &&
     JSON.stringify(changes?.namespace || {}) !==
@@ -113,6 +141,7 @@ export default function TargetingInfo({
     hasConditionChanges ||
     hasCoverageChanges ||
     hasVariationWeightsChanges ||
+    hasVariationsMetaChanges ||
     hasNamespaceChanges
   );
 
@@ -480,6 +509,37 @@ export default function TargetingInfo({
                     </div>
                   </div>
                 )}
+
+                {removedVariationsForReview.length > 0 &&
+                removeVariationMode ? (
+                  <div className={clsx("mb-3", horizontalView && "mr-4")}>
+                    <div>
+                      <strong>Removed variations</strong>
+                    </div>
+                    <div className="d-flex">
+                      <div className="d-flex text-danger font-weight-bold">
+                        <div className="text-center mx-1" style={{ width: 20 }}>
+                          Δ
+                        </div>
+                        <div>
+                          {removedVariationsForReview
+                            .map((v) => `${v.index}: ${v.name}`)
+                            .join(" · ")}
+                        </div>
+                      </div>
+                      <div className="font-weight-bold text-success d-flex ml-4">
+                        <div className="text-center mx-1" style={{ width: 20 }}>
+                          →
+                        </div>
+                        <div>
+                          {removeVariationMode === "same-phase-skip"
+                            ? "Traffic in variation skip experiment"
+                            : "Traffic re-randomized to other variations"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 {experiment.type !== "multi-armed-bandit" &&
                   (!showChanges ||
                     showFullTargetingInfo ||
