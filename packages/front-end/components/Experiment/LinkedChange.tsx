@@ -54,10 +54,9 @@ export default function LinkedChange({
   state,
 }: Props) {
   const [expanded, setExpanded] = React.useState(open);
-  //if (changeType === "visual" && !vc && !experiment) return null;
 
   return (
-    <Box className="linked-change appbox my-3" p="4" px="5">
+    <Box className="my-3" p="4" px="5">
       <Collapsible
         trigger={
           <Box>

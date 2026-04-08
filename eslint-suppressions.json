@@ -164,11 +164,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/LinkedFeatureFlag.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
