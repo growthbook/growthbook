@@ -236,6 +236,11 @@ export const PROXY_ENABLED = stringToBoolean(process.env.PROXY_ENABLED);
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
 
+// Kapa.ai MCP server for documentation search (GrowthBook cloud only)
+export const KAPA_AI_API_KEY = process.env.KAPA_AI_API_KEY || "";
+export const KAPA_AI_MCP_URL =
+  process.env.KAPA_AI_MCP_URL || "https://gb-agent.mcp.kapa.ai/";
+
 // global webhooks
 const webhooksString = process.env.WEBHOOKS;
 const webhooksValidator = z.array(

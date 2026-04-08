@@ -20,8 +20,13 @@ import {
   updateConversationTimestamp,
 } from "back-end/src/models/AIChatModel";
 import { updateTokenUsage } from "back-end/src/models/AITokenUsageModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
+  IS_CLOUD,
+  KAPA_AI_API_KEY,
+  KAPA_AI_MCP_URL,
+} from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
+import { fetch } from "back-end/src/util/http.util";
 
 function getSystemPrompt(
   context: ReqContext,
@@ -88,11 +93,124 @@ Organization: ${orgName}${pageContext}
 - Show urls to relevant pages in the GrowthBook app when referencing specific features, experiments, or metrics.
 - If the user asks a question that seems related to the page they're currently viewing, use that context to infer what they're asking about. For example, if they're on an experiment page and ask "what are the results?", look up that specific experiment.
 - To get more context or information on how GrowthBook works, you can refer to the GrowthBook documentation at https://docs.growthbook.io/ or in examine the code in our various github repos: https://github.com/growthbook/, the main platform repo is: https://github.com/growthbook/growthbook/
-- If a user asks about results, provide the data you have and note any limitations.${customContext ? `\n\n## Additional Context\n${customContext}` : ""}`;
+- If a user asks about results, provide the data you have and note any limitations.${
+    KAPA_AI_API_KEY
+      ? `
+- When a user asks a technical question about how GrowthBook works — such as how to set something up, how a feature behaves, SDK integration, API usage, or general product questions — use the search_documentation tool to find the most accurate and up-to-date answer from the official documentation and community Q&A. Prefer this over answering from general knowledge when the question is specific to GrowthBook. Do NOT use this tool for questions about the user's own data (experiments, features, metrics), which you should answer using the other tools.`
+      : ""
+  }${customContext ? `\n\n## Additional Context\n${customContext}` : ""}`;
+}
+
+async function searchKapaDocumentation(
+  query: string,
+): Promise<{ sources: Array<{ url: string; content: string }> }> {
+  const response = await fetch(KAPA_AI_MCP_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${KAPA_AI_API_KEY}`,
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "tools/call",
+      params: {
+        name: "search_growthbook_knowledge_sources",
+        arguments: { query },
+      },
+      id: 1,
+    }),
+  });
+
+  let data: unknown;
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("text/event-stream")) {
+    // MCP may respond with SSE — find the first data line with a JSON-RPC response
+    const text = await response.text();
+    for (const line of text.split("\n")) {
+      if (line.startsWith("data: ") && line.length > 6) {
+        try {
+          data = JSON.parse(line.slice(6));
+          break;
+        } catch {
+          // keep scanning
+        }
+      }
+    }
+  } else {
+    data = await response.json();
+  }
+
+  const result = (data as { result?: { content?: unknown[] } } | undefined)
+    ?.result;
+  if (!result?.content) return { sources: [] };
+
+  const sources: Array<{ url: string; content: string }> = [];
+  for (const block of result.content) {
+    if (
+      typeof block === "object" &&
+      block !== null &&
+      "type" in block &&
+      (block as { type: string }).type === "text" &&
+      "text" in block
+    ) {
+      // Each block may be a JSON object with source_url + content, or plain text
+      const text = (block as { text: string }).text;
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "source_url" in parsed
+        ) {
+          const p = parsed as { source_url?: string; content?: string };
+          sources.push({ url: p.source_url || "", content: p.content || text });
+          continue;
+        }
+      } catch {
+        // not JSON — treat as plain text
+      }
+      sources.push({ url: "", content: text });
+    }
+  }
+  return { sources };
 }
 
 function getReadTools(context: ReqContext) {
   return {
+    search_documentation: tool({
+      description:
+        "Search GrowthBook documentation and community Q&A. Use this for technical questions about how GrowthBook works: setup, configuration, SDK integration, API usage, feature behaviour, and troubleshooting. Do NOT use this for questions about the user's own experiments, features, or metrics — use the other tools for that.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .describe(
+            "The search query — write it as a natural language question",
+          ),
+      }),
+      execute: async ({ query }: { query: string }) => {
+        if (!KAPA_AI_API_KEY) {
+          return {
+            message: "Documentation search is not configured on this instance.",
+          };
+        }
+        try {
+          const { sources } = await searchKapaDocumentation(query);
+          if (!sources.length) {
+            return { message: "No documentation results found." };
+          }
+          return { sources };
+        } catch (err) {
+          logger.error(err, "Kapa documentation search failed");
+          return {
+            message:
+              "Documentation search is temporarily unavailable. Try answering from your own knowledge.",
+          };
+        }
+      },
+    }),
+
     list_experiments: tool({
       description:
         "List experiments in the organization. Can filter by status or search by name.",
