@@ -12,8 +12,8 @@ import {
 } from "shared/ai";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
 import {
-  AI_MODEL_LABELS,
-  PROMPT_MODEL_LABELS,
+  getAvailableAIModelOptions,
+  getAvailablePromptModelOptions,
 } from "@/services/aiModelSelectOptions";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
@@ -320,7 +320,7 @@ export default function AISettings({
                       helpText="Default is 4o-mini."
                       value={form.watch("defaultAIModel")}
                       onChange={(v) => form.setValue("defaultAIModel", v)}
-                      options={AI_MODEL_LABELS}
+                      options={getAvailableAIModelOptions()}
                     />
                     {/* Use centralized warning component */}
                     <ApiKeyWarning
@@ -608,7 +608,7 @@ export default function AISettings({
                                     { shouldDirty: true },
                                   )
                                 }
-                                options={PROMPT_MODEL_LABELS}
+                                options={getAvailablePromptModelOptions()}
                                 helpText={prompt?.overrideModelHelpText || ""}
                               />
                               {(() => {

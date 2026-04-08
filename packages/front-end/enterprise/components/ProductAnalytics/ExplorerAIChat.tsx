@@ -52,7 +52,10 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import { isCloud } from "@/services/env";
-import { AI_MODEL_LABELS } from "@/services/aiModelSelectOptions";
+import {
+  AI_MODEL_DISPLAY_LABELS,
+  getAvailableAIModelOptions,
+} from "@/services/aiModelSelectOptions";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useExplorerContext } from "./ExplorerContext";
@@ -66,16 +69,21 @@ const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 function explorerPaChatModelOptions(
   orgPromptTypeOverride: string,
   orgDefaultAIModel: string,
-): { value: string; label: string }[] {
+): (
+  | { value: string; label: string }
+  | { label: string; options: { value: string; label: string }[] }
+)[] {
   const effectiveId =
     orgPromptTypeOverride.trim() !== ""
       ? orgPromptTypeOverride
       : orgDefaultAIModel;
-  const entry = AI_MODEL_LABELS.find((m) => m.value === effectiveId);
-  const displayName = entry?.label ?? effectiveId;
+  const displayName =
+    AI_MODEL_DISPLAY_LABELS[
+      effectiveId as keyof typeof AI_MODEL_DISPLAY_LABELS
+    ] ?? effectiveId;
   return [
-    { value: "", label: `${displayName} (Organization Default)` },
-    ...AI_MODEL_LABELS,
+    { value: "", label: `${displayName} (Default)` },
+    ...getAvailableAIModelOptions(),
   ];
 }
 
@@ -706,26 +714,6 @@ export default function ExplorerAIChat() {
               )}
             </Button>
             <DataSourceDropdown />
-            {!isCloud() && (
-              <Tooltip
-                enabled={!canPickModel}
-                content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
-              >
-                <SelectField
-                  id="explorer-ai-chat-model"
-                  value={
-                    canPickModel ? chatOverrideModel : orgPaChatOverrideModel
-                  }
-                  onChange={(v) => {
-                    if (canPickModel) setChatOverrideModel(v);
-                  }}
-                  options={paChatModelSelectOptions}
-                  disabled={!canPickModel}
-                  placeholder="AI model"
-                  containerStyle={{ marginBottom: 0 }}
-                />
-              </Tooltip>
-            )}
           </Flex>
         </Flex>
 
@@ -835,6 +823,27 @@ export default function ExplorerAIChat() {
               onKeyDown={handleKeyDown}
               disabled={loading}
             />
+            {!isCloud() && (
+              <Tooltip
+                enabled={!canPickModel}
+                content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+              >
+                <SelectField
+                  id="explorer-ai-chat-model"
+                  // sort={false}
+                  value={
+                    canPickModel ? chatOverrideModel : orgPaChatOverrideModel
+                  }
+                  onChange={(v) => {
+                    if (canPickModel) setChatOverrideModel(v);
+                  }}
+                  options={paChatModelSelectOptions}
+                  disabled={!canPickModel}
+                  placeholder="AI model"
+                  containerStyle={{ marginBottom: 0 }}
+                />
+              </Tooltip>
+            )}
             {isLocalStream ? (
               <Button onClick={cancelGeneration} title="Cancel generation">
                 <PiStop size={16} />
