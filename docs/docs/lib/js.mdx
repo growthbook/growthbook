@@ -319,6 +319,38 @@ configureCache({
 })
 ```
 
+## Polyfills
+
+The GrowthBook SDK relies on `fetch`, `SubtleCrypto`, `EventSource`, and `localStorage` being available at runtime. In browser environments these are natively available, but you can override any of them with `setPolyfills` if needed.
+
+This is especially useful when:
+
+- Running in a non-browser JS environment (e.g. testing with Jest or jsdom) where globals like `fetch` or `localStorage` may not be available
+- Using a custom `EventSource` implementation for streaming
+- Providing an alternative persistent storage backend in place of `localStorage`
+
+```js
+import { setPolyfills } from "@growthbook/growthbook";
+
+setPolyfills({
+  // Custom fetch implementation
+  fetch: myCustomFetch,
+  // Custom SubtleCrypto implementation
+  SubtleCrypto: mySubtleCrypto,
+  // Custom EventSource implementation (for streaming support)
+  EventSource: myEventSource,
+  // localStorage-compatible object
+  localStorage: {
+    getItem: (key) => myStorage.get(key),
+    setItem: (key, value) => myStorage.set(key, value),
+  },
+});
+```
+
+**Note**: `setPolyfills` must be called **before** creating a GrowthBook instance.
+
+For server-side (Node.js) usage, see the [Node.js SDK docs](/lib/node) which covers required polyfills for that environment.
+
 ## Re-rendering When Features Change
 
 When features change (e.g. by calling `gb.refreshFeatures()`), you need to re-render your app so that all of your feature flag checks can be re-evaluated. You can specify your own custom rendering function for this purpose:
