@@ -1,29 +1,30 @@
+import { Flex } from "@radix-ui/themes";
+import Head from "next/head";
+import Link from "next/link";
+import router from "next/router";
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaAngleRight, FaBars } from "react-icons/fa";
 import {
-  PiPlusBold,
+  PiBuildingFill,
   PiCaretDownFill,
   PiCircleHalf,
   PiFiles,
   PiKey,
   PiListChecks,
   PiMoon,
+  PiPlusBold,
   PiSunDim,
-  PiBuildingFill,
 } from "react-icons/pi";
-import Link from "next/link";
-import Head from "next/head";
-import { Flex, Text } from "@radix-ui/themes";
-import router from "next/router";
-import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownSubMenu,
-} from "@/ui/DropdownMenu";
+import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
+import Avatar from "@/components/Avatar/Avatar";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Field from "@/components/Forms/Field";
+import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
+import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import Modal from "@/components/Modal";
+import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -33,18 +34,19 @@ import {
   showMultiOrgSelfSelector,
   usingSSO,
 } from "@/services/env";
-import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
-import Modal from "@/components/Modal";
-import Avatar from "@/components/Avatar/Avatar";
-import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
-import Field from "@/components/Forms/Field";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
-import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
-import styles from "./TopNav.module.scss";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/ui/DropdownMenu";
+import Text from "@/ui/Text";
 import { usePageHead } from "./PageHead";
+import styles from "./TopNav.module.scss";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -163,13 +165,13 @@ const TopNav: FC<{
         <DropdownMenuGroup style={{ marginBottom: 4 }}>
           <DropdownMenuLabel style={{ height: "inherit" }}>
             {name && (
-              <Text weight="bold" className="text-main">
+              <Text weight="semibold" color="text-high">
                 {name}
               </Text>
             )}
           </DropdownMenuLabel>
           <DropdownMenuLabel style={{ height: "inherit" }}>
-            <Text className="text-secondary">{email}</Text>
+            <Text color="text-mid">{email}</Text>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
       </>
@@ -458,22 +460,22 @@ const TopNav: FC<{
               setDropdownOpen(!!o);
             }}
             trigger={
-              <div className="nav-link d-flex">
-                <Avatar
-                  email={email || ""}
-                  size={26}
-                  name={name || ""}
-                  className="mr-2"
-                />{" "}
+              <Button
+                variant="ghost"
+                color="gray"
+                icon={
+                  <Avatar email={email || ""} size={26} name={name || ""} />
+                }
+              >
                 <span className="d-none d-lg-inline">
                   <OverflowText maxWidth={200}>
-                    <Text weight={"bold"} style={{ fontSize: 14 }}>
+                    <Text weight="semibold" size="small">
                       {email}
                     </Text>
                   </OverflowText>{" "}
                   <PiCaretDownFill />
                 </span>
-              </div>
+              </Button>
             }
           >
             {renderNameAndEmailDropdownLabel()}

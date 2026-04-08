@@ -514,11 +514,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Layout/TopNav.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Layout/TopNavLite.tsx": {
     "no-restricted-imports": {
       "count": 1
