@@ -52,39 +52,25 @@ import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import { isCloud } from "@/services/env";
-import {
-  AI_MODEL_DISPLAY_LABELS,
-  getAvailableAIModelOptions,
-} from "@/services/aiModelSelectOptions";
+import { getAvailableAIModelOptions } from "@/services/aiModelSelectOptions";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import SaveToDashboardModal from "./SaveToDashboardModal";
-import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
+import {
+  PA_AI_CHAT_INITIAL_MESSAGE_KEY,
+  PA_AI_CHAT_INITIAL_MODEL_KEY,
+} from "./util";
 
 const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
 
-function explorerPaChatModelOptions(
-  orgPromptTypeOverride: string,
-  orgDefaultAIModel: string,
-): (
+function explorerPaChatModelOptions(): (
   | { value: string; label: string }
   | { label: string; options: { value: string; label: string }[] }
 )[] {
-  const effectiveId =
-    orgPromptTypeOverride.trim() !== ""
-      ? orgPromptTypeOverride
-      : orgDefaultAIModel;
-  const displayName =
-    AI_MODEL_DISPLAY_LABELS[
-      effectiveId as keyof typeof AI_MODEL_DISPLAY_LABELS
-    ] ?? effectiveId;
-  return [
-    { value: "", label: `${displayName} (Default)` },
-    ...getAvailableAIModelOptions(),
-  ];
+  return getAvailableAIModelOptions();
 }
 
 // ---------------------------------------------------------------------------
@@ -255,10 +241,18 @@ export default function ExplorerAIChat() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAiOptInModal, setShowAiOptInModal] = useState(false);
-  const [chatOverrideModel, setChatOverrideModel] = useState("");
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, defaultAIModel } = useAISettings();
+
+  const [chatModel, setChatModel] = useState(() => {
+    const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MODEL_KEY);
+    if (stored) {
+      sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MODEL_KEY);
+      return stored;
+    }
+    return defaultAIModel;
+  });
   const permissionsUtil = usePermissionsUtil();
   const canPickModel = permissionsUtil.canManageOrgSettings();
   const { draftExploreState } = useExplorerContext();
@@ -285,17 +279,17 @@ export default function ExplorerAIChat() {
   }, [promptsData]);
 
   const paChatModelSelectOptions = useMemo(() => {
-    return explorerPaChatModelOptions(orgPaChatOverrideModel, defaultAIModel);
-  }, [orgPaChatOverrideModel, defaultAIModel]);
+    return explorerPaChatModelOptions();
+  }, []);
 
   const buildRequestBody = useCallback(
     (message: string, cid: string) => ({
       message,
       conversationId: cid,
       datasourceId: draftExploreState.datasource,
-      overrideModel: chatOverrideModel,
+      model: chatModel,
     }),
-    [draftExploreState.datasource, chatOverrideModel],
+    [draftExploreState.datasource, chatModel],
   );
 
   const { data: listData, mutate: refreshList } = useApi<{
@@ -356,9 +350,9 @@ export default function ExplorerAIChat() {
 
   const handleNewChat = useCallback(() => {
     newChat();
-    setChatOverrideModel("");
+    setChatModel(defaultAIModel);
     refreshList();
-  }, [newChat, refreshList]);
+  }, [newChat, refreshList, defaultAIModel]);
 
   const handleDeleteConversation = useCallback(
     async (id: string) => {
@@ -695,7 +689,7 @@ export default function ExplorerAIChat() {
           const conv = listData?.conversations.find(
             (c) => c.conversationId === id,
           );
-          setChatOverrideModel(conv?.model ?? "");
+          setChatModel(conv?.model ?? defaultAIModel);
         }}
         onNewChat={handleNewChat}
         onDelete={handleDeleteConversation}
@@ -828,15 +822,6 @@ export default function ExplorerAIChat() {
           }}
         >
           <Flex gap="2" width="100%" align="center" justify="center">
-            <Field
-              placeholder="Ask about metrics, experiments, or setup..."
-              containerStyle={{ maxWidth: "800px", flex: 1 }}
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={loading}
-            />
             {!isCloud() && (
               <Tooltip
                 enabled={!!modelDisabledReason}
@@ -849,26 +834,70 @@ export default function ExplorerAIChat() {
                 >
                   <SelectField
                     id="explorer-ai-chat-model"
-                    value={
-                      canPickModel ? chatOverrideModel : orgPaChatOverrideModel
-                    }
+                    value={canPickModel ? chatModel : orgPaChatOverrideModel}
                     onChange={(v) => {
-                      if (canPickModel && !chatHasMessages)
-                        setChatOverrideModel(v);
+                      if (canPickModel && !chatHasMessages) setChatModel(v);
                     }}
                     options={paChatModelSelectOptions}
                     disabled={!!modelDisabledReason}
                     placeholder="AI model"
+                    formatOptionLabel={(option, { context }) => {
+                      if (
+                        option.value === defaultAIModel &&
+                        context === "menu"
+                      ) {
+                        return (
+                          <Flex direction="column" gap="0">
+                            <Text>{option.label}</Text>
+                            <span
+                              style={{
+                                color: "var(--text-color-muted)",
+                                fontSize: "var(--font-size-1)",
+                              }}
+                            >
+                              Organization Default
+                            </span>
+                          </Flex>
+                        );
+                      }
+                      return <span>{option.label}</span>;
+                    }}
                     containerStyle={{
                       marginBottom: 0,
                       ...(modelDisabledReason
                         ? { pointerEvents: "none" }
                         : undefined),
                     }}
+                    containerStyles={{
+                      control: (styles) => ({
+                        ...styles,
+                        width: "150px",
+                        minHeight: "35px",
+                        height: "35px",
+                      }),
+                      valueContainer: (styles) => ({
+                        ...styles,
+                        paddingTop: 0,
+                        paddingBottom: 0,
+                      }),
+                      indicatorsContainer: (styles) => ({
+                        ...styles,
+                        height: "35px",
+                      }),
+                    }}
                   />
                 </span>
               </Tooltip>
             )}
+            <Field
+              placeholder="Ask about metrics, experiments, or setup..."
+              containerStyle={{ maxWidth: "800px", flex: 1 }}
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading}
+            />
             {isLocalStream ? (
               <Button onClick={cancelGeneration} title="Cancel generation">
                 <PiStop size={16} />

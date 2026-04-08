@@ -27,6 +27,7 @@ import { dateGranularity, explorationConfigValidator } from "shared/validators";
 export { mapDatabaseTypeToEnum };
 
 export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
+export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";

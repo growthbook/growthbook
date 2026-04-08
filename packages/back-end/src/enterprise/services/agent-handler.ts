@@ -112,7 +112,7 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 type AgentRequestBody = {
   message: string;
   conversationId: string;
-  overrideModel?: AIModel | "";
+  model: AIModel;
 } & Record<string, unknown>;
 type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
@@ -158,16 +158,15 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       context.userId,
     );
 
-    const requestModel = body.overrideModel;
+    const requestModel = body.model;
     const canOverride = context.permissions.canManageOrgSettings();
 
-    // When the request carries an explicit model selection (including "" to clear),
-    // and the user has permission, persist it to the conversation.
-    if (canOverride && requestModel !== undefined) {
-      buffer.setModel(requestModel || undefined);
+    // Persist the model selection to the conversation when the user has permission.
+    if (canOverride) {
+      buffer.setModel(requestModel);
     }
 
-    // Resolution: request (permitted + non-empty) → conversation stored → org prompt override
+    // Resolution: request (permitted) → conversation stored → org prompt override
     const overrideModel =
       (canOverride && requestModel) ||
       (buffer.getModel() as AIModel | undefined) ||

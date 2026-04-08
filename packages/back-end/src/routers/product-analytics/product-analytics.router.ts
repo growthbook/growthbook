@@ -37,7 +37,7 @@ router.post(
         message: z.string().min(1),
         conversationId: z.string().min(1),
         datasourceId: z.string(),
-        overrideModel: aiModelValidator.or(z.literal("")).optional(),
+        model: aiModelValidator,
       })
       .strict(),
   }),
