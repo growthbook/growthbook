@@ -98,9 +98,15 @@ export default function CovariateImbalanceCard({
     goalAndGuardrailMetricsTested +
     (covariateImbalanceResult?.numSecondaryMetrics ?? 0);
 
-  const pValueThreshold =
-    covariateImbalanceResult?.pValueThreshold ??
-    DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE;
+  // Match packages/shared/src/health/covariate-imbalance.ts: per-metric flags use
+  // Bonferroni α_family / nTests (only goal + guardrail metrics count toward nTests).
+  const numVariations = variations.length;
+  const numBonferroniTests = Math.max(
+    1,
+    (numVariations - 1) *
+      ((snapshot.settings.goalMetrics?.length ?? 0) +
+        (snapshot.settings.guardrailMetrics?.length ?? 0)),
+  );
 
   // Check if CUPED is enabled for the experiment
   const cupedEnabled = snapshot.settings.regressionAdjustmentEnabled;
@@ -172,12 +178,15 @@ export default function CovariateImbalanceCard({
             </Callout>
           ) : (
             <Callout status="warning">
+              Pre-exposure imbalance detected in{" "}
               <Text weight="semibold">
-                {goalAndGuardrailMetricsImbalanced} goal or guardrail metric
-                {goalAndGuardrailMetricsImbalanced > 1 ? "s" : ""}
+                {goalAndGuardrailMetricsImbalanced} goal and guardrail metric
+                {goalAndGuardrailMetricsImbalanced !== 1 ? "s" : ""}
               </Text>{" "}
-              show{goalAndGuardrailMetricsImbalanced > 1 ? "" : "s"}{" "}
-              pre-exposure imbalance (significance level {pValueThreshold}).{" "}
+              (significance level{" "}
+              {DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE},
+              Bonferroni-corrected for {numBonferroniTests} test
+              {numBonferroniTests !== 1 ? "s" : ""}).{" "}
               <Text weight="semibold">
                 <Link
                   href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
