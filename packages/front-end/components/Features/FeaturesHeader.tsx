@@ -136,15 +136,26 @@ export default function FeaturesHeader({
   // Sticky tabs header — mirrors the experiment page pattern
   // NB: Keep in sync with .feature-tabs top property in global.scss
   const TABS_HEADER_HEIGHT_PX = 55;
-  const tabsRef = useRef<HTMLDivElement>(null);
+  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
   useEffect(() => {
-    if (!tabsRef.current) return;
-    setHeaderPinned(
-      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX,
+    const el = tabsPinSentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeaderPinned(!entry.isIntersecting);
+      },
+      {
+        root: null,
+        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        threshold: 0,
+      },
     );
-  }, [scrollY]);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
   // Moving a single DOM node keeps dropdown menus stable.
@@ -528,28 +539,40 @@ export default function FeaturesHeader({
           </div>
         </Box>
       </Box>
-      <div
-        className={clsx("feature-tabs d-print-none", {
-          pinned: headerPinned,
-        })}
-      >
-        <div className="container-fluid pagecontents px-3">
-          <div className="header-tabs" ref={tabsRef}>
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList size="3" style={{ width: "100%" }}>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="test">Simulate</TabsTrigger>
-                <TabsTrigger value="stats">Code Refs</TabsTrigger>
-                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
-                <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
-                  <div ref={tabsSlotRef} />
-                </Box>
-              </TabsList>
-            </Tabs>
+      <>
+        <div
+          ref={tabsPinSentinelRef}
+          aria-hidden
+          className="d-print-none"
+          style={{
+            height: 1,
+            width: "100%",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          className={clsx("feature-tabs d-print-none", {
+            pinned: headerPinned,
+          })}
+        >
+          <div className="container-fluid pagecontents px-3">
+            <div className="header-tabs">
+              <Tabs value={tab} onValueChange={setTab}>
+                <TabsList size="3" style={{ width: "100%" }}>
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="test">Simulate</TabsTrigger>
+                  <TabsTrigger value="stats">Code Refs</TabsTrigger>
+                  <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                  {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
+                  <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
+                    <div ref={tabsSlotRef} />
+                  </Box>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </div>
-      </div>
+      </>
       {auditModal && (
         <CompareFeatureEventsModal
           feature={feature}
