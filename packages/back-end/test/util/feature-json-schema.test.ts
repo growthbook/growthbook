@@ -29,7 +29,7 @@ describe("getInitialFeatureJsonSchema", () => {
       }),
     );
     expect(schema.date).toBeInstanceOf(Date);
-    expect(schema.date).not.toBe(sourceDate);
+    expect(schema.date.getTime()).toBeGreaterThan(sourceDate.getTime());
   });
 
   it("uses a disabled default schema when no source schema is provided", () => {
