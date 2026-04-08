@@ -219,7 +219,7 @@ export default function EmptyState() {
                     // If the user can't run fact queries for the current project, or globally, don't show enable the button
                     !permissionsUtil.canRunFactQueries({
                       projects: [project],
-                    }) && !!permissionsUtil.canRunFactQueries({ projects: [] })
+                    }) && !permissionsUtil.canRunFactQueries({ projects: [] })
                   }
                   style={buttonStyle}
                 >
