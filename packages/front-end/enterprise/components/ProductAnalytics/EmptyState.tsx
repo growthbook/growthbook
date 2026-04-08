@@ -49,6 +49,7 @@ export default function EmptyState() {
     () => getAvailableAIModelOptions(),
     [],
   );
+  const isDataSourceEmpty = datasources.length === 0;
 
   const handleSubmit = useCallback(() => {
     const trimmed = input.trim();
@@ -68,7 +69,6 @@ export default function EmptyState() {
     [handleSubmit],
   );
 
-  const hasDatasources = datasources.length > 0;
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
   return (
@@ -93,19 +93,24 @@ export default function EmptyState() {
           border: "1px solid var(--slate-a3)",
           borderRadius: "4px",
           backgroundColor: "var(--surface-background-color)",
+          padding: "60px 80px",
         }}
       >
         <Flex direction="column" align="center" pb="6">
           <Heading as="h2" size="x-large" weight="medium">
-            Select an Explorer Type
+            {isDataSourceEmpty
+              ? "No data sources selected"
+              : "Select an Explorer Type"}
           </Heading>
           <Text color="text-low" align="center" size="large">
-            Choose how you want to explore your data
+            {isDataSourceEmpty
+              ? "Connect to a data source to start exploring your data."
+              : "Choose how you want to explore your data"}
           </Text>
         </Flex>
 
         <Flex direction="column" gap="3">
-          {!hasDatasources && (
+          {isDataSourceEmpty ? (
             <Callout status="warning">
               Before you can explore your data, you&apos;ll need to{" "}
               <Link href="/datasources">connect a Data Source.</Link>
@@ -309,15 +314,139 @@ export default function EmptyState() {
                 <Button
                   onClick={handleSubmit}
                   disabled={
-                    !input.trim() || !hasDatasources || !hasAISuggestions
+                    // If the user can't run metrics for the current project, or globally, don't show enable the button
+                    !permissionsUtil.canRunMetricQueries({
+                      projects: [project],
+                    }) && !permissionsUtil.canRunMetricQueries({ projects: [] })
                   }
-                  size="md"
+                  style={{
+                    height: "116px",
+                    paddingTop: "16px",
+                    paddingBottom: "16px",
+                    width: "160px",
+                  }}
                 >
-                  <PiArrowRightBold size={16} />
-                </Button>
+                  <Flex direction="column" align="center" gap="1">
+                    <PiChartBar size={24} />
+                    <Text weight="medium">Metrics</Text>
+                  </Flex>
+                </LinkButton>
+                <LinkButton
+                  href="/product-analytics/explore/fact-table"
+                  variant="outline"
+                  disabled={
+                    // If the user can't run fact queries for the current project, or globally, don't show enable the button
+                    !permissionsUtil.canRunFactQueries({
+                      projects: [project],
+                    }) && !permissionsUtil.canRunFactQueries({ projects: [] })
+                  }
+                  style={{
+                    height: "116px",
+                    paddingTop: "16px",
+                    paddingBottom: "16px",
+                    width: "160px",
+                  }}
+                >
+                  <Flex direction="column" align="center" gap="1">
+                    <PiTable size={24} />
+                    <Text weight="medium">Fact Table</Text>
+                  </Flex>
+                </LinkButton>
+                <LinkButton
+                  href="/product-analytics/explore/data-source"
+                  variant="outline"
+                  disabled={
+                    // If the user can't run fact queries for the current project, or globally, don't show enable the button
+                    !permissionsUtil.canRunFactQueries({
+                      projects: [project],
+                    }) && !!permissionsUtil.canRunFactQueries({ projects: [] })
+                  }
+                  style={{
+                    height: "116px",
+                    paddingTop: "16px",
+                    paddingBottom: "16px",
+                    width: "160px",
+                  }}
+                >
+                  <Flex direction="column" align="center" gap="1">
+                    <PiDatabase size={24} />
+                    <Text weight="medium">Data Source</Text>
+                  </Flex>
+                </LinkButton>
+                <LinkButton
+                  href="/sql-explorer"
+                  variant="outline"
+                  style={{
+                    height: "116px",
+                    paddingTop: "16px",
+                    paddingBottom: "16px",
+                    width: "160px",
+                  }}
+                  disabled={
+                    // If the user can't run custom SQL queries for the current project, or globally, don't show enable the button
+                    !permissionsUtil.canRunFactQueries({
+                      projects: [project],
+                    }) && !permissionsUtil.canRunFactQueries({ projects: [] })
+                  }
+                >
+                  <Flex direction="column" align="center" gap="1">
+                    <PiCode size={24} />
+                    <Text weight="medium">Custom SQL</Text>
+                  </Flex>
+                </LinkButton>
+                <LinkButton
+                  href="/product-analytics/explore/ai-chat"
+                  variant="outline"
+                  disabled={!hasAISuggestions}
+                  style={{
+                    height: "116px",
+                    paddingTop: "16px",
+                    paddingBottom: "16px",
+                    width: "160px",
+                  }}
+                >
+                  <Flex direction="column" align="center" gap="1">
+                    <BsStars size={22} />
+                    <Text weight="medium">AI Chat</Text>
+                  </Flex>
+                </LinkButton>
               </Flex>
-            </Flex>
-          </Flex>
+              <Flex justify="center" direction="column" gap="5" mt="3">
+                <TextDivider width={435}>or ask anything with AI</TextDivider>
+                <Flex
+                  align="center"
+                  gap="3"
+                  direction="column"
+                  justify="center"
+                >
+                  <Flex gap="2" width="100%" align="center" justify="center">
+                    <Field
+                      placeholder="Ask about metrics, experiments, or setup..."
+                      containerStyle={{
+                        maxWidth: "800px",
+                        flex: 1,
+                      }}
+                      style={{ height: "40px" }}
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      disabled={isDataSourceEmpty || !hasAISuggestions}
+                    />
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={
+                        !input.trim() || isDataSourceEmpty || !hasAISuggestions
+                      }
+                      size="md"
+                    >
+                      <PiArrowRightBold size={16} />
+                    </Button>
+                  </Flex>
+                </Flex>
+              </Flex>
+            </>
+          )}
         </Flex>
       </Box>
     </Box>
