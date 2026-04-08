@@ -9,10 +9,14 @@ import {
   PiDatabase,
   PiTable,
 } from "react-icons/pi";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { dataSourceConnections } from "@/services/eventSchema";
+import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { getAvailableAIModelOptions } from "@/services/aiModelSelectOptions";
@@ -20,9 +24,7 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -32,11 +34,18 @@ import {
 } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
+const supportedConnections = dataSourceConnections.filter(
+  (
+    c,
+  ): c is (typeof dataSourceConnections)[number] & {
+    type: "databricks" | "snowflake" | "bigquery";
+  } => ["databricks", "snowflake", "bigquery"].includes(c.type),
+);
+
 export default function EmptyState() {
   const router = useRouter();
   const { permissionsUtil, hasCommercialFeature } = useUser();
-  const { datasources } = useDefinitions();
-  const { project } = useDefinitions();
+  const { datasources, mutateDefinitions, project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
 
@@ -49,6 +58,9 @@ export default function EmptyState() {
     () => getAvailableAIModelOptions(),
     [],
   );
+  const [newModalData, setNewModalData] =
+    useState<null | Partial<DataSourceInterfaceWithParams>>(null);
+
   const isDataSourceEmpty = datasources.length === 0;
 
   const handleSubmit = useCallback(() => {
@@ -96,7 +108,11 @@ export default function EmptyState() {
           padding: "60px 80px",
         }}
       >
-        <Flex direction="column" align="center" pb="6">
+        <Flex
+          direction="column"
+          align="center"
+          pb={isDataSourceEmpty ? "2" : "6"}
+        >
           <Heading as="h2" size="x-large" weight="medium">
             {isDataSourceEmpty
               ? "No data sources selected"
@@ -111,208 +127,51 @@ export default function EmptyState() {
 
         <Flex direction="column" gap="3">
           {isDataSourceEmpty ? (
-            <Callout status="warning">
-              Before you can explore your data, you&apos;ll need to{" "}
-              <Link href="/datasources">connect a Data Source.</Link>
-            </Callout>
-          )}
-          <Flex gap="3">
-            <LinkButton
-              href="/product-analytics/explore/metrics"
-              variant="outline"
-              disabled={
-                // If the user can't run metrics for the current project, or globally, don't show enable the button
-                (!permissionsUtil.canRunMetricQueries({
-                  projects: [project],
-                }) &&
-                  !permissionsUtil.canRunMetricQueries({ projects: [] })) ||
-                !hasDatasources
-              }
-              style={{
-                height: "116px",
-                paddingTop: "16px",
-                paddingBottom: "16px",
-                width: "160px",
-              }}
-            >
-              <Flex direction="column" align="center" gap="1">
-                <PiChartBar size={24} />
-                <Text weight="medium">Metrics</Text>
-              </Flex>
-            </LinkButton>
-            <LinkButton
-              href="/product-analytics/explore/fact-table"
-              variant="outline"
-              disabled={
-                // If the user can't run fact queries for the current project, or globally, don't show enable the button
-                (!permissionsUtil.canRunFactQueries({ projects: [project] }) &&
-                  !permissionsUtil.canRunFactQueries({ projects: [] })) ||
-                !hasDatasources
-              }
-              style={{
-                height: "116px",
-                paddingTop: "16px",
-                paddingBottom: "16px",
-                width: "160px",
-              }}
-            >
-              <Flex direction="column" align="center" gap="1">
-                <PiTable size={24} />
-                <Text weight="medium">Fact Table</Text>
-              </Flex>
-            </LinkButton>
-            <LinkButton
-              href="/product-analytics/explore/data-source"
-              variant="outline"
-              disabled={
-                // If the user can't run fact queries for the current project, or globally, don't show enable the button
-                (!permissionsUtil.canRunFactQueries({ projects: [project] }) &&
-                  !!permissionsUtil.canRunFactQueries({ projects: [] })) ||
-                !hasDatasources
-              }
-              style={{
-                height: "116px",
-                paddingTop: "16px",
-                paddingBottom: "16px",
-                width: "160px",
-              }}
-            >
-              <Flex direction="column" align="center" gap="1">
-                <PiDatabase size={24} />
-                <Text weight="medium">Data Source</Text>
-              </Flex>
-            </LinkButton>
-            <LinkButton
-              href="/sql-explorer"
-              variant="outline"
-              style={{
-                height: "116px",
-                paddingTop: "16px",
-                paddingBottom: "16px",
-                width: "160px",
-              }}
-              disabled={
-                // If the user can't run custom SQL queries for the current project, or globally, don't show enable the button
-                (!permissionsUtil.canRunFactQueries({
-                  projects: [project],
-                }) &&
-                  !permissionsUtil.canRunFactQueries({ projects: [] })) ||
-                !hasDatasources
-              }
-            >
-              <Flex direction="column" align="center" gap="1">
-                <PiCode size={24} />
-                <Text weight="medium">Custom SQL</Text>
-              </Flex>
-            </LinkButton>
-            <LinkButton
-              href="/product-analytics/explore/ai-chat"
-              variant="outline"
-              disabled={!hasDatasources || !hasAISuggestions}
-              style={{
-                height: "116px",
-                paddingTop: "16px",
-                paddingBottom: "16px",
-                width: "160px",
-              }}
-            >
-              <Flex direction="column" align="center" gap="1">
-                <BsStars size={22} />
-                <Text weight="medium">AI Chat</Text>
-              </Flex>
-            </LinkButton>
-          </Flex>
-          <Flex justify="center" direction="column" gap="5" mt="3">
-            <TextDivider width={435}>or ask anything with AI</TextDivider>
-            <Flex align="center" gap="3" direction="column" justify="center">
-              <Flex gap="2" width="100%" align="center" justify="center">
-                {!isCloud() && (
-                  <Tooltip
-                    enabled={!canPickModel}
-                    content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
-                  >
-                    <span
-                      style={
-                        !canPickModel ? { cursor: "not-allowed" } : undefined
-                      }
+            <Flex direction="column" gap="3" align="center">
+              <Button
+                variant="solid"
+                color="violet"
+                onClick={() => router.push("/datasources")}
+                style={{
+                  width: "fit-content",
+                }}
+              >
+                Connect a Data Source
+              </Button>
+              <Flex justify="center" direction="column" gap="5" mt="3">
+                <TextDivider width={435}>
+                  or continue with an existing source
+                </TextDivider>
+                <Flex gap="3" justify="center">
+                  {supportedConnections.map((connection) => (
+                    <Button
+                      key={connection.type}
+                      variant="outline"
+                      color="violet"
+                      onClick={() => {
+                        setNewModalData({
+                          type: connection.type,
+                          params: connection.default,
+                        } as Partial<DataSourceInterfaceWithParams>);
+
+                        track("Data Source Type Selected", {
+                          type: connection.type,
+                          newDatasourceForm: true,
+                        });
+                      }}
                     >
-                      <SelectField
-                        id="empty-state-ai-chat-model"
-                        value={chatModel}
-                        onChange={(v) => {
-                          if (canPickModel) setChatModel(v);
-                        }}
-                        options={paChatModelSelectOptions}
-                        disabled={!canPickModel}
-                        placeholder="AI model"
-                        formatOptionLabel={(option, { context }) => {
-                          if (
-                            option.value === defaultAIModel &&
-                            context === "menu"
-                          ) {
-                            return (
-                              <Flex direction="column" gap="0">
-                                <Text>{option.label}</Text>
-                                <span
-                                  style={{
-                                    color: "var(--text-color-muted)",
-                                    fontSize: "var(--font-size-1)",
-                                  }}
-                                >
-                                  Organization Default
-                                </span>
-                              </Flex>
-                            );
-                          }
-                          return <span>{option.label}</span>;
-                        }}
-                        containerStyle={{
-                          marginBottom: 0,
-                          ...(!canPickModel
-                            ? { pointerEvents: "none" }
-                            : undefined),
-                        }}
-                        containerStyles={{
-                          control: (styles) => ({
-                            ...styles,
-                            width: "150px",
-                            minHeight: "35px",
-                            height: "35px",
-                          }),
-                          valueContainer: (styles) => ({
-                            ...styles,
-                            paddingTop: 0,
-                            paddingBottom: 0,
-                          }),
-                          indicatorsContainer: (styles) => ({
-                            ...styles,
-                            height: "35px",
-                          }),
-                          menu: (styles) => ({
-                            ...styles,
-                            width: "max-content",
-                            minWidth: "100%",
-                          }),
-                        }}
-                      />
-                    </span>
-                  </Tooltip>
-                )}
-                <Field
-                  placeholder="Ask about metrics, experiments, or setup..."
-                  containerStyle={{
-                    maxWidth: "800px",
-                    flex: 1,
-                  }}
-                  style={{ height: "40px" }}
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={!hasDatasources || !hasAISuggestions}
-                />
-                <Button
-                  onClick={handleSubmit}
+                      {connection.display}
+                    </Button>
+                  ))}
+                </Flex>
+              </Flex>
+            </Flex>
+          ) : (
+            <>
+              <Flex gap="3">
+                <LinkButton
+                  href="/product-analytics/explore/metrics"
+                  variant="outline"
                   disabled={
                     // If the user can't run metrics for the current project, or globally, don't show enable the button
                     !permissionsUtil.canRunMetricQueries({
@@ -420,6 +279,80 @@ export default function EmptyState() {
                   justify="center"
                 >
                   <Flex gap="2" width="100%" align="center" justify="center">
+                    {!isCloud() && (
+                      <Tooltip
+                        enabled={!canPickModel}
+                        content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+                      >
+                        <span
+                          style={
+                            !canPickModel
+                              ? { cursor: "not-allowed" }
+                              : undefined
+                          }
+                        >
+                          <SelectField
+                            id="empty-state-ai-chat-model"
+                            value={chatModel}
+                            onChange={(v) => {
+                              if (canPickModel) setChatModel(v);
+                            }}
+                            options={paChatModelSelectOptions}
+                            disabled={!canPickModel}
+                            placeholder="AI model"
+                            formatOptionLabel={(option, { context }) => {
+                              if (
+                                option.value === defaultAIModel &&
+                                context === "menu"
+                              ) {
+                                return (
+                                  <Flex direction="column" gap="0">
+                                    <Text>{option.label}</Text>
+                                    <span
+                                      style={{
+                                        color: "var(--text-color-muted)",
+                                        fontSize: "var(--font-size-1)",
+                                      }}
+                                    >
+                                      Organization Default
+                                    </span>
+                                  </Flex>
+                                );
+                              }
+                              return <span>{option.label}</span>;
+                            }}
+                            containerStyle={{
+                              marginBottom: 0,
+                              ...(!canPickModel
+                                ? { pointerEvents: "none" }
+                                : undefined),
+                            }}
+                            containerStyles={{
+                              control: (styles) => ({
+                                ...styles,
+                                width: "150px",
+                                minHeight: "35px",
+                                height: "35px",
+                              }),
+                              valueContainer: (styles) => ({
+                                ...styles,
+                                paddingTop: 0,
+                                paddingBottom: 0,
+                              }),
+                              indicatorsContainer: (styles) => ({
+                                ...styles,
+                                height: "35px",
+                              }),
+                              menu: (styles) => ({
+                                ...styles,
+                                width: "max-content",
+                                minWidth: "100%",
+                              }),
+                            }}
+                          />
+                        </span>
+                      </Tooltip>
+                    )}
                     <Field
                       placeholder="Ask about metrics, experiments, or setup..."
                       containerStyle={{
@@ -431,7 +364,7 @@ export default function EmptyState() {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      disabled={isDataSourceEmpty || !hasAISuggestions}
+                      disabled={!hasAISuggestions}
                     />
                     <Button
                       onClick={handleSubmit}
@@ -449,6 +382,20 @@ export default function EmptyState() {
           )}
         </Flex>
       </Box>
+      {newModalData && (
+        <NewDataSourceForm
+          initial={newModalData || undefined}
+          source="datasource-list"
+          onSuccess={async (id) => {
+            await mutateDefinitions({});
+            await router.push(`/datasources/${id}`);
+          }}
+          onCancel={() => {
+            setNewModalData(null);
+          }}
+          showImportSampleData={false}
+        />
+      )}
     </Box>
   );
 }
