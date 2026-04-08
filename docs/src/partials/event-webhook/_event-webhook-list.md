@@ -116,6 +116,7 @@ Triggered when a feature is created
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -161,6 +162,7 @@ Triggered when a feature is created
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -308,6 +310,7 @@ Triggered when a feature is created
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -353,6 +356,7 @@ Triggered when a feature is created
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -569,6 +573,7 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -614,6 +619,7 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -761,6 +767,7 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -806,6 +813,7 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -983,6 +991,7 @@ Triggered when a feature is updated
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1028,6 +1037,7 @@ Triggered when a feature is updated
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1175,6 +1185,7 @@ Triggered when a feature is updated
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1220,6 +1231,7 @@ Triggered when a feature is updated
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -1441,6 +1453,7 @@ Triggered when a feature is deleted
                 } & {
                     type: "rollout";
                     value: string;
+                    /** Rollout Percent (0–1) */
                     coverage: number;
                     hashAttribute: string;
                     /** Optional seed for the hash function; defaults to the rule id */
@@ -1486,6 +1499,7 @@ Triggered when a feature is deleted
                         name: string;
                         range: number[];
                     } | undefined;
+                    /** Rollout Percent (0–1) */
                     coverage?: number | undefined;
                     /** Variation values with weights */
                     value?: {
@@ -1633,6 +1647,7 @@ Triggered when a feature is deleted
                     } & {
                         type: "rollout";
                         value: string;
+                        /** Rollout Percent (0–1) */
                         coverage: number;
                         hashAttribute: string;
                         /** Optional seed for the hash function; defaults to the rule id */
@@ -1678,6 +1693,7 @@ Triggered when a feature is deleted
                             name: string;
                             range: number[];
                         } | undefined;
+                        /** Rollout Percent (0–1) */
                         coverage?: number | undefined;
                         /** Variation values with weights */
                         value?: {
@@ -2354,6 +2370,7 @@ Triggered when an experiment is created
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2595,6 +2612,7 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -2797,6 +2815,7 @@ Triggered when an experiment is updated
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
@@ -3043,6 +3062,7 @@ Triggered when an experiment is deleted
                 dateEnded: string;
                 reasonForStopping: string;
                 seed: string;
+                /** Rollout Percent (0–1) */
                 coverage: number;
                 trafficSplit: {
                     variationId: string;
