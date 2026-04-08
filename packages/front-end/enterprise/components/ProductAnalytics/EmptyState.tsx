@@ -28,19 +28,12 @@ import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import {
   PA_AI_CHAT_INITIAL_MESSAGE_KEY,
   PA_AI_CHAT_INITIAL_MODEL_KEY,
 } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
-
-const supportedConnections = dataSourceConnections.filter(
-  (
-    c,
-  ): c is (typeof dataSourceConnections)[number] & {
-    type: "databricks" | "snowflake" | "bigquery";
-  } => ["databricks", "snowflake", "bigquery"].includes(c.type),
-);
 
 export default function EmptyState() {
   const router = useRouter();
@@ -49,7 +42,7 @@ export default function EmptyState() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
 
-  const { defaultAIModel } = useAISettings();
+  const { defaultAIModel, aiEnabled } = useAISettings();
   const permissions = usePermissionsUtil();
   const canPickModel = permissions.canManageOrgSettings();
   const [chatModel, setChatModel] = useState(defaultAIModel);
@@ -82,6 +75,25 @@ export default function EmptyState() {
   );
 
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+
+  const modelDisabledReason = !aiEnabled
+    ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
+    : !canPickModel
+      ? "Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+      : null;
+
+  const chatDisabledReason = !aiEnabled
+    ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
+    : !hasAISuggestions
+      ? "Your current plan does not include AI Chat."
+      : null;
+
+  const buttonStyle = {
+    height: "116px",
+    paddingTop: "16px",
+    paddingBottom: "16px",
+    width: "160px",
+  };
 
   return (
     <Box m="7">
@@ -142,28 +154,27 @@ export default function EmptyState() {
                 <TextDivider width={435}>
                   or continue with an existing source
                 </TextDivider>
-                <Flex gap="3" justify="center">
-                  {supportedConnections.map((connection) => (
-                    <Button
-                      key={connection.type}
-                      variant="outline"
-                      color="violet"
-                      onClick={() => {
-                        setNewModalData({
-                          type: connection.type,
-                          params: connection.default,
-                        } as Partial<DataSourceInterfaceWithParams>);
+                <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
+                  <DataSourceTypeSelector
+                    value=""
+                    setValue={(value) => {
+                      const option = dataSourceConnections.find(
+                        (o) => o.type === value,
+                      );
+                      if (!option) return;
 
-                        track("Data Source Type Selected", {
-                          type: connection.type,
-                          newDatasourceForm: true,
-                        });
-                      }}
-                    >
-                      {connection.display}
-                    </Button>
-                  ))}
-                </Flex>
+                      setNewModalData({
+                        type: option.type,
+                        params: option.default,
+                      } as Partial<DataSourceInterfaceWithParams>);
+
+                      track("Data Source Type Selected", {
+                        type: value,
+                        newDatasourceForm: true,
+                      });
+                    }}
+                  />
+                </div>
               </Flex>
             </Flex>
           ) : (
@@ -178,12 +189,7 @@ export default function EmptyState() {
                       projects: [project],
                     }) && !permissionsUtil.canRunMetricQueries({ projects: [] })
                   }
-                  style={{
-                    height: "116px",
-                    paddingTop: "16px",
-                    paddingBottom: "16px",
-                    width: "160px",
-                  }}
+                  style={buttonStyle}
                 >
                   <Flex direction="column" align="center" gap="1">
                     <PiChartBar size={24} />
@@ -199,12 +205,7 @@ export default function EmptyState() {
                       projects: [project],
                     }) && !permissionsUtil.canRunFactQueries({ projects: [] })
                   }
-                  style={{
-                    height: "116px",
-                    paddingTop: "16px",
-                    paddingBottom: "16px",
-                    width: "160px",
-                  }}
+                  style={buttonStyle}
                 >
                   <Flex direction="column" align="center" gap="1">
                     <PiTable size={24} />
@@ -220,12 +221,7 @@ export default function EmptyState() {
                       projects: [project],
                     }) && !!permissionsUtil.canRunFactQueries({ projects: [] })
                   }
-                  style={{
-                    height: "116px",
-                    paddingTop: "16px",
-                    paddingBottom: "16px",
-                    width: "160px",
-                  }}
+                  style={buttonStyle}
                 >
                   <Flex direction="column" align="center" gap="1">
                     <PiDatabase size={24} />
@@ -235,12 +231,7 @@ export default function EmptyState() {
                 <LinkButton
                   href="/sql-explorer"
                   variant="outline"
-                  style={{
-                    height: "116px",
-                    paddingTop: "16px",
-                    paddingBottom: "16px",
-                    width: "160px",
-                  }}
+                  style={buttonStyle}
                   disabled={
                     // If the user can't run custom SQL queries for the current project, or globally, don't show enable the button
                     !permissionsUtil.canRunFactQueries({
@@ -257,12 +248,7 @@ export default function EmptyState() {
                   href="/product-analytics/explore/ai-chat"
                   variant="outline"
                   disabled={!hasAISuggestions}
-                  style={{
-                    height: "116px",
-                    paddingTop: "16px",
-                    paddingBottom: "16px",
-                    width: "160px",
-                  }}
+                  style={buttonStyle}
                 >
                   <Flex direction="column" align="center" gap="1">
                     <BsStars size={22} />
@@ -281,12 +267,12 @@ export default function EmptyState() {
                   <Flex gap="2" width="100%" align="center" justify="center">
                     {!isCloud() && (
                       <Tooltip
-                        enabled={!canPickModel}
-                        content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+                        enabled={!!modelDisabledReason}
+                        content={modelDisabledReason ?? ""}
                       >
                         <span
                           style={
-                            !canPickModel
+                            modelDisabledReason
                               ? { cursor: "not-allowed" }
                               : undefined
                           }
@@ -295,10 +281,10 @@ export default function EmptyState() {
                             id="empty-state-ai-chat-model"
                             value={chatModel}
                             onChange={(v) => {
-                              if (canPickModel) setChatModel(v);
+                              if (!modelDisabledReason) setChatModel(v);
                             }}
                             options={paChatModelSelectOptions}
-                            disabled={!canPickModel}
+                            disabled={!!modelDisabledReason}
                             placeholder="AI model"
                             formatOptionLabel={(option, { context }) => {
                               if (
@@ -323,7 +309,7 @@ export default function EmptyState() {
                             }}
                             containerStyle={{
                               marginBottom: 0,
-                              ...(!canPickModel
+                              ...(modelDisabledReason
                                 ? { pointerEvents: "none" }
                                 : undefined),
                             }}
@@ -332,7 +318,7 @@ export default function EmptyState() {
                                 ...styles,
                                 width: "150px",
                                 minHeight: "35px",
-                                height: "35px",
+                                height: "40px",
                               }),
                               valueContainer: (styles) => ({
                                 ...styles,
@@ -353,28 +339,53 @@ export default function EmptyState() {
                         </span>
                       </Tooltip>
                     )}
-                    <Field
-                      placeholder="Ask about metrics, experiments, or setup..."
-                      containerStyle={{
-                        maxWidth: "800px",
-                        flex: 1,
-                      }}
-                      style={{ height: "40px" }}
-                      ref={inputRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      disabled={!hasAISuggestions}
-                    />
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={
-                        !input.trim() || isDataSourceEmpty || !hasAISuggestions
-                      }
-                      size="md"
+                    <Tooltip
+                      enabled={!!chatDisabledReason}
+                      content={chatDisabledReason ?? ""}
                     >
-                      <PiArrowRightBold size={16} />
-                    </Button>
+                      <Field
+                        placeholder="Ask about metrics, experiments, or setup..."
+                        containerStyle={{
+                          maxWidth: "800px",
+                          flex: 1,
+                        }}
+                        style={{ height: "40px" }}
+                        ref={inputRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        disabled={!!chatDisabledReason}
+                      />
+                    </Tooltip>
+                    <Tooltip
+                      enabled={!!chatDisabledReason}
+                      content={chatDisabledReason ?? ""}
+                    >
+                      <span
+                        style={
+                          chatDisabledReason
+                            ? { cursor: "not-allowed" }
+                            : undefined
+                        }
+                      >
+                        <Button
+                          onClick={handleSubmit}
+                          disabled={
+                            !!chatDisabledReason ||
+                            !input.trim() ||
+                            isDataSourceEmpty
+                          }
+                          size="md"
+                          style={
+                            chatDisabledReason
+                              ? { pointerEvents: "none" }
+                              : undefined
+                          }
+                        >
+                          <PiArrowRightBold size={16} />
+                        </Button>
+                      </span>
+                    </Tooltip>
                   </Flex>
                 </Flex>
               </Flex>
