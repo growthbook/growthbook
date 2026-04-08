@@ -297,6 +297,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled,
   postStratificationEnabled,
   dimension,
+  metricGroups = [],
 }: {
   statsEngine: StatsEngine;
   experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
@@ -304,6 +305,7 @@ export function getDefaultExperimentAnalysisSettings({
   regressionAdjustmentEnabled?: boolean;
   postStratificationEnabled?: boolean;
   dimension?: string;
+  metricGroups?: MetricGroupInterface[];
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -338,8 +340,14 @@ export function getDefaultExperimentAnalysisSettings({
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-    numGoalMetrics: experiment.goalMetrics.length,
-    numGuardrailMetrics: (experiment.guardrailMetrics ?? []).length,
+    numGoalMetrics: expandMetricGroups(
+      experiment.goalMetrics ?? [],
+      metricGroups,
+    ).length,
+    numGuardrailMetrics: expandMetricGroups(
+      experiment.guardrailMetrics ?? [],
+      metricGroups,
+    ).length,
   };
 }
 
@@ -1770,6 +1778,7 @@ export async function planExperimentSnapshot({
     regressionAdjustmentEnabled,
     postStratificationEnabled,
     dimension,
+    metricGroups,
   });
 
   const plan = await planSnapshot({

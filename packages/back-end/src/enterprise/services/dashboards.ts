@@ -159,6 +159,8 @@ export async function updateExperimentDashboards({
     isEqual,
   );
 
+  const metricGroups = await context.models.metricGroups.getAll();
+
   for (const snapshotSettings of uniqueSnapshotSettings) {
     const additionalAnalysisSettings =
       uniqWith<ExperimentSnapshotAnalysisSettings>(
@@ -177,6 +179,7 @@ export async function updateExperimentDashboards({
       regressionAdjustmentEnabled,
       postStratificationEnabled,
       dimension: snapshotSettings.dimensionId,
+      metricGroups,
     });
 
     const queryRunner = await createSnapshot({
