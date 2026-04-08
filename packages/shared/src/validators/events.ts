@@ -42,6 +42,9 @@ const eventUserApiKey = z
   .object({
     type: z.literal("api_key"),
     apiKey: z.string(),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    email: z.string().optional(),
   })
   .strict();
 

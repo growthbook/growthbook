@@ -50,7 +50,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import ProjectBadges from "@/components/ProjectBadges";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
 import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import { DashboardChartsProvider } from "@/enterprise/components/Dashboards/DashboardChartsContext";
@@ -303,7 +303,7 @@ function DashboardEditor({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const { apiCall } = useAuth();
-  const { userId, getOwnerDisplay } = useUser();
+  const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { allQueries, savedQueriesMap, snapshotError } = useContext(
     DashboardSnapshotContext,
@@ -327,8 +327,6 @@ function DashboardEditor({
   if (initialEditLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
-  const ownerName = getOwnerDisplay(dashboardOwnerId);
-
   const savedQueryIds = [...savedQueriesMap.keys()];
   const queryStrings = useMemo(() => {
     return allQueries.map((q) => q.query) ?? [];
@@ -715,14 +713,7 @@ function DashboardEditor({
             </Flex>
             <Flex align="center" gap="1">
               <Text weight="medium">Owner:</Text>
-              {ownerName ? (
-                <>
-                  <UserAvatar name={ownerName} size="sm" variant="soft" />
-                  <Text>{ownerName}</Text>
-                </>
-              ) : (
-                "None"
-              )}
+              <Owner ownerId={dashboardOwnerId} gap="1" />
             </Flex>
           </Flex>
         )}

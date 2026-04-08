@@ -821,9 +821,10 @@ describe("features API", () => {
       );
     });
 
-    it("role-based bypassApprovalChecks permission does NOT bypass when restApiBypassesReviews=false", async () => {
-      // Even if the API key's role has bypassApprovalChecks, the REST API path
-      // only respects the org-level restApiBypassesReviews setting.
+    it("role-based bypassApprovalChecks permission bypasses when restApiBypassesReviews=false", async () => {
+      // Tokens/roles that grant bypassApprovalChecks for the feature's project
+      // can still publish through the REST API even when the org-level
+      // restApiBypassesReviews setting is disabled.
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
         { canBypassApprovalChecks: () => true },
@@ -834,14 +835,14 @@ describe("features API", () => {
 
       expect(response.status).toBe(200);
       expect(createAndPublishRevision).toHaveBeenCalledWith(
-        expect.objectContaining({ canBypassApprovalChecks: false }),
+        expect.objectContaining({ canBypassApprovalChecks: true }),
       );
     });
 
-    it("throws when approvals required and restApiBypassesReviews=false, regardless of role permissions", async () => {
+    it("throws when approvals required and neither restApiBypassesReviews nor role permission allow bypass", async () => {
       setupUpdateTest(
         { ...approvalRequiredSettings, restApiBypassesReviews: false },
-        { canBypassApprovalChecks: () => true },
+        { canBypassApprovalChecks: () => false },
       );
       (createAndPublishRevision as jest.Mock).mockRejectedValue(
         Object.assign(
@@ -863,7 +864,7 @@ describe("features API", () => {
       );
     });
 
-    it("passes canBypassApprovalChecks=false when restApiBypassesReviews=false", async () => {
+    it("passes canBypassApprovalChecks=false when neither org setting nor role permission allow bypass", async () => {
       setupUpdateTest({
         ...approvalRequiredSettings,
         restApiBypassesReviews: false,

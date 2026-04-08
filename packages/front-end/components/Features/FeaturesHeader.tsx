@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
-import { Box, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -10,6 +10,8 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLink, PiCheck, PiEye, PiWarning } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
@@ -27,12 +29,11 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "@/ui/Link";
 import {
@@ -90,9 +91,7 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const { organization, hasCommercialFeature, getOwnerDisplay, users } =
-    useUser();
-  const ownerDisplay = getOwnerDisplay(feature.owner);
+  const { organization, hasCommercialFeature, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -416,7 +415,7 @@ export default function FeaturesHeader({
 
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
-              <Heading size="7" as="h1" mb="0">
+              <Heading size="2x-large" as="h1" mb="0">
                 {feature.id}
               </Heading>
               <StaleFeatureIcon
@@ -463,20 +462,14 @@ export default function FeaturesHeader({
                         body={<>This feature is not in your current project.</>}
                       >
                         {projectId && (
-                          <Text
-                            weight="regular"
-                            className={metaDataStyles.valueColor}
-                          >
+                          <Text weight="regular" color="text-mid">
                             {projectName}
                           </Text>
                         )}{" "}
                         <PiWarning className="text-warning" />
                       </Tooltip>
                     ) : projectId ? (
-                      <Text
-                        weight="regular"
-                        className={metaDataStyles.valueColor}
-                      >
+                      <Text weight="regular" color="text-mid">
                         {projectName}
                       </Text>
                     ) : canEdit && canPublish && !isReadOnly ? (
@@ -489,10 +482,7 @@ export default function FeaturesHeader({
                         +Add
                       </Link>
                     ) : (
-                      <Text
-                        weight="regular"
-                        className={metaDataStyles.valueColor}
-                      >
+                      <Text weight="regular" color="text-mid">
                         None
                       </Text>
                     )}
@@ -513,14 +503,7 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Owner: </Text>
-              {ownerDisplay ? (
-                <span>
-                  <UserAvatar name={ownerDisplay} size="sm" variant="soft" />{" "}
-                  {ownerDisplay}
-                </span>
-              ) : (
-                <em className="text-muted">None</em>
-              )}
+              <Owner ownerId={feature.owner} gap="1" />
             </Box>
           </Flex>
           <Box mt="1" mb="3">
