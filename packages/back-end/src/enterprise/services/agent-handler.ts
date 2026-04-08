@@ -112,7 +112,7 @@ type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 type AgentRequestBody = {
   message: string;
   conversationId: string;
-  overrideModel?: AIModel;
+  overrideModel?: AIModel | "";
 } & Record<string, unknown>;
 type OrgAIPromptConfig = Awaited<
   ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
@@ -152,18 +152,27 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       orgAdditionalPrompt,
       overrideModel: dbOverrideModel,
     } = await buildSystemPromptForRequest(context, config, params);
-
-    const requestModel = body.overrideModel;
-    const overrideModel =
-      requestModel && context.permissions.canManageOrgSettings()
-        ? requestModel
-        : dbOverrideModel;
-
     const buffer = await loadOrInitConversation(
       context.models.aiConversations,
       conversationId,
       context.userId,
     );
+
+    const requestModel = body.overrideModel;
+    const canOverride = context.permissions.canManageOrgSettings();
+
+    // When the request carries an explicit model selection (including "" to clear),
+    // and the user has permission, persist it to the conversation.
+    if (canOverride && requestModel !== undefined) {
+      buffer.setModel(requestModel || undefined);
+    }
+
+    // Resolution: request (permitted + non-empty) → conversation stored → org prompt override
+    const overrideModel =
+      (canOverride && requestModel) ||
+      (buffer.getModel() as AIModel | undefined) ||
+      dbOverrideModel ||
+      undefined;
 
     const { messages: messagesForLLM, isFirstMessage } =
       prepareConversationMessages(buffer, message);

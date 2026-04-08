@@ -82,6 +82,7 @@ export interface ConversationSummary {
   isStreaming: boolean;
   /** Truncated text of the first user message, for sidebar preview. */
   preview: string;
+  model?: string;
 }
 
 /** GET /chat/:id — messages plus whether the agent is still generating. */

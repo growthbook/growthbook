@@ -293,7 +293,7 @@ export default function ExplorerAIChat() {
       message,
       conversationId: cid,
       datasourceId: draftExploreState.datasource,
-      ...(chatOverrideModel ? { overrideModel: chatOverrideModel } : {}),
+      overrideModel: chatOverrideModel,
     }),
     [draftExploreState.datasource, chatOverrideModel],
   );
@@ -339,6 +339,13 @@ export default function ExplorerAIChat() {
     refreshList,
   );
 
+  const chatHasMessages = messages.length > 0;
+  const modelDisabledReason = !canPickModel
+    ? "Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+    : chatHasMessages
+      ? "The model can't be changed mid-conversation. Start a new chat to use a different model."
+      : null;
+
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
       refreshList();
@@ -349,6 +356,7 @@ export default function ExplorerAIChat() {
 
   const handleNewChat = useCallback(() => {
     newChat();
+    setChatOverrideModel("");
     refreshList();
   }, [newChat, refreshList]);
 
@@ -682,7 +690,13 @@ export default function ExplorerAIChat() {
       <ConversationSidebar
         conversations={conversations}
         activeConversationId={conversationId}
-        onSelect={loadConversation}
+        onSelect={(id) => {
+          void loadConversation(id);
+          const conv = listData?.conversations.find(
+            (c) => c.conversationId === id,
+          );
+          setChatOverrideModel(conv?.model ?? "");
+        }}
         onNewChat={handleNewChat}
         onDelete={handleDeleteConversation}
         collapsed={!sidebarOpen}
@@ -825,23 +839,34 @@ export default function ExplorerAIChat() {
             />
             {!isCloud() && (
               <Tooltip
-                enabled={!canPickModel}
-                content="Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
+                enabled={!!modelDisabledReason}
+                content={modelDisabledReason ?? ""}
               >
-                <SelectField
-                  id="explorer-ai-chat-model"
-                  // sort={false}
-                  value={
-                    canPickModel ? chatOverrideModel : orgPaChatOverrideModel
+                <span
+                  style={
+                    modelDisabledReason ? { cursor: "not-allowed" } : undefined
                   }
-                  onChange={(v) => {
-                    if (canPickModel) setChatOverrideModel(v);
-                  }}
-                  options={paChatModelSelectOptions}
-                  disabled={!canPickModel}
-                  placeholder="AI model"
-                  containerStyle={{ marginBottom: 0 }}
-                />
+                >
+                  <SelectField
+                    id="explorer-ai-chat-model"
+                    value={
+                      canPickModel ? chatOverrideModel : orgPaChatOverrideModel
+                    }
+                    onChange={(v) => {
+                      if (canPickModel && !chatHasMessages)
+                        setChatOverrideModel(v);
+                    }}
+                    options={paChatModelSelectOptions}
+                    disabled={!!modelDisabledReason}
+                    placeholder="AI model"
+                    containerStyle={{
+                      marginBottom: 0,
+                      ...(modelDisabledReason
+                        ? { pointerEvents: "none" }
+                        : undefined),
+                    }}
+                  />
+                </span>
               </Tooltip>
             )}
             {isLocalStream ? (

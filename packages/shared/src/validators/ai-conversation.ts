@@ -138,6 +138,7 @@ export const aiConversationValidator = z
     messageCount: z.number(),
     /** Truncated text of the first user message — updated on persist for sidebar preview. */
     preview: z.string(),
+    model: z.string().optional(), // Per chat override. No model falls back to product-analytics-chat override or org default
   })
   .strict();
 

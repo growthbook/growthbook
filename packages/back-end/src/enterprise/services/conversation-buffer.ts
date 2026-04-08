@@ -23,6 +23,7 @@ export interface ConversationBufferSnapshot {
   isStreaming: boolean;
   lastStreamedAt: number;
   lastAccessedAt: number;
+  model: string | undefined;
 }
 
 export interface ConversationBuffer {
@@ -31,12 +32,14 @@ export interface ConversationBuffer {
   // Read
   getMessages(): AIChatMessage[];
   getLatestToolResult(toolName: string): AIChatToolResultPart | undefined;
+  getModel(): string | undefined;
 
   // Mutate (sync — safe to call from the streaming loop)
   appendMessages(messages: AIChatMessage[]): void;
   setStreaming(streaming: boolean): void;
   touchStreamedAt(): void;
   updateTitle(title: string): void;
+  setModel(model: string | undefined): void;
 
   /** Point-in-time snapshot of buffer state for persistence. */
   snapshot(): ConversationBufferSnapshot;
@@ -52,6 +55,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
   private lastStreamedAtMs: number;
   private lastAccessedAtMs: number;
   private titleValue: string;
+  private modelValue: string | undefined;
 
   constructor(
     public readonly conversationId: string,
@@ -60,6 +64,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       isStreaming: boolean;
       lastStreamedAt: number;
       title: string;
+      model?: string;
     },
   ) {
     this.messages = init.messages;
@@ -67,6 +72,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.lastStreamedAtMs = init.lastStreamedAt;
     this.lastAccessedAtMs = Date.now();
     this.titleValue = init.title;
+    this.modelValue = init.model;
   }
 
   getMessages(): AIChatMessage[] {
@@ -109,6 +115,14 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.titleValue = title;
   }
 
+  getModel(): string | undefined {
+    return this.modelValue;
+  }
+
+  setModel(model: string | undefined): void {
+    this.modelValue = model;
+  }
+
   snapshot(): ConversationBufferSnapshot {
     return {
       messages: this.messages,
@@ -116,6 +130,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       isStreaming: this.isStreamingFlag,
       lastStreamedAt: this.lastStreamedAtMs,
       lastAccessedAt: this.lastAccessedAtMs,
+      model: this.modelValue,
     };
   }
 }
@@ -138,6 +153,7 @@ export interface ConversationSummary {
   isStreaming: boolean;
   /** Truncated text of the first user message, for sidebar preview. */
   preview: string;
+  model?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +178,7 @@ export async function loadOrInitConversation(
       isStreaming: existing.isStreaming,
       lastStreamedAt: existing.lastStreamedAt.getTime(),
       title: existing.title,
+      model: existing.model,
     });
   }
 
@@ -199,8 +216,14 @@ export async function persistConversation(
   model: AIConversationModel,
   buffer: ConversationBuffer,
 ): Promise<void> {
-  const { messages, title, isStreaming, lastStreamedAt, lastAccessedAt } =
-    buffer.snapshot();
+  const {
+    messages,
+    title,
+    isStreaming,
+    lastStreamedAt,
+    lastAccessedAt,
+    model: conversationModel,
+  } = buffer.snapshot();
 
   const firstUserMsg = messages.find((m) => m.role === "user");
   const preview =
@@ -217,6 +240,7 @@ export async function persistConversation(
       lastAccessedAt: new Date(lastAccessedAt),
       messageCount: messages.length,
       preview,
+      model: conversationModel,
     });
   } catch (err) {
     logger.error(err, "Failed to persist conversation to DB");
@@ -259,5 +283,6 @@ export async function listConversations(
       messageCount: doc.messageCount,
       isStreaming: doc.isStreaming,
       preview: doc.preview,
+      model: doc.model,
     }));
 }
