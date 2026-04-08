@@ -5,9 +5,7 @@ post:
   description: |
     Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
 
-    Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-
-    Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+    Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
   tags:
     - features
   operationId: revertFeature
@@ -30,12 +28,6 @@ post:
               type: number
             comment:
               type: string
-            adminOverride:
-              type: boolean
-              default: false
-              description: |
-                Pass `true` to bypass approval requirements and immediately publish the change.
-                Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
   responses:
     "200":
       content:

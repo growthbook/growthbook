@@ -34,18 +34,17 @@ export const deleteFeatureById = createApiRequestHandler(
   }
 
   // Deleting a live (non-archived) feature is a production-affecting action.
-  // Archived features can be deleted freely; unarchived ones require both an
-  // explicit adminOverride flag and the org-level bypass setting.
+  // Archived features can be deleted freely; unarchived ones require the org
+  // to have opted in to unrestricted REST API writes. The project-scoped
+  // bypassApprovalChecks permission intentionally does NOT authorize this path:
+  // it is a review-workflow bypass, not a destructive-action override.
   if (!feature.archived) {
-    if (!req.query.adminOverride) {
+    const apiBypassesReviews =
+      !!req.context.org.settings?.restApiBypassesReviews;
+    if (!apiBypassesReviews) {
       throw new PermissionError(
-        "Cannot delete a live feature via the REST API without passing `?adminOverride=true`. " +
-          "Archive the feature first, or pass adminOverride=true if your organization allows REST API bypass.",
-      );
-    }
-    if (!req.context.org.settings?.restApiBypassesReviews) {
-      throw new PermissionError(
-        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
+        "Cannot delete a live feature via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+          "Archive the feature first, or enable the bypass setting in organization settings.",
       );
     }
   }

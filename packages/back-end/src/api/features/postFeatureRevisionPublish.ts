@@ -24,7 +24,6 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
   bodySchema: z.object({
     comment: z.string().optional().default(""),
-    adminOverride: z.boolean().optional().default(false),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -99,23 +98,19 @@ export const postFeatureRevisionPublish = createApiRequestHandler({
       req.context.hasPremiumFeature("require-approvals"),
   });
 
-  const { adminOverride } = req.body;
+  // Callers bypass the review gate via either the org-level
+  // restApiBypassesReviews setting or a role/token that grants the
+  // bypassApprovalChecks permission on this feature's project.
+  const canBypass =
+    !!req.organization.settings?.restApiBypassesReviews ||
+    req.context.permissions.canBypassApprovalChecks(feature);
 
-  if (requiresReview && revision.status !== "approved") {
-    if (!adminOverride) {
-      throw new BadRequestError(
-        `This revision requires approval before publishing (status: "${revision.status}"). ` +
-          "Pass adminOverride: true if your organization allows REST API bypass.",
-      );
-    }
-    if (!req.organization.settings?.restApiBypassesReviews) {
-      throw new BadRequestError(
-        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
-      );
-    }
-    if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-      req.context.permissions.throwPermissionError();
-    }
+  if (requiresReview && revision.status !== "approved" && !canBypass) {
+    throw new BadRequestError(
+      `This revision requires approval before publishing (status: "${revision.status}"). ` +
+        "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+        "or use a role/token that grants bypassApprovalChecks on this project.",
+    );
   }
 
   // Check publish permission for the environments this revision actually touches.

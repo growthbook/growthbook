@@ -32,7 +32,6 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     strategy: z.enum(["draft", "publish"]).default("draft"),
     comment: z.string().optional(),
     title: z.string().optional(),
-    adminOverride: z.boolean().optional().default(false),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -181,7 +180,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     }
   }
 
-  const { strategy, comment, title, adminOverride } = req.body;
+  const { strategy, comment, title } = req.body;
   const defaultComment = `Revert to revision #${targetRevision.version}`;
 
   if (strategy === "draft") {
@@ -207,42 +206,40 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
   }
 
   // strategy === "publish"
-  const apiBypassesReviews = !!req.context.org.settings?.restApiBypassesReviews;
+  // Callers bypass the review gate via either the org-level
+  // restApiBypassesReviews setting or a role/token that grants the
+  // bypassApprovalChecks permission on this feature's project.
+  const canBypass =
+    !!req.context.org.settings?.restApiBypassesReviews ||
+    req.context.permissions.canBypassApprovalChecks(feature);
 
-  const liveRevision = await getRevision({
-    context: req.context,
-    organization: feature.organization,
-    featureId: feature.id,
-    version: feature.version,
-  });
-  if (!liveRevision)
-    throw new InternalServerError("Could not load live revision");
+  if (!canBypass) {
+    const liveRevision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
+    if (!liveRevision)
+      throw new InternalServerError("Could not load live revision");
 
-  const allEnvironmentIds = getEnvironmentIdsFromOrg(req.context.org);
-  const requiresReview = checkIfRevisionNeedsReview({
-    feature,
-    baseRevision: liveRevision,
-    revision: { ...liveRevision, ...changes } as typeof liveRevision,
-    allEnvironments: allEnvironmentIds,
-    settings: req.organization.settings,
-    requireApprovalsLicensed:
-      req.context.hasPremiumFeature("require-approvals"),
-  });
+    const allEnvironmentIds = getEnvironmentIdsFromOrg(req.context.org);
+    const requiresReview = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: liveRevision,
+      revision: { ...liveRevision, ...changes } as typeof liveRevision,
+      allEnvironments: allEnvironmentIds,
+      settings: req.organization.settings,
+      requireApprovalsLicensed:
+        req.context.hasPremiumFeature("require-approvals"),
+    });
 
-  if (requiresReview) {
-    if (!adminOverride) {
+    if (requiresReview) {
       throw new BadRequestError(
         "This revert requires approval before changes can be published. " +
-          "Pass adminOverride: true if your organization allows REST API bypass.",
+          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+          "or use a role/token that grants bypassApprovalChecks on this project.",
       );
-    }
-    if (!apiBypassesReviews) {
-      throw new BadRequestError(
-        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
-      );
-    }
-    if (!req.context.permissions.canBypassApprovalChecks(feature)) {
-      req.context.permissions.throwPermissionError();
     }
   }
 
@@ -253,7 +250,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     org: req.organization,
     changes,
     comment: comment ?? defaultComment,
-    canBypassApprovalChecks: adminOverride && apiBypassesReviews,
+    canBypassApprovalChecks: canBypass,
   });
 
   const updated = await getRevision({

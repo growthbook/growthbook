@@ -28,16 +28,14 @@ export interface paths {
      * Partially update a feature 
      * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
      * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     * 
-     * Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+     * Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     post: operations["updateFeature"];
     /**
      * Deletes a single feature 
      * @description Permanently deletes a feature and all of its revisions.
      * 
-     * Archived features can be deleted freely. Deleting a live (non-archived) feature requires passing `?adminOverride=true` and the org setting "REST API always bypasses approval requirements" to be enabled.
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature requires the org setting "REST API always bypasses approval requirements" to be enabled.
      */
     delete: operations["deleteFeature"];
   };
@@ -46,9 +44,7 @@ export interface paths {
      * Toggle a feature in one or more environments 
      * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
      * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     * 
-     * Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+     * Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     post: operations["toggleFeature"];
     parameters: {
@@ -63,9 +59,7 @@ export interface paths {
      * Revert a feature to a specific revision 
      * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
      * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     * 
-     * Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+     * Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     post: operations["revertFeature"];
     parameters: {
@@ -109,9 +103,9 @@ export interface paths {
      * Publish a revision 
      * @description Publishes the revision. Returns 409 if merge conflicts exist — call rebase first to resolve them.
      * 
-     * If the feature requires approval, the revision must be in `approved` status unless `adminOverride: true`
-     * is passed in the request body. Admin override requires the organization setting **"REST API always bypasses
-     * approval requirements"** to be enabled and the caller to have bypass-approval permissions.
+     * If the feature requires approval, the revision must be in `approved` status unless the caller can
+     * bypass review. Bypass is granted by either the organization setting "REST API always bypasses
+     * approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     post: operations["postFeatureRevisionPublish"];
   };
@@ -127,8 +121,9 @@ export interface paths {
      * 
      * The target revision must be a **published** revision and must not be the current live version.
      * 
-     * Pass `adminOverride: true` with `strategy: "publish"` to bypass approval requirements.
-     * Requires the "REST API always bypasses approval requirements" organization setting.
+     * When publishing, callers can bypass approval requirements via either the organization setting
+     * "REST API always bypasses approval requirements" or a role/token that grants `bypassApprovalChecks`
+     * on this feature's project.
      */
     post: operations["postFeatureRevisionRevert"];
   };
@@ -876,9 +871,23 @@ export interface paths {
     /** Get all dashboards for an experiment */
     get: operations["getDashboardsForExperiment"];
   };
+  "/experiment-templates/{id}": {
+    /** Get a single experimentTemplate */
+    get: operations["getExperimentTemplate"];
+    /** Update a single experimentTemplate */
+    put: operations["updateExperimentTemplate"];
+    /** Delete a single experimentTemplate */
+    delete: operations["deleteExperimentTemplate"];
+  };
   "/experiment-templates": {
     /** Get all experimentTemplates */
     get: operations["listExperimentTemplates"];
+    /** Create a single experimentTemplate */
+    post: operations["createExperimentTemplate"];
+  };
+  "/experiment-templates/bulk-import": {
+    /** Bulk create or update experiment templates */
+    post: operations["bulkImportExperimentTemplates"];
   };
   "/metric-groups/{id}": {
     /** Get a single metricGroup */
@@ -9913,9 +9922,7 @@ export interface operations {
      * Partially update a feature 
      * @description Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
      * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     * 
-     * Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+     * Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     parameters: {
         /** @description The id of the requested resource */
@@ -10450,13 +10457,6 @@ export interface operations {
             /** @description The feature value assigned to users in the holdout treatment group */
             value: string;
           } | null;
-          /**
-           * @description Pass `true` to bypass approval requirements and immediately publish the change.
-           * Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
-           *  
-           * @default false
-           */
-          adminOverride?: boolean;
         };
       };
     };
@@ -11102,16 +11102,9 @@ export interface operations {
      * Deletes a single feature 
      * @description Permanently deletes a feature and all of its revisions.
      * 
-     * Archived features can be deleted freely. Deleting a live (non-archived) feature requires passing `?adminOverride=true` and the org setting "REST API always bypasses approval requirements" to be enabled.
+     * Archived features can be deleted freely. Deleting a live (non-archived) feature requires the org setting "REST API always bypasses approval requirements" to be enabled.
      */
     parameters: {
-        /**
-         * @description Pass `true` to bypass the live-feature guard and delete without archiving first.
-         * Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
-         */
-      query: {
-        adminOverride?: boolean;
-      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -11136,9 +11129,7 @@ export interface operations {
      * Toggle a feature in one or more environments 
      * @description Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
      * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     * 
-     * Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+     * Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     requestBody: {
       content: {
@@ -11147,13 +11138,6 @@ export interface operations {
           environments: {
             [key: string]: (true | "" | "true" | "false" | "1" | "0" | 1 | "" | "") | undefined;
           };
-          /**
-           * @description Pass `true` to bypass approval requirements and immediately publish the change.
-           * Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
-           *  
-           * @default false
-           */
-          adminOverride?: boolean;
         };
       };
     };
@@ -11799,22 +11783,13 @@ export interface operations {
      * Revert a feature to a specific revision 
      * @description Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
      * 
-     * Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-     * 
-     * Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+     * Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     requestBody: {
       content: {
         "application/json": {
           revision: number;
           comment?: string;
-          /**
-           * @description Pass `true` to bypass approval requirements and immediately publish the change.
-           * Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
-           *  
-           * @default false
-           */
-          adminOverride?: boolean;
         };
       };
     };
@@ -14803,9 +14778,9 @@ export interface operations {
      * Publish a revision 
      * @description Publishes the revision. Returns 409 if merge conflicts exist — call rebase first to resolve them.
      * 
-     * If the feature requires approval, the revision must be in `approved` status unless `adminOverride: true`
-     * is passed in the request body. Admin override requires the organization setting **"REST API always bypasses
-     * approval requirements"** to be enabled and the caller to have bypass-approval permissions.
+     * If the feature requires approval, the revision must be in `approved` status unless the caller can
+     * bypass review. Bypass is granted by either the organization setting "REST API always bypasses
+     * approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
      */
     parameters: {
         /** @description Feature ID */
@@ -14820,14 +14795,6 @@ export interface operations {
         "application/json": {
           /** @default */
           comment?: string;
-          /**
-           * @description Bypass approval requirements and publish regardless of revision status.
-           * Requires the organization setting "REST API always bypasses approval requirements"
-           * and appropriate bypass-approval permissions.
-           *  
-           * @default false
-           */
-          adminOverride?: boolean;
         };
       };
     };
@@ -15295,8 +15262,9 @@ export interface operations {
      * 
      * The target revision must be a **published** revision and must not be the current live version.
      * 
-     * Pass `adminOverride: true` with `strategy: "publish"` to bypass approval requirements.
-     * Requires the "REST API always bypasses approval requirements" organization setting.
+     * When publishing, callers can bypass approval requirements via either the organization setting
+     * "REST API always bypasses approval requirements" or a role/token that grants `bypassApprovalChecks`
+     * on this feature's project.
      */
     parameters: {
         /** @description Feature ID */
@@ -15321,13 +15289,6 @@ export interface operations {
           comment?: string;
           /** @description Optional title for the new draft revision (only used with `strategy: "draft"`). */
           title?: string;
-          /**
-           * @description Pass `true` with `strategy: "publish"` to bypass approval requirements and publish immediately.
-           * Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
-           *  
-           * @default false
-           */
-          adminOverride?: boolean;
         };
       };
     };
@@ -36382,6 +36343,212 @@ export interface operations {
       };
     };
   };
+  getExperimentTemplate: {
+    /** Get a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  updateExperimentTemplate: {
+    /** Update a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          project?: string;
+          templateMetadata?: {
+            name: string;
+            description?: string;
+          };
+          /** @enum {string} */
+          type?: "standard";
+          hypothesis?: string;
+          description?: string;
+          tags?: (string)[];
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          datasource?: string;
+          exposureQueryId?: string;
+          hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: boolean;
+          goalMetrics?: (string)[];
+          secondaryMetrics?: (string)[];
+          guardrailMetrics?: (string)[];
+          activationMetric?: string;
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
+          segment?: string;
+          skipPartialData?: boolean;
+          targeting?: {
+            coverage: number;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+            condition: string;
+          };
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteExperimentTemplate: {
+    /** Delete a single experimentTemplate */
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listExperimentTemplates: {
     /** Get all experimentTemplates */
     parameters: {
@@ -36446,6 +36613,190 @@ export interface operations {
                       })[];
                   })[];
               })[];
+          };
+        };
+      };
+    };
+  };
+  createExperimentTemplate: {
+    /** Create a single experimentTemplate */
+    requestBody: {
+      content: {
+        "application/json": {
+          project?: string;
+          templateMetadata: {
+            name: string;
+            description?: string;
+          };
+          /** @enum {string} */
+          type: "standard";
+          hypothesis?: string;
+          description?: string;
+          tags?: (string)[];
+          customFields?: {
+            [key: string]: string | undefined;
+          };
+          datasource: string;
+          exposureQueryId: string;
+          hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: boolean;
+          goalMetrics?: (string)[];
+          secondaryMetrics?: (string)[];
+          guardrailMetrics?: (string)[];
+          activationMetric?: string;
+          /** @enum {string} */
+          statsEngine: "bayesian" | "frequentist";
+          segment?: string;
+          skipPartialData?: boolean;
+          targeting: {
+            coverage: number;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
+            prerequisites?: ({
+                id: string;
+                condition: string;
+              })[];
+            condition: string;
+          };
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experimentTemplate: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              project?: string;
+              owner: string;
+              templateMetadata: {
+                name: string;
+                description?: string;
+              };
+              /** @enum {string} */
+              type: "standard";
+              hypothesis?: string;
+              description?: string;
+              tags?: (string)[];
+              customFields?: {
+                [key: string]: string | undefined;
+              };
+              datasource: string;
+              exposureQueryId: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              goalMetrics?: (string)[];
+              secondaryMetrics?: (string)[];
+              guardrailMetrics?: (string)[];
+              activationMetric?: string;
+              /** @enum {string} */
+              statsEngine: "bayesian" | "frequentist";
+              segment?: string;
+              skipPartialData?: boolean;
+              targeting: {
+                coverage: number;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
+                prerequisites?: ({
+                    id: string;
+                    condition: string;
+                  })[];
+                condition: string;
+              };
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            };
+          };
+        };
+      };
+    };
+  };
+  bulkImportExperimentTemplates: {
+    /** Bulk create or update experiment templates */
+    requestBody: {
+      content: {
+        "application/json": {
+          templates: ({
+              id: string;
+              data: {
+                project?: string;
+                templateMetadata: {
+                  name: string;
+                  description?: string;
+                };
+                /** @enum {string} */
+                type: "standard";
+                hypothesis?: string;
+                description?: string;
+                tags?: (string)[];
+                customFields?: {
+                  [key: string]: string | undefined;
+                };
+                datasource: string;
+                exposureQueryId: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                goalMetrics?: (string)[];
+                secondaryMetrics?: (string)[];
+                guardrailMetrics?: (string)[];
+                activationMetric?: string;
+                /** @enum {string} */
+                statsEngine: "bayesian" | "frequentist";
+                segment?: string;
+                skipPartialData?: boolean;
+                targeting: {
+                  coverage: number;
+                  savedGroups?: ({
+                      /** @enum {string} */
+                      match: "all" | "none" | "any";
+                      ids: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
+                  condition: string;
+                };
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
+              };
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            added: number;
+            updated: number;
           };
         };
       };

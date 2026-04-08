@@ -838,9 +838,7 @@ paths:
       description: |
         Updates any combination of a feature's metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.
 
-        Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-
-        Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+        Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
@@ -910,12 +908,6 @@ paths:
                     value:
                       type: string
                       description: The feature value assigned to users in the holdout treatment group
-                adminOverride:
-                  type: boolean
-                  default: false
-                  description: |
-                    Pass `true` to bypass approval requirements and immediately publish the change.
-                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -930,22 +922,13 @@ paths:
     delete:
       parameters:
         - $ref: '#/components/parameters/id'
-        - in: query
-          name: adminOverride
-          required: false
-          schema:
-            type: boolean
-            default: false
-          description: |
-            Pass `true` to bypass the live-feature guard and delete without archiving first.
-            Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       tags:
         - features
       summary: Deletes a single feature
       description: |
         Permanently deletes a feature and all of its revisions.
 
-        Archived features can be deleted freely. Deleting a live (non-archived) feature requires passing `?adminOverride=true` and the org setting "REST API always bypasses approval requirements" to be enabled.
+        Archived features can be deleted freely. Deleting a live (non-archived) feature requires the org setting "REST API always bypasses approval requirements" to be enabled.
       operationId: deleteFeature
       x-codeSamples:
         - lang: cURL
@@ -973,9 +956,7 @@ paths:
       description: |
         Enables or disables a feature in one or more environments simultaneously. Accepts a map of environment name → boolean and immediately publishes the change.
 
-        Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-
-        Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+        Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
       tags:
         - features
       operationId: toggleFeature
@@ -1009,12 +990,6 @@ paths:
                       - 1
                       - 0
                       - ''
-                adminOverride:
-                  type: boolean
-                  default: false
-                  description: |
-                    Pass `true` to bypass approval requirements and immediately publish the change.
-                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -1034,9 +1009,7 @@ paths:
       description: |
         Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it. This leaves a clear audit trail of the revert action in the revision history.
 
-        Returns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.
-
-        Pass `adminOverride: true` in the body to bypass approval requirements (requires the "REST API always bypasses approval requirements" org setting).
+        Returns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and the caller cannot bypass them. Bypass is granted by either the organization setting "REST API always bypasses approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
       tags:
         - features
       operationId: revertFeature
@@ -1059,12 +1032,6 @@ paths:
                   type: number
                 comment:
                   type: string
-                adminOverride:
-                  type: boolean
-                  default: false
-                  description: |
-                    Pass `true` to bypass approval requirements and immediately publish the change.
-                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -1260,9 +1227,9 @@ paths:
       description: |
         Publishes the revision. Returns 409 if merge conflicts exist — call rebase first to resolve them.
 
-        If the feature requires approval, the revision must be in `approved` status unless `adminOverride: true`
-        is passed in the request body. Admin override requires the organization setting **"REST API always bypasses
-        approval requirements"** to be enabled and the caller to have bypass-approval permissions.
+        If the feature requires approval, the revision must be in `approved` status unless the caller can
+        bypass review. Bypass is granted by either the organization setting "REST API always bypasses
+        approval requirements" or by a role/token that grants `bypassApprovalChecks` on this feature's project.
       tags:
         - feature-revisions
       parameters:
@@ -1289,13 +1256,6 @@ paths:
                 comment:
                   type: string
                   default: ''
-                adminOverride:
-                  type: boolean
-                  default: false
-                  description: |
-                    Bypass approval requirements and publish regardless of revision status.
-                    Requires the organization setting "REST API always bypasses approval requirements"
-                    and appropriate bypass-approval permissions.
       responses:
         '200':
           content:
@@ -1320,8 +1280,9 @@ paths:
 
         The target revision must be a **published** revision and must not be the current live version.
 
-        Pass `adminOverride: true` with `strategy: "publish"` to bypass approval requirements.
-        Requires the "REST API always bypasses approval requirements" organization setting.
+        When publishing, callers can bypass approval requirements via either the organization setting
+        "REST API always bypasses approval requirements" or a role/token that grants `bypassApprovalChecks`
+        on this feature's project.
       tags:
         - feature-revisions
       operationId: postFeatureRevisionRevert
@@ -1347,10 +1308,10 @@ paths:
               -d '{"strategy": "draft", "comment": "Rolling back bad release"}' \
               -u secret_abc123DEF456:
 
-            # Immediately publish the revert (requires adminOverride if approval rules apply)
+            # Immediately publish the revert (caller must be able to bypass approval requirements)
             curl -X POST https://api.growthbook.io/api/v1/features/my_feature/revisions/3/revert \
               -H "Content-Type: application/json" \
-              -d '{"strategy": "publish", "adminOverride": true}' \
+              -d '{"strategy": "publish"}' \
               -u secret_abc123DEF456:
       requestBody:
         required: false
@@ -1374,12 +1335,6 @@ paths:
                 title:
                   type: string
                   description: 'Optional title for the new draft revision (only used with `strategy: "draft"`).'
-                adminOverride:
-                  type: boolean
-                  default: false
-                  description: |
-                    Pass `true` with `strategy: "publish"` to bypass approval requirements and publish immediately.
-                    Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
       responses:
         '200':
           content:
@@ -21443,7 +21398,855 @@ paths:
                 required:
                   - dashboards
                 additionalProperties: false
+  '/experiment-templates/{id}':
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Get a single experimentTemplate
+      operationId: getExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/experiment-templates/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplate
+                properties:
+                  experimentTemplate:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      project:
+                        type: string
+                      owner:
+                        type: string
+                      templateMetadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                        additionalProperties: false
+                      type:
+                        type: string
+                        enum:
+                          - standard
+                      hypothesis:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      customFields:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      datasource:
+                        type: string
+                      exposureQueryId:
+                        type: string
+                      hashAttribute:
+                        type: string
+                      fallbackAttribute:
+                        type: string
+                      disableStickyBucketing:
+                        type: boolean
+                      goalMetrics:
+                        type: array
+                        items:
+                          type: string
+                      secondaryMetrics:
+                        type: array
+                        items:
+                          type: string
+                      guardrailMetrics:
+                        type: array
+                        items:
+                          type: string
+                      activationMetric:
+                        type: string
+                      statsEngine:
+                        type: string
+                        enum:
+                          - bayesian
+                          - frequentist
+                      segment:
+                        type: string
+                      skipPartialData:
+                        type: boolean
+                      targeting:
+                        type: object
+                        properties:
+                          coverage:
+                            type: number
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          condition:
+                            type: string
+                        required:
+                          - coverage
+                          - condition
+                        additionalProperties: false
+                      customMetricSlices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            slices:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  column:
+                                    type: string
+                                  levels:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - column
+                                  - levels
+                                additionalProperties: false
+                          required:
+                            - slices
+                          additionalProperties: false
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - templateMetadata
+                      - type
+                      - datasource
+                      - exposureQueryId
+                      - statsEngine
+                      - targeting
+                    additionalProperties: false
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Delete a single experimentTemplate
+      operationId: deleteExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/experiment-templates/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+    put:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Update a single experimentTemplate
+      operationId: updateExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X PUT https://api.growthbook.io/api/v1/experiment-templates/{id} -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                project:
+                  type: string
+                templateMetadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                  required:
+                    - name
+                  additionalProperties: false
+                type:
+                  type: string
+                  enum:
+                    - standard
+                hypothesis:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                customFields:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                datasource:
+                  type: string
+                exposureQueryId:
+                  type: string
+                hashAttribute:
+                  type: string
+                fallbackAttribute:
+                  type: string
+                disableStickyBucketing:
+                  type: boolean
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  type: string
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                segment:
+                  type: string
+                skipPartialData:
+                  type: boolean
+                targeting:
+                  type: object
+                  properties:
+                    coverage:
+                      type: number
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    condition:
+                      type: string
+                  required:
+                    - coverage
+                    - condition
+                  additionalProperties: false
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplate
+                properties:
+                  experimentTemplate:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      project:
+                        type: string
+                      owner:
+                        type: string
+                      templateMetadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                        additionalProperties: false
+                      type:
+                        type: string
+                        enum:
+                          - standard
+                      hypothesis:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      customFields:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      datasource:
+                        type: string
+                      exposureQueryId:
+                        type: string
+                      hashAttribute:
+                        type: string
+                      fallbackAttribute:
+                        type: string
+                      disableStickyBucketing:
+                        type: boolean
+                      goalMetrics:
+                        type: array
+                        items:
+                          type: string
+                      secondaryMetrics:
+                        type: array
+                        items:
+                          type: string
+                      guardrailMetrics:
+                        type: array
+                        items:
+                          type: string
+                      activationMetric:
+                        type: string
+                      statsEngine:
+                        type: string
+                        enum:
+                          - bayesian
+                          - frequentist
+                      segment:
+                        type: string
+                      skipPartialData:
+                        type: boolean
+                      targeting:
+                        type: object
+                        properties:
+                          coverage:
+                            type: number
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          condition:
+                            type: string
+                        required:
+                          - coverage
+                          - condition
+                        additionalProperties: false
+                      customMetricSlices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            slices:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  column:
+                                    type: string
+                                  levels:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - column
+                                  - levels
+                                additionalProperties: false
+                          required:
+                            - slices
+                          additionalProperties: false
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - templateMetadata
+                      - type
+                      - datasource
+                      - exposureQueryId
+                      - statsEngine
+                      - targeting
+                    additionalProperties: false
   /experiment-templates:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - ExperimentTemplates
+      summary: Create a single experimentTemplate
+      operationId: createExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/experiment-templates -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                project:
+                  type: string
+                templateMetadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                  required:
+                    - name
+                  additionalProperties: false
+                type:
+                  type: string
+                  enum:
+                    - standard
+                hypothesis:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                customFields:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                datasource:
+                  type: string
+                exposureQueryId:
+                  type: string
+                hashAttribute:
+                  type: string
+                fallbackAttribute:
+                  type: string
+                disableStickyBucketing:
+                  type: boolean
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  type: string
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                segment:
+                  type: string
+                skipPartialData:
+                  type: boolean
+                targeting:
+                  type: object
+                  properties:
+                    coverage:
+                      type: number
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    condition:
+                      type: string
+                  required:
+                    - coverage
+                    - condition
+                  additionalProperties: false
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+              required:
+                - templateMetadata
+                - type
+                - datasource
+                - exposureQueryId
+                - statsEngine
+                - targeting
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplate
+                properties:
+                  experimentTemplate:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      project:
+                        type: string
+                      owner:
+                        type: string
+                      templateMetadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                        additionalProperties: false
+                      type:
+                        type: string
+                        enum:
+                          - standard
+                      hypothesis:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      customFields:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      datasource:
+                        type: string
+                      exposureQueryId:
+                        type: string
+                      hashAttribute:
+                        type: string
+                      fallbackAttribute:
+                        type: string
+                      disableStickyBucketing:
+                        type: boolean
+                      goalMetrics:
+                        type: array
+                        items:
+                          type: string
+                      secondaryMetrics:
+                        type: array
+                        items:
+                          type: string
+                      guardrailMetrics:
+                        type: array
+                        items:
+                          type: string
+                      activationMetric:
+                        type: string
+                      statsEngine:
+                        type: string
+                        enum:
+                          - bayesian
+                          - frequentist
+                      segment:
+                        type: string
+                      skipPartialData:
+                        type: boolean
+                      targeting:
+                        type: object
+                        properties:
+                          coverage:
+                            type: number
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          condition:
+                            type: string
+                        required:
+                          - coverage
+                          - condition
+                        additionalProperties: false
+                      customMetricSlices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            slices:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  column:
+                                    type: string
+                                  levels:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - column
+                                  - levels
+                                additionalProperties: false
+                          required:
+                            - slices
+                          additionalProperties: false
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - templateMetadata
+                      - type
+                      - datasource
+                      - exposureQueryId
+                      - statsEngine
+                      - targeting
+                    additionalProperties: false
     get:
       $skipValidatorGeneration: true
       parameters:
@@ -21627,6 +22430,199 @@ paths:
                         - statsEngine
                         - targeting
                       additionalProperties: false
+  /experiment-templates/bulk-import:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - ExperimentTemplates
+      summary: Bulk create or update experiment templates
+      operationId: bulkImportExperimentTemplates
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/experiment-templates/bulk-import -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                templates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        type: object
+                        properties:
+                          project:
+                            type: string
+                          templateMetadata:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              description:
+                                type: string
+                            required:
+                              - name
+                            additionalProperties: false
+                          type:
+                            type: string
+                            enum:
+                              - standard
+                          hypothesis:
+                            type: string
+                          description:
+                            type: string
+                          tags:
+                            type: array
+                            items:
+                              type: string
+                          customFields:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          datasource:
+                            type: string
+                          exposureQueryId:
+                            type: string
+                          hashAttribute:
+                            type: string
+                          fallbackAttribute:
+                            type: string
+                          disableStickyBucketing:
+                            type: boolean
+                          goalMetrics:
+                            type: array
+                            items:
+                              type: string
+                          secondaryMetrics:
+                            type: array
+                            items:
+                              type: string
+                          guardrailMetrics:
+                            type: array
+                            items:
+                              type: string
+                          activationMetric:
+                            type: string
+                          statsEngine:
+                            type: string
+                            enum:
+                              - bayesian
+                              - frequentist
+                          segment:
+                            type: string
+                          skipPartialData:
+                            type: boolean
+                          targeting:
+                            type: object
+                            properties:
+                              coverage:
+                                type: number
+                              savedGroups:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              prerequisites:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              condition:
+                                type: string
+                            required:
+                              - coverage
+                              - condition
+                            additionalProperties: false
+                          customMetricSlices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                slices:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      column:
+                                        type: string
+                                      levels:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - column
+                                      - levels
+                                    additionalProperties: false
+                              required:
+                                - slices
+                              additionalProperties: false
+                        required:
+                          - templateMetadata
+                          - type
+                          - datasource
+                          - exposureQueryId
+                          - statsEngine
+                          - targeting
+                        additionalProperties: false
+                    required:
+                      - id
+                      - data
+                    additionalProperties: false
+              required:
+                - templates
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  added:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  updated:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                required:
+                  - added
+                  - updated
+                additionalProperties: false
   '/metric-groups/{id}':
     get:
       $skipValidatorGeneration: true

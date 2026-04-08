@@ -9,8 +9,9 @@ description: |
 
   The target revision must be a **published** revision and must not be the current live version.
 
-  Pass `adminOverride: true` with `strategy: "publish"` to bypass approval requirements.
-  Requires the "REST API always bypasses approval requirements" organization setting.
+  When publishing, callers can bypass approval requirements via either the organization setting
+  "REST API always bypasses approval requirements" or a role/token that grants `bypassApprovalChecks`
+  on this feature's project.
 tags:
   - feature-revisions
 operationId: postFeatureRevisionRevert
@@ -36,10 +37,10 @@ x-codeSamples:
         -d '{"strategy": "draft", "comment": "Rolling back bad release"}' \
         -u secret_abc123DEF456:
 
-      # Immediately publish the revert (requires adminOverride if approval rules apply)
+      # Immediately publish the revert (caller must be able to bypass approval requirements)
       curl -X POST https://api.growthbook.io/api/v1/features/my_feature/revisions/3/revert \
         -H "Content-Type: application/json" \
-        -d '{"strategy": "publish", "adminOverride": true}' \
+        -d '{"strategy": "publish"}' \
         -u secret_abc123DEF456:
 requestBody:
   required: false
@@ -63,12 +64,6 @@ requestBody:
           title:
             type: string
             description: "Optional title for the new draft revision (only used with `strategy: \"draft\"`)."
-          adminOverride:
-            type: boolean
-            default: false
-            description: |
-              Pass `true` with `strategy: "publish"` to bypass approval requirements and publish immediately.
-              Requires the organization setting "REST API always bypasses approval requirements" to be enabled.
 responses:
   "200":
     content:

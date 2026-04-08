@@ -26,10 +26,12 @@ overrides:
   fast-xml-parser@4: ^4.5.5
   fast-xml-parser@5: ^5.5.7
   jws@4: ^4.0.1
+  lodash@4: ^4.18.0
   mdast-util-to-hast@13: ^13.2.1
   nan@2: 2.25.0
   node-forge@1: ^1.4.0
   path-to-regexp@0: ^0.1.13
+  picomatch@2: ^2.3.2
   picomatch@4: ^4.0.4
   prismjs@1: ^1.30.0
   qs@6: ^6.15.0
@@ -347,8 +349,8 @@ importers:
         specifier: ^2.1.1
         version: 2.2.2
       lodash:
-        specifier: ^4.17.23
-        version: 4.17.23
+        specifier: ^4.18.0
+        version: 4.18.1
       md5:
         specifier: ^2.3.0
         version: 2.3.0
@@ -790,8 +792,8 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7
       lodash:
-        specifier: ^4.17.23
-        version: 4.17.23
+        specifier: ^4.18.0
+        version: 4.18.1
       md5:
         specifier: ^2.3.0
         version: 2.3.0
@@ -1060,8 +1062,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
       lodash:
-        specifier: 4.17.21
-        version: 4.17.21
+        specifier: ^4.18.0
+        version: 4.18.1
       mocksse:
         specifier: ^1.0.4
         version: 1.0.4
@@ -1184,8 +1186,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
       lodash:
-        specifier: ^4.17.23
-        version: 4.17.23
+        specifier: ^4.18.0
+        version: 4.18.1
       openid-client:
         specifier: 5.4.3
         version: 5.4.3
@@ -10519,11 +10521,8 @@ packages:
   lodash.once@4.1.1:
     resolution: {integrity: sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==}
 
-  lodash@4.17.21:
-    resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
-
-  lodash@4.17.23:
-    resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
 
   log-symbols@4.1.0:
     resolution: {integrity: sha512-8XPvpAA8uyhfteu8pIvQxpJZ7SYYdpUivZpGy6sFsBuKRY/7rQGavedeB8aK+Zkyq6upMFVL/9AW6vOYzfRyLg==}
@@ -11580,8 +11579,8 @@ packages:
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
-  picomatch@2.3.1:
-    resolution: {integrity: sha512-JU3teHTNjmE2VCGFzuY8EXzCDVwEqB2a8fsIvwaStHhAWJEeVd1o1QD80CU6+ZdEXXSLbSsuLwJjkCBWqRQUVA==}
+  picomatch@2.3.2:
+    resolution: {integrity: sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==}
     engines: {node: '>=8.6'}
 
   picomatch@4.0.4:
@@ -13834,7 +13833,7 @@ snapshots:
 
   '@75lb/deep-merge@1.1.2':
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
       typical: 7.1.1
 
   '@adobe/css-tools@4.4.2': {}
@@ -19875,7 +19874,7 @@ snapshots:
   '@sequelize/utils@7.0.0-alpha.47':
     dependencies:
       '@types/lodash': 4.17.21
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   '@sinonjs/commons@1.8.3':
     dependencies:
@@ -21856,7 +21855,7 @@ snapshots:
     dependencies:
       '@types/lodash': 4.17.21
       '@types/react': 18.0.15
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       resize-observer-polyfill: 1.5.1
@@ -21891,7 +21890,7 @@ snapshots:
       classnames: 2.3.2
       d3-path: 1.0.9
       d3-shape: 1.3.7
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
 
@@ -21911,7 +21910,7 @@ snapshots:
       '@types/lodash': 4.17.21
       '@types/react': 18.0.15
       classnames: 2.3.2
-      lodash: 4.17.23
+      lodash: 4.18.1
       prop-types: 15.8.1
       react: 18.2.0
       reduce-css-calc: 1.3.0
@@ -22133,7 +22132,7 @@ snapshots:
   anymatch@3.1.2:
     dependencies:
       normalize-path: 3.0.0
-      picomatch: 2.3.1
+      picomatch: 2.3.2
 
   apache-arrow@13.0.0:
     dependencies:
@@ -22315,7 +22314,7 @@ snapshots:
 
   async@2.6.4:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
 
   async@3.2.5: {}
 
@@ -22977,7 +22976,7 @@ snapshots:
     dependencies:
       chalk: 4.1.2
       date-fns: 2.29.3
-      lodash: 4.17.23
+      lodash: 4.18.1
       rxjs: 7.6.0
       shell-quote: 1.8.2
       spawn-command: 0.0.2-1
@@ -25165,7 +25164,7 @@ snapshots:
       cli-width: 3.0.0
       external-editor: 3.1.0
       figures: 3.2.0
-      lodash: 4.17.23
+      lodash: 4.18.1
       mute-stream: 0.0.8
       ora: 5.4.1
       run-async: 2.4.1
@@ -25868,7 +25867,7 @@ snapshots:
       chalk: 4.1.2
       ci-info: 3.9.0
       graceful-fs: 4.2.11
-      picomatch: 2.3.1
+      picomatch: 2.3.2
 
   jest-validate@27.5.1:
     dependencies:
@@ -26229,9 +26228,7 @@ snapshots:
 
   lodash.once@4.1.1: {}
 
-  lodash@4.17.21: {}
-
-  lodash@4.17.23: {}
+  lodash@4.18.1: {}
 
   log-symbols@4.1.0:
     dependencies:
@@ -26711,7 +26708,7 @@ snapshots:
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3
-      picomatch: 2.3.1
+      picomatch: 2.3.2
 
   mime-db@1.52.0: {}
 
@@ -27541,7 +27538,7 @@ snapshots:
 
   picocolors@1.1.1: {}
 
-  picomatch@2.3.1: {}
+  picomatch@2.3.2: {}
 
   picomatch@4.0.4: {}
 
@@ -28238,7 +28235,7 @@ snapshots:
 
   readdirp@3.6.0:
     dependencies:
-      picomatch: 2.3.1
+      picomatch: 2.3.2
 
   readdirp@4.1.2: {}
 
@@ -30033,7 +30030,7 @@ snapshots:
 
   whatwg-url@8.7.0:
     dependencies:
-      lodash: 4.17.23
+      lodash: 4.18.1
       tr46: 2.1.0
       webidl-conversions: 6.1.0
 

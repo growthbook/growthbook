@@ -209,15 +209,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    const adminOverride = !!req.body.adminOverride;
+    // Callers can skip the review gate either because the org has opted in
+    // to unrestricted REST API writes, or because their token/role grants
+    // the bypassApprovalChecks permission for this feature's project.
     const canBypass =
-      adminOverride && !!req.context.org.settings?.restApiBypassesReviews;
-
-    if (adminOverride && !req.context.org.settings?.restApiBypassesReviews) {
-      throw new Error(
-        "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
-      );
-    }
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
     // Tags go into the revision metadata; capture them before stripping from updates.
     const newTagsForDiff = updates.tags;

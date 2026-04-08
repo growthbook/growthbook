@@ -85,9 +85,12 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       };
     }
 
-    const adminOverride = !!req.body.adminOverride;
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers bypass the review gate via either the org-level
+    // restApiBypassesReviews setting or a role/token that grants the
+    // bypassApprovalChecks permission on this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
     // Build a minimal fake revision to check whether these toggle changes need review
     const liveRevision = await getRevision({
       context: req.context,
@@ -112,25 +115,19 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         req.context.hasPremiumFeature("require-approvals"),
     });
 
-    if (reviewRequired) {
-      if (!adminOverride) {
-        const affectedEnvs = getDraftAffectedEnvironments(
-          fakeRevision,
-          liveRevision,
-          environmentIds,
-        );
-        const envList =
-          affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
-        throw new PermissionError(
-          `This feature requires a review before publishing changes to: ${envList}. ` +
-            "Pass adminOverride: true if your organization allows REST API bypass.",
-        );
-      }
-      if (!apiBypassesReviews) {
-        throw new PermissionError(
-          "Cannot use adminOverride: your organization has not enabled 'REST API always bypasses approval requirements'.",
-        );
-      }
+    if (reviewRequired && !canBypass) {
+      const affectedEnvs = getDraftAffectedEnvironments(
+        fakeRevision,
+        liveRevision,
+        environmentIds,
+      );
+      const envList =
+        affectedEnvs === "all" ? "all environments" : affectedEnvs.join(", ");
+      throw new PermissionError(
+        `This feature requires a review before publishing changes to: ${envList}. ` +
+          "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+          "or use a role/token that grants bypassApprovalChecks on this project.",
+      );
     }
 
     const revision = await createRevision({
