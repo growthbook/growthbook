@@ -8,6 +8,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  assertValidEnvironment,
   isDraftStatus,
   standaloneRampScheduleInput,
   normalizeInlineRampSchedule,
@@ -47,6 +48,7 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler({
 
   const { ruleId } = req.params;
   const { environment, ...scheduleInput } = req.body;
+  assertValidEnvironment(req.context, environment);
 
   // Block if the rule already has a live schedule — must update it directly.
   const liveSchedules = await req.context.models.rampSchedules.findByTargetRule(

@@ -9,7 +9,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
+import { assertValidEnvironment, isDraftStatus } from "./validations";
 
 export const deleteFeatureRevisionRule = createApiRequestHandler({
   paramsSchema: z.object({
@@ -46,6 +46,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler({
   }
 
   const { environment } = req.body;
+  assertValidEnvironment(req.context, environment);
   const newRules = cloneDeep(revision.rules ?? {});
   const before = newRules[environment]?.length ?? 0;
   newRules[environment] = (newRules[environment] ?? []).filter(

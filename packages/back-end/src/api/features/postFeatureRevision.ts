@@ -11,7 +11,6 @@ export const postFeatureRevision = createApiRequestHandler({
   bodySchema: z.object({
     comment: z.string().optional().default(""),
     title: z.string().optional(),
-    baseVersion: z.number().int().optional(),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -30,7 +29,7 @@ export const postFeatureRevision = createApiRequestHandler({
     context: req.context,
     feature,
     user: req.context.auditUser,
-    baseVersion: req.body.baseVersion ?? feature.version,
+    baseVersion: feature.version,
     comment: req.body.comment,
     title: req.body.title,
     environments,

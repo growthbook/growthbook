@@ -18,7 +18,10 @@ import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
   updateRevision,
@@ -30,6 +33,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import {
+  assertValidEnvironment,
   isDraftStatus,
   inlineRampScheduleInput,
   normalizeInlineRampSchedule,
@@ -95,6 +99,11 @@ const safeRolloutCreateInput = z.object({
       unit: z.enum(["weeks", "days", "hours", "minutes"]),
     }),
     autoRollback: z.boolean().optional().default(false),
+    rampUpSchedule: z
+      .object({
+        enabled: z.boolean(),
+      })
+      .optional(),
   }),
 });
 
@@ -221,26 +230,73 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
   }
 
   const { environment, schedule } = req.body;
+  assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule;
 
-  // Fill in missing variationIds from the linked experiment (by index order)
+  // Fill in missing variationIds from the linked experiment (by index order).
+  // Also enforce holdout compatibility for experiment-ref rules on holdout-bound
+  // features, mirroring postFeatureRule controller: the experiment must be in
+  // draft status, have no linked changes, and (if it already has a holdout)
+  // match the feature's holdout. If accepted, link the experiment to the
+  // feature's holdout (both on the experiment and the holdout's linkedExperiments).
   if (ruleInput.type === "experiment-ref") {
     const anyMissing = ruleInput.variations.some((v) => !v.variationId);
-    if (anyMissing) {
+    const needsHoldoutCheck = Boolean(feature.holdout?.id);
+    if (anyMissing || needsHoldoutCheck) {
       const experiment = await getExperimentById(
         req.context,
         ruleInput.experimentId,
       );
       if (!experiment) {
         throw new NotFoundError(
-          `Could not find experiment "${ruleInput.experimentId}" to resolve variation IDs`,
+          `Could not find experiment "${ruleInput.experimentId}"`,
         );
       }
-      ruleInput.variations = ruleInput.variations.map((v, i) => ({
-        variationId: v.variationId ?? experiment.variations[i]?.id ?? "",
-        value: v.value,
-      }));
+
+      if (anyMissing) {
+        ruleInput.variations = ruleInput.variations.map((v, i) => ({
+          variationId: v.variationId ?? experiment.variations[i]?.id ?? "",
+          value: v.value,
+        }));
+      }
+
+      if (needsHoldoutCheck && feature.holdout?.id) {
+        const expHasLinkedChanges =
+          (experiment.linkedFeatures?.length ?? 0) > 0 ||
+          experiment.hasURLRedirects ||
+          experiment.hasVisualChangesets;
+        if (
+          experiment.status !== "draft" ||
+          (experiment.holdoutId &&
+            experiment.holdoutId !== feature.holdout.id) ||
+          expHasLinkedChanges
+        ) {
+          throw new BadRequestError(
+            "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+          );
+        }
+
+        if (!experiment.holdoutId) {
+          await updateExperiment({
+            context: req.context,
+            experiment,
+            changes: { holdoutId: feature.holdout.id },
+          });
+          const holdout = await req.context.models.holdout.getById(
+            feature.holdout.id,
+          );
+          await req.context.models.holdout.updateById(feature.holdout.id, {
+            linkedExperiments: {
+              ...holdout?.linkedExperiments,
+              [experiment.id]: {
+                id: experiment.id,
+                dateAdded: new Date(),
+              },
+            },
+          });
+        }
+      }
     }
   }
 
@@ -258,8 +314,12 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
       );
     }
 
+    // omit our inline rampUpSchedule input (only contains `enabled`) before
+    // validation so it doesn't collide with the stored ramp-up shape
+    const { rampUpSchedule, ...validatableFields } =
+      ruleInput.safeRolloutFields;
     const validatedFields = await validateCreateSafeRolloutFields(
-      ruleInput.safeRolloutFields,
+      validatableFields,
       req.context,
     );
 
@@ -270,7 +330,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler({
       status: "running",
       autoSnapshots: true,
       rampUpSchedule: {
-        enabled: false,
+        // Controlled by an internal feature flag in the full app — honor
+        // caller input when provided, default off otherwise.
+        enabled: rampUpSchedule?.enabled ?? false,
         step: 0,
         steps: [
           { percent: 0.1 },

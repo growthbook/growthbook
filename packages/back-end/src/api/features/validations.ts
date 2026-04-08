@@ -10,6 +10,7 @@ import { getSavedGroupMap } from "back-end/src/services/features";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
 
 /**
@@ -78,6 +79,21 @@ export function normalizeInlineRampSchedule(
 
 export function isDraftStatus(status: string): boolean {
   return (DRAFT_STATUSES as readonly string[]).includes(status);
+}
+
+/**
+ * Throws if `environment` is not one of the org's configured environments.
+ * Mirrors the environmentIds.includes(environment) check in the feature
+ * controllers — prevents callers from writing rules into bogus or stale keys.
+ */
+export function assertValidEnvironment(
+  context: ApiReqContext,
+  environment: string,
+): void {
+  const envIds = getEnvironmentIdsFromOrg(context.org);
+  if (!envIds.includes(environment)) {
+    throw new BadRequestError(`Invalid environment: "${environment}"`);
+  }
 }
 
 /**

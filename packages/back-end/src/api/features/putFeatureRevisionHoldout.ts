@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import { z } from "zod";
+import { resetReviewOnChange } from "shared/util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -39,6 +40,20 @@ export const putFeatureRevisionHoldout = createApiRequestHandler({
     );
   }
 
+  // Validate the holdout exists. Side effects (linking features / experiments
+  // to the holdout, moving linkage off the old holdout) are applied at publish
+  // time via applyHoldoutSideEffects — they are NOT skipped here.
+  if (req.body.holdout) {
+    const holdout = await req.context.models.holdout.getById(
+      req.body.holdout.id,
+    );
+    if (!holdout) {
+      throw new NotFoundError(
+        `Could not find holdout "${req.body.holdout.id}"`,
+      );
+    }
+  }
+
   await updateRevision(
     req.context,
     feature,
@@ -50,7 +65,12 @@ export const putFeatureRevisionHoldout = createApiRequestHandler({
       subject: req.body.holdout?.id ?? "",
       value: JSON.stringify(req.body.holdout),
     },
-    true,
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: [],
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    }),
   );
 
   const updated = await getRevision({

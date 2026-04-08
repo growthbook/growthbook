@@ -1,6 +1,7 @@
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { resetReviewOnChange } from "shared/util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -8,7 +9,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
+import { assertValidEnvironment, isDraftStatus } from "./validations";
 
 export const postFeatureRevisionRulesReorder = createApiRequestHandler({
   paramsSchema: z.object({ id: z.string(), version: z.coerce.number().int() }),
@@ -42,6 +43,7 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
   }
 
   const { environment, ruleIds } = req.body;
+  assertValidEnvironment(req.context, environment);
   const envRules = revision.rules?.[environment] ?? [];
 
   const ruleMap = new Map(envRules.map((r) => [r.id, r]));
@@ -88,7 +90,12 @@ export const postFeatureRevisionRulesReorder = createApiRequestHandler({
       subject: environment,
       value: JSON.stringify(ruleIds),
     },
-    true,
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    }),
   );
 
   const updated = await getRevision({

@@ -4,6 +4,8 @@ import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -12,6 +14,11 @@ import {
 export const getFeatureRevisions = createApiRequestHandler(
   getFeatureRevisionsValidator,
 )(async (req) => {
+  // Load the feature first — getFeature enforces canReadSingleProjectResource
+  // and returns null for features in projects the caller cannot read.
+  const feature = await getFeature(req.context, req.params.id);
+  if (!feature) throw new NotFoundError("Could not find feature");
+
   const { limit, offset } = validatePagination(req.query);
   const { status, author } = req.query;
 

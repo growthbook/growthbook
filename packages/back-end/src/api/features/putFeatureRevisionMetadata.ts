@@ -1,6 +1,6 @@
 import omit from "lodash/omit";
 import { z } from "zod";
-import { featureValueType, JSONSchemaDef } from "shared/validators";
+import { JSONSchemaDef } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -10,6 +10,8 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
+import { getEnabledEnvironments } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { isDraftStatus, validateCustomFields } from "./validations";
 
 export const putFeatureRevisionMetadata = createApiRequestHandler({
@@ -26,7 +28,6 @@ export const putFeatureRevisionMetadata = createApiRequestHandler({
     neverStale: z.boolean().optional(),
     customFields: z.record(z.string(), z.any()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
-    valueType: z.enum(featureValueType).optional(),
   }),
 })(async (req) => {
   const feature = await getFeature(req.context, req.params.id);
@@ -54,6 +55,39 @@ export const putFeatureRevisionMetadata = createApiRequestHandler({
   }
 
   const { comment, title, ...metadataFields } = req.body;
+
+  // Project changes affect SDK payload visibility and may be blocked by org
+  // settings — mirror the controller's putFeature guards.
+  if (
+    metadataFields.project !== undefined &&
+    metadataFields.project !== feature.project
+  ) {
+    if (
+      req.context.org.settings?.requireProjectForFeatures &&
+      feature.project &&
+      metadataFields.project === ""
+    ) {
+      throw new BadRequestError("Must specify a project");
+    }
+
+    if (metadataFields.project) {
+      await req.context.models.projects.ensureProjectsExist([
+        metadataFields.project,
+      ]);
+    }
+
+    const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
+    const enabledEnvs = Array.from(getEnabledEnvironments(feature, orgEnvs));
+    if (
+      !req.context.permissions.canPublishFeature(feature, enabledEnvs) ||
+      !req.context.permissions.canPublishFeature(
+        { project: metadataFields.project },
+        enabledEnvs,
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+  }
 
   if (metadataFields.customFields !== undefined) {
     await validateCustomFields(

@@ -6,6 +6,7 @@ import {
   checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isEqual } from "lodash";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   BadRequestError,
   InternalServerError,
@@ -114,36 +115,51 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     }
   }
 
+  const allEnabledEnvs = environmentIds.filter(
+    (env) => feature.environmentSettings?.[env]?.enabled,
+  );
+
   if (
     targetRevision.prerequisites !== undefined &&
     !isEqual(targetRevision.prerequisites, feature.prerequisites || [])
   ) {
-    const allEnabledEnvs = environmentIds.filter(
-      (env) => feature.environmentSettings?.[env]?.enabled,
-    );
     if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
       req.context.permissions.throwPermissionError();
     }
     changes.prerequisites = targetRevision.prerequisites;
   }
 
+  // Archived — sparse: only revert if this revision explicitly changed it
+  if (
+    targetRevision.archived !== undefined &&
+    targetRevision.archived !== (feature.archived ?? false)
+  ) {
+    if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
+      req.context.permissions.throwPermissionError();
+    }
+    changes.archived = targetRevision.archived;
+  }
+
   if (targetRevision.metadata) {
     const m = targetRevision.metadata;
     const metadataChanges: typeof changes.metadata = {};
     let hasMetaChange = false;
-    if (m.description !== undefined && m.description !== feature.description) {
+    if (
+      m.description !== undefined &&
+      m.description !== (feature.description ?? "")
+    ) {
       metadataChanges.description = m.description;
       hasMetaChange = true;
     }
-    if (m.owner !== undefined && m.owner !== feature.owner) {
+    if (m.owner !== undefined && m.owner !== (feature.owner ?? "")) {
       metadataChanges.owner = m.owner;
       hasMetaChange = true;
     }
-    if (m.project !== undefined && m.project !== feature.project) {
+    if (m.project !== undefined && m.project !== (feature.project ?? "")) {
       metadataChanges.project = m.project;
       hasMetaChange = true;
     }
-    if (m.tags !== undefined && !isEqual(m.tags, feature.tags)) {
+    if (m.tags !== undefined && !isEqual(m.tags, feature.tags ?? [])) {
       metadataChanges.tags = m.tags;
       hasMetaChange = true;
     }
@@ -153,7 +169,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     }
     if (
       m.customFields !== undefined &&
-      !isEqual(m.customFields, feature.customFields)
+      !isEqual(m.customFields, feature.customFields ?? {})
     ) {
       metadataChanges.customFields = m.customFields;
       hasMetaChange = true;
@@ -165,19 +181,40 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
       metadataChanges.jsonSchema = m.jsonSchema;
       hasMetaChange = true;
     }
-    if (m.valueType !== undefined && m.valueType !== feature.valueType) {
-      metadataChanges.valueType = m.valueType;
-      hasMetaChange = true;
-    }
     if (hasMetaChange) {
-      const allEnabledEnvs = environmentIds.filter(
-        (env) => feature.environmentSettings?.[env]?.enabled,
-      );
       if (!req.context.permissions.canPublishFeature(feature, allEnabledEnvs)) {
         req.context.permissions.throwPermissionError();
       }
       changes.metadata = metadataChanges;
     }
+  }
+
+  // Build the FULL target state for the new revision document (mirrors the
+  // controller's postFeatureRevert / postFeatureRevertDraft). The sparse
+  // `changes` above is still used for per-field permission checks and for
+  // determining what needs to be applied at publish time.
+  const revisionChanges: Partial<FeatureRevisionInterface> = {
+    defaultValue: targetRevision.defaultValue,
+    rules: Object.fromEntries(
+      environmentIds.map((env) => [
+        env,
+        targetRevision.rules?.[env] ??
+          feature.environmentSettings?.[env]?.rules ??
+          [],
+      ]),
+    ),
+  };
+  if (targetRevision.environmentsEnabled !== undefined) {
+    revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
+  }
+  if (targetRevision.prerequisites !== undefined) {
+    revisionChanges.prerequisites = targetRevision.prerequisites;
+  }
+  if (targetRevision.archived !== undefined) {
+    revisionChanges.archived = targetRevision.archived;
+  }
+  if (targetRevision.metadata !== undefined) {
+    revisionChanges.metadata = targetRevision.metadata;
   }
 
   const { strategy, comment, title } = req.body;
@@ -197,7 +234,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
       title: title ?? `Revert to v${targetRevision.version}`,
       environments: getEnvironmentIdsFromOrg(req.context.org),
       publish: false,
-      changes,
+      changes: revisionChanges,
       org: req.context.org,
       canBypassApprovalChecks: false,
     });
@@ -227,7 +264,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     const requiresReview = checkIfRevisionNeedsReview({
       feature,
       baseRevision: liveRevision,
-      revision: { ...liveRevision, ...changes } as typeof liveRevision,
+      revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
       allEnvironments: allEnvironmentIds,
       settings: req.organization.settings,
       requireApprovalsLicensed:
@@ -248,7 +285,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler({
     feature,
     user: req.eventAudit,
     org: req.organization,
-    changes,
+    changes: revisionChanges,
     comment: comment ?? defaultComment,
     canBypassApprovalChecks: canBypass,
   });

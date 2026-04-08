@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import { z } from "zod";
 import {
   savedGroupTargeting,
@@ -21,6 +22,7 @@ import {
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
+  assertValidEnvironment,
   isDraftStatus,
   inlineRampScheduleInput,
   normalizeInlineRampSchedule,
@@ -251,6 +253,7 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   }
 
   const { environment, schedule } = req.body;
+  assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule;
 
@@ -264,6 +267,43 @@ export const putFeatureRevisionRule = createApiRequestHandler({
   }
 
   const oldRule = envRules[idx];
+
+  // Safe rollout: once the rollout has started, block changes to fields that
+  // would corrupt the running experiment. Mirrors putFeatureRule controller.
+  if (oldRule.type === "safe-rollout") {
+    const safeRollout = await req.context.models.safeRollout.getById(
+      oldRule.safeRolloutId,
+    );
+    if (safeRollout?.startedAt !== undefined) {
+      const immutableFieldChanges: string[] = [];
+      if (
+        patch.controlValue !== undefined &&
+        !isEqual(patch.controlValue, oldRule.controlValue)
+      ) {
+        immutableFieldChanges.push("controlValue");
+      }
+      if (
+        patch.variationValue !== undefined &&
+        !isEqual(patch.variationValue, oldRule.variationValue)
+      ) {
+        immutableFieldChanges.push("variationValue");
+      }
+      if (
+        patch.hashAttribute !== undefined &&
+        !isEqual(patch.hashAttribute, oldRule.hashAttribute)
+      ) {
+        immutableFieldChanges.push("hashAttribute");
+      }
+      if (patch.seed !== undefined && !isEqual(patch.seed, oldRule.seed)) {
+        immutableFieldChanges.push("seed");
+      }
+      if (immutableFieldChanges.length > 0) {
+        throw new BadRequestError(
+          `Cannot update the following fields after a Safe Rollout has started: ${immutableFieldChanges.join(", ")}`,
+        );
+      }
+    }
+  }
 
   // Block creating a new schedule if the rule already has a LIVE schedule.
   // A pending create on this revision is allowed (it will be replaced below).

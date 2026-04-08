@@ -242,7 +242,7 @@ export const getFeatureRevisionsValidator = {
 };
 
 export const postFeatureRevisionValidator = {
-  bodySchema: z.object({ "comment": z.string().default(""), "title": z.string().optional(), "baseVersion": z.number().int().describe("Version to branch from (defaults to current live version)").optional() }).strict(),
+  bodySchema: z.object({ "comment": z.string().default(""), "title": z.string().optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

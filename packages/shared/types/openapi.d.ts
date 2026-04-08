@@ -74,7 +74,7 @@ export interface paths {
     get: operations["getFeatureRevisions"];
     /**
      * Create a draft revision 
-     * @description Creates a new draft revision branched from the specified base version (defaults to the current live version).
+     * @description Creates a new draft revision branched from the current live version.
      */
     post: operations["postFeatureRevision"];
   };
@@ -12910,7 +12910,7 @@ export interface operations {
   postFeatureRevision: {
     /**
      * Create a draft revision 
-     * @description Creates a new draft revision branched from the specified base version (defaults to the current live version).
+     * @description Creates a new draft revision branched from the current live version.
      */
     parameters: {
         /** @description Feature ID */
@@ -12924,8 +12924,6 @@ export interface operations {
           /** @default */
           comment?: string;
           title?: string;
-          /** @description Version to branch from (defaults to current live version) */
-          baseVersion?: number;
         };
       };
     };

@@ -8,7 +8,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { isDraftStatus } from "./validations";
+import { assertValidEnvironment, isDraftStatus } from "./validations";
 
 export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
   paramsSchema: z.object({
@@ -46,6 +46,7 @@ export const deleteFeatureRevisionRuleRampSchedule = createApiRequestHandler({
 
   const { ruleId } = req.params;
   const { environment } = req.body;
+  assertValidEnvironment(req.context, environment);
 
   const existing = revision.rampActions ?? [];
   const hasPendingCreate = existing.some(

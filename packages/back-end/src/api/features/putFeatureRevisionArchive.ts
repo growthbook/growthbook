@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import { z } from "zod";
+import { resetReviewOnChange } from "shared/util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -50,7 +51,12 @@ export const putFeatureRevisionArchive = createApiRequestHandler({
       subject: "",
       value: JSON.stringify({ archived: req.body.archived }),
     },
-    true,
+    resetReviewOnChange({
+      feature,
+      changedEnvironments: [],
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    }),
   );
 
   const updated = await getRevision({
