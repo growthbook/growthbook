@@ -1637,7 +1637,8 @@ export async function publishRevision(
 // Either the revision is published and the updated feature is returned, or an
 // error is thrown — a pending-review draft is never silently left behind.
 // canBypassApprovalChecks should be true when the org-level restApiBypassesReviews
-// setting is on; individual role permissions do not bypass on the REST path.
+// setting is on, or when the caller's role/token grants bypassApprovalChecks
+// on the feature's project.
 export async function createAndPublishRevision({
   context,
   feature,
