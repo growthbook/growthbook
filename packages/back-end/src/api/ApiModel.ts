@@ -4,6 +4,7 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { apiBaseSchema } from "shared/validators";
 import { ModelName } from "back-end/src/services/context";
 import {
+  ApiRequest,
   ApiRequestValidator,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
@@ -22,21 +23,54 @@ type ApiCreateZodObject<T extends ApiBaseSchema> = z.ZodType<
 type ApiUpdateZodObject<T extends ApiBaseSchema> = z.ZodType<
   UpdateProps<z.infer<T>>
 >;
-type CrudValidatorShapes<T extends ApiBaseSchema> = {
-  create: ApiRequestValidator<z.ZodNever, ApiCreateZodObject<T>, z.ZodNever>;
-  delete: ApiRequestValidator<
-    z.ZodType<{ id: string }>,
-    z.ZodNever,
-    z.ZodNever
-  >;
-  get: ApiRequestValidator<z.ZodType<{ id: string }>, z.ZodNever, z.ZodNever>;
-  list: ApiRequestValidator<z.ZodNever, z.ZodNever, z.ZodTypeAny>;
-  update: ApiRequestValidator<
-    z.ZodType<{ id: string }>,
-    ApiUpdateZodObject<T>,
-    z.ZodNever
-  >;
-};
+/**
+ * The actual default validators used when no crudValidatorOverride is specified.
+ * Single source of truth for default schemas — types are inferred from these values
+ * via DefaultCrudValidators.
+ * Body schemas for create/update are wide (z.unknown) because the model-specific
+ * schema is applied at routing time by getDefaultValidator.
+ */
+const defaultCrudValidators = {
+  get: {
+    paramsSchema: z.object({ id: z.string() }).strict(),
+    bodySchema: z.never(),
+    querySchema: z.never(),
+  },
+  create: {
+    paramsSchema: z.never(),
+    bodySchema: z.unknown(), // overridden per-model at routing time
+    querySchema: z.never(),
+  },
+  list: {
+    paramsSchema: z.never(),
+    bodySchema: z.never(),
+    querySchema: z.never(), // TODO: pagination?
+  },
+  delete: {
+    paramsSchema: z.object({ id: z.string() }).strict(),
+    bodySchema: z.never(),
+    querySchema: z.never(),
+  },
+  update: {
+    paramsSchema: z.object({ id: z.string() }).strict(),
+    bodySchema: z.unknown(), // overridden per-model at routing time
+    querySchema: z.never(),
+  },
+} satisfies Record<
+  CrudAction,
+  ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>
+>;
+
+/** Narrow type derived from the default CRUD validators, used as fallback in ExtractCrudSchema. */
+export type DefaultCrudValidators = typeof defaultCrudValidators;
+
+/** Wide type constraining crudValidatorOverrides — allows any Zod schema for each slot. */
+export type CrudValidatorOverrides = Partial<
+  Record<
+    CrudAction,
+    ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>
+  >
+>;
 
 /**
  * Spec-only definition for a custom API endpoint, used for OpenAPI doc generation.
@@ -76,7 +110,7 @@ export type OpenApiModelSpec<
   pathBase: string;
   includeDefaultCrud?: boolean;
   crudActions?: CrudAction[];
-  crudValidatorOverrides?: Partial<CrudValidatorShapes<T>>;
+  crudValidatorOverrides?: CrudValidatorOverrides;
   customEndpoints?: OpenApiEndpointSpec[];
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
@@ -128,20 +162,15 @@ const crudDefaults: Record<
     pathFragment: "/:id",
   },
 };
-type CrudActionConfig<
-  T extends ApiBaseSchema,
-  A extends CrudAction = CrudAction,
-> = {
+type CrudActionConfig<A extends CrudAction = CrudAction> = {
   action: A;
   verb: HttpVerb;
   pathFragment: string;
-  validator: CrudValidatorShapes<T>[A];
+  validator: ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   returnKey: string;
   plural: boolean | undefined;
 };
-export function getCrudConfig<T extends ApiBaseSchema>(
-  spec: OpenApiModelSpec<T>,
-): CrudActionConfig<T>[] {
+export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
   const actions = spec.includeDefaultCrud
     ? crudActions
     : (spec.crudActions ?? []);
@@ -160,10 +189,22 @@ export function getCrudConfig<T extends ApiBaseSchema>(
 
 export function defineRouterForApiConfig(apiConfig: ApiModelConfig) {
   const r = Router();
+
+  // Avoids TypeScript intersecting all model handler signatures when resolving
+  // the union returned by context.models[modelKey].
+  type MinimalApiModel = Record<
+    (typeof defaultHandlers)[CrudAction],
+    (
+      req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+    ) => Promise<unknown>
+  >;
+
   const crudConfig = getCrudConfig(apiConfig.openApiSpec);
   crudConfig.forEach(({ action, verb, pathFragment, validator, returnKey }) => {
     const handler = createApiRequestHandler(validator)(async (req) => {
-      const modelInstance = req.context.models[apiConfig.modelKey];
+      const modelInstance = req.context.models[
+        apiConfig.modelKey
+      ] as unknown as MinimalApiModel;
       const result = await modelInstance[defaultHandlers[action]](req);
       return { [returnKey]: result };
     });
@@ -179,10 +220,10 @@ export function defineRouterForApiConfig(apiConfig: ApiModelConfig) {
   return r;
 }
 
-export function getCrudValidator<T extends ApiBaseSchema, A extends CrudAction>(
-  action: A,
-  spec: OpenApiModelSpec<T>,
-): CrudValidatorShapes<T>[A] {
+export function getCrudValidator(
+  action: CrudAction,
+  spec: OpenApiModelSpec,
+): ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> {
   return (
     spec.crudValidatorOverrides?.[action] ??
     getDefaultValidator(
@@ -193,41 +234,15 @@ export function getCrudValidator<T extends ApiBaseSchema, A extends CrudAction>(
   );
 }
 
-function getDefaultValidator<
-  A extends CrudAction,
-  T extends ApiBaseSchema = ApiBaseSchema,
->(
-  action: A,
-  createBodySchema: ApiCreateZodObject<T>,
-  updateBodySchema: ApiUpdateZodObject<T>,
-): CrudValidatorShapes<T>[A] {
-  return {
-    create: {
-      bodySchema: createBodySchema,
-      querySchema: z.never(),
-      paramsSchema: z.never(),
-    },
-    delete: {
-      bodySchema: z.never(),
-      querySchema: z.never(),
-      paramsSchema: z.object({ id: z.string() }).strict(),
-    },
-    get: {
-      bodySchema: z.never(),
-      querySchema: z.never(),
-      paramsSchema: z.object({ id: z.string() }).strict(),
-    },
-    list: {
-      bodySchema: z.never(),
-      querySchema: z.never(), // TODO: pagination?
-      paramsSchema: z.never(),
-    },
-    update: {
-      bodySchema: updateBodySchema,
-      querySchema: z.never(),
-      paramsSchema: z.object({ id: z.string() }).strict(),
-    },
-  }[action];
+function getDefaultValidator(
+  action: CrudAction,
+  createBodySchema: z.ZodTypeAny,
+  updateBodySchema: z.ZodTypeAny,
+): ApiRequestValidator<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> {
+  const base = defaultCrudValidators[action];
+  if (action === "create") return { ...base, bodySchema: createBodySchema };
+  if (action === "update") return { ...base, bodySchema: updateBodySchema };
+  return base;
 }
 
 export function getDefaultCrudActionSummary(

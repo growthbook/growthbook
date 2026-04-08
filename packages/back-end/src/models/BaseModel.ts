@@ -24,7 +24,13 @@ import {
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
-import { ApiBaseSchema, ApiModelConfig } from "back-end/src/api/ApiModel";
+import {
+  ApiBaseSchema,
+  ApiModelConfig,
+  CrudValidatorOverrides,
+  DefaultCrudValidators,
+} from "back-end/src/api/ApiModel";
+import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 
 export type Context = ApiReqContext | ReqContext;
@@ -181,6 +187,27 @@ export async function waitForIndexes(): Promise<void> {
   pendingIndexOperations.clear();
 }
 
+/**
+ * Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
+ * for a specific CRUD action from the model's crudValidatorOverrides type (CVO).
+ * Falls back to DefaultCrudValidators when no override is defined for that action/slot,
+ * preserving structural guarantees (e.g. params.id on delete/get/update).
+ *
+ * CVO is inferred from the concrete crudValidatorOverrides value passed to MakeModelClass,
+ * so handleApi* override signatures in subclasses are automatically derived from the validators
+ * without requiring explicit type annotations on the req parameter.
+ */
+type ExtractCrudSchema<
+  CVO extends CrudValidatorOverrides,
+  Action extends CrudAction,
+  Slot extends "paramsSchema" | "bodySchema" | "querySchema",
+> =
+  CVO extends Record<Action, Record<Slot, infer Validator>>
+    ? Validator extends z.ZodTypeAny
+      ? Validator
+      : DefaultCrudValidators[Action][Slot]
+    : DefaultCrudValidators[Action][Slot];
+
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
 export abstract class BaseModel<
@@ -190,6 +217,7 @@ export abstract class BaseModel<
   PKey extends z.ZodRawShape,
   WriteOptions = never,
   PK extends readonly string[] = readonly ["id"],
+  CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
 > {
   public validator: T;
   public createValidator: CreateZodObject<T, PKey>;
@@ -361,18 +389,23 @@ export abstract class BaseModel<
   public async handleApiGet(
     req: ApiRequest<
       unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
+      ExtractCrudSchema<CVO, "get", "paramsSchema">,
+      ExtractCrudSchema<CVO, "get", "bodySchema">,
+      ExtractCrudSchema<CVO, "get", "querySchema">
     >,
   ): Promise<z.infer<ApiT>> {
-    const id = req.params.id;
+    const { id } = req.params as { id: string };
     const doc = await this.getById(id);
     if (!doc) req.context.throwNotFoundError();
     return this.toApiInterface(doc);
   }
   public async handleApiCreate(
-    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+    req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "create", "paramsSchema">,
+      ExtractCrudSchema<CVO, "create", "bodySchema">,
+      ExtractCrudSchema<CVO, "create", "querySchema">
+    >,
   ): Promise<z.infer<ApiT>> {
     const rawBody = req.body;
     const toCreate = await this.processApiCreateBody(rawBody);
@@ -384,31 +417,36 @@ export abstract class BaseModel<
     return rawBody as CreateProps<z.infer<T>>;
   }
   public async handleApiList(
-    _req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+    _req: ApiRequest<
+      unknown,
+      ExtractCrudSchema<CVO, "list", "paramsSchema">,
+      ExtractCrudSchema<CVO, "list", "bodySchema">,
+      ExtractCrudSchema<CVO, "list", "querySchema">
+    >,
   ): Promise<z.infer<ApiT>[]> {
     return (await this.getAll()).map(this.toApiInterface.bind(this));
   }
   public async handleApiDelete(
     req: ApiRequest<
       unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
+      ExtractCrudSchema<CVO, "delete", "paramsSchema">,
+      ExtractCrudSchema<CVO, "delete", "bodySchema">,
+      ExtractCrudSchema<CVO, "delete", "querySchema">
     >,
   ): Promise<string> {
-    const id = req.params.id;
+    const { id } = req.params as { id: string };
     await this.deleteById(id);
     return id;
   }
   public async handleApiUpdate(
     req: ApiRequest<
       unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
+      ExtractCrudSchema<CVO, "update", "paramsSchema">,
+      ExtractCrudSchema<CVO, "update", "bodySchema">,
+      ExtractCrudSchema<CVO, "update", "querySchema">
     >,
   ): Promise<z.infer<ApiT>> {
-    const id = req.params.id;
+    const { id } = req.params as { id: string };
     const rawBody = req.body;
     const toUpdate = await this.processApiUpdateBody(rawBody);
     return this.toApiInterface(await this.updateById(id, toUpdate));
@@ -1178,8 +1216,11 @@ export const MakeModelClass = <
   ApiT extends ApiBaseSchema,
   PKey extends z.ZodRawShape,
   PK extends readonly string[] = typeof DEFAULT_PKEY,
+  CVO extends CrudValidatorOverrides = CrudValidatorOverrides,
 >(
-  config: ModelConfig<T, E, ApiT, PKey> & { pKey?: PK },
+  config: ModelConfig<T, E, ApiT, PKey> & {
+    apiConfig?: { openApiSpec?: { crudValidatorOverrides?: CVO } };
+  } & { pKey?: PK },
 ) => {
   const createValidator = createSchema<T, PKey>(config.schema);
   const updateValidator = updateSchema<T, PKey>(
@@ -1193,7 +1234,8 @@ export const MakeModelClass = <
     ApiT,
     PKey,
     WriteOptions,
-    PK
+    PK,
+    CVO
   > {
     getConfig() {
       return config as ModelConfig<T, E, ApiT, PKey>;

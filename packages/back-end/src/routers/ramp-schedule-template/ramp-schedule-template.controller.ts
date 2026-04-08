@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { RampScheduleTemplateInterface } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
@@ -80,7 +81,7 @@ export const putRampScheduleTemplate = async (
   }
 
   const body = req.body;
-  const updates: Partial<RampScheduleTemplateInterface> = {};
+  const updates: UpdateProps<RampScheduleTemplateInterface> = {};
   if (body.name !== undefined) updates.name = body.name;
   if (body.steps !== undefined) updates.steps = body.steps;
   if (body.endPatch !== undefined) updates.endPatch = body.endPatch;

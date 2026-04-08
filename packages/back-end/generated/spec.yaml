@@ -9676,6 +9676,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: index
+          in: query
+          required: false
+          schema:
+            type: string
       tags:
         - CustomFields
       summary: Delete a single customField
