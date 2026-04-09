@@ -50,7 +50,7 @@ async function run() {
 
   // Export each API operation's response value as a named type
   output += "\n// Operations\n";
-  Object.values(dereferenced.paths).forEach((p) => {
+  Object.entries(dereferenced.paths).forEach(([path, p]) => {
     ["get", "post", "put", "delete", "patch"].forEach((method) => {
       if (p[method] && !p[method].$skipValidatorGeneration) {
         const id = p[method]["operationId"];
@@ -77,6 +77,8 @@ async function run() {
   summary: "${p[method].summary}",
   operationId: "${id}",
   tags: [${p[method].tags?.map((tag) => `"${tag}"`).join(", ")}],
+  method: "${method}" as const,
+  path: "${path}",
 };`,
         );
       }

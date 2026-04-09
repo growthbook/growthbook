@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { z } from "zod";
+import { z, ZodType } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { apiBaseSchema } from "shared/validators";
 import { ModelName } from "back-end/src/services/context";
 import {
   ApiRequestValidator,
   createApiRequestHandler,
+  OpenApiRoute,
 } from "back-end/src/util/handler";
 import {
   CustomApiHandler,
@@ -137,6 +138,7 @@ type CrudActionConfig<
   pathFragment: string;
   validator: CrudValidatorShapes<T>[A];
   returnKey: string;
+  returnSchema: ZodType;
   plural: boolean | undefined;
 };
 export function getCrudConfig<T extends ApiBaseSchema>(
@@ -154,8 +156,74 @@ export function getCrudConfig<T extends ApiBaseSchema>(
         : plural
           ? spec.modelPlural
           : spec.modelSingular;
-    return { action, verb, pathFragment, validator, returnKey, plural };
+    const returnSchema = z.object({
+      [returnKey]: action === "delete" ? z.string() : spec.apiInterface,
+    });
+    return {
+      action,
+      verb,
+      pathFragment,
+      validator,
+      returnKey,
+      returnSchema,
+      plural,
+    };
   });
+}
+
+function getFullPath(basePath: string, pathFragment: string): string {
+  return ("/" + basePath + "/" + pathFragment)
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/$/, "");
+}
+
+export function getOpenApiRoutesForApiConfig(
+  apiConfig: ApiModelConfig,
+): OpenApiRoute[] {
+  const routes: OpenApiRoute[] = [];
+
+  const crudConfig = getCrudConfig(apiConfig.openApiSpec);
+  crudConfig.forEach(
+    ({ action, verb, pathFragment, validator, returnKey, returnSchema }) => {
+      const route = createApiRequestHandler({
+        ...validator,
+        method: verb,
+        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
+        operationId: `${action}${apiConfig.openApiSpec.modelSingular}`,
+        summary: `${action} ${apiConfig.openApiSpec.modelPlural}`,
+        responseSchema: returnSchema,
+      })(async (req) => {
+        const modelInstance = req.context.models[apiConfig.modelKey];
+        const result = await modelInstance[defaultHandlers[action]](req);
+        return { [returnKey]: result } as z.infer<typeof returnSchema>;
+      });
+      routes.push(route);
+    },
+  );
+
+  apiConfig.customHandlers?.forEach(
+    ({
+      pathFragment,
+      validator,
+      reqHandler,
+      verb,
+      operationId,
+      summary,
+      zodReturnObject,
+    }) => {
+      const route = createApiRequestHandler({
+        ...validator,
+        method: verb,
+        path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
+        operationId,
+        summary,
+        responseSchema: zodReturnObject,
+      })(reqHandler);
+      routes.push(route);
+    },
+  );
+
+  return routes;
 }
 
 export function defineRouterForApiConfig(apiConfig: ApiModelConfig) {

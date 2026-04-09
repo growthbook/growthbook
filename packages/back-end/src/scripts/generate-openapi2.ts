@@ -1,18 +1,14 @@
 import path from "path";
 import fs from "fs";
-import { z } from "zod";
+import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
-import _apiRouter from "back-end/src/api/api.router";
-import { getAllRegisteredOpenApiRouters } from "back-end/src/util/handler";
+import { allRoutes } from "back-end/src/api/api.router";
 
-// This is just to force the import to happen
-// We only care about the side effects of the import
-// If you don't the import, typescript will strip it out
-console.log(_apiRouter.name);
+function isNonEmtySchema(schema: z.ZodType | undefined): schema is z.ZodType {
+  return schema !== undefined && !(schema instanceof ZodNever);
+}
 
 async function run() {
-  const routers = getAllRegisteredOpenApiRouters();
-
   // TODO: add description, security, tags, etc.
   const openapiSpec: any = {
     openapi: "3.0.0",
@@ -23,92 +19,96 @@ async function run() {
     paths: {},
   };
 
-  for (const { basePath, routes } of routers) {
-    for (const [verb, path, handler] of routes) {
-      const { operationId, summary, tags, schemas } = handler;
+  for (const route of allRoutes) {
+    const { operationId, summary, tags, schemas, method, path } = route;
 
-      const parameters: any = [];
+    if (!path || !method || !operationId) {
+      //console.log(route);
+      continue;
+    }
 
-      // URL params
-      if (schemas?.params) {
-        const jsonSchema = z.toJSONSchema(schemas.params);
-        Object.entries(jsonSchema.properties ?? {}).forEach(
-          ([name, schema]) => {
-            parameters.push({
-              name,
-              in: "path",
-              required: (jsonSchema.required ?? []).includes(name),
-              description:
-                schema && typeof schema === "object" && "description" in schema
-                  ? schema.description
-                  : "",
-              schema: schema,
-            });
-          },
-        );
-      }
+    const parameters: any = [];
 
-      // Query params
-      if (schemas?.query) {
-        const jsonSchema = z.toJSONSchema(schemas.query);
-        Object.entries(jsonSchema.properties ?? {}).forEach(
-          ([name, schema]) => {
-            parameters.push({
-              name,
-              in: "query",
-              required: (jsonSchema.required ?? []).includes(name),
-              description:
-                schema && typeof schema === "object" && "description" in schema
-                  ? schema.description
-                  : "",
-              schema: schema,
-            });
-          },
-        );
-      }
+    // URL params
+    if (isNonEmtySchema(schemas?.params)) {
+      const jsonSchema = z.toJSONSchema(schemas.params, {
+        unrepresentable: "any",
+      });
+      Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
+        parameters.push({
+          name,
+          in: "path",
+          required: (jsonSchema.required ?? []).includes(name),
+          description:
+            schema && typeof schema === "object" && "description" in schema
+              ? schema.description
+              : "",
+          schema: schema,
+        });
+      });
+    }
 
-      let requestBody: any = null;
-      if (schemas?.body) {
-        const jsonSchema = z.toJSONSchema(schemas.body);
-        requestBody = {
-          required: true,
-          content: {
-            "application/json": {
-              schema: jsonSchema,
-            },
-          },
-        };
-      }
+    // Query params
+    if (isNonEmtySchema(schemas?.query)) {
+      const jsonSchema = z.toJSONSchema(schemas.query, {
+        unrepresentable: "any",
+      });
+      Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
+        parameters.push({
+          name,
+          in: "query",
+          required: (jsonSchema.required ?? []).includes(name),
+          description:
+            schema && typeof schema === "object" && "description" in schema
+              ? schema.description
+              : "",
+          schema: schema,
+        });
+      });
+    }
 
-      const responses: any = {
-        "200": {
-          content: {
-            "application/json": {
-              schema: z.toJSONSchema(schemas?.response || z.object({})),
-            },
+    let requestBody: any = null;
+    if (isNonEmtySchema(schemas?.body)) {
+      const jsonSchema = z.toJSONSchema(schemas.body, {
+        unrepresentable: "any",
+      });
+      requestBody = {
+        required: true,
+        content: {
+          "application/json": {
+            schema: jsonSchema,
           },
         },
       };
-
-      // Relace express style path parameters with OpenAPI style path parameters
-      // and remove leading slash
-      const fullPath =
-        "/" +
-        basePath.replace(/^\//, "").replace(/\/$/, "") +
-        "/" +
-        path.replace(/:(\w+)/g, "{$1}").replace(/^\//, "");
-
-      openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
-      openapiSpec.paths[fullPath][verb] = {
-        operationId,
-        summary,
-        tags,
-        parameters,
-        requestBody,
-        responses,
-      };
     }
+
+    const responses: any = {
+      "200": {
+        content: {
+          "application/json": {
+            schema: z.toJSONSchema(schemas?.response || z.object({}), {
+              unrepresentable: "any",
+            }),
+          },
+        },
+      },
+    };
+
+    // Relace express style path parameters with OpenAPI style path parameters
+    const fullPath = path.replace(/:(\w+)/g, "{$1}");
+
+    openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
+    openapiSpec.paths[fullPath][method] = {
+      operationId,
+      summary,
+      tags,
+      parameters,
+      requestBody,
+      responses,
+    };
   }
+
+  console.log(openapiSpec);
 
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "generated", "spec2.yaml"),

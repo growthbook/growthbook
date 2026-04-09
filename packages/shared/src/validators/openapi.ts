@@ -112,6 +112,8 @@ export const listFeaturesValidator = {
   summary: "Get all features",
   operationId: "listFeatures",
   tags: ["features"],
+  method: "get" as const,
+  path: "/features",
 };
 
 export const postFeatureValidator = {
@@ -122,6 +124,8 @@ export const postFeatureValidator = {
   summary: "Create a single feature",
   operationId: "postFeature",
   tags: ["features"],
+  method: "post" as const,
+  path: "/features",
 };
 
 export const getFeatureValidator = {
@@ -132,6 +136,8 @@ export const getFeatureValidator = {
   summary: "Get a single feature",
   operationId: "getFeature",
   tags: ["features"],
+  method: "get" as const,
+  path: "/features/{id}",
 };
 
 export const updateFeatureValidator = {
@@ -142,6 +148,8 @@ export const updateFeatureValidator = {
   summary: "Partially update a feature",
   operationId: "updateFeature",
   tags: ["features"],
+  method: "post" as const,
+  path: "/features/{id}",
 };
 
 export const deleteFeatureValidator = {
@@ -152,6 +160,8 @@ export const deleteFeatureValidator = {
   summary: "Deletes a single feature",
   operationId: "deleteFeature",
   tags: ["features"],
+  method: "delete" as const,
+  path: "/features/{id}",
 };
 
 export const toggleFeatureValidator = {
@@ -162,6 +172,8 @@ export const toggleFeatureValidator = {
   summary: "Toggle a feature in one or more environments",
   operationId: "toggleFeature",
   tags: ["features"],
+  method: "post" as const,
+  path: "/features/{id}/toggle",
 };
 
 export const revertFeatureValidator = {
@@ -172,6 +184,8 @@ export const revertFeatureValidator = {
   summary: "Revert a feature to a specific revision",
   operationId: "revertFeature",
   tags: ["features"],
+  method: "post" as const,
+  path: "/features/{id}/revert",
 };
 
 export const getFeatureRevisionsValidator = {
@@ -182,6 +196,8 @@ export const getFeatureRevisionsValidator = {
   summary: "Get all revisions for a feature",
   operationId: "getFeatureRevisions",
   tags: ["features"],
+  method: "get" as const,
+  path: "/features/{id}/revisions",
 };
 
 export const getFeatureStaleValidator = {
@@ -192,6 +208,8 @@ export const getFeatureStaleValidator = {
   summary: "Get stale status for one or more features",
   operationId: "getFeatureStale",
   tags: ["features"],
+  method: "get" as const,
+  path: "/stale-features",
 };
 
 export const getFeatureKeysValidator = {
@@ -202,6 +220,8 @@ export const getFeatureKeysValidator = {
   summary: "Get list of feature keys",
   operationId: "getFeatureKeys",
   tags: ["features"],
+  method: "get" as const,
+  path: "/feature-keys",
 };
 
 export const listProjectsValidator = {
@@ -212,6 +232,8 @@ export const listProjectsValidator = {
   summary: "Get all projects",
   operationId: "listProjects",
   tags: ["projects"],
+  method: "get" as const,
+  path: "/projects",
 };
 
 export const postProjectValidator = {
@@ -222,6 +244,8 @@ export const postProjectValidator = {
   summary: "Create a single project",
   operationId: "postProject",
   tags: ["projects"],
+  method: "post" as const,
+  path: "/projects",
 };
 
 export const getProjectValidator = {
@@ -232,6 +256,8 @@ export const getProjectValidator = {
   summary: "Get a single project",
   operationId: "getProject",
   tags: ["projects"],
+  method: "get" as const,
+  path: "/projects/{id}",
 };
 
 export const putProjectValidator = {
@@ -242,6 +268,8 @@ export const putProjectValidator = {
   summary: "Edit a single project",
   operationId: "putProject",
   tags: ["projects"],
+  method: "put" as const,
+  path: "/projects/{id}",
 };
 
 export const deleteProjectValidator = {
@@ -252,6 +280,8 @@ export const deleteProjectValidator = {
   summary: "Deletes a single project",
   operationId: "deleteProject",
   tags: ["projects"],
+  method: "delete" as const,
+  path: "/projects/{id}",
 };
 
 export const listDimensionsValidator = {
@@ -262,6 +292,8 @@ export const listDimensionsValidator = {
   summary: "Get all dimensions",
   operationId: "listDimensions",
   tags: ["dimensions"],
+  method: "get" as const,
+  path: "/dimensions",
 };
 
 export const postDimensionValidator = {
@@ -272,6 +304,8 @@ export const postDimensionValidator = {
   summary: "Create a single dimension",
   operationId: "postDimension",
   tags: ["dimensions"],
+  method: "post" as const,
+  path: "/dimensions",
 };
 
 export const getDimensionValidator = {
@@ -282,6 +316,8 @@ export const getDimensionValidator = {
   summary: "Get a single dimension",
   operationId: "getDimension",
   tags: ["dimensions"],
+  method: "get" as const,
+  path: "/dimensions/{id}",
 };
 
 export const updateDimensionValidator = {
@@ -292,6 +328,8 @@ export const updateDimensionValidator = {
   summary: "Update a single dimension",
   operationId: "updateDimension",
   tags: ["dimensions"],
+  method: "post" as const,
+  path: "/dimensions/{id}",
 };
 
 export const deleteDimensionValidator = {
@@ -302,6 +340,8 @@ export const deleteDimensionValidator = {
   summary: "Deletes a single dimension",
   operationId: "deleteDimension",
   tags: ["dimensions"],
+  method: "delete" as const,
+  path: "/dimensions/{id}",
 };
 
 export const listSegmentsValidator = {
@@ -312,6 +352,8 @@ export const listSegmentsValidator = {
   summary: "Get all segments",
   operationId: "listSegments",
   tags: ["segments"],
+  method: "get" as const,
+  path: "/segments",
 };
 
 export const postSegmentValidator = {
@@ -322,6 +364,8 @@ export const postSegmentValidator = {
   summary: "Create a single segment",
   operationId: "postSegment",
   tags: ["segments"],
+  method: "post" as const,
+  path: "/segments",
 };
 
 export const getSegmentValidator = {
@@ -332,6 +376,8 @@ export const getSegmentValidator = {
   summary: "Get a single segment",
   operationId: "getSegment",
   tags: ["segments"],
+  method: "get" as const,
+  path: "/segments/{id}",
 };
 
 export const updateSegmentValidator = {
@@ -342,6 +388,8 @@ export const updateSegmentValidator = {
   summary: "Update a single segment",
   operationId: "updateSegment",
   tags: ["segments"],
+  method: "post" as const,
+  path: "/segments/{id}",
 };
 
 export const deleteSegmentValidator = {
@@ -352,6 +400,8 @@ export const deleteSegmentValidator = {
   summary: "Deletes a single segment",
   operationId: "deleteSegment",
   tags: ["segments"],
+  method: "delete" as const,
+  path: "/segments/{id}",
 };
 
 export const listSdkConnectionsValidator = {
@@ -362,6 +412,8 @@ export const listSdkConnectionsValidator = {
   summary: "Get all sdk connections",
   operationId: "listSdkConnections",
   tags: ["sdk-connections"],
+  method: "get" as const,
+  path: "/sdk-connections",
 };
 
 export const postSdkConnectionValidator = {
@@ -372,6 +424,8 @@ export const postSdkConnectionValidator = {
   summary: "Create a single sdk connection",
   operationId: "postSdkConnection",
   tags: ["sdk-connections"],
+  method: "post" as const,
+  path: "/sdk-connections",
 };
 
 export const getSdkConnectionValidator = {
@@ -382,6 +436,8 @@ export const getSdkConnectionValidator = {
   summary: "Get a single sdk connection",
   operationId: "getSdkConnection",
   tags: ["sdk-connections"],
+  method: "get" as const,
+  path: "/sdk-connections/{id}",
 };
 
 export const putSdkConnectionValidator = {
@@ -392,6 +448,8 @@ export const putSdkConnectionValidator = {
   summary: "Update a single sdk connection",
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
+  method: "put" as const,
+  path: "/sdk-connections/{id}",
 };
 
 export const deleteSdkConnectionValidator = {
@@ -402,6 +460,8 @@ export const deleteSdkConnectionValidator = {
   summary: "Deletes a single SDK connection",
   operationId: "deleteSdkConnection",
   tags: ["sdk-connection"],
+  method: "delete" as const,
+  path: "/sdk-connections/{id}",
 };
 
 export const lookupSdkConnectionByKeyValidator = {
@@ -412,6 +472,8 @@ export const lookupSdkConnectionByKeyValidator = {
   summary: "Find a single sdk connection by its key",
   operationId: "lookupSdkConnectionByKey",
   tags: ["sdk-connections"],
+  method: "get" as const,
+  path: "/sdk-connections/lookup/{key}",
 };
 
 export const listDataSourcesValidator = {
@@ -422,6 +484,8 @@ export const listDataSourcesValidator = {
   summary: "Get all data sources",
   operationId: "listDataSources",
   tags: ["data-sources"],
+  method: "get" as const,
+  path: "/data-sources",
 };
 
 export const getDataSourceValidator = {
@@ -432,6 +496,8 @@ export const getDataSourceValidator = {
   summary: "Get a single data source",
   operationId: "getDataSource",
   tags: ["data-sources"],
+  method: "get" as const,
+  path: "/data-sources/{id}",
 };
 
 export const listExperimentsValidator = {
@@ -442,6 +508,8 @@ export const listExperimentsValidator = {
   summary: "Get all experiments",
   operationId: "listExperiments",
   tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments",
 };
 
 export const postExperimentValidator = {
@@ -452,6 +520,8 @@ export const postExperimentValidator = {
   summary: "Create a single experiment",
   operationId: "postExperiment",
   tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments",
 };
 
 export const getExperimentNamesValidator = {
@@ -462,6 +532,8 @@ export const getExperimentNamesValidator = {
   summary: "Get a list of experiments with names and ids",
   operationId: "getExperimentNames",
   tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiment-names",
 };
 
 export const getExperimentValidator = {
@@ -472,6 +544,8 @@ export const getExperimentValidator = {
   summary: "Get a single experiment",
   operationId: "getExperiment",
   tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/{id}",
 };
 
 export const updateExperimentValidator = {
@@ -482,6 +556,8 @@ export const updateExperimentValidator = {
   summary: "Update a single experiment",
   operationId: "updateExperiment",
   tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/{id}",
 };
 
 export const postExperimentSnapshotValidator = {
@@ -492,6 +568,8 @@ export const postExperimentSnapshotValidator = {
   summary: "Create Experiment Snapshot",
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],
+  method: "post" as const,
+  path: "/experiments/{id}/snapshot",
 };
 
 export const postVariationImageUploadValidator = {
@@ -502,6 +580,8 @@ export const postVariationImageUploadValidator = {
   summary: "Upload a variation screenshot",
   operationId: "postVariationImageUpload",
   tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/{id}/variation/{variationId}/screenshot/upload",
 };
 
 export const deleteVariationScreenshotValidator = {
@@ -512,6 +592,8 @@ export const deleteVariationScreenshotValidator = {
   summary: "Delete a variation screenshot",
   operationId: "deleteVariationScreenshot",
   tags: ["experiments"],
+  method: "delete" as const,
+  path: "/experiments/{id}/variation/{variationId}/screenshot",
 };
 
 export const getExperimentResultsValidator = {
@@ -522,6 +604,8 @@ export const getExperimentResultsValidator = {
   summary: "Get results for an experiment",
   operationId: "getExperimentResults",
   tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/{id}/results",
 };
 
 export const listVisualChangesetsValidator = {
@@ -532,6 +616,8 @@ export const listVisualChangesetsValidator = {
   summary: "Get all visual changesets",
   operationId: "listVisualChangesets",
   tags: ["visual-changesets"],
+  method: "get" as const,
+  path: "/experiments/{id}/visual-changesets",
 };
 
 export const postVisualChangesetsValidator = {
@@ -542,6 +628,8 @@ export const postVisualChangesetsValidator = {
   summary: "Create a visual changeset for an experiment",
   operationId: "postVisualChangesets",
   tags: ["visual-changesets"],
+  method: "post" as const,
+  path: "/experiments/{id}/visual-changesets",
 };
 
 export const getExperimentSnapshotValidator = {
@@ -552,6 +640,8 @@ export const getExperimentSnapshotValidator = {
   summary: "Get an experiment snapshot status",
   operationId: "getExperimentSnapshot",
   tags: ["snapshots"],
+  method: "get" as const,
+  path: "/snapshots/{id}",
 };
 
 export const listMetricsValidator = {
@@ -562,6 +652,8 @@ export const listMetricsValidator = {
   summary: "Get all metrics",
   operationId: "listMetrics",
   tags: ["metrics"],
+  method: "get" as const,
+  path: "/metrics",
 };
 
 export const postMetricValidator = {
@@ -572,6 +664,8 @@ export const postMetricValidator = {
   summary: "Create a single metric",
   operationId: "postMetric",
   tags: ["metrics"],
+  method: "post" as const,
+  path: "/metrics",
 };
 
 export const getMetricValidator = {
@@ -582,6 +676,8 @@ export const getMetricValidator = {
   summary: "Get a single metric",
   operationId: "getMetric",
   tags: ["metrics"],
+  method: "get" as const,
+  path: "/metrics/{id}",
 };
 
 export const putMetricValidator = {
@@ -592,6 +688,8 @@ export const putMetricValidator = {
   summary: "Update a metric",
   operationId: "putMetric",
   tags: ["metrics"],
+  method: "put" as const,
+  path: "/metrics/{id}",
 };
 
 export const deleteMetricValidator = {
@@ -602,6 +700,8 @@ export const deleteMetricValidator = {
   summary: "Deletes a metric",
   operationId: "deleteMetric",
   tags: ["metrics"],
+  method: "delete" as const,
+  path: "/metrics/{id}",
 };
 
 export const getMetricUsageValidator = {
@@ -612,6 +712,8 @@ export const getMetricUsageValidator = {
   summary: "Get metric usage across experiments",
   operationId: "getMetricUsage",
   tags: ["usage"],
+  method: "get" as const,
+  path: "/usage/metrics",
 };
 
 export const getVisualChangesetValidator = {
@@ -622,6 +724,8 @@ export const getVisualChangesetValidator = {
   summary: "Get a single visual changeset",
   operationId: "getVisualChangeset",
   tags: ["visual-changesets"],
+  method: "get" as const,
+  path: "/visual-changesets/{id}",
 };
 
 export const putVisualChangesetValidator = {
@@ -632,6 +736,8 @@ export const putVisualChangesetValidator = {
   summary: "Update a visual changeset",
   operationId: "putVisualChangeset",
   tags: ["visual-changesets"],
+  method: "put" as const,
+  path: "/visual-changesets/{id}",
 };
 
 export const postVisualChangeValidator = {
@@ -642,6 +748,8 @@ export const postVisualChangeValidator = {
   summary: "Create a visual change for a visual changeset",
   operationId: "postVisualChange",
   tags: ["visual-changesets"],
+  method: "post" as const,
+  path: "/visual-changesets/{id}/visual-change",
 };
 
 export const putVisualChangeValidator = {
@@ -652,6 +760,8 @@ export const putVisualChangeValidator = {
   summary: "Update a visual change for a visual changeset",
   operationId: "putVisualChange",
   tags: ["visual-changesets"],
+  method: "put" as const,
+  path: "/visual-changesets/{id}/visual-change/{visualChangeId}",
 };
 
 export const listSavedGroupsValidator = {
@@ -662,6 +772,8 @@ export const listSavedGroupsValidator = {
   summary: "Get all saved group",
   operationId: "listSavedGroups",
   tags: ["saved-groups"],
+  method: "get" as const,
+  path: "/saved-groups",
 };
 
 export const postSavedGroupValidator = {
@@ -672,6 +784,8 @@ export const postSavedGroupValidator = {
   summary: "Create a single saved group",
   operationId: "postSavedGroup",
   tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups",
 };
 
 export const getSavedGroupValidator = {
@@ -682,6 +796,8 @@ export const getSavedGroupValidator = {
   summary: "Get a single saved group",
   operationId: "getSavedGroup",
   tags: ["saved-groups"],
+  method: "get" as const,
+  path: "/saved-groups/{id}",
 };
 
 export const updateSavedGroupValidator = {
@@ -692,6 +808,8 @@ export const updateSavedGroupValidator = {
   summary: "Partially update a single saved group",
   operationId: "updateSavedGroup",
   tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/{id}",
 };
 
 export const deleteSavedGroupValidator = {
@@ -702,6 +820,8 @@ export const deleteSavedGroupValidator = {
   summary: "Deletes a single saved group",
   operationId: "deleteSavedGroup",
   tags: ["saved-groups"],
+  method: "delete" as const,
+  path: "/saved-groups/{id}",
 };
 
 export const listOrganizationsValidator = {
@@ -712,6 +832,8 @@ export const listOrganizationsValidator = {
   summary: "Get all organizations (only for super admins on multi-org Enterprise Plan only)",
   operationId: "listOrganizations",
   tags: ["organizations"],
+  method: "get" as const,
+  path: "/organizations",
 };
 
 export const postOrganizationValidator = {
@@ -722,6 +844,8 @@ export const postOrganizationValidator = {
   summary: "Create a single organization (only for super admins on multi-org Enterprise Plan only)",
   operationId: "postOrganization",
   tags: ["organizations"],
+  method: "post" as const,
+  path: "/organizations",
 };
 
 export const putOrganizationValidator = {
@@ -732,6 +856,8 @@ export const putOrganizationValidator = {
   summary: "Edit a single organization (only for super admins on multi-org Enterprise Plan only)",
   operationId: "putOrganization",
   tags: ["organizations"],
+  method: "put" as const,
+  path: "/organizations/{id}",
 };
 
 export const listAttributesValidator = {
@@ -742,6 +868,8 @@ export const listAttributesValidator = {
   summary: "Get the organization's attributes",
   operationId: "listAttributes",
   tags: ["attributes"],
+  method: "get" as const,
+  path: "/attributes",
 };
 
 export const postAttributeValidator = {
@@ -752,6 +880,8 @@ export const postAttributeValidator = {
   summary: "Create a new attribute",
   operationId: "postAttribute",
   tags: ["attributes"],
+  method: "post" as const,
+  path: "/attributes",
 };
 
 export const putAttributeValidator = {
@@ -762,6 +892,8 @@ export const putAttributeValidator = {
   summary: "Update an attribute",
   operationId: "putAttribute",
   tags: ["attributes"],
+  method: "put" as const,
+  path: "/attributes/${property}",
 };
 
 export const deleteAttributeValidator = {
@@ -772,6 +904,8 @@ export const deleteAttributeValidator = {
   summary: "Deletes a single attribute",
   operationId: "deleteAttribute",
   tags: ["attributes"],
+  method: "delete" as const,
+  path: "/attributes/${property}",
 };
 
 export const listArchetypesValidator = {
@@ -782,6 +916,8 @@ export const listArchetypesValidator = {
   summary: "Get the organization's archetypes",
   operationId: "listArchetypes",
   tags: ["archetypes"],
+  method: "get" as const,
+  path: "/archetypes",
 };
 
 export const postArchetypeValidator = {
@@ -792,6 +928,8 @@ export const postArchetypeValidator = {
   summary: "Create a single archetype",
   operationId: "postArchetype",
   tags: ["archetypes"],
+  method: "post" as const,
+  path: "/archetypes",
 };
 
 export const getArchetypeValidator = {
@@ -802,6 +940,8 @@ export const getArchetypeValidator = {
   summary: "Get a single archetype",
   operationId: "getArchetype",
   tags: ["archetypes"],
+  method: "get" as const,
+  path: "/archetypes/${id}",
 };
 
 export const putArchetypeValidator = {
@@ -812,6 +952,8 @@ export const putArchetypeValidator = {
   summary: "Update a single archetype",
   operationId: "putArchetype",
   tags: ["archetypes"],
+  method: "put" as const,
+  path: "/archetypes/${id}",
 };
 
 export const deleteArchetypeValidator = {
@@ -822,6 +964,8 @@ export const deleteArchetypeValidator = {
   summary: "Deletes a single archetype",
   operationId: "deleteArchetype",
   tags: ["archetypes"],
+  method: "delete" as const,
+  path: "/archetypes/${id}",
 };
 
 export const listMembersValidator = {
@@ -832,6 +976,8 @@ export const listMembersValidator = {
   summary: "Get all organization members",
   operationId: "listMembers",
   tags: ["members"],
+  method: "get" as const,
+  path: "/members",
 };
 
 export const deleteMemberValidator = {
@@ -842,6 +988,8 @@ export const deleteMemberValidator = {
   summary: "Removes a single user from an organization",
   operationId: "deleteMember",
   tags: ["members"],
+  method: "delete" as const,
+  path: "/members/{id}",
 };
 
 export const updateMemberRoleValidator = {
@@ -852,6 +1000,8 @@ export const updateMemberRoleValidator = {
   summary: "Update a member's global role (including any enviroment restrictions, if applicable). Can also update a member's project roles if your plan supports it.",
   operationId: "updateMemberRole",
   tags: ["members"],
+  method: "post" as const,
+  path: "/members/{id}/role",
 };
 
 export const listEnvironmentsValidator = {
@@ -862,6 +1012,8 @@ export const listEnvironmentsValidator = {
   summary: "Get the organization's environments",
   operationId: "listEnvironments",
   tags: ["environments"],
+  method: "get" as const,
+  path: "/environments",
 };
 
 export const postEnvironmentValidator = {
@@ -872,6 +1024,8 @@ export const postEnvironmentValidator = {
   summary: "Create a new environment",
   operationId: "postEnvironment",
   tags: ["environments"],
+  method: "post" as const,
+  path: "/environments",
 };
 
 export const putEnvironmentValidator = {
@@ -882,6 +1036,8 @@ export const putEnvironmentValidator = {
   summary: "Update an environment",
   operationId: "putEnvironment",
   tags: ["environments"],
+  method: "put" as const,
+  path: "/environments/${id}",
 };
 
 export const deleteEnvironmentValidator = {
@@ -892,6 +1048,8 @@ export const deleteEnvironmentValidator = {
   summary: "Deletes a single environment",
   operationId: "deleteEnvironment",
   tags: ["environments"],
+  method: "delete" as const,
+  path: "/environments/${id}",
 };
 
 export const listFactTablesValidator = {
@@ -902,6 +1060,8 @@ export const listFactTablesValidator = {
   summary: "Get all fact tables",
   operationId: "listFactTables",
   tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables",
 };
 
 export const postFactTableValidator = {
@@ -912,6 +1072,8 @@ export const postFactTableValidator = {
   summary: "Create a single fact table",
   operationId: "postFactTable",
   tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables",
 };
 
 export const getFactTableValidator = {
@@ -922,6 +1084,8 @@ export const getFactTableValidator = {
   summary: "Get a single fact table",
   operationId: "getFactTable",
   tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/{id}",
 };
 
 export const updateFactTableValidator = {
@@ -932,6 +1096,8 @@ export const updateFactTableValidator = {
   summary: "Update a single fact table",
   operationId: "updateFactTable",
   tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/{id}",
 };
 
 export const deleteFactTableValidator = {
@@ -942,6 +1108,8 @@ export const deleteFactTableValidator = {
   summary: "Deletes a single fact table",
   operationId: "deleteFactTable",
   tags: ["fact-tables"],
+  method: "delete" as const,
+  path: "/fact-tables/{id}",
 };
 
 export const listFactTableFiltersValidator = {
@@ -952,6 +1120,8 @@ export const listFactTableFiltersValidator = {
   summary: "Get all filters for a fact table",
   operationId: "listFactTableFilters",
   tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/{factTableId}/filters",
 };
 
 export const postFactTableFilterValidator = {
@@ -962,6 +1132,8 @@ export const postFactTableFilterValidator = {
   summary: "Create a single fact table filter",
   operationId: "postFactTableFilter",
   tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/{factTableId}/filters",
 };
 
 export const getFactTableFilterValidator = {
@@ -972,6 +1144,8 @@ export const getFactTableFilterValidator = {
   summary: "Get a single fact filter",
   operationId: "getFactTableFilter",
   tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/{factTableId}/filters/{id}",
 };
 
 export const updateFactTableFilterValidator = {
@@ -982,6 +1156,8 @@ export const updateFactTableFilterValidator = {
   summary: "Update a single fact table filter",
   operationId: "updateFactTableFilter",
   tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/{factTableId}/filters/{id}",
 };
 
 export const deleteFactTableFilterValidator = {
@@ -992,6 +1168,8 @@ export const deleteFactTableFilterValidator = {
   summary: "Deletes a single fact table filter",
   operationId: "deleteFactTableFilter",
   tags: ["fact-tables"],
+  method: "delete" as const,
+  path: "/fact-tables/{factTableId}/filters/{id}",
 };
 
 export const listFactMetricsValidator = {
@@ -1002,6 +1180,8 @@ export const listFactMetricsValidator = {
   summary: "Get all fact metrics",
   operationId: "listFactMetrics",
   tags: ["fact-metrics"],
+  method: "get" as const,
+  path: "/fact-metrics",
 };
 
 export const postFactMetricValidator = {
@@ -1012,6 +1192,8 @@ export const postFactMetricValidator = {
   summary: "Create a single fact metric",
   operationId: "postFactMetric",
   tags: ["fact-metrics"],
+  method: "post" as const,
+  path: "/fact-metrics",
 };
 
 export const getFactMetricValidator = {
@@ -1022,6 +1204,8 @@ export const getFactMetricValidator = {
   summary: "Get a single fact metric",
   operationId: "getFactMetric",
   tags: ["fact-metrics"],
+  method: "get" as const,
+  path: "/fact-metrics/{id}",
 };
 
 export const updateFactMetricValidator = {
@@ -1032,6 +1216,8 @@ export const updateFactMetricValidator = {
   summary: "Update a single fact metric",
   operationId: "updateFactMetric",
   tags: ["fact-metrics"],
+  method: "post" as const,
+  path: "/fact-metrics/{id}",
 };
 
 export const deleteFactMetricValidator = {
@@ -1042,6 +1228,8 @@ export const deleteFactMetricValidator = {
   summary: "Deletes a single fact metric",
   operationId: "deleteFactMetric",
   tags: ["fact-metrics"],
+  method: "delete" as const,
+  path: "/fact-metrics/{id}",
 };
 
 export const postFactMetricAnalysisValidator = {
@@ -1052,6 +1240,8 @@ export const postFactMetricAnalysisValidator = {
   summary: "Create a fact metric analysis",
   operationId: "postFactMetricAnalysis",
   tags: ["fact-metrics"],
+  method: "post" as const,
+  path: "/fact-metrics/{id}/analysis",
 };
 
 export const postBulkImportFactsValidator = {
@@ -1062,6 +1252,8 @@ export const postBulkImportFactsValidator = {
   summary: "Bulk import fact tables, filters, and metrics",
   operationId: "postBulkImportFacts",
   tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/bulk-import/facts",
 };
 
 export const listCodeRefsValidator = {
@@ -1072,6 +1264,8 @@ export const listCodeRefsValidator = {
   summary: "Get list of all code references for the current organization",
   operationId: "listCodeRefs",
   tags: ["code-references"],
+  method: "get" as const,
+  path: "/code-refs",
 };
 
 export const postCodeRefsValidator = {
@@ -1082,6 +1276,8 @@ export const postCodeRefsValidator = {
   summary: "Submit list of code references",
   operationId: "postCodeRefs",
   tags: ["code-references"],
+  method: "post" as const,
+  path: "/code-refs",
 };
 
 export const getCodeRefsValidator = {
@@ -1092,6 +1288,8 @@ export const getCodeRefsValidator = {
   summary: "Get list of code references for a single feature id",
   operationId: "getCodeRefs",
   tags: ["code-references"],
+  method: "get" as const,
+  path: "/code-refs/{id}",
 };
 
 export const getQueryValidator = {
@@ -1102,6 +1300,8 @@ export const getQueryValidator = {
   summary: "Get a single query",
   operationId: "getQuery",
   tags: ["queries"],
+  method: "get" as const,
+  path: "/queries/{id}",
 };
 
 export const getSettingsValidator = {
@@ -1112,6 +1312,8 @@ export const getSettingsValidator = {
   summary: "Get organization settings",
   operationId: "getSettings",
   tags: ["settings"],
+  method: "get" as const,
+  path: "/settings",
 };
 
 export const getInformationSchemaValidator = {
@@ -1122,6 +1324,8 @@ export const getInformationSchemaValidator = {
   summary: "Get a Data Source's Information Schema",
   operationId: "getInformationSchema",
   tags: ["data-sources"],
+  method: "get" as const,
+  path: "/data-sources/{dataSourceId}/information-schema",
 };
 
 export const getInformationSchemaTableValidator = {
@@ -1132,6 +1336,8 @@ export const getInformationSchemaTableValidator = {
   summary: "Get a single Information Schema Table by id",
   operationId: "getInformationSchemaTable",
   tags: ["data-sources"],
+  method: "get" as const,
+  path: "/information-schema-tables/{tableId}",
 };
 
 export const listRampSchedulesValidator = {
@@ -1142,6 +1348,8 @@ export const listRampSchedulesValidator = {
   summary: "List ramp schedules",
   operationId: "listRampSchedules",
   tags: ["ramp-schedules"],
+  method: "get" as const,
+  path: "/ramp-schedules",
 };
 
 export const postRampScheduleValidator = {
@@ -1152,6 +1360,8 @@ export const postRampScheduleValidator = {
   summary: "Create a ramp schedule",
   operationId: "postRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules",
 };
 
 export const getRampScheduleValidator = {
@@ -1162,6 +1372,8 @@ export const getRampScheduleValidator = {
   summary: "Get a single ramp schedule",
   operationId: "getRampSchedule",
   tags: ["ramp-schedules"],
+  method: "get" as const,
+  path: "/ramp-schedules/{id}",
 };
 
 export const putRampScheduleValidator = {
@@ -1172,6 +1384,8 @@ export const putRampScheduleValidator = {
   summary: "Update a ramp schedule",
   operationId: "putRampSchedule",
   tags: ["ramp-schedules"],
+  method: "put" as const,
+  path: "/ramp-schedules/{id}",
 };
 
 export const deleteRampScheduleValidator = {
@@ -1182,6 +1396,8 @@ export const deleteRampScheduleValidator = {
   summary: "Delete a ramp schedule",
   operationId: "deleteRampSchedule",
   tags: ["ramp-schedules"],
+  method: "delete" as const,
+  path: "/ramp-schedules/{id}",
 };
 
 export const startRampScheduleValidator = {
@@ -1192,6 +1408,8 @@ export const startRampScheduleValidator = {
   summary: "Start a ramp schedule",
   operationId: "startRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/start",
 };
 
 export const pauseRampScheduleValidator = {
@@ -1202,6 +1420,8 @@ export const pauseRampScheduleValidator = {
   summary: "Pause a ramp schedule",
   operationId: "pauseRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/pause",
 };
 
 export const resumeRampScheduleValidator = {
@@ -1212,6 +1432,8 @@ export const resumeRampScheduleValidator = {
   summary: "Resume a paused ramp schedule",
   operationId: "resumeRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/resume",
 };
 
 export const approveStepRampScheduleValidator = {
@@ -1222,6 +1444,8 @@ export const approveStepRampScheduleValidator = {
   summary: "Approve the current pending-approval step",
   operationId: "approveStepRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/approve-step",
 };
 
 export const rollbackRampScheduleValidator = {
@@ -1232,6 +1456,8 @@ export const rollbackRampScheduleValidator = {
   summary: "Roll back a ramp schedule",
   operationId: "rollbackRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/rollback",
 };
 
 export const completeRampScheduleValidator = {
@@ -1242,6 +1468,8 @@ export const completeRampScheduleValidator = {
   summary: "Complete a ramp schedule immediately",
   operationId: "completeRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/complete",
 };
 
 export const jumpRampScheduleValidator = {
@@ -1252,6 +1480,8 @@ export const jumpRampScheduleValidator = {
   summary: "Jump to a specific step",
   operationId: "jumpRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/jump",
 };
 
 export const addTargetRampScheduleValidator = {
@@ -1262,6 +1492,8 @@ export const addTargetRampScheduleValidator = {
   summary: "Add a target rule to a ramp schedule",
   operationId: "addTargetRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/add-target",
 };
 
 export const ejectTargetRampScheduleValidator = {
@@ -1290,4 +1522,6 @@ export const ejectTargetRampScheduleValidator = {
   summary: "Remove a target rule from a ramp schedule",
   operationId: "ejectTargetRampSchedule",
   tags: ["ramp-schedules"],
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/eject-target",
 };

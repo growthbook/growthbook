@@ -34,7 +34,7 @@ const emptyListResponse = (
 });
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
-  async (req): Promise<ListFeaturesResponse> => {
+  async (req) => {
     const projectId = req.query.projectId;
     if (req.query.skipPagination && !API_ALLOW_SKIP_PAGINATION) {
       throw new Error(
