@@ -155,6 +155,14 @@ function generateZodSchema(
   // until we can write custom regex validator
   zod = zod.replace(/(?<=string\(\))\.datetime\(\{.*?\}\)/g, "");
 
+  // Fix Zod 3 → Zod 4 superRefine compatibility for oneOf schemas.
+  // json-schema-to-zod emits ctx.addIssue with code:"invalid_union" and ctx.path,
+  // neither of which exist in Zod 4's $RefinementCtx.
+  zod = zod
+    .replace(/path: ctx\.path,\s*/g, "")
+    .replace(/code: "invalid_union",\s*/g, 'code: "custom",\n')
+    .replace(/unionErrors: errors,\s*/g, "");
+
   // Convert zod v3 style z.record(valueType) to zod v4 style z.record(z.string(), valueType)
   // This handles the breaking change in zod v4 where z.record() requires explicit key and value types
   zod = zod.replace(/z\.record\(([^)]+)\)/g, "z.record(z.string(), $1)");

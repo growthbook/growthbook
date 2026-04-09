@@ -1,7 +1,100 @@
-openapi: 3.0.0
+openapi: 3.1.0
 info:
-  title: GrowthBook API
   version: 1.0.0
+  title: GrowthBook REST API
+  description: >
+    GrowthBook offers a full REST API for interacting with the application.
+
+
+    Request data can use either JSON or Form data encoding (with proper
+    `Content-Type` headers). All response bodies are JSON-encoded.
+
+
+    The API base URL for GrowthBook Cloud is `https://api.growthbook.io`. For
+    self-hosted deployments, it is the same as your API_HOST environment
+    variable (defaults to `http://localhost:3100`). The rest of these docs will
+    assume you are using GrowthBook Cloud.
+
+
+    ## Authentication
+
+
+    We support both the HTTP Basic and Bearer authentication schemes for
+    convenience.
+
+
+    You first need to generate a new API Key in GrowthBook. Different keys have
+    different permissions:
+
+
+    - **Personal Access Tokens**: These are sensitive and provide the same level
+    of access as the user has to an organization. These can be created by going
+    to `Personal Access Tokens` under the your user menu.
+
+    - **Secret Keys**: These are sensitive and provide the level of access for
+    the role, which currently is either `admin` or `readonly`. Only Admins with
+    the `manageApiKeys` permission can manage Secret Keys on behalf of an
+    organization. These can be created by going to `Settings -> API Keys`
+
+
+    If using HTTP Basic auth, pass the Secret Key as the username and leave the
+    password blank:
+
+
+    ```bash
+
+    curl https://api.growthbook.io/api/v1 \
+      -u secret_abc123DEF456:
+    # The ":" at the end stops curl from asking for a password
+
+    ```
+
+
+    If using Bearer auth, pass the Secret Key as the token:
+
+
+    ```bash
+
+    curl https://api.growthbook.io/api/v1 \
+
+    -H "Authorization: Bearer secret_abc123DEF456"
+
+    ```
+
+
+    ## Errors
+
+
+    The API may return the following error status codes:
+
+
+    - **400** - Bad Request - Often due to a missing required parameter
+
+    - **401** - Unauthorized - No valid API key provided
+
+    - **402** - Request Failed - The parameters are valid, but the request
+    failed
+
+    - **403** - Forbidden - Provided API key does not have the required access
+
+    - **404** - Not Found - Unknown API route or requested resource
+
+    - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
+    per minute. Try again later.
+
+    - **5XX** - Server Error - Something went wrong on GrowthBook's end (these
+    are rare)
+
+
+    The response body will be a JSON object with the following properties:
+
+
+    - **message** - Information about the error
+servers:
+  - url: https://api.growthbook.io/api/v1
+    description: GrowthBook Cloud
+  - url: https://{domain}/api/v1
+    description: Self-hosted GrowthBook
 paths:
   /features:
     get:
@@ -45,13 +138,11 @@ paths:
           required: true
           description: ''
           schema: {}
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -1560,7 +1651,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 id:
@@ -2396,7 +2486,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   feature:
@@ -3879,13 +3968,11 @@ paths:
               - drafts
               - published
               - none
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   feature:
@@ -6172,7 +6259,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 description:
@@ -7003,7 +7089,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   feature:
@@ -8474,13 +8559,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -8505,7 +8588,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 reason:
@@ -8542,7 +8624,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   feature:
@@ -10019,7 +10100,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 revision:
@@ -10034,7 +10114,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   feature:
@@ -11524,13 +11603,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -12390,13 +12467,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: array
                 items:
                   type: string
@@ -12413,13 +12488,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   features:
@@ -12528,13 +12601,11 @@ paths:
       tags:
         - archetypes
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   archetypes:
@@ -12589,7 +12660,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -12620,7 +12690,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   archetype:
@@ -12675,13 +12744,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   archetype:
@@ -12740,7 +12807,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -12768,7 +12834,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   archetype:
@@ -12822,13 +12887,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -12879,13 +12942,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -13583,7 +13644,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datasourceId:
@@ -14039,7 +14099,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experiment:
@@ -14693,13 +14752,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experiment:
@@ -15383,7 +15440,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datasourceId:
@@ -15851,7 +15907,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experiment:
@@ -16517,13 +16572,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   result:
@@ -17034,7 +17087,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 triggeredBy:
@@ -17052,7 +17104,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   snapshot:
@@ -17085,13 +17136,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experiments:
@@ -17123,13 +17172,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   visualChangesets:
@@ -17230,7 +17277,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 editorUrl:
@@ -17268,7 +17314,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   visualChangeset:
@@ -17363,13 +17408,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   snapshot:
@@ -17426,13 +17469,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -17782,7 +17823,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datasourceId:
@@ -18147,7 +18187,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metric:
@@ -18456,13 +18495,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metric:
@@ -18775,7 +18812,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 managedBy:
@@ -19126,7 +19162,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   updatedId:
@@ -19147,13 +19182,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metricUsage:
@@ -19241,13 +19274,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -19356,7 +19387,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -19426,7 +19456,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   segment:
@@ -19499,13 +19528,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   segment:
@@ -19582,7 +19609,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -19647,7 +19673,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   segment:
@@ -19719,13 +19744,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -19765,13 +19788,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -19866,7 +19887,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -19906,7 +19926,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dimension:
@@ -19965,13 +19984,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dimension:
@@ -20034,7 +20051,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -20069,7 +20085,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dimension:
@@ -20127,13 +20142,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -20167,13 +20180,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -20257,7 +20268,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -20285,7 +20295,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   project:
@@ -20334,13 +20343,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   project:
@@ -20393,7 +20400,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -20419,7 +20425,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   project:
@@ -20467,13 +20472,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -20487,13 +20490,11 @@ paths:
       tags:
         - environments
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   environments:
@@ -20536,7 +20537,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 id:
@@ -20566,7 +20566,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   environment:
@@ -20614,7 +20613,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 description:
@@ -20636,7 +20634,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   environment:
@@ -20678,13 +20675,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -20699,13 +20694,11 @@ paths:
       tags:
         - attributes
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   attributes:
@@ -20767,7 +20760,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 property:
@@ -20821,7 +20813,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   attribute:
@@ -20888,7 +20879,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datatype:
@@ -20936,7 +20926,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   attribute:
@@ -20997,13 +20986,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedProperty:
@@ -21054,13 +21041,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -21199,7 +21184,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -21256,7 +21240,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   sdkConnection:
@@ -21361,13 +21344,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   sdkConnection:
@@ -21476,7 +21457,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -21529,7 +21509,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   sdkConnection:
@@ -21633,13 +21612,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -21660,13 +21637,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   sdkConnection:
@@ -21789,13 +21764,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -21960,13 +21933,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dataSource:
@@ -22094,13 +22065,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   informationSchema:
@@ -22228,13 +22197,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   visualChangeset:
@@ -22963,13 +22930,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   nModified:
@@ -23067,13 +23032,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   nModified:
@@ -23100,13 +23063,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   nModified:
@@ -23139,13 +23100,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -23247,7 +23206,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -23295,7 +23253,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   savedGroup:
@@ -23362,13 +23319,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   savedGroup:
@@ -23439,7 +23394,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -23472,7 +23426,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   savedGroup:
@@ -23538,13 +23491,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -23585,13 +23536,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -23670,7 +23619,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -23689,7 +23637,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   organization:
@@ -23736,7 +23683,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -23753,7 +23699,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   organization:
@@ -23791,13 +23736,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
+              schema: {}
   /fact-tables:
     get:
       operationId: listFactTables
@@ -23835,13 +23778,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -24065,7 +24006,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -24120,7 +24060,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factTable:
@@ -24304,13 +24243,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factTable:
@@ -24498,7 +24435,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -24657,7 +24593,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factTable:
@@ -24840,13 +24775,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -24886,13 +24819,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -24985,7 +24916,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -25014,7 +24944,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factTableFilter:
@@ -25072,13 +25001,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factTableFilter:
@@ -25140,7 +25067,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -25166,7 +25092,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factTableFilter:
@@ -25223,13 +25148,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -25281,13 +25204,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -25726,7 +25647,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -26176,7 +26096,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factMetric:
@@ -26574,13 +26493,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factMetric:
@@ -26982,7 +26899,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -27392,7 +27308,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   factMetric:
@@ -27789,13 +27704,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -27820,7 +27733,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 userIdType:
@@ -27881,7 +27793,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metricAnalysis:
@@ -27919,7 +27830,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 factTables:
@@ -28506,7 +28416,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   success:
@@ -28565,7 +28474,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 branch:
@@ -28606,7 +28514,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   featuresUpdated:
@@ -28638,13 +28545,11 @@ paths:
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -28758,13 +28663,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   codeRefs:
@@ -28873,13 +28776,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 allOf:
                   - type: object
                     properties:
@@ -28998,7 +28899,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 member:
@@ -29039,7 +28939,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   updatedMember:
@@ -29098,13 +28997,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -29116,13 +29013,11 @@ paths:
     get:
       operationId: getDataEnrichment
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
+              schema: {}
   /queries/{id}:
     get:
       operationId: getQuery
@@ -29136,13 +29031,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   query:
@@ -29204,13 +29097,11 @@ paths:
       tags:
         - settings
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   settings:
@@ -29439,13 +29330,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   informationSchemaTable:
@@ -29506,7 +29395,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 visualChangesetId:
@@ -29528,8 +29416,7 @@ paths:
         '200':
           content:
             application/json:
-              schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
+              schema: {}
   /dashboards/{id}:
     get:
       operationId: getdashboard
@@ -29541,13 +29428,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dashboard:
@@ -31030,13 +30915,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -31059,7 +30942,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 title:
@@ -32909,7 +32791,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dashboard:
@@ -34392,7 +34273,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 title:
@@ -34882,7 +34762,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dashboard:
@@ -36359,13 +36238,11 @@ paths:
       operationId: listdashboard
       summary: list dashboards
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dashboards:
@@ -37849,13 +37726,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   dashboards:
@@ -39340,7 +39215,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 id:
@@ -39432,7 +39306,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   customField:
@@ -39544,13 +39417,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: array
                 items:
                   type: object
@@ -39659,13 +39530,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -39683,13 +39552,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   customField:
@@ -39806,7 +39673,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -39876,7 +39742,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   customField:
@@ -39989,13 +39854,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metricGroup:
@@ -40061,13 +39924,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -40090,7 +39951,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -40122,7 +39982,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metricGroup:
@@ -40188,7 +40047,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -40226,7 +40084,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metricGroup:
@@ -40286,13 +40143,11 @@ paths:
       operationId: listmetricGroup
       summary: list metricGroups
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   metricGroups:
@@ -40359,13 +40214,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   team:
@@ -40475,7 +40328,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -40540,7 +40392,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   team:
@@ -40645,7 +40496,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -40714,7 +40564,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   team:
@@ -40813,13 +40662,11 @@ paths:
       operationId: listteam
       summary: list teams
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   teams:
@@ -40930,7 +40777,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 members:
@@ -40945,7 +40791,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   status:
@@ -40968,7 +40813,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 members:
@@ -40983,7 +40827,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   status:
@@ -41009,13 +40852,11 @@ paths:
           schema:
             description: When 'true', enables deleting a team that contains members
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -41034,13 +40875,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experimentTemplate:
@@ -41214,13 +41053,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -41243,7 +41080,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 project:
@@ -41381,7 +41217,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experimentTemplate:
@@ -41555,7 +41390,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 project:
@@ -41700,7 +41534,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experimentTemplate:
@@ -41874,13 +41707,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   experimentTemplates:
@@ -42054,7 +41885,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 templates:
@@ -42216,7 +42046,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   added:
@@ -42262,7 +42091,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datasource:
@@ -42523,7 +42351,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   exploration:
@@ -42963,7 +42790,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datasource:
@@ -43233,7 +43059,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   exploration:
@@ -43682,7 +43507,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 datasource:
@@ -43969,7 +43793,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   exploration:
@@ -44415,13 +44238,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   rampScheduleTemplate:
@@ -44624,13 +44445,11 @@ paths:
           description: ''
           schema:
             type: string
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   deletedId:
@@ -44653,7 +44472,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -44827,7 +44645,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   rampScheduleTemplate:
@@ -45030,7 +44847,6 @@ paths:
         content:
           application/json:
             schema:
-              $schema: https://json-schema.org/draft/2020-12/schema
               type: object
               properties:
                 name:
@@ -45207,7 +45023,6 @@ paths:
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   rampScheduleTemplate:
@@ -45404,13 +45219,11 @@ paths:
       operationId: listrampScheduleTemplate
       summary: list rampScheduleTemplates
       parameters: []
-      requestBody: null
       responses:
         '200':
           content:
             application/json:
               schema:
-                $schema: https://json-schema.org/draft/2020-12/schema
                 type: object
                 properties:
                   rampScheduleTemplates:

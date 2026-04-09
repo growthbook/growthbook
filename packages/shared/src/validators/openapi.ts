@@ -1512,10 +1512,8 @@ export const ejectTargetRampScheduleValidator = {
     );
     if (schemas.length - errors.length !== 1) {
       ctx.addIssue({
-        path: ctx.path,
-        code: "invalid_union",
-        unionErrors: errors,
-        message: "Invalid input: Should pass single schema",
+        code: "custom",
+message: "Invalid input: Should pass single schema",
       });
     }
   }),
