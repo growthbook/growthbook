@@ -1,10 +1,4 @@
-import {
-  NextFunction,
-  Request,
-  RequestHandler,
-  Response,
-  Router,
-} from "express";
+import { Request, RequestHandler, Router } from "express";
 import { z, ZodType, ZodNever, output } from "zod";
 import { ApiPaginationFields } from "shared/types/openapi";
 import { UserInterface } from "shared/types/user";
@@ -98,17 +92,7 @@ export type WrappedRequestHandler<
   ApiErrorResponse | z.infer<ResponseSchema>,
   z.infer<BodySchema>,
   z.infer<QuerySchema>
-> & {
-  summary?: string;
-  tags?: string[];
-  operationId?: string;
-  exampleRequest?: ExampleRequest<
-    z.infer<ParamsSchema>,
-    z.infer<BodySchema>,
-    z.infer<QuerySchema>,
-    z.infer<ResponseSchema>
-  >;
-};
+>;
 
 export function createApiRequestHandler<
   ParamsSchema extends ZodType = ZodType<never>,
@@ -119,10 +103,6 @@ export function createApiRequestHandler<
   paramsSchema,
   bodySchema,
   querySchema,
-  summary,
-  exampleRequest,
-  tags,
-  operationId,
 }: ApiRequestValidator<ParamsSchema, BodySchema, QuerySchema, ResponseSchema>) {
   return (
     handler: (
@@ -191,41 +171,82 @@ export function createApiRequestHandler<
         next(e);
       }
     };
-    wrappedHandler.summary = summary;
-    wrappedHandler.exampleRequest = exampleRequest;
-    wrappedHandler.tags = tags;
-    wrappedHandler.operationId = operationId;
     return wrappedHandler;
   };
 }
 
 /**
- * Supertype for handlers passed to `createOpenApiRouter`. Uses the method-style
- * `bivarianceHack` pattern so `req` is checked bivariantly: every
- * `WrappedRequestHandler` remains assignable (ZodNever → `never` and route params like
- * `{ id: string }` are otherwise incompatible with `ParamsDictionary` under
- * strictFunctionTypes), without widening the third tuple slot to `any`.
+ * Schema metadata for a single route, stored in the registry for OpenAPI generation.
+ * Does not include the handler — only the shapes needed to build the spec.
  */
-export type OpenApiRouteHandler = {
-  bivarianceHack(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void | Promise<void>;
-}["bivarianceHack"] & {
-  summary?: string;
+export type RouteSpec = {
+  verb: HttpVerb;
+  path: string;
+  paramsSchema?: ZodType;
+  bodySchema?: ZodType;
+  querySchema?: ZodType;
+  responseSchema: ZodType;
+  summary: string;
+  operationId: string;
   tags?: string[];
-  operationId?: string;
-  schemas?: {
-    params?: ZodType;
-    query?: ZodType;
-    body?: ZodType;
-    response?: ZodType;
-  };
-  exampleRequest?: ExampleRequest<unknown, unknown, unknown, unknown>;
+  exampleRequest?: ExampleRequest;
 };
 
-export type Route = readonly [HttpVerb, path: string, OpenApiRouteHandler];
+/**
+ * Wide route config type used in `createOpenApiRouter` arrays. Use `defineRoute` at
+ * each call site for narrow type-checking of the handler against its schemas.
+ *
+ * The handler uses the bivarianceHack so that specific handler types (e.g. a handler
+ * whose req.params is `{ id: string }`) remain assignable to this wide type under
+ * strictFunctionTypes.
+ */
+export type AnyRouteConfig = ApiRequestValidator<
+  ZodType,
+  ZodType,
+  ZodType,
+  ZodType
+> & {
+  responseSchema: ZodType;
+  summary: string;
+  operationId: string;
+  handler: {
+    bivarianceHack(
+      req: ApiRequest<unknown, ZodType, ZodType, ZodType>,
+    ): Promise<unknown>;
+  }["bivarianceHack"];
+};
+
+/**
+ * Type-safe route config builder. Pass a validator config (schemas + metadata) plus a
+ * `handler` whose `req` types are inferred from the schemas. Returns `AnyRouteConfig`
+ * for use in `createOpenApiRouter`.
+ */
+export function defineRoute<
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
+  ResponseSchema extends ZodType = ZodType<never>,
+>(
+  config: ApiRequestValidator<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  > & {
+    handler: (
+      req: ApiRequest<
+        z.infer<ResponseSchema>,
+        ParamsSchema,
+        BodySchema,
+        QuerySchema
+      >,
+    ) => Promise<z.infer<ResponseSchema>>;
+  },
+): AnyRouteConfig {
+  return config as unknown as AnyRouteConfig;
+}
+
+export type Route = readonly [HttpVerb, path: string, AnyRouteConfig];
 
 /** Mount path for Express: `basePath` + relative `routePath` (e.g. `/archetypes` + `/` → `/archetypes`). */
 function joinOpenApiMountedPath(basePath: string, routePath: string): string {
@@ -249,9 +270,16 @@ function joinOpenApiMountedPath(basePath: string, routePath: string): string {
   return rel === "" ? base : `${base}${rel}`;
 }
 
+export type TagMeta = {
+  name: string;
+  "x-displayName"?: string;
+  description?: string;
+};
+
 const __openApiRouters: {
   basePath: string;
-  routes: readonly Route[];
+  routes: RouteSpec[];
+  tagMeta?: TagMeta;
 }[] = [];
 export function getAllRegisteredOpenApiRouters() {
   return __openApiRouters;
@@ -259,27 +287,53 @@ export function getAllRegisteredOpenApiRouters() {
 
 export function registerOpenApiRouter(
   basePath: string,
-  routes: readonly Route[],
+  routes: RouteSpec[],
+  tagMeta?: TagMeta,
 ) {
-  __openApiRouters.push({ basePath, routes });
+  __openApiRouters.push({ basePath, routes, tagMeta });
 }
 
 /**
- * Returns an Express router whose routes are already prefixed with `basePath` (e.g. `"/"`
- * → `GET /archetypes`, `"/:id"` → `GET /archetypes/:id`). Mount with `app.use(router)`;
- * do not pass `basePath` again to `use`. OpenAPI registration still uses relative paths
- * keyed by `basePath`.
+ * Creates an Express router with routes pre-mounted under `basePath`, and registers
+ * schema metadata with the OpenAPI spec registry. Each route is defined via `defineRoute`
+ * for type-safe handler typing. Mount with `app.use(router)` — basePath is already baked in.
  */
-export function createOpenApiRouter<
-  const R extends ReadonlyArray<
-    readonly [HttpVerb, string, OpenApiRouteHandler]
-  >,
->(basePath: string, routes: R): Router {
+export function createOpenApiRouter(
+  basePath: string,
+  routes: readonly Route[],
+  tagMeta?: TagMeta,
+): Router {
   const router = Router();
-  routes.forEach(([verb, path, handler]) => {
-    router[verb](joinOpenApiMountedPath(basePath, path), handler);
+  const routeSpecs: RouteSpec[] = [];
+
+  routes.forEach(([verb, routePath, config]) => {
+    const { handler, ...spec } = config;
+    const wrappedHandler = createApiRequestHandler(spec)(
+      handler as (
+        req: ApiRequest<unknown, ZodType, ZodType, ZodType>,
+      ) => Promise<unknown>,
+    );
+    router[verb](joinOpenApiMountedPath(basePath, routePath), wrappedHandler);
+    routeSpecs.push({
+      verb,
+      path: routePath,
+      // Exclude ZodNever schemas — they mean "not applicable" and should not
+      // appear in the generated spec as parameters/body.
+      paramsSchema:
+        spec.paramsSchema instanceof ZodNever ? undefined : spec.paramsSchema,
+      bodySchema:
+        spec.bodySchema instanceof ZodNever ? undefined : spec.bodySchema,
+      querySchema:
+        spec.querySchema instanceof ZodNever ? undefined : spec.querySchema,
+      responseSchema: spec.responseSchema,
+      summary: spec.summary,
+      operationId: spec.operationId,
+      tags: spec.tags,
+      exampleRequest: spec.exampleRequest,
+    });
   });
-  registerOpenApiRouter(basePath, routes);
+
+  registerOpenApiRouter(basePath, routeSpecs, tagMeta);
   return router;
 }
 

@@ -111,9 +111,6 @@ tags:
   - name: code-references
     x-displayName: Code References
     description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
-  - name: archetypes
-    x-displayName: Archetypes
-    description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
   - name: queries
     x-displayName: Queries
     description: Retrieve queries used in experiments to calculate results.
@@ -290,18 +287,6 @@ paths:
       $ref: "./paths/putAttribute.yaml"
     delete:
       $ref: "./paths/deleteAttribute.yaml"
-  /archetypes:
-    get:
-      $ref: "./paths/listArchetypes.yaml"
-    post:
-      $ref: "./paths/postArchetype.yaml"
-  /archetypes/${id}:
-    get:
-      $ref: "./paths/getArchetype.yaml"
-    put:
-      $ref: "./paths/putArchetype.yaml"
-    delete:
-      $ref: "./paths/deleteArchetype.yaml"
   /members:
     get:
       $ref: "./paths/listMembers.yaml"

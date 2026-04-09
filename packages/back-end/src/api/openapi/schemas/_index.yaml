@@ -84,8 +84,6 @@ MetricUsage:
   $ref: "./MetricUsage.yaml"
 Member:
   $ref: "./Member.yaml"
-Archetype:
-  $ref: "./Archetype.yaml"
 Query:
   $ref: "./Query.yaml"
 Settings:

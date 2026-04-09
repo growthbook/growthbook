@@ -92,8 +92,6 @@ export const apiMetricUsageValidator = z.object({ "metricId": z.string().describ
 
 export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string().optional(), "email": z.string(), "globalRole": z.string(), "environments": z.array(z.string()).optional(), "limitAccessByEnvironment": z.boolean().optional(), "managedbyIdp": z.boolean().optional(), "teams": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional(), "lastLoginDate": z.string().optional(), "dateCreated": z.string().optional(), "dateUpdated": z.string().optional() }).strict()
 
-export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
-
 export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
 
 export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.number(), "northStar": z.object({ "title": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().optional(), "maxPercentageChange": z.coerce.number().optional(), "minPercentageChange": z.coerce.number().optional(), "targetMDE": z.coerce.number().optional() }), "pastExperimentsMinLength": z.coerce.number(), "metricAnalysisDays": z.coerce.number(), "updateSchedule": z.object({ "type": z.enum(["cron","never","stale"]).optional(), "cron": z.string().nullable().optional(), "hours": z.coerce.number().nullable().optional() }).nullable(), "multipleExposureMinPercent": z.coerce.number(), "defaultRole": z.object({ "role": z.string().optional(), "limitAccessByEnvironment": z.boolean().optional(), "environments": z.array(z.string()).optional() }), "statsEngine": z.string(), "pValueThreshold": z.coerce.number(), "regressionAdjustmentEnabled": z.boolean(), "regressionAdjustmentDays": z.coerce.number(), "sequentialTestingEnabled": z.boolean(), "sequentialTestingTuningParameter": z.coerce.number(), "attributionModel": z.enum(["firstExposure","experimentDuration","lookbackOverride"]), "targetMDE": z.coerce.number(), "delayHours": z.coerce.number(), "windowType": z.string(), "windowHours": z.coerce.number(), "winRisk": z.coerce.number(), "loseRisk": z.coerce.number(), "secureAttributeSalt": z.string(), "killswitchConfirmation": z.boolean(), "featureKillSwitchBehavior": z.enum(["off","warn"]).optional(), "requireReviews": z.array(z.object({ "requireReviewOn": z.boolean().optional(), "resetReviewOnChange": z.boolean().optional(), "environments": z.array(z.string()).optional(), "projects": z.array(z.string()).optional(), "featureRequireEnvironmentReview": z.boolean().optional(), "featureRequireMetadataReview": z.boolean().optional() })), "restApiBypassesReviews": z.boolean().optional(), "featureKeyExample": z.string(), "featureRegexValidator": z.string(), "banditScheduleValue": z.coerce.number(), "banditScheduleUnit": z.enum(["hours","days"]), "banditBurnInValue": z.coerce.number(), "banditBurnInUnit": z.enum(["hours","days"]), "experimentMinLengthDays": z.coerce.number(), "experimentMaxLengthDays": z.coerce.number().nullable().optional(), "preferredEnvironment": z.string().nullable().optional(), "maxMetricSliceLevels": z.coerce.number().optional() }).strict()
@@ -774,56 +772,6 @@ export const deleteAttributeValidator = {
   tags: ["attributes"],
 };
 
-export const listArchetypesValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ "archetypes": z.array(z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() })) }).strict(),
-  summary: "Get the organization's archetypes",
-  operationId: "listArchetypes",
-  tags: ["archetypes"],
-};
-
-export const postArchetypeValidator = {
-  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members"), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ "archetype": z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }) }).strict(),
-  summary: "Create a single archetype",
-  operationId: "postArchetype",
-  tags: ["archetypes"],
-};
-
-export const getArchetypeValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-  responseSchema: z.object({ "archetype": z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }) }).strict(),
-  summary: "Get a single archetype",
-  operationId: "getArchetype",
-  tags: ["archetypes"],
-};
-
-export const putArchetypeValidator = {
-  bodySchema: z.object({ "name": z.string().optional(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members").optional(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-  responseSchema: z.object({ "archetype": z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }) }).strict(),
-  summary: "Update a single archetype",
-  operationId: "putArchetype",
-  tags: ["archetypes"],
-};
-
-export const deleteArchetypeValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-  responseSchema: z.object({ "deletedId": z.string() }).strict(),
-  summary: "Deletes a single archetype",
-  operationId: "deleteArchetype",
-  tags: ["archetypes"],
-};
-
 export const listMembersValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "userName": z.string().optional(), "userEmail": z.string().optional(), "globalRole": z.string().optional() }).strict(),
@@ -1280,10 +1228,8 @@ export const ejectTargetRampScheduleValidator = {
     );
     if (schemas.length - errors.length !== 1) {
       ctx.addIssue({
-        path: ctx.path,
-        code: "invalid_union",
-        unionErrors: errors,
-        message: "Invalid input: Should pass single schema",
+        code: "custom",
+message: "Invalid input: Should pass single schema",
       });
     }
   }),
