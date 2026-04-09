@@ -126,11 +126,8 @@ export default function SDKConnectionForm({
   );
 
   const handleSecurityTabClick = (tab: string) => {
-    if (tab === "remote") {
-      form.setValue("encryptPayload", false);
-      form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", true);
-    }
+    // Preserve cipher toggles when moving to remote evaluation. Remote+cipher
+    // combinations are valid advanced configurations.
     setSelectedSecurityTab(tab);
   };
 
