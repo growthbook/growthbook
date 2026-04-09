@@ -189,41 +189,11 @@ paths:
       tags:
         - features
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: clientKey
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: skipPagination
-          in: query
-          required: true
-          description: ''
-          schema: {}
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
           content:
@@ -4037,23 +4007,8 @@ paths:
       tags:
         - features
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: withRevisions
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-            enum:
-              - all
-              - drafts
-              - published
-              - none
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/withRevisions'
       responses:
         '200':
           content:
@@ -6334,12 +6289,7 @@ paths:
       tags:
         - features
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -8639,12 +8589,7 @@ paths:
       tags:
         - features
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -8663,12 +8608,7 @@ paths:
       tags:
         - features
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -10175,12 +10115,7 @@ paths:
       tags:
         - features
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -11665,30 +11600,9 @@ paths:
       tags:
         - features
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           content:
@@ -12547,12 +12461,7 @@ paths:
       tags:
         - features
       parameters:
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/projectId'
       responses:
         '200':
           content:
@@ -12568,12 +12477,7 @@ paths:
       tags:
         - features
       parameters:
-        - name: ids
-          in: query
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ids'
       responses:
         '200':
           content:
@@ -12824,12 +12728,7 @@ paths:
       tags:
         - archetypes
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -12882,12 +12781,7 @@ paths:
       tags:
         - archetypes
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -12967,12 +12861,7 @@ paths:
       tags:
         - archetypes
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -12992,42 +12881,11 @@ paths:
       tags:
         - experiments
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: datasourceId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: experimentId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/experimentId'
       responses:
         '200':
           content:
@@ -14832,12 +14690,7 @@ paths:
       tags:
         - experiments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -15515,12 +15368,7 @@ paths:
       tags:
         - experiments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -16640,24 +16488,9 @@ paths:
       tags:
         - experiments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: phase
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: dimension
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/phase'
+        - $ref: '#/components/parameters/dimension'
       responses:
         '200':
           content:
@@ -17162,12 +16995,7 @@ paths:
         - experiments
         - snapshots
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -17216,12 +17044,7 @@ paths:
       tags:
         - experiments
       parameters:
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/projectId'
       responses:
         '200':
           content:
@@ -17252,12 +17075,7 @@ paths:
       tags:
         - visual-changesets
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -17352,12 +17170,7 @@ paths:
       tags:
         - visual-changesets
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -17488,12 +17301,7 @@ paths:
       tags:
         - snapshots
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -17525,36 +17333,10 @@ paths:
       tags:
         - metrics
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: datasourceId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
       responses:
         '200':
           content:
@@ -18575,12 +18357,7 @@ paths:
       tags:
         - metrics
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -18887,12 +18664,7 @@ paths:
       tags:
         - metrics
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -19262,12 +19034,7 @@ paths:
       tags:
         - usage
       parameters:
-        - name: ids
-          in: query
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/ids'
       responses:
         '200':
           content:
@@ -19336,30 +19103,9 @@ paths:
       tags:
         - segments
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: datasourceId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
       responses:
         '200':
           content:
@@ -19608,12 +19354,7 @@ paths:
       tags:
         - segments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -19684,12 +19425,7 @@ paths:
       tags:
         - segments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -19824,12 +19560,7 @@ paths:
       tags:
         - segments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -19850,30 +19581,9 @@ paths:
       tags:
         - dimensions
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: datasourceId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
       responses:
         '200':
           content:
@@ -20064,12 +19774,7 @@ paths:
       tags:
         - dimensions
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -20126,12 +19831,7 @@ paths:
       tags:
         - dimensions
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -20222,12 +19922,7 @@ paths:
       tags:
         - dimensions
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -20248,24 +19943,8 @@ paths:
       tags:
         - projects
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           content:
@@ -20423,12 +20102,7 @@ paths:
       tags:
         - projects
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -20475,12 +20149,7 @@ paths:
       tags:
         - projects
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -20552,12 +20221,7 @@ paths:
       tags:
         - projects
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -20688,12 +20352,7 @@ paths:
       tags:
         - environments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -20755,12 +20414,7 @@ paths:
       tags:
         - environments
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -20954,12 +20608,7 @@ paths:
       tags:
         - attributes
       parameters:
-        - name: property
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/property'
       requestBody:
         required: true
         content:
@@ -21066,12 +20715,7 @@ paths:
       tags:
         - attributes
       parameters:
-        - name: property
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/property'
       responses:
         '200':
           content:
@@ -21091,42 +20735,11 @@ paths:
       tags:
         - sdk-connections
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: withProxy
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: multiOrg
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/withProxy'
+        - $ref: '#/components/parameters/multiOrg'
       responses:
         '200':
           content:
@@ -21424,12 +21037,7 @@ paths:
       tags:
         - sdk-connections
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -21532,12 +21140,7 @@ paths:
       tags:
         - sdk-connections
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -21692,12 +21295,7 @@ paths:
       tags:
         - sdk-connection
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -21717,12 +21315,7 @@ paths:
       tags:
         - sdk-connections
       parameters:
-        - name: key
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/key'
       responses:
         '200':
           content:
@@ -21826,30 +21419,9 @@ paths:
       tags:
         - data-sources
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
       responses:
         '200':
           content:
@@ -22013,12 +21585,7 @@ paths:
       tags:
         - data-sources
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -22145,12 +21712,7 @@ paths:
       tags:
         - data-sources
       parameters:
-        - name: dataSourceId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/dataSourceId'
       responses:
         '200':
           content:
@@ -22269,20 +21831,8 @@ paths:
       tags:
         - visual-changesets
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: includeExperiment
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/includeExperiment'
       responses:
         '200':
           content:
@@ -23010,12 +22560,7 @@ paths:
       tags:
         - visual-changesets
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -23112,12 +22657,7 @@ paths:
       tags:
         - visual-changesets
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -23137,18 +22677,8 @@ paths:
       tags:
         - visual-changesets
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: visualChangeId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/visualChangeId'
       responses:
         '200':
           content:
@@ -23168,24 +22698,8 @@ paths:
       tags:
         - saved-groups
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           content:
@@ -23399,12 +22913,7 @@ paths:
       tags:
         - saved-groups
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -23469,12 +22978,7 @@ paths:
       tags:
         - saved-groups
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -23571,12 +23075,7 @@ paths:
       tags:
         - saved-groups
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -23598,30 +23097,9 @@ paths:
       tags:
         - organizations
       parameters:
-        - name: search
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/search'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           content:
@@ -23758,12 +23236,7 @@ paths:
       tags:
         - organizations
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -23816,12 +23289,7 @@ paths:
       operationId: getSdkPayload
       summary: Get a SDK payload
       parameters:
-        - name: key
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/key'
       responses:
         '200':
           content:
@@ -23834,36 +23302,10 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: datasourceId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
       responses:
         '200':
           content:
@@ -24323,12 +23765,7 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -24510,12 +23947,7 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -24855,12 +24287,7 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -24881,30 +24308,9 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: factTableId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           content:
@@ -24991,12 +24397,7 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: factTableId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/factTableId'
       requestBody:
         required: true
         content:
@@ -25075,18 +24476,8 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: factTableId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -25136,18 +24527,8 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: factTableId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -25222,18 +24603,8 @@ paths:
       tags:
         - fact-tables
       parameters:
-        - name: factTableId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -25254,36 +24625,10 @@ paths:
       tags:
         - fact-metrics
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: datasourceId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
         - name: factTableId
           in: query
           required: false
@@ -26573,12 +25918,7 @@ paths:
       tags:
         - fact-metrics
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -26974,12 +26314,7 @@ paths:
       tags:
         - fact-metrics
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -27784,12 +27119,7 @@ paths:
       tags:
         - fact-metrics
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -27808,12 +27138,7 @@ paths:
       tags:
         - fact-metrics
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -28546,15 +27871,7 @@ paths:
       tags:
         - code-references
       parameters:
-        - name: deleteMissing
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-            enum:
-              - 'true'
-              - 'false'
+        - $ref: '#/components/parameters/deleteMissing'
       requestBody:
         required: true
         content:
@@ -28613,24 +27930,8 @@ paths:
       tags:
         - code-references
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
       responses:
         '200':
           content:
@@ -28743,12 +28044,7 @@ paths:
       tags:
         - code-references
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -28826,42 +28122,11 @@ paths:
       tags:
         - members
       parameters:
-        - name: limit
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 10
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: offset
-          in: query
-          required: true
-          description: ''
-          schema:
-            default: 0
-            type: integer
-            minimum: -9007199254740991
-            maximum: 9007199254740991
-        - name: userName
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: userEmail
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
-        - name: globalRole
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/userName'
+        - $ref: '#/components/parameters/userEmail'
+        - $ref: '#/components/parameters/globalRole'
       responses:
         '200':
           content:
@@ -28974,12 +28239,7 @@ paths:
       tags:
         - members
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -29077,12 +28337,7 @@ paths:
       tags:
         - members
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -29111,12 +28366,7 @@ paths:
       tags:
         - queries
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -29410,12 +28660,7 @@ paths:
       tags:
         - data-sources
       parameters:
-        - name: tableId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/tableId'
       responses:
         '200':
           content:
@@ -29508,12 +28753,7 @@ paths:
       operationId: getdashboard
       summary: get dashboards
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -30995,12 +30235,7 @@ paths:
       operationId: deletedashboard
       summary: delete dashboards
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -31017,12 +30252,7 @@ paths:
       operationId: updatedashboard
       summary: update dashboards
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -39497,12 +38727,7 @@ paths:
       operationId: listCustomFields
       summary: Get all custom fields
       parameters:
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/projectId'
       responses:
         '200':
           content:
@@ -39610,12 +38835,7 @@ paths:
       operationId: deletecustomField
       summary: delete customFields
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -39632,12 +38852,7 @@ paths:
       operationId: getcustomField
       summary: get customFields
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -39748,12 +38963,7 @@ paths:
       operationId: updatecustomField
       summary: update customFields
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -39934,12 +39144,7 @@ paths:
       operationId: getmetricGroup
       summary: get metricGroups
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -40004,12 +39209,7 @@ paths:
       operationId: deletemetricGroup
       summary: delete metricGroups
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -40026,12 +39226,7 @@ paths:
       operationId: updatemetricGroup
       summary: update metricGroups
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -40294,12 +39489,7 @@ paths:
       operationId: getteam
       summary: get teams
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -40403,12 +39593,7 @@ paths:
       operationId: updateteam
       summary: update teams
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -40852,12 +40037,7 @@ paths:
       operationId: addTeamMembers
       summary: Add members to team
       parameters:
-        - name: teamId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/teamId'
       requestBody:
         required: true
         content:
@@ -40888,12 +40068,7 @@ paths:
       operationId: removeTeamMember
       summary: Remove members from team
       parameters:
-        - name: teamId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/teamId'
       requestBody:
         required: true
         content:
@@ -40925,19 +40100,8 @@ paths:
       operationId: deleteTeam
       summary: Delete a single team
       parameters:
-        - name: teamId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - name: deleteMembers
-          in: query
-          required: false
-          description: When 'true', enables deleting a team that contains members
-          schema:
-            description: When 'true', enables deleting a team that contains members
-            type: string
+        - $ref: '#/components/parameters/teamId'
+        - $ref: '#/components/parameters/deleteMembers'
       responses:
         '200':
           content:
@@ -40955,12 +40119,7 @@ paths:
       operationId: getexperimentTemplate
       summary: get experimentTemplates
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -41133,12 +40292,7 @@ paths:
       operationId: deleteexperimentTemplate
       summary: delete experimentTemplates
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -41155,12 +40309,7 @@ paths:
       operationId: updateexperimentTemplate
       summary: update experimentTemplates
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -41787,12 +40936,7 @@ paths:
       operationId: listexperimentTemplate
       summary: list experimentTemplates
       parameters:
-        - name: projectId
-          in: query
-          required: false
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/projectId'
       responses:
         '200':
           content:
@@ -42151,27 +41295,7 @@ paths:
       operationId: postMetricExploration
       summary: Create a Metric based visualization
       parameters:
-        - name: cache
-          in: query
-          required: false
-          description: >-
-            Controls cache behavior for this exploration: `preferred` (default)
-            returns a cached result if one exists, otherwise runs a new query;
-            `never` always runs a new query, ignoring any cached results;
-            `required` only returns a cached result, if none exists returns
-            exploration: null with a message
-          schema:
-            description: >-
-              Controls cache behavior for this exploration: `preferred`
-              (default) returns a cached result if one exists, otherwise runs a
-              new query; `never` always runs a new query, ignoring any cached
-              results; `required` only returns a cached result, if none exists
-              returns exploration: null with a message
-            type: string
-            enum:
-              - preferred
-              - required
-              - never
+        - $ref: '#/components/parameters/cache'
       requestBody:
         required: true
         content:
@@ -42850,27 +41974,7 @@ paths:
       operationId: postFactTableExploration
       summary: Run a Fact Table based visualization
       parameters:
-        - name: cache
-          in: query
-          required: false
-          description: >-
-            Controls cache behavior for this exploration: `preferred` (default)
-            returns a cached result if one exists, otherwise runs a new query;
-            `never` always runs a new query, ignoring any cached results;
-            `required` only returns a cached result, if none exists returns
-            exploration: null with a message
-          schema:
-            description: >-
-              Controls cache behavior for this exploration: `preferred`
-              (default) returns a cached result if one exists, otherwise runs a
-              new query; `never` always runs a new query, ignoring any cached
-              results; `required` only returns a cached result, if none exists
-              returns exploration: null with a message
-            type: string
-            enum:
-              - preferred
-              - required
-              - never
+        - $ref: '#/components/parameters/cache'
       requestBody:
         required: true
         content:
@@ -43567,27 +42671,7 @@ paths:
       operationId: postDataSourceExploration
       summary: Create a Data Source based visualization
       parameters:
-        - name: cache
-          in: query
-          required: false
-          description: >-
-            Controls cache behavior for this exploration: `preferred` (default)
-            returns a cached result if one exists, otherwise runs a new query;
-            `never` always runs a new query, ignoring any cached results;
-            `required` only returns a cached result, if none exists returns
-            exploration: null with a message
-          schema:
-            description: >-
-              Controls cache behavior for this exploration: `preferred`
-              (default) returns a cached result if one exists, otherwise runs a
-              new query; `never` always runs a new query, ignoring any cached
-              results; `required` only returns a cached result, if none exists
-              returns exploration: null with a message
-            type: string
-            enum:
-              - preferred
-              - required
-              - never
+        - $ref: '#/components/parameters/cache'
       requestBody:
         required: true
         content:
@@ -44318,12 +43402,7 @@ paths:
       operationId: getrampScheduleTemplate
       summary: get rampScheduleTemplates
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -44525,12 +43604,7 @@ paths:
       operationId: deleterampScheduleTemplate
       summary: delete rampScheduleTemplates
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       responses:
         '200':
           content:
@@ -44547,12 +43621,7 @@ paths:
       operationId: updaterampScheduleTemplate
       summary: update rampScheduleTemplates
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
+        - $ref: '#/components/parameters/id'
       requestBody:
         required: true
         content:
@@ -45502,3 +44571,239 @@ paths:
                 required:
                   - rampScheduleTemplates
                 additionalProperties: false
+components:
+  parameters:
+    limit:
+      name: limit
+      in: query
+      required: true
+      description: ''
+      schema:
+        default: 10
+        type: integer
+        minimum: -9007199254740991
+        maximum: 9007199254740991
+    offset:
+      name: offset
+      in: query
+      required: true
+      description: ''
+      schema:
+        default: 0
+        type: integer
+        minimum: -9007199254740991
+        maximum: 9007199254740991
+    projectId:
+      name: projectId
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    clientKey:
+      name: clientKey
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    skipPagination:
+      name: skipPagination
+      in: query
+      required: true
+      description: ''
+      schema: {}
+    id:
+      name: id
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    withRevisions:
+      name: withRevisions
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+        enum:
+          - all
+          - drafts
+          - published
+          - none
+    ids:
+      name: ids
+      in: query
+      required: true
+      description: ''
+      schema:
+        type: string
+    datasourceId:
+      name: datasourceId
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    experimentId:
+      name: experimentId
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    phase:
+      name: phase
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    dimension:
+      name: dimension
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    property:
+      name: property
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    withProxy:
+      name: withProxy
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    multiOrg:
+      name: multiOrg
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    key:
+      name: key
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    dataSourceId:
+      name: dataSourceId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    includeExperiment:
+      name: includeExperiment
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: integer
+        minimum: -9007199254740991
+        maximum: 9007199254740991
+    visualChangeId:
+      name: visualChangeId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    search:
+      name: search
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    factTableId:
+      name: factTableId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    deleteMissing:
+      name: deleteMissing
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+        enum:
+          - 'true'
+          - 'false'
+    userName:
+      name: userName
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    userEmail:
+      name: userEmail
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    globalRole:
+      name: globalRole
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    tableId:
+      name: tableId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    teamId:
+      name: teamId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
+    deleteMembers:
+      name: deleteMembers
+      in: query
+      required: false
+      description: When 'true', enables deleting a team that contains members
+      schema:
+        description: When 'true', enables deleting a team that contains members
+        type: string
+    cache:
+      name: cache
+      in: query
+      required: false
+      description: >-
+        Controls cache behavior for this exploration: `preferred` (default)
+        returns a cached result if one exists, otherwise runs a new query;
+        `never` always runs a new query, ignoring any cached results; `required`
+        only returns a cached result, if none exists returns exploration: null
+        with a message
+      schema:
+        description: >-
+          Controls cache behavior for this exploration: `preferred` (default)
+          returns a cached result if one exists, otherwise runs a new query;
+          `never` always runs a new query, ignoring any cached results;
+          `required` only returns a cached result, if none exists returns
+          exploration: null with a message
+        type: string
+        enum:
+          - preferred
+          - required
+          - never

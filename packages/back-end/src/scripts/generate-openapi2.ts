@@ -242,6 +242,10 @@ type Parameter = {
   schema: z.core.JSONSchema.BaseSchema;
 };
 
+type Ref = {
+  $ref: string;
+};
+
 type RequestBody = {
   required: boolean;
   content: {
@@ -263,7 +267,7 @@ type Path = {
   operationId: string;
   summary?: string;
   tags?: string[];
-  parameters?: Parameter[];
+  parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
   responses: Record<string, Response>;
 };
@@ -289,6 +293,9 @@ async function run() {
       "x-displayName": string;
     }[];
     paths: Record<string, Record<string, Path>>;
+    components: {
+      parameters: Record<string, Parameter>;
+    };
   } = {
     openapi: "3.1.0",
     info: {
@@ -357,7 +364,12 @@ The response body will be a JSON object with the following properties:
       description: tags[id].description,
     })),
     paths: {},
+    components: {
+      parameters: {},
+    },
   };
+
+  const parameterRefs: Record<string, Parameter> = {};
 
   for (const route of allRoutes) {
     const {
@@ -375,20 +387,38 @@ The response body will be a JSON object with the following properties:
       continue;
     }
 
-    const parameters: Parameter[] = [];
+    const parameters: (Parameter | Ref)[] = [];
 
     // URL params
     if (isNonEmtySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
-        parameters.push({
+        const parameter: Parameter = {
           name,
           in: "path",
           required: (jsonSchema.required ?? []).includes(name),
           description:
             (schema as z.core.JSONSchema.BaseSchema).description || "",
           schema: schema as z.core.JSONSchema.BaseSchema,
-        });
+        };
+
+        let useRef = false;
+        if (!parameterRefs[name]) {
+          parameterRefs[name] = parameter;
+          useRef = true;
+        } else if (
+          JSON.stringify(parameterRefs[name].schema) ===
+            JSON.stringify(schema) &&
+          parameterRefs[name].in === "path"
+        ) {
+          useRef = true;
+        }
+
+        if (useRef) {
+          parameters.push({ $ref: `#/components/parameters/${name}` });
+        } else {
+          parameters.push(parameter);
+        }
       });
     }
 
@@ -396,14 +426,32 @@ The response body will be a JSON object with the following properties:
     if (isNonEmtySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
-        parameters.push({
+        const parameter: Parameter = {
           name,
           in: "query",
           required: (jsonSchema.required ?? []).includes(name),
           description:
             (schema as z.core.JSONSchema.BaseSchema).description || "",
           schema: schema as z.core.JSONSchema.BaseSchema,
-        });
+        };
+
+        let useRef = false;
+        if (!parameterRefs[name]) {
+          parameterRefs[name] = parameter;
+          useRef = true;
+        } else if (
+          JSON.stringify(parameterRefs[name].schema) ===
+            JSON.stringify(schema) &&
+          parameterRefs[name].in === "query"
+        ) {
+          useRef = true;
+        }
+
+        if (useRef) {
+          parameters.push({ $ref: `#/components/parameters/${name}` });
+        } else {
+          parameters.push(parameter);
+        }
       });
     }
 
@@ -453,6 +501,10 @@ The response body will be a JSON object with the following properties:
       ...(codeSamples.length > 0 && { "x-codeSamples": codeSamples }),
     };
   }
+
+  Object.entries(parameterRefs).forEach(([name, parameter]) => {
+    openapiSpec.components.parameters[name] = parameter;
+  });
 
   console.log(openapiSpec);
 
