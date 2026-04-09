@@ -66,11 +66,17 @@ async function run() {
           ...(p.parameters || []),
           ...(p[method].parameters || []),
         ]);
+        const responseSchema =
+          p[method].responses["200"]["content"]["application/json"]["schema"];
         validators.push(
           `export const ${id}Validator = {
   bodySchema: ${generateZodSchema(requestSchema, false, false)},
   querySchema: ${generateZodSchema(querySchema, true, true)},
   paramsSchema: ${generateZodSchema(pathSchema)},
+  responseSchema: ${generateZodSchema(responseSchema)},
+  summary: "${p[method].summary}",
+  operationId: "${id}",
+  tags: [${p[method].tags?.map((tag) => `"${tag}"`).join(", ")}],
 };`,
         );
       }
@@ -137,7 +143,9 @@ function generateZodSchema(
     zod = zod.replace(
       /z\.boolean\(\)(\.default\((true|false)\))?/g,
       (_, _suffix, defaultVal) =>
-        defaultVal === "true" ? QUERY_BOOLEAN_COERCION_TRUE : QUERY_BOOLEAN_COERCION,
+        defaultVal === "true"
+          ? QUERY_BOOLEAN_COERCION_TRUE
+          : QUERY_BOOLEAN_COERCION,
     );
   }
 

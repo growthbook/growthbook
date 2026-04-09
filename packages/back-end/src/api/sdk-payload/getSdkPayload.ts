@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { FeatureDefinitionSDKPayload } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -5,9 +6,12 @@ import {
   getFeatureDefinitionsWithCache,
 } from "back-end/src/controllers/features";
 
-export const getSdkPayload = createApiRequestHandler()(async (
-  req,
-): Promise<FeatureDefinitionSDKPayload & { status: number }> => {
+export const getSdkPayload = createApiRequestHandler({
+  paramsSchema: z.object({ key: z.string() }),
+  // TODO: fix this
+  responseSchema: z.any(),
+  summary: "Get a SDK payload",
+})(async (req): Promise<FeatureDefinitionSDKPayload & { status: number }> => {
   const { key } = req.params;
 
   if (!key) {

@@ -1,0 +1,72 @@
+openapi: 3.0.0
+info:
+  title: GrowthBook API
+  version: 1.0.0
+paths:
+  /archetypes/:
+    get:
+      summary: Get the organization's archetypes
+      parameters: []
+      requestBody: null
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                type: object
+                properties: {}
+                additionalProperties: false
+    post:
+      summary: Create a single archetype
+      parameters: []
+      requestBody: null
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                type: object
+                properties: {}
+                additionalProperties: false
+  /archetypes/{id}:
+    get:
+      summary: Get a single archetype
+      parameters: []
+      requestBody: null
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                type: object
+                properties: {}
+                additionalProperties: false
+    put:
+      summary: Update a single archetype
+      parameters: []
+      requestBody: null
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                type: object
+                properties: {}
+                additionalProperties: false
+    delete:
+      summary: Deletes a single archetype
+      parameters: []
+      requestBody: null
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: https://json-schema.org/draft/2020-12/schema
+                type: object
+                properties: {}
+                additionalProperties: false

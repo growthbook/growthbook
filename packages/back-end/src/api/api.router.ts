@@ -156,7 +156,7 @@ router.use("/bulk-import", bulkImportRouter);
 router.use("/code-refs", codeRefsRouter);
 router.use("/members", membersRouter);
 router.use("/ingestion", ingestionRouter);
-router.use("/archetypes", archetypesRouter);
+router.use(archetypesRouter);
 router.use("/queries", queryRouter);
 router.use("/settings", settingsRouter);
 router.use("/information-schema-tables", informationSchemaTablesRouter);
