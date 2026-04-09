@@ -209,11 +209,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ProjectTagBar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -317,11 +312,6 @@
   "packages/front-end/components/Features/FeatureRules.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeaturesHeader.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/ForceSummary.tsx": {
@@ -569,11 +559,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/MetricDrilldown/MetricDrilldownOwnerTags.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -605,11 +590,6 @@
     }
   },
   "packages/front-end/components/Report/ReportAnalysisSettingsBar.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Report/ReportMetaInfo.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

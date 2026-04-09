@@ -339,15 +339,20 @@ export class ReqContextClass {
 
   // Record an audit log entry
   public async auditLog(data: AuditInterfaceInput) {
-    const auditUser = this.userId
+    const apiKeyUser =
+      this.auditUser?.type === "api_key" ? this.auditUser : undefined;
+    const auditUser = this.isApiRequest
       ? {
-          id: this.userId,
-          email: this.email,
-          name: this.userName || "",
+          apiKey: this.apiKey || "unknown",
+          id: apiKeyUser?.id,
+          name: apiKeyUser?.name,
+          email: apiKeyUser?.email,
         }
-      : this.apiKey
+      : this.userId
         ? {
-            apiKey: this.apiKey,
+            id: this.userId,
+            email: this.email,
+            name: this.userName || "",
           }
         : ({
             system: true,

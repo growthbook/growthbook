@@ -16,7 +16,7 @@ import { EventUserLoggedIn } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -400,12 +400,11 @@ export default function RequestReviewModal({
                     )
                     .map((lu) => {
                       return (
-                        <Flex key={lu.id} align="center" gap="1">
-                          <Avatar
-                            email={lu.email}
-                            size={18}
-                            name={lu.name}
-                            showEmail
+                        <Flex key={lu.id} align="center" gap="1" wrap="wrap">
+                          <EventUser
+                            user={lu}
+                            display="avatar-name-email"
+                            size="sm"
                           />
                         </Flex>
                       );

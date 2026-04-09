@@ -209,7 +209,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       );
     }
 
-    const canBypass = !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers can skip the review gate either because the org has opted in
+    // to unrestricted REST API writes, or because their token/role grants
+    // the bypassApprovalChecks permission for this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
     // Tags go into the revision metadata; capture them before stripping from updates.
     const newTagsForDiff = updates.tags;

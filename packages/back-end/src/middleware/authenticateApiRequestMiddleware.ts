@@ -118,6 +118,15 @@ export default function authenticateApiRequestMiddleware(
       const eventAudit: EventUserApiKey = {
         type: "api_key",
         apiKey: id || "unknown",
+        ...(userId && req.user
+          ? {
+              id: req.user.id,
+              name: req.user.name || "",
+              email: req.user.email,
+            }
+          : {
+              name: apiKeyDoc.description || "",
+            }),
       };
 
       req.context = new ReqContextClass({
