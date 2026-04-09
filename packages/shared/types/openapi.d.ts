@@ -7279,7 +7279,7 @@ export interface operations {
           archived?: boolean;
           /** @description Description of the feature */
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner: string;
           /** @description An associated project ID */
           project?: string;
@@ -9333,7 +9333,7 @@ export interface operations {
           archived?: boolean;
           /** @description An associated project ID */
           project?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           defaultValue?: string;
           /** @description List of associated tags. Will override tags completely with submitted list */
@@ -12373,7 +12373,7 @@ export interface operations {
           name: string;
           /** @description Description of the dimension */
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
           datasourceId: string;
@@ -12464,7 +12464,7 @@ export interface operations {
           name?: string;
           /** @description Description of the dimension */
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description ID of the datasource this dimension belongs to */
           datasourceId?: string;
@@ -12585,7 +12585,7 @@ export interface operations {
         "application/json": {
           /** @description Name of the segment */
           name: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description Description of the segment */
           description?: string;
@@ -12699,7 +12699,7 @@ export interface operations {
           name?: string;
           /** @description Description of the segment */
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description ID of the datasource this segment belongs to */
           datasourceId?: string;
@@ -13525,7 +13525,7 @@ export interface operations {
           segmentId?: string;
           /** @description WHERE clause to add to the default experiment query */
           queryFilter?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
           /** @enum {string} */
@@ -14238,7 +14238,7 @@ export interface operations {
           segmentId?: string;
           /** @description WHERE clause to add to the default experiment query */
           queryFilter?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
           /** @enum {string} */
@@ -15198,7 +15198,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description Name of the metric */
           name: string;
@@ -15591,7 +15591,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api" | "admin";
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description Name of the metric */
           name?: string;
@@ -16228,7 +16228,7 @@ export interface operations {
           attributeKey?: string;
           /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
         };
@@ -16317,7 +16317,7 @@ export interface operations {
           condition?: string;
           /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
         };
@@ -17122,7 +17122,7 @@ export interface operations {
           name: string;
           /** @description Description of the fact table */
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description List of associated project ids */
           projects?: (string)[];
@@ -17314,7 +17314,7 @@ export interface operations {
           name?: string;
           /** @description Description of the fact table */
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           /** @description List of associated project ids */
           projects?: (string)[];
@@ -17850,7 +17850,7 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
           tags?: (string)[];
@@ -18321,7 +18321,7 @@ export interface operations {
         "application/json": {
           name?: string;
           description?: string;
-          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           projects?: (string)[];
           tags?: (string)[];
@@ -18693,7 +18693,7 @@ export interface operations {
                 name: string;
                 /** @description Description of the fact table */
                 description?: string;
-                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
                 owner?: string;
                 /** @description List of associated project ids */
                 projects?: (string)[];
@@ -18738,7 +18738,7 @@ export interface operations {
               data: {
                 name: string;
                 description?: string;
-                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. */
+                /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
                 owner?: string;
                 projects?: (string)[];
                 tags?: (string)[];

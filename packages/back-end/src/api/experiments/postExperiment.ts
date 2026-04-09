@@ -179,7 +179,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       }
     }
     const ownerId =
-      (await resolveOwnerToUserId(ownerEmail, req.context)) ??
+      (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
       req.context.userId;
 
     // Validate that specified metrics exist and belong to the organization

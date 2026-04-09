@@ -913,5 +913,40 @@
     "prettier/prettier": {
       "count": 2
     }
+  },
+  "packages/shared/src/validators/experiment-template.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "packages/shared/src/validators/experiments.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "packages/shared/src/validators/fact-table.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "packages/shared/src/validators/metric-group.ts": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "packages/shared/src/validators/features.ts": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "packages/shared/src/validators/saved-group.ts": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "packages/shared/src/validators/segment.ts": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
   }
 }

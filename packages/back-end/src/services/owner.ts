@@ -1,17 +1,20 @@
 import { ReqContext } from "back-end/types/request";
 
 /**
- * Best-effort resolution of an owner input value (userId or email address) to a userId.
+ * Resolves an owner input value (userId or email address) to a userId.
  *
  * - If `ownerInput` is empty/undefined, returns `undefined` (caller decides the fallback).
  * - If `ownerInput` looks like a userId (starts with "u_"), validates org membership and returns it.
- * - Otherwise treats `ownerInput` as an email, looks up the matching org member,
- *   and returns their userId if found. If the email does not resolve to an org member
- *   the original input is returned unchanged so existing API workflows are not broken.
+ * - Otherwise treats `ownerInput` as an email and looks up the matching org member:
+ *   - If found, returns their userId.
+ *   - If not found and `strict` is true, throws an error.
+ *   - If not found and `strict` is false (default), returns the original input unchanged
+ *     so existing API workflows that store display names or emails are not broken.
  */
 export async function resolveOwnerToUserId(
   ownerInput: string | undefined,
   context: ReqContext,
+  { strict = false }: { strict?: boolean } = {},
 ): Promise<string | undefined> {
   if (!ownerInput) return undefined;
 
@@ -23,12 +26,14 @@ export async function resolveOwnerToUserId(
     return ownerInput;
   }
 
-  // Email or legacy plain-name — best-effort resolution, never reject.
-  // Old workflows may store display names (e.g. "Ben") in this field; we leave
-  // those unchanged rather than breaking existing API calls.
+  // Email — resolve to userId if possible.
   const user = await context.getUserByEmail(ownerInput);
   if (user && context.org.members.some((m) => m.id === user.id)) {
     return user.id;
   }
+  if (strict) {
+    throw new Error(`Unable to find user: ${ownerInput}`);
+  }
+  // Non-strict: leave legacy display names / unresolvable emails unchanged.
   return ownerInput;
 }

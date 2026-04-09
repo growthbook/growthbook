@@ -712,6 +712,64 @@ describe("experiments API", () => {
       expect(res.status).toBe(400);
       expect(res.body.message).toContain("Invalid data source");
     });
+
+    it("rejects an unresolvable email owner", async () => {
+      updateReqContext({
+        getUserByEmail: jest.fn().mockResolvedValue(null),
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_new",
+          name: "New Experiment",
+          assignmentQueryId: "user_id",
+          owner: "unknown@example.com",
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain("Unable to find user");
+    });
+
+    it("resolves email to userId when creating an experiment", async () => {
+      const testUser = { id: "u_user1", email: "user@example.com" };
+      updateReqContext({
+        org: { ...org, members: [{ id: testUser.id }] },
+        getUserByEmail: jest.fn().mockResolvedValue(testUser),
+        models: {
+          watch: { upsertWatch: jest.fn().mockResolvedValue(undefined) },
+        },
+      });
+      (getExperimentByTrackingKey as jest.Mock).mockResolvedValue(null);
+      (createExperiment as jest.Mock).mockResolvedValue(experiment);
+
+      const res = await request(app)
+        .post("/api/v1/experiments")
+        .send({
+          trackingKey: "exp_new",
+          name: "New Experiment",
+          assignmentQueryId: "user_id",
+          owner: testUser.email,
+          variations: [
+            { key: "control", name: "Control" },
+            { key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(createExperiment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ owner: testUser.id }),
+        }),
+      );
+    });
   });
 
   describe("POST /api/v1/experiments/:id", () => {
@@ -1035,6 +1093,31 @@ describe("experiments API", () => {
       );
       expect(updateExperiment).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
+    });
+
+    it("resolves email to userId when updating an experiment", async () => {
+      const testUser = { id: "u_user1", email: "user@example.com" };
+      updateReqContext({
+        org: { ...org, members: [{ id: testUser.id }] },
+        getUserByEmail: jest.fn().mockResolvedValue(testUser),
+      });
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockResolvedValue({
+        ...experiment,
+        owner: testUser.id,
+      });
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({ owner: testUser.email })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(updateExperiment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({ owner: testUser.id }),
+        }),
+      );
     });
 
     it("returns 400 when experiment not found", async () => {
