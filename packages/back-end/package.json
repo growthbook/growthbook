@@ -33,7 +33,7 @@
     "@ai-sdk/mistral": "^3.0.0",
     "@ai-sdk/openai": "^3.0.0",
     "@ai-sdk/xai": "^3.0.0",
-    "@aws-sdk/client-athena": "^3.564.0",
+    "@aws-sdk/client-athena": "^3.894.0",
     "@aws-sdk/client-sts": "^3.567.0",
     "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
