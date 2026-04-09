@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -17,6 +17,7 @@ import ForceSummary from "@/components/Features/ForceSummary";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import { decimalToPercent } from "@/services/utils";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -26,6 +27,7 @@ type Props = {
 
 export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
   const variations = getLatestPhaseVariations(experiment);
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
@@ -36,10 +38,12 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
   const totalEnvironmentCount = Object.keys(
     info.environmentStates || {},
   ).length;
+  const valueType = info.feature?.valueType;
 
   return (
     <LinkedChange
       changeType={"flag"}
+      heading={info.feature?.id || "Feature"}
       feature={info.feature}
       state={info.state}
       additionalBadge={
@@ -53,51 +57,62 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
           <Badge label="Discarded" radius="full" color="red" />
         ) : null
       }
-      open={open ?? experiment.status === "draft"}
     >
-      <Box className="linked-change appbox ">
-        <Flex width="100%" gap="4" p="4" px="5" direction="column">
+      <Box className="appbox">
+        <Flex width="100%" gap="4" py="4" px="5" direction="column">
           {info.state !== "discarded" && (
             <Box flexGrow="1">
-              <Box>
-                {orderedValues.map((v, j) => (
+              {orderedValues.map((v, j) => (
+                <>
                   <Flex
+                    align="start"
                     justify="between"
                     width="100%"
                     key={j}
-                    gap="4"
-                    py="2"
-                    my="2"
+                    gap="9"
                     style={{
-                      borderBottom:
-                        j < orderedValues.length - 1
-                          ? "1px solid var(--slate-a4)"
-                          : "none",
+                      height: valueType === "json" ? "60px" : "24px",
                     }}
                   >
                     <Flex
                       align="center"
                       gap="2"
-                      flexBasis="30%"
+                      flexBasis="15%"
                       flexShrink="0"
                       className={`variation with-variation-label border-right-0 variation${j}`}
                     >
                       <span className="label" style={{ width: 20, height: 20 }}>
                         {j}
                       </span>
-                      <span
+                      <Box
+                        as="span"
                         className="d-inline-block text-ellipsis"
                         title={variations[j]?.name}
                       >
-                        {variations[j]?.name}
-                      </span>
+                        <Text weight="semibold">{variations[j]?.name}</Text>
+                      </Box>
                     </Flex>
+                    <Box>
+                      <Text>
+                        {decimalToPercent(
+                          latestPhase?.variationWeights?.[j] ?? 0,
+                        )}
+                        % Split
+                      </Text>
+                    </Box>
                     <Box flexGrow="1">
-                      <ForceSummary value={v} feature={info.feature} />
+                      <ForceSummary
+                        value={v}
+                        feature={info.feature}
+                        maxHeight={60}
+                      />
                     </Box>
                   </Flex>
-                ))}
-              </Box>
+                  {j < orderedValues.length - 1 && (
+                    <Separator size="4" mt="2" mb="3" />
+                  )}
+                </>
+              ))}
             </Box>
           )}
           {info.state === "discarded" && (
@@ -151,7 +166,19 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
               </IconButton>
             </Flex>
             {environmentsOpen && (
-              <Flex direction="column" gap="2" mt="2">
+              <Grid
+                mt="3"
+                gap="2"
+                gapX="9"
+                justify="between"
+                flow="column"
+                rows={
+                  totalEnvironmentCount >= 5
+                    ? "5"
+                    : totalEnvironmentCount.toString()
+                }
+                display="inline-grid"
+              >
                 {Object.entries(info.environmentStates || {}).map(
                   ([env, state]) => (
                     <Box key={env}>
@@ -166,8 +193,9 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                                 : "The experiment is not present in this environment"
                         }
                       >
-                        <Flex gap="3" display="inline-flex">
+                        <Flex gap="2" align="center" style={{ minWidth: 0 }}>
                           <Box
+                            flexShrink="0"
                             style={{
                               color:
                                 state === "active"
@@ -181,13 +209,15 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                               <PiWarningFill />
                             )}
                           </Box>
-                          <Box>{env}</Box>
+                          <Box className="text-ellipsis" title={env}>
+                            <Text weight="medium">{env}</Text>
+                          </Box>
                         </Flex>
                       </Tooltip>
                     </Box>
                   ),
                 )}
-              </Flex>
+              </Grid>
             )}
           </Box>
         )}

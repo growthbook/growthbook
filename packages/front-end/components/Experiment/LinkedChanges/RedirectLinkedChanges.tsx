@@ -3,13 +3,16 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/ui/Link";
+import { decimalToPercent } from "@/services/utils";
+import Text from "@/ui/Text";
+import LinkedChange from "@/components/Experiment/LinkedChange";
 
 interface RedirectLinkedChangesProps {
   setUrlRedirectModal?: (boolean) => void;
@@ -57,7 +60,9 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
           ) : (
             <>{url2}</>
           )}
-          <PiArrowSquareOutFill className="ml-1" />
+          <Box ml="1">
+            <PiArrowSquareOutFill color="var(--violet-a11)" />
+          </Box>
         </Flex>
       </Link>
     );
@@ -67,7 +72,7 @@ function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
   }
 }
 
-const Redirect = ({
+export const Redirect = ({
   urlRedirect,
   experiment,
   mutate,
@@ -76,6 +81,8 @@ const Redirect = ({
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
   const originUrl = urlRedirect.urlPattern;
+  const variations = getLatestPhaseVariations(experiment);
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
   return (
     <>
@@ -89,7 +96,7 @@ const Redirect = ({
           source={"redirect-linked-changes"}
         />
       ) : null}
-      <div className="appbox p-3 mb-0">
+      {/* <div className="appbox p-3 mb-0">
         <Flex justify="between" align="start">
           <Box as="div">
             <Link
@@ -176,7 +183,82 @@ const Redirect = ({
             </div>
           ));
         })()}
-      </div>
+      </div> */}
+      <LinkedChange
+        changeType="redirect"
+        heading={originUrl}
+        onEdit={() => setEditingRedirect(true)}
+        onDelete={async () => {
+          await apiCall(`/url-redirects/${urlRedirect.id}`, {
+            method: "DELETE",
+          });
+          mutate?.();
+        }}
+        canEdit={canEdit}
+      >
+        <Box className="appbox">
+          <Flex width="100%" gap="4" py="4" px="5" direction="column">
+            <Box flexGrow="1">
+              <Box>
+                {variations.map((v, j) => (
+                  <Flex
+                    align="center"
+                    justify="between"
+                    width="100%"
+                    key={j}
+                    gap="9"
+                    py="2"
+                    my="2"
+                    style={{
+                      borderBottom:
+                        j < variations.length - 1
+                          ? "1px solid var(--slate-a4)"
+                          : "none",
+                    }}
+                  >
+                    <Flex
+                      align="center"
+                      gap="2"
+                      flexBasis="15%"
+                      flexShrink="0"
+                      className={`variation with-variation-label border-right-0 variation${j}`}
+                    >
+                      <span className="label" style={{ width: 20, height: 20 }}>
+                        {j}
+                      </span>
+                      <Box
+                        as="span"
+                        className="d-inline-block text-ellipsis"
+                        title={v.name}
+                      >
+                        <Text weight="semibold">{v.name}</Text>
+                      </Box>
+                    </Flex>
+                    <Box>
+                      <Text>
+                        {decimalToPercent(
+                          latestPhase?.variationWeights?.[j] ?? 0,
+                        )}
+                        % Split
+                      </Text>
+                    </Box>
+                    <Box flexGrow="1">
+                      {urlRedirect.destinationURLs[j]?.url ? (
+                        <UrlDifferenceRenderer
+                          url1={urlRedirect.urlPattern}
+                          url2={urlRedirect.destinationURLs[j].url}
+                        />
+                      ) : (
+                        <Text color="text-low">No redirect</Text>
+                      )}
+                    </Box>
+                  </Flex>
+                ))}
+              </Box>
+            </Box>
+          </Flex>
+        </Box>
+      </LinkedChange>
     </>
   );
 };

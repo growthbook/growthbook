@@ -1,9 +1,6 @@
-import React, { ReactNode } from "react";
-import { FaAngleRight } from "react-icons/fa";
-import Collapsible from "react-collapsible";
+import { ReactNode } from "react";
 import { FeatureValueType } from "shared/types/feature";
-import Link from "next/link";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -11,20 +8,25 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Avatar from "@/ui/Avatar";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import { ICON_PROPERTIES } from "./LinkedChanges/constants";
 
 type Props = {
-  changeType: "flag" | "visual";
+  changeType: "flag" | "visual" | "redirect";
   feature?: { id: string; valueType: FeatureValueType };
   additionalBadge?: ReactNode;
-  page?: string;
   changes?: string[];
   vc?: VisualChangesetInterface;
   experiment?: ExperimentInterfaceStringDates;
-  canEditVisualChangesets?: boolean;
-  deleteVisualChangeset?: (id: string) => void;
-  open: boolean;
   children?: ReactNode;
   state?: string;
+  heading: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  canEdit?: boolean;
 };
 
 const joinWithOxfordComma = (array) => {
@@ -39,170 +41,110 @@ const joinWithOxfordComma = (array) => {
   }
 };
 
+const CHANGE_TYPE_TO_ICON_TYPE = {
+  flag: "feature-flag",
+  visual: "visual-editor",
+  redirect: "redirects",
+};
+
+const CHANGE_TO_DELETE_DISPLAY_NAME = {
+  flag: "Feature Flag",
+  visual: "Visual Changes",
+  redirect: "URL Redirect",
+};
+
 export default function LinkedChange({
   changeType,
   feature,
-  page,
   changes,
   vc,
   experiment,
-  canEditVisualChangesets,
-  deleteVisualChangeset,
+  canEdit = false,
   additionalBadge,
-  open,
   children,
   state,
+  heading,
+  onDelete,
+  onEdit,
 }: Props) {
-  const [expanded, setExpanded] = React.useState(open);
+  const { component: Icon, radixColor } =
+    ICON_PROPERTIES[CHANGE_TYPE_TO_ICON_TYPE[changeType]];
+
+  const headingLink =
+    changeType === "flag" ? `/features/${feature?.id}` : heading;
 
   return (
-    <Box className="my-3" p="4" px="5">
-      <Collapsible
-        trigger={
-          <Box>
-            <Flex justify="between" gap="3">
-              {changeType === "flag" ? (
-                <Flex gap="1" direction="column">
-                  <Flex gap="3">
-                    <Link
-                      href={`/features/${feature?.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Heading
-                        as="h4"
-                        size="3"
-                        weight="medium"
-                        mb="0"
-                        className="d-inline-flex align-items-center"
-                      >
-                        {feature?.id || "Feature"}
-                        <PiArrowSquareOut className="ml-2" />
-                      </Heading>
-                    </Link>
-                    <Box>{additionalBadge}</Box>
-                  </Flex>
-                  <Box>
-                    <Text weight="medium">{feature?.valueType}</Text>
-                  </Box>
-                </Flex>
-              ) : (
-                <>
-                  <Flex gap="1" direction="column" flexGrow="1">
-                    <Heading
-                      as="h4"
-                      size="3"
-                      weight="medium"
-                      mb="0"
-                      className="d-inline-flex align-items-center"
-                    >
-                      {page}
-                    </Heading>
-                    <Flex gap="3">
-                      {canEditVisualChangesets &&
-                        experiment?.status === "draft" &&
-                        vc && (
-                          <Box onClick={(e) => e.stopPropagation()}>
-                            <OpenVisualEditorLink
-                              visualChangeset={vc}
-                              useLink={true}
-                              button={
-                                <>
-                                  <Text weight="medium">
-                                    Launch Visual Editor
-                                  </Text>
-                                  <PiArrowSquareOut
-                                    className="ml-2"
-                                    style={{
-                                      position: "relative",
-                                      top: "-2px",
-                                    }}
-                                  />
-                                </>
-                              }
-                            />
-                          </Box>
-                        )}
-                      <Box>&middot;</Box>
-                      <Box className="text-muted">
-                        {(changes?.length || 0) > 0
-                          ? joinWithOxfordComma(changes) + " changes"
-                          : "no changes"}
-                      </Box>
-                    </Flex>
-                  </Flex>
-
-                  <Flex gap="3">
-                    {changeType === "visual" &&
-                      vc?.id &&
-                      deleteVisualChangeset && (
-                        <Box onClick={(e) => e.stopPropagation()}>
-                          <DeleteButton
-                            className="btn-sm ml-4"
-                            useRadix={true}
-                            text="Delete"
-                            stopPropagation={true}
-                            onClick={() => {
-                              deleteVisualChangeset(vc.id);
-                            }}
-                            displayName="Visual Changes"
-                          />
-                        </Box>
-                      )}
-                    {!expanded && (
-                      <>
-                        <Button variant="ghost">Edit details</Button>
-                      </>
-                    )}
-                    {canEditVisualChangesets && vc && (
-                      <Box onClick={(e) => e.stopPropagation()}>
-                        <OpenVisualEditorLink
-                          visualChangeset={vc}
-                          useLink={true}
-                          button={
-                            <Button variant="soft">Launch Visual Editor</Button>
-                          }
-                        />
-                      </Box>
-                    )}
-                  </Flex>
-                </>
-              )}
-              <Box>
-                <Button variant="ghost">
-                  <FaAngleRight className="chevron" />
-                </Button>
-              </Box>
-            </Flex>
-            {state && state === "draft" && (
+    <Box className="my-3" p="1">
+      <Box>
+        <Flex gap="3" justify="between">
+          <Flex gap="3" align="center">
+            <Avatar radius="small" color={radixColor} size="md" variant="soft">
+              <Icon />
+            </Avatar>
+            <Link href={headingLink}>
+              <Heading as="h4" size="small" weight="medium" mb="0">
+                {heading}
+                <PiArrowSquareOut className="ml-2" />
+              </Heading>
+            </Link>
+            {additionalBadge && <Box>{additionalBadge}</Box>}
+            {changeType === "visual" && (
               <>
-                <Callout status="warning" mt="4">
-                  Feature is in <strong>Draft</strong> mode and will not allow
-                  experiments to run. Publish Feature from the Feature Flag
-                  detail page to start.{" "}
-                  <Link
-                    href={`/features/${feature?.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Take me there <PiArrowSquareOut className="ml-1" />
-                  </Link>
-                </Callout>
+                <Box>&middot;</Box>
+                <Text color="text-low">
+                  {(changes?.length || 0) > 0
+                    ? joinWithOxfordComma(changes) + " changes"
+                    : "no changes"}
+                </Text>
               </>
             )}
-          </Box>
-        }
-        onOpen={() => {
-          setExpanded(true);
-        }}
-        onClose={() => {
-          setExpanded(false);
-        }}
-        open={open}
-        transitionTime={100}
-      >
-        <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--slate-a4)" }}>
-          {children}
-        </Box>
-      </Collapsible>
+          </Flex>
+          {canEdit && (
+            <Box>
+              {onDelete && (
+                <DeleteButton
+                  className="btn-sm ml-4"
+                  useRadix={true}
+                  text="Remove"
+                  stopPropagation={true}
+                  onClick={() => {
+                    onDelete();
+                  }}
+                  displayName={CHANGE_TO_DELETE_DISPLAY_NAME[changeType]}
+                />
+              )}
+              {onEdit && (
+                <Button variant="ghost" onClick={() => onEdit()}>
+                  Edit
+                </Button>
+              )}
+              {vc && experiment?.status === "draft" && (
+                <OpenVisualEditorLink
+                  visualChangeset={vc}
+                  useLink={true}
+                  button={<Button variant="ghost">Launch Visual Editor</Button>}
+                />
+              )}
+            </Box>
+          )}
+        </Flex>
+        {state && state === "draft" && changeType === "flag" && (
+          <>
+            <Callout status="warning" mt="4">
+              Feature is in <strong>Draft</strong> mode and will not allow
+              experiments to run. Publish Feature from the Feature Flag detail
+              page to start.{" "}
+              <Link
+                href={`/features/${feature?.id}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                Take me there <PiArrowSquareOut className="ml-1" />
+              </Link>
+            </Callout>
+          </>
+        )}
+      </Box>
+      <Box mt="4">{children}</Box>
     </Box>
   );
 }

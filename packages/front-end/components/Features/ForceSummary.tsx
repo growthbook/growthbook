@@ -6,9 +6,11 @@ import ValueDisplay from "./ValueDisplay";
 export default function ForceSummary({
   value,
   feature,
+  maxHeight,
 }: {
   value: string;
   feature: FeatureInterface;
+  maxHeight?: number;
 }) {
   return (
     <>
@@ -19,6 +21,11 @@ export default function ForceSummary({
             value={value}
             type={feature.valueType}
             showFullscreenButton={true}
+            fullStyle={{
+              maxHeight: maxHeight ?? 150,
+              overflowY: "auto",
+              maxWidth: "100%",
+            }}
           />
         </Box>
       </Flex>

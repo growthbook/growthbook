@@ -10,7 +10,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
+import LinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import VariationsTable from "@/components/Experiment/VariationsTable";
@@ -126,27 +126,31 @@ export default function Implementation({
         )}
         {hasLinkedChanges && !isHoldout ? (
           <>
-            <VisualLinkedChanges
+            {/* <VisualLinkedChanges
               setVisualEditorModal={setVisualEditorModal}
               visualChangesets={visualChangesets}
               canAddChanges={canAddLinkedChanges}
               canEditVisualChangesets={hasVisualEditorPermission}
               mutate={mutate}
               experiment={experiment}
-            />
-            <FeatureLinkedChanges
+            /> */}
+            <LinkedChanges
               setFeatureModal={setFeatureModal}
               linkedFeatures={linkedFeatures}
               experiment={experiment}
               canAddChanges={canAddLinkedChanges}
+              visualChangesets={visualChangesets}
+              urlRedirects={urlRedirects}
+              mutate={mutate}
+              canEditVisualChangesets={hasVisualEditorPermission}
             />
-            <RedirectLinkedChanges
+            {/* <RedirectLinkedChanges
               setUrlRedirectModal={setUrlRedirectModal}
               urlRedirects={urlRedirects}
               experiment={experiment}
               canAddChanges={canAddLinkedChanges}
               mutate={mutate}
-            />
+            /> */}
           </>
         ) : null}
         {!isHoldout && (

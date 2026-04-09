@@ -10,6 +10,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
 import { useUser } from "@/services/UserContext";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
+import Avatar from "@/ui/Avatar";
 
 const LINKED_CHANGES: Record<
   LinkedChange,
@@ -206,7 +207,7 @@ export default function AddLinkedChanges({
       )}
       <hr />
       <>
-        {sectionsToRender.map((s, i) => {
+        {possibleSections.map((s, i) => {
           return (
             <div key={s}>
               <AddLinkedChangeRow
@@ -214,7 +215,7 @@ export default function AddLinkedChanges({
                 setModal={sections[s].setModal}
                 experiment={experiment}
               />
-              {i < sectionsToRender.length - 1 && <hr />}
+              {i < possibleSections.length - 1 && <hr />}
             </div>
           );
         })}
