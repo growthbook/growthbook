@@ -4,6 +4,141 @@ import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
 import { allRoutes } from "back-end/src/api/api.router";
 
+const openApiTags = [
+  "projects",
+  "environments",
+  "features",
+  "ramp-schedules",
+  "data-sources",
+  "fact-tables",
+  "fact-metrics",
+  "metrics",
+  "experiments",
+  "snapshots",
+  "dimensions",
+  "segments",
+  "sdk-connections",
+  "visual-changesets",
+  "saved-groups",
+  "organizations",
+  "members",
+  "code-references",
+  "archetypes",
+  "queries",
+  "settings",
+  "attributes",
+  "usage",
+] as const;
+
+export type OpenApiTag = (typeof openApiTags)[number];
+
+const tags: Record<OpenApiTag, { display: string; description: string }> = {
+  projects: {
+    display: "Projects",
+    description:
+      "Projects are used to organize your feature flags and experiments",
+  },
+  environments: {
+    display: "Environments",
+    description:
+      "GrowthBook comes with one environment by default (production), but you can add as many as you need. When used with feature flags, you can enable/disable feature flags on a per-environment basis.",
+  },
+  features: {
+    display: "Feature Flags",
+    description: "Control your feature flags programatically",
+  },
+  "ramp-schedules": {
+    display: "Ramp Schedules",
+    description:
+      "Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.",
+  },
+  "data-sources": {
+    display: "Data Sources",
+    description:
+      "How GrowthBook connects and queries your data, including cached database schema metadata (information schemas) for tables and columns.",
+  },
+  "fact-tables": {
+    display: "Fact Tables",
+    description: "Fact Tables describe the shape of your data warehouse tables",
+  },
+  "fact-metrics": {
+    display: "Fact Metrics",
+    description:
+      "Fact Metrics are metrics built on top of Fact Table definitions",
+  },
+  metrics: {
+    display: "Metrics (legacy)",
+    description: "Metrics used as goals and guardrails for experiments",
+  },
+  experiments: {
+    display: "Experiments",
+    description: "Experiments (A/B Tests)",
+  },
+  snapshots: {
+    display: "Experiment Snapshots",
+    description:
+      "Experiment Snapshots (the individual updates of an experiment)",
+  },
+  dimensions: {
+    display: "Dimensions",
+    description: "Dimensions used during experiment analysis",
+  },
+  segments: {
+    display: "Segments",
+    description: "Segments used during experiment analysis",
+  },
+  "sdk-connections": {
+    display: "SDK Connections",
+    description:
+      "Client keys and settings for connecting SDKs to a GrowthBook instance",
+  },
+  "visual-changesets": {
+    display: "Visual Changesets",
+    description:
+      "Groups of visual changes made by the visual editor to a single page",
+  },
+  "saved-groups": {
+    display: "Saved Groups",
+    description:
+      "Defined sets of attribute values which can be used with feature rules for targeting features at particular users.",
+  },
+  members: {
+    display: "Members",
+    description: "Members are users who have been invited to an organization.",
+  },
+  organizations: {
+    display: "Organizations",
+    description:
+      "Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.",
+  },
+  "code-references": {
+    display: "Code References",
+    description:
+      "Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).",
+  },
+  archetypes: {
+    display: "Archetypes",
+    description:
+      "Archetypes allow you to simulate the result of targeting rules on pre-set user attributes",
+  },
+  queries: {
+    display: "Queries",
+    description: "Retrieve queries used in experiments to calculate results.",
+  },
+  settings: {
+    display: "Settings",
+    description: "Get the organization settings.",
+  },
+  attributes: {
+    display: "Attributes",
+    description: "Used when targeting feature flags and experiments.",
+  },
+  usage: {
+    display: "Usage",
+    description: "Usage information for metrics in experiments.",
+  },
+};
+
 function isNonEmtySchema(schema: z.ZodType | undefined): schema is z.ZodType {
   return schema !== undefined && !(schema instanceof ZodNever);
 }
@@ -136,7 +271,7 @@ type Path = {
 type CodeSample = { lang: string; source: string };
 
 async function run() {
-  // TODO: add description, security, tags, etc.
+  // TODO: add security, etc.
   const openapiSpec: {
     openapi: string;
     info: {
@@ -147,6 +282,11 @@ async function run() {
     servers: {
       url: string;
       description: string;
+    }[];
+    tags: {
+      name: string;
+      description: string;
+      "x-displayName": string;
     }[];
     paths: Record<string, Record<string, Path>>;
   } = {
@@ -211,6 +351,11 @@ The response body will be a JSON object with the following properties:
         description: "Self-hosted GrowthBook",
       },
     ],
+    tags: openApiTags.map((id) => ({
+      name: id,
+      "x-displayName": tags[id].display,
+      description: tags[id].description,
+    })),
     paths: {},
   };
 
