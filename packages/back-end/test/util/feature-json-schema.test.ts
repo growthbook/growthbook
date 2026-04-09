@@ -48,4 +48,23 @@ describe("getInitialFeatureJsonSchema", () => {
     );
     expect(schema.date).toBeInstanceOf(Date);
   });
+
+  it("falls back to schema mode when schemaType is invalid at runtime", () => {
+    const sourceSchema = {
+      schemaType: "custom",
+      schema: '{"type":"object"}',
+      simple: {
+        type: "object",
+        fields: [],
+      },
+      date: new Date("2025-01-01T00:00:00.000Z"),
+      enabled: true,
+    } as unknown as FeatureInterface["jsonSchema"];
+
+    const schema = getInitialFeatureJsonSchema(sourceSchema);
+
+    expect(schema.schemaType).toBe("schema");
+    expect(schema.schema).toBe('{"type":"object"}');
+    expect(schema.enabled).toBe(true);
+  });
 });

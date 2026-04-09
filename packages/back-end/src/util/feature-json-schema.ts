@@ -8,8 +8,13 @@ import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
 export function getInitialFeatureJsonSchema(
   jsonSchema?: FeatureInterface["jsonSchema"],
 ): JSONSchemaDef {
+  const schemaType =
+    jsonSchema?.schemaType === "schema" || jsonSchema?.schemaType === "simple"
+      ? jsonSchema.schemaType
+      : "schema";
+
   return {
-    schemaType: jsonSchema?.schemaType ?? "schema",
+    schemaType,
     simple: jsonSchema?.simple ?? {
       type: "object",
       fields: [],
