@@ -1,7 +1,5 @@
 PaginationFields:
   $ref: "./PaginationFields.yaml"
-RampSchedule:
-  $ref: "./RampSchedule.yaml"
 Dimension:
   $ref: "./Dimension.yaml"
 Metric:

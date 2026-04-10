@@ -1,9 +1,4 @@
 import { OpenApiRoute } from "back-end/src/util/handler";
-import { listRampSchedules } from "./listRampSchedules";
-import { getRampSchedule } from "./getRampSchedule";
-import { postRampSchedule } from "./postRampSchedule";
-import { putRampSchedule } from "./putRampSchedule";
-import { deleteRampSchedule } from "./deleteRampSchedule";
 import {
   startRampSchedule,
   pauseRampSchedule,
@@ -17,12 +12,6 @@ import {
 } from "./rampScheduleActions";
 
 export const rampSchedulesRoutes: OpenApiRoute[] = [
-  // CRUD
-  listRampSchedules,
-  postRampSchedule,
-  getRampSchedule,
-  putRampSchedule,
-  deleteRampSchedule,
   // Actions
   startRampSchedule,
   pauseRampSchedule,

@@ -158,7 +158,7 @@ export type RampScheduleTemplateInterface = z.infer<
 const apiRampTrigger = z.union([
   z.object({ type: z.literal("interval"), seconds: z.number().positive() }),
   z.object({ type: z.literal("approval") }),
-  z.object({ type: z.literal("scheduled"), at: z.string() }),
+  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
 ]);
 
 // Template step action for the API — same as the DB variant (no date fields in actions).
@@ -179,7 +179,7 @@ export const apiRampScheduleTemplateValidator = apiBaseSchema.extend({
 
 // API-facing ramp end trigger — uses ISO string instead of Date.
 const apiRampEndTrigger = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("scheduled"), at: z.string() }),
+  z.object({ type: z.literal("scheduled"), at: z.iso.datetime() }),
 ]);
 
 // API-facing ramp step — uses ISO strings for scheduled trigger dates.
@@ -190,14 +190,14 @@ const apiRampStep = z.object({
 });
 
 // API-facing variant of rampScheduleValidator — uses ISO strings for all dates.
-export const apiRampScheduleValidator = apiBaseSchema.extend({
+export const apiRampScheduleInterface = apiBaseSchema.extend({
   name: z.string(),
   entityType: z.enum(["feature"]),
   entityId: z.string(),
   targets: z.array(rampTarget),
   steps: z.array(apiRampStep),
   endActions: z.array(rampStepAction).optional(),
-  startDate: z.string().nullish(),
+  startDate: z.iso.datetime().nullish(),
   endCondition: z
     .object({
       trigger: apiRampEndTrigger.optional(),
@@ -205,16 +205,14 @@ export const apiRampScheduleValidator = apiBaseSchema.extend({
     .nullish(),
   status: z.enum(rampScheduleStatusArray),
   currentStepIndex: z.number().int().min(-1),
-  startedAt: z.string().nullish(),
-  phaseStartedAt: z.string().nullish(),
-  pausedAt: z.string().nullish(),
-  nextStepAt: z.string().nullable(),
-  nextProcessAt: z.string().nullish(),
+  startedAt: z.iso.datetime().nullish(),
+  phaseStartedAt: z.iso.datetime().nullish(),
+  pausedAt: z.iso.datetime().nullish(),
+  nextStepAt: z.iso.datetime().nullable(),
+  nextProcessAt: z.iso.datetime().nullish(),
   elapsedMs: z.number().int().nullish(),
 });
-export type ApiRampScheduleInterface = z.infer<
-  typeof apiRampScheduleValidator
->;
+export type ApiRampScheduleInterface = z.infer<typeof apiRampScheduleInterface>;
 
 // Minimal type for pending/draft ramp schedules before full data is available.
 export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {

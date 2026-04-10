@@ -13,6 +13,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
+import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -55,6 +56,7 @@ const API_MODELS: ModelClass[] = [
   ExperimentTemplatesModel,
   AnalyticsExplorationModel,
   RampScheduleTemplateModel,
+  RampScheduleModel,
 ];
 
 const router = Router();
