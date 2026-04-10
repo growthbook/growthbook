@@ -6,6 +6,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
+import { ownerField } from "./owner-field";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -318,7 +319,7 @@ export const experimentInterface = z
     uid: z.string().optional(),
     organization: z.string(),
     project: z.string().optional(),
-    owner: z.string(),
+    owner: ownerField,
     /** @deprecated Always set to 'code' */
     implementation: z.enum(implementationType),
     /** @deprecated */
