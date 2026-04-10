@@ -1398,6 +1398,7 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       project?: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       templateMetadata: {
         name: string;
@@ -1450,6 +1451,7 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+      /** @description The userId of the owner (or raw owner name/email for legacy records) */
       owner: string;
       name: string;
       description: string;
@@ -24514,6 +24516,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               project?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               templateMetadata: {
                 name: string;
@@ -24634,6 +24637,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               project?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               templateMetadata: {
                 name: string;
@@ -24720,6 +24724,7 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 project?: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 templateMetadata: {
                   name: string;
@@ -24835,6 +24840,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               project?: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               templateMetadata: {
                 name: string;
@@ -24972,6 +24978,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               name: string;
               description: string;
@@ -25002,7 +25009,7 @@ export interface operations {
           projects?: (string)[];
           metrics?: (string)[];
           datasource?: string;
-          /** @description Will default to the current user */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
         };
@@ -25018,6 +25025,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               name: string;
               description: string;
@@ -25061,6 +25069,7 @@ export interface operations {
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
+                /** @description The userId of the owner (or raw owner name/email for legacy records) */
                 owner: string;
                 name: string;
                 description: string;
@@ -25086,7 +25095,7 @@ export interface operations {
           projects: (string)[];
           metrics: (string)[];
           datasource: string;
-          /** @description Will default to the current user */
+          /** @description The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. */
           owner?: string;
           archived?: boolean;
         };
@@ -25102,6 +25111,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              /** @description The userId of the owner (or raw owner name/email for legacy records) */
               owner: string;
               name: string;
               description: string;
