@@ -4,15 +4,13 @@ import {
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import track from "@/services/track";
-
+import { Box } from "@radix-ui/themes";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
-import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
-import { Redirect } from "./RedirectLinkedChanges";
+import Heading from "@/ui/Heading";
+import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 
 export default function LinkedChanges({
-  setFeatureModal,
   linkedFeatures,
   visualChangesets,
   urlRedirects,
@@ -22,7 +20,6 @@ export default function LinkedChanges({
   mutate,
   canEditVisualChangesets,
 }: {
-  setFeatureModal?: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -32,26 +29,30 @@ export default function LinkedChanges({
   mutate?: () => void;
   canEditVisualChangesets: boolean;
 }) {
-  const featureFlagCount = linkedFeatures.length;
+  const numLinkedChanges =
+    linkedFeatures.length + visualChangesets.length + urlRedirects.length;
+  // Don't display linked changes section if none have been added and experiment is no longer a draft
+  if (
+    (experiment.status !== "draft" && numLinkedChanges === 0) ||
+    numLinkedChanges === 0
+  )
+    return null;
 
   return (
-    <LinkedChangesContainer
-      canAddChanges={canAddChanges}
-      changeCount={featureFlagCount}
-      type="feature-flag"
-      experimentStatus={experiment.status}
-      onAddChange={() => {
-        setFeatureModal?.(true);
-        track("Open linked feature modal", {
-          source: "linked-changes",
-          action: "add",
-        });
-      }}
-    >
+    <Box className="appbox" px="5" py="4">
+      <Box mb="2" mx="1" mt="2">
+        <Heading as="h4" size="small">
+          Values
+        </Heading>
+      </Box>
       {!isPublic ? (
         <>
-          {linkedFeatures.map((info, i) => (
-            <LinkedFeatureFlag info={info} experiment={experiment} key={i} />
+          {linkedFeatures.map((info) => (
+            <LinkedFeatureFlag
+              info={info}
+              experiment={experiment}
+              key={info.feature.id}
+            />
           ))}
           <VisualChangesetTable
             experiment={experiment}
@@ -59,18 +60,17 @@ export default function LinkedChanges({
             mutate={mutate}
             canEditVisualChangesets={canEditVisualChangesets}
           />
-          {urlRedirects.map((r, i) => (
-            <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
-              <Redirect
-                urlRedirect={r}
-                experiment={experiment}
-                mutate={mutate}
-                canEdit={canAddChanges}
-              />
-            </div>
+          {urlRedirects.map((r) => (
+            <RedirectLinkedChanges
+              urlRedirect={r}
+              experiment={experiment}
+              mutate={mutate}
+              canEdit={canAddChanges}
+              key={r.id}
+            />
           ))}
         </>
       ) : null}
-    </LinkedChangesContainer>
+    </Box>
   );
 }

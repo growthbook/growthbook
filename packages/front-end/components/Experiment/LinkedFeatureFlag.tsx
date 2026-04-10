@@ -12,12 +12,12 @@ import {
 } from "react-icons/pi";
 import { useState } from "react";
 import LinkedChange from "@/components/Experiment/LinkedChange";
+import LinkedChangeVariationRows from "@/components/Experiment/LinkedChangeVariationRows";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import { decimalToPercent } from "@/services/utils";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -25,9 +25,8 @@ type Props = {
   open?: boolean;
 };
 
-export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
+export default function LinkedFeatureFlag({ info, experiment }: Props) {
   const variations = getLatestPhaseVariations(experiment);
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
@@ -38,7 +37,6 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
   const totalEnvironmentCount = Object.keys(
     info.environmentStates || {},
   ).length;
-  const valueType = info.feature?.valueType;
 
   return (
     <LinkedChange
@@ -62,57 +60,16 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
         <Flex width="100%" gap="4" py="4" px="5" direction="column">
           {info.state !== "discarded" && (
             <Box flexGrow="1">
-              {orderedValues.map((v, j) => (
-                <>
-                  <Flex
-                    align="start"
-                    justify="between"
-                    width="100%"
-                    key={j}
-                    gap="9"
-                    style={{
-                      height: valueType === "json" ? "60px" : "24px",
-                    }}
-                  >
-                    <Flex
-                      align="center"
-                      gap="2"
-                      flexBasis="15%"
-                      flexShrink="0"
-                      className={`variation with-variation-label border-right-0 variation${j}`}
-                    >
-                      <span className="label" style={{ width: 20, height: 20 }}>
-                        {j}
-                      </span>
-                      <Box
-                        as="span"
-                        className="d-inline-block text-ellipsis"
-                        title={variations[j]?.name}
-                      >
-                        <Text weight="semibold">{variations[j]?.name}</Text>
-                      </Box>
-                    </Flex>
-                    <Box>
-                      <Text>
-                        {decimalToPercent(
-                          latestPhase?.variationWeights?.[j] ?? 0,
-                        )}
-                        % Split
-                      </Text>
-                    </Box>
-                    <Box flexGrow="1">
-                      <ForceSummary
-                        value={v}
-                        feature={info.feature}
-                        maxHeight={60}
-                      />
-                    </Box>
-                  </Flex>
-                  {j < orderedValues.length - 1 && (
-                    <Separator size="4" mt="2" mb="3" />
-                  )}
-                </>
-              ))}
+              <LinkedChangeVariationRows
+                experiment={experiment}
+                renderContent={(j) => (
+                  <ForceSummary
+                    value={orderedValues[j]}
+                    feature={info.feature}
+                    maxHeight={60}
+                  />
+                )}
+              />
             </Box>
           )}
           {info.state === "discarded" && (
@@ -125,7 +82,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
           {(info.state === "live" || info.state === "draft") && (
             <>
               {info.inconsistentValues && (
-                <Callout status="warning" mb="4">
+                <Callout status="warning">
                   <strong>Warning:</strong> This experiment is included multiple
                   times with different values. The values above are from the
                   first matching experiment in{" "}
@@ -134,7 +91,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
               )}
 
               {info.rulesAbove && (
-                <Callout status="info" mb="4">
+                <Callout status="info">
                   <strong>Notice:</strong> There are feature rules above this
                   experiment so some users might not be included.
                 </Callout>

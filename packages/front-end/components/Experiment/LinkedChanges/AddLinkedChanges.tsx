@@ -10,7 +10,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
 import { useUser } from "@/services/UserContext";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
-import Avatar from "@/ui/Avatar";
 
 const LINKED_CHANGES: Record<
   LinkedChange,
@@ -173,7 +172,8 @@ export default function AddLinkedChanges({
   if (experiment.status !== "draft") return null;
   if (experiment.archived) return null;
   // Already has linked changes
-  if (numLinkedChanges && numLinkedChanges > 0) return null;
+  // TODO: Add back after implementing new implementation dropdown in LinkedChanges section
+  // if (numLinkedChanges && numLinkedChanges > 0) return null;
 
   const sections = {
     "feature-flag": {
@@ -191,12 +191,12 @@ export default function AddLinkedChanges({
   };
 
   const possibleSections = Object.keys(sections);
-  const sectionsToRender = possibleSections.filter((s) => sections[s].render);
-  if (!sectionsToRender.length) return null;
+  // const sectionsToRender = possibleSections.filter((s) => sections[s].render);
+  // if (!sectionsToRender.length) return null;
 
   return (
     <div className="appbox px-4 py-3 my-4">
-      {sectionsToRender.length < possibleSections.length ? (
+      {numLinkedChanges > 0 ? (
         <>
           <h4>Add Implementation</h4>
         </>
