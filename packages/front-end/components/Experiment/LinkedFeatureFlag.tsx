@@ -3,21 +3,13 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { Box, Flex, Grid, IconButton, Separator } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiCheckCircleFill,
-  PiWarningFill,
-} from "react-icons/pi";
-import { useState } from "react";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChangeVariationRows";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
+import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -30,13 +22,22 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
   const orderedValues = variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
-  const [environmentsOpen, setEnvironmentsOpen] = useState(false);
-  const activeEnvironmentCount = Object.values(
-    info.environmentStates || {},
-  ).filter((state) => state === "active").length;
-  const totalEnvironmentCount = Object.keys(
-    info.environmentStates || {},
-  ).length;
+
+  const environmentStates = Object.entries(info.environmentStates || {}).map(
+    ([env, state]) => ({
+      env,
+      state,
+      isActive: state === "active",
+      tooltip:
+        state === "active"
+          ? "The experiment is active in this environment"
+          : state === "disabled-env"
+            ? "The environment is disabled for this feature, so the experiment is not active"
+            : state === "disabled-rule"
+              ? "The experiment is disabled in this environment and is not active"
+              : "The experiment is not present in this environment",
+    }),
+  );
 
   return (
     <LinkedChange
@@ -100,83 +101,11 @@ export default function LinkedFeatureFlag({ info, experiment }: Props) {
           )}
         </Flex>
 
-        <Separator size="4" />
         {info.state !== "locked" && info.state !== "discarded" && (
-          <Box p="4" px="5">
-            <Flex align="center">
-              <Text color="text-low" weight="semibold" size="medium">
-                Environments
-              </Text>
-              <Text color="text-low" size="medium" ml="1">
-                ({activeEnvironmentCount}/{totalEnvironmentCount})
-              </Text>
-              <IconButton
-                type="button"
-                radius="full"
-                ml="2"
-                variant="ghost"
-                onClick={() => {
-                  setEnvironmentsOpen((prev) => !prev);
-                }}
-              >
-                {environmentsOpen ? <PiCaretDown /> : <PiCaretRight />}
-              </IconButton>
-            </Flex>
-            {environmentsOpen && (
-              <Grid
-                mt="3"
-                gap="2"
-                gapX="9"
-                justify="between"
-                flow="column"
-                rows={
-                  totalEnvironmentCount >= 5
-                    ? "5"
-                    : totalEnvironmentCount.toString()
-                }
-                display="inline-grid"
-              >
-                {Object.entries(info.environmentStates || {}).map(
-                  ([env, state]) => (
-                    <Box key={env}>
-                      <Tooltip
-                        body={
-                          state === "active"
-                            ? "The experiment is active in this environment"
-                            : state === "disabled-env"
-                              ? "The environment is disabled for this feature, so the experiment is not active"
-                              : state === "disabled-rule"
-                                ? "The experiment is disabled in this environment and is not active"
-                                : "The experiment is not present in this environment"
-                        }
-                      >
-                        <Flex gap="2" align="center" style={{ minWidth: 0 }}>
-                          <Box
-                            flexShrink="0"
-                            style={{
-                              color:
-                                state === "active"
-                                  ? "var(--green-11)"
-                                  : "var(--amber-11)",
-                            }}
-                          >
-                            {state === "active" ? (
-                              <PiCheckCircleFill />
-                            ) : (
-                              <PiWarningFill />
-                            )}
-                          </Box>
-                          <Box className="text-ellipsis" title={env}>
-                            <Text weight="medium">{env}</Text>
-                          </Box>
-                        </Flex>
-                      </Tooltip>
-                    </Box>
-                  ),
-                )}
-              </Grid>
-            )}
-          </Box>
+          <>
+            <Separator size="4" />
+            <EnvironmentStatesGrid environmentStates={environmentStates} />
+          </>
         )}
       </Box>
     </LinkedChange>

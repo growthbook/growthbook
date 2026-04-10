@@ -51,6 +51,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getChangesToStartExperiment,
+  getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
@@ -762,6 +763,9 @@ export async function getExperiment(
     linkedFeatures,
   });
 
+  const { visualChangesetEnvStates, urlRedirectEnvStates } =
+    await getLinkedChangeEnvironmentStates(context, experiment);
+
   res.status(200).json({
     status: 200,
     experiment,
@@ -770,6 +774,8 @@ export async function getExperiment(
     linkedFeatures: linkedFeatureInfo,
     envs,
     idea,
+    visualChangesetEnvStates,
+    urlRedirectEnvStates,
   });
 }
 

@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
@@ -19,6 +20,8 @@ export default function LinkedChanges({
   isPublic,
   mutate,
   canEditVisualChangesets,
+  visualChangesetEnvStates,
+  urlRedirectEnvStates,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -28,6 +31,8 @@ export default function LinkedChanges({
   isPublic?: boolean;
   mutate?: () => void;
   canEditVisualChangesets: boolean;
+  visualChangesetEnvStates?: LinkedChangeEnvStates;
+  urlRedirectEnvStates?: LinkedChangeEnvStates;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -59,6 +64,7 @@ export default function LinkedChanges({
             visualChangesets={visualChangesets}
             mutate={mutate}
             canEditVisualChangesets={canEditVisualChangesets}
+            environmentStates={visualChangesetEnvStates}
           />
           {urlRedirects.map((r) => (
             <RedirectLinkedChanges
@@ -67,6 +73,7 @@ export default function LinkedChanges({
               mutate={mutate}
               canEdit={canAddChanges}
               key={r.id}
+              environmentStates={urlRedirectEnvStates}
             />
           ))}
         </>

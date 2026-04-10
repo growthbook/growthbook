@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
+} from "shared/types/experiment";
 import { diffChars } from "diff";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
@@ -10,12 +13,14 @@ import LinkedChangeVariationRows from "@/components/Experiment/LinkedChangeVaria
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import LinkedChange from "@/components/Experiment/LinkedChange";
+import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 
 interface RedirectProps {
   urlRedirect: URLRedirectInterface;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
   mutate?: () => void;
+  environmentStates?: LinkedChangeEnvStates;
 }
 
 function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
@@ -65,6 +70,7 @@ export const RedirectLinkedChanges = ({
   experiment,
   mutate,
   canEdit,
+  environmentStates,
 }: RedirectProps) => {
   const { apiCall } = useAuth();
   const [editingRedirect, setEditingRedirect] = useState<boolean>(false);
@@ -113,6 +119,24 @@ export const RedirectLinkedChanges = ({
               />
             </Box>
           </Flex>
+          {environmentStates && Object.keys(environmentStates).length > 0 && (
+            <>
+              <Separator size="4" />
+              <EnvironmentStatesGrid
+                environmentStates={Object.entries(environmentStates).map(
+                  ([env, state]) => ({
+                    env,
+                    state,
+                    isActive: state === "active",
+                    tooltip:
+                      state === "active"
+                        ? "An SDK connection in this environment has URL redirect experiments enabled"
+                        : "No SDK connection in this environment has URL redirect experiments enabled",
+                  }),
+                )}
+              />
+            </>
+          )}
         </Box>
       </LinkedChange>
     </>

@@ -1,10 +1,13 @@
 import React, { FC, useCallback, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
+} from "shared/types/experiment";
 import {
   VisualChange,
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
@@ -13,6 +16,7 @@ import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import LinkedChangeVariationRows from "@/components/Experiment/LinkedChangeVariationRows";
+import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
@@ -23,6 +27,7 @@ type Props = {
   visualChangesets: VisualChangesetInterface[];
   mutate?: () => void;
   canEditVisualChangesets: boolean;
+  environmentStates?: LinkedChangeEnvStates;
 };
 
 function VisualChangesRows({
@@ -30,6 +35,7 @@ function VisualChangesRows({
   experiment,
   canEditVisualChangesets,
   setEditingVisualChange,
+  envStatesArray,
 }: {
   vc: VisualChangesetInterface;
   experiment: ExperimentInterfaceStringDates;
@@ -39,6 +45,12 @@ function VisualChangesRows({
     visualChangeIndex: number;
     visualChangeset: VisualChangesetInterface;
   }) => void;
+  envStatesArray: {
+    env: string;
+    state: string;
+    isActive: boolean;
+    tooltip: string;
+  }[];
 }) {
   return (
     <Box className="appbox">
@@ -101,6 +113,12 @@ function VisualChangesRows({
           />
         </Box>
       </Flex>
+      {envStatesArray.length > 0 && (
+        <>
+          <Separator size="4" />
+          <EnvironmentStatesGrid environmentStates={envStatesArray} />
+        </>
+      )}
     </Box>
   );
 }
@@ -110,6 +128,7 @@ export const VisualChangesetTable: FC<Props> = ({
   visualChangesets = [],
   mutate,
   canEditVisualChangesets,
+  environmentStates,
 }: Props) => {
   const { apiCall } = useAuth();
 
@@ -162,6 +181,18 @@ export const VisualChangesetTable: FC<Props> = ({
     },
     [apiCall, mutate],
   );
+
+  const envStatesArray = environmentStates
+    ? Object.entries(environmentStates).map(([env, state]) => ({
+        env,
+        state,
+        isActive: state === "active",
+        tooltip:
+          state === "active"
+            ? "An SDK connection in this environment has visual experiments enabled"
+            : "No SDK connection in this environment has visual experiments enabled",
+      }))
+    : [];
 
   return (
     <>
@@ -278,6 +309,7 @@ export const VisualChangesetTable: FC<Props> = ({
               experiment={experiment}
               canEditVisualChangesets={canEditVisualChangesets}
               setEditingVisualChange={setEditingVisualChange}
+              envStatesArray={envStatesArray}
             />
           </LinkedChange>
         );

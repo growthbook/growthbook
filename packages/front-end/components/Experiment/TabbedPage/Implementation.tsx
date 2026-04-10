@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
@@ -40,6 +41,8 @@ export interface Props {
   setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   envs: string[];
+  visualChangesetEnvStates?: LinkedChangeEnvStates;
+  urlRedirectEnvStates?: LinkedChangeEnvStates;
 }
 
 export default function Implementation({
@@ -57,6 +60,8 @@ export default function Implementation({
   setUrlRedirectModal,
   linkedFeatures,
   envs,
+  visualChangesetEnvStates,
+  urlRedirectEnvStates,
 }: Props) {
   const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
     useState(false);
@@ -137,6 +142,8 @@ export default function Implementation({
             urlRedirects={urlRedirects}
             mutate={mutate}
             canEditVisualChangesets={hasVisualEditorPermission}
+            visualChangesetEnvStates={visualChangesetEnvStates}
+            urlRedirectEnvStates={urlRedirectEnvStates}
           />
         ) : null}
         {!isHoldout && (
