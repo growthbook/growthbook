@@ -454,11 +454,10 @@ export async function updateSnapshotAnalysis({
   let stored: ExperimentSnapshotAnalysis = { ...analysis };
   if (analysis.status === "success" && analysis.results?.length) {
     const rows = splitAnalysisResultsToMetricResultRows(analysis.results, {
-      organization,
       snapshotId: id,
       analysisIndex,
     });
-    await insertExperimentSnapshotMetricResults(rows);
+    await insertExperimentSnapshotMetricResults(organization, rows);
     stored = {
       ...analysis,
       results: [],

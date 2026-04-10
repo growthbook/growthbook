@@ -1,7 +1,7 @@
 import { FilterQuery } from "mongoose";
+import uniqid from "uniqid";
 import type { ExperimentSnapshotMetricResultInterface } from "shared/types/experiment-snapshot";
 import { experimentSnapshotMetricResultValidator } from "shared/validators";
-import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context, MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -63,34 +63,36 @@ export class ExperimentSnapshotMetricResultModel extends BaseClass {
     });
   }
 
-  // TODO: Replace per-row this.create() with a bulk insertMany for better
-  // write throughput.  Large snapshots can produce hundreds of metric rows,
-  // and individual round-trips become a bottleneck.
   public async insertRows(
-    rows: Omit<ExperimentSnapshotMetricResultInterface, "id">[],
+    rows: Omit<
+      ExperimentSnapshotMetricResultInterface,
+      "id" | "organization" | "dateCreated" | "dateUpdated"
+    >[],
   ): Promise<void> {
     if (!rows.length) return;
-    await promiseAllChunks(
-      rows.map((row) => async () => {
-        await this.create(row);
-      }),
-      10,
-    );
+    const now = new Date();
+    const docs = rows.map((row) => ({
+      ...row,
+      id: uniqid("esmr_"),
+      organization: this.context.org.id,
+      dateCreated: now,
+      dateUpdated: now,
+    }));
+    await this._dangerousGetCollection().insertMany(docs);
   }
 
   public async findForAnalysis(
     snapshotId: string,
     analysisIndex: number,
   ): Promise<ExperimentSnapshotMetricResultInterface[]> {
-    return (await this._find(
-      {
+    return (await this._dangerousGetCollection()
+      .find({
+        organization: this.context.org.id,
         snapshotId,
         analysisIndex,
-      },
-      {
-        sort: { dimensionValue: 1, metricId: 1 },
-      },
-    )) as ExperimentSnapshotMetricResultInterface[];
+      })
+      .sort({ dimensionValue: 1, metricId: 1 })
+      .toArray()) as unknown as ExperimentSnapshotMetricResultInterface[];
   }
 
   public async queryRows({
@@ -106,10 +108,8 @@ export class ExperimentSnapshotMetricResultModel extends BaseClass {
     dimensionNames?: string[];
     parentMetricId?: string;
   }): Promise<ExperimentSnapshotMetricResultInterface[]> {
-    const filter: FilterQuery<ExperimentSnapshotMetricResultInterface> & {
-      metricId?: { $in: string[] };
-      dimensionName?: { $in: string[] };
-    } = {
+    const filter: FilterQuery<ExperimentSnapshotMetricResultInterface> = {
+      organization: this.context.org.id,
       snapshotId,
       analysisIndex,
     };
@@ -117,9 +117,10 @@ export class ExperimentSnapshotMetricResultModel extends BaseClass {
     if (metricIds?.length) filter.metricId = { $in: metricIds };
     if (dimensionNames?.length) filter.dimensionName = { $in: dimensionNames };
 
-    return (await this._find(filter, {
-      sort: { dimensionValue: 1, metricId: 1 },
-    })) as ExperimentSnapshotMetricResultInterface[];
+    return (await this._dangerousGetCollection()
+      .find(filter)
+      .sort({ dimensionValue: 1, metricId: 1 })
+      .toArray()) as unknown as ExperimentSnapshotMetricResultInterface[];
   }
 }
 
@@ -147,10 +148,14 @@ export async function deleteExperimentSnapshotMetricResultsForAnalysis(
 }
 
 export async function insertExperimentSnapshotMetricResults(
-  rows: Omit<ExperimentSnapshotMetricResultInterface, "id">[],
+  organization: string,
+  rows: Omit<
+    ExperimentSnapshotMetricResultInterface,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >[],
 ): Promise<void> {
   if (!rows.length) return;
-  await scopedModel(rows[0].organization).insertRows(rows);
+  await scopedModel(organization).insertRows(rows);
 }
 
 export async function findExperimentSnapshotMetricResultsForAnalysis({

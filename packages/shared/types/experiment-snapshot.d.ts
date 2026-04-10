@@ -156,6 +156,8 @@ export type SnapshotTriggeredBy =
 export interface ExperimentSnapshotMetricResultInterface {
   id: string;
   organization: string;
+  dateCreated: Date;
+  dateUpdated: Date;
   snapshotId: string;
   /** Index into `snapshot.analyses` */
   analysisIndex: number;

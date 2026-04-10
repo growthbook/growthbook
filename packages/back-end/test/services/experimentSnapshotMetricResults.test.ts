@@ -36,7 +36,6 @@ describe("experimentSnapshotMetricResults", () => {
     ];
 
     const rows = splitAnalysisResultsToMetricResultRows(results, {
-      organization: "org",
       snapshotId: "snp",
       analysisIndex: 0,
     });
@@ -45,6 +44,9 @@ describe("experimentSnapshotMetricResults", () => {
     const withIds = rows.map((r, i) => ({
       ...r,
       id: `id_${i}`,
+      organization: "org",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
     }));
 
     const merged = mergeMetricResultRowsToAnalysisResults(withIds);

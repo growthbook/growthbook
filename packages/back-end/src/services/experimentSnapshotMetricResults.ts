@@ -20,15 +20,23 @@ function collectMetricIdsForDimension(
 /**
  * Splits a full `results` array into one persisted row per (metricId × dimensionName).
  */
+/**
+ * Fields managed by BaseModel (organization, id, dateCreated, dateUpdated)
+ * are excluded — they are populated automatically on insert.
+ */
+type MetricResultRow = Omit<
+  ExperimentSnapshotMetricResultInterface,
+  "id" | "organization" | "dateCreated" | "dateUpdated"
+>;
+
 export function splitAnalysisResultsToMetricResultRows(
   results: ExperimentReportResultDimension[],
   ctx: {
-    organization: string;
     snapshotId: string;
     analysisIndex: number;
   },
-): Omit<ExperimentSnapshotMetricResultInterface, "id">[] {
-  const out: Omit<ExperimentSnapshotMetricResultInterface, "id">[] = [];
+): MetricResultRow[] {
+  const out: MetricResultRow[] = [];
 
   results.forEach((dim) => {
     const metricIds = collectMetricIdsForDimension(dim);
@@ -45,7 +53,6 @@ export function splitAnalysisResultsToMetricResultRows(
       });
 
       out.push({
-        organization: ctx.organization,
         snapshotId: ctx.snapshotId,
         analysisIndex: ctx.analysisIndex,
         metricId,
