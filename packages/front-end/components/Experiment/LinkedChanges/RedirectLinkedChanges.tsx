@@ -9,10 +9,10 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOutFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
-import LinkedChangeVariationRows from "@/components/Experiment/LinkedChangeVariationRows";
+import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import LinkedChange from "@/components/Experiment/LinkedChange";
+import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 
 interface RedirectProps {

@@ -6,7 +6,7 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { Box } from "@radix-ui/themes";
-import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
+import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Heading from "@/ui/Heading";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";

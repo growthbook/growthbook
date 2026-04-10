@@ -12,7 +12,7 @@ import Avatar from "@/ui/Avatar";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import { ICON_PROPERTIES } from "./LinkedChanges/constants";
+import { ICON_PROPERTIES } from "./constants";
 
 type Props = {
   changeType: "flag" | "visual" | "redirect";

@@ -4,8 +4,8 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import LinkedChange from "@/components/Experiment/LinkedChange";
-import LinkedChangeVariationRows from "@/components/Experiment/LinkedChangeVariationRows";
+import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
+import LinkedChangeVariationRows from "@/components/Experiment/LinkedChanges/LinkedChangeVariationRows";
 import ForceSummary from "@/components/Features/ForceSummary";
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import Badge from "@/ui/Badge";
