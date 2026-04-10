@@ -138,6 +138,7 @@ import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
+  CreateExperimentSnapshotInput,
   getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotAnalysis,
@@ -1251,7 +1252,7 @@ async function planSnapshotQueryRunner({
 }
 
 export type PlannedExperimentSnapshot = {
-  snapshot: ExperimentSnapshotInterface;
+  snapshot: CreateExperimentSnapshotInput;
   runnerKind: SnapshotQueryRunnerKind;
   useCache: boolean;
   fullRefresh: boolean;
@@ -1325,7 +1326,7 @@ export async function planSnapshot({
       !experiment.disableStickyBucketing,
   });
 
-  const data: ExperimentSnapshotInterface = {
+  const data: CreateExperimentSnapshotInput = {
     id: uniqid("snp_"),
     organization: experiment.organization,
     experiment: experiment.id,
@@ -1343,21 +1344,16 @@ export async function planSnapshot({
     analyses: [
       {
         dateCreated: new Date(),
-        results: [],
         settings: defaultAnalysisSettings,
         status: "running",
       },
       ...additionalAnalysisSettings
         .filter((a) => isAnalysisAllowed(snapshotSettings, a))
-        .map((a) => {
-          const analysis: ExperimentSnapshotAnalysis = {
-            dateCreated: new Date(),
-            results: [],
-            settings: a,
-            status: "running",
-          };
-          return analysis;
-        }),
+        .map((a) => ({
+          dateCreated: new Date(),
+          settings: a,
+          status: "running" as const,
+        })),
     ],
     status: "running",
   };

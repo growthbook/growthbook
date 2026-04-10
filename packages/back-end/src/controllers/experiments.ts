@@ -87,6 +87,7 @@ import {
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { queryExperimentSnapshotMetricResults } from "back-end/src/models/ExperimentSnapshotMetricResultModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
@@ -986,6 +987,80 @@ export async function getSnapshotById(
   res.status(200).json({
     status: 200,
     snapshot,
+  });
+}
+
+/**
+ * Fetch a subset of per-metric snapshot analysis rows (for lazy-loading UI).
+ * Query: analysisIndex (required), metricIds (comma-separated), dimensionNames (comma-separated), parentMetricId (optional).
+ */
+export async function getSnapshotMetricResults(
+  req: AuthRequest<
+    null,
+    { id: string },
+    {
+      analysisIndex?: string;
+      metricIds?: string;
+      dimensionNames?: string;
+      parentMetricId?: string;
+    }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const analysisIndex = parseInt(req.query.analysisIndex || "", 10);
+  if (Number.isNaN(analysisIndex)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Query parameter analysisIndex is required and must be a number",
+    });
+  }
+
+  const snapshot = await findSnapshotById(context.org.id, id);
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
+
+  const experiment = await getExperimentById(context, snapshot.experiment);
+  if (!experiment) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
+
+  const metricIds = req.query.metricIds
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const dimensionNames = req.query.dimensionNames
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const parentMetricId =
+    typeof req.query.parentMetricId === "string"
+      ? req.query.parentMetricId
+      : undefined;
+
+  const snapshotIdForResults = snapshot.sourceSnapshotId || id;
+
+  const metricResults = await queryExperimentSnapshotMetricResults({
+    organization: context.org.id,
+    snapshotId: snapshotIdForResults,
+    analysisIndex,
+    metricIds: metricIds?.length ? metricIds : undefined,
+    dimensionNames: dimensionNames?.length ? dimensionNames : undefined,
+    parentMetricId,
+  });
+
+  res.status(200).json({
+    status: 200,
+    metricResults,
   });
 }
 

@@ -28,3 +28,27 @@ export const sqlResultChunkValidator = z
     data: z.record(z.string(), z.array(z.unknown())),
   })
   .strict();
+
+export const experimentSnapshotMetricResultValidator = z
+  .object({
+    organization: z.string(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+    id: z.string(),
+    snapshotId: z.string(),
+    analysisIndex: z.number(),
+    metricId: z.string(),
+    parentMetricId: z.string(),
+    dimensionName: z.string(),
+    dimensionValue: z.string(),
+    srm: z.number(),
+    variations: z.array(
+      z
+        .object({
+          users: z.number(),
+          metric: z.unknown(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();

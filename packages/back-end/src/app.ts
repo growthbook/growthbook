@@ -625,6 +625,10 @@ app.get(
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.get("/snapshot/:id", experimentsController.getSnapshotById);
+app.get(
+  "/snapshot/:id/metric-results",
+  experimentsController.getSnapshotMetricResults,
+);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);

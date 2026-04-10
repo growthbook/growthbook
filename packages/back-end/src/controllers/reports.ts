@@ -61,6 +61,8 @@ export async function postReportFromSnapshot(
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
+  // Capture the source before overwriting the id for the clone
+  const sourceSnapshotId = snapshot.sourceSnapshotId || snapshot.id;
   // Prepare a new report-specific snapshot
   snapshot.id = uniqid("snp_");
   snapshot.type = "report";
@@ -149,9 +151,26 @@ export async function postReportFromSnapshot(
     experimentAnalysisSettings: _experimentAnalysisSettings,
   });
 
-  // Save the snapshot
+  // Clone the snapshot.  Per-metric analyses reference the source's metric
+  // rows via `sourceSnapshotId` (no duplication).  Legacy analyses with
+  // inline results are copied forward as-is (they're under 16 MB by
+  // definition since they fit in the source document).
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot });
+
+  const hasPerMetricAnalysis = snapshot.analyses.some(
+    (a) => a.resultsStoredPerMetric,
+  );
+
+  const { analyses, ...rest } = snapshot;
+  await createExperimentSnapshotModel({
+    data: {
+      ...rest,
+      ...(hasPerMetricAnalysis ? { sourceSnapshotId } : {}),
+      analyses: analyses.map((a) =>
+        a.resultsStoredPerMetric ? { ...a, results: undefined } : a,
+      ),
+    },
+  });
 
   await req.audit({
     event: "experiment.analysis",

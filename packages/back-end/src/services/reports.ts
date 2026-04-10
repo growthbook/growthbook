@@ -72,6 +72,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
+  CreateExperimentSnapshotInput,
   getLatestSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -559,7 +560,7 @@ export async function createReportSnapshot({
 
   const snapshotType = "report";
   // Fill in and sanitize the model
-  snapshotData = {
+  const createInput: CreateExperimentSnapshotInput = {
     ...snapshotData,
     id: uniqid("snp_"),
     type: snapshotType,
@@ -574,27 +575,29 @@ export async function createReportSnapshot({
     queries: [],
     unknownVariations: [],
     multipleExposures: 0,
-    analyses: snapshotData.analyses.map((analysis) => ({
-      ...analysis,
-      dateCreated: new Date(),
-      results: [],
-      status: "running",
-      settings: {
-        ...analysis.settings,
-        ...analysisSettings,
-      },
-    })),
+    analyses: snapshotData.analyses.map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ({ results, resultsStoredPerMetric, ...analysis }) => ({
+        ...analysis,
+        dateCreated: new Date(),
+        status: "running" as const,
+        settings: {
+          ...analysis.settings,
+          ...analysisSettings,
+        },
+      }),
+    ),
   };
   if (
-    snapshotData?.health?.traffic &&
-    !snapshotData?.health?.traffic?.dimension
+    createInput?.health?.traffic &&
+    !createInput?.health?.traffic?.dimension
   ) {
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
-    snapshotData.health.traffic.dimension = {};
+    createInput.health.traffic.dimension = {};
   }
 
   const snapshot = await createExperimentSnapshotModel({
-    data: snapshotData,
+    data: createInput,
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);

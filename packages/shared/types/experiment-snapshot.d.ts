@@ -148,6 +148,36 @@ export type SnapshotTriggeredBy =
   | "manual-dashboard"
   | "update-dashboards";
 
+/**
+ * One metric’s stats for a single results row (dimension / slice) on a snapshot analysis.
+ * Stored in `experimentsnapshotmetricresults` so large snapshots stay under BSON limits
+ * and the API can load metrics (and slices) incrementally.
+ */
+export interface ExperimentSnapshotMetricResultInterface {
+  id: string;
+  organization: string;
+  snapshotId: string;
+  /** Index into `snapshot.analyses` */
+  analysisIndex: number;
+  /** Metric id as keyed in `SnapshotVariation.metrics` (includes slice query string when applicable). */
+  metricId: string;
+  /**
+   * Base metric id for indexing slice rows (`parseSliceMetricId(metricId).baseMetricId`).
+   * Use this to fetch all slice documents for one logical metric.
+   */
+  parentMetricId: string;
+  /** Same as `ExperimentReportResultDimension.name` (e.g. `"All"`, slice labels). */
+  dimensionName: string;
+  /** Encodes the dimension row identity/value (e.g. `All`, slice value). */
+  dimensionValue: string;
+  srm: number;
+  /** Parallel to experiment phase variations; one entry per variation. */
+  variations: {
+    users: number;
+    metric: SnapshotMetric;
+  }[];
+}
+
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
   settings: ExperimentSnapshotAnalysisSettings;
@@ -155,6 +185,11 @@ export interface ExperimentSnapshotAnalysis {
   status: "running" | "success" | "error";
   error?: string;
   results: ExperimentReportResultDimension[];
+  /**
+   * When true, `results` is empty on the snapshot document and metric rows live in
+   * `experimentsnapshotmetricresults`. Legacy snapshots omit this and keep full inline `results`.
+   */
+  resultsStoredPerMetric?: boolean;
 }
 
 export interface SnapshotSettingsVariation {
@@ -227,6 +262,13 @@ export interface ExperimentSnapshotInterface {
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
+
+  /**
+   * When this snapshot was cloned from another (e.g. for a report), this
+   * points to the source snapshot whose metric-result rows we share.
+   * Analogous to `cachedQueryUsed` on QueryInterface.
+   */
+  sourceSnapshotId?: string;
 
   // Results
   unknownVariations: string[];

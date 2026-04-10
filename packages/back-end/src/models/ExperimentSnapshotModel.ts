@@ -1,5 +1,6 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import {
   snapshotSatisfiesBlock,
   blockHasFieldOfType,
@@ -12,6 +13,16 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
+import {
+  deleteExperimentSnapshotMetricResultsForAnalysis,
+  deleteExperimentSnapshotMetricResultsForSnapshot,
+  findExperimentSnapshotMetricResultsForAnalysis,
+  insertExperimentSnapshotMetricResults,
+} from "back-end/src/models/ExperimentSnapshotMetricResultModel";
+import {
+  mergeMetricResultRowsToAnalysisResults,
+  splitAnalysisResultsToMetricResultRows,
+} from "back-end/src/services/experimentSnapshotMetricResults";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
@@ -70,6 +81,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   queryLanguage: String,
   error: String,
   queries: queriesSchema,
+  sourceSnapshotId: String,
   dimension: String,
   unknownVariations: [String],
   multipleExposures: Number,
@@ -189,18 +201,61 @@ const ExperimentSnapshotModel =
     experimentSnapshotSchema,
   );
 
-const toInterface = (
-  doc: ExperimentSnapshotDocument,
-): ExperimentSnapshotInterface =>
-  migrateSnapshot(
-    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]),
-  );
+// INVARIANT: `analysisIndex` stored on metric-result rows must match the
+// position of the corresponding analysis in `snapshot.analyses[]`.  The
+// analyses array is only ever appended to ($push) or updated in-place
+// (positional $set); it must NEVER be reordered or spliced.  If that
+// invariant is violated, metric rows will hydrate into the wrong analysis.
+async function hydrateExperimentSnapshotMetricResults(
+  snapshot: ExperimentSnapshotInterface,
+): Promise<void> {
+  if (!snapshot.analyses?.length) return;
+
+  const snapshotIdForResults = snapshot.sourceSnapshotId || snapshot.id;
+
+  for (let i = 0; i < snapshot.analyses.length; i++) {
+    const analysis = snapshot.analyses[i];
+    if (!analysis.resultsStoredPerMetric) continue;
+
+    const rows = await findExperimentSnapshotMetricResultsForAnalysis({
+      organization: snapshot.organization,
+      snapshotId: snapshotIdForResults,
+      analysisIndex: i,
+    });
+    analysis.results = mergeMetricResultRowsToAnalysisResults(rows);
+  }
+}
+
+const documentToInterface = async (
+  doc: ExperimentSnapshotDocument | Record<string, unknown>,
+): Promise<ExperimentSnapshotInterface> => {
+  const raw = omit(
+    doc instanceof mongoose.Document
+      ? (doc as ExperimentSnapshotDocument).toJSON()
+      : doc,
+    ["__v", "_id"],
+  ) as LegacyExperimentSnapshotInterface;
+  const snapshot = migrateSnapshot(raw);
+  await hydrateExperimentSnapshotMetricResults(snapshot);
+  return snapshot;
+};
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
   experiment: string,
   phase: number,
 ) {
+  const snapshots = await ExperimentSnapshotModel.find({
+    organization,
+    experiment,
+    phase,
+  })
+    .select("id")
+    .lean();
+  for (const s of snapshots) {
+    await deleteExperimentSnapshotMetricResultsForSnapshot(organization, s.id);
+  }
+
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
     organization,
@@ -268,16 +323,19 @@ export async function updateSnapshot({
       : false;
 
     if (currentExperimentModel && isLatestPhase) {
+      const hydratedSnapshot = await documentToInterface(
+        experimentSnapshotModel,
+      );
       const updatedExperimentModel = await updateExperimentAnalysisSummary({
         context,
         experiment: currentExperimentModel,
-        experimentSnapshot: experimentSnapshotModel,
+        experimentSnapshot: hydratedSnapshot,
       });
 
       const notificationsTriggered = await notifyExperimentChange({
         context,
         experiment: updatedExperimentModel,
-        snapshot: experimentSnapshotModel,
+        snapshot: hydratedSnapshot,
         previousAnalysisSummary: currentExperimentModel.analysisSummary,
       });
 
@@ -286,7 +344,7 @@ export async function updateSnapshot({
           context,
           experiment: updatedExperimentModel,
           previousAnalysisSummary: currentExperimentModel.analysisSummary,
-          experimentSnapshot: experimentSnapshotModel,
+          experimentSnapshot: hydratedSnapshot,
           notificationsTriggered,
         });
       } catch (error) {
@@ -377,6 +435,39 @@ export async function updateSnapshotAnalysis({
   id: string;
   analysis: ExperimentSnapshotAnalysis;
 }) {
+  const current = await ExperimentSnapshotModel.findOne({ organization, id });
+  if (!current) throw "Internal error";
+
+  const analyses =
+    (current.analyses as ExperimentSnapshotAnalysis[] | undefined) ?? [];
+  const analysisIndex = analyses.findIndex((a) =>
+    isEqual(a.settings, analysis.settings),
+  );
+  if (analysisIndex < 0) throw "Internal error";
+
+  await deleteExperimentSnapshotMetricResultsForAnalysis(
+    organization,
+    id,
+    analysisIndex,
+  );
+
+  let stored: ExperimentSnapshotAnalysis = { ...analysis };
+  if (analysis.status === "success" && analysis.results?.length) {
+    const rows = splitAnalysisResultsToMetricResultRows(analysis.results, {
+      organization,
+      snapshotId: id,
+      analysisIndex,
+    });
+    await insertExperimentSnapshotMetricResults(rows);
+    stored = {
+      ...analysis,
+      results: [],
+      resultsStoredPerMetric: true,
+    };
+  } else {
+    delete stored.resultsStoredPerMetric;
+  }
+
   await ExperimentSnapshotModel.updateOne(
     {
       organization,
@@ -384,7 +475,7 @@ export async function updateSnapshotAnalysis({
       "analyses.settings": analysis.settings,
     },
     {
-      $set: { "analyses.$": analysis },
+      $set: { "analyses.$": stored },
     },
   );
 
@@ -403,6 +494,7 @@ export async function updateSnapshotAnalysis({
 }
 
 export async function deleteSnapshotById(organization: string, id: string) {
+  await deleteExperimentSnapshotMetricResultsForSnapshot(organization, id);
   await ExperimentSnapshotModel.deleteOne({ organization, id });
 }
 
@@ -411,7 +503,7 @@ export async function findSnapshotById(
   id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
-  return doc ? toInterface(doc) : null;
+  return doc ? await documentToInterface(doc) : null;
 }
 
 export async function findSnapshotsByIds(
@@ -422,7 +514,7 @@ export async function findSnapshotsByIds(
     organization: context.org.id,
     id: { $in: ids },
   });
-  return docs.map(toInterface);
+  return Promise.all(docs.map((d) => documentToInterface(d)));
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
@@ -437,7 +529,7 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
     queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
   });
 
-  return docs.map((doc) => toInterface(doc));
+  return Promise.all(docs.map((doc) => documentToInterface(doc)));
 }
 
 export async function errorSnapshotIfStillRunning(
@@ -465,7 +557,7 @@ export async function findStalledRunningSnapshots(
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
   }).limit(limit);
 
-  return docs.map((doc) => toInterface(doc));
+  return Promise.all(docs.map((doc) => documentToInterface(doc)));
 }
 
 export async function findLatestRunningSnapshotByReportId(
@@ -485,7 +577,7 @@ export async function findLatestRunningSnapshotByReportId(
     queries: { $elemMatch: { status: "running" } },
   });
 
-  return doc ? toInterface(doc) : null;
+  return doc ? await documentToInterface(doc) : null;
 }
 
 export async function getLatestSnapshot({
@@ -499,7 +591,7 @@ export async function getLatestSnapshot({
   experiment: string;
   phase: number;
   dimension?: string;
-  beforeSnapshot?: ExperimentSnapshotDocument;
+  beforeSnapshot?: ExperimentSnapshotDocument | ExperimentSnapshotInterface;
   withResults?: boolean;
   type?: SnapshotType;
 }): Promise<ExperimentSnapshotInterface | null> {
@@ -569,11 +661,11 @@ export async function getLatestSnapshot({
       ).exec();
 
       if (runningSnapshot) {
-        return toInterface(runningSnapshot);
+        return await documentToInterface(runningSnapshot);
       }
     }
 
-    return toInterface(mostRecentSnapshot);
+    return await documentToInterface(mostRecentSnapshot);
   }
 
   // Otherwise, try getting old snapshot records
@@ -586,7 +678,7 @@ export async function getLatestSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? toInterface(all[0]) : null;
+  return all[0] ? await documentToInterface(all[0]) : null;
 }
 
 // Gets latest snapshots per experiment-phase pair
@@ -635,30 +727,64 @@ export async function getLatestSnapshotMultipleExperiments(
 
   const snapshots: ExperimentSnapshotInterface[] = [];
   if (all[0]) {
-    // get interfaces matching the right phase
-    all.forEach((doc) => {
-      // aggregate returns document directly, no need for toJSON
-      const snapshot = migrateSnapshot(omit(doc, ["__v", "_id"]));
+    const hydrated = await Promise.all(
+      all.map((doc) =>
+        documentToInterface(
+          omit(doc, ["__v", "_id"]) as Record<string, unknown>,
+        ),
+      ),
+    );
+    for (const snapshot of hydrated) {
       const desiredPhase = experimentPhaseMap.get(snapshot.experiment);
       if (desiredPhase !== undefined && snapshot.phase === desiredPhase) {
         snapshots.push(snapshot);
         experimentPhasesToGet.delete(snapshot.experiment);
       }
-    });
+    }
   }
 
   return snapshots;
 }
 
+/**
+ * Input type for creating snapshots.  `results` defaults to `[]` when omitted.
+ *
+ * Fresh snapshots should omit `results` — they are populated later via
+ * `updateSnapshotAnalysis`, which splits metric data into the side collection.
+ *
+ * Snapshot clones (e.g. reports) may pass `resultsStoredPerMetric: true`
+ * on analyses whose metric rows live on a source snapshot (referenced via
+ * `sourceSnapshotId`), or pass inline `results` for legacy analyses that
+ * are small enough to fit in the document.
+ */
+export type CreateExperimentSnapshotInput = Omit<
+  ExperimentSnapshotInterface,
+  "analyses"
+> & {
+  analyses: (Omit<ExperimentSnapshotAnalysis, "results"> & {
+    results?: ExperimentSnapshotAnalysis["results"];
+  })[];
+};
+
 export async function createExperimentSnapshotModel({
   data,
 }: {
-  data: ExperimentSnapshotInterface;
+  data: CreateExperimentSnapshotInput;
 }): Promise<ExperimentSnapshotInterface> {
-  const created = await ExperimentSnapshotModel.create(data);
-  return toInterface(created);
+  const withDefaults = {
+    ...data,
+    analyses: data.analyses.map((a) => ({
+      ...a,
+      results: a.results ?? [],
+    })),
+  };
+  const created = await ExperimentSnapshotModel.create(withDefaults);
+  return await documentToInterface(created);
 }
 
-export const getDefaultAnalysisResults = (
+export async function getDefaultAnalysisResults(
   snapshot: ExperimentSnapshotDocument,
-) => snapshot.analyses?.[0]?.results?.[0];
+) {
+  const s = await documentToInterface(snapshot);
+  return s.analyses?.[0]?.results?.[0];
+}

@@ -19,6 +19,7 @@ import {
 } from "shared/enterprise";
 import { ExperimentAnalysisSummary } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentHealthSettings,
   ExperimentInterface,
@@ -31,10 +32,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
-import {
-  ExperimentSnapshotDocument,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getConfidenceLevelsForOrg,
@@ -276,7 +274,7 @@ export const computeExperimentChanges = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }): Promise<ExperimentSignificanceChange[]> => {
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
   if (!currentAnalysis?.results?.[0]?.variations) {
@@ -421,7 +419,7 @@ export const notifySignificance = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }) => {
   const experimentChanges = await computeExperimentChanges({
     context,
@@ -537,7 +535,7 @@ export const notifyExperimentChange = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
   previousAnalysisSummary?: ExperimentAnalysisSummary;
 }) => {
   const notificationsTriggered: string[] = [];

@@ -121,7 +121,7 @@ export function getBlockAnalysisSettings(
 }
 
 export function snapshotSatisfiesBlock(
-  snapshot: ExperimentSnapshotInterface,
+  snapshot: Pick<ExperimentSnapshotInterface, "dimension" | "settings">,
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ) {
   const blockSettings = getBlockSnapshotSettings(block);
