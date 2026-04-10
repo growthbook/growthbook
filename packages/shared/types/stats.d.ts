@@ -222,6 +222,8 @@ export interface MetricSettingsForStatsEngine {
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
   compute_uncapped_metric: boolean;
+  /** Set by the app for expanded slice metrics (fact__…?dim:…); used by the stats engine. */
+  is_metric_slice: boolean;
 }
 
 export interface QueryResultsForStatsEngine {

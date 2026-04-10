@@ -1170,6 +1170,11 @@ def process_single_metric(
             or attempted_quantile_overall_reaggregation
         ):
             continue
+        if a.use_covariate_as_response and metric.is_metric_slice:
+            # Slice components share pre-exposure structure with the parent metric;
+            # covariate-as-response analysis is only run for base / parent metrics.
+            results.append([])
+            continue
         results.append(
             process_analysis(
                 rows=pdrows,

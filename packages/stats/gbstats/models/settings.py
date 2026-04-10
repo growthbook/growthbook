@@ -82,6 +82,7 @@ class MetricSettingsForStatsEngine:
     business_metric_type: Optional[List[BusinessMetricType]] = None
     target_mde: float = 0.01
     compute_uncapped_metric: bool = False
+    is_metric_slice: bool = False
 
 
 @dataclass
