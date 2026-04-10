@@ -33,15 +33,18 @@ export type ExampleRequest<
   response?: Response;
 };
 
-export type ApiRequestValidator<
+export type RequestSchemas<ParamsSchema, BodySchema, QuerySchema> = {
+  bodySchema?: BodySchema;
+  querySchema?: QuerySchema;
+  paramsSchema?: ParamsSchema;
+};
+
+export type ApiEndpointSpec<
   ParamsSchema,
   BodySchema,
   QuerySchema,
   ResponseSchema,
-> = {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
+> = RequestSchemas<ParamsSchema, BodySchema, QuerySchema> & {
   responseSchema: ResponseSchema;
   method: HttpVerb;
   path: string;
@@ -135,12 +138,7 @@ export function createApiRequestHandler<
   QuerySchema extends ZodType = ZodType<never>,
   ResponseSchema extends ZodType = ZodType<never>,
 >(
-  data: ApiRequestValidator<
-    ParamsSchema,
-    BodySchema,
-    QuerySchema,
-    ResponseSchema
-  >,
+  data: ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema>,
 ) {
   const {
     paramsSchema,

@@ -45,10 +45,7 @@ import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
-import {
-  defineRouterForApiConfig,
-  getOpenApiRoutesForApiConfig,
-} from "./ApiModel";
+import { getOpenApiRoutesForApiConfig } from "./ApiModel";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
