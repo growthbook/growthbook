@@ -4,6 +4,12 @@ import { dispatchRampEvent } from "back-end/src/services/rampSchedule";
 
 const deleteRampScheduleValidator = {
   paramsSchema: z.object({ id: z.string() }),
+  responseSchema: z.object({ deletedId: z.string() }),
+  method: "delete" as const,
+  path: "/ramp-schedules/{id}",
+  operationId: "deleteRampSchedule",
+  summary: "Delete a ramp schedule",
+  tags: ["ramp-schedules"],
 };
 
 export const deleteRampSchedule = createApiRequestHandler(

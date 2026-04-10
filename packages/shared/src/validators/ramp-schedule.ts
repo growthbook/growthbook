@@ -177,6 +177,45 @@ export const apiRampScheduleTemplateValidator = apiBaseSchema.extend({
   official: z.boolean().optional(),
 });
 
+// API-facing ramp end trigger — uses ISO string instead of Date.
+const apiRampEndTrigger = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("scheduled"), at: z.string() }),
+]);
+
+// API-facing ramp step — uses ISO strings for scheduled trigger dates.
+const apiRampStep = z.object({
+  trigger: apiRampTrigger,
+  actions: z.array(rampStepAction),
+  approvalNotes: z.string().nullish(),
+});
+
+// API-facing variant of rampScheduleValidator — uses ISO strings for all dates.
+export const apiRampScheduleValidator = apiBaseSchema.extend({
+  name: z.string(),
+  entityType: z.enum(["feature"]),
+  entityId: z.string(),
+  targets: z.array(rampTarget),
+  steps: z.array(apiRampStep),
+  endActions: z.array(rampStepAction).optional(),
+  startDate: z.string().nullish(),
+  endCondition: z
+    .object({
+      trigger: apiRampEndTrigger.optional(),
+    })
+    .nullish(),
+  status: z.enum(rampScheduleStatusArray),
+  currentStepIndex: z.number().int().min(-1),
+  startedAt: z.string().nullish(),
+  phaseStartedAt: z.string().nullish(),
+  pausedAt: z.string().nullish(),
+  nextStepAt: z.string().nullable(),
+  nextProcessAt: z.string().nullish(),
+  elapsedMs: z.number().int().nullish(),
+});
+export type ApiRampScheduleInterface = z.infer<
+  typeof apiRampScheduleValidator
+>;
+
 // Minimal type for pending/draft ramp schedules before full data is available.
 export type RampScheduleForDisplay = Partial<RampScheduleInterface> & {
   id: string;

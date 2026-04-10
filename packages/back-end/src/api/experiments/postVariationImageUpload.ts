@@ -33,18 +33,22 @@ const postVariationImageUploadValidator = {
     })
     .strict(),
   querySchema: z.never(),
-};
-
-export type PostVariationImageUploadResponse = {
-  screenshot: {
-    path: string;
-    description: string;
-  };
+  responseSchema: z.object({
+    screenshot: z.object({
+      path: z.string(),
+      description: z.string(),
+    }),
+  }),
+  method: "post" as const,
+  path: "/experiments/{id}/variation/{variationId}/screenshot/upload",
+  operationId: "postVariationImageUpload",
+  summary: "Upload a variation screenshot",
+  tags: ["experiments"],
 };
 
 export const postVariationImageUpload = createApiRequestHandler(
   postVariationImageUploadValidator,
-)(async (req): Promise<PostVariationImageUploadResponse> => {
+)(async (req) => {
   const context = req.context;
   const { id, variationId } = req.params;
   const { screenshot, contentType, description = "" } = req.body;

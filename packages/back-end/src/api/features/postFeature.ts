@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { validateFeatureValue, validateScheduleRules } from "shared/util";
-import { PostFeatureResponse } from "shared/types/openapi";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
@@ -71,7 +70,7 @@ export const parseJsonSchemaForEnterprise = (
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
-): Promise<PostFeatureResponse> => {
+) => {
   if (!req.context.permissions.canCreateFeature(req.body)) {
     req.context.permissions.throwPermissionError();
   }

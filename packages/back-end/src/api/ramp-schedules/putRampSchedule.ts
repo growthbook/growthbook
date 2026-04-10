@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   rampStep,
   rampStepAction,
+  apiRampScheduleValidator,
   RampScheduleInterface,
   RampStepAction,
 } from "shared/validators";
@@ -19,6 +20,12 @@ const putBodyStep = rampStep
 
 const putRampScheduleValidator = {
   paramsSchema: z.object({ id: z.string() }),
+  responseSchema: z.object({ rampSchedule: apiRampScheduleValidator }),
+  method: "put" as const,
+  path: "/ramp-schedules/{id}",
+  operationId: "putRampSchedule",
+  summary: "Update a ramp schedule",
+  tags: ["ramp-schedules"],
   bodySchema: z.object({
     name: z.string().optional(),
     steps: z.array(putBodyStep).min(0).optional(),

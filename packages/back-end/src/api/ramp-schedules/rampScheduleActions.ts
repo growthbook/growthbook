@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
+import { apiRampScheduleValidator } from "shared/validators";
 import {
   advanceUntilBlocked,
   approveAndPublishStep,
@@ -19,10 +20,20 @@ const actionParamsSchema = z.object({ id: z.string() });
 
 const attributionBodySchema = z.object({});
 
+const rampScheduleResponse = z.object({
+  rampSchedule: apiRampScheduleValidator,
+});
+
 // POST /ramp-schedules/:id/actions/start
 export const startRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/start",
+  operationId: "startRampSchedule",
+  summary: "Start a ramp schedule",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -75,6 +86,12 @@ export const startRampSchedule = createApiRequestHandler({
 export const pauseRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/pause",
+  operationId: "pauseRampSchedule",
+  summary: "Pause a ramp schedule",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -98,6 +115,12 @@ export const pauseRampSchedule = createApiRequestHandler({
 export const resumeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/resume",
+  operationId: "resumeRampSchedule",
+  summary: "Resume a paused ramp schedule",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -183,6 +206,12 @@ export const jumpRampSchedule = createApiRequestHandler({
   bodySchema: attributionBodySchema.extend({
     targetStepIndex: z.number().int().min(-1),
   }),
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/jump",
+  operationId: "jumpRampSchedule",
+  summary: "Jump to a specific step",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -252,6 +281,12 @@ export const jumpRampSchedule = createApiRequestHandler({
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/complete",
+  operationId: "completeRampSchedule",
+  summary: "Complete a ramp schedule immediately",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -271,6 +306,12 @@ export const completeRampSchedule = createApiRequestHandler({
 export const approveStepRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/approve-step",
+  operationId: "approveStepRampSchedule",
+  summary: "Approve the current pending-approval step",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -301,6 +342,12 @@ export const approveStepRampSchedule = createApiRequestHandler({
 export const rollbackRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
   bodySchema: attributionBodySchema,
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/rollback",
+  operationId: "rollbackRampSchedule",
+  summary: "Roll back a ramp schedule",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -333,6 +380,12 @@ export const addTargetRampSchedule = createApiRequestHandler({
     ruleId: z.string(),
     environment: z.string(),
   }),
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/add-target",
+  operationId: "addTargetRampSchedule",
+  summary: "Add a target rule to a ramp schedule",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,
@@ -403,6 +456,14 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
     .refine((b) => b.targetId || (b.ruleId && b.environment), {
       message: "Provide either targetId or both ruleId and environment",
     }),
+  responseSchema: z
+    .object({ rampSchedule: apiRampScheduleValidator })
+    .or(z.object({ deleted: z.boolean(), rampScheduleId: z.string() })),
+  method: "post" as const,
+  path: "/ramp-schedules/{id}/actions/eject-target",
+  operationId: "ejectTargetRampSchedule",
+  summary: "Remove a target rule from a ramp schedule",
+  tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
     req.params.id,

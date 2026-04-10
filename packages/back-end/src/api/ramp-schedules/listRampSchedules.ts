@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RampScheduleInterface } from "shared/validators";
+import { RampScheduleInterface, apiRampScheduleValidator } from "shared/validators";
 import {
   applyPagination,
   createApiRequestHandler,
@@ -12,6 +12,14 @@ const listRampSchedulesValidator = {
     limit: z.coerce.number().int().default(10),
     offset: z.coerce.number().int().default(0),
   }),
+  responseSchema: z.object({
+    rampSchedules: z.array(apiRampScheduleValidator),
+  }),
+  method: "get" as const,
+  path: "/ramp-schedules",
+  operationId: "listRampSchedules",
+  summary: "List ramp schedules",
+  tags: ["ramp-schedules"],
 };
 
 export const listRampSchedules = createApiRequestHandler(

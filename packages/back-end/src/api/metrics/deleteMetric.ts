@@ -1,5 +1,4 @@
 import { getMetricValidator } from "shared/validators";
-import { DeleteMetricResponse } from "shared/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   getMetricById,
@@ -7,7 +6,7 @@ import {
 } from "back-end/src/models/MetricModel";
 
 export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
-  async (req): Promise<DeleteMetricResponse> => {
+  async (req) => {
     const metric = await getMetricById(req.context, req.params.id, false);
 
     if (!metric) {

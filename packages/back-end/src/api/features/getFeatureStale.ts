@@ -17,7 +17,7 @@ type FeatureStaleEntry = NonNullable<
 
 export const getFeatureStale = createApiRequestHandler(
   getFeatureStaleValidator,
-)(async (req): Promise<GetFeatureStaleResponse> => {
+)(async (req) => {
   const ids = req.query.ids
     .split(",")
     .map((id) => decodeURIComponent(id.trim()))

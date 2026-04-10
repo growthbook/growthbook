@@ -9,7 +9,6 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getSelectedColumnDatatype } from "shared/experiments";
-import { PostFactMetricResponse } from "shared/types/openapi";
 import { postFactMetricValidator } from "shared/validators";
 import {
   ColumnRef,
@@ -199,7 +198,7 @@ export async function getCreateMetricPropsFromBody(
 }
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
-  async (req): Promise<PostFactMetricResponse> => {
+  async (req) => {
     if (
       req.body.metricAutoSlices &&
       req.body.metricAutoSlices.length > 0 &&

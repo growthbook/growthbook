@@ -5,6 +5,7 @@ import {
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
+  apiRampScheduleValidator,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -31,6 +32,12 @@ const postBodyStep = z.object({
 });
 
 const postRampScheduleValidator = {
+  responseSchema: z.object({ rampSchedule: apiRampScheduleValidator }),
+  method: "post" as const,
+  path: "/ramp-schedules",
+  operationId: "postRampSchedule",
+  summary: "Create a ramp schedule",
+  tags: ["ramp-schedules"],
   bodySchema: z
     .object({
       name: z.string(),

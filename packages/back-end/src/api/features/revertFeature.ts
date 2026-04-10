@@ -5,7 +5,6 @@ import {
   checkIfRevisionNeedsReview,
 } from "shared/util";
 import { isEqual } from "lodash";
-import { ToggleFeatureResponse } from "shared/types/openapi";
 import { revertFeatureValidator } from "shared/validators";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -24,7 +23,7 @@ import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
-  async (req): Promise<ToggleFeatureResponse> => {
+  async (req) => {
     const context = req.context;
 
     const feature = await getFeature(context, req.params.id);
