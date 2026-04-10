@@ -15,7 +15,6 @@ import {
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
-  parseSliceMetricId,
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
@@ -336,7 +335,6 @@ export function getMetricSettingsForStatsEngine(
       settings,
     ),
     compute_uncapped_metric: eligibleForUncappedMetric(metric),
-    is_metric_slice: parseSliceMetricId(metric.id).isSliceMetric,
   };
 }
 
