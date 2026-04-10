@@ -8,7 +8,7 @@ import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
-import LinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
+import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";

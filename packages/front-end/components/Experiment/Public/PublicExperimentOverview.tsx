@@ -4,7 +4,7 @@ import {VisualChangesetInterface} from "shared/types/visual-changeset";
 import {URLRedirectInterface} from "shared/types/url-redirect";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import LinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
+import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
 
