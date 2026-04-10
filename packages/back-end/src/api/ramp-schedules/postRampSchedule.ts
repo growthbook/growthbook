@@ -263,6 +263,7 @@ export const postRampSchedule = createApiRequestHandler(
 
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name,
+    project: feature?.project,
     entityType: "feature",
     entityId: body.featureId ?? "",
     targets: hasTarget

@@ -1413,6 +1413,7 @@ async function createRampSchedulesForRevision(
 
     const created = await context.models.rampSchedules.create({
       name: action.name,
+      project: feature.project,
       entityType: "feature",
       entityId: feature.id,
       targets: [

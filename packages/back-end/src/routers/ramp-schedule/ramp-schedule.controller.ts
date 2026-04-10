@@ -2,6 +2,7 @@ import type { Response } from "express";
 import { RampScheduleInterface } from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   advanceStep,
   advanceUntilBlocked,
@@ -93,6 +94,17 @@ export const postRampSchedule = async (
 
   const body = req.body;
 
+  let project: string | undefined;
+  if (body.entityType === "feature" && body.entityId) {
+    const feature = await getFeature(context, body.entityId);
+    if (!feature) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Feature not found" });
+    }
+    project = feature.project;
+  }
+
   const startDate = body.startDate ? new Date(body.startDate) : undefined;
 
   const rawEndTrigger = body.endCondition?.trigger;
@@ -105,6 +117,7 @@ export const postRampSchedule = async (
 
   const schedule = await context.models.rampSchedules.create({
     name: body.name,
+    project,
     entityType: body.entityType,
     entityId: body.entityId,
     targets: body.targets,

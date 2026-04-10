@@ -28,23 +28,25 @@ const BaseClass = MakeModelClass({
 });
 
 export class RampScheduleModel extends BaseClass {
-  protected canRead() {
-    return this.context.permissions.canViewFeatureModal(undefined);
+  protected canRead(doc: RampScheduleInterface) {
+    return this.context.permissions.canViewFeatureModal(doc.project);
   }
-  protected canCreate() {
-    return this.context.permissions.canCreateFeature({ project: undefined });
+  protected canCreate(doc: RampScheduleInterface) {
+    return this.context.permissions.canCreateFeature({ project: doc.project });
   }
   protected canUpdate(
-    _existing: RampScheduleInterface,
-    _updates: UpdateProps<RampScheduleInterface>,
+    existing: RampScheduleInterface,
+    updates: UpdateProps<RampScheduleInterface>,
   ) {
     return this.context.permissions.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
+      { project: existing.project },
+      { project: updates.project ?? existing.project },
     );
   }
-  protected canDelete(_existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature({ project: undefined });
+  protected canDelete(existing: RampScheduleInterface) {
+    return this.context.permissions.canDeleteFeature({
+      project: existing.project,
+    });
   }
 
   public async getAllByEntityId(
