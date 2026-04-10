@@ -28,24 +28,34 @@ const BaseClass = MakeModelClass({
 });
 
 export class RampScheduleModel extends BaseClass {
+  private getProject(doc: RampScheduleInterface): string | undefined {
+    const { feature } = this.getForeignRefs(doc, false);
+    return feature?.project;
+  }
+
   protected canRead(doc: RampScheduleInterface) {
-    return this.context.permissions.canViewFeatureModal(doc.project);
+    return this.context.permissions.canReadSingleProjectResource(
+      this.getProject(doc),
+    );
   }
   protected canCreate(doc: RampScheduleInterface) {
-    return this.context.permissions.canCreateFeature({ project: doc.project });
+    return this.context.permissions.canCreateFeature({
+      project: this.getProject(doc),
+    });
   }
   protected canUpdate(
     existing: RampScheduleInterface,
-    updates: UpdateProps<RampScheduleInterface>,
+    _updates: UpdateProps<RampScheduleInterface>,
+    newDoc: RampScheduleInterface,
   ) {
     return this.context.permissions.canUpdateFeature(
-      { project: existing.project },
-      { project: updates.project ?? existing.project },
+      { project: this.getProject(existing) },
+      { project: this.getProject(newDoc) },
     );
   }
   protected canDelete(existing: RampScheduleInterface) {
     return this.context.permissions.canDeleteFeature({
-      project: existing.project,
+      project: this.getProject(existing),
     });
   }
 

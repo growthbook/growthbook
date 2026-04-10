@@ -69,8 +69,6 @@ export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
-    // Denormalized from the owning entity so permission checks can be project-scoped.
-    project: z.string().optional(),
     // Controls permissions and approval settings for the schedule.
     entityType: z.enum(["feature"]), // TODO v2: add "experiment"
     entityId: z.string(),
