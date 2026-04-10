@@ -19,6 +19,7 @@ export const invite = memberRoleWithProjects.safeExtend({
   email: z.string(),
   key: z.string(),
   dateCreated: z.date(),
+  invitedBy: z.string().optional(),
 });
 
 export const pendingMember = memberRoleWithProjects.safeExtend({
