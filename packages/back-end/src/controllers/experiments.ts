@@ -764,7 +764,9 @@ export async function getExperiment(
   });
 
   const { visualChangesetEnvStates, urlRedirectEnvStates } =
-    await getLinkedChangeEnvironmentStates(context, experiment);
+    visualChangesets.length > 0 || urlRedirects.length > 0
+      ? await getLinkedChangeEnvironmentStates(context, experiment)
+      : { visualChangesetEnvStates: {}, urlRedirectEnvStates: {} };
 
   res.status(200).json({
     status: 200,
