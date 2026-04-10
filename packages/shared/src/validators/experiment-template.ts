@@ -3,11 +3,12 @@ import { statsEngines } from "shared/constants";
 import { customMetricSlice } from "./experiments";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
+import { ownerField } from "./owner-field";
 
 export const experimentTemplateInterface = baseSchema
   .safeExtend({
     project: z.string().optional(),
-    owner: z.string(),
+    owner: ownerField,
 
     templateMetadata: z.object({
       name: z.string(),
@@ -52,7 +53,7 @@ export type ExperimentTemplateInterface = z.infer<
 
 export const apiExperimentTemplateValidator = apiBaseSchema.safeExtend({
   project: z.string().optional(),
-  owner: z.string(),
+  owner: ownerField,
 
   templateMetadata: z.object({
     name: z.string(),
@@ -178,6 +179,8 @@ export const createTemplateValidator = experimentTemplateInterface.omit({
 });
 export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
 
-export const updateTemplateValidator = experimentTemplateInterface.partial();
+export const updateTemplateValidator = experimentTemplateInterface
+  .omit({ id: true, organization: true, dateCreated: true, dateUpdated: true })
+  .partial();
 
 export type UpdateTemplateProps = z.infer<typeof updateTemplateValidator>;
