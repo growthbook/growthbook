@@ -393,7 +393,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.6",
+    version: "0.2.8",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -413,6 +413,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        caseInsensitiveRegex: "≥ v0.2.7",
+      },
+      {
+        caseInsensitiveMembership: "≥ v0.2.7",
       },
       {
         stickyBucketing: "≥ v0.2.3",
