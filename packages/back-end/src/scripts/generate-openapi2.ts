@@ -295,6 +295,15 @@ async function run() {
     paths: Record<string, Record<string, Path>>;
     components: {
       parameters: Record<string, Parameter>;
+      schemas: Record<string, z.core.JSONSchema.BaseSchema>;
+      securitySchemes: Record<
+        string,
+        {
+          type: string;
+          scheme: string;
+          description: string;
+        }
+      >;
     };
   } = {
     openapi: "3.1.0",
@@ -366,10 +375,38 @@ The response body will be a JSON object with the following properties:
     paths: {},
     components: {
       parameters: {},
+      schemas: {},
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          description: `If using Bearer auth, pass the Secret Key as the token:
+\`\`\`bash
+curl https://api.growthbook.io/api/v1 \
+  -H "Authorization: Bearer secret_abc123DEF456"
+\`\`\`
+`,
+        },
+        basicAuth: {
+          type: "http",
+          scheme: "basic",
+          description: `If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
+\`\`\`bash
+curl https://api.growthbook.io/api/v1 \
+  -u secret_abc123DEF456:
+# The ":" at the end stops curl from asking for a password
+\`\`\`
+`,
+        },
+      },
     },
   };
 
   const parameterRefs: Record<string, Parameter> = {};
+  const schemaRefs: Record<string, z.core.JSONSchema.BaseSchema> = {};
+
+  // Be able to look up a schema by its JSON stringified schema
+  const schemaHashMap: Record<string, string> = {};
 
   for (const route of allRoutes) {
     const {
@@ -468,11 +505,83 @@ The response body will be a JSON object with the following properties:
       };
     }
 
+    function rewriteResponseSchema(objSchema: z.core.JSONSchema.ObjectSchema) {
+      if (!objSchema.properties) return;
+      Object.entries(objSchema.properties).forEach(([name, schema]) => {
+        if (!schema || typeof schema !== "object" || !("type" in schema)) {
+          return;
+        }
+
+        if (schema.type === "object") {
+          const key = JSON.stringify(schema);
+          // Brand new schema and name, store for later and rewrite the schema to use a ref
+          if (!schemaHashMap[key] && !schemaRefs[name]) {
+            schemaHashMap[key] = name;
+            schemaRefs[name] = schema;
+            (objSchema.properties ?? {})[name] = {
+              $ref: `#/components/schemas/${name}`,
+            };
+          }
+          // Matching schema, rewrite the schema to use a ref
+          else if (schemaHashMap[key]) {
+            (objSchema.properties ?? {})[name] = {
+              $ref: `#/components/schemas/${schemaHashMap[key]}`,
+            };
+          }
+          // Otherwise, leave alone (don't rewrite)
+        } else if (
+          schema.type === "array" &&
+          schema.items &&
+          (schema.items as z.core.JSONSchema.ObjectSchema)?.type === "object"
+        ) {
+          const key = JSON.stringify(schema.items);
+          // Brand new schema and name, store for later and rewrite the schema to use a ref
+          if (!schemaHashMap[key] && !schemaRefs[name]) {
+            schemaHashMap[key] = name;
+            schemaRefs[name] = schema.items as z.core.JSONSchema.ObjectSchema;
+            (
+              (objSchema.properties ?? {})[
+                name
+              ] as z.core.JSONSchema.ArraySchema
+            ).items = {
+              $ref: `#/components/schemas/${name}`,
+            };
+          }
+          // Matching schema, rewrite the schema to use a ref
+          else if (schemaHashMap[key]) {
+            (
+              (objSchema.properties ?? {})[
+                name
+              ] as z.core.JSONSchema.ArraySchema
+            ).items = {
+              $ref: `#/components/schemas/${schemaHashMap[key]}`,
+            };
+          }
+          // Otherwise, leave alone (don't rewrite)
+        }
+      });
+    }
+
+    // For each property in the response schema, if it's a nested object or array of objects,
+    // store it in the schemaHashMap and re-use the definition if it already exists
+    const responseSchema = toOpenApiSchema(schemas?.response || z.object({}));
+    if ("properties" in responseSchema) {
+      rewriteResponseSchema(responseSchema as z.core.JSONSchema.ObjectSchema);
+    }
+    // If response is using `allOf`, rewrite each branch
+    if ("allOf" in responseSchema && Array.isArray(responseSchema.allOf)) {
+      responseSchema.allOf.forEach((branch) => {
+        if ("properties" in branch) {
+          rewriteResponseSchema(branch as z.core.JSONSchema.ObjectSchema);
+        }
+      });
+    }
+
     const responses: Record<string, Response> = {
       "200": {
         content: {
           "application/json": {
-            schema: toOpenApiSchema(schemas?.response || z.object({})),
+            schema: responseSchema,
           },
         },
       },
@@ -504,6 +613,9 @@ The response body will be a JSON object with the following properties:
 
   Object.entries(parameterRefs).forEach(([name, parameter]) => {
     openapiSpec.components.parameters[name] = parameter;
+  });
+  Object.entries(schemaRefs).forEach(([name, schema]) => {
+    openapiSpec.components.schemas[name] = schema;
   });
 
   console.log(openapiSpec);
