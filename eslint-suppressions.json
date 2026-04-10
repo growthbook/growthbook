@@ -289,11 +289,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ForceSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/HoldoutRule.tsx": {
     "no-restricted-imports": {
       "count": 1
