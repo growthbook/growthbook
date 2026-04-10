@@ -165,10 +165,14 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (hasMetaChange) changes.metadata = metadataChanges;
     }
 
-    const apiBypassesReviews =
-      !!req.context.org.settings?.restApiBypassesReviews;
+    // Callers bypass the review gate via either the org-level
+    // restApiBypassesReviews setting or a role/token that grants the
+    // bypassApprovalChecks permission on this feature's project.
+    const canBypass =
+      !!req.context.org.settings?.restApiBypassesReviews ||
+      req.context.permissions.canBypassApprovalChecks(feature);
 
-    if (!apiBypassesReviews) {
+    if (!canBypass) {
       const liveRevision = await getRevision({
         context,
         organization: feature.organization,
@@ -190,7 +194,8 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (reviewRequired) {
         throw new PermissionError(
           "This revert requires approval before changes can be published. " +
-            "Enable 'REST API always bypasses approval requirements' in organization settings.",
+            "Enable 'REST API always bypasses approval requirements' in organization settings, " +
+            "or use a role/token that grants bypassApprovalChecks on this project.",
         );
       }
     }
@@ -203,7 +208,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         org: req.organization,
         changes,
         comment: comment ?? `Reverted to revision #${version}`,
-        canBypassApprovalChecks: apiBypassesReviews,
+        canBypassApprovalChecks: canBypass,
       });
 
     await req.audit({
