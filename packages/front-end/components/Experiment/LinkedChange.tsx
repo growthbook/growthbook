@@ -24,6 +24,7 @@ type Props = {
   children?: ReactNode;
   state?: string;
   heading: string;
+  headingLink?: string;
   onEdit?: () => void;
   onDelete?: () => void;
   canEdit?: boolean;
@@ -64,14 +65,12 @@ export default function LinkedChange({
   children,
   state,
   heading,
+  headingLink,
   onDelete,
   onEdit,
 }: Props) {
   const { component: Icon, radixColor } =
     ICON_PROPERTIES[CHANGE_TYPE_TO_ICON_TYPE[changeType]];
-
-  const headingLink =
-    changeType === "flag" ? `/features/${feature?.id}` : heading;
 
   return (
     <Box className="my-3" p="1">
@@ -81,7 +80,11 @@ export default function LinkedChange({
             <Avatar radius="small" color={radixColor} size="md" variant="soft">
               <Icon />
             </Avatar>
-            <Link href={headingLink}>
+            <Link
+              href={
+                changeType === "flag" ? `/features/${feature?.id}` : headingLink
+              }
+            >
               <Heading as="h4" size="small" weight="medium" mb="0">
                 {heading}
                 <PiArrowSquareOut className="ml-2" />

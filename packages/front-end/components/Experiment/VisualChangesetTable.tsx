@@ -222,6 +222,7 @@ export const VisualChangesetTable: FC<Props> = ({
             key={i}
             changeType={"visual"}
             heading={vc.editorUrl}
+            headingLink={vc.editorUrl}
             vc={vc}
             experiment={experiment}
             changes={visualChangeTypes}

@@ -85,6 +85,7 @@ export const RedirectLinkedChanges = ({
       <LinkedChange
         changeType="redirect"
         heading={originUrl}
+        headingLink={originUrl}
         onEdit={() => setEditingRedirect(true)}
         onDelete={async () => {
           await apiCall(`/url-redirects/${urlRedirect.id}`, {

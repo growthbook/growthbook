@@ -154,11 +154,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/LinkedChange.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/NewExperimentForm.tsx": {
     "no-restricted-imports": {
       "count": 2
