@@ -1,5 +1,4 @@
-import { ListFeaturesResponse } from "shared/types/openapi";
-import { listFeaturesValidator } from "shared/validators";
+import { listFeaturesValidator, ListFeaturesResponse } from "shared/validators";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import {

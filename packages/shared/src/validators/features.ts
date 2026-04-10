@@ -397,3 +397,96 @@ export const computedFeatureInterface = featureInterface
   .strict();
 
 export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
+
+// ---------------------------------------------------------------------------
+// API endpoint validators (hand-written to reference shared schema objects)
+// ---------------------------------------------------------------------------
+
+import { apiFeatureValidator, apiPaginationFieldsValidator } from "./openapi";
+
+export const listFeaturesValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      limit: z.coerce.number().int().optional(),
+      offset: z.coerce.number().int().optional(),
+      projectId: z.string().optional(),
+      clientKey: z.string().optional(),
+      skipPagination: z
+        .union([
+          z.literal("true"),
+          z.literal("false"),
+          z.literal("0"),
+          z.literal("1"),
+          z.boolean(),
+        ])
+        .optional()
+        .transform((v) => v === true || v === "true" || v === "1"),
+    })
+    .strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({ features: z.array(apiFeatureValidator) }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get all features",
+  operationId: "listFeatures",
+  tags: ["features"],
+  method: "get" as const,
+  path: "/features",
+};
+
+export type ListFeaturesResponse = z.infer<
+  typeof listFeaturesValidator.responseSchema
+>;
+
+const staleReason = z.enum([
+  "never-stale",
+  "recently-updated",
+  "active-draft",
+  "has-dependents",
+  "no-rules",
+  "rules-one-sided",
+  "abandoned-draft",
+  "toggled-off",
+  "active-experiment",
+  "has-rules",
+]);
+
+const envStaleReason = staleReason.exclude(["never-stale"]);
+
+const staleByEnvEntry = z.object({
+  isStale: z.boolean(),
+  reason: envStaleReason.nullable(),
+  evaluatesTo: z.string().optional(),
+});
+
+const featureStaleEntry = z.object({
+  featureId: z.string(),
+  isStale: z.boolean(),
+  staleReason: staleReason.nullable(),
+  neverStale: z.boolean(),
+  staleByEnv: z.record(z.string(), staleByEnvEntry).optional(),
+});
+
+export const getFeatureStaleValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ ids: z.string() }).strict(),
+  paramsSchema: z.never(),
+  responseSchema: z
+    .object({
+      features: z.record(z.string(), featureStaleEntry),
+    })
+    .strict(),
+  summary: "Get stale status for one or more features",
+  operationId: "getFeatureStale",
+  tags: ["features"],
+  method: "get" as const,
+  path: "/stale-features",
+};
+
+export type GetFeatureStaleResponse = z.infer<
+  typeof getFeatureStaleValidator.responseSchema
+>;
+
+export type FeatureStaleEntry = z.infer<typeof featureStaleEntry>;

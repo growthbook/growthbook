@@ -14,6 +14,7 @@ import {
   rollbackToStep,
 } from "back-end/src/services/rampSchedule";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 const actionParamsSchema = z.object({ id: z.string() });
@@ -79,10 +80,7 @@ export const startRampSchedule = createApiRequestHandler({
     },
   );
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(current),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
 // POST /ramp-schedules/:id/actions/pause
@@ -111,10 +109,7 @@ export const pauseRampSchedule = createApiRequestHandler({
     { status: "paused", pausedAt: new Date(), nextProcessAt: null },
   );
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 // POST /ramp-schedules/:id/actions/resume
@@ -203,10 +198,7 @@ export const resumeRampSchedule = createApiRequestHandler({
       (await req.context.models.rampSchedules.getById(schedule.id)) ?? updated;
   }
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 // POST /ramp-schedules/:id/actions/jump
@@ -283,10 +275,7 @@ export const jumpRampSchedule = createApiRequestHandler({
     },
   });
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 // POST /ramp-schedules/:id/actions/complete
@@ -312,10 +301,7 @@ export const completeRampSchedule = createApiRequestHandler({
 
   const completed = await completeRollout(req.context, schedule);
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(completed),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(completed) };
 });
 
 export const approveStepRampSchedule = createApiRequestHandler({
@@ -350,10 +336,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   const updated =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 // POST /ramp-schedules/:id/actions/rollback — lands in "paused" so it can be restarted
@@ -387,10 +370,7 @@ export const rollbackRampSchedule = createApiRequestHandler({
     ...(isTerminal && { startedAt: null, phaseStartedAt: null }),
   });
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 // POST /ramp-schedules/:id/actions/add-target — enforces 1:1 [ruleId, environment] per schedule
@@ -462,10 +442,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
     },
   );
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 // POST /ramp-schedules/:id/actions/eject-target — deletes schedule if last target removed
@@ -515,8 +492,5 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
     { targets: remaining },
   );
 
-  return {
-    rampSchedule:
-      req.context.models.rampSchedules.convertToApiInterface(updated),
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });

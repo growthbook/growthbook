@@ -53,14 +53,55 @@ function dateToIso(d: Date | null | undefined): string | null | undefined {
 
 function serializeTrigger(
   trigger: RampScheduleInterface["steps"][number]["trigger"],
-): { type: string; seconds?: number; at?: string } {
-  if (trigger.type === "scheduled") {
-    return { type: "scheduled", at: trigger.at.toISOString() };
+) {
+  switch (trigger.type) {
+    case "scheduled":
+      return { type: "scheduled" as const, at: trigger.at.toISOString() };
+    case "interval":
+      return { type: "interval" as const, seconds: trigger.seconds };
+    case "approval":
+      return { type: "approval" as const };
   }
-  if (trigger.type === "interval") {
-    return { type: "interval", seconds: trigger.seconds };
-  }
-  return { type: "approval" };
+}
+
+/** Convert a RampScheduleInterface (Date objects) to the API shape (ISO strings). */
+export function rampScheduleToApiInterface(
+  doc: RampScheduleInterface,
+): ApiRampScheduleInterface {
+  return {
+    id: doc.id,
+    dateCreated: doc.dateCreated.toISOString(),
+    dateUpdated: doc.dateUpdated.toISOString(),
+    name: doc.name,
+    entityType: doc.entityType,
+    entityId: doc.entityId,
+    targets: doc.targets,
+    steps: doc.steps.map((s) => ({
+      trigger: serializeTrigger(s.trigger),
+      actions: s.actions,
+      approvalNotes: s.approvalNotes,
+    })),
+    endActions: doc.endActions,
+    startDate: dateToIso(doc.startDate),
+    endCondition: doc.endCondition
+      ? {
+          trigger: doc.endCondition.trigger
+            ? {
+                type: "scheduled" as const,
+                at: doc.endCondition.trigger.at.toISOString(),
+              }
+            : undefined,
+        }
+      : doc.endCondition,
+    status: doc.status,
+    currentStepIndex: doc.currentStepIndex,
+    startedAt: dateToIso(doc.startedAt),
+    phaseStartedAt: dateToIso(doc.phaseStartedAt),
+    pausedAt: dateToIso(doc.pausedAt),
+    nextStepAt: dateToIso(doc.nextStepAt) ?? null,
+    nextProcessAt: dateToIso(doc.nextProcessAt),
+    elapsedMs: doc.elapsedMs,
+  };
 }
 
 // --- Create handler helpers ---
@@ -164,46 +205,7 @@ export class RampScheduleModel extends BaseClass {
   protected toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
-    return {
-      id: doc.id,
-      dateCreated: doc.dateCreated.toISOString(),
-      dateUpdated: doc.dateUpdated.toISOString(),
-      name: doc.name,
-      entityType: doc.entityType,
-      entityId: doc.entityId,
-      targets: doc.targets,
-      steps: doc.steps.map((s) => ({
-        trigger: serializeTrigger(s.trigger),
-        actions: s.actions,
-        approvalNotes: s.approvalNotes,
-      })),
-      endActions: doc.endActions,
-      startDate: dateToIso(doc.startDate),
-      endCondition: doc.endCondition
-        ? {
-            trigger: doc.endCondition.trigger
-              ? {
-                  type: "scheduled" as const,
-                  at: doc.endCondition.trigger.at.toISOString(),
-                }
-              : undefined,
-          }
-        : doc.endCondition,
-      status: doc.status,
-      currentStepIndex: doc.currentStepIndex,
-      startedAt: dateToIso(doc.startedAt),
-      phaseStartedAt: dateToIso(doc.phaseStartedAt),
-      pausedAt: dateToIso(doc.pausedAt),
-      nextStepAt: dateToIso(doc.nextStepAt) ?? null,
-      nextProcessAt: dateToIso(doc.nextProcessAt),
-      elapsedMs: doc.elapsedMs,
-    } as ApiRampScheduleInterface;
-  }
-
-  public convertToApiInterface(
-    doc: RampScheduleInterface,
-  ): ApiRampScheduleInterface {
-    return this.toApiInterface(doc);
+    return rampScheduleToApiInterface(doc);
   }
 
   // --- CRUD handler overrides ---
