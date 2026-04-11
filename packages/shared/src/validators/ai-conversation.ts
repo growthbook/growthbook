@@ -97,6 +97,7 @@ const aiChatAssistantMessageValidator = z
         ]),
       ),
     ]),
+    isError: z.boolean().optional(),
   })
   .passthrough();
 

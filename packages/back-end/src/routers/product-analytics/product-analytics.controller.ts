@@ -16,8 +16,18 @@ import {
   listConversations,
   type ConversationSummary,
 } from "back-end/src/enterprise/services/conversation-buffer";
+import { cancelAgentStream } from "back-end/src/enterprise/services/agent-handler";
 
 export { postChat } from "back-end/src/enterprise/services/product-analytics-agent";
+
+export const cancelChat = async (
+  req: AuthRequest<never, { conversationId: string }, never>,
+  res: Response<{ status: 200; cancelled: boolean }>,
+) => {
+  const { conversationId } = req.params;
+  const cancelled = cancelAgentStream(conversationId);
+  return res.status(200).json({ status: 200, cancelled });
+};
 
 export const deleteChat = async (
   req: AuthRequest<never, { conversationId: string }, never>,

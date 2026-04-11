@@ -241,6 +241,7 @@ export default function ExplorerAIChat() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAiOptInModal, setShowAiOptInModal] = useState(false);
+  const [chatTitles, setChatTitles] = useState<Record<string, string>>({});
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, defaultAIModel } = useAISettings();
@@ -316,12 +317,18 @@ export default function ExplorerAIChat() {
     endpoint: "/product-analytics/chat",
     buildRequestBody,
     toolStatusLabels: TOOL_STATUS_LABELS,
+    conversationStorageKey: "pa-ai-chat-conversation-id",
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
+    getCancelEndpoint: (cid) => `/product-analytics/chat/${cid}/cancel`,
     onStreamAccepted: () => {
       void refreshList();
     },
     onSSEEvent: (event) => {
       if (event.type === "conversation-title") {
+        const title = (event.data.title as string) || "";
+        if (title) {
+          setChatTitles((prev) => ({ ...prev, [conversationId]: title }));
+        }
         void refreshList();
       }
     },
@@ -371,6 +378,16 @@ export default function ExplorerAIChat() {
 
   const conversations = useMemo(() => {
     const list = listData?.conversations ?? [];
+    const applyTitleOverrides = (
+      items: ConversationSummary[],
+    ): ConversationSummary[] => {
+      if (!Object.keys(chatTitles).length) return items;
+      return items.map((c) => {
+        const override = chatTitles[c.conversationId];
+        return override ? { ...c, title: override } : c;
+      });
+    };
+
     const isInList = list.some((c) => c.conversationId === conversationId);
     if (!isInList && messages.length > 0) {
       const firstUserMsg = messages.find((m) => m.role === "user");
@@ -379,17 +396,17 @@ export default function ExplorerAIChat() {
       return [
         {
           conversationId,
-          title: "New Chat",
+          title: chatTitles[conversationId] ?? "New Chat",
           createdAt: Date.now(),
           messageCount: messages.length,
           isStreaming: loading,
           preview,
         },
-        ...list,
+        ...applyTitleOverrides(list),
       ];
     }
-    return list;
-  }, [listData?.conversations, conversationId, messages, loading]);
+    return applyTitleOverrides(list);
+  }, [listData?.conversations, conversationId, messages, loading, chatTitles]);
 
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -540,6 +557,23 @@ export default function ExplorerAIChat() {
     }
 
     if (msg.role === "assistant") {
+      if (msg.isError) {
+        const errorText =
+          typeof msg.content === "string"
+            ? msg.content
+            : msg.content
+                .filter(
+                  (p): p is { type: "text"; text: string } => p.type === "text",
+                )
+                .map((p) => p.text)
+                .join("\n");
+        return (
+          <ErrorBubble key={msg.id}>
+            <Text size="small">{errorText}</Text>
+          </ErrorBubble>
+        );
+      }
+
       const { content } = msg;
       if (typeof content === "string") {
         return (

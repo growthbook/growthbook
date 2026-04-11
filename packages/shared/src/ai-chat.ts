@@ -174,6 +174,9 @@ export type AIChatAssistantMessage = {
   id: string;
   ts: number;
   content: string | AIChatAssistantContentPart[];
+  /** When true the message represents a stream-level error (e.g. provider
+   *  failure or circuit breaker) rather than normal assistant text. */
+  isError?: boolean;
 };
 
 export type AIChatToolMessage = {

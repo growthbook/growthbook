@@ -21,7 +21,6 @@ const ASSISTANT_BUBBLE_STYLE: React.CSSProperties = {
   border: "1px solid var(--slate-a5)",
   padding: "8px 12px",
   maxWidth: "85%",
-  wordBreak: "break-word",
 };
 
 const USER_BUBBLE_STYLE: React.CSSProperties = {
@@ -32,7 +31,6 @@ const USER_BUBBLE_STYLE: React.CSSProperties = {
   maxWidth: "85%",
   marginLeft: "auto",
   whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
 };
 
 // ---------------------------------------------------------------------------
@@ -54,7 +52,11 @@ export function AssistantBubble({ children, wide }: AssistantBubbleProps) {
         paddingBottom: 12,
       }
     : ASSISTANT_BUBBLE_STYLE;
-  return <Box style={style}>{children}</Box>;
+  return (
+    <Box style={style} className={aiChatStyles.bubble}>
+      {children}
+    </Box>
+  );
 }
 
 interface UserBubbleProps {
@@ -63,7 +65,10 @@ interface UserBubbleProps {
 
 export function UserBubble({ children }: UserBubbleProps) {
   return (
-    <Box style={USER_BUBBLE_STYLE} className={aiChatStyles.userBubble}>
+    <Box
+      style={USER_BUBBLE_STYLE}
+      className={`${aiChatStyles.bubble} ${aiChatStyles.userBubble}`}
+    >
       {children}
     </Box>
   );
@@ -76,6 +81,7 @@ interface ErrorBubbleProps {
 export function ErrorBubble({ children }: ErrorBubbleProps) {
   return (
     <Box
+      className={aiChatStyles.bubble}
       style={{
         alignSelf: "flex-start",
         background: "var(--red-a3)",

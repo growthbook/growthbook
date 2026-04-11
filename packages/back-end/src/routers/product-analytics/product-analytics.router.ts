@@ -54,6 +54,14 @@ router.get(
   productAnalyticsController.getChat,
 );
 
+router.post(
+  "/chat/:conversationId/cancel",
+  validateRequestMiddleware({
+    params: z.object({ conversationId: z.string().min(1) }).strict(),
+  }),
+  productAnalyticsController.cancelChat,
+);
+
 router.delete(
   "/chat/:conversationId",
   validateRequestMiddleware({

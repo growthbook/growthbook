@@ -32,6 +32,7 @@ export function useAIChat({
   onSSEEvent,
   conversationStorageKey,
   getConversationEndpoint,
+  getCancelEndpoint,
   onStreamAccepted,
 }: UseAIChatOptions): UseAIChatReturn {
   const messageCounterRef = useRef(0);
@@ -73,6 +74,8 @@ export function useAIChat({
   const remotePollTargetIdRef = useRef<string | null>(null);
   const getConversationEndpointRef = useRef(getConversationEndpoint);
   getConversationEndpointRef.current = getConversationEndpoint;
+  const getCancelEndpointRef = useRef(getCancelEndpoint);
+  getCancelEndpointRef.current = getCancelEndpoint;
 
   const { fetchRaw, apiCall } = useAuth();
 
@@ -263,6 +266,7 @@ export function useAIChat({
         getConversationEndpoint(conversationId),
       );
       setMessages(data.messages ?? []);
+      setError(null);
     } catch {
       finalizeTurn();
     }
@@ -282,8 +286,14 @@ export function useAIChat({
   const cancelGeneration = useCallback(() => {
     if (!isLocalStream) return;
     userCancelledRef.current = true;
+    const cancelEp = getCancelEndpointRef.current;
+    if (cancelEp) {
+      void apiCall(cancelEp(conversationId), { method: "POST" }).catch(
+        () => {},
+      );
+    }
     abortControllerRef.current?.abort();
-  }, [isLocalStream]);
+  }, [isLocalStream, apiCall, conversationId]);
 
   // ---------------------------------------------------------------------------
   // sendMessage

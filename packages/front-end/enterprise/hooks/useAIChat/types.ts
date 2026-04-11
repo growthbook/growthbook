@@ -67,6 +67,14 @@ export interface UseAIChatOptions {
   getConversationEndpoint?: (conversationId: string) => string;
 
   /**
+   * Returns the URL for cancelling an active stream on the server.
+   * When set, the Cancel button sends a POST here before aborting the local
+   * fetch — this lets the backend distinguish explicit cancels from navigation
+   * disconnects and continue generating in the background for the latter.
+   */
+  getCancelEndpoint?: (conversationId: string) => string;
+
+  /**
    * Called once the POST to `endpoint` returns a successful response (before
    * the response body is read). Use to refresh conversation lists after the
    * server has persisted the user message.

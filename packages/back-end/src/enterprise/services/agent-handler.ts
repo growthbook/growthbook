@@ -128,7 +128,24 @@ type OrgAIPromptConfig = Awaited<
 // `config.parseParams`.
 //
 // The ConversationBuffer lives on the stack for the duration of the request
-// and is GC'd when the handler returns — no module-level state.
+// and is GC'd when the handler returns — no module-level state apart from the
+// activeStreamControllers registry which enables explicit cancel via a separate
+// HTTP request (as opposed to aborting on SSE disconnect).
+
+const activeStreamControllers = new Map<string, AbortController>();
+
+/**
+ * Abort the active LLM stream for a conversation. Called from the cancel
+ * endpoint — returns true if there was a stream to abort.
+ */
+export function cancelAgentStream(conversationId: string): boolean {
+  const controller = activeStreamControllers.get(conversationId);
+  if (controller) {
+    controller.abort();
+    return true;
+  }
+  return false;
+}
 
 export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
   return async (
@@ -199,6 +216,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
               temperature: 0.3,
               type: config.promptType,
               isDefaultPrompt: true,
+              overrideModel,
             });
             // Take only the first non-empty line in case the model adds extra text
             const firstLine =
@@ -220,16 +238,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       : Promise.resolve();
 
     const abortController = new AbortController();
-
-    // Abort the LLM stream when the client disconnects (e.g. user clicks Cancel).
-    // We listen on `res`, not `req`, because the request body has already been
-    // received — only the response's "close" fires when the SSE connection drops.
-    // The `writableFinished` guard prevents aborting during a normal `res.end()`.
-    res.on("close", () => {
-      if (!res.writableFinished) {
-        abortController.abort();
-      }
-    });
+    activeStreamControllers.set(conversationId, abortController);
 
     try {
       const stream = await streamingChatCompletion({
@@ -276,6 +285,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       // main stream finished faster than the title generation.
       await titlePromise;
     } finally {
+      activeStreamControllers.delete(conversationId);
+
       try {
         config.onCleanup?.(conversationId);
       } catch {
@@ -283,7 +294,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       }
 
       buffer.setStreaming(false);
-      if (!res.writableFinished) {
+      if (!res.writableFinished && !res.destroyed) {
         emit("done", {});
         flushableRes.end();
       }
@@ -466,6 +477,7 @@ class StreamProcessor {
   private invalidToolCallIds = new Set<string>();
   private consecutiveToolErrors = 0;
   private aborted = false;
+  private pendingError: string | null = null;
   private readonly onStepPersist?: () => void;
 
   constructor(
@@ -482,15 +494,23 @@ class StreamProcessor {
     return this.aborted;
   }
 
+  /**
+   * Record a stream-level error to be persisted as an `isError` assistant
+   * message when {@link flush} runs.
+   */
+  setError(message: string): void {
+    this.pendingError = message;
+  }
+
   private triggerCircuitBreaker(): void {
     if (this.aborted) return;
     if (this.consecutiveToolErrors >= this.maxConsecutiveToolErrors) {
       this.aborted = true;
-      this.emit("error", {
-        message:
-          "The assistant encountered repeated tool errors and stopped retrying. " +
-          "Please try rephrasing your request or adjusting the parameters.",
-      });
+      const message =
+        "The assistant encountered repeated tool errors and stopped retrying. " +
+        "Please try rephrasing your request or adjusting the parameters.";
+      this.emit("error", { message });
+      this.pendingError = message;
       this.abortController.abort();
     }
   }
@@ -690,6 +710,19 @@ class StreamProcessor {
   flush(): void {
     this.flushAssistantMessage();
     this.flushToolMessage();
+
+    if (this.pendingError) {
+      this.buffer.appendMessages([
+        {
+          role: "assistant",
+          id: randomUUID(),
+          ts: Date.now(),
+          content: this.pendingError,
+          isError: true,
+        },
+      ]);
+      this.pendingError = null;
+    }
   }
 }
 
@@ -750,14 +783,15 @@ async function streamAgentResponse<TParams>(
         case "reasoning-delta":
           emit("reasoning-delta", { text: part.text });
           break;
-        case "error":
-          emit("error", {
-            message: getErrorMessage(
-              (part as ErrorPart).error,
-              "An error occurred",
-            ),
-          });
+        case "error": {
+          const errorMsg = getErrorMessage(
+            (part as ErrorPart).error,
+            "An error occurred",
+          );
+          emit("error", { message: errorMsg });
+          processor.setError(errorMsg);
           break;
+        }
         default:
           break;
       }
@@ -766,7 +800,9 @@ async function streamAgentResponse<TParams>(
     }
   } catch (err) {
     if (!processor.isAborted) {
-      emit("error", { message: getErrorMessage(err, "An error occurred") });
+      const errorMsg = getErrorMessage(err, "An error occurred");
+      emit("error", { message: errorMsg });
+      processor.setError(errorMsg);
     }
   }
 
