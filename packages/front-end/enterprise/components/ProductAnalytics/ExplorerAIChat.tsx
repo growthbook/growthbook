@@ -329,7 +329,6 @@ export default function ExplorerAIChat() {
     endpoint: "/product-analytics/chat",
     buildRequestBody,
     toolStatusLabels: TOOL_STATUS_LABELS,
-    conversationStorageKey: "pa-ai-chat-conversation-id",
     getConversationEndpoint: (cid) => `/product-analytics/chat/${cid}`,
     getCancelEndpoint: (cid) => `/product-analytics/chat/${cid}/cancel`,
     onStreamAccepted: () => {

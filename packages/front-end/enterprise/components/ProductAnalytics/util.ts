@@ -235,7 +235,6 @@ export function validateDimensions(
   getFactTableById: (id: string) => FactTableInterface | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
-  // Validate dimensions against commonColumns
   const columns = getCommonColumns(
     config.dataset,
     getFactTableById,
@@ -245,6 +244,7 @@ export function validateDimensions(
 
   let validDimensions = config.dimensions.filter((d) => {
     if (d.dimensionType !== "dynamic") return true;
+    if (columns.length === 0) return true;
     return columns.some((c) => c.column === d.column || d.column === null);
   });
   if (validDimensions.length > maxDims) {
@@ -332,10 +332,10 @@ export function cleanConfigForSubmission(
   config: ExplorationConfig,
 ): ExplorationConfig {
   const cleanedDataset = removeIncompleteInputs(config.dataset);
-  // remove any dimensions with a null column
-  const cleanedDimensions = config.dimensions.filter(
-    (d) => "column" in d && d.column !== null,
-  );
+  const cleanedDimensions = config.dimensions.filter((d) => {
+    if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
+    return "column" in d && d.column !== null;
+  });
   return {
     ...config,
     dataset: cleanedDataset,

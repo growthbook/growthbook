@@ -67,10 +67,11 @@ const PA_SYSTEM_INSTRUCTIONS =
   "  - metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.\n" +
   "  - data_source: unit_count is not supported; unit is always null.\n" +
   "Dimension rules for breakdowns / group-by:\n" +
-  "  - Only use dimensionType 'dynamic' or 'static'. Never use dimensionType 'slice'.\n" +
-  "  - 'dynamic' is the default for breakdowns — use it when the user wants to see the top N values for a column.\n" +
-  "  - 'static' is for when the user specifies exact values to compare — always call getColumnValues first to discover the real values before building a static dimension.\n" +
-  "CRITICAL — never guess column values. Whenever you need a specific column value — for row filters, static dimensions, or any other purpose — " +
+  "  - Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.\n" +
+  "  - 'dynamic' shows the top N values for a column — set maxValues (1-20, default 5).\n" +
+  "  - Maximum 2 total dimensions (including the date dimension for timeseries). If the dataset has more than 1 value, max is 1 dimension.\n" +
+  "  - bigNumber charts: no dimensions at all and only 1 value.\n" +
+  "CRITICAL — never guess column values. Whenever you need a specific column value — for row filters or any other purpose — " +
   "you MUST call getColumnValues first to discover the actual values stored in that column. " +
   "Pass a searchTerm when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
   "getColumnValues only works on string-typed columns. " +
@@ -198,10 +199,10 @@ function buildConfigSchemaSummary(): string {
     '- dateRange.predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange"',
     '- IMPORTANT: "last14Days" is not valid. For 14 days use { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }',
     "- dimensions[]: use column values returned by getAvailableColumns for dimension columns and rowFilter columns",
-    "  - date: { dimensionType: 'date', column: string|null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
-    "  - dynamic: { dimensionType: 'dynamic', column: string|null, maxValues: number } — preferred for breakdowns",
-    "  - static: { dimensionType: 'static', column: string, values: string[] } — always call getColumnValues first to discover real values",
-    "  - For breakdowns / group-by, only use 'dynamic' or 'static'. Never use 'slice'.",
+    "  - date: { dimensionType: 'date', column: null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' } — only for timeseries charts (line, area, timeseries-table)",
+    "  - dynamic: { dimensionType: 'dynamic', column: string, maxValues: number (1-20) } — use for all breakdowns / group-by",
+    "  - Never use dimensionType 'static' or 'slice'.",
+    "  - Max 2 total dimensions (including date). Max 1 if dataset has multiple values. bigNumber: 0 dimensions.",
     '- dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters[] }] }',
     "  Use search to find metricId. Use getAvailableColumns({ source: 'metric', metricIds }) to discover valid columns and unit options.",
     "  unit: one of userIdTypes for proportion/retention/dailyParticipation/ratio-distinct metrics; null for all others.",
@@ -554,6 +555,7 @@ async function executeGetConfigSchema(): Promise<string> {
 type RunExplorationToolResult =
   | {
       summary: string;
+      configNormalized?: string[];
       status: "success";
       snapshotId: string;
       rowCount: number;
@@ -564,12 +566,110 @@ type RunExplorationToolResult =
     }
   | { status: "error"; message: string };
 
+const TIMESERIES_CHART_TYPES = new Set(["line", "area", "timeseries-table"]);
+
+interface NormalizeResult {
+  config: ExplorationConfig;
+  warnings: string[];
+}
+
+function normalizeConfigForExplorer(
+  config: ExplorationConfig,
+): NormalizeResult {
+  const warnings: string[] = [];
+  let dims = config.dimensions;
+  let dataset = config.dataset;
+
+  // Convert static → dynamic; drop slice
+  const hadStatic = dims.some((d) => d.dimensionType === "static");
+  const hadSlice = dims.some((d) => d.dimensionType === "slice");
+  dims = dims
+    .map((d) => {
+      if (d.dimensionType === "static") {
+        return {
+          dimensionType: "dynamic" as const,
+          column: d.column,
+          maxValues: Math.min(d.values.length || 5, 20),
+        };
+      }
+      return d;
+    })
+    .filter((d) => d.dimensionType !== "slice");
+  if (hadStatic) {
+    warnings.push(
+      "Static dimensions are not supported — converted to dynamic. Only use dimensionType 'dynamic'.",
+    );
+  }
+  if (hadSlice) {
+    warnings.push(
+      "Slice dimensions are not supported and were removed. Only use dimensionType 'dynamic'.",
+    );
+  }
+
+  const isTimeseries = TIMESERIES_CHART_TYPES.has(config.chartType);
+
+  if (isTimeseries) {
+    if (!dims.some((d) => d.dimensionType === "date")) {
+      dims = [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+        ...dims,
+      ];
+      warnings.push(
+        "Added missing date dimension for timeseries chart. Timeseries charts (line, area, timeseries-table) always need a date dimension.",
+      );
+    }
+  } else {
+    const hadDate = dims.some((d) => d.dimensionType === "date");
+    dims = dims.filter((d) => d.dimensionType !== "date");
+    if (hadDate) {
+      warnings.push(
+        `Removed date dimension — cumulative chart type '${config.chartType}' does not use date dimensions.`,
+      );
+    }
+  }
+
+  // bigNumber: no dimensions, single value
+  if (config.chartType === "bigNumber") {
+    if (dims.length > 0) {
+      dims = [];
+      warnings.push(
+        "Removed all dimensions — bigNumber charts do not support dimensions.",
+      );
+    }
+    if (dataset.values.length > 1) {
+      dataset = {
+        ...dataset,
+        values: dataset.values.slice(0, 1),
+      } as typeof dataset;
+      warnings.push(
+        "Trimmed to 1 value — bigNumber charts only support a single value.",
+      );
+    }
+  }
+
+  // Enforce max dimensions (2, or 1 if multiple values)
+  const maxDims = dataset.values.length > 1 ? 1 : 2;
+  if (dims.length > maxDims) {
+    const removed = dims.length - maxDims;
+    dims = dims.slice(0, maxDims);
+    warnings.push(
+      `Removed ${removed} dimension(s) to stay within the limit of ${maxDims} (max 2, or 1 when multiple values).`,
+    );
+  }
+
+  return {
+    config: { ...config, dimensions: dims, dataset } as ExplorationConfig,
+    warnings,
+  };
+}
+
 async function executeRunExploration(
   ctx: ReqContext,
   buffer: ConversationBuffer,
-  config: ExplorationConfig,
+  rawConfig: ExplorationConfig,
 ): Promise<RunExplorationToolResult> {
   try {
+    const { config, warnings } = normalizeConfigForExplorer(rawConfig);
     const exploration = await runProductAnalyticsExploration(ctx, config, {
       cache: "preferred",
     });
@@ -591,6 +691,9 @@ async function executeRunExploration(
 
     return {
       summary,
+      ...(warnings.length > 0 && {
+        configNormalized: warnings,
+      }),
       status: "success",
       snapshotId,
       rowCount: exploration?.result?.rows?.length ?? 0,
