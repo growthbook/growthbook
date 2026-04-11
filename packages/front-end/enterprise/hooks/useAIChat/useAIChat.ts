@@ -56,6 +56,8 @@ export function useAIChat({
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  /** True only while fetching historical messages for a conversation (not AI generation). */
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   /** True only while this tab is actively reading an SSE stream from `sendMessage`. */
   const [isLocalStream, setIsLocalStream] = useState(false);
   const [waitingForNextStep, setWaitingForNextStep] = useState(false);
@@ -112,6 +114,7 @@ export function useAIChat({
     if (!getEp) return;
 
     let cancelled = false;
+    setIsLoadingConversation(true);
 
     const run = async () => {
       try {
@@ -120,6 +123,7 @@ export function useAIChat({
         );
         if (cancelled || isSendingRef.current) return;
 
+        setIsLoadingConversation(false);
         setMessages(data.messages ?? []);
 
         const isRecent =
@@ -160,6 +164,7 @@ export function useAIChat({
         }
       } catch {
         if (!cancelled && !isSendingRef.current) {
+          setIsLoadingConversation(false);
           setError("Failed to load conversation.");
           setLoading(false);
         }
@@ -455,6 +460,7 @@ export function useAIChat({
     setActive([]);
     setError(null);
     setLoading(false);
+    setIsLoadingConversation(false);
     setIsLocalStream(false);
     setWaitingForNextStep(false);
     setIsRemoteStream(false);
@@ -502,6 +508,7 @@ export function useAIChat({
     newChat,
     loadConversation,
     loading,
+    isLoadingConversation,
     isLocalStream,
     waitingForNextStep,
     isRemoteStream,

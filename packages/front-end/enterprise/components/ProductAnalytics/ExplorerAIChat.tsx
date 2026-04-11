@@ -306,6 +306,7 @@ export default function ExplorerAIChat() {
     newChat,
     loadConversation,
     loading,
+    isLoadingConversation,
     isLocalStream,
     waitingForNextStep,
     isRemoteStream,
@@ -826,7 +827,13 @@ export default function ExplorerAIChat() {
 
           {loading && activeTurnItems.length === 0 && (
             <ThinkingBubble
-              label={isRemoteStream ? "Still generating..." : "Thinking..."}
+              label={
+                isLoadingConversation
+                  ? "Loading conversation..."
+                  : isRemoteStream
+                    ? "Still generating..."
+                    : "Thinking..."
+              }
             />
           )}
 

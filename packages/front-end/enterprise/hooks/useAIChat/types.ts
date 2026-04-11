@@ -110,6 +110,8 @@ export interface UseAIChatReturn {
   newChat: () => void;
   loadConversation: (id: string) => Promise<void>;
   loading: boolean;
+  /** True only while fetching historical messages for a conversation (not AI generation). */
+  isLoadingConversation: boolean;
   /** True only while this tab is actively reading an SSE stream from sendMessage. */
   isLocalStream: boolean;
   waitingForNextStep: boolean;

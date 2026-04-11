@@ -168,7 +168,11 @@ export default function ConversationSidebar({
             </Text>
           </Box>
 
-          <Flex direction="column" gap="2" style={{ padding: "6px 4px" }}>
+          <Flex
+            direction="column"
+            gap="2"
+            style={{ padding: "6px 4px", paddingRight: 12 }}
+          >
             {conversations.length === 0 ? (
               <Flex
                 align="center"
