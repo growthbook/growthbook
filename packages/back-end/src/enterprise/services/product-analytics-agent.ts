@@ -66,10 +66,15 @@ const PA_SYSTEM_INSTRUCTIONS =
   '  - fact_table valueType "count" or "sum": unit must be null.\n' +
   "  - metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.\n" +
   "  - data_source: unit_count is not supported; unit is always null.\n" +
-  "When building row filters that require a specific column value (e.g. country='United States', browser='Chrome'), " +
-  "use getColumnValues to discover the actual values stored in that column before constructing the filter. " +
+  "Dimension rules for breakdowns / group-by:\n" +
+  "  - Only use dimensionType 'dynamic' or 'static'. Never use dimensionType 'slice'.\n" +
+  "  - 'dynamic' is the default for breakdowns — use it when the user wants to see the top N values for a column.\n" +
+  "  - 'static' is for when the user specifies exact values to compare — always call getColumnValues first to discover the real values before building a static dimension.\n" +
+  "CRITICAL — never guess column values. Whenever you need a specific column value — for row filters, static dimensions, or any other purpose — " +
+  "you MUST call getColumnValues first to discover the actual values stored in that column. " +
   "Pass a searchTerm when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
-  "getColumnValues only works on string-typed columns.\n" +
+  "getColumnValues only works on string-typed columns. " +
+  "Do not fabricate or assume values like country codes, browser names, or status strings.\n" +
   "Use getCurrentConfig and getConfigSchema when you need to reason about valid config edits.\n" +
   "If asked about metrics, fact tables, or tables that don't exist, let the user know.\n" +
   "If a tool call returns an error, analyze the error, fix the config, and retry. " +
@@ -194,9 +199,9 @@ function buildConfigSchemaSummary(): string {
     '- IMPORTANT: "last14Days" is not valid. For 14 days use { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }',
     "- dimensions[]: use column values returned by getAvailableColumns for dimension columns and rowFilter columns",
     "  - date: { dimensionType: 'date', column: string|null, dateGranularity: 'auto'|'hour'|'day'|'week'|'month'|'year' }",
-    "  - dynamic: { dimensionType: 'dynamic', column: string|null, maxValues: number }",
-    "  - static: { dimensionType: 'static', column: string, values: string[] }",
-    "  - slice: { dimensionType: 'slice', slices: { name: string, filters: RowFilter[] }[] }",
+    "  - dynamic: { dimensionType: 'dynamic', column: string|null, maxValues: number } — preferred for breakdowns",
+    "  - static: { dimensionType: 'static', column: string, values: string[] } — always call getColumnValues first to discover real values",
+    "  - For breakdowns / group-by, only use 'dynamic' or 'static'. Never use 'slice'.",
     '- dataset for type="metric": { type: "metric", values: [{ type: "metric", name, metricId, unit, denominatorUnit, rowFilters[] }] }',
     "  Use search to find metricId. Use getAvailableColumns({ source: 'metric', metricIds }) to discover valid columns and unit options.",
     "  unit: one of userIdTypes for proportion/retention/dailyParticipation/ratio-distinct metrics; null for all others.",
@@ -1008,8 +1013,8 @@ const GET_AVAILABLE_COLUMNS_DESCRIPTION =
 
 const GET_COLUMN_VALUES_DESCRIPTION =
   "Fetch the actual values stored in one or more string columns by running a lightweight GROUP BY query against the warehouse. " +
-  "Use this before building row filters when you need to know the real values in a column (e.g. 'country' might store 'United States' not 'US'). " +
-  "Pass an optional searchTerm to narrow results when you have a partial guess. " +
+  "You MUST call this tool before using any specific column value — for row filters, static dimension values, or any other purpose. Never guess or assume what values a column contains. " +
+  "Pass an optional searchTerm to narrow results when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
   "Set source to match the exploration type ('fact_table', 'metric', or 'data_source') and provide the corresponding ID field, same as getAvailableColumns.";
 
 const GET_CURRENT_CONFIG_DESCRIPTION =

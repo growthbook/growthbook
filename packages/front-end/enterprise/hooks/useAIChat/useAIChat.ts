@@ -385,6 +385,7 @@ export function useAIChat({
       } finally {
         const wasCancelled = userCancelledRef.current;
         userCancelledRef.current = false;
+        isSendingRef.current = false;
         setWaitingForNextStep(false);
         setLoading(false);
         setIsLocalStream(false);
