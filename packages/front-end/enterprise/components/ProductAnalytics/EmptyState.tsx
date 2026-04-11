@@ -108,6 +108,7 @@ export default function EmptyState() {
       </Flex>
       <Box
         mt="5"
+        className="box"
         style={{
           display: "flex",
           alignItems: "center",
@@ -116,7 +117,6 @@ export default function EmptyState() {
           minHeight: "400px",
           border: "1px solid var(--slate-a3)",
           borderRadius: "4px",
-          backgroundColor: "var(--surface-background-color)",
           padding: "60px 80px",
         }}
       >

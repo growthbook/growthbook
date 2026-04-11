@@ -215,16 +215,16 @@ export default function ConversationSidebar({
                       padding: "7px 10px",
                       borderRadius: "var(--radius-2)",
                       border: isActive
-                        ? "1px solid var(--slate-a5)"
+                        ? "1px solid transparent"
                         : "1px solid transparent",
                       background: isActive
-                        ? "var(--violet-2)"
+                        ? "var(--violet-10)"
                         : isHovered
                           ? "var(--gray-a3)"
                           : "none",
                       cursor: "pointer",
                       textAlign: "left",
-                      color: "var(--gray-12)",
+                      color: isActive ? "#fff" : "var(--gray-12)",
                     }}
                     onClick={() => onSelect(conv.conversationId)}
                   >
@@ -233,14 +233,20 @@ export default function ConversationSidebar({
                       gap="1"
                       style={{ flex: 1, minWidth: 0 }}
                     >
-                      <Text size="small" weight="semibold" color="text-high">
+                      <Text
+                        size="small"
+                        weight="semibold"
+                        color={isActive ? undefined : "text-high"}
+                      >
                         {conv.title || "Untitled"}
                       </Text>
                       {conv.preview ? (
                         <span
                           style={{
                             fontSize: 11,
-                            color: "var(--gray-a11)",
+                            color: isActive
+                              ? "rgba(255,255,255,0.75)"
+                              : "var(--gray-a11)",
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
                             WebkitBoxOrient: "vertical",
@@ -256,7 +262,9 @@ export default function ConversationSidebar({
                         as="span"
                         style={{
                           fontSize: 11,
-                          color: "var(--gray-a10)",
+                          color: isActive
+                            ? "rgba(255,255,255,0.6)"
+                            : "var(--gray-a10)",
                           display: "flex",
                           alignItems: "center",
                           gap: 4,
@@ -275,6 +283,7 @@ export default function ConversationSidebar({
                       <Box
                         flexShrink="0"
                         ml="1"
+                        className={aiChatPrimitives.deleteButton}
                         style={{
                           opacity: isHovered ? 1 : 0,
                           transition: "opacity 100ms ease",

@@ -57,6 +57,7 @@ import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useExplorerContext } from "./ExplorerContext";
 import ExplorerChart from "./MainSection/ExplorerChart";
+import SimpleExplorationTable from "./MainSection/SimpleExplorationTable";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 import SaveToDashboardModal from "./SaveToDashboardModal";
 import {
@@ -137,15 +138,17 @@ function chartDataFromRecord(data: Record<string, unknown>): ChartData | null {
 }
 
 // ---------------------------------------------------------------------------
-// ChartBubble — PA-specific chart result rendered as a message bubble
+// ExplorationBubble — PA-specific exploration result rendered as a message bubble
 // ---------------------------------------------------------------------------
 
-interface ChartBubbleProps {
+interface ExplorationBubbleProps {
   chartData: ChartData;
   toolTransparency?: React.ReactNode;
   /** Passed through to ExplorerChart — set false for already-seen charts to skip re-animation. */
   animate?: boolean;
 }
+
+const TABLE_CHART_TYPES: readonly string[] = ["table", "timeseries-table"];
 
 const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   metric: "/product-analytics/explore/metrics",
@@ -153,13 +156,14 @@ const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
   data_source: "/product-analytics/explore/data-source",
 };
 
-function ChartBubble({
+function ExplorationBubble({
   chartData,
   toolTransparency,
   animate = true,
-}: ChartBubbleProps) {
+}: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
+  const isTable = TABLE_CHART_TYPES.includes(chartData.config.chartType);
 
   return (
     <AssistantBubble wide>
@@ -173,7 +177,7 @@ function ChartBubble({
       <Flex align="center" gap="2" mb="2">
         <PiSparkle size={12} />
         <Text size="small" weight="medium">
-          Generated chart
+          {isTable ? "Generated table" : "Generated chart"}
         </Text>
         <Flex ml="auto" gap="1">
           <Button
@@ -194,15 +198,22 @@ function ChartBubble({
           </LinkButton>
         </Flex>
       </Flex>
-      <Box style={{ height: 360, minHeight: 260, display: "flex" }}>
-        <ExplorerChart
+      {isTable ? (
+        <SimpleExplorationTable
           exploration={chartData.exploration}
-          error={chartData.exploration?.error ?? null}
-          submittedExploreState={chartData.config}
-          loading={false}
-          animate={animate}
+          config={chartData.config}
         />
-      </Box>
+      ) : (
+        <Box style={{ height: 360, minHeight: 260, display: "flex" }}>
+          <ExplorerChart
+            exploration={chartData.exploration}
+            error={chartData.exploration?.error ?? null}
+            submittedExploreState={chartData.config}
+            loading={false}
+            animate={animate}
+          />
+        </Box>
+      )}
       {toolTransparency ? (
         <Box
           style={{
@@ -468,7 +479,7 @@ export default function ExplorerAIChat() {
         : null;
       if (chartData && item.status === "done") {
         return (
-          <ChartBubble
+          <ExplorationBubble
             key={item.toolCallId}
             chartData={chartData}
             toolTransparency={
@@ -604,7 +615,7 @@ export default function ExplorerAIChat() {
           const chartData = chartDataFromToolResult(part.result);
           if (chartData) {
             return (
-              <ChartBubble
+              <ExplorationBubble
                 key={`${msg.id}-r${i}`}
                 chartData={chartData}
                 animate={false}

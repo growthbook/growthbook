@@ -71,6 +71,17 @@
   }
 }
 
+.deleteButton {
+  &:hover svg {
+    color: var(--red-11);
+    transition: color 120ms ease;
+  }
+
+  svg {
+    transition: color 120ms ease;
+  }
+}
+
 .userBubble {
   color: white;
 
