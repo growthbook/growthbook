@@ -191,9 +191,17 @@ function generateZodSchema(
     );
   }
 
-  // remove overly strick datetime zod validation
-  // until we can write custom regex validator
-  zod = zod.replace(/(?<=string\(\))\.datetime\(\{.*?\}\)/g, "");
+  // json-schema-to-zod emits z.string().datetime({ offset: true }) for format: date-time.
+  // Keep ISO-8601 documentation in OpenAPI (Zod-first spec uses z.toJSONSchema) without
+  // enforcing Zod's strict datetime pattern at runtime.
+  zod = zod.replace(
+    /z\.string\(\)\.datetime\(\{[^}]*\}\)/g,
+    'z.string().meta({ format: "date-time" })',
+  );
+  zod = zod.replace(
+    /z\.string\(\)\.datetime\(\)/g,
+    'z.string().meta({ format: "date-time" })',
+  );
 
   // Fix Zod 3 → Zod 4 superRefine compatibility for oneOf schemas.
   // json-schema-to-zod emits ctx.addIssue with code:"invalid_union" and ctx.path,

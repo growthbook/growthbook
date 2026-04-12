@@ -350,7 +350,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -431,7 +432,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -529,7 +531,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -622,7 +625,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -728,7 +732,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -809,7 +814,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -907,7 +913,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -1000,7 +1007,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -1113,8 +1121,10 @@ paths:
                           id:
                             type: string
                           dateCreated:
+                            format: date-time
                             type: string
                           dateUpdated:
+                            format: date-time
                             type: string
                           archived:
                             type: boolean
@@ -1196,7 +1206,8 @@ paths:
                                                         ISO timestamp when the rule should
                                                         activate.
                                                       anyOf:
-                                                        - type: string
+                                                        - format: date-time
+                                                          type: string
                                                         - type: 'null'
                                                   required:
                                                     - enabled
@@ -1309,7 +1320,8 @@ paths:
                                                         ISO timestamp when the rule should
                                                         activate.
                                                       anyOf:
-                                                        - type: string
+                                                        - format: date-time
+                                                          type: string
                                                         - type: 'null'
                                                   required:
                                                     - enabled
@@ -1435,7 +1447,8 @@ paths:
                                                         ISO timestamp when the rule should
                                                         activate.
                                                       anyOf:
-                                                        - type: string
+                                                        - format: date-time
+                                                          type: string
                                                         - type: 'null'
                                                   required:
                                                     - enabled
@@ -1595,7 +1608,8 @@ paths:
                                                         ISO timestamp when the rule should
                                                         activate.
                                                       anyOf:
-                                                        - type: string
+                                                        - format: date-time
+                                                          type: string
                                                         - type: 'null'
                                                   required:
                                                     - enabled
@@ -1722,7 +1736,8 @@ paths:
                                                         ISO timestamp when the rule should
                                                         activate.
                                                       anyOf:
-                                                        - type: string
+                                                        - format: date-time
+                                                          type: string
                                                         - type: 'null'
                                                   required:
                                                     - enabled
@@ -1869,7 +1884,8 @@ paths:
                                                             ISO timestamp when the rule should
                                                             activate.
                                                           anyOf:
-                                                            - type: string
+                                                            - format: date-time
+                                                              type: string
                                                             - type: 'null'
                                                       required:
                                                         - enabled
@@ -1982,7 +1998,8 @@ paths:
                                                             ISO timestamp when the rule should
                                                             activate.
                                                           anyOf:
-                                                            - type: string
+                                                            - format: date-time
+                                                              type: string
                                                             - type: 'null'
                                                       required:
                                                         - enabled
@@ -2108,7 +2125,8 @@ paths:
                                                             ISO timestamp when the rule should
                                                             activate.
                                                           anyOf:
-                                                            - type: string
+                                                            - format: date-time
+                                                              type: string
                                                             - type: 'null'
                                                       required:
                                                         - enabled
@@ -2268,7 +2286,8 @@ paths:
                                                             ISO timestamp when the rule should
                                                             activate.
                                                           anyOf:
-                                                            - type: string
+                                                            - format: date-time
+                                                              type: string
                                                             - type: 'null'
                                                       required:
                                                         - enabled
@@ -2395,7 +2414,8 @@ paths:
                                                             ISO timestamp when the rule should
                                                             activate.
                                                           anyOf:
-                                                            - type: string
+                                                            - format: date-time
+                                                              type: string
                                                             - type: 'null'
                                                       required:
                                                         - enabled
@@ -2513,6 +2533,7 @@ paths:
                               comment:
                                 type: string
                               date:
+                                format: date-time
                                 type: string
                               createdBy:
                                 type: string
@@ -2575,6 +2596,7 @@ paths:
                                 comment:
                                   type: string
                                 date:
+                                  format: date-time
                                   type: string
                                 status:
                                   type: string
@@ -2636,7 +2658,8 @@ paths:
                                                           ISO timestamp when the rule should
                                                           activate.
                                                         anyOf:
-                                                          - type: string
+                                                          - format: date-time
+                                                            type: string
                                                           - type: 'null'
                                                     required:
                                                       - enabled
@@ -2749,7 +2772,8 @@ paths:
                                                           ISO timestamp when the rule should
                                                           activate.
                                                         anyOf:
-                                                          - type: string
+                                                          - format: date-time
+                                                            type: string
                                                           - type: 'null'
                                                     required:
                                                       - enabled
@@ -2875,7 +2899,8 @@ paths:
                                                           ISO timestamp when the rule should
                                                           activate.
                                                         anyOf:
-                                                          - type: string
+                                                          - format: date-time
+                                                            type: string
                                                           - type: 'null'
                                                     required:
                                                       - enabled
@@ -3035,7 +3060,8 @@ paths:
                                                           ISO timestamp when the rule should
                                                           activate.
                                                         anyOf:
-                                                          - type: string
+                                                          - format: date-time
+                                                            type: string
                                                           - type: 'null'
                                                     required:
                                                       - enabled
@@ -3162,7 +3188,8 @@ paths:
                                                           ISO timestamp when the rule should
                                                           activate.
                                                         anyOf:
-                                                          - type: string
+                                                          - format: date-time
+                                                            type: string
                                                           - type: 'null'
                                                     required:
                                                       - enabled
@@ -3351,6 +3378,7 @@ paths:
                                             type: string
                                           additionalProperties: {}
                                         date:
+                                          format: date-time
                                           type: string
                                         enabled:
                                           type: boolean
@@ -3476,7 +3504,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -3557,7 +3586,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -3655,7 +3685,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -3748,7 +3779,8 @@ paths:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -3854,7 +3886,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -3935,7 +3968,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -4033,7 +4067,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -4126,7 +4161,8 @@ paths:
                                               ISO timestamp when the rule should
                                               activate.
                                             anyOf:
-                                              - type: string
+                                              - format: date-time
+                                                type: string
                                               - type: 'null'
                                         required:
                                           - enabled
@@ -4925,7 +4961,8 @@ paths:
                             For "window" type - non-negative numeric value (e.g.
                             7 for 7 days). For "date" type a date string.
                           type: number
-                        - description: >-
+                        - format: date-time
+                          description: >-
                             For "window" type - non-negative numeric value (e.g.
                             7 for 7 days). For "date" type a date string.
                           type: string
@@ -4988,8 +5025,10 @@ paths:
                       name:
                         type: string
                       dateStarted:
+                        format: date-time
                         type: string
                       dateEnded:
+                        format: date-time
                         type: string
                       reasonForStopping:
                         type: string
@@ -5270,8 +5309,10 @@ paths:
                           trackingKey:
                             type: string
                           dateCreated:
+                            format: date-time
                             type: string
                           dateUpdated:
+                            format: date-time
                             type: string
                           name:
                             type: string
@@ -5481,7 +5522,8 @@ paths:
                                           value (e.g. 7 for 7 days). For "date"
                                           type a date string.
                                         type: number
-                                      - description: >-
+                                      - format: date-time
+                                        description: >-
                                           For "window" type - non-negative numeric
                                           value (e.g. 7 for 7 days). For "date"
                                           type a date string.
@@ -6105,7 +6147,8 @@ paths:
                             For "window" type - non-negative numeric value (e.g.
                             7 for 7 days). For "date" type a date string.
                           type: number
-                        - description: >-
+                        - format: date-time
+                          description: >-
                             For "window" type - non-negative numeric value (e.g.
                             7 for 7 days). For "date" type a date string.
                           type: string
@@ -6168,8 +6211,10 @@ paths:
                       name:
                         type: string
                       dateStarted:
+                        format: date-time
                         type: string
                       dateEnded:
+                        format: date-time
                         type: string
                       reasonForStopping:
                         type: string
@@ -9867,9 +9912,11 @@ paths:
                           type: string
                       dateCreated:
                         readOnly: true
+                        format: date-time
                         type: string
                       dateUpdated:
                         readOnly: true
+                        format: date-time
                         type: string
                     required:
                       - column
@@ -20291,8 +20338,10 @@ components:
         id:
           type: string
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         archived:
           type: boolean
@@ -20369,7 +20418,8 @@ components:
                                       ISO timestamp when the rule should
                                       activate.
                                     anyOf:
-                                      - type: string
+                                      - format: date-time
+                                        type: string
                                       - type: 'null'
                                 required:
                                   - enabled
@@ -20478,7 +20528,8 @@ components:
                                       ISO timestamp when the rule should
                                       activate.
                                     anyOf:
-                                      - type: string
+                                      - format: date-time
+                                        type: string
                                       - type: 'null'
                                 required:
                                   - enabled
@@ -20600,7 +20651,8 @@ components:
                                       ISO timestamp when the rule should
                                       activate.
                                     anyOf:
-                                      - type: string
+                                      - format: date-time
+                                        type: string
                                       - type: 'null'
                                 required:
                                   - enabled
@@ -20756,7 +20808,8 @@ components:
                                       ISO timestamp when the rule should
                                       activate.
                                     anyOf:
-                                      - type: string
+                                      - format: date-time
+                                        type: string
                                       - type: 'null'
                                 required:
                                   - enabled
@@ -20879,7 +20932,8 @@ components:
                                       ISO timestamp when the rule should
                                       activate.
                                     anyOf:
-                                      - type: string
+                                      - format: date-time
+                                        type: string
                                       - type: 'null'
                                 required:
                                   - enabled
@@ -21025,7 +21079,8 @@ components:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -21137,7 +21192,8 @@ components:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -21262,7 +21318,8 @@ components:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -21421,7 +21478,8 @@ components:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -21547,7 +21605,8 @@ components:
                                           ISO timestamp when the rule should
                                           activate.
                                         anyOf:
-                                          - type: string
+                                          - format: date-time
+                                            type: string
                                           - type: 'null'
                                     required:
                                       - enabled
@@ -21664,6 +21723,7 @@ components:
             comment:
               type: string
             date:
+              format: date-time
               type: string
             createdBy:
               type: string
@@ -21722,6 +21782,7 @@ components:
         comment:
           type: string
         date:
+          format: date-time
           type: string
         status:
           type: string
@@ -21776,7 +21837,8 @@ components:
                               timestamp:
                                 description: ISO timestamp when the rule should activate.
                                 anyOf:
-                                  - type: string
+                                  - format: date-time
+                                    type: string
                                   - type: 'null'
                             required:
                               - enabled
@@ -21883,7 +21945,8 @@ components:
                               timestamp:
                                 description: ISO timestamp when the rule should activate.
                                 anyOf:
-                                  - type: string
+                                  - format: date-time
+                                    type: string
                                   - type: 'null'
                             required:
                               - enabled
@@ -22003,7 +22066,8 @@ components:
                               timestamp:
                                 description: ISO timestamp when the rule should activate.
                                 anyOf:
-                                  - type: string
+                                  - format: date-time
+                                    type: string
                                   - type: 'null'
                             required:
                               - enabled
@@ -22157,7 +22221,8 @@ components:
                               timestamp:
                                 description: ISO timestamp when the rule should activate.
                                 anyOf:
-                                  - type: string
+                                  - format: date-time
+                                    type: string
                                   - type: 'null'
                             required:
                               - enabled
@@ -22278,7 +22343,8 @@ components:
                               timestamp:
                                 description: ISO timestamp when the rule should activate.
                                 anyOf:
-                                  - type: string
+                                  - format: date-time
+                                    type: string
                                   - type: 'null'
                             required:
                               - enabled
@@ -22462,6 +22528,7 @@ components:
                     type: string
                   additionalProperties: {}
                 date:
+                  format: date-time
                   type: string
                 enabled:
                   type: boolean
@@ -22525,8 +22592,10 @@ components:
         trackingKey:
           type: string
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         name:
           type: string
@@ -22730,7 +22799,8 @@ components:
                         For "window" type - non-negative numeric value (e.g. 7
                         for 7 days). For "date" type a date string.
                       type: number
-                    - description: >-
+                    - format: date-time
+                      description: >-
                         For "window" type - non-negative numeric value (e.g. 7
                         for 7 days). For "date" type a date string.
                       type: string
@@ -23212,7 +23282,8 @@ components:
                         For "window" type - non-negative numeric value (e.g. 7
                         for 7 days). For "date" type a date string.
                       type: number
-                    - description: >-
+                    - format: date-time
+                      description: >-
                         For "window" type - non-negative numeric value (e.g. 7
                         for 7 days). For "date" type a date string.
                       type: string
@@ -24030,7 +24101,8 @@ components:
               lastSnapshotAttempt:
                 description: The last time a snapshot was attempted for this experiment
                 anyOf:
-                  - type: string
+                  - format: date-time
+                    type: string
                   - type: 'null'
             required:
               - experimentId
@@ -24042,7 +24114,8 @@ components:
             The most recent snapshot attempt across all experiments using this
             metric
           anyOf:
-            - type: string
+            - format: date-time
+              type: string
             - type: 'null'
       required:
         - metricId
@@ -24151,8 +24224,10 @@ components:
         name:
           type: string
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         description:
           type: string
@@ -24246,8 +24321,10 @@ components:
         id:
           type: string
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         name:
           type: string
@@ -24332,8 +24409,10 @@ components:
         id:
           type: string
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         type:
           type: string
@@ -24472,8 +24551,10 @@ components:
               path:
                 type: string
               dateCreated:
+                format: date-time
                 type: string
               dateUpdated:
+                format: date-time
                 type: string
               schemas:
                 type: array
@@ -24485,8 +24566,10 @@ components:
                     path:
                       type: string
                     dateCreated:
+                      format: date-time
                       type: string
                     dateUpdated:
+                      format: date-time
                       type: string
                     tables:
                       type: array
@@ -24502,8 +24585,10 @@ components:
                           numOfColumns:
                             type: number
                           dateCreated:
+                            format: date-time
                             type: string
                           dateUpdated:
+                            format: date-time
                             type: string
                         required:
                           - tableName
@@ -24525,8 +24610,10 @@ components:
               - schemas
             additionalProperties: false
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
       required:
         - id
@@ -24547,8 +24634,10 @@ components:
             - condition
             - list
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         name:
           type: string
@@ -24593,6 +24682,7 @@ components:
             organization
           type: string
         dateCreated:
+          format: date-time
           description: The date the organization was created
           type: string
         name:
@@ -24716,9 +24806,11 @@ components:
                   type: string
               dateCreated:
                 readOnly: true
+                format: date-time
                 type: string
               dateUpdated:
                 readOnly: true
+                format: date-time
                 type: string
             required:
               - column
@@ -24744,8 +24836,10 @@ components:
             - api
             - admin
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
       required:
         - id
@@ -24781,8 +24875,10 @@ components:
             - ''
             - api
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
       required:
         - id
@@ -25127,8 +25223,10 @@ components:
             - api
             - admin
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
         archived:
           type: boolean
@@ -25188,6 +25286,7 @@ components:
           description: The organization name
           type: string
         dateUpdated:
+          format: date-time
           description: When the code references were last updated
           type: string
         feature:
@@ -25282,10 +25381,13 @@ components:
               - environments
             additionalProperties: false
         lastLoginDate:
+          format: date-time
           type: string
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
       required:
         - id
@@ -25622,8 +25724,10 @@ components:
         refreshMS:
           type: number
         dateCreated:
+          format: date-time
           type: string
         dateUpdated:
+          format: date-time
           type: string
       required:
         - id
