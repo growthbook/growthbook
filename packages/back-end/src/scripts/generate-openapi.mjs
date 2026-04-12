@@ -207,6 +207,11 @@ function generateZodSchema(
   // This handles the breaking change in zod v4 where z.record() requires explicit key and value types
   zod = zod.replace(/z\.record\(([^)]+)\)/g, "z.record(z.string(), $1)");
 
+  // If the zod schema has a `description` field, add it as metadata to the zod schema
+  if (jsonSchema.description && !zod.includes(".describe(")) {
+    zod = zod + `.describe("${jsonSchema.description}")`;
+  }
+
   return zod;
 }
 
@@ -219,11 +224,17 @@ function getParameterSchemas(parameters) {
   parameters.forEach((param) => {
     if (param.in === "query") {
       queryProperties[param.name] = param.schema;
+      if (param.description && !param.schema.description) {
+        queryProperties[param.name].description = param.description;
+      }
       if (param.required) {
         requiredQueryParams.push(param.name);
       }
     } else if (param.in === "path") {
       pathProperties[param.name] = param.schema;
+      if (param.description && !param.schema.description) {
+        pathProperties[param.name].description = param.description;
+      }
       if (param.required) {
         requiredPathParams.push(param.name);
       }
