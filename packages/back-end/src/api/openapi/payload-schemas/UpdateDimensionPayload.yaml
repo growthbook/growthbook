@@ -7,8 +7,7 @@ properties:
     type: string
     description: Description of the dimension
   owner:
-    type: string
-    description: Owner of the dimension
+    $ref: "../fields/OwnerInputField.yaml"
   datasourceId:
     type: string
     description: ID of the datasource this dimension belongs to

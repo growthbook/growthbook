@@ -706,6 +706,34 @@ export default function RuleModal({
           values.skipPartialData = false;
         }
 
+        const variations = values.values.map((v, i) => ({
+          id: uniqId("var_"),
+          key: i + "",
+          name: v.name || (i ? `Variation ${i}` : "Control"),
+          screenshots: [],
+        }));
+        const variationWeights = values.values.map((v) => v.weight);
+        const phases = [
+          {
+            condition: values.condition || "",
+            savedGroups: values.savedGroups || [],
+            prerequisites: values.prerequisites || [],
+            coverage: values.coverage ?? 1,
+            dateStarted: new Date().toISOString().substr(0, 16),
+            name: "Main",
+            namespace: values.namespace || {
+              enabled: false,
+              name: "",
+              range: [0, 1],
+            },
+            reason: "",
+            variationWeights,
+            variations: variations.map((v) => ({
+              id: v.id,
+              status: "active" as const,
+            })),
+          },
+        ];
         // All looks good, create experiment
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
@@ -741,29 +769,8 @@ export default function RuleModal({
           targetURLRegex: "",
           ideaSource: "",
           project: feature.project,
-          variations: values.values.map((v, i) => ({
-            id: uniqId("var_"),
-            key: i + "",
-            name: v.name || (i ? `Variation ${i}` : "Control"),
-            screenshots: [],
-          })),
-          phases: [
-            {
-              condition: values.condition || "",
-              savedGroups: values.savedGroups || [],
-              prerequisites: values.prerequisites || [],
-              coverage: values.coverage ?? 1,
-              dateStarted: new Date().toISOString().substr(0, 16),
-              name: "Main",
-              namespace: values.namespace || {
-                enabled: false,
-                name: "",
-                range: [0, 1],
-              },
-              reason: "",
-              variationWeights: values.values.map((v) => v.weight),
-            },
-          ],
+          variations,
+          phases,
           sequentialTestingEnabled:
             values.experimentType === "multi-armed-bandit"
               ? false
@@ -1024,7 +1031,15 @@ export default function RuleModal({
                   steps: buildRampSteps(rampState.steps, "t1", ruleId),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
-                    : undefined,
+                    : rampState.endScheduleAt
+                      ? [
+                          {
+                            targetType: "feature-rule" as const,
+                            targetId: "t1",
+                            patch: { ruleId, enabled: false },
+                          },
+                        ]
+                      : undefined,
                   startDate: rampState.startDate || null,
                   endCondition:
                     isScheduleMode && rampState.endScheduleAt
@@ -1058,7 +1073,18 @@ export default function RuleModal({
                   ),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
-                    : undefined,
+                    : rampState.endScheduleAt
+                      ? [
+                          {
+                            targetType: "feature-rule" as const,
+                            targetId:
+                              ruleRampSchedule.targets.find(
+                                (t) => t.status === "active",
+                              )?.id ?? "t1",
+                            patch: { ruleId, enabled: false },
+                          },
+                        ]
+                      : undefined,
                   startDate: rampState.startDate || null,
                   endCondition:
                     isScheduleMode && rampState.endScheduleAt
@@ -1145,7 +1171,15 @@ export default function RuleModal({
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               endActions: !isScheduleMode
                 ? buildEndActions(rampState.endPatch, effectiveRuleId)
-                : undefined,
+                : rampState.endScheduleAt
+                  ? [
+                      {
+                        targetType: "feature-rule" as const,
+                        targetId: "t1",
+                        patch: { ruleId: effectiveRuleId, enabled: false },
+                      },
+                    ]
+                  : undefined,
               startDate: rampState.startDate || null,
               endCondition:
                 isScheduleMode && rampState.endScheduleAt

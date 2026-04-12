@@ -63,9 +63,12 @@ tags:
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
+  - name: ramp-schedules
+    x-displayName: Ramp Schedules
+    description: 'Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.'
   - name: data-sources
     x-displayName: Data Sources
-    description: How GrowthBook connects and queries your data
+    description: 'How GrowthBook connects and queries your data, including cached database schema metadata (information schemas) for tables and columns.'
   - name: fact-tables
     x-displayName: Fact Tables
     description: Fact Tables describe the shape of your data warehouse tables
@@ -120,6 +123,27 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: AnalyticsExplorations
+    x-displayName: Analytics Explorations
+    description: ''
+  - name: CustomFields
+    x-displayName: Custom Fields
+    description: ''
+  - name: Dashboards
+    x-displayName: Dashboards
+    description: ''
+  - name: ExperimentTemplates
+    x-displayName: Experiment Templates
+    description: ''
+  - name: MetricGroups
+    x-displayName: Metric Groups
+    description: ''
+  - name: RampScheduleTemplates
+    x-displayName: Ramp Schedule Templates
+    description: Reusable step configurations for ramp schedules.
+  - name: Teams
+    x-displayName: Teams
+    description: ''
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -144,9 +168,15 @@ tags:
   - name: ExperimentAnalysisSettings_model
     x-displayName: ExperimentAnalysisSettings
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentAnalysisSettings" />
+  - name: ExperimentDecisionFrameworkSettings_model
+    x-displayName: ExperimentDecisionFrameworkSettings
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentDecisionFrameworkSettings" />
   - name: ExperimentMetric_model
     x-displayName: ExperimentMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetric" />
+  - name: ExperimentMetricOverrideEntry_model
+    x-displayName: ExperimentMetricOverrideEntry
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetricOverrideEntry" />
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
@@ -171,6 +201,9 @@ tags:
   - name: Feature_model
     x-displayName: Feature
     description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
+  - name: FeatureBaseRule_model
+    x-displayName: FeatureBaseRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureBaseRule" />
   - name: FeatureDefinition_model
     x-displayName: FeatureDefinition
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
@@ -201,6 +234,12 @@ tags:
   - name: FeatureWithRevisions_model
     x-displayName: FeatureWithRevisions
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
+  - name: InformationSchema_model
+    x-displayName: InformationSchema
+    description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchema" />
+  - name: InformationSchemaTable_model
+    x-displayName: InformationSchemaTable
+    description: <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable" />
   - name: LookbackOverride_model
     x-displayName: LookbackOverride
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
@@ -343,8 +382,7 @@ paths:
                   type: string
                   description: Description of the feature
                 owner:
-                  type: string
-                  description: Email of the person who owns this experiment
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 project:
                   type: string
                   description: An associated project ID
@@ -770,7 +808,7 @@ paths:
                   type: string
                   description: An associated project ID
                 owner:
-                  type: string
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 defaultValue:
                   type: string
                 tags:
@@ -1143,6 +1181,9 @@ paths:
                   type: string
                 description:
                   type: string
+                publicId:
+                  type: string
+                  description: 'URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided.'
                 settings:
                   description: Project settings.
                   type: object
@@ -1210,6 +1251,9 @@ paths:
                   type: string
                 description:
                   description: Project description.
+                  type: string
+                publicId:
+                  description: 'URL-safe slug (lowercase letters, numbers, dashes).'
                   type: string
                 settings:
                   description: Project settings.
@@ -1315,8 +1359,7 @@ paths:
                   type: string
                   description: Description of the dimension
                 owner:
-                  type: string
-                  description: Owner of the dimension
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 datasourceId:
                   type: string
                   description: ID of the datasource this dimension belongs to
@@ -1394,8 +1437,7 @@ paths:
                   type: string
                   description: Description of the dimension
                 owner:
-                  type: string
-                  description: Owner of the dimension
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 datasourceId:
                   type: string
                   description: ID of the datasource this dimension belongs to
@@ -1505,8 +1547,7 @@ paths:
                   type: string
                   description: Name of the segment
                 owner:
-                  type: string
-                  description: Owner of the segment
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 description:
                   type: string
                   description: Description of the segment
@@ -1606,8 +1647,7 @@ paths:
                   type: string
                   description: Description of the segment
                 owner:
-                  type: string
-                  description: Owner of the segment
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 datasourceId:
                   type: string
                   description: ID of the datasource this segment belongs to
@@ -1762,6 +1802,16 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1850,6 +1900,16 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -2094,8 +2154,7 @@ paths:
                   type: string
                   description: WHERE clause to add to the default experiment query
                 owner:
-                  type: string
-                  description: Email of the person who owns this experiment
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 archived:
                   type: boolean
                 status:
@@ -2301,6 +2360,21 @@ paths:
                   enum:
                     - days
                     - hours
+                postStratificationEnabled:
+                  type:
+                    - boolean
+                    - 'null'
+                  description: 'When null, the organization default is used.'
+                decisionFrameworkSettings:
+                  $ref: '#/components/schemas/ExperimentDecisionFrameworkSettings'
+                metricOverrides:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ExperimentMetricOverrideEntry'
+                  description: Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries).
+                defaultDashboardId:
+                  type: string
+                  description: ID of the default dashboard for this experiment.
                 customFields:
                   type: object
                   additionalProperties:
@@ -2469,8 +2543,7 @@ paths:
                   type: string
                   description: WHERE clause to add to the default experiment query
                 owner:
-                  type: string
-                  description: Email of the person who owns this experiment
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 archived:
                   type: boolean
                 status:
@@ -2590,7 +2663,9 @@ paths:
                       coverage:
                         type: number
                       trafficSplit:
+                        deprecated: true
                         type: array
+                        description: Deprecated and unused. Use variationWeights instead.
                         items:
                           type: object
                           required:
@@ -2692,6 +2767,21 @@ paths:
                   enum:
                     - days
                     - hours
+                postStratificationEnabled:
+                  type:
+                    - boolean
+                    - 'null'
+                  description: 'When null, the organization default is used.'
+                decisionFrameworkSettings:
+                  $ref: '#/components/schemas/ExperimentDecisionFrameworkSettings'
+                metricOverrides:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ExperimentMetricOverrideEntry'
+                  description: Per-metric analysis overrides for this experiment. Replaces the entire stored array (does not patch individual entries).
+                defaultDashboardId:
+                  type: string
+                  description: ID of the default dashboard for this experiment.
                 customFields:
                   type: object
                   additionalProperties:
@@ -3094,8 +3184,7 @@ paths:
                     - ''
                     - api
                 owner:
-                  type: string
-                  description: Name of the person who owns this metric
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 name:
                   type: string
                   description: Name of the metric
@@ -3411,8 +3500,7 @@ paths:
                     - api
                     - admin
                 owner:
-                  type: string
-                  description: Name of the person who owns this metric
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 name:
                   type: string
                   description: Name of the metric
@@ -3907,7 +3995,7 @@ paths:
                   description: 'When type = ''list'', this is the list of values for the attribute key'
                 owner:
                   type: string
-                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                  description: 'The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.'
                 projects:
                   type: array
                   items:
@@ -3980,8 +4068,7 @@ paths:
                     type: string
                   description: 'When type = ''list'', this is the list of values for the attribute key'
                 owner:
-                  type: string
-                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 projects:
                   type: array
                   items:
@@ -4855,8 +4942,7 @@ paths:
                   type: string
                   description: Description of the fact table
                 owner:
-                  type: string
-                  description: The person who is responsible for this fact table
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 projects:
                   type: array
                   items:
@@ -4949,8 +5035,7 @@ paths:
                   type: string
                   description: Description of the fact table
                 owner:
-                  type: string
-                  description: The person who is responsible for this fact table
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 projects:
                   type: array
                   items:
@@ -5267,7 +5352,7 @@ paths:
                 description:
                   type: string
                 owner:
-                  type: string
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 projects:
                   type: array
                   items:
@@ -5648,7 +5733,7 @@ paths:
                 description:
                   type: string
                 owner:
-                  type: string
+                  $ref: '#/paths/~1saved-groups/post/requestBody/content/application~1json/schema/properties/owner'
                 projects:
                   type: array
                   items:
@@ -6332,6 +6417,795 @@ paths:
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
+  '/data-sources/{dataSourceId}/information-schema':
+    parameters:
+      - $ref: '#/components/parameters/dataSourceId'
+    get:
+      tags:
+        - data-sources
+      summary: Get a Data Source's Information Schema
+      description: 'Returns cached database schema metadata for a data source, including databases, schemas, and tables. The information schema is automatically created when a SQL-based data source is added. Not all data source types support information schemas.'
+      operationId: getInformationSchema
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/data-sources/ds_123abc/information-schema \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - informationSchema
+                properties:
+                  informationSchema:
+                    $ref: '#/components/schemas/InformationSchema'
+  '/information-schema-tables/{tableId}':
+    parameters:
+      - $ref: '#/components/parameters/tableId'
+    get:
+      tags:
+        - data-sources
+      summary: Get a single Information Schema Table by id
+      description: 'Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.'
+      operationId: getInformationSchemaTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/information-schema-tables/ist_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - informationSchemaTable
+                properties:
+                  informationSchemaTable:
+                    $ref: '#/components/schemas/InformationSchemaTable'
+  /ramp-schedules:
+    get:
+      summary: List ramp schedules
+      description: |
+        Returns all ramp schedules for the organization, with optional filters.
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - in: query
+          name: featureId
+          schema:
+            type: string
+          description: Filter to schedules attached to a specific feature
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - pending
+              - ready
+              - running
+              - paused
+              - pending-approval
+              - completed
+              - rolled-back
+          description: Filter by schedule status
+      operationId: listRampSchedules
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/ramp-schedules \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - rampSchedules
+                    properties:
+                      rampSchedules:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RampSchedule'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a ramp schedule
+      description: |
+        Creates a new ramp schedule, optionally attaching it to a published feature rule.
+
+        ### Target attachment (optional)
+
+        Provide `featureId`, `ruleId`, and `environment` together to attach the schedule
+        to a specific rule on creation. The rule must already be live (published). Each
+        `[ruleId, environment]` pair can only be controlled by one schedule at a time.
+
+        When all three are supplied, **`targetId` and `patch.ruleId` are auto-injected**
+        into every step action and endAction — callers only need to supply the patch
+        values (`coverage`, `condition`, etc.).
+
+        If omitted, the schedule is created as a free-standing skeleton in `pending`
+        status. Use `POST /ramp-schedules/{id}/actions/add-target` to attach rules later,
+        and `POST /ramp-schedules/{id}/actions/start` to start it.
+
+        ### Using templates
+
+        Provide `templateId` to inherit steps and endActions from a saved template.
+        Explicit `steps` / `endActions` in the request body take precedence over the
+        template. Template auto-population requires `featureId`, `ruleId`, and
+        `environment` to be set (so targetId can be injected).
+
+        Requires an **Enterprise** plan.
+      tags:
+        - ramp-schedules
+      operationId: postRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          label: With target (simple)
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+              -d '{
+                "name": "Coverage ramp",
+                "featureId": "my-feature",
+                "ruleId": "rule_abc",
+                "environment": "production",
+                "steps": [
+                  { "trigger": { "type": "interval", "seconds": 86400 }, "actions": [{ "patch": { "coverage": 0.5 } }] },
+                  { "trigger": { "type": "approval" }, "actions": [{ "patch": { "coverage": 1.0 } }] }
+                ]
+              }' \
+              -u secret_abc123DEF456:
+        - lang: cURL
+          label: Standalone (no target)
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+              -d '{ "name": "My ramp skeleton" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                featureId:
+                  type: string
+                  description: Feature that anchors this schedule. Required when ruleId/environment are set.
+                ruleId:
+                  type: string
+                  description: Rule to attach as the initial target. Requires featureId and environment.
+                environment:
+                  type: string
+                  description: Environment of the target rule. Requires featureId and ruleId.
+                templateId:
+                  type: string
+                  description: Load steps and endActions from a saved template (featureId+ruleId+environment must also be set for auto-injection)
+                steps:
+                  type: array
+                  description: |
+                    Ordered ramp steps. When featureId+ruleId+environment are provided,
+                    `targetId` and `patch.ruleId` in actions are auto-injected — only
+                    supply the patch fields you want to change.
+                  items:
+                    type: object
+                    required:
+                      - trigger
+                    properties:
+                      trigger:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - interval
+                              - approval
+                              - scheduled
+                          seconds:
+                            type: number
+                            description: Hold duration in seconds (interval triggers only)
+                          at:
+                            type: string
+                            format: date-time
+                            description: Absolute fire time (scheduled triggers only)
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - patch
+                          properties:
+                            targetType:
+                              enum:
+                                - feature-rule
+                              description: Omit when using featureId+ruleId+environment (auto-injected)
+                            targetId:
+                              type: string
+                              description: Auto-injected when featureId+ruleId+environment are provided
+                            patch:
+                              type: object
+                              description: Sparse patch — only fields present are applied; absent fields accumulate from previous steps
+                              properties:
+                                ruleId:
+                                  type: string
+                                  description: Auto-injected when ruleId is provided at the top level
+                                coverage:
+                                  type: number
+                                  minimum: 0
+                                  maximum: 1
+                                condition:
+                                  type: string
+                                force:
+                                  description: Force value (any JSON type)
+                      approvalNotes:
+                        type: string
+                endActions:
+                  type: array
+                  description: Actions applied when the ramp completes. targetId and patch.ruleId are auto-injected when featureId+ruleId+environment are provided.
+                  items:
+                    type: object
+                    required:
+                      - patch
+                    properties:
+                      targetType:
+                        enum:
+                          - feature-rule
+                        description: Omit when using featureId+ruleId+environment (auto-injected)
+                      targetId:
+                        type: string
+                        description: Auto-injected when featureId+ruleId+environment are provided
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          force:
+                            description: Force value (any JSON type)
+                startDate:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: When to start. Absent/null = immediately on start action.
+                endCondition:
+                  type: object
+                  description: Optional hard deadline
+                  properties:
+                    trigger:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - scheduled
+                        at:
+                          type: string
+                          format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single ramp schedule
+      tags:
+        - ramp-schedules
+      operationId: getRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Update a ramp schedule
+      description: |
+        Updates the name, steps, endActions, startDate, or endCondition of a ramp schedule.
+
+        Only allowed when the schedule is in `pending`, `ready`, or `paused` status.
+
+        **targetId shorthand**: When providing `steps` or `endActions`, you may omit `targetId`
+        (or pass `"t1"`) in each action. If the schedule has exactly one active target, the server
+        will resolve it automatically. For schedules with multiple targets, provide the explicit
+        target UUID from `targets[].id`.
+      tags:
+        - ramp-schedules
+      operationId: putRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123 \
+              -d '{ "name": "Updated ramp" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                steps:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - trigger
+                    properties:
+                      trigger:
+                        type: object
+                        required:
+                          - type
+                        properties:
+                          type:
+                            type: string
+                            enum:
+                              - interval
+                              - approval
+                              - scheduled
+                          seconds:
+                            type: number
+                          at:
+                            type: string
+                            format: date-time
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - patch
+                          properties:
+                            targetType:
+                              enum:
+                                - feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              required:
+                                - ruleId
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  type: number
+                                  minimum: 0
+                                  maximum: 1
+                                condition:
+                                  type: string
+                                force:
+                                  description: Force value (any JSON type)
+                      approvalNotes:
+                        type: string
+                endActions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - patch
+                    properties:
+                      targetType:
+                        enum:
+                          - feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        required:
+                          - ruleId
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                          condition:
+                            type: string
+                          force:
+                            description: Force value (any JSON type)
+                startDate:
+                  type: string
+                  format: date-time
+                  nullable: true
+                endCondition:
+                  type: object
+                  nullable: true
+                  properties:
+                    trigger:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - scheduled
+                        at:
+                          type: string
+                          format: date-time
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Delete a ramp schedule
+      description: |
+        Permanently deletes a ramp schedule. This does not undo any rule patches that
+        were already applied by completed steps.
+      tags:
+        - ramp-schedules
+      operationId: deleteRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+  '/ramp-schedules/{id}/actions/start':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Start a ramp schedule
+      description: |
+        Transitions the schedule from `ready` to `running` and processes the first
+        step immediately if eligible.
+      tags:
+        - ramp-schedules
+      operationId: startRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/start \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/pause':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Pause a ramp schedule
+      description: |
+        Pauses a `running` or `pending-approval` schedule. The schedule can be
+        resumed from the same position with the `/actions/resume` endpoint.
+      tags:
+        - ramp-schedules
+      operationId: pauseRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/pause \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/resume':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Resume a paused ramp schedule
+      description: |
+        Resumes a `paused` schedule. Adjusts timing anchors to account for the
+        pause duration so step intervals continue from where they left off.
+      tags:
+        - ramp-schedules
+      operationId: resumeRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/resume \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/approve-step':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Approve the current pending-approval step
+      description: |
+        Approves the current step on a schedule in `pending-approval` status and
+        advances to the next step. Requires the caller to have feature review
+        permissions for the associated feature.
+      tags:
+        - ramp-schedules
+      operationId: approveStepRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/approve-step \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/rollback':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Roll back a ramp schedule
+      description: |
+        Rolls back to the starting position and lands in `paused` status so the
+        schedule can be restarted with `/actions/start` or `/actions/resume`.
+      tags:
+        - ramp-schedules
+      operationId: rollbackRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/rollback \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/complete':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Complete a ramp schedule immediately
+      description: |
+        Applies end actions and marks the schedule as `completed`, regardless of
+        how many steps remain.
+      tags:
+        - ramp-schedules
+      operationId: completeRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/complete \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/jump':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Jump to a specific step
+      description: |
+        Moves the schedule directly to `targetStepIndex` (forward or backward) and
+        pauses. Use `-1` to jump to the pre-start position without rolling back rule
+        patches.
+      tags:
+        - ramp-schedules
+      operationId: jumpRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/jump \
+              -d '{ "targetStepIndex": 2 }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetStepIndex
+              properties:
+                targetStepIndex:
+                  type: integer
+                  minimum: -1
+                  description: Zero-based index of the step to jump to; -1 = pre-start
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/add-target':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Add a target rule to a ramp schedule
+      description: |
+        Attaches an additional feature rule to this ramp schedule. The
+        `[ruleId, environment]` pair must identify a rule that is already published
+        and must not already be controlled by another schedule.
+      tags:
+        - ramp-schedules
+      operationId: addTargetRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/add-target \
+              -d '{ "featureId": "my-feature", "ruleId": "rule_abc", "environment": "production" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - featureId
+                - ruleId
+                - environment
+              properties:
+                featureId:
+                  type: string
+                ruleId:
+                  type: string
+                environment:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - rampSchedule
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+  '/ramp-schedules/{id}/actions/eject-target':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Remove a target rule from a ramp schedule
+      description: |
+        Detaches a target rule from this ramp schedule. Identify the target either
+        by its `targetId` or by the `[ruleId, environment]` pair.
+
+        If this is the last target on the schedule, the schedule is deleted entirely
+        and the response contains `deleted: true` instead of `rampSchedule`.
+      tags:
+        - ramp-schedules
+      operationId: ejectTargetRampSchedule
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/ramp-schedules/rs_abc123/actions/eject-target \
+              -d '{ "ruleId": "rule_abc", "environment": "production" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetId:
+                  type: string
+                  description: Target ID (from the targets array)
+                ruleId:
+                  type: string
+                  description: Rule ID — use with environment as an alternative to targetId
+                environment:
+                  type: string
+                  description: Environment — use with ruleId as an alternative to targetId
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - rampSchedule
+                    properties:
+                      rampSchedule:
+                        $ref: '#/components/schemas/RampSchedule'
+                  - type: object
+                    required:
+                      - deleted
+                      - rampScheduleId
+                    properties:
+                      deleted:
+                        type: boolean
+                      rampScheduleId:
+                        type: string
   /product-analytics/metric-exploration:
     post:
       $skipValidatorGeneration: true
@@ -8550,24 +9424,24 @@ paths:
                   type: string
                 required:
                   type: boolean
-                index:
-                  type: boolean
                 projects:
                   type: array
                   items:
                     type: string
-                section:
-                  description: What type of objects this custom field is applicable to
-                  type: string
-                  enum:
-                    - feature
-                    - experiment
+                sections:
+                  description: 'What types of objects this custom field is applicable to (feature, experiment)'
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - feature
+                      - experiment
               required:
                 - id
                 - name
                 - type
                 - required
-                - section
+                - sections
               additionalProperties: false
       responses:
         '200':
@@ -8645,19 +9519,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -8667,7 +9541,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
     get:
       $skipValidatorGeneration: true
@@ -8757,19 +9631,19 @@ paths:
                       type: string
                     required:
                       type: boolean
-                    index:
-                      type: boolean
                     creator:
                       type: string
                     projects:
                       type: array
                       items:
                         type: string
-                    section:
-                      type: string
-                      enum:
-                        - feature
-                        - experiment
+                    sections:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                          - feature
+                          - experiment
                     active:
                       type: boolean
                   required:
@@ -8779,7 +9653,7 @@ paths:
                     - name
                     - type
                     - required
-                    - section
+                    - sections
                   additionalProperties: false
   '/custom-fields/{id}':
     delete:
@@ -8788,6 +9662,11 @@ paths:
         - name: id
           in: path
           required: true
+          schema:
+            type: string
+        - name: index
+          in: query
+          required: false
           schema:
             type: string
       tags:
@@ -8899,19 +9778,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -8921,7 +9800,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
     put:
       $skipValidatorGeneration: true
@@ -8983,36 +9862,24 @@ paths:
                         type: string
                         format: date
                         pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$'
-                type:
-                  description: The type of value this custom field will take
-                  type: string
-                  enum:
-                    - text
-                    - textarea
-                    - markdown
-                    - enum
-                    - multiselect
-                    - url
-                    - number
-                    - boolean
-                    - date
-                    - datetime
                 values:
                   type: string
                 required:
-                  type: boolean
-                index:
                   type: boolean
                 projects:
                   type: array
                   items:
                     type: string
-                section:
-                  description: What type of objects this custom field is applicable to
-                  type: string
-                  enum:
-                    - feature
-                    - experiment
+                sections:
+                  description: 'What types of objects this custom field is applicable to (feature, experiment)'
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - feature
+                      - experiment
+                active:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9090,19 +9957,19 @@ paths:
                         type: string
                       required:
                         type: boolean
-                      index:
-                        type: boolean
                       creator:
                         type: string
                       projects:
                         type: array
                         items:
                           type: string
-                      section:
-                        type: string
-                        enum:
-                          - feature
-                          - experiment
+                      sections:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - feature
+                            - experiment
                       active:
                         type: boolean
                     required:
@@ -9112,7 +9979,7 @@ paths:
                       - name
                       - type
                       - required
-                      - section
+                      - sections
                     additionalProperties: false
   '/dashboards/{id}':
     get:
@@ -18894,7 +19761,858 @@ paths:
                 required:
                   - dashboards
                 additionalProperties: false
+  '/experiment-templates/{id}':
+    get:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Get a single experimentTemplate
+      operationId: getExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X GET https://api.growthbook.io/api/v1/experiment-templates/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplate
+                properties:
+                  experimentTemplate:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      project:
+                        type: string
+                      owner:
+                        description: The userId of the owner (or raw owner name/email for legacy records)
+                        type: string
+                      templateMetadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                        additionalProperties: false
+                      type:
+                        type: string
+                        enum:
+                          - standard
+                      hypothesis:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      customFields:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      datasource:
+                        type: string
+                      exposureQueryId:
+                        type: string
+                      hashAttribute:
+                        type: string
+                      fallbackAttribute:
+                        type: string
+                      disableStickyBucketing:
+                        type: boolean
+                      goalMetrics:
+                        type: array
+                        items:
+                          type: string
+                      secondaryMetrics:
+                        type: array
+                        items:
+                          type: string
+                      guardrailMetrics:
+                        type: array
+                        items:
+                          type: string
+                      activationMetric:
+                        type: string
+                      statsEngine:
+                        type: string
+                        enum:
+                          - bayesian
+                          - frequentist
+                      segment:
+                        type: string
+                      skipPartialData:
+                        type: boolean
+                      targeting:
+                        type: object
+                        properties:
+                          coverage:
+                            type: number
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          condition:
+                            type: string
+                        required:
+                          - coverage
+                          - condition
+                        additionalProperties: false
+                      customMetricSlices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            slices:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  column:
+                                    type: string
+                                  levels:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - column
+                                  - levels
+                                additionalProperties: false
+                          required:
+                            - slices
+                          additionalProperties: false
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - templateMetadata
+                      - type
+                      - datasource
+                      - exposureQueryId
+                      - statsEngine
+                      - targeting
+                    additionalProperties: false
+    delete:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Delete a single experimentTemplate
+      operationId: deleteExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X DELETE https://api.growthbook.io/api/v1/experiment-templates/{id} -u secret_abc123DEF456'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+    put:
+      $skipValidatorGeneration: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - ExperimentTemplates
+      summary: Update a single experimentTemplate
+      operationId: updateExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X PUT https://api.growthbook.io/api/v1/experiment-templates/{id} -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                project:
+                  type: string
+                templateMetadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                  required:
+                    - name
+                  additionalProperties: false
+                type:
+                  type: string
+                  enum:
+                    - standard
+                hypothesis:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                customFields:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                datasource:
+                  type: string
+                exposureQueryId:
+                  type: string
+                hashAttribute:
+                  type: string
+                fallbackAttribute:
+                  type: string
+                disableStickyBucketing:
+                  type: boolean
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  type: string
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                segment:
+                  type: string
+                skipPartialData:
+                  type: boolean
+                targeting:
+                  type: object
+                  properties:
+                    coverage:
+                      type: number
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    condition:
+                      type: string
+                  required:
+                    - coverage
+                    - condition
+                  additionalProperties: false
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplate
+                properties:
+                  experimentTemplate:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      project:
+                        type: string
+                      owner:
+                        description: The userId of the owner (or raw owner name/email for legacy records)
+                        type: string
+                      templateMetadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                        additionalProperties: false
+                      type:
+                        type: string
+                        enum:
+                          - standard
+                      hypothesis:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      customFields:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      datasource:
+                        type: string
+                      exposureQueryId:
+                        type: string
+                      hashAttribute:
+                        type: string
+                      fallbackAttribute:
+                        type: string
+                      disableStickyBucketing:
+                        type: boolean
+                      goalMetrics:
+                        type: array
+                        items:
+                          type: string
+                      secondaryMetrics:
+                        type: array
+                        items:
+                          type: string
+                      guardrailMetrics:
+                        type: array
+                        items:
+                          type: string
+                      activationMetric:
+                        type: string
+                      statsEngine:
+                        type: string
+                        enum:
+                          - bayesian
+                          - frequentist
+                      segment:
+                        type: string
+                      skipPartialData:
+                        type: boolean
+                      targeting:
+                        type: object
+                        properties:
+                          coverage:
+                            type: number
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          condition:
+                            type: string
+                        required:
+                          - coverage
+                          - condition
+                        additionalProperties: false
+                      customMetricSlices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            slices:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  column:
+                                    type: string
+                                  levels:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - column
+                                  - levels
+                                additionalProperties: false
+                          required:
+                            - slices
+                          additionalProperties: false
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - templateMetadata
+                      - type
+                      - datasource
+                      - exposureQueryId
+                      - statsEngine
+                      - targeting
+                    additionalProperties: false
   /experiment-templates:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - ExperimentTemplates
+      summary: Create a single experimentTemplate
+      operationId: createExperimentTemplate
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/experiment-templates -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                project:
+                  type: string
+                templateMetadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                  required:
+                    - name
+                  additionalProperties: false
+                type:
+                  type: string
+                  enum:
+                    - standard
+                hypothesis:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                customFields:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                datasource:
+                  type: string
+                exposureQueryId:
+                  type: string
+                hashAttribute:
+                  type: string
+                fallbackAttribute:
+                  type: string
+                disableStickyBucketing:
+                  type: boolean
+                goalMetrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                activationMetric:
+                  type: string
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
+                segment:
+                  type: string
+                skipPartialData:
+                  type: boolean
+                targeting:
+                  type: object
+                  properties:
+                    coverage:
+                      type: number
+                    savedGroups:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          match:
+                            type: string
+                            enum:
+                              - all
+                              - none
+                              - any
+                          ids:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - match
+                          - ids
+                        additionalProperties: false
+                    prerequisites:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          condition:
+                            type: string
+                        required:
+                          - id
+                          - condition
+                        additionalProperties: false
+                    condition:
+                      type: string
+                  required:
+                    - coverage
+                    - condition
+                  additionalProperties: false
+                customMetricSlices:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            column:
+                              type: string
+                            levels:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - column
+                            - levels
+                          additionalProperties: false
+                    required:
+                      - slices
+                    additionalProperties: false
+              required:
+                - templateMetadata
+                - type
+                - datasource
+                - exposureQueryId
+                - statsEngine
+                - targeting
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experimentTemplate
+                properties:
+                  experimentTemplate:
+                    $schema: 'https://json-schema.org/draft/2020-12/schema'
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      dateCreated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      dateUpdated:
+                        type: string
+                        format: date-time
+                        pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
+                      project:
+                        type: string
+                      owner:
+                        description: The userId of the owner (or raw owner name/email for legacy records)
+                        type: string
+                      templateMetadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                        additionalProperties: false
+                      type:
+                        type: string
+                        enum:
+                          - standard
+                      hypothesis:
+                        type: string
+                      description:
+                        type: string
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                      customFields:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      datasource:
+                        type: string
+                      exposureQueryId:
+                        type: string
+                      hashAttribute:
+                        type: string
+                      fallbackAttribute:
+                        type: string
+                      disableStickyBucketing:
+                        type: boolean
+                      goalMetrics:
+                        type: array
+                        items:
+                          type: string
+                      secondaryMetrics:
+                        type: array
+                        items:
+                          type: string
+                      guardrailMetrics:
+                        type: array
+                        items:
+                          type: string
+                      activationMetric:
+                        type: string
+                      statsEngine:
+                        type: string
+                        enum:
+                          - bayesian
+                          - frequentist
+                      segment:
+                        type: string
+                      skipPartialData:
+                        type: boolean
+                      targeting:
+                        type: object
+                        properties:
+                          coverage:
+                            type: number
+                          savedGroups:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          prerequisites:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          condition:
+                            type: string
+                        required:
+                          - coverage
+                          - condition
+                        additionalProperties: false
+                      customMetricSlices:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            slices:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  column:
+                                    type: string
+                                  levels:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - column
+                                  - levels
+                                additionalProperties: false
+                          required:
+                            - slices
+                          additionalProperties: false
+                    required:
+                      - id
+                      - dateCreated
+                      - dateUpdated
+                      - owner
+                      - templateMetadata
+                      - type
+                      - datasource
+                      - exposureQueryId
+                      - statsEngine
+                      - targeting
+                    additionalProperties: false
     get:
       $skipValidatorGeneration: true
       parameters:
@@ -18938,6 +20656,7 @@ paths:
                         project:
                           type: string
                         owner:
+                          description: The userId of the owner (or raw owner name/email for legacy records)
                           type: string
                         templateMetadata:
                           type: object
@@ -19078,6 +20797,199 @@ paths:
                         - statsEngine
                         - targeting
                       additionalProperties: false
+  /experiment-templates/bulk-import:
+    post:
+      $skipValidatorGeneration: true
+      parameters: []
+      tags:
+        - ExperimentTemplates
+      summary: Bulk create or update experiment templates
+      operationId: bulkImportExperimentTemplates
+      x-codeSamples:
+        - lang: cURL
+          source: 'curl -X POST https://api.growthbook.io/api/v1/experiment-templates/bulk-import -d ''{ ... }'' -u secret_abc123DEF456'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $schema: 'https://json-schema.org/draft/2020-12/schema'
+              type: object
+              properties:
+                templates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        type: object
+                        properties:
+                          project:
+                            type: string
+                          templateMetadata:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              description:
+                                type: string
+                            required:
+                              - name
+                            additionalProperties: false
+                          type:
+                            type: string
+                            enum:
+                              - standard
+                          hypothesis:
+                            type: string
+                          description:
+                            type: string
+                          tags:
+                            type: array
+                            items:
+                              type: string
+                          customFields:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties:
+                              type: string
+                          datasource:
+                            type: string
+                          exposureQueryId:
+                            type: string
+                          hashAttribute:
+                            type: string
+                          fallbackAttribute:
+                            type: string
+                          disableStickyBucketing:
+                            type: boolean
+                          goalMetrics:
+                            type: array
+                            items:
+                              type: string
+                          secondaryMetrics:
+                            type: array
+                            items:
+                              type: string
+                          guardrailMetrics:
+                            type: array
+                            items:
+                              type: string
+                          activationMetric:
+                            type: string
+                          statsEngine:
+                            type: string
+                            enum:
+                              - bayesian
+                              - frequentist
+                          segment:
+                            type: string
+                          skipPartialData:
+                            type: boolean
+                          targeting:
+                            type: object
+                            properties:
+                              coverage:
+                                type: number
+                              savedGroups:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              prerequisites:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              condition:
+                                type: string
+                            required:
+                              - coverage
+                              - condition
+                            additionalProperties: false
+                          customMetricSlices:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                slices:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      column:
+                                        type: string
+                                      levels:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - column
+                                      - levels
+                                    additionalProperties: false
+                              required:
+                                - slices
+                              additionalProperties: false
+                        required:
+                          - templateMetadata
+                          - type
+                          - datasource
+                          - exposureQueryId
+                          - statsEngine
+                          - targeting
+                        additionalProperties: false
+                    required:
+                      - id
+                      - data
+                    additionalProperties: false
+              required:
+                - templates
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $schema: 'https://json-schema.org/draft/2020-12/schema'
+                type: object
+                properties:
+                  added:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  updated:
+                    type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                required:
+                  - added
+                  - updated
+                additionalProperties: false
   '/metric-groups/{id}':
     get:
       $skipValidatorGeneration: true
@@ -19118,6 +21030,7 @@ paths:
                         format: date-time
                         pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                       owner:
+                        description: The userId of the owner (or raw owner name/email for legacy records)
                         type: string
                       name:
                         type: string
@@ -19220,7 +21133,7 @@ paths:
                 datasource:
                   type: string
                 owner:
-                  description: Will default to the current user
+                  description: 'The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.'
                   type: string
                 archived:
                   type: boolean
@@ -19249,6 +21162,7 @@ paths:
                         format: date-time
                         pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                       owner:
+                        description: The userId of the owner (or raw owner name/email for legacy records)
                         type: string
                       name:
                         type: string
@@ -19321,7 +21235,7 @@ paths:
                 datasource:
                   type: string
                 owner:
-                  description: Will default to the current user
+                  description: 'The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.'
                   type: string
                 archived:
                   type: boolean
@@ -19356,6 +21270,7 @@ paths:
                         format: date-time
                         pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                       owner:
+                        description: The userId of the owner (or raw owner name/email for legacy records)
                         type: string
                       name:
                         type: string
@@ -19426,6 +21341,7 @@ paths:
                           format: date-time
                           pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
                         owner:
+                          description: The userId of the owner (or raw owner name/email for legacy records)
                           type: string
                         name:
                           type: string
@@ -21421,6 +23337,20 @@ components:
       description: Specify a specific fact table
       schema:
         type: string
+    dataSourceId:
+      name: dataSourceId
+      in: path
+      required: true
+      description: The id of the data source
+      schema:
+        type: string
+    tableId:
+      name: tableId
+      in: path
+      required: true
+      description: The id of the information schema table
+      schema:
+        type: string
     repo:
       name: repo
       in: query
@@ -22433,19 +24363,19 @@ components:
           type: string
         required:
           type: boolean
-        index:
-          type: boolean
         creator:
           type: string
         projects:
           type: array
           items:
             type: string
-        section:
-          type: string
-          enum:
-            - feature
-            - experiment
+        sections:
+          type: array
+          items:
+            type: string
+            enum:
+              - feature
+              - experiment
         active:
           type: boolean
       required:
@@ -22455,7 +24385,7 @@ components:
         - name
         - type
         - required
-        - section
+        - sections
       additionalProperties: false
       $skipValidatorGeneration: true
     Dashboard:
@@ -23940,6 +25870,7 @@ components:
         project:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         templateMetadata:
           type: object
@@ -24096,6 +26027,7 @@ components:
           format: date-time
           pattern: '^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$'
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         name:
           type: string
@@ -24508,7 +26440,6 @@ components:
               - patch
             properties:
               targetType:
-                type: string
                 enum:
                   - feature-rule
               targetId:
@@ -24565,7 +26496,6 @@ components:
                     - patch
                   properties:
                     targetType:
-                      type: string
                       enum:
                         - feature-rule
                     targetId:
@@ -24657,7 +26587,7 @@ components:
         dateUpdated:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         datasourceId:
           type: string
         identifierType:
@@ -24708,6 +26638,7 @@ components:
           type: string
         owner:
           type: string
+          description: The userId of the owner (or raw owner name/email for legacy records)
         datasourceId:
           type: string
         name:
@@ -24958,6 +26889,9 @@ components:
           format: date-time
         description:
           type: string
+        publicId:
+          type: string
+          description: URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.
         settings:
           type: object
           properties:
@@ -25042,7 +26976,7 @@ components:
         id:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         datasourceId:
           type: string
         identifierType:
@@ -25130,7 +27064,7 @@ components:
         description:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         project:
           type: string
         valueType:
@@ -25251,6 +27185,76 @@ components:
           experiment: '#/components/schemas/FeatureExperimentRule'
           experiment-ref: '#/components/schemas/FeatureExperimentRefRule'
           safe-rollout: '#/components/schemas/FeatureSafeRolloutRule'
+    FeatureBaseRule:
+      description: |
+        Common fields shared by all feature rule types. Specific rule types extend
+        this base with their own required properties (value, coverage, etc.).
+      type: object
+      required:
+        - description
+        - id
+        - enabled
+      properties:
+        description:
+          type: string
+        condition:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        scheduleRules:
+          type: array
+          description: Simple time-based on/off schedule for this rule
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
+        scheduleType:
+          type: string
+          enum:
+            - none
+            - schedule
+            - ramp
+          description: |
+            UI hint for which scheduling mode is active:
+            - `none` – no schedule
+            - `schedule` – simple time-based enable/disable via `scheduleRules`
+            - `ramp` – multi-step ramp-up controlled by an associated RampSchedule document
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID of the prerequisite
+              condition:
+                type: string
     FeatureDefinition:
       type: object
       required:
@@ -25306,325 +27310,162 @@ components:
                 type: object
                 additionalProperties: true
     FeatureForceRule:
-      type: object
-      required:
-        - description
-        - condition
-        - id
-        - enabled
-        - type
-        - value
-      properties:
-        description:
-          type: string
-        condition:
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            required:
-              - matchType
-              - savedGroups
-            properties:
-              matchType:
-                type: string
-                enum:
-                  - all
-                  - any
-                  - none
-              savedGroups:
-                type: array
-                items:
-                  type: string
-        prerequisites:
-          type: array
-          items:
-            type: object
-            required:
-              - id
-              - condition
-            properties:
-              id:
-                type: string
-                description: Feature ID
-              condition:
-                type: string
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - force
-        value:
-          type: string
-    FeatureRolloutRule:
-      type: object
-      required:
-        - description
-        - condition
-        - id
-        - enabled
-        - type
-        - value
-        - coverage
-        - hashAttribute
-      properties:
-        description:
-          type: string
-        condition:
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            required:
-              - matchType
-              - savedGroups
-            properties:
-              matchType:
-                type: string
-                enum:
-                  - all
-                  - any
-                  - none
-              savedGroups:
-                type: array
-                items:
-                  type: string
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - rollout
-        value:
-          type: string
-        coverage:
-          type: number
-        hashAttribute:
-          type: string
-    FeatureSafeRolloutRule:
-      type: object
-      required:
-        - condition
-        - id
-        - enabled
-        - type
-        - controlValue
-        - variationValue
-      properties:
-        condition:
-          type: string
-        savedGroupTargeting:
-          type: array
-          items:
-            type: object
-            required:
-              - matchType
-              - savedGroups
-            properties:
-              matchType:
-                type: string
-                enum:
-                  - all
-                  - any
-                  - none
-              savedGroups:
-                type: array
-                items:
-                  type: string
-        prerequisites:
-          type: array
-          items:
-            type: object
-            required:
-              - id
-              - condition
-            properties:
-              id:
-                type: string
-                description: Feature ID
-              condition:
-                type: string
-        id:
-          type: string
-        trackingKey:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - safe-rollout
-        controlValue:
-          type: string
-        variationValue:
-          type: string
-        seed:
-          type: string
-        hashAttribute:
-          type: string
-        safeRolloutId:
-          type: string
-        status:
-          type: string
-          enum:
-            - running
-            - released
-            - rolled-back
-            - stopped
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-    FeatureExperimentRule:
-      type: object
-      required:
-        - description
-        - condition
-        - id
-        - enabled
-        - type
-      properties:
-        description:
-          type: string
-        condition:
-          type: string
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - experiment
-        trackingKey:
-          type: string
-        hashAttribute:
-          type: string
-        fallbackAttribute:
-          type: string
-        disableStickyBucketing:
-          type: boolean
-        bucketVersion:
-          type: number
-        minBucketVersion:
-          type: number
-        namespace:
-          type: object
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
           required:
-            - enabled
-            - name
-            - range
+            - type
+            - value
           properties:
-            enabled:
-              type: boolean
-            name:
+            type:
               type: string
-            range:
+              enum:
+                - force
+            value:
+              type: string
+    FeatureRolloutRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+            - value
+            - coverage
+            - hashAttribute
+          properties:
+            type:
+              type: string
+              enum:
+                - rollout
+            value:
+              type: string
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            hashAttribute:
+              type: string
+            seed:
+              type: string
+              description: Optional seed for the hash function; defaults to the rule id
+    FeatureSafeRolloutRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+            - controlValue
+            - variationValue
+          properties:
+            type:
+              type: string
+              enum:
+                - safe-rollout
+            controlValue:
+              type: string
+            variationValue:
+              type: string
+            seed:
+              type: string
+            hashAttribute:
+              type: string
+            trackingKey:
+              type: string
+            safeRolloutId:
+              type: string
+            status:
+              type: string
+              enum:
+                - running
+                - released
+                - rolled-back
+                - stopped
+    FeatureExperimentRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - experiment
+            trackingKey:
+              type: string
+            hashAttribute:
+              type: string
+            fallbackAttribute:
+              type: string
+            disableStickyBucketing:
+              type: boolean
+            bucketVersion:
+              type: number
+            minBucketVersion:
+              type: number
+            namespace:
+              type: object
+              required:
+                - enabled
+                - name
+                - range
+              properties:
+                enabled:
+                  type: boolean
+                name:
+                  type: string
+                range:
+                  type: array
+                  items:
+                    type: number
+                  minItems: 2
+                  maxItems: 2
+            coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            value:
+              type: array
+              description: Variation values with weights
+              items:
+                type: object
+                required:
+                  - value
+                  - weight
+                properties:
+                  value:
+                    type: string
+                  weight:
+                    type: number
+                  name:
+                    type: string
+    FeatureExperimentRefRule:
+      allOf:
+        - $ref: '#/components/schemas/FeatureBaseRule'
+        - type: object
+          required:
+            - type
+            - variations
+            - experimentId
+          properties:
+            type:
+              type: string
+              enum:
+                - experiment-ref
+            variations:
               type: array
               items:
-                type: number
-              minItems: 2
-              maxItems: 2
-        coverage:
-          type: number
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        value:
-          type: array
-          items:
-            type: object
-            required:
-              - value
-              - weight
-            properties:
-              value:
-                type: string
-              weight:
-                type: number
-              name:
-                type: string
-    FeatureExperimentRefRule:
-      type: object
-      required:
-        - description
-        - id
-        - enabled
-        - type
-        - variations
-        - experimentId
-      properties:
-        description:
-          type: string
-        id:
-          type: string
-        enabled:
-          type: boolean
-        type:
-          type: string
-          enum:
-            - experiment-ref
-        condition:
-          type: string
-        scheduleRules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ScheduleRule'
-          example:
-            - enabled: true
-              timestamp: null
-            - enabled: false
-              timestamp: '2025-06-23T16:09:37.769Z'
-        variations:
-          type: array
-          items:
-            type: object
-            required:
-              - value
-              - variationId
-            properties:
-              value:
-                type: string
-              variationId:
-                type: string
-        experimentId:
-          type: string
+                type: object
+                required:
+                  - value
+                  - variationId
+                properties:
+                  value:
+                    type: string
+                  variationId:
+                    type: string
+            experimentId:
+              type: string
     FeatureRevision:
       type: object
       required:
@@ -25706,7 +27547,7 @@ components:
             description:
               type: string
             owner:
-              type: string
+              $ref: '#/components/schemas/Metric/properties/owner'
             project:
               type: string
             tags:
@@ -25797,6 +27638,16 @@ components:
           type: boolean
         includeRuleIds:
           type: boolean
+        includeProjectIdInMetadata:
+          type: boolean
+        includeCustomFieldsInMetadata:
+          type: boolean
+        allowedCustomFieldsInMetadata:
+          type: array
+          items:
+            type: string
+        includeTagsInMetadata:
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -25864,7 +27715,7 @@ components:
           items:
             type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         archived:
           type: boolean
         status:
@@ -26074,6 +27925,9 @@ components:
             required:
               - slices
           description: Custom slices that apply to ALL applicable metrics in the experiment
+        defaultDashboardId:
+          type: string
+          description: ID of the default dashboard for this experiment.
         templateId:
           type: string
     ExperimentSnapshot:
@@ -26111,9 +27965,80 @@ components:
                 - lookback
                 - ''
             winRiskThreshold:
+              deprecated: true
               type: number
             loseRiskThreshold:
+              deprecated: true
               type: number
+            properPriorOverride:
+              type: boolean
+            properPriorEnabled:
+              type: boolean
+            properPriorMean:
+              type: number
+            properPriorStdDev:
+              type: number
+            regressionAdjustmentOverride:
+              type: boolean
+            regressionAdjustmentEnabled:
+              type: boolean
+            regressionAdjustmentDays:
+              type: number
+    ExperimentMetricOverrideEntry:
+      type: object
+      description: Per-metric analysis overrides stored on the experiment (matches internal metricOverrides).
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: ID of the metric to override settings for.
+        windowType:
+          type: string
+          enum:
+            - conversion
+            - lookback
+            - ''
+        windowHours:
+          type: number
+        delayHours:
+          type: number
+        properPriorOverride:
+          type: boolean
+          description: 'Must be true for the override to take effect. If true, the other proper prior settings in this object will be used if present.'
+        properPriorEnabled:
+          type: boolean
+        properPriorMean:
+          type: number
+        properPriorStdDev:
+          type: number
+        regressionAdjustmentOverride:
+          type: boolean
+          description: 'Must be true for the override to take effect. If true, the other regression adjustment settings in this object will be used if present.'
+        regressionAdjustmentEnabled:
+          type: boolean
+        regressionAdjustmentDays:
+          type: number
+    ExperimentDecisionFrameworkSettings:
+      type: object
+      description: Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields).
+      properties:
+        decisionCriteriaId:
+          type: string
+        decisionFrameworkMetricOverrides:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+            properties:
+              id:
+                type: string
+                description: ID of the metric to override settings for.
+              targetMDE:
+                type: number
+                exclusiveMinimum: 0
+                description: 'The target relative MDE to use for the metric, expressed as proportions (e.g. use 0.1 for 10%). Must be greater than 0.'
     ExperimentAnalysisSettings:
       type: object
       required:
@@ -26161,6 +28086,18 @@ components:
           type: boolean
         sequentialTestingTuningParameter:
           type: number
+        postStratificationEnabled:
+          type:
+            - boolean
+            - 'null'
+          description: 'When null, the organization default is used.'
+        decisionFrameworkSettings:
+          $ref: '#/components/schemas/ExperimentDecisionFrameworkSettings'
+        metricOverrides:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentMetricOverrideEntry'
+          description: 'Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).'
         goals:
           type: array
           items:
@@ -26581,7 +28518,7 @@ components:
         name:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         condition:
           description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
           type: string
@@ -26641,7 +28578,7 @@ components:
         description:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         projects:
           type: array
           items:
@@ -26828,7 +28765,7 @@ components:
         description:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         projects:
           type: array
           items:
@@ -27261,7 +29198,7 @@ components:
         description:
           type: string
         owner:
-          type: string
+          $ref: '#/components/schemas/Metric/properties/owner'
         isPublic:
           type: boolean
         attributes:
@@ -27571,6 +29508,156 @@ components:
               flagKey:
                 type: string
                 description: The feature flag key referenced
+    InformationSchema:
+      type: object
+      required:
+        - id
+        - datasourceId
+        - status
+        - databases
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        datasourceId:
+          type: string
+        status:
+          type: string
+          enum:
+            - PENDING
+            - COMPLETE
+        error:
+          type: object
+          required:
+            - errorType
+            - message
+          properties:
+            errorType:
+              type: string
+              enum:
+                - generic
+                - not_supported
+                - missing_params
+            message:
+              type: string
+        databases:
+          type: array
+          items:
+            type: object
+            required:
+              - databaseName
+              - schemas
+              - dateCreated
+              - dateUpdated
+            properties:
+              databaseName:
+                type: string
+              path:
+                type: string
+              dateCreated:
+                type: string
+                format: date-time
+              dateUpdated:
+                type: string
+                format: date-time
+              schemas:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - schemaName
+                    - tables
+                    - dateCreated
+                    - dateUpdated
+                  properties:
+                    schemaName:
+                      type: string
+                    path:
+                      type: string
+                    dateCreated:
+                      type: string
+                      format: date-time
+                    dateUpdated:
+                      type: string
+                      format: date-time
+                    tables:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - tableName
+                          - id
+                          - numOfColumns
+                          - dateCreated
+                          - dateUpdated
+                        properties:
+                          tableName:
+                            type: string
+                          path:
+                            type: string
+                          id:
+                            type: string
+                          numOfColumns:
+                            type: number
+                          dateCreated:
+                            type: string
+                            format: date-time
+                          dateUpdated:
+                            type: string
+                            format: date-time
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    InformationSchemaTable:
+      type: object
+      required:
+        - id
+        - datasourceId
+        - informationSchemaId
+        - tableName
+        - tableSchema
+        - databaseName
+        - columns
+        - refreshMS
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        datasourceId:
+          type: string
+        informationSchemaId:
+          type: string
+        tableName:
+          type: string
+        tableSchema:
+          type: string
+        databaseName:
+          type: string
+        columns:
+          type: array
+          items:
+            type: object
+            required:
+              - columnName
+              - dataType
+            properties:
+              columnName:
+                type: string
+              dataType:
+                type: string
+        refreshMS:
+          type: number
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http
@@ -27610,11 +29697,14 @@ x-tagGroups:
       - projects
       - environments
       - features
+      - ramp-schedules
+      - RampScheduleTemplates
       - data-sources
       - fact-tables
       - fact-metrics
       - metrics
       - experiments
+      - ExperimentTemplates
       - snapshots
       - dimensions
       - segments
@@ -27632,9 +29722,7 @@ x-tagGroups:
       - AnalyticsExplorations
       - CustomFields
       - Dashboards
-      - ExperimentTemplates
       - MetricGroups
-      - RampScheduleTemplates
       - Teams
   - name: Models
     tags:
@@ -27646,7 +29734,9 @@ x-tagGroups:
       - Environment_model
       - Experiment_model
       - ExperimentAnalysisSettings_model
+      - ExperimentDecisionFrameworkSettings_model
       - ExperimentMetric_model
+      - ExperimentMetricOverrideEntry_model
       - ExperimentResults_model
       - ExperimentSnapshot_model
       - ExperimentWithEnhancedStatus_model
@@ -27655,6 +29745,7 @@ x-tagGroups:
       - FactTableColumn_model
       - FactTableFilter_model
       - Feature_model
+      - FeatureBaseRule_model
       - FeatureDefinition_model
       - FeatureEnvironment_model
       - FeatureExperimentRefRule_model
@@ -27665,6 +29756,8 @@ x-tagGroups:
       - FeatureRule_model
       - FeatureSafeRolloutRule_model
       - FeatureWithRevisions_model
+      - InformationSchema_model
+      - InformationSchemaTable_model
       - LookbackOverride_model
       - Member_model
       - Metric_model

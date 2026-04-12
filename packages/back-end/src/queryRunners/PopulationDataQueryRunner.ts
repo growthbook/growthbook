@@ -1,3 +1,4 @@
+import { UpdateProps } from "shared/types/base-model";
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
@@ -370,7 +371,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
     result?: PopulationDataResult;
     error?: string;
   }): Promise<PopulationDataInterface> {
-    const updates: Partial<PopulationDataInterface> = {
+    const updates: UpdateProps<PopulationDataInterface> = {
       queries,
       runStarted,
       error,

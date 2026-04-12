@@ -7,6 +7,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
+import { ownerField } from "./owner-field";
 import { rampStep, rampStepAction } from "./ramp-schedule";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -257,7 +258,7 @@ export type MinimalFeatureRevisionInterface = z.infer<
 
 const revisionMetadataSchema = z.object({
   description: z.string().optional(),
-  owner: z.string().optional(),
+  owner: ownerField.optional(),
   project: z.string().optional(),
   tags: z.array(z.string()).optional(),
   neverStale: z.boolean().optional(),
@@ -339,6 +340,9 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
+    // Users (beyond the original author) who have made edits to this draft.
+    // Populated incrementally via updateRevision; used for the self-approval block.
+    contributors: z.array(eventUser).optional(),
   })
   .strict();
 
@@ -351,7 +355,7 @@ export const featureInterface = z
     description: z.string().optional(),
     organization: z.string(),
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
-    owner: z.string(),
+    owner: ownerField,
     project: z.string().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),

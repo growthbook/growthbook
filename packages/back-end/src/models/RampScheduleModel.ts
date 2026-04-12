@@ -28,23 +28,35 @@ const BaseClass = MakeModelClass({
 });
 
 export class RampScheduleModel extends BaseClass {
-  protected canRead() {
-    return this.context.permissions.canViewFeatureModal(undefined);
+  private getProject(doc: RampScheduleInterface): string | undefined {
+    const { feature } = this.getForeignRefs(doc, false);
+    return feature?.project;
   }
-  protected canCreate() {
-    return this.context.permissions.canCreateFeature({ project: undefined });
-  }
-  protected canUpdate(
-    _existing: RampScheduleInterface,
-    _updates: UpdateProps<RampScheduleInterface>,
-  ) {
-    return this.context.permissions.canUpdateFeature(
-      { project: undefined },
-      { project: undefined },
+
+  protected canRead(doc: RampScheduleInterface) {
+    return this.context.permissions.canReadSingleProjectResource(
+      this.getProject(doc),
     );
   }
-  protected canDelete(_existing: RampScheduleInterface) {
-    return this.context.permissions.canDeleteFeature({ project: undefined });
+  protected canCreate(doc: RampScheduleInterface) {
+    return this.context.permissions.canCreateFeature({
+      project: this.getProject(doc),
+    });
+  }
+  protected canUpdate(
+    existing: RampScheduleInterface,
+    _updates: UpdateProps<RampScheduleInterface>,
+    newDoc: RampScheduleInterface,
+  ) {
+    return this.context.permissions.canUpdateFeature(
+      { project: this.getProject(existing) },
+      { project: this.getProject(newDoc) },
+    );
+  }
+  protected canDelete(existing: RampScheduleInterface) {
+    return this.context.permissions.canDeleteFeature({
+      project: this.getProject(existing),
+    });
   }
 
   public async getAllByEntityId(
@@ -58,6 +70,15 @@ export class RampScheduleModel extends BaseClass {
     featureId: string,
   ): Promise<RampScheduleInterface[]> {
     return this._find({ entityType: "feature", entityId: featureId });
+  }
+
+  public async findByTargetRule(
+    ruleId: string,
+    environment: string,
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({
+      targets: { $elemMatch: { ruleId, environment } },
+    });
   }
 
   public async getActiveSchedules(): Promise<RampScheduleInterface[]> {

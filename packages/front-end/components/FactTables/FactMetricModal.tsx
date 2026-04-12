@@ -1610,9 +1610,9 @@ export default function FactMetricModal({
             });
           }
 
-          const updatePayload: UpdateFactMetricProps = omit(values, [
+          const updatePayload = omit(values, [
             "datasource",
-          ]);
+          ]) as UpdateFactMetricProps;
           await apiCall(`/fact-metrics/${existing.id}`, {
             method: "PUT",
             body: JSON.stringify(updatePayload),

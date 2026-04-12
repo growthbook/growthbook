@@ -19,7 +19,7 @@ properties:
   description:
     type: string
   owner:
-    type: string
+    $ref: "../fields/OwnerField.yaml"
   isPublic:
     type: boolean
   attributes:

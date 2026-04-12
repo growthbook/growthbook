@@ -5,7 +5,7 @@ import {
 } from "shared/types/feature-revision";
 import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { ago, date } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import React, {
   MutableRefObject,
   useImperativeHandle,
@@ -16,9 +16,8 @@ import stringify from "json-stringify-pretty-compact";
 import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Avatar from "@/components/Avatar/Avatar";
+import EventUser from "@/components/Avatar/EventUser";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 
 export type MutateLog = {
@@ -48,10 +47,14 @@ function actionColor(action: string): string {
   return "gray";
 }
 
-function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
+export function RevisionLogRow({
+  log,
+  first,
+}: {
+  log: RevisionLog;
+  first: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const { users } = useUser();
-
   let value = log.value;
   let valueContainsData = false;
   try {
@@ -69,11 +72,6 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   }
 
   const hasExpandable = !comment && valueContainsData;
-
-  let name = "API";
-  if (log.user?.type === "dashboard") {
-    name = users.get(log.user.id)?.name ?? "";
-  }
 
   const color = actionColor(log.action);
 
@@ -109,13 +107,15 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
           </Text>
         )}
         <Flex align="center" gap="1" ml="auto">
-          {log.user?.type === "dashboard" && (
-            <Avatar email={log.user.email} size={16} name={name} />
-          )}
+          <EventUser
+            user={log.user}
+            display="avatar-name-email"
+            size="sm"
+            wrap={true}
+          />
           <Text size="small" color="text-low">
-            {log.user?.type === "dashboard" ? log.user.name : "API"}
             {" · "}
-            {ago(log.timestamp)}
+            {datetime(log.timestamp)}
           </Text>
           {hasExpandable && (
             <Text size="small" color="text-low">

@@ -36,6 +36,8 @@ import {
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
+import EventUser from "@/components/Avatar/EventUser";
+import CoAuthors from "@/components/Features/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -61,7 +63,6 @@ import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import UserAvatar from "@/components/Avatar/UserAvatar";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevertModal from "@/components/Features/RevertModal";
 import {
@@ -94,7 +95,6 @@ import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import metaDataStyles from "@/ui/Metadata.module.scss";
 import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
@@ -273,7 +273,7 @@ export default function FeaturesOverview({
   const showKillSwitchManager = killSwitchTarget !== null;
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const commitTitleEdit = useCallback(async () => {
     if (!revision) return;
@@ -493,7 +493,19 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
-      effectiveRevision = { ...filledLive, ...mergeResult.result };
+      effectiveRevision = {
+        ...filledLive,
+        ...mergeResult.result,
+        // Merge rules per-environment so that environments absent from the
+        // sparse mergeResult.result (e.g. production when only dev/staging
+        // changed) inherit their live rules rather than defaulting to [].
+        // Without this, getDraftAffectedEnvironments incorrectly detects a
+        // diff in untouched environments and over-triggers review requirements.
+        rules: {
+          ...filledLive.rules,
+          ...(mergeResult.result.rules ?? {}),
+        },
+      };
       effectiveBase = filledLive;
     }
 
@@ -503,6 +515,7 @@ export default function FeaturesOverview({
       revision: effectiveRevision,
       allEnvironments: environments.map((e) => e.id),
       settings,
+      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
     });
   }
   const isLive = revision?.version === feature.version;
@@ -789,33 +802,29 @@ export default function FeaturesOverview({
 
   const renderRevisionInfo = () => {
     return (
-      <Flex direction="column" gap="1">
-        <Flex align="center" gap="4" wrap="wrap">
+      <Flex direction="column">
+        {/* Revised by (left) + Created/Published (right) — side by side on wide, stacked on narrow */}
+        <Flex
+          align="center"
+          justify="between"
+          wrap="wrap"
+          style={{ rowGap: "var(--space-1)", columnGap: "var(--space-4)" }}
+        >
           {(() => {
             const cb = revision.createdBy;
-            if (cb?.type === "dashboard") {
-              const name = getOwnerDisplay(cb.id);
+            if (cb?.type === "dashboard" || cb?.type === "api_key") {
               return (
                 <Metadata
                   label="Revised by"
                   value={
-                    name ? (
-                      <span>
-                        <UserAvatar name={name} size="sm" variant="soft" />{" "}
-                        {name}
-                      </span>
-                    ) : (
-                      <em className="text-muted">Unknown</em>
-                    )
+                    <Flex align="center" gap="2" wrap="wrap">
+                      <EventUser
+                        user={cb}
+                        display="avatar-name-email"
+                        size="sm"
+                      />
+                    </Flex>
                   }
-                />
-              );
-            }
-            if (cb?.type === "api_key") {
-              return (
-                <Metadata
-                  label="Revised by"
-                  value={<span className="badge badge-secondary">API</span>}
                 />
               );
             }
@@ -835,24 +844,24 @@ export default function FeaturesOverview({
             }
             return null;
           })()}
-          <Metadata label="Created" value={datetime(revision.dateCreated)} />
-          {revision.status === "published" && revision.datePublished && (
-            <Metadata
-              label="Published"
-              value={datetime(revision.datePublished)}
-            />
-          )}
-          {revision.status === "draft" && (
-            <Metadata label="Last update" value={ago(revision.dateUpdated)} />
-          )}
+          <Flex align="center" gap="4" wrap="wrap">
+            <Metadata label="Created" value={datetime(revision.dateCreated)} />
+            {revision.status === "published" && revision.datePublished && (
+              <Metadata
+                label="Published"
+                value={datetime(revision.datePublished)}
+              />
+            )}
+            {revision.status === "draft" && (
+              <Metadata label="Last update" value={ago(revision.dateUpdated)} />
+            )}
+          </Flex>
         </Flex>
+        <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <span
-            className={metaDataStyles.labelColor}
-            style={{ fontWeight: 500 }}
-          >
+          <Text weight="semibold" color="text-high">
             Revision notes:
-          </span>{" "}
+          </Text>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>

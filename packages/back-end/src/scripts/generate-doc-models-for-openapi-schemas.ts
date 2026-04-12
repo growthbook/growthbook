@@ -108,6 +108,11 @@ function formatPathVariables(pathFragment: string) {
   return pathFragment.replace(/:(\w+)/g, "{$1}");
 }
 
+// "rampScheduleTemplates" → "Ramp Schedule Templates"
+function camelToTitle(str: string): string {
+  return capitalizeFirstCharacter(str.replace(/([A-Z])/g, " $1"));
+}
+
 async function run() {
   const specPath = path.join(__dirname, "../api/openapi/openapi.yaml");
   const api = load(fs.readFileSync(specPath, "utf-8"));
@@ -147,7 +152,22 @@ async function run() {
     const singularCapitalized = capitalizeFirstCharacter(spec.modelSingular);
     const pluralCapitalized = capitalizeFirstCharacter(spec.modelPlural);
     models.push(singularCapitalized);
-    endpointTags.push(pluralCapitalized);
+    // Always emit a proper tag definition so the nav label is human-readable.
+    api.tags.push({
+      name: pluralCapitalized,
+      "x-displayName": spec.navDisplayName ?? camelToTitle(spec.modelPlural),
+      description: spec.navDescription ?? "",
+    });
+    if (spec.navAfterTag) {
+      const idx = endpointTags.indexOf(spec.navAfterTag);
+      if (idx !== -1) {
+        endpointTags.splice(idx + 1, 0, pluralCapitalized);
+      } else {
+        endpointTags.push(pluralCapitalized);
+      }
+    } else {
+      endpointTags.push(pluralCapitalized);
+    }
     const crudConfig = getCrudConfig(spec);
     crudConfig.forEach(
       ({ action, verb, pathFragment, validator, returnKey, plural }) => {
