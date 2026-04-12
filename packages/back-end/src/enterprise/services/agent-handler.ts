@@ -21,7 +21,10 @@ import {
   runAccessGates,
   buildSystemPromptForRequest,
 } from "back-end/src/enterprise/services/ai-access";
-import { setSseHeaders, createEmit } from "back-end/src/enterprise/services/sse-utils";
+import {
+  setSseHeaders,
+  createEmit,
+} from "back-end/src/enterprise/services/sse-utils";
 import {
   StreamProcessor,
   getErrorMessage,
