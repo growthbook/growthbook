@@ -10,9 +10,9 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import { AssistantBubble } from "@/enterprise/components/AIChat/AIChatPrimitives";
-import ExplorerChart from "./MainSection/ExplorerChart";
-import SimpleExplorationTable from "./MainSection/SimpleExplorationTable";
-import SaveToDashboardModal from "./SaveToDashboardModal";
+import ExplorerChart from "@/enterprise/components/ProductAnalytics/MainSection/ExplorerChart";
+import SimpleExplorationTable from "@/enterprise/components/ProductAnalytics/MainSection/SimpleExplorationTable";
+import SaveToDashboardModal from "@/enterprise/components/ProductAnalytics/SaveToDashboardModal";
 
 export interface ChartData {
   config: ExplorationConfig;

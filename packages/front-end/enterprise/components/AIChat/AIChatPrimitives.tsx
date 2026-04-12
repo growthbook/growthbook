@@ -9,40 +9,6 @@ import {
 import Text from "@/ui/Text";
 import aiChatStyles from "./AIChatPrimitives.module.scss";
 
-const BUBBLE_BASE: React.CSSProperties = {
-  borderRadius: "var(--radius-3)",
-  padding: "8px 12px",
-  maxWidth: "85%",
-};
-
-const ASSISTANT_BUBBLE_STYLE: React.CSSProperties = {
-  ...BUBBLE_BASE,
-  alignSelf: "flex-start",
-  background: "var(--color-panel-solid)",
-  border: "1px solid var(--slate-a5)",
-};
-
-const ASSISTANT_BUBBLE_WIDE_STYLE: React.CSSProperties = {
-  ...ASSISTANT_BUBBLE_STYLE,
-  width: "min(920px, 100%)",
-  maxWidth: "none",
-  paddingBottom: 12,
-};
-
-const USER_BUBBLE_STYLE: React.CSSProperties = {
-  ...BUBBLE_BASE,
-  alignSelf: "flex-end",
-  background: "var(--violet-10)",
-  marginLeft: "auto",
-  whiteSpace: "pre-wrap",
-};
-
-const ERROR_BUBBLE_STYLE: React.CSSProperties = {
-  ...BUBBLE_BASE,
-  alignSelf: "flex-start",
-  background: "var(--red-a3)",
-};
-
 interface AssistantBubbleProps {
   children: React.ReactNode;
   wide?: boolean;
@@ -51,7 +17,16 @@ interface AssistantBubbleProps {
 export function AssistantBubble({ children, wide }: AssistantBubbleProps) {
   return (
     <Box
-      style={wide ? ASSISTANT_BUBBLE_WIDE_STYLE : ASSISTANT_BUBBLE_STYLE}
+      style={{
+        borderRadius: "var(--radius-3)",
+        padding: "8px 12px",
+        alignSelf: "flex-start",
+        background: "var(--color-panel-solid)",
+        border: "1px solid var(--slate-a5)",
+        ...(wide
+          ? { width: "min(920px, 100%)", paddingBottom: 12 }
+          : { maxWidth: "85%" }),
+      }}
       className={aiChatStyles.bubble}
     >
       {children}
@@ -62,7 +37,15 @@ export function AssistantBubble({ children, wide }: AssistantBubbleProps) {
 export function UserBubble({ children }: { children: React.ReactNode }) {
   return (
     <Box
-      style={USER_BUBBLE_STYLE}
+      style={{
+        borderRadius: "var(--radius-3)",
+        padding: "8px 12px",
+        maxWidth: "85%",
+        alignSelf: "flex-end",
+        background: "var(--violet-10)",
+        marginLeft: "auto",
+        whiteSpace: "pre-wrap",
+      }}
       className={`${aiChatStyles.bubble} ${aiChatStyles.userBubble}`}
     >
       {children}
@@ -72,7 +55,16 @@ export function UserBubble({ children }: { children: React.ReactNode }) {
 
 export function ErrorBubble({ children }: { children: React.ReactNode }) {
   return (
-    <Box className={aiChatStyles.bubble} style={ERROR_BUBBLE_STYLE}>
+    <Box
+      className={aiChatStyles.bubble}
+      style={{
+        borderRadius: "var(--radius-3)",
+        padding: "8px 12px",
+        maxWidth: "85%",
+        alignSelf: "flex-start",
+        background: "var(--red-a3)",
+      }}
+    >
       {children}
     </Box>
   );

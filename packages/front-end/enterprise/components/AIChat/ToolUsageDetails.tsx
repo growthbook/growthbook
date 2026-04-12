@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { CSSProperties, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import Text from "@/ui/Text";
-import styles from "./ToolTransparencyBlock.module.scss";
 
 function prettyJson(value: unknown): string {
   try {
@@ -37,7 +36,33 @@ function formatToolOutputForPre(toolOutput: unknown): string {
   return prettyJson(toolOutput);
 }
 
-export interface ToolTransparencyBlockProps {
+const truncationWarningStyle: CSSProperties = {
+  margin: "0 0 var(--space-2)",
+  fontSize: 11,
+  lineHeight: 1.4,
+  color: "var(--amber-11)",
+};
+
+const summaryStyle: CSSProperties = {
+  cursor: "pointer",
+  userSelect: "none",
+};
+
+const preStyle: CSSProperties = {
+  margin: "var(--space-2) 0 0",
+  padding: "var(--space-2)",
+  maxHeight: "min(75vh, 4000px)",
+  overflow: "auto",
+  fontSize: 11,
+  lineHeight: 1.4,
+  borderRadius: "var(--radius-2)",
+  background: "var(--color-background)",
+  color: "var(--gray-12)",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+};
+
+export interface ToolUsageDetailsProps {
   toolInput?: Record<string, unknown>;
   argsTextPreview?: string;
   toolOutput?: unknown;
@@ -62,7 +87,7 @@ export interface ToolTransparencyBlockProps {
 /**
  * Collapsible JSON view for tool arguments / streaming args / outputs.
  */
-export default function ToolTransparencyBlock({
+export default function ToolUsageDetails({
   toolInput,
   argsTextPreview,
   toolOutput,
@@ -70,7 +95,7 @@ export default function ToolTransparencyBlock({
   summaryLabel = "Tool details",
   toolCallId,
   openStateRef,
-}: ToolTransparencyBlockProps) {
+}: ToolUsageDetailsProps) {
   const hasInputObj = toolInput && Object.keys(toolInput).length > 0;
   // argsTextPreview is a streaming placeholder — suppress it once the fully
   // parsed toolInput is available so we don't render two unlabeled input blocks.
@@ -102,25 +127,24 @@ export default function ToolTransparencyBlock({
     (toolOutput as { _truncated?: boolean })._truncated === true;
 
   return (
-    <Box
-      mt={embedded ? "0" : "2"}
-      className={embedded ? styles.embedded : styles.wrap}
-    >
-      <details className={styles.details} open={open} onToggle={handleToggle}>
-        <summary className={styles.summary}>
+    <Box mt={embedded ? "0" : "2"} style={{ maxWidth: "100%" }}>
+      <details open={open} onToggle={handleToggle}>
+        <summary
+          style={
+            embedded ? { ...summaryStyle, padding: "2px 0" } : summaryStyle
+          }
+        >
           <Text size="small" color="text-low">
             {summaryLabel}
           </Text>
         </summary>
         {outputTruncated ? (
-          <p className={styles.truncationWarning}>
+          <p style={truncationWarningStyle}>
             Payload exceeded the stream size limit; shown value may be
             incomplete.
           </p>
         ) : null}
-        {hasArgsText ? (
-          <pre className={styles.pre}>{argsTextPreview}</pre>
-        ) : null}
+        {hasArgsText ? <pre style={preStyle}>{argsTextPreview}</pre> : null}
         {hasInputObj ? (
           <>
             <Box mb="1">
@@ -128,7 +152,7 @@ export default function ToolTransparencyBlock({
                 Input
               </Text>
             </Box>
-            <pre className={styles.pre}>{prettyJson(toolInput)}</pre>
+            <pre style={preStyle}>{prettyJson(toolInput)}</pre>
           </>
         ) : null}
         {hasOutput ? (
@@ -138,9 +162,7 @@ export default function ToolTransparencyBlock({
                 Output
               </Text>
             </Box>
-            <pre className={styles.pre}>
-              {formatToolOutputForPre(toolOutput)}
-            </pre>
+            <pre style={preStyle}>{formatToolOutputForPre(toolOutput)}</pre>
           </>
         ) : null}
       </details>

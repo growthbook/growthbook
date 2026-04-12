@@ -1,13 +1,13 @@
 import type { ModelMessage } from "ai";
 import type { AIChatMessage } from "shared/ai-chat";
-import { stripForLLM } from "back-end/src/enterprise/services/ai-chat-for-llm";
+import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-model";
 
-describe("stripForLLM", () => {
+describe("toModelMessages", () => {
   it("converts a user message directly", () => {
     const rich: AIChatMessage[] = [
       { role: "user", id: "u1", content: "Hello", ts: 1 },
     ];
-    const model = stripForLLM(rich);
+    const model = toModelMessages(rich);
     expect(model).toEqual([{ role: "user", content: "Hello" }]);
   });
 
@@ -21,7 +21,7 @@ describe("stripForLLM", () => {
         content: [{ type: "text", text: "Hi there" }],
       },
     ];
-    const model = stripForLLM(rich);
+    const model = toModelMessages(rich);
     expect(model[1]).toEqual({
       role: "assistant",
       content: [{ type: "text", text: "Hi there" }],
@@ -62,7 +62,7 @@ describe("stripForLLM", () => {
         ],
       },
     ];
-    const model = stripForLLM(rich);
+    const model = toModelMessages(rich);
     expect(model[0]).toEqual({ role: "user", content: "Run it" });
 
     const asst = model[1] as Extract<ModelMessage, { role: "assistant" }>;
@@ -140,7 +140,7 @@ describe("stripForLLM", () => {
         content: [{ type: "text", text: "again" }],
       },
     ];
-    const model = stripForLLM(rich);
+    const model = toModelMessages(rich);
     const toolMsg = model.find((m) => m.role === "tool") as Extract<
       ModelMessage,
       { role: "tool" }
@@ -199,7 +199,7 @@ describe("stripForLLM", () => {
         content: [{ type: "text", text: "done" }],
       },
     ];
-    const model = stripForLLM(rich);
+    const model = toModelMessages(rich);
     const toolMsg = model.find((m) => m.role === "tool") as Extract<
       ModelMessage,
       { role: "tool" }

@@ -11,7 +11,7 @@ import type {
   AIChatMessage,
 } from "@/enterprise/hooks/useAIChat";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
-import ToolTransparencyBlock from "@/enterprise/components/AIChat/ToolTransparencyBlock";
+import ToolUsageDetails from "@/enterprise/components/AIChat/ToolUsageDetails";
 import {
   AIChatFeedback,
   type FeedbackState,
@@ -120,7 +120,7 @@ export default function ChatMessageList({
             key={item.toolCallId}
             chartData={chartData}
             toolTransparency={
-              <ToolTransparencyBlock
+              <ToolUsageDetails
                 embedded
                 summaryLabel="Query & tool response"
                 toolInput={item.toolInput}
@@ -141,7 +141,7 @@ export default function ChatMessageList({
               {item.label}
             </Text>
           </Flex>
-          <ToolTransparencyBlock
+          <ToolUsageDetails
             toolInput={item.toolInput}
             argsTextPreview={item.argsTextPreview}
             toolOutput={item.toolOutput}
@@ -223,7 +223,7 @@ export default function ChatMessageList({
                 chartData={chartData}
                 animate={false}
                 toolTransparency={
-                  <ToolTransparencyBlock
+                  <ToolUsageDetails
                     embedded
                     summaryLabel="Query & tool response"
                     toolInput={pairedCall?.args}
@@ -246,7 +246,7 @@ export default function ChatMessageList({
                   toolResultPreviewLabel(part.result, part.toolName)}
               </Text>
             </Flex>
-            <ToolTransparencyBlock
+            <ToolUsageDetails
               toolInput={pairedCall?.args}
               toolOutput={part.result}
               toolCallId={part.toolCallId}

@@ -1,6 +1,6 @@
 /**
  * Persisted AI chat messages: content parts shaped like the AI SDK’s model messages,
- * plus id/ts for storage and UI. Convert to ModelMessage[] via stripForLLM (back-end).
+ * plus id/ts for storage and UI. Convert to ModelMessage[] via toModelMessages (back-end).
  */
 
 // ---------------------------------------------------------------------------

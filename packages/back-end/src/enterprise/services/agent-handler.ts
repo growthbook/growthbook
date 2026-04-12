@@ -2,38 +2,43 @@ import { randomUUID } from "crypto";
 import type { Response } from "express";
 import type { ToolSet, TextStreamPart } from "ai";
 import type { AIModel, AIPromptType } from "shared/ai";
-import type {
-  AIChatMessage,
-  AIChatTextPart,
-  AIChatToolCallPart,
-  AIChatToolResultPart,
-} from "shared/ai-chat";
-import { stringifyToolResultForStorage } from "shared/ai-chat";
+import type { AIChatMessage } from "shared/ai-chat";
 import type { ReqContext } from "back-end/types/request";
 import type { AuthRequest } from "back-end/src/types/AuthRequest";
-import {
-  getContextFromReq,
-  getAISettingsForOrg,
-} from "back-end/src/services/organizations";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   streamingChatCompletion,
   simpleCompletion,
-  secondsUntilAICanBeUsedAgain,
 } from "back-end/src/enterprise/services/ai";
 import {
   type ConversationBuffer,
   loadOrInitConversation,
   persistConversation,
 } from "back-end/src/enterprise/services/conversation-buffer";
-import { stripForLLM } from "back-end/src/enterprise/services/ai-chat-for-llm";
+import { toModelMessages } from "back-end/src/enterprise/services/ai-chat-to-model";
 import { logger } from "back-end/src/util/logger";
+import {
+  runAccessGates,
+  buildSystemPromptForRequest,
+} from "back-end/src/enterprise/services/ai-access";
+import { setSseHeaders, createEmit } from "back-end/src/enterprise/services/sse-utils";
+import {
+  StreamProcessor,
+  getErrorMessage,
+  type AgentEmit,
+  type AgentStreamPart,
+} from "back-end/src/enterprise/services/stream-processor";
+
+// Re-export symbols that external consumers import from this module.
+export type { AgentEmit } from "back-end/src/enterprise/services/stream-processor";
+export {
+  MAX_SSE_TOOL_JSON_LENGTH,
+  serializeUnknownForSSE,
+} from "back-end/src/enterprise/services/sse-utils";
 
 // =============================================================================
 // Public types
 // =============================================================================
-
-export type AgentEmit = (event: string, data: unknown) => void;
 
 export interface AgentConfig<TParams = unknown> {
   promptType: AIPromptType;
@@ -91,46 +96,20 @@ export interface AgentConfig<TParams = unknown> {
 }
 
 // =============================================================================
-// Internal types (AI SDK stream parts + request shape)
+// Internal types
 // =============================================================================
 
-type FlushableResponse = Response & { flush?: () => void };
-type AgentStreamPart = TextStreamPart<ToolSet>;
-type TextDeltaPart = Extract<AgentStreamPart, { type: "text-delta" }>;
-type ToolInputStartPart = Extract<
-  AgentStreamPart,
-  { type: "tool-input-start" }
->;
-type ToolInputDeltaPart = Extract<
-  AgentStreamPart,
-  { type: "tool-input-delta" }
->;
-type ToolCallPart = Extract<AgentStreamPart, { type: "tool-call" }>;
-type ToolResultPart = Extract<AgentStreamPart, { type: "tool-result" }>;
-type ToolErrorPart = Extract<AgentStreamPart, { type: "tool-error" }>;
-type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 type AgentRequestBody = {
   message: string;
   conversationId: string;
   model: AIModel;
 } & Record<string, unknown>;
-type OrgAIPromptConfig = Awaited<
-  ReturnType<ReqContext["models"]["aiPrompts"]["getAIPrompt"]>
->;
+
+type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
 
 // =============================================================================
-// Main entry — Express handler factory
+// Active stream registry (supports explicit cancel via separate HTTP request)
 // =============================================================================
-//
-// Creates a POST handler from AgentConfig: premium/AI gates, conversation
-// history, system prompt, streaming completion, SSE mapping, and persistence.
-// Body must include `message` and `conversationId`; extra fields go through
-// `config.parseParams`.
-//
-// The ConversationBuffer lives on the stack for the duration of the request
-// and is GC'd when the handler returns — no module-level state apart from the
-// activeStreamControllers registry which enables explicit cancel via a separate
-// HTTP request (as opposed to aborting on SSE disconnect).
 
 const activeStreamControllers = new Map<string, AbortController>();
 
@@ -147,12 +126,15 @@ export function cancelAgentStream(conversationId: string): boolean {
   return false;
 }
 
+// =============================================================================
+// Main entry — Express handler factory
+// =============================================================================
+
 export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
   return async (
     req: AuthRequest<AgentRequestBody>,
     res: Response,
   ): Promise<void> => {
-    const flushableRes = res as FlushableResponse;
     const body = req.body as AgentRequestBody;
     const { message, conversationId } = body;
     const context = getContextFromReq(req);
@@ -178,7 +160,6 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     const requestModel = body.model;
     const canOverride = context.permissions.canManageOrgSettings();
 
-    // Persist the model selection to the conversation when the user has permission.
     if (canOverride) {
       buffer.setModel(requestModel);
     }
@@ -193,48 +174,17 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     const { messages: messagesForLLM, isFirstMessage } =
       prepareConversationMessages(buffer, message);
     setSseHeaders(res);
-    const emit = createEmit(flushableRes, buffer);
+    const emit = createEmit(res, buffer);
     const tools = config.buildTools(context, buffer, params, emit);
 
     buffer.setStreaming(true);
 
-    // Persist user message immediately so it survives a mid-stream server crash.
     persistConversation(context.models.aiConversations, buffer).catch((err) => {
       logger.error(err, "Failed to persist user message");
     });
 
-    // Fire title generation immediately from the user's message so it runs
-    // concurrently with the main stream and resolves as early as possible.
     const titlePromise: Promise<void> = isFirstMessage
-      ? (async () => {
-          try {
-            const raw = await simpleCompletion({
-              context,
-              instructions:
-                "You are a title generator. Respond with ONLY a 3-6 word title for the user's data analytics request. Output nothing else — no explanation, no punctuation wrapping, no markdown.",
-              prompt: message,
-              temperature: 0.3,
-              type: config.promptType,
-              isDefaultPrompt: true,
-              overrideModel,
-            });
-            // Take only the first non-empty line in case the model adds extra text
-            const firstLine =
-              raw
-                .split(/\r?\n/)
-                .map((l) => l.trim())
-                .find((l) => l.length > 0) ?? "";
-            const trimmedTitle = firstLine
-              .replace(/^["'`#*_\s]+|["'`#*_\s]+$/g, "")
-              .slice(0, 100);
-            if (trimmedTitle) {
-              buffer.updateTitle(trimmedTitle);
-              emit("conversation-title", { title: trimmedTitle });
-            }
-          } catch {
-            // Title generation is non-critical; leave "New Chat"
-          }
-        })()
+      ? generateTitle(context, config, message, overrideModel, buffer, emit)
       : Promise.resolve();
 
     const abortController = new AbortController();
@@ -254,35 +204,23 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         abortSignal: abortController.signal,
       });
 
-      await streamAgentResponse(
-        stream,
-        config,
-        buffer,
-        emit,
-        abortController,
-        () => {
-          persistConversation(context.models.aiConversations, buffer).catch(
-            (err) => {
-              logger.error(
-                err,
-                "Failed to persist intermediate conversation state",
-              );
-            },
-          );
-        },
-      );
+      await processStream(stream, config, buffer, emit, abortController, () => {
+        persistConversation(context.models.aiConversations, buffer).catch(
+          (err) => {
+            logger.error(
+              err,
+              "Failed to persist intermediate conversation state",
+            );
+          },
+        );
+      });
 
-      // Awaiting stream.response drains any buffered provider errors that
-      // surface after the fullStream async iterator completes. Errors here
-      // are safe to ignore since streamAgentResponse already handled them.
       try {
         await stream.response;
       } catch {
-        // ignore
+        // Provider errors after stream close — already handled
       }
 
-      // Ensure title is emitted before the connection closes, even if the
-      // main stream finished faster than the title generation.
       await titlePromise;
     } finally {
       activeStreamControllers.delete(conversationId);
@@ -296,12 +234,9 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       buffer.setStreaming(false);
       if (!res.writableFinished && !res.destroyed) {
         emit("done", {});
-        flushableRes.end();
+        res.end();
       }
 
-      // Persist final conversation state to DB after the response is closed.
-      // Fire-and-forget — the client has already received "done".
-      // The buffer is GC'd after this handler returns; no eviction needed.
       persistConversation(context.models.aiConversations, buffer).catch(
         (err) => {
           logger.error(err, "Failed to persist conversation at stream end");
@@ -312,76 +247,13 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 }
 
 // =============================================================================
-// Access gates & org AI settings
-// =============================================================================
-
-async function runAccessGates(
-  context: ReqContext,
-  res: Response,
-): Promise<boolean> {
-  if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
-    res.status(403).json({
-      status: 403,
-      message: "Your plan does not support AI features.",
-    });
-    return false;
-  }
-
-  const { aiEnabled } = getAISettingsForOrg(context);
-  if (!aiEnabled) {
-    res.status(404).json({
-      status: 404,
-      message: "AI configuration not set or enabled",
-    });
-    return false;
-  }
-
-  const secondsUntilReset = await secondsUntilAICanBeUsedAgain(context.org);
-  if (secondsUntilReset > 0) {
-    res.status(429).json({
-      status: 429,
-      message: "Over AI usage limits",
-      retryAfter: secondsUntilReset,
-    });
-    return false;
-  }
-
-  return true;
-}
-
-// =============================================================================
-// System prompt + org prompt overlay
-// =============================================================================
-
-async function buildSystemPromptForRequest<TParams>(
-  context: ReqContext,
-  config: AgentConfig<TParams>,
-  params: TParams,
-): Promise<{
-  system: string;
-  orgAdditionalPrompt: OrgAIPromptConfig["prompt"];
-  overrideModel: OrgAIPromptConfig["overrideModel"];
-}> {
-  const agentSystemPrompt = await config.buildSystemPrompt(context, params);
-  const { prompt: orgAdditionalPrompt, overrideModel } =
-    await context.models.aiPrompts.getAIPrompt(config.promptType);
-  return {
-    system: orgAdditionalPrompt
-      ? agentSystemPrompt + "\n" + orgAdditionalPrompt
-      : agentSystemPrompt,
-    orgAdditionalPrompt,
-    overrideModel,
-  };
-}
-
-// =============================================================================
-// Conversation buffer: append user message, prepare messages for the model
+// Helpers
 // =============================================================================
 
 function prepareConversationMessages(
   buffer: ConversationBuffer,
   message: string,
-): { messages: ReturnType<typeof stripForLLM>; isFirstMessage: boolean } {
+): { messages: ReturnType<typeof toModelMessages>; isFirstMessage: boolean } {
   const history = buffer.getMessages();
   const isFirstMessage = history.length === 0;
 
@@ -393,336 +265,44 @@ function prepareConversationMessages(
   };
   buffer.appendMessages([userMessage]);
   return {
-    messages: stripForLLM(buffer.getMessages()),
+    messages: toModelMessages(buffer.getMessages()),
     isFirstMessage,
   };
 }
 
-// =============================================================================
-// SSE response helpers
-// =============================================================================
-
-function setSseHeaders(res: Response): void {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  (res as FlushableResponse).flushHeaders?.();
-}
-
-function createEmit(
-  flushableRes: FlushableResponse,
+async function generateTitle<TParams>(
+  context: ReqContext,
+  config: AgentConfig<TParams>,
+  message: string,
+  overrideModel: AIModel | undefined,
   buffer: ConversationBuffer,
-): AgentEmit {
-  return (event, data): void => {
-    try {
-      flushableRes.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-      flushableRes.flush?.();
-    } catch {
-      // Client disconnected — safe to ignore write failures
-    }
-    buffer.touchStreamedAt();
-  };
-}
-
-/**
- * Serialize tool arguments / results for SSE JSON payloads.
- * Extremely large values are truncated with metadata so the UI can warn;
- * the limit is high so typical exploration / tool outputs are sent in full.
- */
-export const MAX_SSE_TOOL_JSON_LENGTH = 2 * 1024 * 1024;
-
-export function serializeUnknownForSSE(value: unknown): unknown {
-  if (value === undefined) {
-    return undefined;
-  }
+  emit: AgentEmit,
+): Promise<void> {
   try {
-    const s = JSON.stringify(value);
-    if (s.length <= MAX_SSE_TOOL_JSON_LENGTH) {
-      return JSON.parse(s) as unknown;
+    const raw = await simpleCompletion({
+      context,
+      instructions:
+        "You are a title generator. Respond with ONLY a 3-6 word title for the user's data analytics request. Output nothing else — no explanation, no punctuation wrapping, no markdown.",
+      prompt: message,
+      temperature: 0.3,
+      type: config.promptType,
+      isDefaultPrompt: true,
+      overrideModel,
+    });
+    const firstLine =
+      raw
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .find((l) => l.length > 0) ?? "";
+    const trimmedTitle = firstLine
+      .replace(/^["'`#*_\s]+|["'`#*_\s]+$/g, "")
+      .slice(0, 100);
+    if (trimmedTitle) {
+      buffer.updateTitle(trimmedTitle);
+      emit("conversation-title", { title: trimmedTitle });
     }
-    return {
-      _truncated: true,
-      preview: s.slice(0, MAX_SSE_TOOL_JSON_LENGTH),
-      totalLength: s.length,
-    };
   } catch {
-    const str = String(value);
-    if (str.length <= MAX_SSE_TOOL_JSON_LENGTH) {
-      return { _nonJson: true, preview: str };
-    }
-    return {
-      _nonJson: true,
-      _truncated: true,
-      preview: str.slice(0, MAX_SSE_TOOL_JSON_LENGTH),
-      totalLength: str.length,
-    };
-  }
-}
-
-// =============================================================================
-// Stream processing: AI SDK fullStream → SSE + persisted assistant/tool rows
-// =============================================================================
-
-/**
- * Accumulates AI SDK stream parts into assistant/tool messages and flushes them
- * to the conversation buffer at step boundaries. Holds all mutable accumulator
- * state so it does not leak into the stream loop or callers.
- */
-const DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT = 3;
-
-class StreamProcessor {
-  private assistantParts: (AIChatTextPart | AIChatToolCallPart)[] = [];
-  private pendingToolResults: AIChatToolResultPart[] = [];
-  private textBuffer = "";
-  private invalidToolCallIds = new Set<string>();
-  private consecutiveToolErrors = 0;
-  private aborted = false;
-  private pendingError: string | null = null;
-  private readonly onStepPersist?: () => void;
-
-  constructor(
-    private readonly buffer: ConversationBuffer,
-    private readonly emit: AgentEmit,
-    private readonly abortController: AbortController,
-    private readonly maxConsecutiveToolErrors: number = DEFAULT_CONSECUTIVE_TOOL_ERROR_LIMIT,
-    onStepPersist?: () => void,
-  ) {
-    this.onStepPersist = onStepPersist;
-  }
-
-  get isAborted(): boolean {
-    return this.aborted;
-  }
-
-  /**
-   * Record a stream-level error to be persisted as an `isError` assistant
-   * message when {@link flush} runs.
-   */
-  setError(message: string): void {
-    this.pendingError = message;
-  }
-
-  private triggerCircuitBreaker(): void {
-    if (this.aborted) return;
-    if (this.consecutiveToolErrors >= this.maxConsecutiveToolErrors) {
-      this.aborted = true;
-      const message =
-        "The assistant encountered repeated tool errors and stopped retrying. " +
-        "Please try rephrasing your request or adjusting the parameters.";
-      this.emit("error", { message });
-      this.pendingError = message;
-      this.abortController.abort();
-    }
-  }
-
-  private flushTextToAssistantParts(): void {
-    const trimmed = this.textBuffer.trim();
-    if (trimmed) {
-      this.assistantParts.push({ type: "text", text: trimmed });
-    }
-    this.textBuffer = "";
-  }
-
-  private flushAssistantMessage(): void {
-    this.flushTextToAssistantParts();
-    if (this.assistantParts.length > 0) {
-      this.buffer.appendMessages([
-        {
-          role: "assistant",
-          id: randomUUID(),
-          ts: Date.now(),
-          content: this.assistantParts.splice(0),
-        },
-      ]);
-    }
-  }
-
-  private flushToolMessage(): void {
-    if (this.pendingToolResults.length > 0) {
-      this.buffer.appendMessages([
-        {
-          role: "tool",
-          id: randomUUID(),
-          ts: Date.now(),
-          content: this.pendingToolResults.splice(0),
-        },
-      ]);
-    }
-  }
-
-  handleTextDelta(part: TextDeltaPart): void {
-    // Tool results from the previous step are now finalized — flush them.
-    if (this.pendingToolResults.length > 0) {
-      this.flushToolMessage();
-    }
-    this.textBuffer += part.text;
-    this.emit("text-delta", { content: part.text });
-  }
-
-  handleToolInputStart(part: ToolInputStartPart): void {
-    this.emit("tool-call-start", {
-      toolName: part.toolName,
-      toolCallId: part.id,
-    });
-  }
-
-  handleToolInputDelta(part: ToolInputDeltaPart): void {
-    const toolCallId = getStringProperty(part, "id");
-    const delta = getStringProperty(part, "delta");
-    if (!toolCallId || !delta) return;
-
-    this.emit("tool-call-args-delta", { toolCallId, inputTextDelta: delta });
-  }
-
-  handleToolCall(part: ToolCallPart): void {
-    const toolCallId = getStringProperty(part, "toolCallId");
-    const toolName = getStringProperty(part, "toolName");
-    if (!toolCallId || !toolName) return;
-
-    const rawInput = "input" in part ? part.input : undefined;
-    const invalid = "invalid" in part && Boolean(part.invalid);
-    const rawError = "error" in part ? part.error : undefined;
-    const errorText =
-      invalid && rawError != null
-        ? getErrorMessage(rawError, "Invalid tool input")
-        : undefined;
-
-    if (invalid && toolCallId) {
-      this.invalidToolCallIds.add(toolCallId);
-    }
-
-    this.emit("tool-call-input", {
-      toolCallId,
-      toolName,
-      input: serializeUnknownForSSE(rawInput),
-      ...(invalid ? { invalid: true as const } : {}),
-      ...(errorText != null ? { errorText } : {}),
-    });
-
-    // If there are pending tool results from the previous step (no text-delta arrived
-    // to flush them), do it now so we don't mix results from different assistant turns.
-    if (this.pendingToolResults.length > 0) {
-      this.flushToolMessage();
-    }
-
-    this.flushTextToAssistantParts();
-
-    const args =
-      rawInput && typeof rawInput === "object" && rawInput !== null
-        ? (rawInput as Record<string, unknown>)
-        : undefined;
-
-    this.assistantParts.push({
-      type: "tool-call",
-      toolCallId,
-      toolName,
-      args: args ?? {},
-    });
-  }
-
-  handleToolResult(part: ToolResultPart): void {
-    const preliminary = "preliminary" in part && Boolean(part.preliminary);
-    const rawInput = "input" in part ? part.input : undefined;
-
-    this.emit("tool-call-end", {
-      toolName: part.toolName,
-      toolCallId: part.toolCallId,
-      output: serializeUnknownForSSE(part.output),
-      ...(rawInput !== undefined
-        ? { input: serializeUnknownForSSE(rawInput) }
-        : {}),
-      ...(preliminary ? { preliminary: true as const } : {}),
-    });
-
-    if (preliminary) return;
-
-    // First real result of this batch: flush the assistant message (tool calls + any text).
-    if (
-      this.pendingToolResults.length === 0 &&
-      this.assistantParts.length > 0
-    ) {
-      this.flushAssistantMessage();
-    }
-
-    const isError = this.invalidToolCallIds.has(part.toolCallId);
-    this.pendingToolResults.push({
-      type: "tool-result",
-      toolCallId: part.toolCallId,
-      toolName: part.toolName,
-      result: stringifyToolResultForStorage(part.output),
-      ...(isError ? { isError: true } : {}),
-    });
-
-    if (isError || isErrorToolOutput(part.output)) {
-      this.consecutiveToolErrors++;
-      this.triggerCircuitBreaker();
-    } else {
-      this.consecutiveToolErrors = 0;
-    }
-
-    // Flush completed step to the buffer and persist so polling clients
-    // (e.g. user navigated away and back) see intermediate results.
-    this.flushToolMessage();
-    this.onStepPersist?.();
-  }
-
-  handleToolError(part: ToolErrorPart): void {
-    const toolCallId = getStringProperty(part, "toolCallId");
-    if (!toolCallId) return;
-
-    const toolName = getStringProperty(part, "toolName");
-    const message = getErrorMessage(
-      "error" in part ? part.error : undefined,
-      "Tool execution failed",
-    );
-    this.emit("tool-call-error", {
-      toolCallId,
-      ...(toolName ? { toolName } : {}),
-      message,
-    });
-
-    // Persist the error as a tool result so the LLM sees it on the next turn.
-    // Without this the conversation has an orphaned tool call with no matching
-    // result, causing "No tool output found for function call" on subsequent
-    // requests — and the model never learns what went wrong.
-    if (
-      this.pendingToolResults.length === 0 &&
-      this.assistantParts.length > 0
-    ) {
-      this.flushAssistantMessage();
-    }
-    this.pendingToolResults.push({
-      type: "tool-result",
-      toolCallId,
-      toolName: toolName ?? "",
-      result: message,
-      isError: true,
-    });
-
-    this.consecutiveToolErrors++;
-    this.triggerCircuitBreaker();
-
-    this.flushToolMessage();
-    this.onStepPersist?.();
-  }
-
-  /** Flush whatever remains after the stream ends. */
-  flush(): void {
-    this.flushAssistantMessage();
-    this.flushToolMessage();
-
-    if (this.pendingError) {
-      this.buffer.appendMessages([
-        {
-          role: "assistant",
-          id: randomUUID(),
-          ts: Date.now(),
-          content: this.pendingError,
-          isError: true,
-        },
-      ]);
-      this.pendingError = null;
-    }
+    // Title generation is non-critical; leave "New Chat"
   }
 }
 
@@ -740,7 +320,7 @@ function debugNonTextPart(
   });
 }
 
-async function streamAgentResponse<TParams>(
+async function processStream<TParams>(
   stream: Awaited<ReturnType<typeof streamingChatCompletion>>,
   config: AgentConfig<TParams>,
   buffer: ConversationBuffer,
@@ -807,32 +387,4 @@ async function streamAgentResponse<TParams>(
   }
 
   processor.flush();
-}
-
-// =============================================================================
-// Small utilities (stream parts + errors)
-// =============================================================================
-
-function isErrorToolOutput(output: unknown): boolean {
-  if (output && typeof output === "object" && "status" in output) {
-    return (output as { status: unknown }).status === "error";
-  }
-  return false;
-}
-
-function getStringProperty(value: unknown, key: string): string | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const raw = (value as Record<string, unknown>)[key];
-  return typeof raw === "string" ? raw : undefined;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error == null) return fallback;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return fallback;
-  }
 }

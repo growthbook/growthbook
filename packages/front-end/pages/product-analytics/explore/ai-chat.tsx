@@ -2,7 +2,7 @@ import { Box } from "@radix-ui/themes";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { ExplorationConfig } from "shared/validators";
 import PageHead from "@/components/Layout/PageHead";
-import ExplorerAIChat from "@/enterprise/components/ProductAnalytics/ExplorerAIChat";
+import ExplorerAIChat from "@/enterprise/components/ProductAnalytics/AIChat/ExplorerAIChat";
 import {
   ExplorerProvider,
   useDefaultDataSourceId,

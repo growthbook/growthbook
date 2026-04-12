@@ -1,46 +1,27 @@
-import React, {
-  useRef,
-  useEffect,
-  useCallback,
-  useState,
-  useMemo,
-} from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
-import {
-  type AIChatFeedbackRating,
-  type AIChatFeedbackEntry,
-} from "shared/validators";
-import type { AIPromptInterface } from "shared/ai";
 import { useUser } from "@/services/UserContext";
-import { useAuth } from "@/services/auth";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
-import { isCloud } from "@/services/env";
-import {
-  useAIChat,
-  useChatListBackgroundPoll,
-  type ConversationSummary,
-} from "@/enterprise/hooks/useAIChat";
+import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import AIChatGatingScreen from "@/enterprise/components/AIChat/AIChatGatingScreen";
 import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
-import type { FeedbackState } from "@/enterprise/components/AIChat/AIChatFeedback";
-import { useExplorerContext } from "./ExplorerContext";
+import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "@/enterprise/components/ProductAnalytics/util";
 import ChatMessageList, { TOOL_STATUS_LABELS } from "./ChatMessageList";
-import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
-import {
-  PA_AI_CHAT_INITIAL_MESSAGE_KEY,
-  PA_AI_CHAT_INITIAL_MODEL_KEY,
-} from "./util";
-
-const CHAT_LIST_ENDPOINT = "/product-analytics/chat";
+import { useConversationList } from "./useConversationList";
+import { useChatModel } from "./useChatModel";
+import { useChatFeedback } from "./useChatFeedback";
+import { useAutoScroll } from "./useAutoScroll";
 
 export default function ExplorerAIChat() {
-  const prevLoadingRef = useRef(false);
   const toolDetailsOpenRef = useRef<Record<string, boolean>>({});
+  const prevLoadingRef = useRef(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const initialMessageRef = useRef<string | null>(
     (() => {
@@ -54,46 +35,26 @@ export default function ExplorerAIChat() {
   );
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [chatTitles, setChatTitles] = useState<Record<string, string>>({});
-  const [feedbackMap, setFeedbackMap] = useState<Record<string, FeedbackState>>(
-    {},
-  );
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, defaultAIModel } = useAISettings();
-
-  const [chatModel, setChatModel] = useState(() => {
-    const stored = sessionStorage.getItem(PA_AI_CHAT_INITIAL_MODEL_KEY);
-    if (stored) {
-      sessionStorage.removeItem(PA_AI_CHAT_INITIAL_MODEL_KEY);
-      return stored;
-    }
-    return defaultAIModel;
-  });
   const permissionsUtil = usePermissionsUtil();
   const canPickModel = permissionsUtil.canManageOrgSettings();
-  const { draftExploreState } = useExplorerContext();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const shouldAutoScrollRef = useRef(true);
-
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const { draftExploreState } = useExplorerContext();
 
-  const { apiCall } = useAuth();
+  // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
-  const { data: promptsData } = useApi<{ prompts: AIPromptInterface[] }>(
-    `/ai/prompts`,
-    { shouldRun: () => !isCloud() },
-  );
+  const { chatModel, setChatModel, orgOverrideModel } =
+    useChatModel(defaultAIModel);
 
-  const orgPaChatOverrideModel = useMemo(() => {
-    if (!promptsData?.prompts) return "";
-    return (
-      promptsData.prompts.find((p) => p.type === "product-analytics-chat")
-        ?.overrideModel ?? ""
-    );
-  }, [promptsData]);
+  const {
+    feedbackMap,
+    handleFeedbackSubmit,
+    loadFeedbackFromConversation,
+    clearFeedback,
+    conversationIdRef: feedbackConversationIdRef,
+  } = useChatFeedback();
 
   const buildRequestBody = useCallback(
     (message: string, cid: string) => ({
@@ -105,9 +66,7 @@ export default function ExplorerAIChat() {
     [draftExploreState.datasource, chatModel],
   );
 
-  const { data: listData, mutate: refreshList } = useApi<{
-    conversations: ConversationSummary[];
-  }>(CHAT_LIST_ENDPOINT);
+  // -- Core chat hook --------------------------------------------------------
 
   const {
     messages,
@@ -138,41 +97,42 @@ export default function ExplorerAIChat() {
     onSSEEvent: (event) => {
       if (event.type === "conversation-title") {
         const title = (event.data.title as string) || "";
-        if (title) {
-          setChatTitles((prev) => ({ ...prev, [conversationId]: title }));
-        }
-        void refreshList();
+        if (title) handleTitleUpdate(conversationId, title);
       }
     },
-    onConversationLoaded: (data) => {
-      const entries = (data as { feedback?: AIChatFeedbackEntry[] }).feedback;
-      if (!entries?.length) {
-        setFeedbackMap({});
-        return;
-      }
-      const map: Record<string, FeedbackState> = {};
-      for (const entry of entries) {
-        map[entry.messageId] = {
-          rating: entry.rating,
-          comment: entry.comment,
-        };
-      }
-      setFeedbackMap(map);
-    },
+    onConversationLoaded: loadFeedbackFromConversation,
   });
 
-  useChatListBackgroundPoll(
-    listData?.conversations,
-    conversationId,
+  // Keep the feedback hook's ref in sync with the current conversation id.
+  // The ref is only read inside event handlers, never during render.
+  feedbackConversationIdRef.current = conversationId;
+
+  // -- Hooks that depend on useAIChat return values --------------------------
+
+  const {
+    conversations,
+    rawConversations,
     refreshList,
+    handleTitleUpdate,
+    deleteConversation,
+  } = useConversationList(conversationId, messages, loading);
+
+  const { scrollContainerRef, messagesEndRef, handleScroll } = useAutoScroll(
+    messages,
+    activeTurnItems,
+    conversationId,
   );
 
-  const chatHasMessages = messages.length > 0;
+  // -- Derived values --------------------------------------------------------
+
+  const effectiveModelValue = canPickModel ? chatModel : orgOverrideModel;
   const modelDisabledReason = !canPickModel
     ? "Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
-    : chatHasMessages
+    : messages.length > 0
       ? "The model can't be changed mid-conversation. Start a new chat to use a different model."
       : null;
+
+  // -- Effects ---------------------------------------------------------------
 
   useEffect(() => {
     if (prevLoadingRef.current && !loading) {
@@ -183,13 +143,6 @@ export default function ExplorerAIChat() {
   }, [loading, refreshList]);
 
   useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, activeTurnItems]);
-
-  useEffect(() => {
-    shouldAutoScrollRef.current = true;
     inputRef.current?.focus();
   }, [conversationId]);
 
@@ -200,57 +153,26 @@ export default function ExplorerAIChat() {
     sendMessage(msg);
   }, [sendMessage]);
 
+  // -- Handlers --------------------------------------------------------------
+
   const handleNewChat = useCallback(() => {
     newChat();
     setChatModel(defaultAIModel);
-    setFeedbackMap({});
+    clearFeedback();
     refreshList();
-  }, [newChat, refreshList, defaultAIModel]);
-
-  const handleFeedbackSubmit = useCallback(
-    (
-      messageId: string,
-      rating: AIChatFeedbackRating | null,
-      comment: string,
-    ) => {
-      setFeedbackMap((prev) => {
-        if (rating === null) {
-          const next = { ...prev };
-          delete next[messageId];
-          return next;
-        }
-        return { ...prev, [messageId]: { rating, comment } };
-      });
-
-      void apiCall(`/product-analytics/chat/${conversationId}/feedback`, {
-        method: "POST",
-        body: JSON.stringify({ messageId, rating, comment }),
-      });
-    },
-    [apiCall, conversationId],
-  );
+  }, [newChat, refreshList, defaultAIModel, setChatModel, clearFeedback]);
 
   const handleDeleteConversation = useCallback(
     async (id: string) => {
       try {
-        await apiCall(`/product-analytics/chat/${id}`, { method: "DELETE" });
-        if (id === conversationId) {
-          newChat();
-        }
-        await refreshList();
+        await deleteConversation(id);
+        if (id === conversationId) newChat();
       } catch {
         // silently ignore
       }
     },
-    [apiCall, conversationId, newChat, refreshList],
+    [deleteConversation, conversationId, newChat],
   );
-
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    shouldAutoScrollRef.current = distanceFromBottom < 80;
-  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -262,37 +184,7 @@ export default function ExplorerAIChat() {
     [sendMessage],
   );
 
-  const conversations = useMemo(() => {
-    const list = listData?.conversations ?? [];
-    const applyTitleOverrides = (
-      items: ConversationSummary[],
-    ): ConversationSummary[] => {
-      if (!Object.keys(chatTitles).length) return items;
-      return items.map((c) => {
-        const override = chatTitles[c.conversationId];
-        return override ? { ...c, title: override } : c;
-      });
-    };
-
-    const isInList = list.some((c) => c.conversationId === conversationId);
-    if (!isInList && messages.length > 0) {
-      const firstUserMsg = messages.find((m) => m.role === "user");
-      const preview =
-        typeof firstUserMsg?.content === "string" ? firstUserMsg.content : "";
-      return [
-        {
-          conversationId,
-          title: chatTitles[conversationId] ?? "New Chat",
-          createdAt: Date.now(),
-          messageCount: messages.length,
-          isStreaming: loading,
-          preview,
-        },
-        ...applyTitleOverrides(list),
-      ];
-    }
-    return applyTitleOverrides(list);
-  }, [listData?.conversations, conversationId, messages, loading, chatTitles]);
+  // -- Render ----------------------------------------------------------------
 
   if (!hasAISuggestions || !aiEnabled) {
     return (
@@ -319,9 +211,7 @@ export default function ExplorerAIChat() {
         activeConversationId={conversationId}
         onSelect={(id) => {
           void loadConversation(id);
-          const conv = listData?.conversations.find(
-            (c) => c.conversationId === id,
-          );
+          const conv = rawConversations?.find((c) => c.conversationId === id);
           setChatModel(conv?.model ?? defaultAIModel);
         }}
         onNewChat={handleNewChat}
@@ -378,7 +268,7 @@ export default function ExplorerAIChat() {
 
         <ChatInputBar
           modelSelectId="explorer-ai-chat-model"
-          modelValue={canPickModel ? chatModel : orgPaChatOverrideModel}
+          modelValue={effectiveModelValue}
           onModelChange={setChatModel}
           modelDisabledReason={modelDisabledReason}
           inputRef={inputRef}
