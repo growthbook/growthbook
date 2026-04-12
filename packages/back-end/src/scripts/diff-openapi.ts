@@ -11,6 +11,10 @@
  *   - Ignores key ordering in objects
  *   - Ignores YAML formatting (multi-line strings, etc.)
  *   - Reports missing/added paths, schema differences, extra/missing fields, etc.
+ *   - Treats common nullable encodings as equivalent (nullable: true vs anyOf/oneOf
+ *     with type + null vs OpenAPI 3.1 type: [T, "null"]).
+ *   - Drops integer minimum/maximum when set to JS safe-integer limits (±9007199254740991),
+ *     which some generators add as no-op bounds.
  */
 
 import fs from "fs";
@@ -373,12 +377,9 @@ function summarize(val: unknown, maxLen = 120): unknown {
 
 /** Keys that are cosmetic / non-functional in OpenAPI context */
 const IGNORED_KEYS = new Set([
-  "x-codeSamples",
-  "x-code-samples",
-  "x-logo",
-  "x-tagGroups",
   "$skipValidatorGeneration",
   "$schema",
+  "additionalProperties",
 ]);
 
 function filterIgnoredKeys(obj: unknown): unknown {
@@ -397,20 +398,121 @@ function filterIgnoredKeys(obj: unknown): unknown {
 }
 
 /**
+ * Some OpenAPI emitters set `minimum` / `maximum` to Number.MIN_SAFE_INTEGER /
+ * Number.MAX_SAFE_INTEGER on integers; that is effectively unbounded and causes
+ * noisy diffs when the other spec omits those keys.
+ */
+function stripJsSafeIntegerBoundArtifacts(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(stripJsSafeIntegerBoundArtifacts);
+  }
+  if (!isObject(val)) return val;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (k === "minimum" && v === Number.MIN_SAFE_INTEGER) continue;
+    if (k === "maximum" && v === Number.MAX_SAFE_INTEGER) continue;
+    out[k] = stripJsSafeIntegerBoundArtifacts(v);
+  }
+  return out;
+}
+
+function isNullOnlyTypeSchema(node: unknown): boolean {
+  return isObject(node) && node["type"] === "null";
+}
+
+/**
+ * Collapse `anyOf` / `oneOf` [ T, { type: "null" } ] (in either order) to
+ * `{ ...T, nullable: true }`, and `type: ["string", "null"]` (single non-null
+ * type) to `{ type: "string", nullable: true }`, so different OpenAPI/JSON
+ * Schema nullable spellings diff cleanly.
+ */
+function normalizeNullableRepresentations(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(normalizeNullableRepresentations);
+  }
+  if (!isObject(val)) return val;
+
+  const anyOf = val["anyOf"];
+  if (Array.isArray(anyOf)) {
+    const normalizedBranches = anyOf.map(normalizeNullableRepresentations);
+    const collapsed = tryCollapseTypeNullUnion(
+      val,
+      normalizedBranches,
+      "anyOf",
+    );
+    if (collapsed) return collapsed;
+  }
+
+  const oneOf = val["oneOf"];
+  if (Array.isArray(oneOf)) {
+    const normalizedBranches = oneOf.map(normalizeNullableRepresentations);
+    const collapsed = tryCollapseTypeNullUnion(
+      val,
+      normalizedBranches,
+      "oneOf",
+    );
+    if (collapsed) return collapsed;
+  }
+
+  const t = val["type"];
+  if (Array.isArray(t)) {
+    const types = t.filter((x): x is string => typeof x === "string");
+    const nonNull = types.filter((x) => x !== "null");
+    if (types.includes("null") && nonNull.length === 1) {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(val)) {
+        if (k === "type") continue;
+        out[k] = normalizeNullableRepresentations(v);
+      }
+      out["type"] = nonNull[0];
+      out["nullable"] = true;
+      return out;
+    }
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    out[k] = normalizeNullableRepresentations(v);
+  }
+  return out;
+}
+
+function tryCollapseTypeNullUnion(
+  parent: Record<string, unknown>,
+  normalizedBranches: unknown[],
+  combinatorKey: "anyOf" | "oneOf",
+): Record<string, unknown> | null {
+  if (normalizedBranches.length !== 2) return null;
+
+  const nullBranches = normalizedBranches.filter(isNullOnlyTypeSchema);
+  const nonNullBranches = normalizedBranches.filter(
+    (b) => !isNullOnlyTypeSchema(b),
+  );
+  if (nullBranches.length !== 1 || nonNullBranches.length !== 1) return null;
+
+  const nonNull = nonNullBranches[0];
+  if (!isObject(nonNull)) return null;
+
+  const merged: Record<string, unknown> = {
+    ...(nonNull as Record<string, unknown>),
+  };
+  for (const [k, v] of Object.entries(parent)) {
+    if (k === combinatorKey) continue;
+    merged[k] = normalizeNullableRepresentations(v);
+  }
+  merged["nullable"] = true;
+  return merged;
+}
+
+/**
  * Strip the top-level `components` / `definitions` keys since we've already
- * inlined all $refs. Also strip `info.version` which often bumps trivially.
+ * inlined all $refs.
  */
 function stripMeta(spec: Record<string, unknown>): Record<string, unknown> {
   const copy = { ...spec };
   delete copy["components"];
   delete copy["definitions"];
   delete copy["x-webhooks"];
-  // Keep info but drop version
-  if (isObject(copy["info"])) {
-    const info = { ...(copy["info"] as Record<string, unknown>) };
-    delete info["version"];
-    copy["info"] = info;
-  }
   return copy;
 }
 
@@ -649,9 +751,16 @@ Options:
   const oldClean = stripMeta(oldFiltered);
   const newClean = stripMeta(newFiltered);
 
+  const oldNorm = normalizeNullableRepresentations(
+    stripJsSafeIntegerBoundArtifacts(oldClean),
+  );
+  const newNorm = normalizeNullableRepresentations(
+    stripJsSafeIntegerBoundArtifacts(newClean),
+  );
+
   // Diff
   const diffs: Diff[] = [];
-  deepDiff(oldClean, newClean, "", diffs);
+  deepDiff(oldNorm, newNorm, "", diffs);
 
   if (diffs.length === 0) {
     console.log(COLORS.green("✓ No meaningful differences found."));

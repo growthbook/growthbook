@@ -176,6 +176,19 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
     ...rest
   } = z.toJSONSchema(schema, {
     unrepresentable: "any",
+    override: (ctx) => {
+      // TODO: remove
+      // minimum: -9007199254740991
+      // maximum: 9007199254740991
+      if (ctx.zodSchema === undefined) return;
+      const jsonSchema = ctx.jsonSchema as z.core.JSONSchema.BaseSchema;
+      if (jsonSchema.minimum === -9007199254740991) {
+        delete jsonSchema.minimum;
+      }
+      if (jsonSchema.maximum === 9007199254740991) {
+        delete jsonSchema.maximum;
+      }
+    },
   }) as Record<string, unknown>;
   if ($defs && typeof $defs === "object") {
     for (const [name, def] of Object.entries(
@@ -409,6 +422,10 @@ curl https://api.growthbook.io/api/v1 \
   const schemaHashMap: Record<string, string> = {};
 
   for (const route of allRoutes) {
+    if (route.excludeFromSpec) {
+      continue;
+    }
+
     const {
       operationId,
       summary,
@@ -594,7 +611,7 @@ curl https://api.growthbook.io/api/v1 \
     const codeSamples: CodeSample[] = [];
     if (exampleRequest) {
       codeSamples.push({
-        lang: "curl",
+        lang: "cURL",
         source: buildCurlSample(method, fullPath, exampleRequest),
       });
     }

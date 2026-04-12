@@ -56,6 +56,7 @@ export const getDataEnrichment = createApiRequestHandler({
   method: "get" as const,
   path: "/ingestion/data-enrichment",
   operationId: "getDataEnrichment",
+  excludeFromSpec: true,
 })(async (req): Promise<GetDataEnrichmentResponse> => {
   // Must be a super-user to make cross-org mongo queries
   await validateIsSuperUserRequest(req);

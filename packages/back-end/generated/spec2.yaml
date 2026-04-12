@@ -213,27 +213,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -2520,8 +2510,6 @@ paths:
                             properties:
                               version:
                                 type: integer
-                                minimum: -9007199254740991
-                                maximum: 9007199254740991
                               comment:
                                 type: string
                               date:
@@ -2582,12 +2570,8 @@ paths:
                               properties:
                                 baseVersion:
                                   type: integer
-                                  minimum: -9007199254740991
-                                  maximum: 9007199254740991
                                 version:
                                   type: integer
-                                  minimum: -9007199254740991
-                                  maximum: 9007199254740991
                                 comment:
                                   type: string
                                 date:
@@ -4406,27 +4390,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -4775,27 +4749,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -6774,27 +6738,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -7670,27 +7624,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -7964,27 +7908,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -8205,27 +8139,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -8762,27 +8686,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -9043,27 +8957,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -9259,27 +9163,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -9505,27 +9399,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -9667,27 +9551,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -10048,27 +9922,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -10285,27 +10149,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -11987,28 +11841,16 @@ paths:
                     type: boolean
                   factTablesAdded:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   factTablesUpdated:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   factTableFiltersAdded:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   factTableFiltersUpdated:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   factMetricsAdded:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   factMetricsUpdated:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                 required:
                   - success
                   - factTablesAdded
@@ -12053,8 +11895,6 @@ paths:
                         type: string
                       startingLineNumber:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       lines:
                         type: string
                       flagKey:
@@ -12119,27 +11959,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -12207,27 +12037,17 @@ paths:
                     properties:
                       limit:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       offset:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       count:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       total:
                         type: integer
-                        minimum: -9007199254740991
-                        maximum: 9007199254740991
                       hasMore:
                         type: boolean
                       nextOffset:
                         anyOf:
                           - type: integer
-                            minimum: -9007199254740991
-                            maximum: 9007199254740991
                           - type: 'null'
                     required:
                       - limit
@@ -12325,15 +12145,6 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/members/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /ingestion/data-enrichment:
-    get:
-      operationId: getDataEnrichment
-      parameters: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema: {}
   /queries/{id}:
     get:
       operationId: getQuery
@@ -12528,7 +12339,6 @@ paths:
                 targetStepIndex:
                   type: integer
                   minimum: -1
-                  maximum: 9007199254740991
               required:
                 - targetStepIndex
               additionalProperties: false
@@ -12720,8 +12530,6 @@ paths:
                                 activatingRevisionVersion:
                                   anyOf:
                                     - type: integer
-                                      minimum: -9007199254740991
-                                      maximum: 9007199254740991
                                     - type: 'null'
                               required:
                                 - id
@@ -12968,7 +12776,6 @@ paths:
                           currentStepIndex:
                             type: integer
                             minimum: -1
-                            maximum: 9007199254740991
                           startedAt:
                             anyOf:
                               - type: string
@@ -13007,8 +12814,6 @@ paths:
                           elapsedMs:
                             anyOf:
                               - type: integer
-                                minimum: -9007199254740991
-                                maximum: 9007199254740991
                               - type: 'null'
                         required:
                           - id
@@ -13069,8 +12874,8 @@ paths:
               schema: {}
   /dashboards/{id}:
     get:
-      operationId: getdashboard
-      summary: get dashboards
+      operationId: getDashboard
+      summary: Get a single dashboard
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -13086,8 +12891,8 @@ paths:
                   - dashboard
                 additionalProperties: false
     delete:
-      operationId: deletedashboard
-      summary: delete dashboards
+      operationId: deleteDashboard
+      summary: Delete a single dashboard
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -13103,8 +12908,8 @@ paths:
                   - deletedId
                 additionalProperties: false
     put:
-      operationId: updatedashboard
-      summary: update dashboards
+      operationId: updateDashboard
+      summary: Update a single dashboard
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -14970,8 +14775,8 @@ paths:
                 additionalProperties: false
   /dashboards:
     post:
-      operationId: createdashboard
-      summary: create dashboards
+      operationId: createDashboard
+      summary: Create a single dashboard
       parameters: []
       requestBody:
         required: true
@@ -15475,8 +15280,8 @@ paths:
                   - dashboard
                 additionalProperties: false
     get:
-      operationId: listdashboard
-      summary: list dashboards
+      operationId: listDashboard
+      summary: Get all dashboards
       parameters: []
       responses:
         '200':
@@ -15517,8 +15322,8 @@ paths:
                 additionalProperties: false
   /custom-fields:
     post:
-      operationId: createcustomField
-      summary: create customFields
+      operationId: createCustomField
+      summary: Create a single customField
       parameters: []
       requestBody:
         required: true
@@ -15732,8 +15537,8 @@ paths:
                   additionalProperties: false
   /custom-fields/{id}:
     delete:
-      operationId: deletecustomField
-      summary: delete customFields
+      operationId: deleteCustomField
+      summary: Delete a single customField
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/index'
@@ -15750,8 +15555,8 @@ paths:
                   - deletedId
                 additionalProperties: false
     get:
-      operationId: getcustomField
-      summary: get customFields
+      operationId: getCustomField
+      summary: Get a single customField
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -15767,8 +15572,8 @@ paths:
                   - customField
                 additionalProperties: false
     put:
-      operationId: updatecustomField
-      summary: update customFields
+      operationId: updateCustomField
+      summary: Update a single customField
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -15854,8 +15659,8 @@ paths:
                 additionalProperties: false
   /metric-groups/{id}:
     get:
-      operationId: getmetricGroup
-      summary: get metricGroups
+      operationId: getMetricGroup
+      summary: Get a single metricGroup
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -15871,8 +15676,8 @@ paths:
                   - metricGroup
                 additionalProperties: false
     delete:
-      operationId: deletemetricGroup
-      summary: delete metricGroups
+      operationId: deleteMetricGroup
+      summary: Delete a single metricGroup
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -15888,8 +15693,8 @@ paths:
                   - deletedId
                 additionalProperties: false
     put:
-      operationId: updatemetricGroup
-      summary: update metricGroups
+      operationId: updateMetricGroup
+      summary: Update a single metricGroup
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -15941,8 +15746,8 @@ paths:
                 additionalProperties: false
   /metric-groups:
     post:
-      operationId: createmetricGroup
-      summary: create metricGroups
+      operationId: createMetricGroup
+      summary: Create a single metricGroup
       parameters: []
       requestBody:
         required: true
@@ -15998,8 +15803,8 @@ paths:
                   - metricGroup
                 additionalProperties: false
     get:
-      operationId: listmetricGroup
-      summary: list metricGroups
+      operationId: listMetricGroup
+      summary: Get all metricGroups
       parameters: []
       responses:
         '200':
@@ -16015,8 +15820,8 @@ paths:
                 additionalProperties: false
   /teams/{id}:
     get:
-      operationId: getteam
-      summary: get teams
+      operationId: getTeam
+      summary: Get a single team
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -16032,8 +15837,8 @@ paths:
                   - team
                 additionalProperties: false
     put:
-      operationId: updateteam
-      summary: update teams
+      operationId: updateTeam
+      summary: Update a single team
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -16114,8 +15919,8 @@ paths:
                 additionalProperties: false
   /teams:
     post:
-      operationId: createteam
-      summary: create teams
+      operationId: createTeam
+      summary: Create a single team
       parameters: []
       requestBody:
         required: true
@@ -16198,8 +16003,8 @@ paths:
                   - team
                 additionalProperties: false
     get:
-      operationId: listteam
-      summary: list teams
+      operationId: listTeam
+      summary: Get all teams
       parameters: []
       responses:
         '200':
@@ -16297,8 +16102,8 @@ paths:
                 additionalProperties: false
   /experiment-templates/{id}:
     get:
-      operationId: getexperimentTemplate
-      summary: get experimentTemplates
+      operationId: getExperimentTemplate
+      summary: Get a single experimentTemplate
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -16314,8 +16119,8 @@ paths:
                   - experimentTemplate
                 additionalProperties: false
     delete:
-      operationId: deleteexperimentTemplate
-      summary: delete experimentTemplates
+      operationId: deleteExperimentTemplate
+      summary: Delete a single experimentTemplate
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -16331,8 +16136,8 @@ paths:
                   - deletedId
                 additionalProperties: false
     put:
-      operationId: updateexperimentTemplate
-      summary: update experimentTemplates
+      operationId: updateExperimentTemplate
+      summary: Update a single experimentTemplate
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -16486,8 +16291,8 @@ paths:
                 additionalProperties: false
   /experiment-templates:
     post:
-      operationId: createexperimentTemplate
-      summary: create experimentTemplates
+      operationId: createExperimentTemplate
+      summary: Create a single experimentTemplate
       parameters: []
       requestBody:
         required: true
@@ -16646,8 +16451,8 @@ paths:
                   - experimentTemplate
                 additionalProperties: false
     get:
-      operationId: listexperimentTemplate
-      summary: list experimentTemplates
+      operationId: listExperimentTemplate
+      summary: Get all experimentTemplates
       parameters:
         - $ref: '#/components/parameters/projectId'
       responses:
@@ -16837,12 +16642,8 @@ paths:
                 properties:
                   added:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   updated:
                     type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                 required:
                   - added
                   - updated
@@ -18956,8 +18757,8 @@ paths:
                 additionalProperties: false
   /ramp-schedule-templates/{id}:
     get:
-      operationId: getrampScheduleTemplate
-      summary: get rampScheduleTemplates
+      operationId: getRampScheduleTemplate
+      summary: Get a single rampScheduleTemplate
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -18973,8 +18774,8 @@ paths:
                   - rampScheduleTemplate
                 additionalProperties: false
     delete:
-      operationId: deleterampScheduleTemplate
-      summary: delete rampScheduleTemplates
+      operationId: deleteRampScheduleTemplate
+      summary: Delete a single rampScheduleTemplate
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -18990,8 +18791,8 @@ paths:
                   - deletedId
                 additionalProperties: false
     put:
-      operationId: updaterampScheduleTemplate
-      summary: update rampScheduleTemplates
+      operationId: updateRampScheduleTemplate
+      summary: Update a single rampScheduleTemplate
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -19184,8 +18985,8 @@ paths:
                 additionalProperties: false
   /ramp-schedule-templates:
     post:
-      operationId: createrampScheduleTemplate
-      summary: create rampScheduleTemplates
+      operationId: createRampScheduleTemplate
+      summary: Create a single rampScheduleTemplate
       parameters: []
       requestBody:
         required: true
@@ -19379,8 +19180,8 @@ paths:
                   - rampScheduleTemplate
                 additionalProperties: false
     get:
-      operationId: listrampScheduleTemplate
-      summary: list rampScheduleTemplates
+      operationId: listRampScheduleTemplate
+      summary: Get all rampScheduleTemplates
       parameters: []
       responses:
         '200':
@@ -19396,8 +19197,8 @@ paths:
                 additionalProperties: false
   /ramp-schedules/{id}:
     get:
-      operationId: getrampSchedule
-      summary: get rampSchedules
+      operationId: getRampSchedule
+      summary: Get a single rampSchedule
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -19413,8 +19214,8 @@ paths:
                   - rampSchedule
                 additionalProperties: false
     delete:
-      operationId: deleterampSchedule
-      summary: delete rampSchedules
+      operationId: deleteRampSchedule
+      summary: Delete a single rampSchedule
       parameters:
         - $ref: '#/components/parameters/id'
       responses:
@@ -19430,8 +19231,8 @@ paths:
                   - deletedId
                 additionalProperties: false
     put:
-      operationId: updaterampSchedule
-      summary: update rampSchedules
+      operationId: updateRampSchedule
+      summary: Update a single rampSchedule
       parameters:
         - $ref: '#/components/parameters/id'
       requestBody:
@@ -19679,8 +19480,8 @@ paths:
                 additionalProperties: false
   /ramp-schedules:
     post:
-      operationId: createrampSchedule
-      summary: create rampSchedules
+      operationId: createRampSchedule
+      summary: Create a single rampSchedule
       parameters: []
       requestBody:
         required: true
@@ -19928,8 +19729,8 @@ paths:
                   - rampSchedule
                 additionalProperties: false
     get:
-      operationId: listrampSchedule
-      summary: list rampSchedules
+      operationId: listRampSchedule
+      summary: Get all rampSchedules
       parameters:
         - $ref: '#/components/parameters/featureId'
         - $ref: '#/components/parameters/status'
@@ -19957,8 +19758,6 @@ components:
       schema:
         default: 10
         type: integer
-        minimum: -9007199254740991
-        maximum: 9007199254740991
     offset:
       name: offset
       in: query
@@ -19967,8 +19766,6 @@ components:
       schema:
         default: 0
         type: integer
-        minimum: -9007199254740991
-        maximum: 9007199254740991
     projectId:
       name: projectId
       in: query
@@ -20092,8 +19889,6 @@ components:
       description: ''
       schema:
         type: integer
-        minimum: -9007199254740991
-        maximum: 9007199254740991
     visualChangeId:
       name: visualChangeId
       in: path
@@ -21588,8 +21383,6 @@ components:
           properties:
             version:
               type: integer
-              minimum: -9007199254740991
-              maximum: 9007199254740991
             comment:
               type: string
             date:
@@ -21646,12 +21439,8 @@ components:
       properties:
         baseVersion:
           type: integer
-          minimum: -9007199254740991
-          maximum: 9007199254740991
         version:
           type: integer
-          minimum: -9007199254740991
-          maximum: 9007199254740991
         comment:
           type: string
         date:
@@ -25150,8 +24939,6 @@ components:
               startingLineNumber:
                 description: Line number where the reference starts
                 type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
               lines:
                 description: The code lines containing the reference
                 type: string
@@ -25624,8 +25411,6 @@ components:
               activatingRevisionVersion:
                 anyOf:
                   - type: integer
-                    minimum: -9007199254740991
-                    maximum: 9007199254740991
                   - type: 'null'
             required:
               - id
@@ -25872,7 +25657,6 @@ components:
         currentStepIndex:
           type: integer
           minimum: -1
-          maximum: 9007199254740991
         startedAt:
           anyOf:
             - type: string
@@ -25911,8 +25695,6 @@ components:
         elapsedMs:
           anyOf:
             - type: integer
-              minimum: -9007199254740991
-              maximum: 9007199254740991
             - type: 'null'
       required:
         - id

@@ -1,6 +1,7 @@
 import { z, ZodType } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { apiBaseSchema } from "shared/validators";
+import { capitalizeFirstCharacter } from "shared/util";
 import { ModelName } from "back-end/src/services/context";
 import {
   ApiRequest,
@@ -219,12 +220,19 @@ export function getOpenApiRoutesForApiConfig(
   const crudConfig = getCrudConfig(apiConfig.openApiSpec);
   crudConfig.forEach(
     ({ action, verb, pathFragment, validator, returnKey, returnSchema }) => {
+      const singularCapitalized = capitalizeFirstCharacter(
+        apiConfig.openApiSpec.modelSingular,
+      );
       const route = createApiRequestHandler({
         ...validator,
         method: verb,
         path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
-        operationId: `${action}${apiConfig.openApiSpec.modelSingular}`,
-        summary: `${action} ${apiConfig.openApiSpec.modelPlural}`,
+        operationId: `${action}${singularCapitalized}`,
+        summary: getDefaultCrudActionSummary(
+          action,
+          apiConfig.openApiSpec.modelSingular,
+          apiConfig.openApiSpec.modelPlural,
+        ),
         responseSchema: returnSchema,
       })(async (req) => {
         const modelInstance = req.context.models[

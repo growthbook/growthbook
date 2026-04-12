@@ -58,6 +58,7 @@ export type ApiEndpointSpec<
     z.infer<QuerySchema>,
     z.infer<ResponseSchema>
   >;
+  excludeFromSpec?: boolean;
 };
 
 function validate<T extends ZodType>(
@@ -130,6 +131,7 @@ export type OpenApiRoute<
     z.infer<QuerySchema>,
     z.infer<ResponseSchema>
   >;
+  excludeFromSpec?: boolean;
 };
 
 export function createApiRequestHandler<
@@ -152,6 +154,7 @@ export function createApiRequestHandler<
     method,
     path,
     middleware,
+    excludeFromSpec,
   } = data;
 
   return (
@@ -242,6 +245,7 @@ export function createApiRequestHandler<
         response: responseSchema,
       },
       handler: wrappedHandler,
+      excludeFromSpec,
     };
 
     return route;
