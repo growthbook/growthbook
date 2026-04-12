@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Box, Flex, ScrollArea, Separator } from "@radix-ui/themes";
 import { PiMagnifyingGlass, PiPlus, PiChat, PiTrash } from "react-icons/pi";
 import { formatShortAgo } from "shared/dates";
+import track from "@/services/track";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
@@ -101,7 +102,13 @@ export default function ConversationSidebar({
             </Flex>
           </Button>
 
-          <Button variant="soft" onClick={() => setSearchOpen(true)}>
+          <Button
+            variant="soft"
+            onClick={() => {
+              track("AI Chat Search");
+              setSearchOpen(true);
+            }}
+          >
             <Flex align="center" justify="center" gap="1">
               <PiMagnifyingGlass size={13} />
               <Text size="medium" weight="medium">

@@ -63,7 +63,6 @@ interface ChatMessageListProps {
   isRemoteStream: boolean;
   waitingForNextStep: boolean;
   error: string | null;
-  conversationId: string;
   feedbackMap: Record<string, FeedbackState>;
   onFeedbackSubmit: (
     messageId: string,
@@ -85,7 +84,6 @@ export default function ChatMessageList({
   isRemoteStream,
   waitingForNextStep,
   error,
-  conversationId,
   feedbackMap,
   onFeedbackSubmit,
   toolDetailsOpenRef,
@@ -326,7 +324,6 @@ export default function ChatMessageList({
                   <AIChatFeedback
                     key={`feedback-${lastMsg.id}`}
                     messageId={lastMsg.id}
-                    conversationId={conversationId}
                     value={
                       feedbackMap[lastMsg.id] ?? {
                         rating: null,

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
+import track from "@/services/track";
 import OptInModal from "@/components/License/OptInModal";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -16,6 +17,16 @@ export default function AIChatGatingScreen({
   canManageOrgSettings,
 }: AIChatGatingScreenProps) {
   const [showOptIn, setShowOptIn] = useState(false);
+
+  useEffect(() => {
+    const reason = !hasAISuggestions
+      ? "no-feature"
+      : canManageOrgSettings
+        ? "ai-disabled-admin"
+        : "ai-disabled";
+    track("AI Chat Gating Screen Viewed", { reason });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Flex style={{ height: "80vh" }} align="center" justify="center">

@@ -87,6 +87,28 @@ export interface UseAIChatOptions {
    * (e.g. feedback) without changing the hook's core state.
    */
   onConversationLoaded?: (data: unknown) => void;
+
+  /**
+   * Called when the AI response stream completes successfully.
+   * `durationMs` is the wall-clock time from send to stream end.
+   * `toolCallCount` is the number of tool calls the agent made during this turn.
+   */
+  onMessageComplete?: (info: {
+    durationMs: number;
+    toolCallCount: number;
+  }) => void;
+
+  /**
+   * Called when the user explicitly cancels generation.
+   * `durationMs` is the wall-clock time from send to cancel.
+   */
+  onMessageCancelled?: (info: { durationMs: number }) => void;
+
+  /** Called when a non-abort error occurs during message send or streaming. */
+  onMessageError?: (info: {
+    errorType: string;
+    httpStatus?: number;
+  }) => void;
 }
 
 export interface ConversationSummary {

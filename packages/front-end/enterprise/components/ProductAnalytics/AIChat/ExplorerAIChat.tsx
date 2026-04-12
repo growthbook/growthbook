@@ -4,6 +4,7 @@ import { PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import track from "@/services/track";
 import Button from "@/ui/Button";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
@@ -99,6 +100,25 @@ export default function ExplorerAIChat() {
       }
     },
     onConversationLoaded: loadFeedbackFromConversation,
+    onMessageComplete: (info) => {
+      track("AI Chat Response Completed", {
+        model: chatModel,
+        durationMs: info.durationMs,
+        toolCallCount: info.toolCallCount,
+      });
+    },
+    onMessageCancelled: (info) => {
+      track("AI Chat Generation Cancelled", {
+        model: chatModel,
+        durationMs: info.durationMs,
+      });
+    },
+    onMessageError: (info) => {
+      track("AI Chat Error", {
+        errorType: info.errorType,
+        httpStatus: info.httpStatus,
+      });
+    },
   });
 
   // Keep the feedback hook's ref in sync with the current conversation id.
@@ -121,6 +141,22 @@ export default function ExplorerAIChat() {
     conversationId,
   );
 
+  // -- Handlers --------------------------------------------------------------
+
+  const trackAndSend = useCallback(
+    (messageOverride?: string) => {
+      const text = (messageOverride ?? input).trim();
+      if (!text) return;
+      track("AI Chat Message Sent", {
+        model: chatModel,
+        messageCount: messages.length,
+        isFirstMessage: messages.length === 0,
+      });
+      sendMessage(messageOverride);
+    },
+    [input, chatModel, messages.length, sendMessage],
+  );
+
   // -- Effects ---------------------------------------------------------------
 
   useEffect(() => {
@@ -132,6 +168,12 @@ export default function ExplorerAIChat() {
   }, [loading, refreshList]);
 
   useEffect(() => {
+    track("AI Chat Page Viewed", {
+      hasInitialMessage: initialMessageRef.current !== null,
+    });
+  }, []);
+
+  useEffect(() => {
     inputRef.current?.focus();
   }, [conversationId]);
 
@@ -139,21 +181,30 @@ export default function ExplorerAIChat() {
     const msg = initialMessageRef.current;
     if (!msg) return;
     initialMessageRef.current = null;
-    sendMessage(msg);
-  }, [sendMessage]);
-
-  // -- Handlers --------------------------------------------------------------
+    trackAndSend(msg);
+  }, [trackAndSend]);
 
   const handleNewChat = useCallback(() => {
+    track("AI Chat New Conversation", {
+      previousConversationMessageCount: messages.length,
+    });
     newChat();
     setChatModel(defaultAIModel);
     clearFeedback();
     refreshList();
-  }, [newChat, refreshList, defaultAIModel, setChatModel, clearFeedback]);
+  }, [
+    newChat,
+    refreshList,
+    defaultAIModel,
+    setChatModel,
+    clearFeedback,
+    messages.length,
+  ]);
 
   const handleDeleteConversation = useCallback(
     async (id: string) => {
       try {
+        track("AI Chat Delete Conversation");
         await deleteConversation(id);
         if (id === conversationId) newChat();
       } catch {
@@ -167,10 +218,10 @@ export default function ExplorerAIChat() {
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        sendMessage();
+        trackAndSend();
       }
     },
-    [sendMessage],
+    [trackAndSend],
   );
 
   // -- Render ----------------------------------------------------------------
@@ -199,6 +250,7 @@ export default function ExplorerAIChat() {
         conversations={conversations}
         activeConversationId={conversationId}
         onSelect={(id) => {
+          track("AI Chat Load Conversation");
           void loadConversation(id);
           const conv = rawConversations?.find((c) => c.conversationId === id);
           setChatModel(conv?.model ?? defaultAIModel);
@@ -246,7 +298,6 @@ export default function ExplorerAIChat() {
           isRemoteStream={isRemoteStream}
           waitingForNextStep={waitingForNextStep}
           error={error}
-          conversationId={conversationId}
           feedbackMap={feedbackMap}
           onFeedbackSubmit={handleFeedbackSubmit}
           toolDetailsOpenRef={toolDetailsOpenRef}
@@ -260,7 +311,7 @@ export default function ExplorerAIChat() {
           input={input}
           onInputChange={setInput}
           onKeyDown={handleKeyDown}
-          onSend={() => sendMessage()}
+          onSend={() => trackAndSend()}
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}

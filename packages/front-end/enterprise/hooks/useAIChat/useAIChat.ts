@@ -31,6 +31,9 @@ export function useAIChat({
   getCancelEndpoint,
   onStreamAccepted,
   onConversationLoaded,
+  onMessageComplete,
+  onMessageCancelled,
+  onMessageError,
 }: UseAIChatOptions): UseAIChatReturn {
   const messageCounterRef = useRef(0);
   const nextId = useCallback(() => messageCounterRef.current++, []);
@@ -83,6 +86,12 @@ export function useAIChat({
   onSSEEventRef.current = onSSEEvent;
   const onStreamAcceptedRef = useRef(onStreamAccepted);
   onStreamAcceptedRef.current = onStreamAccepted;
+  const onMessageCompleteRef = useRef(onMessageComplete);
+  onMessageCompleteRef.current = onMessageComplete;
+  const onMessageCancelledRef = useRef(onMessageCancelled);
+  onMessageCancelledRef.current = onMessageCancelled;
+  const onMessageErrorRef = useRef(onMessageError);
+  onMessageErrorRef.current = onMessageError;
 
   const { fetchRaw, apiCall } = useAuth();
 
@@ -337,6 +346,8 @@ export function useAIChat({
       userCancelledRef.current = false;
 
       let streamCompletedOk = false;
+      const sendStartMs = Date.now();
+      let toolCallCount = 0;
 
       try {
         const response = await fetchRaw(endpoint, {
@@ -355,8 +366,16 @@ export function useAIChat({
             setError(
               `AI request limit reached. Try again in ${hours}h ${minutes}m.`,
             );
+            onMessageErrorRef.current?.({
+              errorType: "rate-limit",
+              httpStatus: response.status,
+            });
           } else {
             setError(errorData?.message || `Error: ${response.status}`);
+            onMessageErrorRef.current?.({
+              errorType: "http-error",
+              httpStatus: response.status,
+            });
           }
           return;
         }
@@ -382,6 +401,7 @@ export function useAIChat({
           buffer = remaining;
 
           for (const event of parsed) {
+            if (event.type === "tool-call-start") toolCallCount++;
             onSSEEventRef.current?.(event);
 
             const result = processSSEEvent(
@@ -403,11 +423,21 @@ export function useAIChat({
           // User cancelled — ignore
         } else {
           setError("Failed to get a response. Please try again.");
+          onMessageErrorRef.current?.({
+            errorType: "stream-failed",
+          });
         }
       } finally {
         const wasCancelled = userCancelledRef.current;
+        const durationMs = Date.now() - sendStartMs;
         userCancelledRef.current = false;
         isSendingRef.current = false;
+
+        if (streamCompletedOk) {
+          onMessageCompleteRef.current?.({ durationMs, toolCallCount });
+        } else if (wasCancelled) {
+          onMessageCancelledRef.current?.({ durationMs });
+        }
         setWaitingForNextStep(false);
         setLoading(false);
         setIsLocalStream(false);

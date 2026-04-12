@@ -30,7 +30,6 @@ export interface FeedbackState {
 
 interface AIChatFeedbackProps {
   messageId: string;
-  conversationId: string;
   value: FeedbackState;
   onSubmit: (
     messageId: string,
@@ -41,7 +40,6 @@ interface AIChatFeedbackProps {
 
 export function AIChatFeedback({
   messageId,
-  conversationId,
   value,
   onSubmit,
 }: AIChatFeedbackProps) {
@@ -65,11 +63,9 @@ export function AIChatFeedback({
         action,
         rating,
         hasComment: action === "comment",
-        conversationId,
-        messageId,
       });
     },
-    [conversationId, messageId],
+    [],
   );
 
   const handleThumbsUp = useCallback(() => {
