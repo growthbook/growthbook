@@ -1,6 +1,36 @@
 import type { ActiveTurnItem, SSEEvent } from "./types";
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Extracts chart-relevant data from a successful runExploration tool output.
+ * Returns undefined when the output isn't a valid exploration result.
+ */
+function extractExplorationResultData(
+  toolName: string,
+  output: unknown,
+): Record<string, unknown> | undefined {
+  if (toolName !== "runExploration") return undefined;
+  if (!output || typeof output !== "object" || Array.isArray(output))
+    return undefined;
+
+  const o = output as Record<string, unknown>;
+  if (o.status !== "success") return undefined;
+
+  const ex = o.exploration;
+  if (!ex || typeof ex !== "object" || !("config" in ex)) return undefined;
+  if (typeof (ex as Record<string, unknown>).config !== "object")
+    return undefined;
+
+  const data: Record<string, unknown> = {};
+  if (typeof o.snapshotId === "string") data.snapshotId = o.snapshotId;
+  if (o.exploration !== undefined) data.exploration = o.exploration;
+  return data;
+}
+
+// ---------------------------------------------------------------------------
 // Pure SSE event processor
 // ---------------------------------------------------------------------------
 
@@ -209,37 +239,7 @@ export function processSSEEvent(
           ? (rawIn as Record<string, unknown>)
           : undefined;
 
-      const toolResultData =
-        toolName === "runExploration" &&
-        output &&
-        typeof output === "object" &&
-        !Array.isArray(output) &&
-        output !== null &&
-        (output as Record<string, unknown>).status === "success" &&
-        (() => {
-          const ex = (output as Record<string, unknown>).exploration;
-          const cfg =
-            ex &&
-            typeof ex === "object" &&
-            ex !== null &&
-            "config" in ex &&
-            typeof (ex as Record<string, unknown>).config === "object"
-              ? (ex as Record<string, unknown>).config
-              : undefined;
-          return cfg !== undefined;
-        })()
-          ? (() => {
-              const o = output as Record<string, unknown>;
-              const data: Record<string, unknown> = {};
-              if (typeof o.snapshotId === "string") {
-                data.snapshotId = o.snapshotId;
-              }
-              if (o.exploration !== undefined) {
-                data.exploration = o.exploration;
-              }
-              return data;
-            })()
-          : undefined;
+      const toolResultData = extractExplorationResultData(toolName, output);
 
       return {
         waitingForNextStep: !preliminary,

@@ -5,28 +5,12 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
+import { formatShortAgo } from "@/services/dates";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 import AIUsageWidget from "./AIUsageWidget";
 import ChatSearchModal from "./ChatSearchModal";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function relativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+const SIDEBAR_WIDTH = 259;
 
 export interface ConversationSidebarProps {
   conversations: ConversationSummary[];
@@ -38,10 +22,6 @@ export interface ConversationSidebarProps {
   collapsed?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export default function ConversationSidebar({
   conversations,
   activeConversationId,
@@ -50,18 +30,15 @@ export default function ConversationSidebar({
   onDelete,
   collapsed = false,
 }: ConversationSidebarProps) {
-  const [hoveredConversationId, setHoveredConversationId] = useState<
-    string | null
-  >(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <Flex
       direction="column"
+      flexShrink="0"
       style={{
-        width: collapsed ? 0 : 259,
-        flexShrink: 0,
+        width: collapsed ? 0 : SIDEBAR_WIDTH,
         borderRight: collapsed ? "none" : "1px solid var(--gray-a6)",
         background: "var(--color-panel-solid)",
         overflow: "hidden",
@@ -104,7 +81,7 @@ export default function ConversationSidebar({
         direction="column"
         p="2"
         style={{
-          width: 259,
+          width: SIDEBAR_WIDTH,
           flex: 1,
           minHeight: 0,
           opacity: collapsed ? 0 : 1,
@@ -114,26 +91,8 @@ export default function ConversationSidebar({
           pointerEvents: collapsed ? "none" : undefined,
         }}
       >
-        {/* <Flex
-        align="center"
-        justify="between"
-        px="3"
-        py="2"
-        style={{
-          borderBottom: "1px solid var(--gray-a3)",
-          flexShrink: 0,
-        }}
-      >
-        <Text size="small" weight="medium" color="text-mid">
-          Chats
-        </Text>
-        <Button variant="ghost" size="xs" onClick={onNewChat} title="New chat">
-          <PiPlus size={13} />
-        </Button>
-      </Flex> */}
-
         <Flex direction="column" gap="2">
-          <Button onClick={() => onNewChat()}>
+          <Button onClick={onNewChat}>
             <Flex align="center" justify="center" gap="1">
               <PiPlus size={13} />
               <Text size="medium" weight="medium">
@@ -171,7 +130,9 @@ export default function ConversationSidebar({
           <Flex
             direction="column"
             gap="2"
-            style={{ padding: "6px 4px", paddingRight: 12 }}
+            py="1"
+            px="1"
+            style={{ paddingRight: 12 }}
           >
             {conversations.length === 0 ? (
               <Flex
@@ -179,14 +140,9 @@ export default function ConversationSidebar({
                 justify="center"
                 direction="column"
                 gap="2"
-                style={{
-                  padding: "20px 12px",
-                  fontSize: 12,
-                  color: "var(--gray-a9)",
-                  textAlign: "center",
-                }}
+                py="5"
+                px="3"
               >
-                {/* Chat bubble icon */}
                 <PiChat size={20} color="var(--violet-a11)" />
                 <Text size="small" color="text-high" weight="semibold">
                   No chats yet
@@ -198,15 +154,11 @@ export default function ConversationSidebar({
             ) : (
               conversations.map((conv) => {
                 const isActive = conv.conversationId === activeConversationId;
-                const isHovered = hoveredConversationId === conv.conversationId;
                 return (
                   <button
                     key={conv.conversationId}
                     type="button"
-                    onMouseEnter={() =>
-                      setHoveredConversationId(conv.conversationId)
-                    }
-                    onMouseLeave={() => setHoveredConversationId(null)}
+                    className={`${aiChatPrimitives.conversationItem} ${isActive ? aiChatPrimitives.conversationItemActive : ""}`}
                     style={{
                       display: "flex",
                       flexDirection: "row",
@@ -214,17 +166,9 @@ export default function ConversationSidebar({
                       width: "100%",
                       padding: "7px 10px",
                       borderRadius: "var(--radius-2)",
-                      border: isActive
-                        ? "1px solid transparent"
-                        : "1px solid transparent",
-                      background: isActive
-                        ? "var(--violet-10)"
-                        : isHovered
-                          ? "var(--gray-a3)"
-                          : "none",
+                      border: "1px solid transparent",
                       cursor: "pointer",
                       textAlign: "left",
-                      color: isActive ? "#fff" : "var(--gray-12)",
                     }}
                     onClick={() => onSelect(conv.conversationId)}
                   >
@@ -258,37 +202,33 @@ export default function ConversationSidebar({
                           {conv.preview}
                         </span>
                       ) : null}
-                      <Box
-                        as="span"
+                      <Flex
+                        asChild
+                        align="center"
+                        gap="1"
                         style={{
                           fontSize: 11,
                           color: isActive
                             ? "rgba(255,255,255,0.6)"
                             : "var(--gray-a10)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
                         }}
                       >
-                        {conv.isStreaming ? (
-                          <span
-                            title="Streaming"
-                            className={aiChatPrimitives.streamingDot}
-                          />
-                        ) : null}
-                        {relativeTime(conv.createdAt)}
-                      </Box>
+                        <span>
+                          {conv.isStreaming ? (
+                            <span
+                              title="Streaming"
+                              className={aiChatPrimitives.streamingDot}
+                            />
+                          ) : null}
+                          {formatShortAgo(conv.createdAt)}
+                        </span>
+                      </Flex>
                     </Flex>
                     {onDelete ? (
                       <Box
                         flexShrink="0"
                         ml="1"
-                        className={aiChatPrimitives.deleteButton}
-                        style={{
-                          opacity: isHovered ? 1 : 0,
-                          transition: "opacity 100ms ease",
-                          pointerEvents: isHovered ? "auto" : "none",
-                        }}
+                        className={`${aiChatPrimitives.deleteButton} ${aiChatPrimitives.conversationDeleteBtn}`}
                       >
                         <Button
                           variant="ghost"

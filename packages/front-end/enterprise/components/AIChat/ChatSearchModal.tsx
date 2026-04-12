@@ -4,17 +4,8 @@ import { PiMagnifyingGlass, PiX } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
-
-function relativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+import { formatShortAgo } from "@/services/dates";
+import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 
 function highlightMatch(text: string, query: string): React.ReactNode {
   if (!query) return text;
@@ -42,13 +33,10 @@ function SearchResult({
   query: string;
   onSelect: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onSelect}
+      className={aiChatPrimitives.searchResultItem}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -57,11 +45,10 @@ function SearchResult({
         padding: "8px 10px",
         borderRadius: "var(--radius-2)",
         border: "none",
-        background: hovered ? "var(--gray-a3)" : "transparent",
         cursor: "pointer",
         textAlign: "left",
-        color: "var(--gray-12)",
       }}
+      onClick={onSelect}
     >
       <Text size="small" weight="semibold" color="text-high">
         {highlightMatch(conversation.title || "Untitled", query)}
@@ -83,7 +70,7 @@ function SearchResult({
         </span>
       )}
       <span style={{ fontSize: 11, color: "var(--gray-a10)" }}>
-        {relativeTime(conversation.createdAt)}
+        {formatShortAgo(conversation.createdAt)}
       </span>
     </button>
   );

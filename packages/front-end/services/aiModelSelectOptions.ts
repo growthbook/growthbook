@@ -22,6 +22,8 @@ const PROVIDER_DISPLAY_NAMES: Record<AIProvider, string> = {
 /** Human-readable display names for all AI models, without vendor prefix. */
 export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   // OpenAI GPT-5 series
+  "gpt-5.4-mini": "GPT 5.4 Mini",
+  "gpt-5.4-nano": "GPT 5.4 Nano",
   "gpt-5.2": "GPT 5.2",
   "gpt-5.2-pro": "GPT 5.2 Pro",
   "gpt-5.1-codex": "GPT 5.1 Codex",

@@ -26,7 +26,14 @@ export const cancelChat = async (
   req: AuthRequest<never, { conversationId: string }, never>,
   res: Response<{ status: 200; cancelled: boolean }>,
 ) => {
+  const context = getContextFromReq(req);
   const { conversationId } = req.params;
+
+  const doc = await context.models.aiConversations.getById(conversationId);
+  if (!doc) {
+    throw new NotFoundError("Conversation not found");
+  }
+
   const cancelled = cancelAgentStream(conversationId);
   return res.status(200).json({ status: 200, cancelled });
 };

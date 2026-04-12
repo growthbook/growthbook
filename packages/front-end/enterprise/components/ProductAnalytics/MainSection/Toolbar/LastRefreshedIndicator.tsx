@@ -8,10 +8,8 @@ import {
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import {
-  formatShortAgo,
-  getRefreshInterval,
-} from "@/enterprise/components/ProductAnalytics/util";
+import { formatShortAgo } from "@/services/dates";
+import { getRefreshInterval } from "@/enterprise/components/ProductAnalytics/util";
 
 interface LastRefreshedIndicatorProps {
   lastRefreshedAt: Date | null;

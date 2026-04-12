@@ -21,10 +21,6 @@ import { parseSSEEvents } from "./parseSSE";
 import { processSSEEvent } from "./processSSEEvent";
 import { useTypewriter } from "./useTypewriter";
 
-// ---------------------------------------------------------------------------
-// useAIChat
-// ---------------------------------------------------------------------------
-
 export function useAIChat({
   endpoint,
   buildRequestBody,
@@ -81,6 +77,12 @@ export function useAIChat({
   getCancelEndpointRef.current = getCancelEndpoint;
   const onConversationLoadedRef = useRef(onConversationLoaded);
   onConversationLoadedRef.current = onConversationLoaded;
+  const toolStatusLabelsRef = useRef(toolStatusLabels);
+  toolStatusLabelsRef.current = toolStatusLabels;
+  const onSSEEventRef = useRef(onSSEEvent);
+  onSSEEventRef.current = onSSEEvent;
+  const onStreamAcceptedRef = useRef(onStreamAccepted);
+  onStreamAcceptedRef.current = onStreamAccepted;
 
   const { fetchRaw, apiCall } = useAuth();
 
@@ -359,7 +361,7 @@ export function useAIChat({
           return;
         }
 
-        onStreamAccepted?.();
+        onStreamAcceptedRef.current?.();
         setIsLocalStream(true);
 
         const reader = response.body?.getReader();
@@ -380,12 +382,12 @@ export function useAIChat({
           buffer = remaining;
 
           for (const event of parsed) {
-            onSSEEvent?.(event);
+            onSSEEventRef.current?.(event);
 
             const result = processSSEEvent(
               event,
               activeTurnItemsRef.current,
-              toolStatusLabels,
+              toolStatusLabelsRef.current,
               nextId,
             );
             if (result.activeTurnItems) setActive(result.activeTurnItems);
@@ -436,16 +438,12 @@ export function useAIChat({
       endpoint,
       buildRequestBody,
       conversationId,
-      toolStatusLabels,
-      onSSEEvent,
-      onStreamAccepted,
       setActive,
       finalizeTurn,
       syncMessagesFromServer,
       getConversationEndpoint,
       nextId,
       clearRemotePoll,
-      isSendingRef,
     ],
   );
 

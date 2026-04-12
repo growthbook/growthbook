@@ -191,3 +191,14 @@ export type AIChatMessage =
   | AIChatUserMessage
   | AIChatAssistantMessage
   | AIChatToolMessage;
+
+/** Extracts the concatenated text content from any message with text parts. */
+export function getMessageText(
+  msg: AIChatUserMessage | AIChatAssistantMessage,
+): string {
+  if (typeof msg.content === "string") return msg.content;
+  return (msg.content as (AIChatTextPart | { type: string })[])
+    .filter((p): p is AIChatTextPart => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
+}

@@ -229,7 +229,7 @@ function buildMetricsPreview(metrics: FactMetricInterface[]): string {
 
   if (metrics.length > METRICS_PREVIEW_COUNT) {
     lines.push(
-      `... and ${metrics.length - METRICS_PREVIEW_COUNT} more. Use the searchMetrics tool to discover additional metrics.`,
+      `... and ${metrics.length - METRICS_PREVIEW_COUNT} more. Use the search tool to discover additional metrics.`,
     );
   }
 
@@ -248,7 +248,7 @@ function buildFactTablesPreview(factTables: FactTableInterface[]): string {
 
   if (factTables.length > METRICS_PREVIEW_COUNT) {
     lines.push(
-      `... and ${factTables.length - METRICS_PREVIEW_COUNT} more. Use the searchFactTables tool to discover additional fact tables.`,
+      `... and ${factTables.length - METRICS_PREVIEW_COUNT} more. Use the search tool to discover additional fact tables.`,
     );
   }
 

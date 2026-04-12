@@ -128,7 +128,7 @@ export default function useExplorationTableData(
       } else if (dimension.dimensionType === "dynamic") {
         headers.push(dimension.column || "");
       } else {
-        console.log("Unknown dimension type", dimension);
+        // Unknown dimension type — skip
       }
     }
     if (headers.length === 0) {

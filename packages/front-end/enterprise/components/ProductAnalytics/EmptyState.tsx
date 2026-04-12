@@ -1,6 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
   PiArrowRightBold,
@@ -11,15 +11,12 @@ import {
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
-import { getAvailableAIModelOptions } from "@/services/aiModelSelectOptions";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -29,6 +26,7 @@ import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import AIChatModelSelect from "@/enterprise/components/AIChat/AIChatModelSelect";
 import {
   PA_AI_CHAT_INITIAL_MESSAGE_KEY,
   PA_AI_CHAT_INITIAL_MODEL_KEY,
@@ -47,10 +45,6 @@ export default function EmptyState() {
   const canPickModel = permissions.canManageOrgSettings();
   const [chatModel, setChatModel] = useState(defaultAIModel);
 
-  const paChatModelSelectOptions = useMemo(
-    () => getAvailableAIModelOptions(),
-    [],
-  );
   const [newModalData, setNewModalData] =
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
@@ -154,7 +148,13 @@ export default function EmptyState() {
                 <TextDivider width={435}>
                   or continue with an existing source
                 </TextDivider>
-                <div className="mb-3 d-flex flex-column align-items-center justify-content-center w-100">
+                <Flex
+                  direction="column"
+                  align="center"
+                  justify="center"
+                  width="100%"
+                  mb="3"
+                >
                   <DataSourceTypeSelector
                     value=""
                     setValue={(value) => {
@@ -174,7 +174,7 @@ export default function EmptyState() {
                       });
                     }}
                   />
-                </div>
+                </Flex>
               </Flex>
             </Flex>
           ) : (
@@ -265,80 +265,13 @@ export default function EmptyState() {
                   justify="center"
                 >
                   <Flex gap="2" width="100%" align="center" justify="center">
-                    {!isCloud() && (
-                      <Tooltip
-                        enabled={!!modelDisabledReason}
-                        content={modelDisabledReason ?? ""}
-                      >
-                        <span
-                          style={
-                            modelDisabledReason
-                              ? { cursor: "not-allowed" }
-                              : undefined
-                          }
-                        >
-                          <SelectField
-                            id="empty-state-ai-chat-model"
-                            value={chatModel}
-                            onChange={(v) => {
-                              if (!modelDisabledReason) setChatModel(v);
-                            }}
-                            options={paChatModelSelectOptions}
-                            disabled={!!modelDisabledReason}
-                            placeholder="AI model"
-                            formatOptionLabel={(option, { context }) => {
-                              if (
-                                option.value === defaultAIModel &&
-                                context === "menu"
-                              ) {
-                                return (
-                                  <Flex direction="column" gap="0">
-                                    <Text>{option.label}</Text>
-                                    <span
-                                      style={{
-                                        color: "var(--text-color-muted)",
-                                        fontSize: "var(--font-size-1)",
-                                      }}
-                                    >
-                                      Organization Default
-                                    </span>
-                                  </Flex>
-                                );
-                              }
-                              return <span>{option.label}</span>;
-                            }}
-                            containerStyle={{
-                              marginBottom: 0,
-                              ...(modelDisabledReason
-                                ? { pointerEvents: "none" }
-                                : undefined),
-                            }}
-                            containerStyles={{
-                              control: (styles) => ({
-                                ...styles,
-                                width: "150px",
-                                minHeight: "35px",
-                                height: "40px",
-                              }),
-                              valueContainer: (styles) => ({
-                                ...styles,
-                                paddingTop: 0,
-                                paddingBottom: 0,
-                              }),
-                              indicatorsContainer: (styles) => ({
-                                ...styles,
-                                height: "35px",
-                              }),
-                              menu: (styles) => ({
-                                ...styles,
-                                width: "max-content",
-                                minWidth: "100%",
-                              }),
-                            }}
-                          />
-                        </span>
-                      </Tooltip>
-                    )}
+                    <AIChatModelSelect
+                      id="empty-state-ai-chat-model"
+                      value={chatModel}
+                      onChange={setChatModel}
+                      disabledReason={modelDisabledReason}
+                      height="40px"
+                    />
                     <Tooltip
                       enabled={!!chatDisabledReason}
                       content={chatDisabledReason ?? ""}

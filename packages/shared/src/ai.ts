@@ -7,6 +7,8 @@ export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
     // GPT-5 series
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
     "gpt-5.2",
     "gpt-5.2-pro",
     "gpt-5.1-codex",

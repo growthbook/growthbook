@@ -11,10 +11,17 @@ import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import track from "@/services/track";
+import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+const FEEDBACK_BTN_STYLE: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  padding: 4,
+  borderRadius: "var(--radius-2)",
+  display: "inline-flex",
+  alignItems: "center",
+};
 
 export interface FeedbackState {
   rating: AIChatFeedbackRating | null;
@@ -31,10 +38,6 @@ interface AIChatFeedbackProps {
     comment: string,
   ) => void;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export function AIChatFeedback({
   messageId,
@@ -118,27 +121,8 @@ export function AIChatFeedback({
       type="button"
       onClick={handleThumbsDown}
       title="Bad response"
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: "4px",
-        borderRadius: "var(--radius-2)",
-        display: "inline-flex",
-        alignItems: "center",
-        color: value.rating === "negative" ? "var(--red-11)" : "var(--gray-a9)",
-        transition: "color 120ms ease",
-      }}
-      onMouseEnter={(e) => {
-        if (value.rating !== "negative") {
-          e.currentTarget.style.color = "var(--gray-12)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (value.rating !== "negative") {
-          e.currentTarget.style.color = "var(--gray-a9)";
-        }
-      }}
+      style={FEEDBACK_BTN_STYLE}
+      className={`${aiChatPrimitives.feedbackButton} ${value.rating === "negative" ? aiChatPrimitives.feedbackNegative : ""}`}
     >
       {value.rating === "negative" ? (
         <PiThumbsDownFill size={14} />
@@ -154,28 +138,8 @@ export function AIChatFeedback({
         type="button"
         onClick={handleThumbsUp}
         title="Good response"
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: "4px",
-          borderRadius: "var(--radius-2)",
-          display: "inline-flex",
-          alignItems: "center",
-          color:
-            value.rating === "positive" ? "var(--green-11)" : "var(--gray-a9)",
-          transition: "color 120ms ease",
-        }}
-        onMouseEnter={(e) => {
-          if (value.rating !== "positive") {
-            e.currentTarget.style.color = "var(--gray-12)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (value.rating !== "positive") {
-            e.currentTarget.style.color = "var(--gray-a9)";
-          }
-        }}
+        style={FEEDBACK_BTN_STYLE}
+        className={`${aiChatPrimitives.feedbackButton} ${value.rating === "positive" ? aiChatPrimitives.feedbackPositive : ""}`}
       >
         {value.rating === "positive" ? (
           <PiThumbsUpFill size={14} />
