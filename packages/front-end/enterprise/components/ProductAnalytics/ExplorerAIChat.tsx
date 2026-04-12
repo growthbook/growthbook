@@ -17,6 +17,8 @@ import {
 import {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  type AIChatFeedbackRating,
+  type AIChatFeedbackEntry,
 } from "shared/validators";
 import { encodeExplorationConfig } from "shared/enterprise";
 import { toolResultPreviewLabel } from "shared/ai-chat";
@@ -40,6 +42,10 @@ import {
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import ConversationSidebar from "@/enterprise/components/AIChat/ConversationSidebar";
 import ToolTransparencyBlock from "@/enterprise/components/AIChat/ToolTransparencyBlock";
+import {
+  AIChatFeedback,
+  type FeedbackState,
+} from "@/enterprise/components/AIChat/AIChatFeedback";
 import {
   AssistantBubble,
   UserBubble,
@@ -253,6 +259,9 @@ export default function ExplorerAIChat() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAiOptInModal, setShowAiOptInModal] = useState(false);
   const [chatTitles, setChatTitles] = useState<Record<string, string>>({});
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, FeedbackState>>(
+    {},
+  );
 
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, defaultAIModel } = useAISettings();
@@ -343,6 +352,21 @@ export default function ExplorerAIChat() {
         void refreshList();
       }
     },
+    onConversationLoaded: (data) => {
+      const entries = (data as { feedback?: AIChatFeedbackEntry[] }).feedback;
+      if (!entries?.length) {
+        setFeedbackMap({});
+        return;
+      }
+      const map: Record<string, FeedbackState> = {};
+      for (const entry of entries) {
+        map[entry.messageId] = {
+          rating: entry.rating,
+          comment: entry.comment,
+        };
+      }
+      setFeedbackMap(map);
+    },
   });
 
   useChatListBackgroundPoll(
@@ -369,8 +393,32 @@ export default function ExplorerAIChat() {
   const handleNewChat = useCallback(() => {
     newChat();
     setChatModel(defaultAIModel);
+    setFeedbackMap({});
     refreshList();
   }, [newChat, refreshList, defaultAIModel]);
+
+  const handleFeedbackSubmit = useCallback(
+    (
+      messageId: string,
+      rating: AIChatFeedbackRating | null,
+      comment: string,
+    ) => {
+      setFeedbackMap((prev) => {
+        if (rating === null) {
+          const next = { ...prev };
+          delete next[messageId];
+          return next;
+        }
+        return { ...prev, [messageId]: { rating, comment } };
+      });
+
+      void apiCall(`/product-analytics/chat/${conversationId}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ messageId, rating, comment }),
+      });
+    },
+    [apiCall, conversationId],
+  );
 
   const handleDeleteConversation = useCallback(
     async (id: string) => {
@@ -821,9 +869,30 @@ export default function ExplorerAIChat() {
               return result != null ? [result] : [];
             });
             if (block.type === "assistant") {
+              const lastMsg = block.msgs[block.msgs.length - 1];
+              const hasError = lastMsg.role === "assistant" && lastMsg.isError;
+              const isLastBlock = blockIdx === messageBlocks.length - 1;
+              const showFeedback = !hasError && !(isLastBlock && loading);
+
               return [
                 <AIAnalystLabel key={`ai-label-${blockIdx}`} />,
                 ...renderedMsgs,
+                ...(showFeedback
+                  ? [
+                      <AIChatFeedback
+                        key={`feedback-${lastMsg.id}`}
+                        messageId={lastMsg.id}
+                        conversationId={conversationId}
+                        value={
+                          feedbackMap[lastMsg.id] ?? {
+                            rating: null,
+                            comment: "",
+                          }
+                        }
+                        onSubmit={handleFeedbackSubmit}
+                      />,
+                    ]
+                  : []),
               ];
             }
             return renderedMsgs;

@@ -120,6 +120,27 @@ export const aiChatMessageValidator = z.discriminatedUnion("role", [
 export type PersistedAIChatMessage = z.infer<typeof aiChatMessageValidator>;
 
 // ---------------------------------------------------------------------------
+// Feedback validator
+// ---------------------------------------------------------------------------
+
+export const aiChatFeedbackRatingValidator = z.enum(["positive", "negative"]);
+
+export type AIChatFeedbackRating = z.infer<
+  typeof aiChatFeedbackRatingValidator
+>;
+
+export const aiChatFeedbackEntryValidator = z.object({
+  messageId: z.string(),
+  rating: aiChatFeedbackRatingValidator,
+  comment: z.string(),
+  userId: z.string(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type AIChatFeedbackEntry = z.infer<typeof aiChatFeedbackEntryValidator>;
+
+// ---------------------------------------------------------------------------
 // Conversation document validator
 // ---------------------------------------------------------------------------
 
@@ -140,6 +161,7 @@ export const aiConversationValidator = z
     /** Truncated text of the first user message — updated on persist for sidebar preview. */
     preview: z.string(),
     model: z.string().optional(), // Per chat override. No model falls back to product-analytics-chat override or org default
+    feedback: z.array(aiChatFeedbackEntryValidator).optional(),
   })
   .strict();
 

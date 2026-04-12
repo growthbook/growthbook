@@ -34,6 +34,7 @@ export function useAIChat({
   getConversationEndpoint,
   getCancelEndpoint,
   onStreamAccepted,
+  onConversationLoaded,
 }: UseAIChatOptions): UseAIChatReturn {
   const messageCounterRef = useRef(0);
   const nextId = useCallback(() => messageCounterRef.current++, []);
@@ -78,6 +79,8 @@ export function useAIChat({
   getConversationEndpointRef.current = getConversationEndpoint;
   const getCancelEndpointRef = useRef(getCancelEndpoint);
   getCancelEndpointRef.current = getCancelEndpoint;
+  const onConversationLoadedRef = useRef(onConversationLoaded);
+  onConversationLoadedRef.current = onConversationLoaded;
 
   const { fetchRaw, apiCall } = useAuth();
 
@@ -125,6 +128,7 @@ export function useAIChat({
 
         setIsLoadingConversation(false);
         setMessages(data.messages ?? []);
+        onConversationLoadedRef.current?.(data);
 
         const isRecent =
           data.lastStreamedAt > 0 &&
@@ -271,6 +275,7 @@ export function useAIChat({
         getConversationEndpoint(conversationId),
       );
       setMessages(data.messages ?? []);
+      onConversationLoadedRef.current?.(data);
       setError(null);
     } catch {
       finalizeTurn();

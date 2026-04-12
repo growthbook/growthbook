@@ -1,4 +1,5 @@
 import type { AIChatMessage, AIChatToolResultPart } from "shared/ai-chat";
+import type { AIChatFeedbackEntry } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
 
@@ -143,6 +144,7 @@ export interface ConversationStatus {
   isStreaming: boolean;
   lastStreamedAt: number;
   messages: AIChatMessage[];
+  feedback: AIChatFeedbackEntry[];
 }
 
 export interface ConversationSummary {
@@ -262,6 +264,7 @@ export async function getConversationStatus(
     isStreaming: doc.isStreaming,
     lastStreamedAt: doc.lastStreamedAt.getTime(),
     messages: doc.messages as AIChatMessage[],
+    feedback: (doc.feedback ?? []) as AIChatFeedbackEntry[],
   };
 }
 

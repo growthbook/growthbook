@@ -4,6 +4,8 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
+  type AIChatFeedbackEntry,
+  type AIChatFeedbackRating,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -84,6 +86,7 @@ export const getChat = async (
     isStreaming: boolean;
     lastStreamedAt: number;
     messages: AIChatMessage[];
+    feedback: AIChatFeedbackEntry[];
   }>,
 ) => {
   const context = getContextFromReq(req);
@@ -99,6 +102,7 @@ export const getChat = async (
       isStreaming: false,
       lastStreamedAt: 0,
       messages: [],
+      feedback: [],
     });
   }
 
@@ -107,6 +111,7 @@ export const getChat = async (
     isStreaming: statusData.isStreaming,
     lastStreamedAt: statusData.lastStreamedAt,
     messages: statusData.messages,
+    feedback: statusData.feedback,
   });
 };
 
@@ -120,6 +125,63 @@ export const listChats = async (
   const context = getContextFromReq(req);
   const conversations = await listConversations(context.models.aiConversations);
   return res.status(200).json({ status: 200, conversations });
+};
+
+export const postChatFeedback = async (
+  req: AuthRequest<
+    {
+      messageId: string;
+      rating: AIChatFeedbackRating | null;
+      comment?: string;
+    },
+    { conversationId: string }
+  >,
+  res: Response<{ status: 200; feedback: AIChatFeedbackEntry[] }>,
+) => {
+  const context = getContextFromReq(req);
+  const { conversationId } = req.params;
+  const { messageId, rating, comment } = req.body;
+
+  const doc = await context.models.aiConversations.getById(conversationId);
+  if (!doc) {
+    throw new NotFoundError("Conversation not found");
+  }
+
+  const now = new Date();
+  const existingFeedback = (doc.feedback ?? []) as AIChatFeedbackEntry[];
+  const existingIdx = existingFeedback.findIndex(
+    (f) => f.messageId === messageId,
+  );
+
+  let updatedFeedback: AIChatFeedbackEntry[];
+
+  if (rating === null) {
+    updatedFeedback = existingFeedback.filter((f) => f.messageId !== messageId);
+  } else if (existingIdx >= 0) {
+    updatedFeedback = existingFeedback.map((f, i) =>
+      i === existingIdx
+        ? { ...f, rating, comment: comment ?? "", updatedAt: now }
+        : f,
+    );
+  } else {
+    updatedFeedback = [
+      ...existingFeedback,
+      {
+        messageId,
+        rating,
+        comment: comment ?? "",
+        userId: context.userId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+
+  await context.models.aiConversations.updateById(conversationId, {
+    feedback: updatedFeedback,
+  });
+
+  return res.status(200).json({ status: 200, feedback: updatedFeedback });
 };
 
 export const getExplorationById = async (

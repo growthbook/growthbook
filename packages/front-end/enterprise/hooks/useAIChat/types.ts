@@ -80,6 +80,13 @@ export interface UseAIChatOptions {
    * server has persisted the user message.
    */
   onStreamAccepted?: () => void;
+
+  /**
+   * Called after a conversation is loaded from the server (initial load or
+   * poll). Receives the raw response so consumers can extract extra fields
+   * (e.g. feedback) without changing the hook's core state.
+   */
+  onConversationLoaded?: (data: unknown) => void;
 }
 
 export interface ConversationSummary {
