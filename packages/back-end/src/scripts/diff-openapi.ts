@@ -51,7 +51,7 @@ function loadSpec(filePath: string): Record<string, unknown> {
 function resolveRefs(
   node: unknown,
   root: Record<string, unknown>,
-  visited: Set<string> = new Set()
+  visited: Set<string> = new Set(),
 ): unknown {
   if (Array.isArray(node)) {
     return node.map((item) => resolveRefs(item, root, visited));
@@ -70,7 +70,11 @@ function resolveRefs(
 
       // Merge any sibling keys (e.g. description alongside $ref)
       const siblings = Object.keys(obj).filter((k) => k !== "$ref");
-      if (siblings.length > 0 && typeof result === "object" && result !== null) {
+      if (
+        siblings.length > 0 &&
+        typeof result === "object" &&
+        result !== null
+      ) {
         const merged = { ...(result as Record<string, unknown>) };
         for (const key of siblings) {
           merged[key] = resolveRefs(obj[key], root, visited);
@@ -96,15 +100,25 @@ function followRef(ref: string, root: Record<string, unknown>): unknown {
   const parts = ref
     .slice(2)
     .split("/")
-    .map((p) => p.replace(/~1/g, "/").replace(/~0/g, "~"));
+    .map((p) =>
+      p
+        .replace(/~1/g, "/")
+        .replace(/~0/g, "~")
+        .replace(/%7B/g, "{")
+        .replace(/%7D/g, "}"),
+    );
   let current: unknown = root;
   for (const part of parts) {
     if (typeof current !== "object" || current === null) {
-      throw new Error(`Cannot resolve $ref "${ref}" — hit non-object at "${part}"`);
+      throw new Error(
+        `Cannot resolve $ref "${ref}" — hit non-object at "${part}"`,
+      );
     }
     current = (current as Record<string, unknown>)[part];
     if (current === undefined) {
-      throw new Error(`Cannot resolve $ref "${ref}" — "${part}" not found`);
+      throw new Error(
+        `Cannot resolve $ref "${parts.join(",")}" — "${part}" not found`,
+      );
     }
   }
   return current;
@@ -128,7 +142,7 @@ function deepDiff(
   oldVal: unknown,
   newVal: unknown,
   currentPath: string,
-  diffs: Diff[]
+  diffs: Diff[],
 ): void {
   // Identical primitives / strict equality
   if (oldVal === newVal) return;
@@ -173,7 +187,7 @@ function diffObjects(
   oldObj: Record<string, unknown>,
   newObj: Record<string, unknown>,
   currentPath: string,
-  diffs: Diff[]
+  diffs: Diff[],
 ): void {
   const allKeys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
   for (const key of allKeys) {
@@ -204,7 +218,7 @@ function diffArrays(
   oldArr: unknown[],
   newArr: unknown[],
   currentPath: string,
-  diffs: Diff[]
+  diffs: Diff[],
 ): void {
   // Try to match by a common identity key for arrays of objects
   const identityKey = findIdentityKey(oldArr, newArr);
@@ -263,10 +277,7 @@ function diffArrays(
   }
 }
 
-function findIdentityKey(
-  oldArr: unknown[],
-  newArr: unknown[]
-): string | null {
+function findIdentityKey(oldArr: unknown[], newArr: unknown[]): string | null {
   const candidates = ["operationId", "name", "id", "url", "in"];
   for (const key of candidates) {
     const oldVals = oldArr
@@ -295,7 +306,7 @@ function diffArrayByKey(
   newArr: unknown[],
   currentPath: string,
   diffs: Diff[],
-  key: string
+  key: string,
 ): void {
   const oldMap = new Map<string, unknown>();
   const newMap = new Map<string, unknown>();
@@ -312,7 +323,11 @@ function diffArrayByKey(
   for (const [id, oldItem] of oldMap) {
     const childPath = `${currentPath}[${key}=${id}]`;
     if (!newMap.has(id)) {
-      diffs.push({ path: childPath, type: "removed", oldValue: summarize(oldItem) });
+      diffs.push({
+        path: childPath,
+        type: "removed",
+        oldValue: summarize(oldItem),
+      });
     } else {
       deepDiff(oldItem, newMap.get(id), childPath, diffs);
     }
@@ -320,7 +335,11 @@ function diffArrayByKey(
   for (const [id, newItem] of newMap) {
     if (!oldMap.has(id)) {
       const childPath = `${currentPath}[${key}=${id}]`;
-      diffs.push({ path: childPath, type: "added", newValue: summarize(newItem) });
+      diffs.push({
+        path: childPath,
+        type: "added",
+        newValue: summarize(newItem),
+      });
     }
   }
 }
@@ -331,7 +350,11 @@ function diffArrayByKey(
 
 function summarize(val: unknown, maxLen = 120): unknown {
   if (val === undefined || val === null) return val;
-  if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+  if (
+    typeof val === "string" ||
+    typeof val === "number" ||
+    typeof val === "boolean"
+  ) {
     return val;
   }
   const json = JSON.stringify(val);
@@ -354,6 +377,8 @@ const IGNORED_KEYS = new Set([
   "x-code-samples",
   "x-logo",
   "x-tagGroups",
+  "$skipValidatorGeneration",
+  "$schema",
 ]);
 
 function filterIgnoredKeys(obj: unknown): unknown {
@@ -422,7 +447,10 @@ function groupDiffs(diffs: Diff[]): GroupedDiffs {
       groups.parameters.push(d);
     else if (d.path.startsWith("components.responses"))
       groups.responses.push(d);
-    else if (d.path.startsWith("security") || d.path.startsWith("securityDefinitions"))
+    else if (
+      d.path.startsWith("security") ||
+      d.path.startsWith("securityDefinitions")
+    )
       groups.security.push(d);
     else groups.other.push(d);
   }
@@ -440,7 +468,8 @@ const COLORS = {
 
 function formatValue(val: unknown): string {
   if (val === undefined) return COLORS.dim("(absent)");
-  if (typeof val === "string") return val.length > 80 ? val.slice(0, 80) + "…" : val;
+  if (typeof val === "string")
+    return val.length > 80 ? val.slice(0, 80) + "…" : val;
   return JSON.stringify(val, null, 2).split("\n").slice(0, 4).join("\n");
 }
 
@@ -449,17 +478,17 @@ function printDiff(d: Diff): void {
     d.type === "added"
       ? COLORS.green("+ ")
       : d.type === "removed"
-      ? COLORS.red("- ")
-      : COLORS.yellow("~ ");
+        ? COLORS.red("- ")
+        : COLORS.yellow("~ ");
 
   const label =
     d.type === "added"
       ? COLORS.green("ADDED")
       : d.type === "removed"
-      ? COLORS.red("REMOVED")
-      : d.type === "type-changed"
-      ? COLORS.yellow("TYPE CHANGED")
-      : COLORS.yellow("CHANGED");
+        ? COLORS.red("REMOVED")
+        : d.type === "type-changed"
+          ? COLORS.yellow("TYPE CHANGED")
+          : COLORS.yellow("CHANGED");
 
   console.log(`${icon}${COLORS.bold(d.path)}  [${label}]`);
 
@@ -479,7 +508,11 @@ function printDiff(d: Diff): void {
 function printSection(title: string, diffs: Diff[]): void {
   if (diffs.length === 0) return;
   console.log("");
-  console.log(COLORS.cyan(`═══ ${title} (${diffs.length} diff${diffs.length === 1 ? "" : "s"}) ═══`));
+  console.log(
+    COLORS.cyan(
+      `═══ ${title} (${diffs.length} diff${diffs.length === 1 ? "" : "s"}) ═══`,
+    ),
+  );
   console.log("");
 
   // For paths, group by HTTP path for readability
@@ -544,15 +577,18 @@ function printPathSummary(diffs: Diff[]): void {
   console.log("");
   if (addedPaths.size) {
     console.log(COLORS.green(`  Added (${addedPaths.size}):`));
-    for (const p of [...addedPaths].sort()) console.log(COLORS.green(`    + ${p}`));
+    for (const p of [...addedPaths].sort())
+      console.log(COLORS.green(`    + ${p}`));
   }
   if (removedPaths.size) {
     console.log(COLORS.red(`  Removed (${removedPaths.size}):`));
-    for (const p of [...removedPaths].sort()) console.log(COLORS.red(`    - ${p}`));
+    for (const p of [...removedPaths].sort())
+      console.log(COLORS.red(`    - ${p}`));
   }
   if (changedPaths.size) {
     console.log(COLORS.yellow(`  Changed (${changedPaths.size}):`));
-    for (const p of [...changedPaths].sort()) console.log(COLORS.yellow(`    ~ ${p}`));
+    for (const p of [...changedPaths].sort())
+      console.log(COLORS.yellow(`    ~ ${p}`));
   }
 }
 
@@ -628,7 +664,9 @@ Options:
   }
 
   console.log(
-    COLORS.bold(`Found ${diffs.length} difference${diffs.length === 1 ? "" : "s"}`)
+    COLORS.bold(
+      `Found ${diffs.length} difference${diffs.length === 1 ? "" : "s"}`,
+    ),
   );
 
   // Print endpoint summary first
@@ -654,7 +692,7 @@ Options:
   const added = diffs.filter((d) => d.type === "added").length;
   const removed = diffs.filter((d) => d.type === "removed").length;
   const changed = diffs.filter(
-    (d) => d.type === "changed" || d.type === "type-changed"
+    (d) => d.type === "changed" || d.type === "type-changed",
   ).length;
   if (added) console.log(COLORS.green(`  ${added} added`));
   if (removed) console.log(COLORS.red(`  ${removed} removed`));
@@ -664,8 +702,8 @@ Options:
   if (!verbose && diffs.length > 100) {
     console.log(
       COLORS.dim(
-        `Showing all ${diffs.length} diffs. Use --paths-only to focus on endpoints.`
-      )
+        `Showing all ${diffs.length} diffs. Use --paths-only to focus on endpoints.`,
+      ),
     );
   }
 
