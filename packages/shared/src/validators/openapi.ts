@@ -136,6 +136,7 @@ export const getFeatureValidator = {
   tags: ["features"],
   method: "get" as const,
   path: "/features/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateFeatureValidator = {
@@ -160,6 +161,7 @@ export const deleteFeatureValidator = {
   tags: ["features"],
   method: "delete" as const,
   path: "/features/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const toggleFeatureValidator = {
@@ -172,6 +174,7 @@ export const toggleFeatureValidator = {
   tags: ["features"],
   method: "post" as const,
   path: "/features/{id}/toggle",
+  exampleRequest: {"body":{"reason":"Kill switch activated","environments":{"production":false}}},
 };
 
 export const revertFeatureValidator = {
@@ -184,6 +187,7 @@ export const revertFeatureValidator = {
   tags: ["features"],
   method: "post" as const,
   path: "/features/{id}/revert",
+  exampleRequest: {"body":{"revision":3,"comment":"Bug found"}},
 };
 
 export const getFeatureRevisionsValidator = {
@@ -196,6 +200,7 @@ export const getFeatureRevisionsValidator = {
   tags: ["features"],
   method: "get" as const,
   path: "/features/{id}/revisions",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const getFeatureStaleValidator = {
@@ -244,6 +249,7 @@ export const postProjectValidator = {
   tags: ["projects"],
   method: "post" as const,
   path: "/projects",
+  exampleRequest: {"body":{"name":"My Project","description":"Super cool project"}},
 };
 
 export const getProjectValidator = {
@@ -256,6 +262,7 @@ export const getProjectValidator = {
   tags: ["projects"],
   method: "get" as const,
   path: "/projects/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const putProjectValidator = {
@@ -268,6 +275,7 @@ export const putProjectValidator = {
   tags: ["projects"],
   method: "put" as const,
   path: "/projects/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"name":"My Subsidiary"}},
 };
 
 export const deleteProjectValidator = {
@@ -280,6 +288,7 @@ export const deleteProjectValidator = {
   tags: ["projects"],
   method: "delete" as const,
   path: "/projects/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listDimensionsValidator = {
@@ -304,6 +313,7 @@ export const postDimensionValidator = {
   tags: ["dimensions"],
   method: "post" as const,
   path: "/dimensions",
+  exampleRequest: {"body":{"name":"User Country","datasourceId":"ds_123abc","identifierType":"user","query":"SELECT country FROM users"}},
 };
 
 export const getDimensionValidator = {
@@ -316,6 +326,7 @@ export const getDimensionValidator = {
   tags: ["dimensions"],
   method: "get" as const,
   path: "/dimensions/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateDimensionValidator = {
@@ -328,6 +339,7 @@ export const updateDimensionValidator = {
   tags: ["dimensions"],
   method: "post" as const,
   path: "/dimensions/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"name":"User Region"}},
 };
 
 export const deleteDimensionValidator = {
@@ -340,6 +352,7 @@ export const deleteDimensionValidator = {
   tags: ["dimensions"],
   method: "delete" as const,
   path: "/dimensions/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listSegmentsValidator = {
@@ -376,6 +389,7 @@ export const getSegmentValidator = {
   tags: ["segments"],
   method: "get" as const,
   path: "/segments/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateSegmentValidator = {
@@ -388,6 +402,7 @@ export const updateSegmentValidator = {
   tags: ["segments"],
   method: "post" as const,
   path: "/segments/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"name":"User Region"}},
 };
 
 export const deleteSegmentValidator = {
@@ -400,6 +415,7 @@ export const deleteSegmentValidator = {
   tags: ["segments"],
   method: "delete" as const,
   path: "/segments/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listSdkConnectionsValidator = {
@@ -436,6 +452,7 @@ export const getSdkConnectionValidator = {
   tags: ["sdk-connections"],
   method: "get" as const,
   path: "/sdk-connections/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const putSdkConnectionValidator = {
@@ -460,6 +477,7 @@ export const deleteSdkConnectionValidator = {
   tags: ["sdk-connection"],
   method: "delete" as const,
   path: "/sdk-connections/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const lookupSdkConnectionByKeyValidator = {
@@ -472,6 +490,7 @@ export const lookupSdkConnectionByKeyValidator = {
   tags: ["sdk-connections"],
   method: "get" as const,
   path: "/sdk-connections/lookup/{key}",
+  exampleRequest: {"params":{"key":"abc123"}},
 };
 
 export const listDataSourcesValidator = {
@@ -544,6 +563,7 @@ export const getExperimentValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateExperimentValidator = {
@@ -568,6 +588,7 @@ export const postExperimentSnapshotValidator = {
   tags: ["experiments", "snapshots"],
   method: "post" as const,
   path: "/experiments/{id}/snapshot",
+  exampleRequest: {"body":{"triggeredBy":"schedule"}},
 };
 
 export const postVariationImageUploadValidator = {
@@ -580,6 +601,7 @@ export const postVariationImageUploadValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/{id}/variation/{variationId}/screenshot/upload",
+  exampleRequest: {"body":{"screenshot":"<base64-encoded-screenshot>","contentType":"image/png"}},
 };
 
 export const deleteVariationScreenshotValidator = {
@@ -592,6 +614,7 @@ export const deleteVariationScreenshotValidator = {
   tags: ["experiments"],
   method: "delete" as const,
   path: "/experiments/{id}/variation/{variationId}/screenshot",
+  exampleRequest: {"params":{"id":"abc123","variationId":"abc123"},"body":{"path":"/upload/org_xxx/2025-03/img_uuid.png"}},
 };
 
 export const getExperimentResultsValidator = {
@@ -616,6 +639,7 @@ export const listVisualChangesetsValidator = {
   tags: ["visual-changesets"],
   method: "get" as const,
   path: "/experiments/{id}/visual-changesets",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const postVisualChangesetsValidator = {
@@ -628,6 +652,7 @@ export const postVisualChangesetsValidator = {
   tags: ["visual-changesets"],
   method: "post" as const,
   path: "/experiments/{id}/visual-changesets",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"editorUrl":"https://example.com/","urlPatterns":[{"type":"simple","pattern":"/","include":true}]}},
 };
 
 export const getExperimentSnapshotValidator = {
@@ -676,6 +701,7 @@ export const getMetricValidator = {
   tags: ["metrics"],
   method: "get" as const,
   path: "/metrics/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const putMetricValidator = {
@@ -688,6 +714,7 @@ export const putMetricValidator = {
   tags: ["metrics"],
   method: "put" as const,
   path: "/metrics/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"name":"net revenue","description":"revenue minus lacroix spend"}},
 };
 
 export const deleteMetricValidator = {
@@ -700,6 +727,7 @@ export const deleteMetricValidator = {
   tags: ["metrics"],
   method: "delete" as const,
   path: "/metrics/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const getMetricUsageValidator = {
@@ -724,6 +752,7 @@ export const getVisualChangesetValidator = {
   tags: ["visual-changesets"],
   method: "get" as const,
   path: "/visual-changesets/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const putVisualChangesetValidator = {
@@ -736,6 +765,7 @@ export const putVisualChangesetValidator = {
   tags: ["visual-changesets"],
   method: "put" as const,
   path: "/visual-changesets/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"editorUrl":"https://docs.growthbook.io","urlPatterns":"[{ ... }]"}},
 };
 
 export const postVisualChangeValidator = {
@@ -748,6 +778,7 @@ export const postVisualChangeValidator = {
   tags: ["visual-changesets"],
   method: "post" as const,
   path: "/visual-changesets/{id}/visual-change",
+  exampleRequest: {"body":{"variation":"v_123abc","domMutations":"[]"}},
 };
 
 export const putVisualChangeValidator = {
@@ -760,6 +791,7 @@ export const putVisualChangeValidator = {
   tags: ["visual-changesets"],
   method: "put" as const,
   path: "/visual-changesets/{id}/visual-change/{visualChangeId}",
+  exampleRequest: {"body":{"variation":"v_123abc","domMutations":"[]"}},
 };
 
 export const listSavedGroupsValidator = {
@@ -784,6 +816,7 @@ export const postSavedGroupValidator = {
   tags: ["saved-groups"],
   method: "post" as const,
   path: "/saved-groups",
+  exampleRequest: {"body":{"name":"interal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}},
 };
 
 export const getSavedGroupValidator = {
@@ -796,6 +829,7 @@ export const getSavedGroupValidator = {
   tags: ["saved-groups"],
   method: "get" as const,
   path: "/saved-groups/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateSavedGroupValidator = {
@@ -808,6 +842,7 @@ export const updateSavedGroupValidator = {
   tags: ["saved-groups"],
   method: "post" as const,
   path: "/saved-groups/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"values":["userId-123","userId-345"]}},
 };
 
 export const deleteSavedGroupValidator = {
@@ -820,6 +855,7 @@ export const deleteSavedGroupValidator = {
   tags: ["saved-groups"],
   method: "delete" as const,
   path: "/saved-groups/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listOrganizationsValidator = {
@@ -844,6 +880,7 @@ export const postOrganizationValidator = {
   tags: ["organizations"],
   method: "post" as const,
   path: "/organizations",
+  exampleRequest: {"body":{"name":"My Subsidiary"}},
 };
 
 export const putOrganizationValidator = {
@@ -856,6 +893,7 @@ export const putOrganizationValidator = {
   tags: ["organizations"],
   method: "put" as const,
   path: "/organizations/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"name":"My Subsidiary","externalId":"subsidiary-123"}},
 };
 
 export const listAttributesValidator = {
@@ -880,6 +918,7 @@ export const postAttributeValidator = {
   tags: ["attributes"],
   method: "post" as const,
   path: "/attributes",
+  exampleRequest: {"body":{"property":"foo","datatype":"boolean","description":"My new attribute"}},
 };
 
 export const putAttributeValidator = {
@@ -892,6 +931,7 @@ export const putAttributeValidator = {
   tags: ["attributes"],
   method: "put" as const,
   path: "/attributes/${property}",
+  exampleRequest: {"params":{"property":"abc123"},"body":{"description":"My updated attribute"}},
 };
 
 export const deleteAttributeValidator = {
@@ -904,6 +944,7 @@ export const deleteAttributeValidator = {
   tags: ["attributes"],
   method: "delete" as const,
   path: "/attributes/${property}",
+  exampleRequest: {"params":{"property":"abc123"}},
 };
 
 export const listArchetypesValidator = {
@@ -940,6 +981,7 @@ export const getArchetypeValidator = {
   tags: ["archetypes"],
   method: "get" as const,
   path: "/archetypes/${id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const putArchetypeValidator = {
@@ -952,6 +994,7 @@ export const putArchetypeValidator = {
   tags: ["archetypes"],
   method: "put" as const,
   path: "/archetypes/${id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"description":"New description"}},
 };
 
 export const deleteArchetypeValidator = {
@@ -964,6 +1007,7 @@ export const deleteArchetypeValidator = {
   tags: ["archetypes"],
   method: "delete" as const,
   path: "/archetypes/${id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listMembersValidator = {
@@ -988,6 +1032,7 @@ export const deleteMemberValidator = {
   tags: ["members"],
   method: "delete" as const,
   path: "/members/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateMemberRoleValidator = {
@@ -1024,6 +1069,7 @@ export const postEnvironmentValidator = {
   tags: ["environments"],
   method: "post" as const,
   path: "/environments",
+  exampleRequest: {"body":{"id":"new-env","description":"My new environment"}},
 };
 
 export const putEnvironmentValidator = {
@@ -1036,6 +1082,7 @@ export const putEnvironmentValidator = {
   tags: ["environments"],
   method: "put" as const,
   path: "/environments/${id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"description":"My updated environment"}},
 };
 
 export const deleteEnvironmentValidator = {
@@ -1048,6 +1095,7 @@ export const deleteEnvironmentValidator = {
   tags: ["environments"],
   method: "delete" as const,
   path: "/environments/${id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listFactTablesValidator = {
@@ -1072,6 +1120,7 @@ export const postFactTableValidator = {
   tags: ["fact-tables"],
   method: "post" as const,
   path: "/fact-tables",
+  exampleRequest: {"body":{"name":"Orders","datasource":"ds_abc123","userIdTypes":["id"],"sql":"SELECT * FROM orders"}},
 };
 
 export const getFactTableValidator = {
@@ -1084,6 +1133,7 @@ export const getFactTableValidator = {
   tags: ["fact-tables"],
   method: "get" as const,
   path: "/fact-tables/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateFactTableValidator = {
@@ -1096,6 +1146,7 @@ export const updateFactTableValidator = {
   tags: ["fact-tables"],
   method: "post" as const,
   path: "/fact-tables/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"name":"New Fact Table Name"}},
 };
 
 export const deleteFactTableValidator = {
@@ -1108,6 +1159,7 @@ export const deleteFactTableValidator = {
   tags: ["fact-tables"],
   method: "delete" as const,
   path: "/fact-tables/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const listFactTableFiltersValidator = {
@@ -1120,6 +1172,7 @@ export const listFactTableFiltersValidator = {
   tags: ["fact-tables"],
   method: "get" as const,
   path: "/fact-tables/{factTableId}/filters",
+  exampleRequest: {"params":{"factTableId":"abc123"}},
 };
 
 export const postFactTableFilterValidator = {
@@ -1132,6 +1185,7 @@ export const postFactTableFilterValidator = {
   tags: ["fact-tables"],
   method: "post" as const,
   path: "/fact-tables/{factTableId}/filters",
+  exampleRequest: {"params":{"factTableId":"abc123"},"body":{"name":"High Value Order","value":"amount>100"}},
 };
 
 export const getFactTableFilterValidator = {
@@ -1144,6 +1198,7 @@ export const getFactTableFilterValidator = {
   tags: ["fact-tables"],
   method: "get" as const,
   path: "/fact-tables/{factTableId}/filters/{id}",
+  exampleRequest: {"params":{"factTableId":"abc123","id":"abc123"}},
 };
 
 export const updateFactTableFilterValidator = {
@@ -1156,6 +1211,7 @@ export const updateFactTableFilterValidator = {
   tags: ["fact-tables"],
   method: "post" as const,
   path: "/fact-tables/{factTableId}/filters/{id}",
+  exampleRequest: {"params":{"factTableId":"abc123","id":"abc123"},"body":{"value":"amount > 50"}},
 };
 
 export const deleteFactTableFilterValidator = {
@@ -1168,6 +1224,7 @@ export const deleteFactTableFilterValidator = {
   tags: ["fact-tables"],
   method: "delete" as const,
   path: "/fact-tables/{factTableId}/filters/{id}",
+  exampleRequest: {"params":{"factTableId":"abc123","id":"abc123"}},
 };
 
 export const listFactMetricsValidator = {
@@ -1192,6 +1249,7 @@ export const postFactMetricValidator = {
   tags: ["fact-metrics"],
   method: "post" as const,
   path: "/fact-metrics",
+  exampleRequest: {"body":{"name":"Purchased","metricType":"proportion","numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}},
 };
 
 export const getFactMetricValidator = {
@@ -1204,6 +1262,7 @@ export const getFactMetricValidator = {
   tags: ["fact-metrics"],
   method: "get" as const,
   path: "/fact-metrics/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const updateFactMetricValidator = {
@@ -1216,6 +1275,7 @@ export const updateFactMetricValidator = {
   tags: ["fact-metrics"],
   method: "post" as const,
   path: "/fact-metrics/{id}",
+  exampleRequest: {"params":{"id":"abc123"},"body":{"hasConversionWindow":false}},
 };
 
 export const deleteFactMetricValidator = {
@@ -1228,6 +1288,7 @@ export const deleteFactMetricValidator = {
   tags: ["fact-metrics"],
   method: "delete" as const,
   path: "/fact-metrics/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const postFactMetricAnalysisValidator = {
@@ -1240,6 +1301,7 @@ export const postFactMetricAnalysisValidator = {
   tags: ["fact-metrics"],
   method: "post" as const,
   path: "/fact-metrics/{id}/analysis",
+  exampleRequest: {"body":{"lookbackDays":90}},
 };
 
 export const postBulkImportFactsValidator = {
@@ -1252,6 +1314,7 @@ export const postBulkImportFactsValidator = {
   tags: ["fact-tables"],
   method: "post" as const,
   path: "/bulk-import/facts",
+  exampleRequest: {"body":{"factTables":[],"factTableFilters":[],"factMetrics":[]}},
 };
 
 export const listCodeRefsValidator = {
@@ -1276,6 +1339,7 @@ export const postCodeRefsValidator = {
   tags: ["code-references"],
   method: "post" as const,
   path: "/code-refs",
+  exampleRequest: {"body":{"startingLineNumber":16,"lines":"...","flagKey":"..."}},
 };
 
 export const getCodeRefsValidator = {
@@ -1288,6 +1352,7 @@ export const getCodeRefsValidator = {
   tags: ["code-references"],
   method: "get" as const,
   path: "/code-refs/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const getQueryValidator = {
@@ -1300,6 +1365,7 @@ export const getQueryValidator = {
   tags: ["queries"],
   method: "get" as const,
   path: "/queries/{id}",
+  exampleRequest: {"params":{"id":"abc123"}},
 };
 
 export const getSettingsValidator = {

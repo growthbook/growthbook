@@ -268,7 +268,11 @@ paths:
                   description: Description of the feature
                   type: string
                 owner:
-                  description: Email of the person who owns this experiment
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 project:
                   description: An associated project ID
@@ -1127,6 +1131,9 @@ paths:
                           description:
                             type: string
                           owner:
+                            description: >-
+                              The userId of the owner (or raw owner name/email
+                              for legacy records)
                             type: string
                           project:
                             type: string
@@ -3330,6 +3337,9 @@ paths:
                                     description:
                                       type: string
                                     owner:
+                                      description: >-
+                                        The userId of the owner (or raw owner
+                                        name/email for legacy records)
                                       type: string
                                     project:
                                       type: string
@@ -3402,6 +3412,11 @@ paths:
                   description: An associated project ID
                   type: string
                 owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 defaultValue:
                   type: string
@@ -4822,7 +4837,11 @@ paths:
                   description: WHERE clause to add to the default experiment query
                   type: string
                 owner:
-                  description: Email of the person who owns this experiment
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 archived:
                   type: boolean
@@ -5258,6 +5277,9 @@ paths:
                             items:
                               type: string
                           owner:
+                            description: >-
+                              The userId of the owner (or raw owner name/email
+                              for legacy records)
                             type: string
                           archived:
                             type: boolean
@@ -5963,7 +5985,11 @@ paths:
                   description: WHERE clause to add to the default experiment query
                   type: string
                 owner:
-                  description: Email of the person who owns this experiment
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 archived:
                   type: boolean
@@ -6436,6 +6462,80 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
+  /experiments/{id}/variation/{variationId}/screenshot/upload:
+    post:
+      operationId: postVariationImageUpload
+      summary: Upload a variation screenshot
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/variationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                screenshot:
+                  description: Base64-encoded screenshot data
+                  type: string
+                contentType:
+                  description: MIME type of the screenshot
+                  type: string
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                description:
+                  type: string
+              required:
+                - screenshot
+                - contentType
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  screenshot:
+                    $ref: '#/components/schemas/screenshot'
+                required:
+                  - screenshot
+                additionalProperties: false
+  /experiments/{id}/variation/{variationId}/screenshot:
+    delete:
+      operationId: deleteVariationScreenshot
+      summary: Delete a variation screenshot
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/variationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  description: The screenshot path/URL to delete (from upload response)
+                  type: string
+              required:
+                - path
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: false
   /experiment-names:
     get:
       operationId: getExperimentNames
@@ -6651,7 +6751,11 @@ paths:
                     - ''
                     - api
                 owner:
-                  description: Name of the person who owns this metric
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 name:
                   description: Name of the metric
@@ -7056,7 +7160,11 @@ paths:
                     - api
                     - admin
                 owner:
-                  description: Name of the person who owns this metric
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 name:
                   description: Name of the metric
@@ -7396,6 +7504,25 @@ paths:
                 required:
                   - updatedId
                 additionalProperties: false
+    delete:
+      operationId: deleteMetric
+      summary: Deletes a metric
+      tags:
+        - metrics
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
   /usage/metrics:
     get:
       operationId: getMetricUsage
@@ -7494,7 +7621,11 @@ paths:
                   description: Name of the segment
                   type: string
                 owner:
-                  description: Owner of the segment
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 description:
                   description: Description of the segment
@@ -7605,7 +7736,11 @@ paths:
                   description: Description of the segment
                   type: string
                 owner:
-                  description: Owner of the segment
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 datasourceId:
                   description: ID of the datasource this segment belongs to
@@ -7766,7 +7901,11 @@ paths:
                   description: Description of the dimension
                   type: string
                 owner:
-                  description: Owner of the dimension
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 datasourceId:
                   description: ID of the datasource this dimension belongs to
@@ -7844,7 +7983,11 @@ paths:
                   description: Description of the dimension
                   type: string
                 owner:
-                  description: Owner of the dimension
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 datasourceId:
                   description: ID of the datasource this dimension belongs to
@@ -8936,8 +9079,10 @@ paths:
                     type: string
                 owner:
                   description: >-
-                    The person or team that owns this Saved Group. If no owner,
-                    you can pass an empty string.
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 projects:
                   type: array
@@ -9009,8 +9154,10 @@ paths:
                     type: string
                 owner:
                   description: >-
-                    The person or team that owns this Saved Group. If no owner,
-                    you can pass an empty string.
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 projects:
                   type: array
@@ -9275,7 +9422,11 @@ paths:
                   description: Description of the fact table
                   type: string
                 owner:
-                  description: The person who is responsible for this fact table
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 projects:
                   description: List of associated project ids
@@ -9368,7 +9519,11 @@ paths:
                   description: Description of the fact table
                   type: string
                 owner:
-                  description: The person who is responsible for this fact table
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 projects:
                   description: List of associated project ids
@@ -9822,6 +9977,11 @@ paths:
                 description:
                   type: string
                 owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 projects:
                   type: array
@@ -10310,6 +10470,11 @@ paths:
                 description:
                   type: string
                 owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 projects:
                   type: array
@@ -10847,7 +11012,12 @@ paths:
                             description: Description of the fact table
                             type: string
                           owner:
-                            description: The person who is responsible for this fact table
+                            description: >-
+                              The userId or email address of the owner. If an
+                              email address is provided, it will be used to look
+                              up the userId of the matching organization member.
+                              If an ID is provided, it will be validated as
+                              existing in the organization.
                             type: string
                           projects:
                             description: List of associated project ids
@@ -10947,6 +11117,12 @@ paths:
                           description:
                             type: string
                           owner:
+                            description: >-
+                              The userId or email address of the owner. If an
+                              email address is provided, it will be used to look
+                              up the userId of the matching organization member.
+                              If an ID is provided, it will be validated as
+                              existing in the organization.
                             type: string
                           projects:
                             type: array
@@ -11803,6 +11979,644 @@ paths:
                 required:
                   - informationSchemaTable
                 additionalProperties: false
+  /ramp-schedules/{id}/actions/start:
+    post:
+      operationId: startRampSchedule
+      summary: Start a ramp schedule
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/pause:
+    post:
+      operationId: pauseRampSchedule
+      summary: Pause a ramp schedule
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/resume:
+    post:
+      operationId: resumeRampSchedule
+      summary: Resume a paused ramp schedule
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/rollback:
+    post:
+      operationId: rollbackRampSchedule
+      summary: Roll back a ramp schedule
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/jump:
+    post:
+      operationId: jumpRampSchedule
+      summary: Jump to a specific step
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetStepIndex:
+                  type: integer
+                  minimum: -1
+                  maximum: 9007199254740991
+              required:
+                - targetStepIndex
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/complete:
+    post:
+      operationId: completeRampSchedule
+      summary: Complete a ramp schedule immediately
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/approve-step:
+    post:
+      operationId: approveStepRampSchedule
+      summary: Approve the current pending-approval step
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/add-target:
+    post:
+      operationId: addTargetRampSchedule
+      summary: Add a target rule to a ramp schedule
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                featureId:
+                  type: string
+                ruleId:
+                  type: string
+                environment:
+                  type: string
+              required:
+                - featureId
+                - ruleId
+                - environment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules/{id}/actions/eject-target:
+    post:
+      operationId: ejectTargetRampSchedule
+      summary: Remove a target rule from a ramp schedule
+      tags:
+        - ramp-schedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetId:
+                  type: string
+                ruleId:
+                  type: string
+                environment:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      rampSchedule:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          dateCreated:
+                            type: string
+                            format: date-time
+                            pattern: >-
+                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          dateUpdated:
+                            type: string
+                            format: date-time
+                            pattern: >-
+                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          name:
+                            type: string
+                          entityType:
+                            type: string
+                            enum:
+                              - feature
+                          entityId:
+                            type: string
+                          targets:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                entityType:
+                                  type: string
+                                  enum:
+                                    - feature
+                                entityId:
+                                  type: string
+                                ruleId:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                environment:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                status:
+                                  type: string
+                                  enum:
+                                    - pending-join
+                                    - active
+                                activatingRevisionVersion:
+                                  anyOf:
+                                    - type: integer
+                                      minimum: -9007199254740991
+                                      maximum: 9007199254740991
+                                    - type: 'null'
+                              required:
+                                - id
+                                - entityType
+                                - entityId
+                                - status
+                              additionalProperties: false
+                          steps:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                trigger:
+                                  anyOf:
+                                    - type: object
+                                      properties:
+                                        type:
+                                          type: string
+                                          const: interval
+                                        seconds:
+                                          type: number
+                                          exclusiveMinimum: 0
+                                      required:
+                                        - type
+                                        - seconds
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        type:
+                                          type: string
+                                          const: approval
+                                      required:
+                                        - type
+                                      additionalProperties: false
+                                    - type: object
+                                      properties:
+                                        type:
+                                          type: string
+                                          const: scheduled
+                                        at:
+                                          type: string
+                                          format: date-time
+                                          pattern: >-
+                                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                                      required:
+                                        - type
+                                        - at
+                                      additionalProperties: false
+                                actions:
+                                  type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      targetType:
+                                        type: string
+                                        const: feature-rule
+                                      targetId:
+                                        type: string
+                                      patch:
+                                        type: object
+                                        properties:
+                                          ruleId:
+                                            type: string
+                                          coverage:
+                                            anyOf:
+                                              - type: number
+                                                minimum: 0
+                                                maximum: 1
+                                              - type: 'null'
+                                          condition:
+                                            anyOf:
+                                              - type: string
+                                              - type: 'null'
+                                          savedGroups:
+                                            anyOf:
+                                              - type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    match:
+                                                      type: string
+                                                      enum:
+                                                        - all
+                                                        - none
+                                                        - any
+                                                    ids:
+                                                      type: array
+                                                      items:
+                                                        type: string
+                                                  required:
+                                                    - match
+                                                    - ids
+                                                  additionalProperties: false
+                                              - type: 'null'
+                                          prerequisites:
+                                            anyOf:
+                                              - type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    id:
+                                                      type: string
+                                                    condition:
+                                                      type: string
+                                                  required:
+                                                    - id
+                                                    - condition
+                                                  additionalProperties: false
+                                              - type: 'null'
+                                          force: {}
+                                          enabled:
+                                            anyOf:
+                                              - type: boolean
+                                              - type: 'null'
+                                        required:
+                                          - ruleId
+                                        additionalProperties: false
+                                    required:
+                                      - targetType
+                                      - targetId
+                                      - patch
+                                    additionalProperties: false
+                                approvalNotes:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                              required:
+                                - trigger
+                                - actions
+                              additionalProperties: false
+                          endActions:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                targetType:
+                                  type: string
+                                  const: feature-rule
+                                targetId:
+                                  type: string
+                                patch:
+                                  type: object
+                                  properties:
+                                    ruleId:
+                                      type: string
+                                    coverage:
+                                      anyOf:
+                                        - type: number
+                                          minimum: 0
+                                          maximum: 1
+                                        - type: 'null'
+                                    condition:
+                                      anyOf:
+                                        - type: string
+                                        - type: 'null'
+                                    savedGroups:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              match:
+                                                type: string
+                                                enum:
+                                                  - all
+                                                  - none
+                                                  - any
+                                              ids:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - match
+                                              - ids
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    prerequisites:
+                                      anyOf:
+                                        - type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              id:
+                                                type: string
+                                              condition:
+                                                type: string
+                                            required:
+                                              - id
+                                              - condition
+                                            additionalProperties: false
+                                        - type: 'null'
+                                    force: {}
+                                    enabled:
+                                      anyOf:
+                                        - type: boolean
+                                        - type: 'null'
+                                  required:
+                                    - ruleId
+                                  additionalProperties: false
+                              required:
+                                - targetType
+                                - targetId
+                                - patch
+                              additionalProperties: false
+                          startDate:
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          endCondition:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  trigger:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          type:
+                                            type: string
+                                            const: scheduled
+                                          at:
+                                            type: string
+                                            format: date-time
+                                            pattern: >-
+                                              ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                                        required:
+                                          - type
+                                          - at
+                                        additionalProperties: false
+                                additionalProperties: false
+                              - type: 'null'
+                          status:
+                            type: string
+                            enum:
+                              - pending
+                              - ready
+                              - running
+                              - paused
+                              - pending-approval
+                              - completed
+                              - rolled-back
+                          currentStepIndex:
+                            type: integer
+                            minimum: -1
+                            maximum: 9007199254740991
+                          startedAt:
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          phaseStartedAt:
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          pausedAt:
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          nextStepAt:
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          nextProcessAt:
+                            anyOf:
+                              - type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                              - type: 'null'
+                          elapsedMs:
+                            anyOf:
+                              - type: integer
+                                minimum: -9007199254740991
+                                maximum: 9007199254740991
+                              - type: 'null'
+                        required:
+                          - id
+                          - dateCreated
+                          - dateUpdated
+                          - name
+                          - entityType
+                          - entityId
+                          - targets
+                          - steps
+                          - status
+                          - currentStepIndex
+                          - nextStepAt
+                        additionalProperties: false
+                    required:
+                      - rampSchedule
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      deleted:
+                        type: boolean
+                      rampScheduleId:
+                        type: string
+                    required:
+                      - deleted
+                      - rampScheduleId
+                    additionalProperties: false
   /transform-copy:
     post:
       operationId: postCopyTransform
@@ -14503,6 +15317,7 @@ paths:
       summary: delete customFields
       parameters:
         - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/index'
       responses:
         '200':
           content:
@@ -14684,7 +15499,11 @@ paths:
                 datasource:
                   type: string
                 owner:
-                  description: Will default to the current user
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 archived:
                   type: boolean
@@ -14732,7 +15551,11 @@ paths:
                 datasource:
                   type: string
                 owner:
-                  description: Will default to the current user
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
                   type: string
                 archived:
                   type: boolean
@@ -17795,6 +18618,9 @@ paths:
                                 const: scheduled
                               at:
                                 type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                             required:
                               - type
                               - at
@@ -17985,6 +18811,9 @@ paths:
                                 const: scheduled
                               at:
                                 type: string
+                                format: date-time
+                                pattern: >-
+                                  ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                             required:
                               - type
                               - at
@@ -18146,6 +18975,559 @@ paths:
                 required:
                   - rampScheduleTemplates
                 additionalProperties: false
+  /ramp-schedules/{id}:
+    get:
+      operationId: getrampSchedule
+      summary: get rampSchedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+    delete:
+      operationId: deleterampSchedule
+      summary: delete rampSchedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+    put:
+      operationId: updaterampSchedule
+      summary: update rampSchedules
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                steps:
+                  minItems: 0
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      trigger:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: interval
+                              seconds:
+                                type: number
+                                exclusiveMinimum: 0
+                            required:
+                              - type
+                              - seconds
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: approval
+                            required:
+                              - type
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: scheduled
+                              at:
+                                type: string
+                            required:
+                              - type
+                              - at
+                            additionalProperties: false
+                      actions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                force: {}
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                            targetId:
+                              type: string
+                          required:
+                            - targetType
+                            - patch
+                          additionalProperties: false
+                      approvalNotes:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                    required:
+                      - trigger
+                      - actions
+                    additionalProperties: false
+                endActions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        type: string
+                        const: feature-rule
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force: {}
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        required:
+                          - ruleId
+                        additionalProperties: false
+                      targetId:
+                        type: string
+                    required:
+                      - targetType
+                      - patch
+                    additionalProperties: false
+                startDate:
+                  anyOf:
+                    - type: string
+                      format: date-time
+                      pattern: >-
+                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    - type: 'null'
+                endCondition:
+                  anyOf:
+                    - type: object
+                      properties:
+                        trigger:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              const: scheduled
+                            at:
+                              type: string
+                              format: date-time
+                              pattern: >-
+                                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                          required:
+                            - type
+                            - at
+                          additionalProperties: false
+                      additionalProperties: false
+                    - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+  /ramp-schedules:
+    post:
+      operationId: createrampSchedule
+      summary: create rampSchedules
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                featureId:
+                  type: string
+                ruleId:
+                  type: string
+                environment:
+                  type: string
+                steps:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      trigger:
+                        anyOf:
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: interval
+                              seconds:
+                                type: number
+                                exclusiveMinimum: 0
+                            required:
+                              - type
+                              - seconds
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: approval
+                            required:
+                              - type
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: scheduled
+                              at:
+                                type: string
+                            required:
+                              - type
+                              - at
+                            additionalProperties: false
+                      actions:
+                        default: []
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                force: {}
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              additionalProperties: false
+                          required:
+                            - patch
+                          additionalProperties: false
+                      approvalNotes:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                    required:
+                      - trigger
+                      - actions
+                    additionalProperties: false
+                endActions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      targetType:
+                        type: string
+                        const: feature-rule
+                      targetId:
+                        type: string
+                      patch:
+                        type: object
+                        properties:
+                          ruleId:
+                            type: string
+                          coverage:
+                            anyOf:
+                              - type: number
+                                minimum: 0
+                                maximum: 1
+                              - type: 'null'
+                          condition:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          savedGroups:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    match:
+                                      type: string
+                                      enum:
+                                        - all
+                                        - none
+                                        - any
+                                    ids:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - match
+                                    - ids
+                                  additionalProperties: false
+                              - type: 'null'
+                          prerequisites:
+                            anyOf:
+                              - type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    condition:
+                                      type: string
+                                  required:
+                                    - id
+                                    - condition
+                                  additionalProperties: false
+                              - type: 'null'
+                          force: {}
+                          enabled:
+                            anyOf:
+                              - type: boolean
+                              - type: 'null'
+                        additionalProperties: false
+                    required:
+                      - patch
+                    additionalProperties: false
+                startDate:
+                  anyOf:
+                    - type: string
+                      format: date-time
+                      pattern: >-
+                        ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    - type: 'null'
+                endCondition:
+                  type: object
+                  properties:
+                    trigger:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          const: scheduled
+                        at:
+                          type: string
+                          format: date-time
+                          pattern: >-
+                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      required:
+                        - type
+                        - at
+                      additionalProperties: false
+                  additionalProperties: false
+                templateId:
+                  type: string
+              required:
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+    get:
+      operationId: listrampSchedule
+      summary: list rampSchedules
+      parameters:
+        - $ref: '#/components/parameters/featureId'
+        - $ref: '#/components/parameters/status'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedules:
+                    $ref: '#/components/schemas/rampSchedule'
+                required:
+                  - rampSchedules
+                additionalProperties: false
 components:
   parameters:
     limit:
@@ -18239,6 +19621,13 @@ components:
       name: dimension
       in: query
       required: false
+      description: ''
+      schema:
+        type: string
+    variationId:
+      name: variationId
+      in: path
+      required: true
       description: ''
       schema:
         type: string
@@ -18345,6 +19734,13 @@ components:
       description: ''
       schema:
         type: string
+    index:
+      name: index
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
     teamId:
       name: teamId
       in: path
@@ -18382,6 +19778,20 @@ components:
           - preferred
           - required
           - never
+    featureId:
+      name: featureId
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
+    status:
+      name: status
+      in: query
+      required: false
+      description: ''
+      schema:
+        type: string
   schemas:
     features:
       type: object
@@ -18397,6 +19807,7 @@ components:
         description:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         project:
           type: string
@@ -20535,6 +21946,9 @@ components:
             description:
               type: string
             owner:
+              description: >-
+                The userId of the owner (or raw owner name/email for legacy
+                records)
               type: string
             project:
               type: string
@@ -20594,6 +22008,7 @@ components:
         description:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         isPublic:
           type: boolean
@@ -20645,6 +22060,7 @@ components:
           items:
             type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         archived:
           type: boolean
@@ -21723,6 +23139,17 @@ components:
         - experiment
         - status
       additionalProperties: false
+    screenshot:
+      type: object
+      properties:
+        path:
+          type: string
+        description:
+          type: string
+      required:
+        - path
+        - description
+      additionalProperties: false
     visualChangesets:
       type: object
       properties:
@@ -21819,6 +23246,7 @@ components:
         dateUpdated:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         datasourceId:
           type: string
@@ -22139,6 +23567,7 @@ components:
         id:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         datasourceId:
           type: string
@@ -22197,6 +23626,7 @@ components:
         dateUpdated:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         datasourceId:
           type: string
@@ -22637,6 +24067,7 @@ components:
         name:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         condition:
           description: >-
@@ -22695,6 +24126,7 @@ components:
         description:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         projects:
           type: array
@@ -22885,6 +24317,7 @@ components:
         description:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         projects:
           type: array
@@ -23719,6 +25152,361 @@ components:
         - refreshMS
         - dateCreated
         - dateUpdated
+      additionalProperties: false
+    rampSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        dateUpdated:
+          type: string
+          format: date-time
+          pattern: >-
+            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+        name:
+          type: string
+        entityType:
+          type: string
+          enum:
+            - feature
+        entityId:
+          type: string
+        targets:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              entityType:
+                type: string
+                enum:
+                  - feature
+              entityId:
+                type: string
+              ruleId:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              environment:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+              status:
+                type: string
+                enum:
+                  - pending-join
+                  - active
+              activatingRevisionVersion:
+                anyOf:
+                  - type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  - type: 'null'
+            required:
+              - id
+              - entityType
+              - entityId
+              - status
+            additionalProperties: false
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              trigger:
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: interval
+                      seconds:
+                        type: number
+                        exclusiveMinimum: 0
+                    required:
+                      - type
+                      - seconds
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: approval
+                    required:
+                      - type
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: scheduled
+                      at:
+                        type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                    required:
+                      - type
+                      - at
+                    additionalProperties: false
+              actions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    targetType:
+                      type: string
+                      const: feature-rule
+                    targetId:
+                      type: string
+                    patch:
+                      type: object
+                      properties:
+                        ruleId:
+                          type: string
+                        coverage:
+                          anyOf:
+                            - type: number
+                              minimum: 0
+                              maximum: 1
+                            - type: 'null'
+                        condition:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        savedGroups:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: object
+                                properties:
+                                  match:
+                                    type: string
+                                    enum:
+                                      - all
+                                      - none
+                                      - any
+                                  ids:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - match
+                                  - ids
+                                additionalProperties: false
+                            - type: 'null'
+                        prerequisites:
+                          anyOf:
+                            - type: array
+                              items:
+                                type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  condition:
+                                    type: string
+                                required:
+                                  - id
+                                  - condition
+                                additionalProperties: false
+                            - type: 'null'
+                        force: {}
+                        enabled:
+                          anyOf:
+                            - type: boolean
+                            - type: 'null'
+                      required:
+                        - ruleId
+                      additionalProperties: false
+                  required:
+                    - targetType
+                    - targetId
+                    - patch
+                  additionalProperties: false
+              approvalNotes:
+                anyOf:
+                  - type: string
+                  - type: 'null'
+            required:
+              - trigger
+              - actions
+            additionalProperties: false
+        endActions:
+          type: array
+          items:
+            type: object
+            properties:
+              targetType:
+                type: string
+                const: feature-rule
+              targetId:
+                type: string
+              patch:
+                type: object
+                properties:
+                  ruleId:
+                    type: string
+                  coverage:
+                    anyOf:
+                      - type: number
+                        minimum: 0
+                        maximum: 1
+                      - type: 'null'
+                  condition:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  savedGroups:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: object
+                          properties:
+                            match:
+                              type: string
+                              enum:
+                                - all
+                                - none
+                                - any
+                            ids:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - match
+                            - ids
+                          additionalProperties: false
+                      - type: 'null'
+                  prerequisites:
+                    anyOf:
+                      - type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: string
+                          required:
+                            - id
+                            - condition
+                          additionalProperties: false
+                      - type: 'null'
+                  force: {}
+                  enabled:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
+                required:
+                  - ruleId
+                additionalProperties: false
+            required:
+              - targetType
+              - targetId
+              - patch
+            additionalProperties: false
+        startDate:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        endCondition:
+          anyOf:
+            - type: object
+              properties:
+                trigger:
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: scheduled
+                        at:
+                          type: string
+                          format: date-time
+                          pattern: >-
+                            ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+                      required:
+                        - type
+                        - at
+                      additionalProperties: false
+              additionalProperties: false
+            - type: 'null'
+        status:
+          type: string
+          enum:
+            - pending
+            - ready
+            - running
+            - paused
+            - pending-approval
+            - completed
+            - rolled-back
+        currentStepIndex:
+          type: integer
+          minimum: -1
+          maximum: 9007199254740991
+        startedAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        phaseStartedAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        pausedAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        nextStepAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        nextProcessAt:
+          anyOf:
+            - type: string
+              format: date-time
+              pattern: >-
+                ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
+            - type: 'null'
+        elapsedMs:
+          anyOf:
+            - type: integer
+              minimum: -9007199254740991
+              maximum: 9007199254740991
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - entityType
+        - entityId
+        - targets
+        - steps
+        - status
+        - currentStepIndex
+        - nextStepAt
       additionalProperties: false
     dashboard:
       type: object
@@ -25299,6 +27087,7 @@ components:
           pattern: >-
             ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         name:
           type: string
@@ -25440,6 +27229,7 @@ components:
         project:
           type: string
         owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
         templateMetadata:
           type: object
@@ -25631,6 +27421,9 @@ components:
                         const: scheduled
                       at:
                         type: string
+                        format: date-time
+                        pattern: >-
+                          ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$
                     required:
                       - type
                       - at

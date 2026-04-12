@@ -16,6 +16,41 @@ const generatedFileHeader = `/* eslint-disable */
 */
 `;
 
+function generateExampleRequest(operation) {
+  const codeSample = operation["x-codeSamples"]?.[0]?.source;
+  if (!codeSample) return null;
+
+  // Extract path params, set each one to just "abc123"
+  const pathParams = operation.parameters
+    ?.filter((param) => param.in === "path")
+    .map((param) => [param.name, "abc123"]);
+
+  const exampleRequest = {};
+
+  if (pathParams?.length > 0) {
+    exampleRequest.params = Object.fromEntries(pathParams);
+  }
+
+  // Extract body from the `-d` line in the code sample
+  // Might be split across multiple lines, have escape sequences
+  // Might also be invalid JSON, if so, skip the code sample entirely
+  const body = codeSample.split("-d '")[1]?.split("'")[0];
+  if (body) {
+    try {
+      exampleRequest.body = JSON.parse(body);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // If empty object, return null
+  if (Object.keys(exampleRequest).length === 0) {
+    return null;
+  }
+
+  return JSON.stringify(exampleRequest);
+}
+
 async function run() {
   // Step 1: Turn yaml files into a single OpenAPI JSON file
   const spec = path.join(__dirname, "..", "..", "generated", "spec.yaml");
@@ -66,6 +101,9 @@ async function run() {
           ...(p.parameters || []),
           ...(p[method].parameters || []),
         ]);
+
+        const exampleRequest = generateExampleRequest(p[method]);
+
         const responseSchema =
           p[method].responses["200"]["content"]["application/json"]["schema"];
         validators.push(
@@ -78,7 +116,9 @@ async function run() {
   operationId: "${id}",
   tags: [${p[method].tags?.map((tag) => `"${tag}"`).join(", ")}],
   method: "${method}" as const,
-  path: "${path}",
+  path: "${path}"${
+    exampleRequest ? `,\n  exampleRequest: ${exampleRequest}` : ""
+  },
 };`,
         );
       }
