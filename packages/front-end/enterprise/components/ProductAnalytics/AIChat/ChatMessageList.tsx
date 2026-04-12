@@ -2,8 +2,8 @@ import React from "react";
 import { Flex, Box } from "@radix-ui/themes";
 import { PiSparkle } from "react-icons/pi";
 import { toolResultPreviewLabel, getMessageText } from "shared/ai-chat";
+import { datetime } from "shared/dates";
 import Markdown from "@/components/Markdown/Markdown";
-import { formatTimestamp } from "@/services/dates";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import type {
@@ -162,7 +162,7 @@ export default function ChatMessageList({
   const renderMessage = (msg: AIChatMessage) => {
     if (msg.role === "user") {
       const userText = getMessageText(msg);
-      const timestamp = msg.ts ? formatTimestamp(msg.ts) : null;
+      const timestamp = msg.ts ? datetime(new Date(msg.ts)) : null;
       return (
         <React.Fragment key={msg.id}>
           <UserBubble>

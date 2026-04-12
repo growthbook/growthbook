@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiArrowsClockwise, PiClockClockwise } from "react-icons/pi";
+import { formatShortAgo } from "shared/dates";
 import Text from "@/ui/Text";
 import {
   DropdownMenu,
@@ -8,7 +9,6 @@ import {
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { formatShortAgo } from "@/services/dates";
 import { getRefreshInterval } from "@/enterprise/components/ProductAnalytics/util";
 
 interface LastRefreshedIndicatorProps {

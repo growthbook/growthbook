@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Flex, ScrollArea } from "@radix-ui/themes";
 import { PiMagnifyingGlass, PiX } from "react-icons/pi";
+import { formatShortAgo } from "shared/dates";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
-import { formatShortAgo } from "@/services/dates";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 
 function highlightMatch(text: string, query: string): React.ReactNode {

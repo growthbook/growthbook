@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Box, Flex, ScrollArea, Separator } from "@radix-ui/themes";
 import { PiMagnifyingGlass, PiPlus, PiChat, PiTrash } from "react-icons/pi";
+import { formatShortAgo } from "shared/dates";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Modal from "@/components/Modal";
 import type { ConversationSummary } from "@/enterprise/hooks/useAIChat";
-import { formatShortAgo } from "@/services/dates";
 import aiChatPrimitives from "./AIChatPrimitives.module.scss";
 import AIUsageWidget from "./AIUsageWidget";
 import ChatSearchModal from "./ChatSearchModal";

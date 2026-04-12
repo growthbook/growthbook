@@ -1,4 +1,4 @@
-import { Button as RadixButton, ButtonProps, Flex } from "@radix-ui/themes";
+import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
 import {
   CSSProperties,
   ForwardedRef,
@@ -98,9 +98,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         type={type}
       >
         {icon && iconPosition === "left" ? icon : null}
-        <Flex asChild align="center">
-          <span style={{ fontWeight: 500 }}>{children}</span>
-        </Flex>
+        <Text weight="medium">{children}</Text>
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );
@@ -167,9 +165,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
         tabIndex={tabIndex}
       >
         {icon && iconPosition === "left" ? icon : null}
-        <Flex asChild align="center">
-          <span style={{ fontWeight: 500 }}>{children}</span>
-        </Flex>
+        <Text weight="medium">{children}</Text>
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );
