@@ -15396,7 +15396,7 @@ paths:
                   - dashboard
                 additionalProperties: false
     get:
-      operationId: listDashboard
+      operationId: listDashboards
       summary: Get all dashboards
       parameters: []
       responses:
@@ -15407,7 +15407,9 @@ paths:
                 type: object
                 properties:
                   dashboards:
-                    $ref: '#/components/schemas/dashboard'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/dashboard'
                 required:
                   - dashboards
                 additionalProperties: false
@@ -15954,7 +15956,7 @@ paths:
                   - metricGroup
                 additionalProperties: false
     get:
-      operationId: listMetricGroup
+      operationId: listMetricGroups
       summary: Get all metricGroups
       parameters: []
       responses:
@@ -15965,7 +15967,9 @@ paths:
                 type: object
                 properties:
                   metricGroups:
-                    $ref: '#/components/schemas/metricGroup'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/metricGroup'
                 required:
                   - metricGroups
                 additionalProperties: false
@@ -16164,7 +16168,7 @@ paths:
                   - team
                 additionalProperties: false
     get:
-      operationId: listTeam
+      operationId: listTeams
       summary: Get all teams
       parameters: []
       responses:
@@ -16175,7 +16179,9 @@ paths:
                 type: object
                 properties:
                   teams:
-                    $ref: '#/components/schemas/team'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/team'
                 required:
                   - teams
                 additionalProperties: false
@@ -16627,7 +16633,7 @@ paths:
                   - experimentTemplate
                 additionalProperties: false
     get:
-      operationId: listExperimentTemplate
+      operationId: listExperimentTemplates
       summary: Get all experimentTemplates
       parameters:
         - name: projectId
@@ -16644,7 +16650,9 @@ paths:
                 type: object
                 properties:
                   experimentTemplates:
-                    $ref: '#/components/schemas/experimentTemplate'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/experimentTemplate'
                 required:
                   - experimentTemplates
                 additionalProperties: false
@@ -19376,7 +19384,7 @@ paths:
                   - rampScheduleTemplate
                 additionalProperties: false
     get:
-      operationId: listRampScheduleTemplate
+      operationId: listRampScheduleTemplates
       summary: Get all rampScheduleTemplates
       parameters: []
       responses:
@@ -19387,7 +19395,9 @@ paths:
                 type: object
                 properties:
                   rampScheduleTemplates:
-                    $ref: '#/components/schemas/rampScheduleTemplate'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/rampScheduleTemplate'
                 required:
                   - rampScheduleTemplates
                 additionalProperties: false
@@ -19940,7 +19950,7 @@ paths:
                   - rampSchedule
                 additionalProperties: false
     get:
-      operationId: listRampSchedule
+      operationId: listRampSchedules
       summary: Get all rampSchedules
       parameters:
         - $ref: '#/components/parameters/featureId'
@@ -19967,7 +19977,9 @@ paths:
                 type: object
                 properties:
                   rampSchedules:
-                    $ref: '#/components/schemas/rampSchedule'
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/rampSchedule'
                 required:
                   - rampSchedules
                 additionalProperties: false

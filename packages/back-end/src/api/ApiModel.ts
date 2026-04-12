@@ -192,7 +192,12 @@ export function getCrudConfig(spec: OpenApiModelSpec): CrudActionConfig[] {
           ? spec.modelPlural
           : spec.modelSingular;
     const returnSchema = z.object({
-      [returnKey]: action === "delete" ? z.string() : spec.apiInterface,
+      [returnKey]:
+        action === "delete"
+          ? z.string()
+          : plural
+            ? z.array(spec.apiInterface)
+            : spec.apiInterface,
     });
     return {
       action,
@@ -219,15 +224,18 @@ export function getOpenApiRoutesForApiConfig(
 
   const crudConfig = getCrudConfig(apiConfig.openApiSpec);
   crudConfig.forEach(
-    ({ action, verb, pathFragment, validator, returnKey, returnSchema }) => {
+    ({ action, verb, pathFragment, validator, returnKey, returnSchema, plural }) => {
       const singularCapitalized = capitalizeFirstCharacter(
         apiConfig.openApiSpec.modelSingular,
+      );
+      const pluralCapitalized = capitalizeFirstCharacter(
+        apiConfig.openApiSpec.modelPlural,
       );
       const route = createApiRequestHandler({
         ...validator,
         method: verb,
         path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
-        operationId: `${action}${singularCapitalized}`,
+        operationId: `${action}${plural ? pluralCapitalized : singularCapitalized}`,
         summary: getDefaultCrudActionSummary(
           action,
           apiConfig.openApiSpec.modelSingular,

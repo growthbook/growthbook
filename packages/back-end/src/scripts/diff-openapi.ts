@@ -380,6 +380,7 @@ const IGNORED_KEYS = new Set([
   "$skipValidatorGeneration",
   "$schema",
   "additionalProperties",
+  "propertyNames", // Zod 4 emits propertyNames: {type:"string"} for z.record(); always true
 ]);
 
 function filterIgnoredKeys(obj: unknown): unknown {
@@ -502,6 +503,211 @@ function tryCollapseTypeNullUnion(
   }
   merged["nullable"] = true;
   return merged;
+}
+
+// ---------------------------------------------------------------------------
+// Semantic normalizations — transform equivalent representations into a
+// canonical form so they don't produce false-positive diffs.
+// ---------------------------------------------------------------------------
+
+/**
+ * In OpenAPI, parameters declared at the path level apply to every operation
+ * under that path.  Some generators hoist them, others inline them.
+ * We normalize by pushing path-level params into each operation.
+ */
+function hoistPathParameters(spec: unknown): unknown {
+  if (!isObject(spec)) return spec;
+  const paths = spec["paths"];
+  if (!isObject(paths)) return spec;
+
+  const newPaths: Record<string, unknown> = {};
+  for (const [pathKey, pathItem] of Object.entries(paths)) {
+    if (!isObject(pathItem)) {
+      newPaths[pathKey] = pathItem;
+      continue;
+    }
+    const pathParams = Array.isArray(pathItem["parameters"])
+      ? pathItem["parameters"]
+      : [];
+    const newPathItem: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(pathItem)) {
+      if (key === "parameters") continue; // drop path-level params
+      if (
+        ["get", "post", "put", "delete", "patch", "options", "head"].includes(
+          key,
+        ) &&
+        isObject(value)
+      ) {
+        // Merge path-level params into operation, operation params win on conflict
+        const opParams = Array.isArray(value["parameters"])
+          ? value["parameters"]
+          : [];
+        const opParamKeys = new Set(
+          opParams.filter(isObject).map((p) => `${p["in"]}:${p["name"]}`),
+        );
+        const merged = [
+          ...pathParams.filter(
+            (p) =>
+              isObject(p) && !opParamKeys.has(`${p["in"]}:${p["name"]}`),
+          ),
+          ...opParams,
+        ];
+        newPathItem[key] = {
+          ...value,
+          ...(merged.length > 0 ? { parameters: merged } : {}),
+        };
+      } else {
+        newPathItem[key] = value;
+      }
+    }
+    newPaths[pathKey] = newPathItem;
+  }
+  return { ...spec, paths: newPaths };
+}
+
+/**
+ * Unwrap `allOf: [X]` → X recursively.
+ * A single-element allOf is an identity wrapper some generators emit.
+ */
+function collapseSingleAllOf(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(collapseSingleAllOf);
+  }
+  if (!isObject(val)) return val;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    out[k] = collapseSingleAllOf(v);
+  }
+
+  if (
+    Array.isArray(out["allOf"]) &&
+    out["allOf"].length === 1 &&
+    isObject(out["allOf"][0])
+  ) {
+    const inner = out["allOf"][0] as Record<string, unknown>;
+    const { allOf: _, ...rest } = out;
+    // Merge sibling keys with the inner schema, inner wins on conflict
+    return { ...rest, ...inner };
+  }
+
+  return out;
+}
+
+/**
+ * OpenAPI 3.0: `{ minimum: N, exclusiveMinimum: true }` means "> N".
+ * OpenAPI 3.1 / JSON Schema: `{ exclusiveMinimum: N }` means "> N".
+ * Normalize the 3.0 form to the 3.1 form.  Same for maximum.
+ */
+function normalizeExclusiveMinMax(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(normalizeExclusiveMinMax);
+  }
+  if (!isObject(val)) return val;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    out[k] = normalizeExclusiveMinMax(v);
+  }
+
+  if (out["exclusiveMinimum"] === true && typeof out["minimum"] === "number") {
+    out["exclusiveMinimum"] = out["minimum"];
+    delete out["minimum"];
+  }
+  if (out["exclusiveMaximum"] === true && typeof out["maximum"] === "number") {
+    out["exclusiveMaximum"] = out["maximum"];
+    delete out["maximum"];
+  }
+
+  return out;
+}
+
+/**
+ * Normalize `{ type: T, enum: [v1, v2, ...] }` to `{ anyOf: [{ const: v1 }, { const: v2 }, ...] }`.
+ * Both representations are semantically identical in JSON Schema but generators choose differently.
+ * Only applies when enum has 2+ values (single-value enums are effectively const anyway).
+ */
+function normalizeLiteralEnums(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(normalizeLiteralEnums);
+  }
+  if (!isObject(val)) return val;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    out[k] = normalizeLiteralEnums(v);
+  }
+
+  if (Array.isArray(out["enum"]) && typeof out["type"] === "string") {
+    const enumVals = out["enum"];
+    const { type: _, enum: _e, ...rest } = out;
+    return {
+      ...rest,
+      anyOf: enumVals.map((v) => ({ const: v })),
+    };
+  }
+
+  return out;
+}
+
+/**
+ * If a schema already has `enum` with all values of the same type, a `type`
+ * field is redundant.  Some generators include it, some don't.
+ * This is handled by normalizeLiteralEnums above (which strips type+enum
+ * and replaces with anyOf), but for schemas that only have enum without type
+ * we need to also convert those to the anyOf form for consistency.
+ */
+
+/**
+ * Normalize invalid OpenAPI types:  `"bool"` → `"boolean"`.
+ */
+function normalizeInvalidTypes(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(normalizeInvalidTypes);
+  }
+  if (!isObject(val)) return val;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (k === "type" && v === "bool") {
+      out[k] = "boolean";
+    } else {
+      out[k] = normalizeInvalidTypes(v);
+    }
+  }
+  return out;
+}
+
+/**
+ * Strip `description` from parameter objects (those with `in: "path"` or `in: "query"`).
+ * These are additive-only in the new spec — the old spec has no param descriptions.
+ */
+function stripParameterDescriptions(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(stripParameterDescriptions);
+  }
+  if (!isObject(val)) return val;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    out[k] = stripParameterDescriptions(v);
+  }
+
+  // If this is a parameter object (has `in` field), strip description
+  // at both the parameter level and inside its schema
+  if (
+    typeof out["in"] === "string" &&
+    (out["in"] === "path" || out["in"] === "query")
+  ) {
+    delete out["description"];
+    if (isObject(out["schema"])) {
+      const schemaCopy = { ...(out["schema"] as Record<string, unknown>) };
+      delete schemaCopy["description"];
+      out["schema"] = schemaCopy;
+    }
+  }
+
+  return out;
 }
 
 /**
@@ -751,12 +957,22 @@ Options:
   const oldClean = stripMeta(oldFiltered);
   const newClean = stripMeta(newFiltered);
 
-  const oldNorm = normalizeNullableRepresentations(
-    stripJsSafeIntegerBoundArtifacts(oldClean),
-  );
-  const newNorm = normalizeNullableRepresentations(
-    stripJsSafeIntegerBoundArtifacts(newClean),
-  );
+  // Apply semantic normalizations to both specs
+  const normalize = (spec: unknown): unknown => {
+    let s = spec;
+    s = hoistPathParameters(s);
+    s = stripJsSafeIntegerBoundArtifacts(s);
+    s = normalizeNullableRepresentations(s);
+    s = collapseSingleAllOf(s);
+    s = normalizeExclusiveMinMax(s);
+    s = normalizeLiteralEnums(s);
+    s = normalizeInvalidTypes(s);
+    s = stripParameterDescriptions(s);
+    return s;
+  };
+
+  const oldNorm = normalize(oldClean);
+  const newNorm = normalize(newClean);
 
   // Diff
   const diffs: Diff[] = [];
