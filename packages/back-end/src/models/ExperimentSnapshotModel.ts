@@ -78,6 +78,19 @@ const experimentSnapshotSchema = new mongoose.Schema({
   settings: {},
   analyses: {},
   hasChunkedResults: Boolean,
+  analysisMeta: [
+    {
+      _id: false,
+      dimensions: [
+        {
+          _id: false,
+          name: String,
+          srm: Number,
+          variationUsers: [Number],
+        },
+      ],
+    },
+  ],
   results: [
     {
       _id: false,
@@ -262,17 +275,19 @@ export async function updateSnapshot({
     if (existing?.settings) {
       // Delete old chunks and create new ones
       await context.models.snapshotResultChunks.deleteBySnapshotId(id);
-      await context.models.snapshotResultChunks.createFromAnalyses(
-        id,
-        updates.analyses,
-        existing.settings,
-      );
+      const analysisMeta =
+        await context.models.snapshotResultChunks.createFromAnalyses(
+          id,
+          updates.analyses,
+          existing.settings,
+        );
       // Clear results from the main document and set the flag
       updates.analyses = updates.analyses.map((a) => ({
         ...a,
         results: [],
       }));
       updates.hasChunkedResults = true;
+      updates.analysisMeta = analysisMeta;
     }
   }
 
@@ -448,10 +463,16 @@ export async function addOrUpdateSnapshotAnalysis(
       });
 
       await context.models.snapshotResultChunks.deleteBySnapshotId(id);
-      await context.models.snapshotResultChunks.createFromAnalyses(
-        id,
-        populatedAnalyses,
-        updated.settings,
+      const analysisMeta =
+        await context.models.snapshotResultChunks.createFromAnalyses(
+          id,
+          populatedAnalyses,
+          updated.settings,
+        );
+      // Update analysisMeta on the snapshot doc
+      await ExperimentSnapshotModel.updateOne(
+        { organization, id },
+        { $set: { analysisMeta } },
       );
     }
     return;
@@ -526,10 +547,15 @@ export async function updateSnapshotAnalysis({
       });
 
       await context.models.snapshotResultChunks.deleteBySnapshotId(id);
-      await context.models.snapshotResultChunks.createFromAnalyses(
-        id,
-        populatedAnalyses,
-        updated.settings,
+      const analysisMeta =
+        await context.models.snapshotResultChunks.createFromAnalyses(
+          id,
+          populatedAnalyses,
+          updated.settings,
+        );
+      await ExperimentSnapshotModel.updateOne(
+        { organization, id },
+        { $set: { analysisMeta } },
       );
     }
     return;

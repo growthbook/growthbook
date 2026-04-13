@@ -233,6 +233,13 @@ export interface ExperimentSnapshotInterface {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
   hasChunkedResults?: boolean;
+  analysisMeta?: Array<{
+    dimensions: Array<{
+      name: string;
+      srm: number;
+      variationUsers: number[];
+    }>;
+  }>;
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;

@@ -1,34 +1,16 @@
-import { SnapshotResultChunkInterface } from "shared/validators";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import { ExperimentReportResultDimension } from "shared/types/report";
 
-// Columns stored in each chunk's `data` field.
-// Index columns identify which (analysis, dimension, variation, metric) a row belongs to.
-// Value columns contain the flattened SnapshotMetric fields.
-const INDEX_COLUMNS = ["a", "d", "v", "m"] as const;
-
-// Columns stored in each chunk's `metaData` field.
-// These store per-(analysis, dimension, variation) metadata that is shared across metrics.
-const META_COLUMNS = ["a", "d", "s", "v", "vu"] as const;
-
-type SnapshotResultChunkData = Pick<
-  SnapshotResultChunkInterface,
-  "numRows" | "data" | "metaNumRows" | "metaData"
->;
-
-export interface EncodeResult {
-  chunks: SnapshotResultChunkData[];
-  metricIdsByChunk: string[][];
-}
-
-// -- Flatten / Unflatten SnapshotMetric --
+// Index columns identify which (analysis, dimension, variation) a row belongs to.
+// The metricId is a document-level field, not a column.
+const INDEX_COLUMNS = ["a", "d", "v"] as const;
 
 // All possible value columns in flattened form.
-// Order matters for consistent encoding, but the decode is column-name based.
 const VALUE_COLUMNS = [
   "value",
   "cr",
@@ -61,6 +43,28 @@ const VALUE_COLUMNS = [
 ] as const;
 
 const ALL_DATA_COLUMNS = [...INDEX_COLUMNS, ...VALUE_COLUMNS];
+
+// -- Types --
+
+export type MetricChunkData = {
+  numRows: number;
+  data: Record<string, unknown[]>;
+};
+
+export type AnalysisMetaEntry = {
+  dimensions: Array<{
+    name: string;
+    srm: number;
+    variationUsers: number[];
+  }>;
+};
+
+export interface EncodeResult {
+  metricChunks: Map<string, MetricChunkData>;
+  analysisMeta: AnalysisMetaEntry[];
+}
+
+// -- Flatten / Unflatten SnapshotMetric --
 
 function flattenSnapshotMetric(
   metric: SnapshotMetric,
@@ -162,37 +166,26 @@ function unflattenSnapshotMetric(
   return metric;
 }
 
-// -- Size estimation --
-
-function getValueSize(value: unknown): number {
-  if (value === null || value === undefined) return 1;
-  if (typeof value === "boolean") return 1;
-  if (typeof value === "number") return 8;
-  if (typeof value === "string") return value.length + 5;
-  return 1 + JSON.stringify(value).length * 2;
-}
-
 // -- Encode --
 
-interface MetricRowGroup {
-  metricId: string;
-  rows: Record<string, unknown>[];
-  metaRows: Record<string, unknown>[];
-  estimatedSize: number;
-}
-
 /**
- * Encode snapshot analyses into chunked columnar format.
- *
- * @param analyses - The analyses with populated results
- * @param metricOrdering - Ordered list of metric IDs (goals, secondary, guardrails, then slices)
- * @param chunkSizeBytes - Target chunk size (default 4MB)
+ * Encode snapshot analyses into per-metric columnar documents.
+ * Each metric gets its own chunk. Meta data (srm, variation users) is
+ * extracted once and returned separately for storage on the snapshot doc.
  */
 export function encodeSnapshotResults(
   analyses: ExperimentSnapshotAnalysis[],
   metricOrdering: string[],
-  chunkSizeBytes: number = 4_000_000,
 ): EncodeResult {
+  // Extract analysisMeta (shared across all metrics)
+  const analysisMeta: AnalysisMetaEntry[] = analyses.map((analysis) => ({
+    dimensions: analysis.results.map((dim) => ({
+      name: dim.name,
+      srm: dim.srm,
+      variationUsers: dim.variations.map((v) => v.users),
+    })),
+  }));
+
   // Collect all metric IDs seen across all analyses
   const allMetricIds = new Set<string>();
   for (const analysis of analyses) {
@@ -205,7 +198,7 @@ export function encodeSnapshotResults(
     }
   }
 
-  // Build ordered metric list: known ordering first, then remaining in set order
+  // Build ordered metric list: known ordering first, then remaining
   const orderSet = new Set(metricOrdering);
   const orderedMetrics: string[] = [];
   for (const m of metricOrdering) {
@@ -215,151 +208,41 @@ export function encodeSnapshotResults(
     if (!orderSet.has(m)) orderedMetrics.push(m);
   }
 
-  // Group rows by metric
-  const metricGroups = new Map<string, MetricRowGroup>();
+  // Build one chunk per metric
+  const metricChunks = new Map<string, MetricChunkData>();
+
   for (const metricId of orderedMetrics) {
-    metricGroups.set(metricId, {
-      metricId,
-      rows: [],
-      metaRows: [],
-      estimatedSize: 0,
-    });
-  }
+    const data: Record<string, unknown[]> = {};
+    for (const col of ALL_DATA_COLUMNS) {
+      data[col] = [];
+    }
+    let numRows = 0;
 
-  // Track which (analysis, dimension, variation) combos we've seen per metric group
-  // to deduplicate meta rows within a group
-  const metaKeySeen = new Map<string, Set<string>>();
-
-  for (let ai = 0; ai < analyses.length; ai++) {
-    const analysis = analyses[ai];
-    for (const dim of analysis.results) {
-      for (let vi = 0; vi < dim.variations.length; vi++) {
-        const variation = dim.variations[vi];
-        const metaKey = `${ai}|${dim.name}|${vi}`;
-
-        for (const [metricId, metric] of Object.entries(variation.metrics)) {
-          const group = metricGroups.get(metricId);
-          if (!group) continue;
+    for (let ai = 0; ai < analyses.length; ai++) {
+      const analysis = analyses[ai];
+      for (const dim of analysis.results) {
+        for (let vi = 0; vi < dim.variations.length; vi++) {
+          const metric = dim.variations[vi].metrics[metricId];
+          if (!metric) continue;
 
           const flat = flattenSnapshotMetric(metric);
-          const row: Record<string, unknown> = {
-            a: ai,
-            d: dim.name,
-            v: vi,
-            m: metricId,
-            ...flat,
-          };
-          group.rows.push(row);
-
-          // Estimate size
-          let rowSize = 0;
-          for (const val of Object.values(flat)) {
-            rowSize += getValueSize(val);
+          data.a.push(ai);
+          data.d.push(dim.name);
+          data.v.push(vi);
+          for (const col of VALUE_COLUMNS) {
+            data[col].push(flat[col] ?? null);
           }
-          // Index columns size
-          rowSize += 8 + (dim.name.length + 5) + 8 + (metricId.length + 5);
-          group.estimatedSize += rowSize;
-
-          // Add meta row if not already tracked for this group
-          if (!metaKeySeen.has(metricId)) metaKeySeen.set(metricId, new Set());
-          const seen = metaKeySeen.get(metricId)!;
-          if (!seen.has(metaKey)) {
-            seen.add(metaKey);
-            group.metaRows.push({
-              a: ai,
-              d: dim.name,
-              s: dim.srm,
-              v: vi,
-              vu: variation.users,
-            });
-          }
+          numRows++;
         }
       }
     }
-  }
 
-  // Group metrics into chunks based on size
-  const chunks: SnapshotResultChunkData[] = [];
-  const metricIdsByChunk: string[][] = [];
-
-  let currentChunk = createDataChunk();
-  let currentMetricIds: string[] = [];
-  let currentSize = 0;
-
-  for (const metricId of orderedMetrics) {
-    const group = metricGroups.get(metricId)!;
-    if (group.rows.length === 0) continue;
-
-    // If adding this metric would exceed the chunk size and we already have data,
-    // finalize the current chunk first
-    if (
-      currentSize > 0 &&
-      currentSize + group.estimatedSize >= chunkSizeBytes
-    ) {
-      finalizeChunk(currentChunk, chunks);
-      metricIdsByChunk.push(currentMetricIds);
-      currentChunk = createDataChunk();
-      currentMetricIds = [];
-      currentSize = 0;
+    if (numRows > 0) {
+      metricChunks.set(metricId, { numRows, data });
     }
-
-    // Add all rows for this metric to the current chunk
-    for (const row of group.rows) {
-      currentChunk.numRows++;
-      for (const col of ALL_DATA_COLUMNS) {
-        currentChunk.data[col].push(row[col] ?? null);
-      }
-    }
-    for (const metaRow of group.metaRows) {
-      currentChunk.metaNumRows++;
-      for (const col of META_COLUMNS) {
-        (currentChunk.metaData[col] as unknown[]).push(metaRow[col] ?? null);
-      }
-    }
-
-    currentMetricIds.push(metricId);
-    currentSize += group.estimatedSize;
   }
 
-  // Push final chunk
-  if (currentChunk.numRows > 0) {
-    finalizeChunk(currentChunk, chunks);
-    metricIdsByChunk.push(currentMetricIds);
-  }
-
-  return { chunks, metricIdsByChunk };
-}
-
-// Mutable chunk during construction
-interface MutableChunkData {
-  numRows: number;
-  data: Record<string, unknown[]>;
-  metaNumRows: number;
-  metaData: Record<string, unknown[]>;
-}
-
-function createDataChunk(): MutableChunkData {
-  const data: Record<string, unknown[]> = {};
-  for (const col of ALL_DATA_COLUMNS) {
-    data[col] = [];
-  }
-  const metaData: Record<string, unknown[]> = {};
-  for (const col of META_COLUMNS) {
-    metaData[col] = [];
-  }
-  return { numRows: 0, data, metaNumRows: 0, metaData };
-}
-
-function finalizeChunk(
-  chunk: MutableChunkData,
-  out: SnapshotResultChunkData[],
-) {
-  out.push({
-    numRows: chunk.numRows,
-    data: chunk.data,
-    metaNumRows: chunk.metaNumRows,
-    metaData: chunk.metaData,
-  });
+  return { metricChunks, analysisMeta };
 }
 
 // -- Decode --
@@ -371,15 +254,23 @@ interface AnalysisMetadata {
   error?: string;
 }
 
+interface MetricChunkInput {
+  metricId: string;
+  numRows: number;
+  data: Record<string, unknown[]>;
+}
+
 /**
- * Decode chunked columnar data back into ExperimentSnapshotAnalysis[].
+ * Decode per-metric columnar chunks back into ExperimentSnapshotAnalysis[].
  *
- * @param chunks - The chunk data arrays (sorted by chunkNumber)
- * @param analysisMetadata - Metadata for each analysis (from the main snapshot doc)
- * @param filterMetricIds - Optional set of metric IDs to include (for partial fetching)
+ * @param chunks - Per-metric chunk documents
+ * @param analysisMeta - Shared dimension/variation metadata (from snapshot doc)
+ * @param analysisMetadata - Per-analysis settings/status (from snapshot doc)
+ * @param filterMetricIds - Optional set of metric IDs to include
  */
 export function decodeSnapshotResults(
-  chunks: SnapshotResultChunkData[],
+  chunks: MetricChunkInput[],
+  analysisMeta: AnalysisMetaEntry[],
   analysisMetadata: AnalysisMetadata[],
   filterMetricIds?: Set<string>,
 ): ExperimentSnapshotAnalysis[] {
@@ -394,50 +285,37 @@ export function decodeSnapshotResults(
   };
   const analysisMap = new Map<number, Map<string, DimData>>();
 
-  // First, process meta rows to set up dimension/variation structure
-  for (const chunk of chunks) {
-    const { metaData, metaNumRows } = chunk;
-    if (!metaNumRows) continue;
-
-    const metaA = metaData.a as number[];
-    const metaD = metaData.d as string[];
-    const metaS = metaData.s as number[];
-    const metaV = metaData.v as number[];
-    const metaVU = metaData.vu as number[];
-
-    for (let i = 0; i < metaNumRows; i++) {
-      const ai = metaA[i];
-      const dimName = metaD[i];
-      const srm = metaS[i];
-      const vi = metaV[i];
-      const varUsers = metaVU[i];
-
-      if (!analysisMap.has(ai)) analysisMap.set(ai, new Map());
-      const dims = analysisMap.get(ai)!;
-      if (!dims.has(dimName)) dims.set(dimName, { srm, variations: new Map() });
-      const dim = dims.get(dimName)!;
-      if (!dim.variations.has(vi)) {
-        dim.variations.set(vi, { users: varUsers, metrics: {} });
+  // Initialize structure from analysisMeta
+  for (let ai = 0; ai < analysisMeta.length; ai++) {
+    const meta = analysisMeta[ai];
+    if (!meta) continue;
+    const dims = new Map<string, DimData>();
+    for (const dim of meta.dimensions) {
+      const variations = new Map<
+        number,
+        { users: number; metrics: Record<string, SnapshotMetric> }
+      >();
+      for (let vi = 0; vi < dim.variationUsers.length; vi++) {
+        variations.set(vi, { users: dim.variationUsers[vi], metrics: {} });
       }
+      dims.set(dim.name, { srm: dim.srm, variations });
     }
+    analysisMap.set(ai, dims);
   }
 
-  // Then, process data rows to populate metrics
+  // Process data rows from each chunk
   for (const chunk of chunks) {
-    const { data, numRows } = chunk;
+    const { metricId, data, numRows } = chunk;
     if (!numRows) continue;
+
+    // Skip if filtering and this metric isn't requested
+    if (filterMetricIds && !filterMetricIds.has(metricId)) continue;
 
     const dataA = data.a as number[];
     const dataD = data.d as string[];
     const dataV = data.v as number[];
-    const dataM = data.m as string[];
 
     for (let i = 0; i < numRows; i++) {
-      const metricId = dataM[i];
-
-      // Skip if filtering and this metric isn't requested
-      if (filterMetricIds && !filterMetricIds.has(metricId)) continue;
-
       const ai = dataA[i];
       const dimName = dataD[i];
       const vi = dataV[i];
@@ -450,7 +328,7 @@ export function decodeSnapshotResults(
 
       const metric = unflattenSnapshotMetric(flat);
 
-      // Ensure structure exists (in case meta was filtered)
+      // Ensure structure exists (in case analysisMeta is incomplete)
       if (!analysisMap.has(ai)) analysisMap.set(ai, new Map());
       const dims = analysisMap.get(ai)!;
       if (!dims.has(dimName))
@@ -470,7 +348,6 @@ export function decodeSnapshotResults(
 
     if (dims) {
       for (const [name, dimData] of dims) {
-        // Build variations array sorted by index
         const maxVi = Math.max(...Array.from(dimData.variations.keys()), -1);
         const variations = [];
         for (let vi = 0; vi <= maxVi; vi++) {
@@ -512,7 +389,6 @@ export function buildMetricOrdering(
   for (const m of all) {
     if (seen.has(m)) continue;
     seen.add(m);
-    // Slice metrics have a '?' in their ID
     if (m.includes("?")) {
       slice.push(m);
     } else {
@@ -521,4 +397,25 @@ export function buildMetricOrdering(
   }
 
   return [...nonSlice, ...slice];
+}
+
+/**
+ * Helper to extract analysisMeta and analysisMetadata from a snapshot,
+ * used by populateSnapshots in the chunk model.
+ */
+export function getAnalysisMetaFromSnapshot(
+  snapshot: ExperimentSnapshotInterface,
+): {
+  analysisMeta: AnalysisMetaEntry[];
+  analysisMetadata: AnalysisMetadata[];
+} {
+  return {
+    analysisMeta: snapshot.analysisMeta ?? [],
+    analysisMetadata: snapshot.analyses.map((a) => ({
+      settings: a.settings,
+      dateCreated: a.dateCreated,
+      status: a.status,
+      ...(a.error ? { error: a.error } : {}),
+    })),
+  };
 }

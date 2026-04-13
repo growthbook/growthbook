@@ -2,6 +2,8 @@ import {
   encodeSnapshotResults,
   decodeSnapshotResults,
   buildMetricOrdering,
+  getAnalysisMetaFromSnapshot,
+  AnalysisMetaEntry,
 } from "shared/snapshot-results";
 import {
   snapshotResultChunkValidator,
@@ -22,10 +24,9 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
-      fields: { organization: 1, snapshotId: 1, chunkNumber: 1 },
+      fields: { organization: 1, snapshotId: 1, metricId: 1 },
       unique: true,
     },
-    { fields: { organization: 1, snapshotId: 1, metricIds: 1 } },
   ],
 });
 
@@ -52,47 +53,49 @@ export class SnapshotResultChunkModel extends BaseClass {
   }
 
   /**
-   * Encode snapshot analyses and write them as chunks.
+   * Encode snapshot analyses and write one document per metric.
+   * Returns analysisMeta for storage on the main snapshot document.
    */
   public async createFromAnalyses(
     snapshotId: string,
     analyses: ExperimentSnapshotAnalysis[],
     settings: ExperimentSnapshotSettings,
-  ) {
+  ): Promise<AnalysisMetaEntry[]> {
     const metricOrdering = getMetricOrdering(settings);
-    const { chunks, metricIdsByChunk } = encodeSnapshotResults(
+    const { metricChunks, analysisMeta } = encodeSnapshotResults(
       analyses,
       metricOrdering,
     );
 
+    const experimentId = settings.experimentId;
+    const entries = Array.from(metricChunks.entries());
     await promiseAllChunks(
-      chunks.map((chunk, i) => async () => {
+      entries.map(([metricId, chunk]) => async () => {
         await this.create({
           snapshotId,
-          chunkNumber: i,
-          metricIds: metricIdsByChunk[i],
+          experimentId,
+          metricId,
           ...chunk,
         });
       }),
-      3,
+      10,
     );
+
+    return analysisMeta;
   }
 
   /**
-   * Get all chunks for a snapshot, sorted by chunkNumber.
+   * Get all chunks for a snapshot.
    */
   public async getAllChunksForSnapshot(snapshotId: string) {
-    return this._find({ snapshotId }, { sort: { chunkNumber: 1 } });
+    return this._find({ snapshotId });
   }
 
   /**
-   * Get only chunks that contain any of the requested metric IDs.
+   * Get only chunks for the requested metric IDs.
    */
   public async getChunksForMetrics(snapshotId: string, metricIds: string[]) {
-    return this._find(
-      { snapshotId, metricIds: { $in: metricIds } },
-      { sort: { chunkNumber: 1 } },
-    );
+    return this._find({ snapshotId, metricId: { $in: metricIds } });
   }
 
   /**
@@ -110,18 +113,14 @@ export class SnapshotResultChunkModel extends BaseClass {
 
     let allChunks: SnapshotResultChunkInterface[];
     if (metricIds?.length) {
-      allChunks = await this._find(
-        {
-          snapshotId: { $in: snapshotIds },
-          metricIds: { $in: metricIds },
-        },
-        { sort: { snapshotId: 1, chunkNumber: 1 } },
-      );
+      allChunks = await this._find({
+        snapshotId: { $in: snapshotIds },
+        metricId: { $in: metricIds },
+      });
     } else {
-      allChunks = await this._find(
-        { snapshotId: { $in: snapshotIds } },
-        { sort: { snapshotId: 1, chunkNumber: 1 } },
-      );
+      allChunks = await this._find({
+        snapshotId: { $in: snapshotIds },
+      });
     }
 
     // Group chunks by snapshot ID
@@ -142,15 +141,12 @@ export class SnapshotResultChunkModel extends BaseClass {
       const chunks = chunksBySnapshotId.get(snapshot.id);
       if (!chunks?.length) continue;
 
-      const analysisMetadata = snapshot.analyses.map((a) => ({
-        settings: a.settings,
-        dateCreated: a.dateCreated,
-        status: a.status,
-        error: a.error,
-      }));
+      const { analysisMeta, analysisMetadata } =
+        getAnalysisMetaFromSnapshot(snapshot);
 
       const decoded = decodeSnapshotResults(
         chunks,
+        analysisMeta,
         analysisMetadata,
         filterMetricIds,
       );

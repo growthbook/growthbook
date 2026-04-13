@@ -7,6 +7,7 @@ import {
   encodeSnapshotResults,
   decodeSnapshotResults,
   buildMetricOrdering,
+  AnalysisMetaEntry,
 } from "../src/snapshot-results";
 
 function makeMetric(overrides: Partial<SnapshotMetric> = {}): SnapshotMetric {
@@ -45,6 +46,28 @@ function makeAnalysis(
   };
 }
 
+function decodeHelper(
+  analyses: ExperimentSnapshotAnalysis[],
+  filterMetricIds?: Set<string>,
+) {
+  const { metricChunks, analysisMeta } = encodeSnapshotResults(analyses, []);
+  const chunks = Array.from(metricChunks.entries()).map(
+    ([metricId, chunk]) => ({ metricId, ...chunk }),
+  );
+  const analysisMetadata = analyses.map((a) => ({
+    settings: a.settings,
+    dateCreated: a.dateCreated,
+    status: a.status as "success" | "running" | "error",
+    ...(a.error ? { error: a.error } : {}),
+  }));
+  return decodeSnapshotResults(
+    chunks,
+    analysisMeta,
+    analysisMetadata,
+    filterMetricIds,
+  );
+}
+
 describe("buildMetricOrdering", () => {
   it("should order goals, secondary, guardrails", () => {
     const result = buildMetricOrdering(["g1", "g2"], ["s1"], ["gd1"]);
@@ -77,9 +100,100 @@ describe("buildMetricOrdering", () => {
   });
 });
 
-describe("encodeSnapshotResults / decodeSnapshotResults", () => {
-  it("round-trips a simple case with one analysis, one dimension, two variations, one metric", () => {
-    const analyses: ExperimentSnapshotAnalysis[] = [
+describe("encodeSnapshotResults", () => {
+  it("produces one chunk per metric", () => {
+    const analyses = [
+      makeAnalysis([
+        {
+          name: "All",
+          srm: 0.5,
+          variations: [
+            {
+              users: 500,
+              metrics: {
+                met_a: makeMetric({ value: 1 }),
+                met_b: makeMetric({ value: 2 }),
+              },
+            },
+            {
+              users: 500,
+              metrics: {
+                met_a: makeMetric({ value: 3 }),
+                met_b: makeMetric({ value: 4 }),
+              },
+            },
+          ],
+        },
+      ]),
+    ];
+
+    const { metricChunks } = encodeSnapshotResults(analyses, [
+      "met_a",
+      "met_b",
+    ]);
+
+    expect(metricChunks.size).toBe(2);
+    expect(metricChunks.has("met_a")).toBe(true);
+    expect(metricChunks.has("met_b")).toBe(true);
+
+    // Each metric has 2 rows (2 variations)
+    expect(metricChunks.get("met_a")!.numRows).toBe(2);
+    expect(metricChunks.get("met_b")!.numRows).toBe(2);
+
+    // No "m" column in data (metricId is document-level)
+    expect(metricChunks.get("met_a")!.data.m).toBeUndefined();
+  });
+
+  it("extracts analysisMeta correctly", () => {
+    const analyses = [
+      makeAnalysis([
+        {
+          name: "All",
+          srm: 0.5,
+          variations: [
+            { users: 500, metrics: { met_1: makeMetric() } },
+            { users: 600, metrics: { met_1: makeMetric() } },
+          ],
+        },
+        {
+          name: "country:US",
+          srm: 0.48,
+          variations: [
+            { users: 200, metrics: { met_1: makeMetric() } },
+            { users: 300, metrics: { met_1: makeMetric() } },
+          ],
+        },
+      ]),
+    ];
+
+    const { analysisMeta } = encodeSnapshotResults(analyses, ["met_1"]);
+
+    expect(analysisMeta).toHaveLength(1);
+    expect(analysisMeta[0].dimensions).toHaveLength(2);
+    expect(analysisMeta[0].dimensions[0]).toEqual({
+      name: "All",
+      srm: 0.5,
+      variationUsers: [500, 600],
+    });
+    expect(analysisMeta[0].dimensions[1]).toEqual({
+      name: "country:US",
+      srm: 0.48,
+      variationUsers: [200, 300],
+    });
+  });
+
+  it("handles empty results", () => {
+    const analyses = [makeAnalysis([])];
+    const { metricChunks, analysisMeta } = encodeSnapshotResults(analyses, []);
+    expect(metricChunks.size).toBe(0);
+    expect(analysisMeta).toHaveLength(1);
+    expect(analysisMeta[0].dimensions).toHaveLength(0);
+  });
+});
+
+describe("decodeSnapshotResults", () => {
+  it("round-trips a simple case", () => {
+    const analyses = [
       makeAnalysis([
         {
           name: "All",
@@ -102,21 +216,7 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
       ]),
     ];
 
-    const { chunks, metricIdsByChunk } = encodeSnapshotResults(analyses, [
-      "met_1",
-    ]);
-
-    expect(chunks).toHaveLength(1);
-    expect(metricIdsByChunk).toEqual([["met_1"]]);
-    expect(chunks[0].numRows).toBe(2); // 2 variations
-
-    const metadata = analyses.map((a) => ({
-      settings: a.settings,
-      dateCreated: a.dateCreated,
-      status: a.status as "success",
-    }));
-
-    const decoded = decodeSnapshotResults(chunks, metadata);
+    const decoded = decodeHelper(analyses);
     expect(decoded).toHaveLength(1);
     expect(decoded[0].results).toHaveLength(1);
     expect(decoded[0].results[0].name).toBe("All");
@@ -127,7 +227,7 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
     expect(decoded[0].results[0].variations[1].metrics.met_1.value).toBe(0.6);
   });
 
-  it("round-trips complex SnapshotMetric fields (ci, risk, stats, uplift, buckets, etc.)", () => {
+  it("round-trips complex SnapshotMetric fields", () => {
     const metric: SnapshotMetric = {
       value: 0.42,
       cr: 0.15,
@@ -163,16 +263,7 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
       ]),
     ];
 
-    const { chunks } = encodeSnapshotResults(analyses, ["met_1"]);
-    const decoded = decodeSnapshotResults(
-      chunks,
-      analyses.map((a) => ({
-        settings: a.settings,
-        dateCreated: a.dateCreated,
-        status: a.status as "success",
-      })),
-    );
-
+    const decoded = decodeHelper(analyses);
     const result = decoded[0].results[0].variations[0].metrics.met_1;
     expect(result.value).toBe(0.42);
     expect(result.cr).toBe(0.15);
@@ -231,14 +322,8 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
           name: "country:US",
           srm: 0.48,
           variations: [
-            {
-              users: 50,
-              metrics: { met_a: makeMetric({ value: 5 }) },
-            },
-            {
-              users: 50,
-              metrics: { met_a: makeMetric({ value: 6 }) },
-            },
+            { users: 50, metrics: { met_a: makeMetric({ value: 5 }) } },
+            { users: 50, metrics: { met_a: makeMetric({ value: 6 }) } },
           ],
         },
       ]),
@@ -248,14 +333,8 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
             name: "All",
             srm: 0.51,
             variations: [
-              {
-                users: 200,
-                metrics: { met_a: makeMetric({ value: 7 }) },
-              },
-              {
-                users: 200,
-                metrics: { met_a: makeMetric({ value: 8 }) },
-              },
+              { users: 200, metrics: { met_a: makeMetric({ value: 7 }) } },
+              { users: 200, metrics: { met_a: makeMetric({ value: 8 }) } },
             ],
           },
         ],
@@ -263,17 +342,11 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
       ),
     ];
 
-    const { chunks } = encodeSnapshotResults(analyses, ["met_a", "met_b"]);
-    const metadata = analyses.map((a) => ({
-      settings: a.settings,
-      dateCreated: a.dateCreated,
-      status: a.status as "success",
-    }));
-    const decoded = decodeSnapshotResults(chunks, metadata);
+    const decoded = decodeHelper(analyses);
 
     // Analysis 0
     expect(decoded[0].settings.statsEngine).toBe("bayesian");
-    expect(decoded[0].results).toHaveLength(2); // All + country:US
+    expect(decoded[0].results).toHaveLength(2);
 
     const allDim = decoded[0].results.find((r) => r.name === "All")!;
     expect(allDim.srm).toBe(0.5);
@@ -292,8 +365,7 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
     expect(decoded[1].results[0].variations[0].metrics.met_a.value).toBe(7);
   });
 
-  it("splits data into multiple chunks when exceeding size limit", () => {
-    // Create a large dataset that will exceed a very small chunk size
+  it("creates one chunk per metric for large datasets", () => {
     const metrics: Record<string, SnapshotMetric> = {};
     for (let i = 0; i < 50; i++) {
       metrics[`met_${i}`] = makeMetric({
@@ -319,28 +391,13 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
     ];
 
     const metricOrdering = Array.from({ length: 50 }, (_, i) => `met_${i}`);
+    const { metricChunks } = encodeSnapshotResults(analyses, metricOrdering);
 
-    // Use a very small chunk size to force multiple chunks
-    const { chunks, metricIdsByChunk } = encodeSnapshotResults(
-      analyses,
-      metricOrdering,
-      500, // very small chunk size
-    );
-
-    expect(chunks.length).toBeGreaterThan(1);
-    expect(metricIdsByChunk.length).toBe(chunks.length);
-
-    // All metrics should be accounted for across chunks
-    const allMetricIds = metricIdsByChunk.flat();
-    expect(new Set(allMetricIds).size).toBe(50);
+    // 1 chunk per metric
+    expect(metricChunks.size).toBe(50);
 
     // Round-trip decode
-    const metadata = analyses.map((a) => ({
-      settings: a.settings,
-      dateCreated: a.dateCreated,
-      status: a.status as "success",
-    }));
-    const decoded = decodeSnapshotResults(chunks, metadata);
+    const decoded = decodeHelper(analyses);
     expect(decoded).toHaveLength(1);
     expect(decoded[0].results).toHaveLength(1);
     expect(
@@ -353,20 +410,7 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
   it("handles empty results gracefully", () => {
     const analyses = [makeAnalysis([])];
 
-    const { chunks, metricIdsByChunk } = encodeSnapshotResults(analyses, []);
-    expect(chunks).toHaveLength(0);
-    expect(metricIdsByChunk).toHaveLength(0);
-
-    const decoded = decodeSnapshotResults(
-      [],
-      [
-        {
-          settings: analyses[0].settings,
-          dateCreated: analyses[0].dateCreated,
-          status: "success",
-        },
-      ],
-    );
+    const decoded = decodeHelper(analyses);
     expect(decoded).toHaveLength(1);
     expect(decoded[0].results).toHaveLength(0);
   });
@@ -388,20 +432,11 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
       ]),
     ];
 
-    const { chunks } = encodeSnapshotResults(analyses, ["met_1"]);
-    const decoded = decodeSnapshotResults(chunks, [
-      {
-        settings: analyses[0].settings,
-        dateCreated: analyses[0].dateCreated,
-        status: "success",
-      },
-    ]);
-
+    const decoded = decodeHelper(analyses);
     const result = decoded[0].results[0].variations[0].metrics.met_1;
     expect(result.value).toBe(1);
     expect(result.cr).toBe(0.5);
     expect(result.users).toBe(100);
-    // Optional fields should be absent (not null)
     expect(result.denominator).toBeUndefined();
     expect(result.ci).toBeUndefined();
     expect(result.stats).toBeUndefined();
@@ -437,25 +472,7 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
       ]),
     ];
 
-    const { chunks } = encodeSnapshotResults(analyses, [
-      "met_a",
-      "met_b",
-      "met_c",
-    ]);
-
-    // Only decode met_a and met_c
-    const decoded = decodeSnapshotResults(
-      chunks,
-      [
-        {
-          settings: analyses[0].settings,
-          dateCreated: analyses[0].dateCreated,
-          status: "success",
-        },
-      ],
-      new Set(["met_a", "met_c"]),
-    );
-
+    const decoded = decodeHelper(analyses, new Set(["met_a", "met_c"]));
     const metrics0 = decoded[0].results[0].variations[0].metrics;
     expect(metrics0.met_a.value).toBe(1);
     expect(metrics0.met_c.value).toBe(3);
@@ -463,31 +480,22 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
   });
 
   it("preserves analysis error field", () => {
-    const analyses = [
+    const analysisMetadata = [
       {
-        ...makeAnalysis([]),
+        settings: makeAnalysisSettings(),
+        dateCreated: new Date("2025-01-01"),
         status: "error" as const,
         error: "Something went wrong",
       },
     ];
+    const analysisMeta: AnalysisMetaEntry[] = [{ dimensions: [] }];
 
-    const decoded = decodeSnapshotResults(
-      [],
-      [
-        {
-          settings: analyses[0].settings,
-          dateCreated: analyses[0].dateCreated,
-          status: "error",
-          error: "Something went wrong",
-        },
-      ],
-    );
-
+    const decoded = decodeSnapshotResults([], analysisMeta, analysisMetadata);
     expect(decoded[0].status).toBe("error");
     expect(decoded[0].error).toBe("Something went wrong");
   });
 
-  it("handles metrics not in the ordering (appended after ordered ones)", () => {
+  it("handles metrics not in the ordering", () => {
     const analyses = [
       makeAnalysis([
         {
@@ -506,27 +514,11 @@ describe("encodeSnapshotResults / decodeSnapshotResults", () => {
       ]),
     ];
 
-    // Only met_known is in the ordering
-    const { chunks, metricIdsByChunk } = encodeSnapshotResults(analyses, [
-      "met_known",
-    ]);
+    const { metricChunks } = encodeSnapshotResults(analyses, ["met_known"]);
+    expect(metricChunks.has("met_known")).toBe(true);
+    expect(metricChunks.has("met_unknown")).toBe(true);
 
-    const allMetrics = metricIdsByChunk.flat();
-    expect(allMetrics).toContain("met_known");
-    expect(allMetrics).toContain("met_unknown");
-
-    // met_known should appear before met_unknown
-    expect(allMetrics.indexOf("met_known")).toBeLessThan(
-      allMetrics.indexOf("met_unknown"),
-    );
-
-    const decoded = decodeSnapshotResults(chunks, [
-      {
-        settings: analyses[0].settings,
-        dateCreated: analyses[0].dateCreated,
-        status: "success",
-      },
-    ]);
+    const decoded = decodeHelper(analyses);
     expect(decoded[0].results[0].variations[0].metrics.met_known.value).toBe(1);
     expect(decoded[0].results[0].variations[0].metrics.met_unknown.value).toBe(
       2,
