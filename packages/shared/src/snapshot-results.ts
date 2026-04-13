@@ -197,10 +197,14 @@ export function decodeSnapshotResults(
       const dimName = dataD[i];
       const vi = dataV[i];
 
-      // Read flat metric values
+      // Read flat metric values, omitting nulls so absent optional fields
+      // stay undefined (matching the original inline representation).
       const metric: Record<string, unknown> = {};
       for (const col of valueColumns) {
-        metric[col] = data[col]?.[i] ?? null;
+        const val = data[col]?.[i] ?? null;
+        if (val !== null) {
+          metric[col] = val;
+        }
       }
 
       // Ensure structure exists (in case analysisMeta is incomplete)

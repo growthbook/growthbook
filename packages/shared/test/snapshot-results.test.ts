@@ -447,6 +447,73 @@ describe("decodeSnapshotResults", () => {
     expect(result.buckets).toBeUndefined();
   });
 
+  it("treats top-level CI nulls as absent and preserves unbounded CIs", () => {
+    const analysisMetadata = [
+      {
+        settings: makeAnalysisSettings(),
+        dateCreated: new Date("2025-01-01"),
+        status: "success" as const,
+      },
+    ];
+    const analysisMeta: AnalysisMetaEntry[] = [
+      {
+        dimensions: [
+          {
+            name: "All",
+            srm: 0.5,
+            variationUsers: [100, 100, 100, 100, 100],
+          },
+        ],
+      },
+    ];
+    const decoded = decodeSnapshotResults(
+      [
+        {
+          metricId: "met_1",
+          numRows: 5,
+          data: {
+            a: [0, 0, 0, 0, 0],
+            d: ["All", "All", "All", "All", "All"],
+            v: [0, 1, 2, 3, 4],
+            value: [1, 2, 3, 4, 5],
+            cr: [0.1, 0.2, 0.3, 0.4, 0.5],
+            users: [100, 100, 100, 100, 100],
+            ci: [
+              null,
+              undefined,
+              [-Infinity, 0.2],
+              [0.1, Infinity],
+              [-Infinity, Infinity],
+            ],
+            ciAdjusted: [
+              null,
+              undefined,
+              [-Infinity, 0.3],
+              [0.2, Infinity],
+              [-Infinity, Infinity],
+            ],
+          },
+        },
+      ],
+      analysisMeta,
+      analysisMetadata,
+    );
+
+    const metrics = decoded[0].results[0].variations.map(
+      (v) => v.metrics.met_1,
+    );
+    expect(metrics[0].ci).toBeUndefined();
+    expect(metrics[0].ciAdjusted).toBeUndefined();
+    expect(metrics[1].ci).toBeUndefined();
+    expect(metrics[1].ciAdjusted).toBeUndefined();
+    expect(metrics[2].ci).toEqual([-Infinity, 0.2]);
+    expect(metrics[2].ciAdjusted).toEqual([-Infinity, 0.3]);
+    expect(metrics[3].ci).toEqual([0.1, Infinity]);
+    expect(metrics[3].ciAdjusted).toEqual([0.2, Infinity]);
+    expect(metrics[4].ci).toEqual([-Infinity, Infinity]);
+    expect(metrics[4].ciAdjusted).toEqual([-Infinity, Infinity]);
+  });
+
   it("supports partial metric filtering on decode", () => {
     const analyses = [
       makeAnalysis([
