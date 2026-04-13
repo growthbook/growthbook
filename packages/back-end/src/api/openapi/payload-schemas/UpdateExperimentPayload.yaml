@@ -53,8 +53,7 @@ properties:
     type: string
     description: WHERE clause to add to the default experiment query
   owner:
-    type: string
-    description: Email of the person who owns this experiment
+    $ref: "../fields/OwnerInputField.yaml"
   archived:
     type: boolean
   status:
@@ -172,7 +171,9 @@ properties:
         coverage:
           type: number
         trafficSplit:
+          deprecated: true
           type: array
+          description: Deprecated and unused. Use variationWeights instead.
           items:
             type: object
             required:

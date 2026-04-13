@@ -9,7 +9,6 @@ import {
   ApiCustomField,
 } from "shared/validators";
 import { CustomFieldSection } from "shared/types/custom-fields";
-import { ApiRequest } from "back-end/src/util/handler";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
@@ -339,21 +338,16 @@ export class CustomFieldModel extends BaseClass {
     return await this._updateOne(existing, { fields: newFields });
   }
 
-  public async handleApiGet(
-    req: ApiRequest<
-      unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
-    >,
+  public override async handleApiGet(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiGet"]>[0],
   ): Promise<ApiCustomField> {
     const id = req.params.id;
     const doc = await this.getCustomFieldByFieldId(id);
     if (!doc) req.context.throwNotFoundError();
     return this.singleFieldToApiInterface(doc);
   }
-  public async handleApiCreate(
-    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  public override async handleApiCreate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
   ): Promise<ApiCustomField> {
     const parsedBody = apiCreateCustomFieldBody.parse(req.body);
     const containerObject = await this.addCustomField(parsedBody);
@@ -365,29 +359,19 @@ export class CustomFieldModel extends BaseClass {
     return this.singleFieldToApiInterface(created);
   }
 
-  public async handleApiDelete(
-    req: ApiRequest<
-      unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodType<{ index?: number }>,
-      z.ZodTypeAny
-    >,
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
   ): Promise<string> {
     const id = req.params.id;
-    const rawIndex = (req.query as { index?: string }).index;
+    const rawIndex = req.query.index;
     const index =
       rawIndex !== undefined && rawIndex !== "" ? Number(rawIndex) : undefined;
     await this.deleteCustomField(id, index);
     return id;
   }
 
-  public async handleApiUpdate(
-    req: ApiRequest<
-      unknown,
-      z.ZodType<{ id: string }>,
-      z.ZodTypeAny,
-      z.ZodTypeAny
-    >,
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ): Promise<ApiCustomField> {
     const id = req.params.id;
     const parsedBody = apiUpdateCustomFieldBody.parse(req.body);

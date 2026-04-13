@@ -137,6 +137,7 @@ export async function postReportFromSnapshot(
           "dateEnded",
           "name",
           "variationWeights",
+          "variations",
           "banditEvents",
           "coverage",
         ]),

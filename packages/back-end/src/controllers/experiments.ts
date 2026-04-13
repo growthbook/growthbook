@@ -113,7 +113,6 @@ import {
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
-
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -1716,6 +1715,20 @@ export async function postExperiment(
     );
   }
 
+  // Re-order phase variations to match the order of the variations coming in via the request body
+  if (data.variations) {
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variations: data.variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
+    };
+    changes.phases = phases;
+  }
+
   // Only some fields affect production SDK payloads
   const needsRunExperimentsPermission = (
     [
@@ -2055,6 +2068,7 @@ export async function postExperimentStatus(
         namespace: clonedPhase.namespace,
         reason: "",
         variationWeights: clonedPhase.variationWeights,
+        variations: clonedPhase.variations,
         seed: uuidv4(),
       });
 
@@ -2433,6 +2447,7 @@ export async function postExperimentTargeting(
     namespace,
     trackingKey,
     variationWeights,
+    variations,
     seed,
     newPhase,
     reseed,
@@ -2489,6 +2504,7 @@ export async function postExperimentTargeting(
         coverage,
         namespace,
         variationWeights,
+        variations,
         seed,
       };
     } else {
@@ -2515,6 +2531,7 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
+      variations,
       seed: phases.length && reseed ? uuidv4() : seed,
     });
   }

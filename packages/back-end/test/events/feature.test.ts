@@ -66,6 +66,12 @@ describe("features events", () => {
       userId: "aabb",
       email: "user@mail.com",
       userName: "User Name",
+      auditUser: {
+        type: "dashboard",
+        id: "aabb",
+        email: "user@mail.com",
+        name: "User Name",
+      },
     };
   });
 
