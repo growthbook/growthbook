@@ -645,7 +645,7 @@ export async function errorSnapshotIfStillRunning(
   return res.modifiedCount > 0;
 }
 
-export async function findStalledRunningSnapshots(
+export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
 ) {

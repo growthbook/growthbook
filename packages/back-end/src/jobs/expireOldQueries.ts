@@ -3,7 +3,7 @@ import { Queries } from "shared/types/query";
 import {
   errorSnapshotIfStillRunning,
   findRunningSnapshotsByQueryId,
-  findStalledRunningSnapshots,
+  dangerousFindStalledRunningSnapshotsFromAllOrgs,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
@@ -148,7 +148,7 @@ const expireOldQueries = async () => {
 
 async function reapStalledSnapshots() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
-  const candidates = await findStalledRunningSnapshots(
+  const candidates = await dangerousFindStalledRunningSnapshotsFromAllOrgs(
     stalledBefore,
     STALLED_SNAPSHOT_REAP_LIMIT,
   );
