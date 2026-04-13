@@ -4,7 +4,7 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -80,12 +80,12 @@ const AddLinkedChangeRow = ({
   const isCTAClickable = hasSDKWithFeature;
 
   return (
-    <Flex align="center" justify="between" gap="3">
-      <Flex align="center" direction="row">
-        <Box width="150px" mr="5">
+    <Flex align="center" justify="between" gap="3" width="100%">
+      <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
+        <Box width="150px" flexShrink="0">
           <Avatar
             radius="full"
-            color={radixColor}
+            color={radixColor as AvatarProps["color"]}
             size="md"
             variant="soft"
             mr="2"
@@ -96,9 +96,11 @@ const AddLinkedChangeRow = ({
             {header}
           </Text>
         </Box>
-        <Text color="text-low">{description}</Text>
+        <Box flexGrow="1" minWidth="0">
+          <Text color="text-low">{description}</Text>
+        </Box>
       </Flex>
-      <Box>
+      <Box flexShrink="0">
         {isCTAClickable ? (
           commercialFeature && !hasFeature ? (
             <PremiumTooltip
@@ -128,16 +130,14 @@ const AddLinkedChangeRow = ({
             </Button>
           )
         ) : (
-          <Box>
-            <Tooltip
-              body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-              tipPosition="top"
-            >
-              <Button variant="ghost" disabled>
-                {cta}
-              </Button>
-            </Tooltip>
-          </Box>
+          <Tooltip
+            body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+            tipPosition="top"
+          >
+            <Button variant="ghost" disabled style={ctaButtonStyle}>
+              {cta}
+            </Button>
+          </Tooltip>
         )}
       </Box>
     </Flex>
