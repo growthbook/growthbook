@@ -195,6 +195,18 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
 
     const abortController = new AbortController();
     activeStreamControllers.set(conversationId, abortController);
+    let cancelledExternally = false;
+
+    const checkCancellation = async (): Promise<boolean> => {
+      if (cancelledExternally) return true;
+      const doc = await context.models.aiConversations.getById(conversationId);
+      if (doc && !doc.isStreaming) {
+        cancelledExternally = true;
+        abortController.abort();
+        return true;
+      }
+      return false;
+    };
 
     try {
       const stream = await streamingChatCompletion({
@@ -211,14 +223,15 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       });
 
       await processStream(stream, config, buffer, emit, abortController, () => {
-        persistConversation(context.models.aiConversations, buffer).catch(
-          (err) => {
-            logger.error(
-              err,
-              "Failed to persist intermediate conversation state",
-            );
-          },
-        );
+        void (async () => {
+          if (await checkCancellation()) return;
+          await persistConversation(context.models.aiConversations, buffer);
+        })().catch((err) => {
+          logger.error(
+            err,
+            "Failed to persist intermediate conversation state",
+          );
+        });
       });
 
       try {
@@ -243,11 +256,16 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
         res.end();
       }
 
-      persistConversation(context.models.aiConversations, buffer).catch(
-        (err) => {
-          logger.error(err, "Failed to persist conversation at stream end");
-        },
-      );
+      if (!cancelledExternally) {
+        await checkCancellation();
+      }
+      if (!cancelledExternally) {
+        persistConversation(context.models.aiConversations, buffer).catch(
+          (err) => {
+            logger.error(err, "Failed to persist conversation at stream end");
+          },
+        );
+      }
     }
   };
 }
@@ -385,7 +403,7 @@ async function processStream<TParams>(
       config.onLLMEvent?.(part, emit);
     }
   } catch (err) {
-    if (!processor.isAborted) {
+    if (!processor.isAborted && !abortController.signal.aborted) {
       const errorMsg = getErrorMessage(err, "An error occurred");
       emit("error", { message: errorMsg });
       processor.setError(errorMsg);

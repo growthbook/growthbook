@@ -35,6 +35,11 @@ export const cancelChat = async (
   }
 
   const cancelled = cancelAgentStream(conversationId);
+
+  await context.models.aiConversations.updateById(conversationId, {
+    isStreaming: false,
+  });
+
   return res.status(200).json({ status: 200, cancelled });
 };
 

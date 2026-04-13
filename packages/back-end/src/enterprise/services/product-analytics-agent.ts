@@ -300,7 +300,12 @@ function buildResultCsv(
     }
 
     return [...dimCells, ...metricCells]
-      .map((c) => (c.includes(",") ? `"${c}"` : c))
+      .map((c) => {
+        if (c.includes('"') || c.includes(",") || c.includes("\n")) {
+          return `"${c.replace(/"/g, '""')}"`;
+        }
+        return c;
+      })
       .join(",");
   });
 

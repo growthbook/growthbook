@@ -21,7 +21,8 @@ export function parseSSEEvents(buffer: string): {
       if (line.startsWith("event: ")) {
         eventType = line.slice("event: ".length).trim();
       } else if (line.startsWith("data: ")) {
-        dataStr = line.slice("data: ".length).trim();
+        const value = line.slice("data: ".length).trim();
+        dataStr = dataStr ? dataStr + "\n" + value : value;
       }
     }
 
