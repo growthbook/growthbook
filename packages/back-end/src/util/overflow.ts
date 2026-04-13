@@ -6,9 +6,10 @@
 // the snapshot document (settings, queries, health, etc).
 export const SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES = 12 * 1024 * 1024;
 
-// Each overflow chunk stores a slice of the serialized JSON string.
-// 4MB is well under the 16MB per-document limit and keeps chunk counts small.
-export const OVERFLOW_CHUNK_SIZE_BYTES = 4 * 1024 * 1024;
+// Slices by JS string length (UTF-16 code units), not bytes. Analyses are
+// mostly ASCII so actual BSON size is ~1:1; worst case ~3x still well under
+// 16MB.
+export const OVERFLOW_CHUNK_SIZE_CHARS = 4 * 1024 * 1024;
 
 export function estimateJsonBytes(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value), "utf8");

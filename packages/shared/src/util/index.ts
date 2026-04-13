@@ -32,7 +32,6 @@ export * from "./numbers";
 export * from "./types";
 export * from "./errors";
 export * from "./custom-fields";
-export * from "./overflow";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

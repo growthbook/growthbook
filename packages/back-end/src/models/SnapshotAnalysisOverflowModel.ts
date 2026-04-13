@@ -1,6 +1,9 @@
 import { snapshotAnalysisOverflowValidator } from "shared/validators";
 import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
-import { chunkString, OVERFLOW_CHUNK_SIZE_BYTES } from "shared/util";
+import {
+  chunkString,
+  OVERFLOW_CHUNK_SIZE_CHARS,
+} from "back-end/src/util/overflow";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { MakeModelClass } from "./BaseModel";
 
@@ -60,10 +63,19 @@ export class SnapshotAnalysisOverflowModel extends BaseClass {
     snapshotId: string,
     analyses: ExperimentSnapshotAnalysis[],
   ): Promise<void> {
+    await this.replaceForSnapshotSerialized(
+      snapshotId,
+      JSON.stringify(analyses),
+    );
+  }
+
+  public async replaceForSnapshotSerialized(
+    snapshotId: string,
+    serialized: string,
+  ): Promise<void> {
     await this.deleteForSnapshot(snapshotId);
 
-    const serialized = JSON.stringify(analyses);
-    const chunks = chunkString(serialized, OVERFLOW_CHUNK_SIZE_BYTES);
+    const chunks = chunkString(serialized, OVERFLOW_CHUNK_SIZE_CHARS);
     await promiseAllChunks(
       chunks.map((data, chunkIndex) => async () => {
         await this.create({ snapshot: snapshotId, chunkIndex, data });

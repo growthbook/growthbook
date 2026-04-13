@@ -1,4 +1,4 @@
-import { chunkString, estimateJsonBytes } from "../src/util/overflow";
+import { chunkString, estimateJsonBytes } from "back-end/src/util/overflow";
 
 describe("estimateJsonBytes", () => {
   it("returns byte length of JSON-serialized value", () => {

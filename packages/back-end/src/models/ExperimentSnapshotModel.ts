@@ -6,11 +6,7 @@ import {
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import {
-  isString,
-  estimateJsonBytes,
-  SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES,
-} from "shared/util";
+import { isString } from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -18,6 +14,7 @@ import {
   LegacyExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { logger } from "back-end/src/util/logger";
+import { SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES } from "back-end/src/util/overflow";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
@@ -236,24 +233,39 @@ async function hydrateOverflowAnalysesBatch(
   return snapshots;
 }
 
-// Persists `analyses` for a snapshot, spilling to the overflow collection only
-// when the serialized size would risk exceeding the 16MB BSON limit. Used by
-// updateSnapshot and the single-analysis add/update helpers.
+// Serializes analyses once and decides whether they must spill to the overflow
+// collection. Callers pass `serialized` through to
+// replaceForSnapshotSerialized to avoid re-stringifying 12MB+ payloads.
+function prepareAnalysesForWrite(analyses: ExperimentSnapshotAnalysis[]): {
+  serialized: string;
+  shouldOverflow: boolean;
+} {
+  const serialized = JSON.stringify(analyses);
+  return {
+    serialized,
+    shouldOverflow:
+      analyses.length > 0 &&
+      Buffer.byteLength(serialized, "utf8") >
+        SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES,
+  };
+}
+
+// Persists `analyses` for an existing snapshot via the size-aware path.
 async function writeAnalysesWithOverflow(
   context: Context,
   organization: string,
   id: string,
   analyses: ExperimentSnapshotAnalysis[],
+  wasOverflowed: boolean,
 ): Promise<void> {
-  const overflow =
-    estimateJsonBytes(analyses) > SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES;
+  const { serialized, shouldOverflow } = prepareAnalysesForWrite(analyses);
 
-  if (overflow) {
+  if (shouldOverflow) {
     // Write chunks before flipping the flag so a partial failure doesn't
     // leave the snapshot pointing at missing overflow data.
-    await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+    await context.models.snapshotAnalysisOverflow.replaceForSnapshotSerialized(
       id,
-      analyses,
+      serialized,
     );
     await ExperimentSnapshotModel.updateOne(
       { organization, id },
@@ -264,8 +276,9 @@ async function writeAnalysesWithOverflow(
       { organization, id },
       { $set: { analyses, hasOverflowAnalyses: false } },
     );
-    // Clean up any stale overflow chunks from a previous larger write.
-    await context.models.snapshotAnalysisOverflow.deleteForSnapshot(id);
+    if (wasOverflowed) {
+      await context.models.snapshotAnalysisOverflow.deleteForSnapshot(id);
+    }
   }
 }
 
@@ -320,22 +333,16 @@ export async function updateSnapshot({
   updates: Partial<ExperimentSnapshotInterface>;
   context: Context;
 }) {
-  // If analyses are being written, divert them to the overflow collection when
-  // they would push the document past the BSON size limit. Otherwise behavior
-  // is identical to before.
   let overflowAnalyses: ExperimentSnapshotAnalysis[] | undefined;
   if (updates.analyses) {
-    if (
-      updates.analyses.length > 0 &&
-      estimateJsonBytes(updates.analyses) >
-        SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES
-    ) {
+    const { serialized, shouldOverflow } = prepareAnalysesForWrite(
+      updates.analyses,
+    );
+    if (shouldOverflow) {
       overflowAnalyses = updates.analyses;
-      // Write chunks before flipping the flag so a partial failure doesn't
-      // leave the snapshot pointing at missing overflow data.
-      await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+      await context.models.snapshotAnalysisOverflow.replaceForSnapshotSerialized(
         id,
-        overflowAnalyses,
+        serialized,
       );
       updates = { ...updates, analyses: [], hasOverflowAnalyses: true };
     } else {
@@ -354,7 +361,8 @@ export async function updateSnapshot({
   );
 
   if (updates.hasOverflowAnalyses === false) {
-    // Analyses now fit inline; clean up any stale overflow chunks.
+    // Analyses fit inline; clean up any stale overflow chunks. Cheap indexed
+    // no-op for the common case of never-overflowed snapshots.
     await context.models.snapshotAnalysisOverflow.deleteForSnapshot(id);
   }
 
@@ -480,12 +488,19 @@ async function mutateSnapshotAnalyses(
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
   if (!doc) throw "Internal error";
 
-  const analyses: ExperimentSnapshotAnalysis[] = doc.hasOverflowAnalyses
+  const wasOverflowed = !!doc.hasOverflowAnalyses;
+  const analyses: ExperimentSnapshotAnalysis[] = wasOverflowed
     ? await context.models.snapshotAnalysisOverflow.getAnalysesForSnapshot(id)
     : [...(doc.analyses || [])];
 
   mutate(analyses);
-  await writeAnalysesWithOverflow(context, organization, id, analyses);
+  await writeAnalysesWithOverflow(
+    context,
+    organization,
+    id,
+    analyses,
+    wasOverflowed,
+  );
 }
 
 export async function addOrUpdateSnapshotAnalysis(
@@ -791,26 +806,22 @@ export async function createExperimentSnapshotModel({
   data: ExperimentSnapshotInterface;
 }): Promise<ExperimentSnapshotInterface> {
   const analyses = data.analyses;
-  const overflow =
-    analyses.length > 0 &&
-    estimateJsonBytes(analyses) > SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES;
+  const { serialized, shouldOverflow } = prepareAnalysesForWrite(analyses);
 
-  if (overflow) {
-    // Write chunks before flipping the flag so a partial failure doesn't
-    // leave the snapshot pointing at missing overflow data.
-    await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+  if (shouldOverflow) {
+    await context.models.snapshotAnalysisOverflow.replaceForSnapshotSerialized(
       data.id,
-      analyses,
+      serialized,
     );
   }
 
   const created = await ExperimentSnapshotModel.create({
     ...data,
-    analyses: overflow ? [] : analyses,
-    hasOverflowAnalyses: overflow,
+    analyses: shouldOverflow ? [] : analyses,
+    hasOverflowAnalyses: shouldOverflow,
   });
   const snapshot = toInterface(created);
-  if (overflow) snapshot.analyses = analyses;
+  if (shouldOverflow) snapshot.analyses = analyses;
   return snapshot;
 }
 
