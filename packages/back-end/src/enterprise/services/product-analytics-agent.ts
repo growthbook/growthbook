@@ -1142,6 +1142,7 @@ interface PAParams {
 }
 
 const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
+  agentType: "product-analytics",
   promptType: "product-analytics-chat",
 
   parseParams: (body) => ({

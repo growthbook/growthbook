@@ -151,6 +151,8 @@ export const aiConversationValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     userId: z.string(),
+    /** Discriminator so each agent only loads its own conversations. */
+    agentType: z.string(),
     title: z.string(),
     messages: z.array(aiChatMessageValidator),
     isStreaming: z.boolean(),
@@ -160,7 +162,7 @@ export const aiConversationValidator = z
     messageCount: z.number(),
     /** Truncated text of the first user message — updated on persist for sidebar preview. */
     preview: z.string(),
-    model: z.string().optional(), // Per chat override. No model falls back to product-analytics-chat override or org default
+    model: z.string().optional(),
     feedback: z.array(aiChatFeedbackEntryValidator).optional(),
   })
   .strict();

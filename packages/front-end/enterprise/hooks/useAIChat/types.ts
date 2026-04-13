@@ -105,10 +105,7 @@ export interface UseAIChatOptions {
   onMessageCancelled?: (info: { durationMs: number }) => void;
 
   /** Called when a non-abort error occurs during message send or streaming. */
-  onMessageError?: (info: {
-    errorType: string;
-    httpStatus?: number;
-  }) => void;
+  onMessageError?: (info: { errorType: string; httpStatus?: number }) => void;
 }
 
 export interface ConversationSummary {

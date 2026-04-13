@@ -13,9 +13,12 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
-      fields: { userId: 1, organization: 1, dateCreated: -1 },
+      fields: { userId: 1, organization: 1, agentType: 1, dateCreated: -1 },
     },
   ],
+  defaultValues: {
+    agentType: "product-analytics",
+  },
 });
 
 export class AIConversationModel extends BaseClass {
@@ -41,15 +44,19 @@ export class AIConversationModel extends BaseClass {
   /**
    * Returns all non-empty conversations for the current user, sorted
    * newest-first, without loading the messages array.
+   * When `agentType` is provided, only conversations for that agent are returned.
    */
-  public async listByUser(): Promise<AIConversationWithoutMessages[]> {
-    const docs = await this._find(
-      { userId: this.context.userId },
-      {
-        sort: { dateCreated: -1 },
-        projection: { messages: 0 },
-      },
-    );
+  public async listByUser(
+    agentType?: string,
+  ): Promise<AIConversationWithoutMessages[]> {
+    const query: Record<string, unknown> = { userId: this.context.userId };
+    if (agentType) {
+      query.agentType = agentType;
+    }
+    const docs = await this._find(query, {
+      sort: { dateCreated: -1 },
+      projection: { messages: 0 },
+    });
     return docs as unknown as AIConversationWithoutMessages[];
   }
 }

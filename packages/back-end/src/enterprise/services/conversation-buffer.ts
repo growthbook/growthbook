@@ -25,6 +25,7 @@ export interface ConversationBufferSnapshot {
   lastStreamedAt: number;
   lastAccessedAt: number;
   model: string | undefined;
+  agentType: string;
 }
 
 export interface ConversationBuffer {
@@ -57,6 +58,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
   private lastAccessedAtMs: number;
   private titleValue: string;
   private modelValue: string | undefined;
+  private readonly agentTypeValue: string;
 
   constructor(
     public readonly conversationId: string,
@@ -65,6 +67,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       isStreaming: boolean;
       lastStreamedAt: number;
       title: string;
+      agentType: string;
       model?: string;
     },
   ) {
@@ -73,6 +76,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.lastStreamedAtMs = init.lastStreamedAt;
     this.lastAccessedAtMs = Date.now();
     this.titleValue = init.title;
+    this.agentTypeValue = init.agentType;
     this.modelValue = init.model;
   }
 
@@ -132,6 +136,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       lastStreamedAt: this.lastStreamedAtMs,
       lastAccessedAt: this.lastAccessedAtMs,
       model: this.modelValue,
+      agentType: this.agentTypeValue,
     };
   }
 }
@@ -172,6 +177,7 @@ export async function loadOrInitConversation(
   model: AIConversationModel,
   conversationId: string,
   userId: string,
+  agentType: string,
 ): Promise<ConversationBuffer> {
   const existing = await model.getById(conversationId);
   if (existing) {
@@ -180,6 +186,7 @@ export async function loadOrInitConversation(
       isStreaming: existing.isStreaming,
       lastStreamedAt: existing.lastStreamedAt.getTime(),
       title: existing.title,
+      agentType: existing.agentType,
       model: existing.model,
     });
   }
@@ -187,6 +194,7 @@ export async function loadOrInitConversation(
   await model.create({
     id: conversationId,
     userId,
+    agentType,
     title: "New Chat",
     messages: [],
     isStreaming: false,
@@ -201,6 +209,7 @@ export async function loadOrInitConversation(
     isStreaming: false,
     lastStreamedAt: 0,
     title: "New Chat",
+    agentType,
   });
 }
 
@@ -225,6 +234,7 @@ export async function persistConversation(
     lastStreamedAt,
     lastAccessedAt,
     model: conversationModel,
+    agentType,
   } = buffer.snapshot();
 
   const firstUserMsg = messages.find((m) => m.role === "user");
@@ -243,6 +253,7 @@ export async function persistConversation(
       messageCount: messages.length,
       preview,
       model: conversationModel,
+      agentType,
     });
   } catch (err) {
     logger.error(err, "Failed to persist conversation to DB");
@@ -275,8 +286,9 @@ export async function getConversationStatus(
  */
 export async function listConversations(
   model: AIConversationModel,
+  agentType?: string,
 ): Promise<ConversationSummary[]> {
-  const docs = await model.listByUser();
+  const docs = await model.listByUser(agentType);
   return docs
     .filter((doc) => doc.messageCount > 0)
     .map((doc) => ({

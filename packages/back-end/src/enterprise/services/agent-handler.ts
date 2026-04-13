@@ -44,6 +44,8 @@ export {
 // =============================================================================
 
 export interface AgentConfig<TParams = unknown> {
+  /** Unique key that scopes conversations to this agent (e.g. "product-analytics"). */
+  agentType: string;
   promptType: AIPromptType;
 
   /** Parse agent-specific params from the full request body */
@@ -158,6 +160,7 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       context.models.aiConversations,
       conversationId,
       context.userId,
+      config.agentType,
     );
 
     const requestModel = body.model;

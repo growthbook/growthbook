@@ -130,7 +130,10 @@ export const listChats = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const conversations = await listConversations(context.models.aiConversations);
+  const conversations = await listConversations(
+    context.models.aiConversations,
+    "product-analytics",
+  );
   return res.status(200).json({ status: 200, conversations });
 };
 
