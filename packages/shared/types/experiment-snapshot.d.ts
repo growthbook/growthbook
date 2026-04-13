@@ -232,6 +232,10 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  // When analyses would push the document past the 16MB BSON limit, they are
+  // stored in the snapshotanalysisoverflow collection instead and this flag is
+  // set. Read accessors hydrate `analyses` from overflow before returning.
+  hasOverflowAnalyses?: boolean;
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;
