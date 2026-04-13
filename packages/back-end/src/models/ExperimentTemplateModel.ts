@@ -1,11 +1,9 @@
-import { z } from "zod";
 import {
   ApiExperimentTemplateInterface,
-  apiListExperimentTemplatesValidator,
   experimentTemplateInterface,
   ExperimentTemplateInterface,
 } from "shared/validators";
-import { ApiRequest } from "back-end/src/util/handler";
+import { UpdateProps } from "shared/types/base-model";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import {
   experimentTemplateApiSpec,
@@ -93,11 +91,12 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
   protected canUpdate(
     existing: ExperimentTemplateInterface,
-    updates: ExperimentTemplateInterface,
+    _updates: UpdateProps<ExperimentTemplateInterface>,
+    newDoc: ExperimentTemplateInterface,
   ): boolean {
     return this.context.permissions.canUpdateExperimentTemplate(
       existing,
-      updates,
+      newDoc,
     );
   }
   protected canDelete(doc: ExperimentTemplateInterface): boolean {
@@ -108,13 +107,10 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.hasPremiumFeature("templates");
   }
 
-  public async handleApiList(
-    req: ApiRequest<unknown, z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>,
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ): Promise<ApiExperimentTemplateInterface[]> {
-    // Typecast due to the method signature using ZodTypeAnys since a narrower type breaks ApiModel
-    const { projectId } = req.query as z.infer<
-      (typeof apiListExperimentTemplatesValidator)["querySchema"]
-    >;
+    const { projectId } = req.query;
     const docs = await (projectId
       ? this._find({ project: projectId })
       : this.getAll());

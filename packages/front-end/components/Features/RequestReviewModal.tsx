@@ -495,10 +495,7 @@ export default function RequestReviewModal({
                         {allDiffsWithChanges
                           .filter((d) => d.customRender)
                           .map((d) => (
-                            <div
-                              key={d.title}
-                              className="list-group-item list-group-item-light pb-3"
-                            >
+                            <div key={d.title} className="appbox bg-light p-3">
                               <strong className="d-block mb-2">
                                 {d.title}
                               </strong>

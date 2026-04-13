@@ -874,7 +874,7 @@ function RawLogDetails({ log }: { log: RevisionLog }) {
       {open && (
         <Box mt="3">
           <div className="diff-wrapper">
-            <div className="list-group-item list-group-item-light">
+            <div className="bg-highlight">
               <Code language="json" code={prettyValue} />
             </div>
           </div>

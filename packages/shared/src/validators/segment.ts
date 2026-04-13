@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ownerField } from "./owner-field";
 
 const TYPES = ["SQL", "FACT"] as const;
 
@@ -6,7 +7,7 @@ export const segmentValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    owner: z.string(),
+    owner: ownerField,
     datasource: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),

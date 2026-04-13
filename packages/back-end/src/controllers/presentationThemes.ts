@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { PresentationThemeInterface } from "shared/types/presentation";
+import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 
@@ -72,7 +73,7 @@ export async function putPresentationTheme(
     });
   }
 
-  const updates: Partial<PresentationThemeInterface> = {};
+  const updates: UpdateProps<PresentationThemeInterface> = {};
   if (data.name !== undefined) updates.name = data.name;
   if (data.customTheme !== undefined) updates.customTheme = data.customTheme;
   const updated = await context.models.presentationThemes.updateById(
