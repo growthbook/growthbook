@@ -1,12 +1,14 @@
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
 import {
   encodeSnapshotResults,
   decodeSnapshotResults,
   buildMetricOrdering,
+  getAnalysisMetaFromSnapshot,
   AnalysisMetaEntry,
 } from "../src/snapshot-results";
 
@@ -30,6 +32,7 @@ function makeAnalysisSettings(
     baselineVariationIndex: 0,
     differenceType: "relative",
     pValueCorrection: null,
+    numGoalMetrics: 0,
     ...overrides,
   };
 }
@@ -493,6 +496,271 @@ describe("decodeSnapshotResults", () => {
     const decoded = decodeSnapshotResults([], analysisMeta, analysisMetadata);
     expect(decoded[0].status).toBe("error");
     expect(decoded[0].error).toBe("Something went wrong");
+  });
+
+  it("chunked path produces the same result as the original inline path", () => {
+    const richMetric: SnapshotMetric = {
+      value: 0.42,
+      cr: 0.15,
+      users: 2000,
+      denominator: 1800,
+      ci: [-0.05, 0.15],
+      ciAdjusted: [-0.03, 0.13],
+      expected: 0.08,
+      risk: [0.01, 0.02],
+      riskType: "relative",
+      pValue: 0.03,
+      pValueAdjusted: 0.06,
+      chanceToWin: 0.85,
+      stats: { users: 2000, mean: 0.42, count: 2000, stddev: 0.12 },
+      uplift: { dist: "lognormal", mean: 0.08, stddev: 0.04 },
+      errorMessage: "Some warning",
+      buckets: [
+        { x: 0, y: 10 },
+        { x: 1, y: 20 },
+      ],
+    };
+
+    const minimalMetric: SnapshotMetric = {
+      value: 1,
+      cr: 0.5,
+      users: 100,
+    };
+
+    const analyses: ExperimentSnapshotAnalysis[] = [
+      makeAnalysis(
+        [
+          {
+            name: "All",
+            srm: 0.5,
+            variations: [
+              {
+                users: 2000,
+                metrics: {
+                  met_goal: richMetric,
+                  met_secondary: makeMetric({ value: 10, ci: [8, 12] }),
+                  met_guardrail: minimalMetric,
+                },
+              },
+              {
+                users: 2100,
+                metrics: {
+                  met_goal: makeMetric({
+                    value: 0.55,
+                    cr: 0.18,
+                    users: 2100,
+                    uplift: { dist: "normal", mean: 0.13, stddev: 0.05 },
+                    chanceToWin: 0.92,
+                    pValue: 0.01,
+                  }),
+                  met_secondary: makeMetric({ value: 11, ci: [9, 13] }),
+                  met_guardrail: makeMetric({ value: 2, cr: 0.6, users: 200 }),
+                },
+              },
+              {
+                users: 1900,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.38, cr: 0.11, users: 1900 }),
+                  met_secondary: makeMetric({ value: 9 }),
+                  met_guardrail: minimalMetric,
+                },
+              },
+            ],
+          },
+          {
+            name: "country:US",
+            srm: 0.48,
+            variations: [
+              {
+                users: 800,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.5, cr: 0.14, users: 800 }),
+                },
+              },
+              {
+                users: 850,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.6, cr: 0.19, users: 850 }),
+                },
+              },
+              {
+                users: 750,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.35, cr: 0.1, users: 750 }),
+                },
+              },
+            ],
+          },
+          {
+            name: "country:UK",
+            srm: 0.52,
+            variations: [
+              {
+                users: 400,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.45, cr: 0.13, users: 400 }),
+                  met_secondary: makeMetric({ value: 12 }),
+                },
+              },
+              {
+                users: 420,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.58, cr: 0.17, users: 420 }),
+                  met_secondary: makeMetric({ value: 14 }),
+                },
+              },
+              {
+                users: 380,
+                metrics: {
+                  met_goal: makeMetric({ value: 0.4, cr: 0.12, users: 380 }),
+                  met_secondary: makeMetric({ value: 10 }),
+                },
+              },
+            ],
+          },
+        ],
+        { statsEngine: "bayesian", numGoalMetrics: 1 },
+      ),
+      makeAnalysis(
+        [
+          {
+            name: "All",
+            srm: 0.51,
+            variations: [
+              {
+                users: 2000,
+                metrics: {
+                  met_goal: makeMetric({
+                    value: 0.42,
+                    cr: 0.15,
+                    users: 2000,
+                    pValue: 0.04,
+                    pValueAdjusted: 0.08,
+                  }),
+                  met_secondary: makeMetric({ value: 10 }),
+                },
+              },
+              {
+                users: 2100,
+                metrics: {
+                  met_goal: makeMetric({
+                    value: 0.55,
+                    cr: 0.18,
+                    users: 2100,
+                    pValue: 0.01,
+                    pValueAdjusted: 0.02,
+                  }),
+                  met_secondary: makeMetric({ value: 11 }),
+                },
+              },
+              {
+                users: 1900,
+                metrics: {
+                  met_goal: makeMetric({
+                    value: 0.38,
+                    cr: 0.11,
+                    users: 1900,
+                    pValue: 0.15,
+                  }),
+                  met_secondary: makeMetric({ value: 9 }),
+                },
+              },
+            ],
+          },
+        ],
+        {
+          statsEngine: "frequentist",
+          sequentialTesting: true,
+          differenceType: "absolute",
+          numGoalMetrics: 1,
+        },
+      ),
+    ];
+
+    // --- Original path: analyses are stored inline on the snapshot ---
+    const originalPathResult = analyses;
+
+    // --- Chunked path: simulate what the production code does ---
+    // 1. Build a snapshot object as it would exist in the DB
+    const snapshot = {
+      id: "snp_test123",
+      organization: "org_test",
+      experiment: "exp_test",
+      phase: 0,
+      dimension: null,
+      dateCreated: new Date("2025-01-01"),
+      runStarted: new Date("2025-01-01"),
+      status: "success" as const,
+      settings: {
+        dimensions: [],
+        metricSettings: [],
+        goalMetrics: ["met_goal"],
+        secondaryMetrics: ["met_secondary"],
+        guardrailMetrics: ["met_guardrail"],
+        activationMetric: null,
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: 0.3,
+        },
+        regressionAdjustmentEnabled: false,
+        attributionModel: "firstExposure" as const,
+        experimentId: "exp_test",
+        queryFilter: "",
+        segment: "",
+        skipPartialData: false,
+        datasourceId: "ds_test",
+        exposureQueryId: "eq_test",
+        startDate: new Date("2025-01-01"),
+        endDate: new Date("2025-02-01"),
+        variations: [
+          { id: "0", weight: 0.34 },
+          { id: "1", weight: 0.33 },
+          { id: "2", weight: 0.33 },
+        ],
+      },
+      queries: [],
+      unknownVariations: [],
+      multipleExposures: 0,
+      // Analyses stored with results for getAnalysisMetaFromSnapshot
+      analyses,
+      hasChunkedResults: true,
+    } satisfies ExperimentSnapshotInterface;
+
+    // 2. Encode: what createFromAnalyses does
+    const metricOrdering = buildMetricOrdering(
+      snapshot.settings.goalMetrics,
+      snapshot.settings.secondaryMetrics,
+      snapshot.settings.guardrailMetrics,
+    );
+    const { metricChunks, analysisMeta } = encodeSnapshotResults(
+      analyses,
+      metricOrdering,
+    );
+
+    // 3. Simulate the snapshot as stored in DB (analyses have empty results,
+    //    analysisMeta is saved alongside)
+    const storedSnapshot: ExperimentSnapshotInterface = {
+      ...snapshot,
+      analyses: analyses.map((a) => ({ ...a, results: [] })),
+      analysisMeta,
+    };
+
+    // 4. Decode: what populateSnapshots does via getAnalysisMetaFromSnapshot
+    const { analysisMeta: decodeMeta, analysisMetadata } =
+      getAnalysisMetaFromSnapshot(storedSnapshot);
+    const chunks = Array.from(metricChunks.entries()).map(
+      ([metricId, chunk]) => ({ metricId, ...chunk }),
+    );
+    const chunkedPathResult = decodeSnapshotResults(
+      chunks,
+      decodeMeta,
+      analysisMetadata,
+    );
+
+    // --- The two paths must produce identical analyses ---
+    expect(chunkedPathResult).toEqual(originalPathResult);
   });
 
   it("handles metrics not in the ordering", () => {
