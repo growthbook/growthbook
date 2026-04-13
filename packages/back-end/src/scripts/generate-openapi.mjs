@@ -160,6 +160,259 @@ const QUERY_BOOLEAN_COERCION =
 const QUERY_BOOLEAN_COERCION_TRUE =
   'z.union([z.literal("true"), z.literal("false"), z.literal("0"), z.literal("1"), z.boolean()]).optional().default(true).transform((v) => v === true || v === "true" || v === "1")';
 
+const DEPRECATED_META = ".meta({ deprecated: true })";
+
+/**
+ * json-schema-to-zod ignores `deprecated`. Walk the JSON Schema tree and inject
+ * `.meta({ deprecated: true })` on matching Zod fields so z.toJSONSchema (OpenAPI 2) preserves it.
+ * Returns { pathKeys, leafSchema }[] where leafSchema is the JSON Schema of the deprecated field.
+ */
+function collectDeprecatedLeaves(node, pathKeys = []) {
+  const out = [];
+  if (!node || typeof node !== "object") return out;
+
+  if (node.properties && typeof node.properties === "object") {
+    for (const [key, prop] of Object.entries(node.properties)) {
+      const next = [...pathKeys, key];
+      if (prop.deprecated === true) {
+        out.push({ pathKeys: next, leafSchema: prop });
+      }
+      out.push(...collectDeprecatedLeaves(prop, next));
+    }
+  }
+
+  if (
+    node.additionalProperties &&
+    typeof node.additionalProperties === "object"
+  ) {
+    const ap = node.additionalProperties;
+    if (ap.properties && typeof ap.properties === "object") {
+      for (const [key, prop] of Object.entries(ap.properties)) {
+        const next = [...pathKeys, key];
+        if (prop.deprecated === true) {
+          out.push({ pathKeys: next, leafSchema: prop });
+        }
+        out.push(...collectDeprecatedLeaves(prop, next));
+      }
+    } else {
+      out.push(...collectDeprecatedLeaves(ap, pathKeys));
+    }
+  }
+
+  if (node.items && typeof node.items === "object") {
+    out.push(...collectDeprecatedLeaves(node.items, pathKeys));
+  }
+
+  for (const comb of ["oneOf", "anyOf", "allOf"]) {
+    if (Array.isArray(node[comb])) {
+      for (const branch of node[comb]) {
+        out.push(...collectDeprecatedLeaves(branch, pathKeys));
+      }
+    }
+  }
+
+  if (Array.isArray(node.prefixItems)) {
+    for (const item of node.prefixItems) {
+      out.push(...collectDeprecatedLeaves(item, pathKeys));
+    }
+  }
+
+  return out;
+}
+
+function walkStringState(str, i, state) {
+  const c = str[i];
+  if (state.esc) {
+    state.esc = false;
+    return true;
+  }
+  if (state.inStr) {
+    if (c === "\\") state.esc = true;
+    else if (c === state.quote) state.inStr = false;
+    return true;
+  }
+  if (c === '"' || c === "'" || c === "`") {
+    state.inStr = true;
+    state.quote = c;
+    return true;
+  }
+  return false;
+}
+
+function findMatchingBrace(str, openIdx) {
+  let depth = 0;
+  const state = { inStr: false, esc: false, quote: null };
+  for (let i = openIdx; i < str.length; i++) {
+    if (walkStringState(str, i, state)) continue;
+    const c = str[i];
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function findMatchingSquareBracket(str, openIdx) {
+  let depth = 0;
+  const state = { inStr: false, esc: false, quote: null };
+  for (let i = openIdx; i < str.length; i++) {
+    if (walkStringState(str, i, state)) continue;
+    const c = str[i];
+    if (c === "[") depth++;
+    else if (c === "]") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * End index (exclusive) of a Zod schema expression starting at zIndex (the `z` in `z.string()`, etc.).
+ * Tracks () and [] only so `z.object({ ... })` braces do not confuse the parser.
+ */
+function findZExpressionEnd(zodStr, zIndex) {
+  let p = 0;
+  let b = 0;
+  let inStr = false;
+  let esc = false;
+  let quote = null;
+  for (let i = zIndex; i < zodStr.length; i++) {
+    const c = zodStr[i];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (inStr) {
+      if (c === "\\") esc = true;
+      else if (c === quote) inStr = false;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      inStr = true;
+      quote = c;
+      continue;
+    }
+    if (c === "(") p++;
+    else if (c === ")") p--;
+    else if (c === "[") b++;
+    else if (c === "]") b--;
+
+    if (p === 0 && b === 0) {
+      if (c === "," && zodStr.slice(i, i + 3) === ', "') return i;
+      if (c === "}") return i;
+    }
+  }
+  return zodStr.length;
+}
+
+function zPropertyNeedle(key) {
+  return `${JSON.stringify(key)}: z.`;
+}
+
+/**
+ * Narrow from current window `w` into the inner body of a child property `key`
+ * (e.g. z.object body, z.array(z.union([...])) union list, z.record value object).
+ * Returns { inner, startInW } where inner is the substring to keep searching, and
+ * startInW is the index in `w` where `inner` begins.
+ */
+function narrowIntoChildWindow(w, key) {
+  const k = zPropertyNeedle(key);
+  const tries = [
+    { pat: `${k}object({`, closer: findMatchingBrace, openOffset: -1 },
+    { pat: `${k}array(z.object({`, closer: findMatchingBrace, openOffset: -1 },
+    {
+      pat: `${k}record(z.string(), z.object({`,
+      closer: findMatchingBrace,
+      openOffset: -1,
+    },
+    {
+      pat: `${k}array(z.union([`,
+      closer: findMatchingSquareBracket,
+      openOffset: -1,
+    },
+  ];
+  for (const { pat, closer, openOffset } of tries) {
+    const pos = w.indexOf(pat);
+    if (pos === -1) continue;
+    const openIdx = pos + pat.length + openOffset;
+    const closeIdx = closer(w, openIdx);
+    if (closeIdx < 0) continue;
+    return { inner: w.slice(openIdx + 1, closeIdx), startInW: openIdx + 1 };
+  }
+  return null;
+}
+
+function leafNeedleCandidates(key, leafSchema) {
+  const k = JSON.stringify(key);
+  const t = leafSchema?.type;
+  if (t === "array") return [`${k}: z.array`];
+  if (t === "object") return [`${k}: z.object`];
+  if (t === "number" || t === "integer") {
+    return [`${k}: z.coerce.number`, `${k}: z.number`];
+  }
+  return [zPropertyNeedle(key)];
+}
+
+function injectDeprecatedMetaForLeaf(zodStr, pathKeys, leafSchema) {
+  if (!pathKeys.length) return zodStr;
+
+  let w = zodStr;
+  let base = 0;
+
+  for (let d = 0; d < pathKeys.length - 1; d++) {
+    const narrowed = narrowIntoChildWindow(w, pathKeys[d]);
+    if (!narrowed) return zodStr;
+    base += narrowed.startInW;
+    w = narrowed.inner;
+  }
+
+  const leafKey = pathKeys[pathKeys.length - 1];
+  let leafPos = -1;
+  let needle = "";
+  for (const cand of leafNeedleCandidates(leafKey, leafSchema)) {
+    leafPos = w.indexOf(cand);
+    if (leafPos !== -1) {
+      needle = cand;
+      break;
+    }
+  }
+  if (leafPos === -1) return zodStr;
+
+  const zStart = leafPos + needle.indexOf("z");
+  const zEnd = findZExpressionEnd(w, zStart);
+  const insertAt = base + zEnd;
+  if (
+    zodStr.slice(insertAt, insertAt + DEPRECATED_META.length) ===
+    DEPRECATED_META
+  )
+    return zodStr;
+
+  return zodStr.slice(0, insertAt) + DEPRECATED_META + zodStr.slice(insertAt);
+}
+
+function injectDeprecatedMeta(jsonSchema, zodStr) {
+  if (!jsonSchema || typeof jsonSchema !== "object") return zodStr;
+  const raw = collectDeprecatedLeaves(jsonSchema);
+  const seen = new Set();
+  const leaves = [];
+  for (const entry of raw) {
+    const k = JSON.stringify(entry.pathKeys);
+    if (!seen.has(k)) {
+      seen.add(k);
+      leaves.push(entry);
+    }
+  }
+  leaves.sort((a, b) => b.pathKeys.length - a.pathKeys.length);
+  let out = zodStr;
+  for (const { pathKeys, leafSchema } of leaves) {
+    out = injectDeprecatedMetaForLeaf(out, pathKeys, leafSchema);
+  }
+  return out;
+}
+
 function generateZodSchema(
   jsonSchema,
   coerceStringsToNumbers = true,
@@ -214,6 +467,8 @@ function generateZodSchema(
   // Convert zod v3 style z.record(valueType) to zod v4 style z.record(z.string(), valueType)
   // This handles the breaking change in zod v4 where z.record() requires explicit key and value types
   zod = zod.replace(/z\.record\(([^)]+)\)/g, "z.record(z.string(), $1)");
+
+  zod = injectDeprecatedMeta(jsonSchema, zod);
 
   // If the zod schema has a `description` field, add it as metadata to the zod schema
   if (jsonSchema.description && !zod.includes(".describe(")) {

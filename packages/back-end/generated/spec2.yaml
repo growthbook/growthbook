@@ -648,6 +648,7 @@ paths:
                                       - weight
                                     additionalProperties: false
                                 value:
+                                  deprecated: true
                                   description: >-
                                     Support passing values under the value key
                                     as that was the original spec for
@@ -1030,6 +1031,7 @@ paths:
                                           - weight
                                         additionalProperties: false
                                     value:
+                                      deprecated: true
                                       description: >-
                                         Support passing values under the value
                                         key as that was the original spec for
@@ -3802,6 +3804,7 @@ paths:
                                       - weight
                                     additionalProperties: false
                                 value:
+                                  deprecated: true
                                   description: >-
                                     Support passing values under the value key
                                     as that was the original spec for
@@ -4184,6 +4187,7 @@ paths:
                                           - weight
                                         additionalProperties: false
                                     value:
+                                      deprecated: true
                                       description: >-
                                         Support passing values under the value
                                         key as that was the original spec for
@@ -6223,6 +6227,7 @@ paths:
                       coverage:
                         type: number
                       trafficSplit:
+                        deprecated: true
                         description: Deprecated and unused. Use variationWeights instead.
                         type: array
                         items:
@@ -6928,12 +6933,14 @@ paths:
                         - type
                       additionalProperties: false
                     cap:
+                      deprecated: true
                       description: >-
                         (deprecated, use cappingSettings instead) This should be
                         non-negative
                       type: number
                       minimum: 0
                     capping:
+                      deprecated: true
                       description: >-
                         (deprecated, use cappingSettings instead) Used in
                         conjunction with `capValue` to set the capping
@@ -6951,6 +6958,7 @@ paths:
                             - percentile
                         - type: 'null'
                     capValue:
+                      deprecated: true
                       description: >-
                         (deprecated, use cappingSettings instead) This should be
                         non-negative. <br/> Must specify `behavior.capping` when
@@ -6968,6 +6976,7 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           description: >-
                             Wait this many hours after experiment exposure
                             before counting conversions. Ignored if delayValue
@@ -6999,6 +7008,7 @@ paths:
                         - type
                       additionalProperties: false
                     conversionWindowStart:
+                      deprecated: true
                       description: >-
                         The start of a Conversion Window relative to the
                         exposure date, in hours. This is equivalent to the
@@ -7008,6 +7018,7 @@ paths:
                         `behavior.conversionWindowEnd` or neither.
                       type: number
                     conversionWindowEnd:
+                      deprecated: true
                       description: >-
                         The end of a [Conversion
                         Window](/app/metrics/legacy/#conversion-window) relative
@@ -7056,6 +7067,7 @@ paths:
                         - stddev
                       additionalProperties: false
                     riskThresholdSuccess:
+                      deprecated: true
                       description: >-
                         No longer used. Threshold for Risk to be considered low
                         enough, as a proportion (e.g. put 0.0025 for 0.25%).
@@ -7064,6 +7076,7 @@ paths:
                       type: number
                       minimum: 0
                     riskThresholdDanger:
+                      deprecated: true
                       description: >-
                         No longer used. Threshold for Risk to be considered too
                         high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
@@ -7342,12 +7355,14 @@ paths:
                         - type
                       additionalProperties: false
                     cap:
+                      deprecated: true
                       description: >-
                         (deprecated, use cappingSettings instead) This should be
                         non-negative
                       type: number
                       minimum: 0
                     capping:
+                      deprecated: true
                       description: >-
                         (deprecated, use cappingSettings instead) Used in
                         conjunction with `capValue` to set the capping
@@ -7365,6 +7380,7 @@ paths:
                             - percentile
                         - type: 'null'
                     capValue:
+                      deprecated: true
                       description: >-
                         (deprecated, use cappingSettings instead) This should be
                         non-negative. <br/> Must specify `behavior.capping` when
@@ -7382,6 +7398,7 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           description: >-
                             Wait this many hours after experiment exposure
                             before counting conversions. Ignored if delayValue
@@ -7413,6 +7430,7 @@ paths:
                         - type
                       additionalProperties: false
                     conversionWindowStart:
+                      deprecated: true
                       description: >-
                         The start of a Conversion Window relative to the
                         exposure date, in hours. This is equivalent to the
@@ -7422,6 +7440,7 @@ paths:
                         `behavior.conversionWindowEnd` or neither.
                       type: number
                     conversionWindowEnd:
+                      deprecated: true
                       description: >-
                         The end of a [Conversion
                         Window](/app/metrics/legacy/#conversion-window) relative
@@ -7470,6 +7489,7 @@ paths:
                         - stddev
                       additionalProperties: false
                     riskThresholdSuccess:
+                      deprecated: true
                       description: >-
                         No longer used. Threshold for Risk to be considered low
                         enough, as a proportion (e.g. put 0.0025 for 0.25%).
@@ -7478,6 +7498,7 @@ paths:
                       type: number
                       minimum: 0
                     riskThresholdDanger:
+                      deprecated: true
                       description: >-
                         No longer used. Threshold for Risk to be considered too
                         high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
@@ -10335,6 +10356,7 @@ paths:
                         - max
                         - count distinct
                     filters:
+                      deprecated: true
                       description: >-
                         Array of Fact Table Filter Ids. Deprecated, use
                         rowFilters instead.
@@ -10441,6 +10463,7 @@ paths:
                         - max
                         - count distinct
                     filters:
+                      deprecated: true
                       description: >-
                         Array of Fact Table Filter Ids. Deprecated, use
                         rowFilters instead.
@@ -10577,6 +10600,7 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       description: >-
                         Wait this many hours after experiment exposure before
                         counting conversions. Ignored if delayValue is set.
@@ -10663,6 +10687,7 @@ paths:
                     - override
                   additionalProperties: false
                 riskThresholdSuccess:
+                  deprecated: true
                   description: >-
                     No longer used. Threshold for Risk to be considered low
                     enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/>
@@ -10671,6 +10696,7 @@ paths:
                   type: number
                   minimum: 0
                 riskThresholdDanger:
+                  deprecated: true
                   description: >-
                     No longer used. Threshold for Risk to be considered too
                     high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
@@ -10840,6 +10866,7 @@ paths:
                         - max
                         - count distinct
                     filters:
+                      deprecated: true
                       description: >-
                         Array of Fact Table Filter Ids. Deprecated, use
                         rowFilters instead.
@@ -10946,6 +10973,7 @@ paths:
                         - max
                         - count distinct
                     filters:
+                      deprecated: true
                       description: >-
                         Array of Fact Table Filter Ids. Deprecated, use
                         rowFilters instead.
@@ -11082,6 +11110,7 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       description: >-
                         Wait this many hours after experiment exposure before
                         counting conversions. Ignored if delayValue is set.
@@ -11135,6 +11164,7 @@ paths:
                     - override
                   additionalProperties: false
                 riskThresholdSuccess:
+                  deprecated: true
                   description: >-
                     No longer used. Threshold for Risk to be considered low
                     enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/>
@@ -11143,6 +11173,7 @@ paths:
                   type: number
                   minimum: 0
                 riskThresholdDanger:
+                  deprecated: true
                   description: >-
                     No longer used. Threshold for Risk to be considered too
                     high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
@@ -11518,6 +11549,7 @@ paths:
                                   - max
                                   - count distinct
                               filters:
+                                deprecated: true
                                 description: >-
                                   Array of Fact Table Filter Ids. Deprecated,
                                   use rowFilters instead.
@@ -11628,6 +11660,7 @@ paths:
                                   - max
                                   - count distinct
                               filters:
+                                deprecated: true
                                 description: >-
                                   Array of Fact Table Filter Ids. Deprecated,
                                   use rowFilters instead.
@@ -11766,6 +11799,7 @@ paths:
                                   - conversion
                                   - lookback
                               delayHours:
+                                deprecated: true
                                 description: >-
                                   Wait this many hours after experiment exposure
                                   before counting conversions. Ignored if
@@ -11857,6 +11891,7 @@ paths:
                               - override
                             additionalProperties: false
                           riskThresholdSuccess:
+                            deprecated: true
                             description: >-
                               No longer used. Threshold for Risk to be
                               considered low enough, as a proportion (e.g. put
@@ -11866,6 +11901,7 @@ paths:
                             type: number
                             minimum: 0
                           riskThresholdDanger:
+                            deprecated: true
                             description: >-
                               No longer used. Threshold for Risk to be
                               considered too high, as a proportion (e.g. put
@@ -22934,8 +22970,10 @@ components:
                           - lookback
                           - ''
                       winRiskThreshold:
+                        deprecated: true
                         type: number
                       loseRiskThreshold:
+                        deprecated: true
                         type: number
                       properPriorOverride:
                         type: boolean
@@ -22977,8 +23015,10 @@ components:
                           - lookback
                           - ''
                       winRiskThreshold:
+                        deprecated: true
                         type: number
                       loseRiskThreshold:
+                        deprecated: true
                         type: number
                       properPriorOverride:
                         type: boolean
@@ -23020,8 +23060,10 @@ components:
                           - lookback
                           - ''
                       winRiskThreshold:
+                        deprecated: true
                         type: number
                       loseRiskThreshold:
+                        deprecated: true
                         type: number
                       properPriorOverride:
                         type: boolean
@@ -23061,8 +23103,10 @@ components:
                         - lookback
                         - ''
                     winRiskThreshold:
+                      deprecated: true
                       type: number
                     loseRiskThreshold:
+                      deprecated: true
                       type: number
                     properPriorOverride:
                       type: boolean
@@ -23417,8 +23461,10 @@ components:
                           - lookback
                           - ''
                       winRiskThreshold:
+                        deprecated: true
                         type: number
                       loseRiskThreshold:
+                        deprecated: true
                         type: number
                       properPriorOverride:
                         type: boolean
@@ -23460,8 +23506,10 @@ components:
                           - lookback
                           - ''
                       winRiskThreshold:
+                        deprecated: true
                         type: number
                       loseRiskThreshold:
+                        deprecated: true
                         type: number
                       properPriorOverride:
                         type: boolean
@@ -23503,8 +23551,10 @@ components:
                           - lookback
                           - ''
                       winRiskThreshold:
+                        deprecated: true
                         type: number
                       loseRiskThreshold:
+                        deprecated: true
                         type: number
                       properPriorOverride:
                         type: boolean
@@ -23544,8 +23594,10 @@ components:
                         - lookback
                         - ''
                     winRiskThreshold:
+                      deprecated: true
                       type: number
                     loseRiskThreshold:
+                      deprecated: true
                       type: number
                     properPriorOverride:
                       type: boolean
@@ -23861,8 +23913,10 @@ components:
                 - type
               additionalProperties: false
             cap:
+              deprecated: true
               type: number
             capping:
+              deprecated: true
               anyOf:
                 - type: string
                   enum:
@@ -23870,6 +23924,7 @@ components:
                     - percentile
                 - type: 'null'
             capValue:
+              deprecated: true
               type: number
             windowSettings:
               description: Controls the conversion window for the metric
@@ -23936,8 +23991,10 @@ components:
                 - stddev
               additionalProperties: false
             conversionWindowStart:
+              deprecated: true
               type: number
             conversionWindowEnd:
+              deprecated: true
               type: number
             riskThresholdSuccess:
               type: number
@@ -24934,6 +24991,7 @@ components:
                 - max
                 - count distinct
             filters:
+              deprecated: true
               description: >-
                 Array of Fact Table Filter Ids. Deprecated, use rowFilters
                 instead.
@@ -25020,6 +25078,7 @@ components:
             column:
               type: string
             filters:
+              deprecated: true
               description: >-
                 Array of Fact Table Filter Ids. Deprecated, use rowFilters
                 instead.
