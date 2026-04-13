@@ -62,6 +62,7 @@ import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
+import { SnapshotAnalysisOverflowModel } from "back-end/src/models/SnapshotAnalysisOverflowModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
@@ -106,6 +107,7 @@ export type ModelName =
   | "customHooks"
   | "incrementalRefresh"
   | "sqlResultChunks"
+  | "snapshotAnalysisOverflow"
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
@@ -142,6 +144,7 @@ export const modelClasses = {
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
   sqlResultChunks: SqlResultChunkModel,
+  snapshotAnalysisOverflow: SnapshotAnalysisOverflowModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
@@ -187,6 +190,7 @@ export class ReqContextClass {
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
+      snapshotAnalysisOverflow: new SnapshotAnalysisOverflowModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
