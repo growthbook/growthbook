@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import {
   encodeSnapshotResults,
   decodeSnapshotResults,
@@ -182,23 +181,6 @@ export class SnapshotResultChunkModel extends BaseClass {
     if (!snapshotIds.length) return;
     await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
-      snapshotId: { $in: snapshotIds },
-    });
-  }
-
-  /**
-   * Delete chunks outside of org context (e.g., phase deletion).
-   */
-  public static async dangerousDeleteBySnapshotIds(
-    organization: string,
-    snapshotIds: string[],
-  ) {
-    if (!snapshotIds.length) return;
-    const collection = mongoose.connection.db.collection(
-      "snapshotresultchunks",
-    );
-    await collection.deleteMany({
-      organization,
       snapshotId: { $in: snapshotIds },
     });
   }

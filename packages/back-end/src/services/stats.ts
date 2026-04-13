@@ -586,14 +586,14 @@ function parseStatsEngineResult({
 export async function writeSnapshotAnalyses(
   results: MultipleExperimentMetricAnalysis[],
   paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
-  context?: Context,
+  context: Context,
 ) {
   const promises: (() => Promise<void>)[] = [];
   results.map((result) => {
     const params = paramsMap.get(result.id);
     if (!params) return;
 
-    const { organization, snapshot, snapshotSettings } = params.context;
+    const { snapshot, snapshotSettings } = params.context;
     const { analyses, queryResults } = params.params;
     const { analysisObj, unknownVariations } = params.data;
 
@@ -618,10 +618,9 @@ export async function writeSnapshotAnalyses(
 
     promises.push(async () =>
       updateSnapshotAnalysis({
-        organization,
+        context,
         id: snapshot,
         analysis: analysisObj,
-        context,
       }),
     );
   });

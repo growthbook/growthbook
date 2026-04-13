@@ -974,11 +974,10 @@ export async function getSnapshotById(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
 
-  const snapshot = await findSnapshotById(org.id, id, context);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2314,7 +2313,7 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
+  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
 
   // Add audit entry
   await req.audit({
@@ -2811,9 +2810,8 @@ export async function cancelSnapshot(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id, context);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2841,7 +2839,7 @@ export async function cancelSnapshot(
     integration,
   );
   await queryRunner.cancelQueries();
-  await deleteSnapshotById(org.id, snapshot.id);
+  await deleteSnapshotById(context, snapshot.id);
 
   // Release the incremental refresh lock if this snapshot held it.
   await context.models.incrementalRefresh
@@ -2942,10 +2940,9 @@ export async function postSnapshotAnalysis(
   res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id, context);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     res.status(404).json({
       status: 404,
@@ -2971,10 +2968,9 @@ export async function postSnapshotAnalysis(
       experiment.phases[phaseIndex ?? latestPhase].coverage;
     // JIT migrate snapshots to have
     await updateSnapshot({
-      organization: org.id,
+      context,
       id,
       updates: { settings: snapshot.settings },
-      context,
     });
   }
 
@@ -2994,7 +2990,6 @@ export async function postSnapshotAnalysis(
   try {
     await createSnapshotAnalysis(context, {
       experiment: experiment,
-      organization: org,
       analysisSettings: analysisSettings,
       metricMap: metricMap,
       snapshot: snapshot,
@@ -3137,7 +3132,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { experiments } = req.body;
   if (!experiments.length) {
     res.status(200).json({
@@ -3170,7 +3164,6 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 
     snapshotAnalysesToCreate.push({
       experiment: experiment,
-      organization: org,
       analysisSettings: scaledImpactAnalysisSettings,
       metricMap: metricMap,
       snapshot: s,

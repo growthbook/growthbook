@@ -5,7 +5,17 @@ import {
   createExperimentSnapshotModel,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
+import type { Context } from "back-end/src/models/BaseModel";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
+
+const snapshotTestContext = {
+  org: { id: "org_1" },
+  models: {
+    snapshotResultChunks: {
+      populateSnapshots: jest.fn(),
+    },
+  },
+} as unknown as Context;
 
 describe("ExperimentSnapshotModel", () => {
   let mongod: MongoMemoryServer;
@@ -61,6 +71,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduled });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -94,6 +105,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduledError });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -126,6 +138,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduledError });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -158,6 +171,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduledError });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -193,6 +207,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduled });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -216,6 +231,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: manualError });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -241,6 +257,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduled });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: false,
@@ -274,6 +291,7 @@ describe("ExperimentSnapshotModel", () => {
       await createExperimentSnapshotModel({ data: scheduledSuccess });
 
       const result = await getLatestSnapshot({
+        context: snapshotTestContext,
         experiment,
         phase,
         withResults: true,
