@@ -3,13 +3,8 @@ import { Flex } from "@radix-ui/themes";
 import { PiArrowRightBold, PiStop } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
-import AIChatModelSelect from "./AIChatModelSelect";
 
 interface ChatInputBarProps {
-  modelSelectId: string;
-  modelValue: string;
-  onModelChange: (v: string) => void;
-  modelDisabledReason: string | null;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   input: string;
   onInputChange: (value: string) => void;
@@ -22,10 +17,6 @@ interface ChatInputBarProps {
 }
 
 export default function ChatInputBar({
-  modelSelectId,
-  modelValue,
-  onModelChange,
-  modelDisabledReason,
   inputRef,
   input,
   onInputChange,
@@ -50,12 +41,6 @@ export default function ChatInputBar({
       }}
     >
       <Flex gap="2" width="100%" align="center" justify="center">
-        <AIChatModelSelect
-          id={modelSelectId}
-          value={modelValue}
-          onChange={onModelChange}
-          disabledReason={modelDisabledReason}
-        />
         <Field
           placeholder={placeholder}
           containerStyle={{ maxWidth: "800px", flex: 1 }}

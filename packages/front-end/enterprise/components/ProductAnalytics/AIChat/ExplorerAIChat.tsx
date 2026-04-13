@@ -39,14 +39,12 @@ export default function ExplorerAIChat() {
   const { hasCommercialFeature } = useUser();
   const { aiEnabled, defaultAIModel } = useAISettings();
   const permissionsUtil = usePermissionsUtil();
-  const canPickModel = permissionsUtil.canManageOrgSettings();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const { draftExploreState } = useExplorerContext();
 
   // -- Hooks with no cross-dependencies (safe to call first) -----------------
 
-  const { chatModel, setChatModel, orgOverrideModel } =
-    useChatModel(defaultAIModel);
+  const { chatModel, setChatModel } = useChatModel(defaultAIModel);
 
   const {
     feedbackMap,
@@ -122,15 +120,6 @@ export default function ExplorerAIChat() {
     activeTurnItems,
     conversationId,
   );
-
-  // -- Derived values --------------------------------------------------------
-
-  const effectiveModelValue = canPickModel ? chatModel : orgOverrideModel;
-  const modelDisabledReason = !canPickModel
-    ? "Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
-    : messages.length > 0
-      ? "The model can't be changed mid-conversation. Start a new chat to use a different model."
-      : null;
 
   // -- Effects ---------------------------------------------------------------
 
@@ -267,10 +256,6 @@ export default function ExplorerAIChat() {
         />
 
         <ChatInputBar
-          modelSelectId="explorer-ai-chat-model"
-          modelValue={effectiveModelValue}
-          onModelChange={setChatModel}
-          modelDisabledReason={modelDisabledReason}
           inputRef={inputRef}
           input={input}
           onInputChange={setInput}

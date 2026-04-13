@@ -18,7 +18,6 @@ import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -26,11 +25,7 @@ import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
-import AIChatModelSelect from "@/enterprise/components/AIChat/AIChatModelSelect";
-import {
-  PA_AI_CHAT_INITIAL_MESSAGE_KEY,
-  PA_AI_CHAT_INITIAL_MODEL_KEY,
-} from "./util";
+import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
 export default function EmptyState() {
@@ -40,10 +35,7 @@ export default function EmptyState() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
 
-  const { defaultAIModel, aiEnabled } = useAISettings();
-  const permissions = usePermissionsUtil();
-  const canPickModel = permissions.canManageOrgSettings();
-  const [chatModel, setChatModel] = useState(defaultAIModel);
+  const { aiEnabled } = useAISettings();
 
   const [newModalData, setNewModalData] =
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
@@ -54,9 +46,8 @@ export default function EmptyState() {
     const trimmed = input.trim();
     if (!trimmed) return;
     sessionStorage.setItem(PA_AI_CHAT_INITIAL_MESSAGE_KEY, trimmed);
-    sessionStorage.setItem(PA_AI_CHAT_INITIAL_MODEL_KEY, chatModel);
     router.push("/product-analytics/explore/ai-chat");
-  }, [input, chatModel, router]);
+  }, [input, router]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -69,12 +60,6 @@ export default function EmptyState() {
   );
 
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
-
-  const modelDisabledReason = !aiEnabled
-    ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
-    : !canPickModel
-      ? "Only users with permission to manage organization settings can change the model here. Organization admins can set defaults in General Settings → AI Settings."
-      : null;
 
   const chatDisabledReason = !aiEnabled
     ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
@@ -265,13 +250,6 @@ export default function EmptyState() {
                   justify="center"
                 >
                   <Flex gap="2" width="100%" align="center" justify="center">
-                    <AIChatModelSelect
-                      id="empty-state-ai-chat-model"
-                      value={chatModel}
-                      onChange={setChatModel}
-                      disabledReason={modelDisabledReason}
-                      height="40px"
-                    />
                     <Tooltip
                       enabled={!!chatDisabledReason}
                       content={chatDisabledReason ?? ""}
