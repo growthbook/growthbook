@@ -2313,7 +2313,7 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
+  await updateSnapshotsOnPhaseDelete(context, id, phaseIndex);
 
   // Add audit entry
   await req.audit({

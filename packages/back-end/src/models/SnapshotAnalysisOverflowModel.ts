@@ -14,6 +14,29 @@ const BaseClass = MakeModelClass({
   ],
 });
 
+// JSON serialization turns Date instances into ISO strings; restore the Date
+// fields that ExperimentSnapshotAnalysis declares so downstream `.getTime()`
+// etc. don't crash.
+function reviveAnalysisDates(
+  a: ExperimentSnapshotAnalysis,
+): ExperimentSnapshotAnalysis {
+  const settings = a.settings.holdoutAnalysisWindow
+    ? {
+        ...a.settings,
+        holdoutAnalysisWindow: {
+          start: new Date(a.settings.holdoutAnalysisWindow.start),
+          end: new Date(a.settings.holdoutAnalysisWindow.end),
+        },
+      }
+    : a.settings;
+  return { ...a, dateCreated: new Date(a.dateCreated), settings };
+}
+
+function parseAnalyses(serialized: string): ExperimentSnapshotAnalysis[] {
+  const parsed: ExperimentSnapshotAnalysis[] = JSON.parse(serialized);
+  return parsed.map(reviveAnalysisDates);
+}
+
 // Overflow storage for ExperimentSnapshot.analyses when the serialized analyses
 // would push the snapshot document past the 16MB BSON limit. The analyses array
 // is JSON-serialized and split across multiple chunk documents; concatenating
@@ -57,7 +80,7 @@ export class SnapshotAnalysisOverflowModel extends BaseClass {
       { sort: { chunkIndex: 1 } },
     );
     if (!docs.length) return [];
-    return JSON.parse(docs.map((d) => d.data).join(""));
+    return parseAnalyses(docs.map((d) => d.data).join(""));
   }
 
   public async getAnalysesForSnapshots(
@@ -78,7 +101,7 @@ export class SnapshotAnalysisOverflowModel extends BaseClass {
       bySnapshot.set(doc.snapshot, arr);
     }
     for (const [snapshotId, chunks] of bySnapshot) {
-      result.set(snapshotId, JSON.parse(chunks.join("")));
+      result.set(snapshotId, parseAnalyses(chunks.join("")));
     }
     return result;
   }
@@ -87,6 +110,14 @@ export class SnapshotAnalysisOverflowModel extends BaseClass {
     await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
       snapshot: snapshotId,
+    });
+  }
+
+  public async deleteForSnapshots(snapshotIds: string[]): Promise<void> {
+    if (!snapshotIds.length) return;
+    await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      snapshot: { $in: snapshotIds },
     });
   }
 }

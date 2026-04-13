@@ -270,10 +270,21 @@ async function writeAnalysesWithOverflow(
 }
 
 export async function updateSnapshotsOnPhaseDelete(
-  organization: string,
+  context: Context,
   experiment: string,
   phase: number,
 ) {
+  const organization = context.org.id;
+
+  // Clean up overflow chunks for any snapshots about to be deleted.
+  const overflowed = await ExperimentSnapshotModel.find(
+    { organization, experiment, phase, hasOverflowAnalyses: true },
+    { id: 1 },
+  );
+  await context.models.snapshotAnalysisOverflow.deleteForSnapshots(
+    overflowed.map((d) => d.id),
+  );
+
   // Delete all snapshots for the phase
   await ExperimentSnapshotModel.deleteMany({
     organization,
@@ -784,21 +795,22 @@ export async function createExperimentSnapshotModel({
     analyses.length > 0 &&
     estimateJsonBytes(analyses) > SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES;
 
+  if (overflow) {
+    // Write chunks before flipping the flag so a partial failure doesn't
+    // leave the snapshot pointing at missing overflow data.
+    await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+      data.id,
+      analyses,
+    );
+  }
+
   const created = await ExperimentSnapshotModel.create({
     ...data,
     analyses: overflow ? [] : analyses,
     hasOverflowAnalyses: overflow,
   });
   const snapshot = toInterface(created);
-
-  if (overflow) {
-    await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
-      snapshot.id,
-      analyses,
-    );
-    snapshot.analyses = analyses;
-  }
-
+  if (overflow) snapshot.analyses = analyses;
   return snapshot;
 }
 
