@@ -90,17 +90,22 @@ export const apiMetricUsageValidator = z.object({ "metricId": z.string().describ
 
 export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string().optional(), "email": z.string(), "globalRole": z.string(), "environments": z.array(z.string()).optional(), "limitAccessByEnvironment": z.boolean().optional(), "managedbyIdp": z.boolean().optional(), "teams": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional(), "lastLoginDate": z.string().meta({ format: "date-time" }).optional(), "dateCreated": z.string().meta({ format: "date-time" }).optional(), "dateUpdated": z.string().meta({ format: "date-time" }).optional() }).strict()
 
-export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string().describe("The userId of the owner (or raw owner name/email for legacy records)"), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
+// apiArchetypeValidator moved to archetypes.ts
 
-export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
+// apiQueryValidator moved to queries.ts
+const _REMOVED_apiQueryValidator = z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }).strict()
 
-export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.number(), "northStar": z.object({ "title": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().optional(), "maxPercentageChange": z.coerce.number().optional(), "minPercentageChange": z.coerce.number().optional(), "targetMDE": z.coerce.number().optional() }), "pastExperimentsMinLength": z.coerce.number(), "metricAnalysisDays": z.coerce.number(), "updateSchedule": z.object({ "type": z.enum(["cron","never","stale"]).optional(), "cron": z.string().nullable().optional(), "hours": z.coerce.number().nullable().optional() }).nullable(), "multipleExposureMinPercent": z.coerce.number(), "defaultRole": z.object({ "role": z.string().optional(), "limitAccessByEnvironment": z.boolean().optional(), "environments": z.array(z.string()).optional() }), "statsEngine": z.string(), "pValueThreshold": z.coerce.number(), "regressionAdjustmentEnabled": z.boolean(), "regressionAdjustmentDays": z.coerce.number(), "sequentialTestingEnabled": z.boolean(), "sequentialTestingTuningParameter": z.coerce.number(), "attributionModel": z.enum(["firstExposure","experimentDuration","lookbackOverride"]), "targetMDE": z.coerce.number(), "delayHours": z.coerce.number(), "windowType": z.string(), "windowHours": z.coerce.number(), "winRisk": z.coerce.number(), "loseRisk": z.coerce.number(), "secureAttributeSalt": z.string(), "killswitchConfirmation": z.boolean(), "featureKillSwitchBehavior": z.enum(["off","warn"]).optional(), "requireReviews": z.array(z.object({ "requireReviewOn": z.boolean().optional(), "resetReviewOnChange": z.boolean().optional(), "environments": z.array(z.string()).optional(), "projects": z.array(z.string()).optional(), "featureRequireEnvironmentReview": z.boolean().optional(), "featureRequireMetadataReview": z.boolean().optional() })), "restApiBypassesReviews": z.boolean().optional(), "featureKeyExample": z.string(), "featureRegexValidator": z.string(), "banditScheduleValue": z.coerce.number(), "banditScheduleUnit": z.enum(["hours","days"]), "banditBurnInValue": z.coerce.number(), "banditBurnInUnit": z.enum(["hours","days"]), "experimentMinLengthDays": z.coerce.number(), "experimentMaxLengthDays": z.coerce.number().nullable().optional(), "preferredEnvironment": z.string().nullable().optional(), "maxMetricSliceLevels": z.coerce.number().optional() }).strict()
+// apiSettingsValidator moved to api-settings.ts
+const _REMOVED_apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.number(), "northStar": z.object({ "title": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().optional(), "maxPercentageChange": z.coerce.number().optional(), "minPercentageChange": z.coerce.number().optional(), "targetMDE": z.coerce.number().optional() }), "pastExperimentsMinLength": z.coerce.number(), "metricAnalysisDays": z.coerce.number(), "updateSchedule": z.object({ "type": z.enum(["cron","never","stale"]).optional(), "cron": z.string().nullable().optional(), "hours": z.coerce.number().nullable().optional() }).nullable(), "multipleExposureMinPercent": z.coerce.number(), "defaultRole": z.object({ "role": z.string().optional(), "limitAccessByEnvironment": z.boolean().optional(), "environments": z.array(z.string()).optional() }), "statsEngine": z.string(), "pValueThreshold": z.coerce.number(), "regressionAdjustmentEnabled": z.boolean(), "regressionAdjustmentDays": z.coerce.number(), "sequentialTestingEnabled": z.boolean(), "sequentialTestingTuningParameter": z.coerce.number(), "attributionModel": z.enum(["firstExposure","experimentDuration","lookbackOverride"]), "targetMDE": z.coerce.number(), "delayHours": z.coerce.number(), "windowType": z.string(), "windowHours": z.coerce.number(), "winRisk": z.coerce.number(), "loseRisk": z.coerce.number(), "secureAttributeSalt": z.string(), "killswitchConfirmation": z.boolean(), "featureKillSwitchBehavior": z.enum(["off","warn"]).optional(), "requireReviews": z.array(z.object({ "requireReviewOn": z.boolean().optional(), "resetReviewOnChange": z.boolean().optional(), "environments": z.array(z.string()).optional(), "projects": z.array(z.string()).optional(), "featureRequireEnvironmentReview": z.boolean().optional(), "featureRequireMetadataReview": z.boolean().optional() })), "restApiBypassesReviews": z.boolean().optional(), "featureKeyExample": z.string(), "featureRegexValidator": z.string(), "banditScheduleValue": z.coerce.number(), "banditScheduleUnit": z.enum(["hours","days"]), "banditBurnInValue": z.coerce.number(), "banditBurnInUnit": z.enum(["hours","days"]), "experimentMinLengthDays": z.coerce.number(), "experimentMaxLengthDays": z.coerce.number().nullable().optional(), "preferredEnvironment": z.string().nullable().optional(), "maxMetricSliceLevels": z.coerce.number().optional() }).strict()
 
-export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().meta({ format: "date-time" }).describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
+// apiCodeRefValidator moved to code-refs.ts
+const _REMOVED_apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().meta({ format: "date-time" }).describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
 
-export const apiInformationSchemaValidator = z.object({ "id": z.string(), "datasourceId": z.string(), "status": z.enum(["PENDING","COMPLETE"]), "error": z.object({ "errorType": z.enum(["generic","not_supported","missing_params"]), "message": z.string() }).optional(), "databases": z.array(z.object({ "databaseName": z.string(), "path": z.string().optional(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }), "schemas": z.array(z.object({ "schemaName": z.string(), "path": z.string().optional(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }), "tables": z.array(z.object({ "tableName": z.string(), "path": z.string().optional(), "id": z.string(), "numOfColumns": z.coerce.number(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) })) })) })), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) }).strict()
+// apiInformationSchemaValidator moved to information-schema-tables.ts
+const _REMOVED_apiInformationSchemaValidator = z.object({ "id": z.string(), "datasourceId": z.string(), "status": z.enum(["PENDING","COMPLETE"]), "error": z.object({ "errorType": z.enum(["generic","not_supported","missing_params"]), "message": z.string() }).optional(), "databases": z.array(z.object({ "databaseName": z.string(), "path": z.string().optional(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }), "schemas": z.array(z.object({ "schemaName": z.string(), "path": z.string().optional(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }), "tables": z.array(z.object({ "tableName": z.string(), "path": z.string().optional(), "id": z.string(), "numOfColumns": z.coerce.number(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) })) })) })), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) }).strict()
 
-export const apiInformationSchemaTableValidator = z.object({ "id": z.string(), "datasourceId": z.string(), "informationSchemaId": z.string(), "tableName": z.string(), "tableSchema": z.string(), "databaseName": z.string(), "columns": z.array(z.object({ "columnName": z.string(), "dataType": z.string() })), "refreshMS": z.coerce.number(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) }).strict()
+// apiInformationSchemaTableValidator moved to information-schema-tables.ts
+const _REMOVED_apiInformationSchemaTableValidator = z.object({ "id": z.string(), "datasourceId": z.string(), "informationSchemaId": z.string(), "tableName": z.string(), "tableSchema": z.string(), "databaseName": z.string(), "columns": z.array(z.object({ "columnName": z.string(), "dataType": z.string() })), "refreshMS": z.coerce.number(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) }).strict()
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),
@@ -948,68 +953,7 @@ export const deleteAttributeValidator = {
   exampleRequest: {"params":{"property":"abc123"}},
 };
 
-export const listArchetypesValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ "archetypes": z.array(z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string().describe("The userId of the owner (or raw owner name/email for legacy records)"), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() })) }).strict(),
-  summary: "Get the organization's archetypes",
-  operationId: "listArchetypes",
-  tags: ["archetypes"],
-  method: "get" as const,
-  path: "/archetypes",
-};
-
-export const postArchetypeValidator = {
-  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members"), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ "archetype": z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string().describe("The userId of the owner (or raw owner name/email for legacy records)"), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }) }).strict(),
-  summary: "Create a single archetype",
-  operationId: "postArchetype",
-  tags: ["archetypes"],
-  method: "post" as const,
-  path: "/archetypes",
-};
-
-export const getArchetypeValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string().describe("The id of the requested resource") }).strict(),
-  responseSchema: z.object({ "archetype": z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string().describe("The userId of the owner (or raw owner name/email for legacy records)"), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }) }).strict(),
-  summary: "Get a single archetype",
-  operationId: "getArchetype",
-  tags: ["archetypes"],
-  method: "get" as const,
-  path: "/archetypes/${id}",
-  exampleRequest: {"params":{"id":"abc123"}},
-};
-
-export const putArchetypeValidator = {
-  bodySchema: z.object({ "name": z.string().optional(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members").optional(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string().describe("The id of the requested resource") }).strict(),
-  responseSchema: z.object({ "archetype": z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string().describe("The userId of the owner (or raw owner name/email for legacy records)"), "isPublic": z.boolean(), "attributes": z.record(z.string(), z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }) }).strict(),
-  summary: "Update a single archetype",
-  operationId: "putArchetype",
-  tags: ["archetypes"],
-  method: "put" as const,
-  path: "/archetypes/${id}",
-  exampleRequest: {"params":{"id":"abc123"},"body":{"description":"New description"}},
-};
-
-export const deleteArchetypeValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string().describe("The id of the requested resource") }).strict(),
-  responseSchema: z.object({ "deletedId": z.string() }).strict(),
-  summary: "Deletes a single archetype",
-  operationId: "deleteArchetype",
-  tags: ["archetypes"],
-  method: "delete" as const,
-  path: "/archetypes/${id}",
-  exampleRequest: {"params":{"id":"abc123"}},
-};
+// Archetype validators moved to archetypes.ts
 
 export const listMembersValidator = {
   bodySchema: z.never(),
@@ -1305,7 +1249,9 @@ export const postFactMetricAnalysisValidator = {
   exampleRequest: {"body":{"lookbackDays":90}},
 };
 
-export const postBulkImportFactsValidator = {
+// postBulkImportFactsValidator moved to bulk-import.ts
+/* REMOVED: postBulkImportFactsValidator body
+const REMOVED_postBulkImportFactsValidator = {
   bodySchema: z.object({ "factTables": z.array(z.object({ "id": z.string(), "data": z.object({ "name": z.string(), "description": z.string().describe("Description of the fact table").optional(), "owner": z.string().describe("The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.").optional(), "projects": z.array(z.string()).describe("List of associated project ids").optional(), "tags": z.array(z.string()).describe("List of associated tags").optional(), "datasource": z.string().describe("The datasource id"), "userIdTypes": z.array(z.string()).describe("List of identifier columns in this table. For example, \"id\" or \"anonymous_id\""), "sql": z.string().describe("The SQL query for this fact table"), "eventName": z.string().describe("The event name used in SQL template variables").optional(), "managedBy": z.enum(["","api","admin"]).describe("Set this to \"api\" to disable editing in the GrowthBook UI").optional() }) })).optional(), "factTableFilters": z.array(z.object({ "factTableId": z.string(), "id": z.string(), "data": z.object({ "name": z.string(), "description": z.string().describe("Description of the fact table filter").optional(), "value": z.string().describe("The SQL expression for this filter."), "managedBy": z.enum(["","api"]).describe("Set this to \"api\" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as \"api\"").optional() }) })).optional(), "factMetrics": z.array(z.object({ "id": z.string(), "data": z.object({ "name": z.string(), "description": z.string().optional(), "owner": z.string().describe("The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.").optional(), "projects": z.array(z.string()).optional(), "tags": z.array(z.string()).optional(), "metricType": z.enum(["proportion","retention","mean","quantile","ratio","dailyParticipation"]), "numerator": z.object({ "factTableId": z.string(), "column": z.string().describe("Must be empty for proportion metrics and dailyParticipation metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')").optional(), "aggregation": z.enum(["sum","max","count distinct"]).describe("User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.").optional(), "filters": z.array(z.string()).describe("Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.").optional().meta({ deprecated: true }), "inlineFilters": z.record(z.string(), z.array(z.string())).describe("Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.").optional(), "rowFilters": z.array(z.object({ "operator": z.enum(["=","!=",">","<",">=","<=","in","not_in","is_null","not_null","is_true","is_false","contains","not_contains","starts_with","ends_with","sql_expr","saved_filter"]), "values": z.array(z.string()).describe("Not required for is_null, not_null, is_true, is_false operators.").optional(), "column": z.string().describe("Required for all operators except sql_expr and saved_filter.").optional() })).describe("Filters to apply to the rows of the fact table before aggregation.").optional(), "aggregateFilterColumn": z.string().describe("Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.").optional(), "aggregateFilter": z.string().describe("Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.").optional() }), "denominator": z.object({ "factTableId": z.string(), "column": z.string().describe("The column name or one of the special values: '$$distinctUsers' or '$$count' (or '$$distinctDates' if metricType is 'mean' or 'ratio' or 'quantile' and quantileSettings.type is 'unit')"), "aggregation": z.enum(["sum","max","count distinct"]).describe("User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.").optional(), "filters": z.array(z.string()).describe("Array of Fact Table Filter Ids. Deprecated, use rowFilters instead.").optional().meta({ deprecated: true }), "inlineFilters": z.record(z.string(), z.array(z.string())).describe("Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. Deprecated, use rowFilters instead.").optional(), "rowFilters": z.array(z.object({ "operator": z.enum(["=","!=",">","<",">=","<=","in","not_in","is_null","not_null","is_true","is_false","contains","not_contains","starts_with","ends_with","sql_expr","saved_filter"]), "values": z.array(z.string()).describe("Not required for is_null, not_null, is_true, is_false operators.").optional(), "column": z.string().describe("Required for all operators except sql_expr and saved_filter.").optional() })).describe("Filters to apply to the rows of the fact table before aggregation.").optional() }).describe("Only when metricType is 'ratio'").optional(), "inverse": z.boolean().describe("Set to true for things like Bounce Rate, where you want the metric to decrease").optional(), "quantileSettings": z.object({ "type": z.enum(["event","unit"]).describe("Whether the quantile is over unit aggregations or raw event values"), "ignoreZeros": z.boolean().describe("If true, zero values will be ignored when calculating the quantile"), "quantile": z.number().multipleOf(0.001).gte(0.001).lte(0.999).describe("The quantile value (from 0.001 to 0.999)") }).describe("Controls the settings for quantile metrics (mandatory if metricType is \"quantile\")").optional(), "cappingSettings": z.object({ "type": z.enum(["none","absolute","percentile"]), "value": z.number().describe("When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).").optional(), "ignoreZeros": z.boolean().describe("If true and capping is `percentile`, zeros will be ignored when calculating the percentile.").optional() }).describe("Controls how outliers are handled").optional(), "windowSettings": z.object({ "type": z.enum(["none","conversion","lookback"]), "delayHours": z.number().describe("Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.").optional().meta({ deprecated: true }), "delayValue": z.number().describe("Wait this long after experiment exposure before counting conversions.").optional(), "delayUnit": z.enum(["minutes","hours","days","weeks"]).describe("Default `hours`.").optional(), "windowValue": z.number().optional(), "windowUnit": z.enum(["minutes","hours","days","weeks"]).describe("Default `hours`.").optional() }).describe("Controls the conversion window for the metric").optional(), "priorSettings": z.object({ "override": z.boolean().describe("If false, the organization default settings will be used instead of the other settings in this object"), "proper": z.boolean().describe("If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior."), "mean": z.number().describe("The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)"), "stddev": z.number().gt(0).describe("Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.") }).describe("Controls the bayesian prior for the metric. If omitted, organization defaults will be used.").optional(), "regressionAdjustmentSettings": z.object({ "override": z.boolean().describe("If false, the organization default settings will be used"), "enabled": z.boolean().describe("Controls whether or not regression adjustment is applied to the metric").optional(), "days": z.number().describe("Number of pre-exposure days to use for the regression adjustment").optional() }).describe("Controls the regression adjustment (CUPED) settings for the metric").optional(), "riskThresholdSuccess": z.number().gte(0).describe("No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.").optional().meta({ deprecated: true }), "riskThresholdDanger": z.number().gte(0).describe("No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.").optional().meta({ deprecated: true }), "displayAsPercentage": z.boolean().describe("If true and the metric is a ratio or dailyParticipation metric, variation means will be displayed as a percentage. Defaults to true for dailyParticipation metrics and false for ratio metrics.").optional(), "minPercentChange": z.number().gte(0).describe("Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)").optional(), "maxPercentChange": z.number().gte(0).describe("Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)").optional(), "minSampleSize": z.number().gte(0).optional(), "targetMDE": z.number().gte(0).describe("The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the \"Days Left\" for running experiments.").optional(), "managedBy": z.enum(["","api","admin"]).describe("Set this to \"api\" to disable editing in the GrowthBook UI").optional(), "metricAutoSlices": z.array(z.string()).describe("Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.").optional() }) })).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
@@ -1315,92 +1261,18 @@ export const postBulkImportFactsValidator = {
   tags: ["fact-tables"],
   method: "post" as const,
   path: "/bulk-import/facts",
-  exampleRequest: {"body":{"factTables":[],"factTableFilters":[],"factMetrics":[]}},
-};
+*/
 
-export const listCodeRefsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.object({ "limit": z.coerce.number().int().describe("The number of items to return").default(10), "offset": z.coerce.number().int().describe("How many items to skip (use in conjunction with limit for pagination)").default(0) }).strict(),
-  paramsSchema: z.never(),
-  responseSchema: z.intersection(z.object({ "codeRefs": z.array(z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().meta({ format: "date-time" }).describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) })) }), z.object({ "limit": z.coerce.number().int(), "offset": z.coerce.number().int(), "count": z.coerce.number().int(), "total": z.coerce.number().int(), "hasMore": z.boolean(), "nextOffset": z.union([z.coerce.number().int(), z.null()]) })),
-  summary: "Get list of all code references for the current organization",
-  operationId: "listCodeRefs",
-  tags: ["code-references"],
-  method: "get" as const,
-  path: "/code-refs",
-};
+// listCodeRefsValidator moved to code-refs.ts
 
-export const postCodeRefsValidator = {
-  bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
-  querySchema: z.object({ "deleteMissing": z.enum(["true","false"]).describe("Whether to delete code references that are no longer present in the submitted data").optional() }).strict(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ "featuresUpdated": z.array(z.string()).optional() }).strict(),
-  summary: "Submit list of code references",
-  operationId: "postCodeRefs",
-  tags: ["code-references"],
-  method: "post" as const,
-  path: "/code-refs",
-  exampleRequest: {"body":{"startingLineNumber":16,"lines":"...","flagKey":"..."}},
-};
+// postCodeRefsValidator moved to code-refs.ts
 
-export const getCodeRefsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string().describe("The id of the requested resource") }).strict(),
-  responseSchema: z.object({ "codeRefs": z.array(z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().meta({ format: "date-time" }).describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) })) }).strict(),
-  summary: "Get list of code references for a single feature id",
-  operationId: "getCodeRefs",
-  tags: ["code-references"],
-  method: "get" as const,
-  path: "/code-refs/{id}",
-  exampleRequest: {"params":{"id":"abc123"}},
-};
+// getCodeRefsValidator moved to code-refs.ts
 
-export const getQueryValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string().describe("The id of the requested resource") }).strict(),
-  responseSchema: z.object({ "query": z.object({ "id": z.string(), "organization": z.string(), "datasource": z.string(), "language": z.string(), "query": z.string(), "queryType": z.string(), "createdAt": z.string(), "startedAt": z.string(), "status": z.enum(["running","queued","failed","partially-succeeded","succeeded"]), "externalId": z.string(), "dependencies": z.array(z.string()), "runAtEnd": z.boolean() }) }).strict(),
-  summary: "Get a single query",
-  operationId: "getQuery",
-  tags: ["queries"],
-  method: "get" as const,
-  path: "/queries/{id}",
-  exampleRequest: {"params":{"id":"abc123"}},
-};
+// getQueryValidator moved to queries.ts
 
-export const getSettingsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ "settings": z.object({ "confidenceLevel": z.coerce.number(), "northStar": z.object({ "title": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().optional(), "maxPercentageChange": z.coerce.number().optional(), "minPercentageChange": z.coerce.number().optional(), "targetMDE": z.coerce.number().optional() }), "pastExperimentsMinLength": z.coerce.number(), "metricAnalysisDays": z.coerce.number(), "updateSchedule": z.object({ "type": z.enum(["cron","never","stale"]).optional(), "cron": z.string().nullable().optional(), "hours": z.coerce.number().nullable().optional() }).nullable(), "multipleExposureMinPercent": z.coerce.number(), "defaultRole": z.object({ "role": z.string().optional(), "limitAccessByEnvironment": z.boolean().optional(), "environments": z.array(z.string()).optional() }), "statsEngine": z.string(), "pValueThreshold": z.coerce.number(), "regressionAdjustmentEnabled": z.boolean(), "regressionAdjustmentDays": z.coerce.number(), "sequentialTestingEnabled": z.boolean(), "sequentialTestingTuningParameter": z.coerce.number(), "attributionModel": z.enum(["firstExposure","experimentDuration","lookbackOverride"]), "targetMDE": z.coerce.number(), "delayHours": z.coerce.number(), "windowType": z.string(), "windowHours": z.coerce.number(), "winRisk": z.coerce.number(), "loseRisk": z.coerce.number(), "secureAttributeSalt": z.string(), "killswitchConfirmation": z.boolean(), "featureKillSwitchBehavior": z.enum(["off","warn"]).optional(), "requireReviews": z.array(z.object({ "requireReviewOn": z.boolean().optional(), "resetReviewOnChange": z.boolean().optional(), "environments": z.array(z.string()).optional(), "projects": z.array(z.string()).optional(), "featureRequireEnvironmentReview": z.boolean().optional(), "featureRequireMetadataReview": z.boolean().optional() })), "restApiBypassesReviews": z.boolean().optional(), "featureKeyExample": z.string(), "featureRegexValidator": z.string(), "banditScheduleValue": z.coerce.number(), "banditScheduleUnit": z.enum(["hours","days"]), "banditBurnInValue": z.coerce.number(), "banditBurnInUnit": z.enum(["hours","days"]), "experimentMinLengthDays": z.coerce.number(), "experimentMaxLengthDays": z.coerce.number().nullable().optional(), "preferredEnvironment": z.string().nullable().optional(), "maxMetricSliceLevels": z.coerce.number().optional() }) }).strict(),
-  summary: "Get organization settings",
-  operationId: "getSettings",
-  tags: ["settings"],
-  method: "get" as const,
-  path: "/settings",
-};
+// getSettingsValidator moved to api-settings.ts
 
-export const getInformationSchemaValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "dataSourceId": z.string().describe("The id of the data source") }).strict(),
-  responseSchema: z.object({ "informationSchema": z.object({ "id": z.string(), "datasourceId": z.string(), "status": z.enum(["PENDING","COMPLETE"]), "error": z.object({ "errorType": z.enum(["generic","not_supported","missing_params"]), "message": z.string() }).optional(), "databases": z.array(z.object({ "databaseName": z.string(), "path": z.string().optional(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }), "schemas": z.array(z.object({ "schemaName": z.string(), "path": z.string().optional(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }), "tables": z.array(z.object({ "tableName": z.string(), "path": z.string().optional(), "id": z.string(), "numOfColumns": z.coerce.number(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) })) })) })), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) }) }).strict(),
-  summary: "Get a Data Source's Information Schema",
-  operationId: "getInformationSchema",
-  tags: ["data-sources"],
-  method: "get" as const,
-  path: "/data-sources/{dataSourceId}/information-schema",
-};
+// getInformationSchemaValidator moved to information-schema-tables.ts
 
-export const getInformationSchemaTableValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "tableId": z.string().describe("The id of the information schema table") }).strict(),
-  responseSchema: z.object({ "informationSchemaTable": z.object({ "id": z.string(), "datasourceId": z.string(), "informationSchemaId": z.string(), "tableName": z.string(), "tableSchema": z.string(), "databaseName": z.string(), "columns": z.array(z.object({ "columnName": z.string(), "dataType": z.string() })), "refreshMS": z.coerce.number(), "dateCreated": z.string().meta({ format: "date-time" }), "dateUpdated": z.string().meta({ format: "date-time" }) }) }).strict(),
-  summary: "Get a single Information Schema Table by id",
-  operationId: "getInformationSchemaTable",
-  tags: ["data-sources"],
-  method: "get" as const,
-  path: "/information-schema-tables/{tableId}",
-};
+// getInformationSchemaTableValidator moved to information-schema-tables.ts

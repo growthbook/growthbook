@@ -28,3 +28,50 @@ export const sqlResultChunkValidator = z
     data: z.record(z.string(), z.array(z.unknown())),
   })
   .strict();
+
+// Corresponds to schemas/Query.yaml
+export const apiQueryValidator = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    datasource: z.string(),
+    language: z.string(),
+    query: z.string(),
+    queryType: z.string(),
+    createdAt: z.string(),
+    startedAt: z.string(),
+    status: z.enum([
+      "running",
+      "queued",
+      "failed",
+      "partially-succeeded",
+      "succeeded",
+    ]),
+    externalId: z.string(),
+    dependencies: z.array(z.string()),
+    runAtEnd: z.boolean(),
+  })
+  .strict();
+
+const idParams = z
+  .object({
+    id: z.string().describe("The id of the requested resource"),
+  })
+  .strict();
+
+export const getQueryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      query: apiQueryValidator,
+    })
+    .strict(),
+  summary: "Get a single query",
+  operationId: "getQuery",
+  tags: ["queries"],
+  method: "get" as const,
+  path: "/queries/{id}",
+  exampleRequest: { params: { id: "abc123" } },
+};
