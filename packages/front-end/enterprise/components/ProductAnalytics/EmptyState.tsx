@@ -4,6 +4,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
   PiArrowRightBold,
+  PiChats,
   PiChartBar,
   PiCode,
   PiDatabase,
@@ -107,12 +108,12 @@ export default function EmptyState() {
           <Heading as="h2" size="x-large" weight="medium">
             {isDataSourceEmpty
               ? "No data sources selected"
-              : "Select an Explorer Type"}
+              : "Explore Your Data"}
           </Heading>
           <Text color="text-low" align="center" size="large">
             {isDataSourceEmpty
               ? "Connect to a data source to start exploring your data."
-              : "Choose how you want to explore your data"}
+              : "Ask a question to get started, or choose an explorer below"}
           </Text>
         </Flex>
 
@@ -164,140 +165,138 @@ export default function EmptyState() {
             </Flex>
           ) : (
             <>
-              <Flex gap="3">
-                <LinkButton
-                  href="/product-analytics/explore/metrics"
-                  variant="outline"
-                  disabled={
-                    // If the user can't run metrics for the current project, or globally, don't show enable the button
-                    !permissionsUtil.canRunMetricQueries({
-                      projects: [project],
-                    }) && !permissionsUtil.canRunMetricQueries({ projects: [] })
-                  }
-                  style={buttonStyle}
-                >
-                  <Flex direction="column" align="center" gap="1">
-                    <PiChartBar size={24} />
-                    <Text weight="medium">Metrics</Text>
-                  </Flex>
-                </LinkButton>
-                <LinkButton
-                  href="/product-analytics/explore/fact-table"
-                  variant="outline"
-                  disabled={
-                    // If the user can't run fact queries for the current project, or globally, don't show enable the button
-                    !permissionsUtil.canRunFactQueries({
-                      projects: [project],
-                    }) && !permissionsUtil.canRunFactQueries({ projects: [] })
-                  }
-                  style={buttonStyle}
-                >
-                  <Flex direction="column" align="center" gap="1">
-                    <PiTable size={24} />
-                    <Text weight="medium">Fact Table</Text>
-                  </Flex>
-                </LinkButton>
-                <LinkButton
-                  href="/product-analytics/explore/data-source"
-                  variant="outline"
-                  disabled={
-                    // If the user can't run fact queries for the current project, or globally, don't show enable the button
-                    !permissionsUtil.canRunFactQueries({
-                      projects: [project],
-                    }) && !permissionsUtil.canRunFactQueries({ projects: [] })
-                  }
-                  style={buttonStyle}
-                >
-                  <Flex direction="column" align="center" gap="1">
-                    <PiDatabase size={24} />
-                    <Text weight="medium">Data Source</Text>
-                  </Flex>
-                </LinkButton>
-                <LinkButton
-                  href="/sql-explorer"
-                  variant="outline"
-                  style={buttonStyle}
-                  disabled={
-                    // If the user can't run custom SQL queries for the current project, or globally, don't show enable the button
-                    !permissionsUtil.canRunFactQueries({
-                      projects: [project],
-                    }) && !permissionsUtil.canRunFactQueries({ projects: [] })
-                  }
-                >
-                  <Flex direction="column" align="center" gap="1">
-                    <PiCode size={24} />
-                    <Text weight="medium">Custom SQL</Text>
-                  </Flex>
-                </LinkButton>
-                <LinkButton
-                  href="/product-analytics/explore/ai-chat"
-                  variant="outline"
-                  disabled={!hasAISuggestions}
-                  style={buttonStyle}
-                >
-                  <Flex direction="column" align="center" gap="1">
-                    <BsStars size={22} />
-                    <Text weight="medium">AI Chat</Text>
-                  </Flex>
-                </LinkButton>
-              </Flex>
-              <Flex justify="center" direction="column" gap="5" mt="3">
-                <TextDivider width={435}>or ask anything with AI</TextDivider>
-                <Flex
-                  align="center"
-                  gap="3"
-                  direction="column"
-                  justify="center"
-                >
-                  <Flex gap="2" width="100%" align="center" justify="center">
-                    <Tooltip
-                      enabled={!!chatDisabledReason}
-                      content={chatDisabledReason ?? ""}
+              <Flex align="center" gap="3" direction="column" justify="center">
+                <Flex gap="2" width="100%" align="center" justify="center">
+                  <BsStars
+                    size={20}
+                    style={{ color: "var(--violet-a11)", flexShrink: 0 }}
+                  />
+                  <Tooltip
+                    enabled={!!chatDisabledReason}
+                    content={chatDisabledReason ?? ""}
+                  >
+                    <Field
+                      placeholder="Ask about metrics, experiments, or setup..."
+                      containerStyle={{
+                        maxWidth: "600px",
+                        flex: 1,
+                      }}
+                      style={{ height: "40px" }}
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      disabled={!!chatDisabledReason}
+                    />
+                  </Tooltip>
+                  <Tooltip
+                    enabled={!!chatDisabledReason}
+                    content={chatDisabledReason ?? ""}
+                  >
+                    <span
+                      style={
+                        chatDisabledReason
+                          ? { cursor: "not-allowed" }
+                          : undefined
+                      }
                     >
-                      <Field
-                        placeholder="Ask about metrics, experiments, or setup..."
-                        containerStyle={{
-                          maxWidth: "800px",
-                          flex: 1,
-                        }}
-                        style={{ height: "40px" }}
-                        ref={inputRef}
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        disabled={!!chatDisabledReason}
-                      />
-                    </Tooltip>
-                    <Tooltip
-                      enabled={!!chatDisabledReason}
-                      content={chatDisabledReason ?? ""}
-                    >
-                      <span
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={
+                          !!chatDisabledReason ||
+                          !input.trim() ||
+                          isDataSourceEmpty
+                        }
+                        size="md"
                         style={
                           chatDisabledReason
-                            ? { cursor: "not-allowed" }
+                            ? { pointerEvents: "none" }
                             : undefined
                         }
                       >
-                        <Button
-                          onClick={handleSubmit}
-                          disabled={
-                            !!chatDisabledReason ||
-                            !input.trim() ||
-                            isDataSourceEmpty
-                          }
-                          size="md"
-                          style={
-                            chatDisabledReason
-                              ? { pointerEvents: "none" }
-                              : undefined
-                          }
-                        >
-                          <PiArrowRightBold size={16} />
-                        </Button>
-                      </span>
-                    </Tooltip>
-                  </Flex>
+                        <PiArrowRightBold size={16} />
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  {!chatDisabledReason && (
+                    <LinkButton
+                      href="/product-analytics/explore/ai-chat"
+                      variant="outline"
+                      size="md"
+                    >
+                      <Flex align="center" gap="2">
+                        <PiChats size={14} />
+                        Past Chats
+                      </Flex>
+                    </LinkButton>
+                  )}
+                </Flex>
+              </Flex>
+
+              <Flex justify="center" direction="column" gap="5" mt="3">
+                <TextDivider width={435}>or explore manually</TextDivider>
+                <Flex gap="3" justify="center">
+                  <LinkButton
+                    href="/product-analytics/explore/metrics"
+                    variant="outline"
+                    disabled={
+                      !permissionsUtil.canRunMetricQueries({
+                        projects: [project],
+                      }) &&
+                      !permissionsUtil.canRunMetricQueries({ projects: [] })
+                    }
+                    style={buttonStyle}
+                  >
+                    <Flex direction="column" align="center" gap="1">
+                      <PiChartBar size={24} />
+                      <Text weight="medium">Metrics</Text>
+                    </Flex>
+                  </LinkButton>
+                  <LinkButton
+                    href="/product-analytics/explore/fact-table"
+                    variant="outline"
+                    disabled={
+                      !permissionsUtil.canRunFactQueries({
+                        projects: [project],
+                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
+                    }
+                    style={buttonStyle}
+                  >
+                    <Flex direction="column" align="center" gap="1">
+                      <PiTable size={24} />
+                      <Text weight="medium">Fact Table</Text>
+                    </Flex>
+                  </LinkButton>
+                  <LinkButton
+                    href="/product-analytics/explore/data-source"
+                    variant="outline"
+                    disabled={
+                      !permissionsUtil.canRunFactQueries({
+                        projects: [project],
+                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
+                    }
+                    style={buttonStyle}
+                  >
+                    <Flex direction="column" align="center" gap="1">
+                      <PiDatabase size={24} />
+                      <Text weight="medium">Data Source</Text>
+                    </Flex>
+                  </LinkButton>
+                  <LinkButton
+                    href="/sql-explorer"
+                    variant="outline"
+                    style={buttonStyle}
+                    disabled={
+                      !permissionsUtil.canRunFactQueries({
+                        projects: [project],
+                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
+                    }
+                  >
+                    <Flex direction="column" align="center" gap="1">
+                      <PiCode size={24} />
+                      <Text weight="medium">Custom SQL</Text>
+                    </Flex>
+                  </LinkButton>
                 </Flex>
               </Flex>
             </>
