@@ -39,6 +39,7 @@
     "@aws-sdk/client-sts": "^3.567.0",
     "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
+    "dirty-json": "^0.9.2",
     "@dqbd/tiktoken": "^1.0.21",
     "@google-cloud/bigquery": "^8.1.1",
     "@google-cloud/storage": "^5.20.5",

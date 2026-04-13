@@ -377,6 +377,7 @@ export const postSegmentValidator = {
   tags: ["segments"],
   method: "post" as const,
   path: "/segments",
+  exampleRequest: {"body":{"name":"Annual Subscribers","datasource":"ds_123abc","identifierType":"user_id","type":"SQL","query":"SELECT plan FROM subscribers WHERE plan = "}},
 };
 
 export const getSegmentValidator = {

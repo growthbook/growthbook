@@ -5,6 +5,7 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import openapiTS from "openapi-typescript";
 import { parseSchema } from "json-schema-to-zod";
 import { load } from "js-yaml";
+import { parse as dirtyJsonParse } from "dirty-json";
 
 const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
@@ -37,7 +38,7 @@ function generateExampleRequest(operation) {
   const body = codeSample.split("-d '")[1]?.split("'")[0];
   if (body) {
     try {
-      exampleRequest.body = JSON.parse(body);
+      exampleRequest.body = dirtyJsonParse(body);
     } catch (e) {
       return null;
     }

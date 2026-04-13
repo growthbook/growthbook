@@ -547,8 +547,7 @@ function hoistPathParameters(spec: unknown): unknown {
         );
         const merged = [
           ...pathParams.filter(
-            (p) =>
-              isObject(p) && !opParamKeys.has(`${p["in"]}:${p["name"]}`),
+            (p) => isObject(p) && !opParamKeys.has(`${p["in"]}:${p["name"]}`),
           ),
           ...opParams,
         ];
@@ -707,6 +706,30 @@ function stripParameterDescriptions(val: unknown): unknown {
     }
   }
 
+  return out;
+}
+
+/**
+ * Replace `x-codeSamples` values with a boolean sentinel so that diffs
+ * only surface when one spec has a code sample and the other doesn't.
+ * The new generator produces more accurate samples from Zod schemas,
+ * so content differences between old and new are expected and not meaningful.
+ */
+function normalizeCodeSamples(val: unknown): unknown {
+  if (Array.isArray(val)) {
+    return val.map(normalizeCodeSamples);
+  }
+  if (!isObject(val)) return val;
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (k === "x-codeSamples") {
+      // Keep presence but discard content
+      out[k] = true;
+    } else {
+      out[k] = normalizeCodeSamples(v);
+    }
+  }
   return out;
 }
 
@@ -968,6 +991,7 @@ Options:
     s = normalizeLiteralEnums(s);
     s = normalizeInvalidTypes(s);
     s = stripParameterDescriptions(s);
+    s = normalizeCodeSamples(s);
     return s;
   };
 
