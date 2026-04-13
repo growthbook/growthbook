@@ -8,41 +8,7 @@ import { ExperimentReportResultDimension } from "shared/types/report";
 
 // Index columns identify which (analysis, dimension, variation) a row belongs to.
 // The metricId is a document-level field, not a column.
-const INDEX_COLUMNS = ["a", "d", "v"] as const;
-
-// All possible value columns in flattened form.
-const VALUE_COLUMNS = [
-  "value",
-  "cr",
-  "users",
-  "denominator",
-  "ci_0",
-  "ci_1",
-  "ciAdjusted_0",
-  "ciAdjusted_1",
-  "expected",
-  "risk_0",
-  "risk_1",
-  "riskType",
-  "pValue",
-  "pValueAdjusted",
-  "chanceToWin",
-  "stats_users",
-  "stats_mean",
-  "stats_count",
-  "stats_stddev",
-  "uplift_dist",
-  "uplift_mean",
-  "uplift_stddev",
-  "errorMessage",
-  // Complex fields stored as JSON strings
-  "_buckets",
-  "_supplementalResults",
-  "_power",
-  "_realizedSettings",
-] as const;
-
-const ALL_DATA_COLUMNS = [...INDEX_COLUMNS, ...VALUE_COLUMNS];
+const INDEX_COLUMNS = new Set(["a", "d", "v"]);
 
 // -- Types --
 
@@ -62,108 +28,6 @@ export type AnalysisMetaEntry = {
 export interface EncodeResult {
   metricChunks: Map<string, MetricChunkData>;
   analysisMeta: AnalysisMetaEntry[];
-}
-
-// -- Flatten / Unflatten SnapshotMetric --
-
-function flattenSnapshotMetric(
-  metric: SnapshotMetric,
-): Record<string, unknown> {
-  return {
-    value: metric.value,
-    cr: metric.cr,
-    users: metric.users,
-    denominator: metric.denominator ?? null,
-    ci_0: metric.ci?.[0] ?? null,
-    ci_1: metric.ci?.[1] ?? null,
-    ciAdjusted_0: metric.ciAdjusted?.[0] ?? null,
-    ciAdjusted_1: metric.ciAdjusted?.[1] ?? null,
-    expected: metric.expected ?? null,
-    risk_0: metric.risk?.[0] ?? null,
-    risk_1: metric.risk?.[1] ?? null,
-    riskType: metric.riskType ?? null,
-    pValue: metric.pValue ?? null,
-    pValueAdjusted: metric.pValueAdjusted ?? null,
-    chanceToWin: metric.chanceToWin ?? null,
-    stats_users: metric.stats?.users ?? null,
-    stats_mean: metric.stats?.mean ?? null,
-    stats_count: metric.stats?.count ?? null,
-    stats_stddev: metric.stats?.stddev ?? null,
-    uplift_dist: metric.uplift?.dist ?? null,
-    uplift_mean: metric.uplift?.mean ?? null,
-    uplift_stddev: metric.uplift?.stddev ?? null,
-    errorMessage: metric.errorMessage ?? null,
-    _buckets: metric.buckets ? JSON.stringify(metric.buckets) : null,
-    _supplementalResults: metric.supplementalResults
-      ? JSON.stringify(metric.supplementalResults)
-      : null,
-    _power: metric.power ? JSON.stringify(metric.power) : null,
-    _realizedSettings: metric.realizedSettings
-      ? JSON.stringify(metric.realizedSettings)
-      : null,
-  };
-}
-
-function unflattenSnapshotMetric(
-  flat: Record<string, unknown>,
-): SnapshotMetric {
-  const metric: SnapshotMetric = {
-    value: flat.value as number,
-    cr: flat.cr as number,
-    users: flat.users as number,
-  };
-
-  if (flat.denominator != null) metric.denominator = flat.denominator as number;
-  if (flat.ci_0 != null && flat.ci_1 != null)
-    metric.ci = [flat.ci_0 as number, flat.ci_1 as number];
-  if (flat.ciAdjusted_0 != null && flat.ciAdjusted_1 != null)
-    metric.ciAdjusted = [
-      flat.ciAdjusted_0 as number,
-      flat.ciAdjusted_1 as number,
-    ];
-  if (flat.expected != null) metric.expected = flat.expected as number;
-  if (flat.risk_0 != null && flat.risk_1 != null)
-    metric.risk = [flat.risk_0 as number, flat.risk_1 as number];
-  if (flat.riskType != null)
-    metric.riskType = flat.riskType as SnapshotMetric["riskType"];
-  if (flat.pValue != null) metric.pValue = flat.pValue as number;
-  if (flat.pValueAdjusted != null)
-    metric.pValueAdjusted = flat.pValueAdjusted as number;
-  if (flat.chanceToWin != null) metric.chanceToWin = flat.chanceToWin as number;
-
-  if (flat.stats_users != null) {
-    metric.stats = {
-      users: flat.stats_users as number,
-      mean: flat.stats_mean as number,
-      count: flat.stats_count as number,
-      stddev: flat.stats_stddev as number,
-    };
-  }
-
-  if (flat.uplift_dist != null) {
-    metric.uplift = {
-      dist: flat.uplift_dist as string,
-      ...(flat.uplift_mean != null ? { mean: flat.uplift_mean as number } : {}),
-      ...(flat.uplift_stddev != null
-        ? { stddev: flat.uplift_stddev as number }
-        : {}),
-    };
-  }
-
-  if (flat.errorMessage != null)
-    metric.errorMessage = flat.errorMessage as string;
-
-  if (flat._buckets != null)
-    metric.buckets = JSON.parse(flat._buckets as string);
-  if (flat._supplementalResults != null)
-    metric.supplementalResults = JSON.parse(
-      flat._supplementalResults as string,
-    );
-  if (flat._power != null) metric.power = JSON.parse(flat._power as string);
-  if (flat._realizedSettings != null)
-    metric.realizedSettings = JSON.parse(flat._realizedSettings as string);
-
-  return metric;
 }
 
 // -- Encode --
@@ -212,10 +76,8 @@ export function encodeSnapshotResults(
   const metricChunks = new Map<string, MetricChunkData>();
 
   for (const metricId of orderedMetrics) {
-    const data: Record<string, unknown[]> = {};
-    for (const col of ALL_DATA_COLUMNS) {
-      data[col] = [];
-    }
+    const data: Record<string, unknown[]> = { a: [], d: [], v: [] };
+    const valueColumns = new Set<string>();
     let numRows = 0;
 
     for (let ai = 0; ai < analyses.length; ai++) {
@@ -225,13 +87,25 @@ export function encodeSnapshotResults(
           const metric = dim.variations[vi].metrics[metricId];
           if (!metric) continue;
 
-          const flat = flattenSnapshotMetric(metric);
           data.a.push(ai);
           data.d.push(dim.name);
           data.v.push(vi);
-          for (const col of VALUE_COLUMNS) {
-            data[col].push(flat[col] ?? null);
+
+          for (const col of Object.keys(metric)) {
+            if (!valueColumns.has(col)) {
+              valueColumns.add(col);
+              // Backfill nulls for previous rows
+              data[col] = new Array(numRows).fill(null);
+            }
+            data[col].push(metric[col as keyof SnapshotMetric] ?? null);
           }
+          // For any known value columns not in this flat object, push null
+          for (const col of valueColumns) {
+            if (!(col in metric)) {
+              data[col].push(null);
+            }
+          }
+
           numRows++;
         }
       }
@@ -314,6 +188,9 @@ export function decodeSnapshotResults(
     const dataA = data.a as number[];
     const dataD = data.d as string[];
     const dataV = data.v as number[];
+    const valueColumns = Object.keys(data).filter(
+      (col) => !INDEX_COLUMNS.has(col),
+    );
 
     for (let i = 0; i < numRows; i++) {
       const ai = dataA[i];
@@ -321,12 +198,10 @@ export function decodeSnapshotResults(
       const vi = dataV[i];
 
       // Read flat metric values
-      const flat: Record<string, unknown> = {};
-      for (const col of VALUE_COLUMNS) {
-        flat[col] = data[col]?.[i] ?? null;
+      const metric: Record<string, unknown> = {};
+      for (const col of valueColumns) {
+        metric[col] = data[col]?.[i] ?? null;
       }
-
-      const metric = unflattenSnapshotMetric(flat);
 
       // Ensure structure exists (in case analysisMeta is incomplete)
       if (!analysisMap.has(ai)) analysisMap.set(ai, new Map());
@@ -337,7 +212,8 @@ export function decodeSnapshotResults(
       if (!dim.variations.has(vi))
         dim.variations.set(vi, { users: 0, metrics: {} });
 
-      dim.variations.get(vi)!.metrics[metricId] = metric;
+      dim.variations.get(vi)!.metrics[metricId] =
+        metric as unknown as SnapshotMetric;
     }
   }
 
