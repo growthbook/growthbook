@@ -1887,6 +1887,7 @@ export async function _getSnapshots(
     experimentPhaseMap.set(e.id, e.phases.length - 1);
   });
   return await getLatestSnapshotMultipleExperiments(
+    context,
     experimentPhaseMap,
     dimension,
     withResults,
@@ -1959,6 +1960,7 @@ async function getSnapshotAnalyses(
       // promise to add analysis to mongo record if it does not exist, overwrite if it does
       createAnalysisPromises.push(() =>
         addOrUpdateSnapshotAnalysis({
+          context,
           organization: organization.id,
           id: snapshot.id,
           analysis,
@@ -2031,7 +2033,7 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap);
+  await writeSnapshotAnalyses(context, results, analysisParamsMap);
 }
 
 export async function createSnapshotAnalysis(
@@ -2060,6 +2062,7 @@ export async function createSnapshotAnalysis(
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
   await addOrUpdateSnapshotAnalysis({
+    context,
     organization: organization.id,
     id: snapshot.id,
     analysis,
@@ -2081,6 +2084,7 @@ export async function createSnapshotAnalysis(
   analysis.error = undefined;
 
   await updateSnapshotAnalysis({
+    context,
     organization: organization.id,
     id: snapshot.id,
     analysis,

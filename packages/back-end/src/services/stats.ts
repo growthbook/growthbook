@@ -57,6 +57,7 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
+import { Context } from "back-end/src/models/BaseModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -583,6 +584,7 @@ function parseStatsEngineResult({
 }
 
 export async function writeSnapshotAnalyses(
+  context: Context,
   results: MultipleExperimentMetricAnalysis[],
   paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
 ) {
@@ -616,6 +618,7 @@ export async function writeSnapshotAnalyses(
 
     promises.push(async () =>
       updateSnapshotAnalysis({
+        context,
         organization,
         id: snapshot,
         analysis: analysisObj,

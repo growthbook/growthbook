@@ -244,6 +244,7 @@ export async function postAIExperimentAnalysis(
   const phase = experiment.phases.length - 1;
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -821,6 +822,7 @@ export async function getExperimentPublic(
 
   const snapshot =
     (await getLatestSnapshot({
+      context,
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -886,6 +888,7 @@ async function _getSnapshot({
   }
 
   return await getLatestSnapshot({
+    context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
@@ -971,11 +974,10 @@ export async function getSnapshotById(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
 
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2808,9 +2810,8 @@ export async function cancelSnapshot(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2838,7 +2839,7 @@ export async function cancelSnapshot(
     integration,
   );
   await queryRunner.cancelQueries();
-  await deleteSnapshotById(org.id, snapshot.id);
+  await deleteSnapshotById(context, snapshot.id);
 
   // Release the incremental refresh lock if this snapshot held it.
   await context.models.incrementalRefresh
@@ -2942,7 +2943,7 @@ export async function postSnapshotAnalysis(
   const { org } = context;
 
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(context, id);
   if (!snapshot) {
     res.status(404).json({
       status: 404,

@@ -1,11 +1,16 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import {
   snapshotSatisfiesBlock,
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import { isString } from "shared/util";
+import {
+  isString,
+  estimateJsonBytes,
+  SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES,
+} from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -77,6 +82,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   status: String,
   settings: {},
   analyses: {},
+  hasOverflowAnalyses: Boolean,
   results: [
     {
       _id: false,
@@ -196,6 +202,73 @@ const toInterface = (
     omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]),
   );
 
+async function hydrateOverflowAnalyses(
+  context: Context,
+  snapshot: ExperimentSnapshotInterface,
+): Promise<ExperimentSnapshotInterface> {
+  if (snapshot.hasOverflowAnalyses) {
+    snapshot.analyses =
+      await context.models.snapshotAnalysisOverflow.getAnalysesForSnapshot(
+        snapshot.id,
+      );
+  }
+  return snapshot;
+}
+
+async function hydrateOverflowAnalysesBatch(
+  context: Context,
+  snapshots: ExperimentSnapshotInterface[],
+): Promise<ExperimentSnapshotInterface[]> {
+  const overflowIds = snapshots
+    .filter((s) => s.hasOverflowAnalyses)
+    .map((s) => s.id);
+  if (!overflowIds.length) return snapshots;
+
+  const analysesMap =
+    await context.models.snapshotAnalysisOverflow.getAnalysesForSnapshots(
+      overflowIds,
+    );
+  for (const snapshot of snapshots) {
+    if (snapshot.hasOverflowAnalyses) {
+      snapshot.analyses = analysesMap.get(snapshot.id) ?? [];
+    }
+  }
+  return snapshots;
+}
+
+// Persists `analyses` for a snapshot, spilling to the overflow collection only
+// when the serialized size would risk exceeding the 16MB BSON limit. Used by
+// updateSnapshot and the single-analysis add/update helpers.
+async function writeAnalysesWithOverflow(
+  context: Context,
+  organization: string,
+  id: string,
+  analyses: ExperimentSnapshotAnalysis[],
+): Promise<void> {
+  const overflow =
+    estimateJsonBytes(analyses) > SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES;
+
+  if (overflow) {
+    // Write chunks before flipping the flag so a partial failure doesn't
+    // leave the snapshot pointing at missing overflow data.
+    await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+      id,
+      analyses,
+    );
+    await ExperimentSnapshotModel.updateOne(
+      { organization, id },
+      { $set: { analyses: [], hasOverflowAnalyses: true } },
+    );
+  } else {
+    await ExperimentSnapshotModel.updateOne(
+      { organization, id },
+      { $set: { analyses, hasOverflowAnalyses: false } },
+    );
+    // Clean up any stale overflow chunks from a previous larger write.
+    await context.models.snapshotAnalysisOverflow.deleteForSnapshot(id);
+  }
+}
+
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
   experiment: string,
@@ -236,6 +309,29 @@ export async function updateSnapshot({
   updates: Partial<ExperimentSnapshotInterface>;
   context: Context;
 }) {
+  // If analyses are being written, divert them to the overflow collection when
+  // they would push the document past the BSON size limit. Otherwise behavior
+  // is identical to before.
+  let overflowAnalyses: ExperimentSnapshotAnalysis[] | undefined;
+  if (updates.analyses) {
+    if (
+      updates.analyses.length > 0 &&
+      estimateJsonBytes(updates.analyses) >
+        SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES
+    ) {
+      overflowAnalyses = updates.analyses;
+      // Write chunks before flipping the flag so a partial failure doesn't
+      // leave the snapshot pointing at missing overflow data.
+      await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+        id,
+        overflowAnalyses,
+      );
+      updates = { ...updates, analyses: [], hasOverflowAnalyses: true };
+    } else {
+      updates = { ...updates, hasOverflowAnalyses: false };
+    }
+  }
+
   await ExperimentSnapshotModel.updateOne(
     {
       organization,
@@ -246,11 +342,26 @@ export async function updateSnapshot({
     },
   );
 
+  if (updates.hasOverflowAnalyses === false) {
+    // Analyses now fit inline; clean up any stale overflow chunks.
+    await context.models.snapshotAnalysisOverflow.deleteForSnapshot(id);
+  }
+
   const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
     id,
     organization,
   });
   if (!experimentSnapshotModel) throw "Internal error";
+
+  // Downstream consumers (analysis summary, notifications, time series,
+  // dashboards) read `analyses` off this doc, so hydrate when overflowed.
+  if (experimentSnapshotModel.hasOverflowAnalyses) {
+    experimentSnapshotModel.analyses =
+      overflowAnalyses ??
+      (await context.models.snapshotAnalysisOverflow.getAnalysesForSnapshot(
+        id,
+      ));
+  }
 
   const shouldUpdateExperimentAnalysisSummary =
     experimentSnapshotModel.type === "standard" &&
@@ -341,77 +452,84 @@ export async function updateSnapshot({
 }
 
 export type AddOrUpdateSnapshotAnalysisParams = {
+  context: Context;
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
 };
 
+// Loads the current full analyses array (from inline storage or overflow),
+// applies the supplied mutation, and persists via the size-aware writer.
+async function mutateSnapshotAnalyses(
+  context: Context,
+  organization: string,
+  id: string,
+  mutate: (analyses: ExperimentSnapshotAnalysis[]) => void,
+) {
+  const doc = await ExperimentSnapshotModel.findOne({ organization, id });
+  if (!doc) throw "Internal error";
+
+  const analyses: ExperimentSnapshotAnalysis[] = doc.hasOverflowAnalyses
+    ? await context.models.snapshotAnalysisOverflow.getAnalysesForSnapshot(id)
+    : [...(doc.analyses || [])];
+
+  mutate(analyses);
+  await writeAnalysesWithOverflow(context, organization, id, analyses);
+}
+
 export async function addOrUpdateSnapshotAnalysis(
   params: AddOrUpdateSnapshotAnalysisParams,
 ) {
-  const { organization, id, analysis } = params;
-  // looks for snapshots with this ID but WITHOUT these analysis settings
-  const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
-    {
-      organization,
-      id,
-      "analyses.settings": { $ne: analysis.settings },
-    },
-    {
-      $push: { analyses: analysis },
-    },
-  );
-  // if analysis already exist, no documents will be returned by above query
-  // so instead find and update existing analysis in DB
-  if (experimentSnapshotModel.matchedCount === 0) {
-    await updateSnapshotAnalysis({ organization, id, analysis });
-  }
+  const { context, organization, id, analysis } = params;
+  await mutateSnapshotAnalyses(context, organization, id, (analyses) => {
+    const existingIndex = analyses.findIndex((a) =>
+      isEqual(a.settings, analysis.settings),
+    );
+    if (existingIndex >= 0) {
+      analyses[existingIndex] = analysis;
+    } else {
+      analyses.push(analysis);
+    }
+  });
 }
 
 export async function updateSnapshotAnalysis({
+  context,
   organization,
   id,
   analysis,
-}: {
-  organization: string;
-  id: string;
-  analysis: ExperimentSnapshotAnalysis;
-}) {
-  await ExperimentSnapshotModel.updateOne(
-    {
-      organization,
-      id,
-      "analyses.settings": analysis.settings,
-    },
-    {
-      $set: { "analyses.$": analysis },
-    },
-  );
-
-  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
-    id,
-    organization,
+}: AddOrUpdateSnapshotAnalysisParams) {
+  await mutateSnapshotAnalyses(context, organization, id, (analyses) => {
+    const existingIndex = analyses.findIndex((a) =>
+      isEqual(a.settings, analysis.settings),
+    );
+    if (existingIndex >= 0) {
+      analyses[existingIndex] = analysis;
+    }
   });
-  if (!experimentSnapshotModel) throw "Internal error";
 
   // Not notifying on new analysis because new analyses in an existing snapshot
   // are akin to ad-hoc snapshots
-  // await notifyExperimentChange({
-  //   context,
-  //   snapshot: experimentSnapshotModel,
-  // });
 }
 
-export async function deleteSnapshotById(organization: string, id: string) {
-  await ExperimentSnapshotModel.deleteOne({ organization, id });
+export async function deleteSnapshotById(context: Context, id: string) {
+  await ExperimentSnapshotModel.deleteOne({
+    organization: context.org.id,
+    id,
+  });
+  await context.models.snapshotAnalysisOverflow.deleteForSnapshot(id);
 }
 
 export async function findSnapshotById(
-  organization: string,
+  context: Context,
   id: string,
 ): Promise<ExperimentSnapshotInterface | null> {
-  const doc = await ExperimentSnapshotModel.findOne({ organization, id });
-  return doc ? toInterface(doc) : null;
+  const doc = await ExperimentSnapshotModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+  if (!doc) return null;
+  return hydrateOverflowAnalyses(context, toInterface(doc));
 }
 
 export async function findSnapshotsByIds(
@@ -422,7 +540,7 @@ export async function findSnapshotsByIds(
     organization: context.org.id,
     id: { $in: ids },
   });
-  return docs.map(toInterface);
+  return hydrateOverflowAnalysesBatch(context, docs.map(toInterface));
 }
 
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
@@ -469,7 +587,7 @@ export async function findStalledRunningSnapshots(
 }
 
 export async function findLatestRunningSnapshotByReportId(
-  organization: string,
+  context: Context,
   report: string,
 ) {
   // Only look for match in the past 24 hours to make the query more efficient
@@ -478,17 +596,19 @@ export async function findLatestRunningSnapshotByReportId(
   earliestDate.setDate(earliestDate.getDate() - 1);
 
   const doc = await ExperimentSnapshotModel.findOne({
-    organization,
+    organization: context.org.id,
     report,
     status: "running",
     dateCreated: { $gt: earliestDate },
     queries: { $elemMatch: { status: "running" } },
   });
 
-  return doc ? toInterface(doc) : null;
+  if (!doc) return null;
+  return hydrateOverflowAnalyses(context, toInterface(doc));
 }
 
 export async function getLatestSnapshot({
+  context,
   experiment,
   phase,
   dimension,
@@ -496,6 +616,7 @@ export async function getLatestSnapshot({
   withResults = true,
   type,
 }: {
+  context: Context;
   experiment: string;
   phase: number;
   dimension?: string;
@@ -569,11 +690,11 @@ export async function getLatestSnapshot({
       ).exec();
 
       if (runningSnapshot) {
-        return toInterface(runningSnapshot);
+        return hydrateOverflowAnalyses(context, toInterface(runningSnapshot));
       }
     }
 
-    return toInterface(mostRecentSnapshot);
+    return hydrateOverflowAnalyses(context, toInterface(mostRecentSnapshot));
   }
 
   // Otherwise, try getting old snapshot records
@@ -586,11 +707,12 @@ export async function getLatestSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? toInterface(all[0]) : null;
+  return all[0] ? hydrateOverflowAnalyses(context, toInterface(all[0])) : null;
 }
 
 // Gets latest snapshots per experiment-phase pair
 export async function getLatestSnapshotMultipleExperiments(
+  context: Context,
   experimentPhaseMap: Map<string, number>,
   dimension?: string,
   withResults: boolean = true,
@@ -647,7 +769,7 @@ export async function getLatestSnapshotMultipleExperiments(
     });
   }
 
-  return snapshots;
+  return hydrateOverflowAnalysesBatch(context, snapshots);
 }
 
 export async function createExperimentSnapshotModel({

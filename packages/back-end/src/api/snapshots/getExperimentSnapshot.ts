@@ -7,7 +7,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 export const getExperimentSnapshot = createApiRequestHandler(
   getExperimentSnapshotValidator,
 )(async (req): Promise<GetExperimentSnapshotResponse> => {
-  const snapshot = await findSnapshotById(req.context.org.id, req.params.id);
+  const snapshot = await findSnapshotById(req.context, req.params.id);
   if (!snapshot) {
     throw new Error("Snapshot not found or no permission to access");
   }
