@@ -24,10 +24,15 @@ import {
   ToolStatusIcon,
   AIAnalystLabel,
 } from "@/enterprise/components/AIChat/AIChatPrimitives";
+import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
+import CollapsedSteps, {
+  type CollapsedStepItem,
+} from "@/enterprise/components/AIChat/CollapsedSteps";
 import ExplorationBubble, {
   chartDataFromToolResult,
   chartDataFromRecord,
 } from "./ExplorationBubble";
+import { useCollapsibleActiveTurnItems } from "./useCollapsibleActiveTurnItems";
 
 export const TOOL_STATUS_LABELS: Record<string, string> = {
   runExploration: "Running query...",
@@ -52,6 +57,60 @@ function groupIntoBlocks(
     }
   }
   return blocks;
+}
+
+/**
+ * Splits an assistant block's messages into pre-work (collapsible) and final
+ * content. Final content = the last assistant text message + any tool messages
+ * that produced charts. Everything else is pre-work.
+ */
+function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
+  preWork: AIChatMessage[];
+  finalContent: AIChatMessage[];
+} {
+  let lastTextMsgIdx = -1;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (
+      m.role === "assistant" &&
+      getMessageText(m).trim()
+    ) {
+      lastTextMsgIdx = i;
+      break;
+    }
+  }
+
+  const preWork: AIChatMessage[] = [];
+  const finalContent: AIChatMessage[] = [];
+
+  for (let i = 0; i < msgs.length; i++) {
+    const msg = msgs[i];
+
+    if (i === lastTextMsgIdx) {
+      finalContent.push(msg);
+      continue;
+    }
+
+    if (msg.role === "tool") {
+      const hasChart = msg.content.some(
+        (part) =>
+          part.toolName === "runExploration" &&
+          chartDataFromToolResult(part.result) !== null,
+      );
+      if (hasChart) {
+        finalContent.push(msg);
+        continue;
+      }
+    }
+
+    preWork.push(msg);
+  }
+
+  if (finalContent.length === 0) {
+    return { preWork: [], finalContent: msgs };
+  }
+
+  return { preWork, finalContent };
 }
 
 interface ChatMessageListProps {
@@ -96,6 +155,91 @@ export default function ChatMessageList({
   const lastBlockIsAssistant =
     messageBlocks.length > 0 &&
     messageBlocks[messageBlocks.length - 1].type === "assistant";
+
+  const { collapsedItems, visibleItems } = useCollapsibleActiveTurnItems(
+    activeTurnItems,
+    displayedTextMap,
+  );
+
+  // Preserve the user's expanded/collapsed toggle across the active→persisted
+  // transition so it doesn't snap shut when the turn ends.
+  const stepsExpandedRef = React.useRef(false);
+  const prevCollapsedCountRef = React.useRef(0);
+
+  // Detect the single render where collapsed active items transition to
+  // persisted messages (turn just ended). Only on that render do we carry the
+  // user's expanded state to the persisted CollapsedSteps.
+  const justFinishedTurn =
+    prevCollapsedCountRef.current > 0 && collapsedItems.length === 0;
+  prevCollapsedCountRef.current = collapsedItems.length;
+
+  // Reset the ref on all other renders where there are no collapsed items,
+  // so it doesn't leak to other conversations on navigation.
+  if (!justFinishedTurn && collapsedItems.length === 0) {
+    stepsExpandedRef.current = false;
+  }
+
+  const activeItemsToSteps = (items: ActiveTurnItem[]): CollapsedStepItem[] =>
+    items.flatMap((item): CollapsedStepItem[] => {
+      if (item.kind === "text") {
+        const content = displayedTextMap.get(item.id) ?? item.content;
+        if (!content) return [];
+        return [{ key: item.id, kind: "text", label: content }];
+      }
+      if (item.kind === "tool-status") {
+        return [
+          {
+            key: item.toolCallId,
+            kind: "tool",
+            label: item.label,
+            status: item.status,
+            details: (
+              <ToolUsageDetails
+                toolInput={item.toolInput}
+                argsTextPreview={item.argsTextPreview}
+                toolOutput={item.toolOutput}
+                toolCallId={item.toolCallId}
+                openStateRef={toolDetailsOpenRef}
+              />
+            ),
+          },
+        ];
+      }
+      return [];
+    });
+
+  const persistedPreWorkToSteps = (
+    preWork: AIChatMessage[],
+  ): CollapsedStepItem[] =>
+    preWork.flatMap((msg): CollapsedStepItem[] => {
+      if (msg.role === "assistant") {
+        const text = getMessageText(msg);
+        if (!text.trim()) return [];
+        return [{ key: msg.id, kind: "text", label: text }];
+      }
+      if (msg.role === "tool") {
+        return msg.content.map((part, i) => {
+          const pairedCall = findToolCallPart(messages, part);
+          return {
+            key: `${msg.id}-r${i}`,
+            kind: "tool" as const,
+            label:
+              TOOL_STATUS_LABELS[part.toolName] ??
+              toolResultPreviewLabel(part.result, part.toolName),
+            status: (part.isError ? "error" : "done") as "done" | "error",
+            details: (
+              <ToolUsageDetails
+                toolInput={pairedCall?.args}
+                toolOutput={part.result}
+                toolCallId={part.toolCallId}
+                openStateRef={toolDetailsOpenRef}
+              />
+            ),
+          };
+        });
+      }
+      return [];
+    });
 
   const renderActiveTurnItem = (item: ActiveTurnItem) => {
     if (item.kind === "text") {
@@ -305,20 +449,43 @@ export default function ChatMessageList({
       )}
 
       {messageBlocks.flatMap((block, blockIdx) => {
-        const renderedMsgs = block.msgs.flatMap((m) => {
-          const result = renderMessage(m);
-          if (Array.isArray(result)) return result;
-          return result != null ? [result] : [];
-        });
         if (block.type === "assistant") {
           const lastMsg = block.msgs[block.msgs.length - 1];
           const hasError = lastMsg.role === "assistant" && lastMsg.isError;
           const isLastBlock = blockIdx === messageBlocks.length - 1;
           const showFeedback = !hasError && !(isLastBlock && loading);
 
+          const { preWork, finalContent } = classifyAssistantBlockMessages(
+            block.msgs,
+          );
+
+          const renderMsgs = (msgs: AIChatMessage[]) =>
+            msgs.flatMap((m) => {
+              const result = renderMessage(m);
+              if (Array.isArray(result)) return result.filter(Boolean);
+              return result != null ? [result] : [];
+            });
+
+          const preWorkSteps = persistedPreWorkToSteps(preWork);
+          const finalRendered = renderMsgs(finalContent);
+
           return [
             <AIAnalystLabel key={`ai-label-${blockIdx}`} />,
-            ...renderedMsgs,
+            ...(preWorkSteps.length > 0
+              ? [
+                  <CollapsedSteps
+                    key={`collapsed-${blockIdx}`}
+                    count={preWorkSteps.length}
+                    items={preWorkSteps}
+                    defaultExpanded={
+                      isLastBlock && justFinishedTurn
+                        ? stepsExpandedRef.current
+                        : false
+                    }
+                  />,
+                ]
+              : []),
+            ...finalRendered,
             ...(showFeedback
               ? [
                   <AIChatFeedback
@@ -336,14 +503,42 @@ export default function ChatMessageList({
               : []),
           ];
         }
-        return renderedMsgs;
+
+        return block.msgs.flatMap((m) => {
+          const result = renderMessage(m);
+          if (Array.isArray(result)) return result;
+          return result != null ? [result] : [];
+        });
       })}
 
       {(activeTurnItems.length > 0 ||
         (loading && activeTurnItems.length === 0)) &&
         !lastBlockIsAssistant && <AIAnalystLabel />}
 
-      {activeTurnItems.map(renderActiveTurnItem)}
+      {collapsedItems.length > 0 && (
+        <CollapsedSteps
+          count={collapsedItems.length}
+          items={activeItemsToSteps(collapsedItems)}
+          onToggle={(v) => {
+            stepsExpandedRef.current = v;
+          }}
+        />
+      )}
+
+      {visibleItems.map(({ item, phase }) => {
+        const key =
+          item.kind === "tool-status" ? item.toolCallId : item.id;
+        const rendered = renderActiveTurnItem(item);
+        if (!rendered) return null;
+        return (
+          <div
+            key={key}
+            className={`${aiChatStyles.activeTurnItemWrapper}${phase === "fading" ? ` ${aiChatStyles.collapsingItem}` : ""}`}
+          >
+            {rendered}
+          </div>
+        );
+      })}
 
       {loading && activeTurnItems.length === 0 && (
         <ThinkingBubble

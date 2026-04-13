@@ -110,6 +110,27 @@
   }
 }
 
+@keyframes gb-ai-collapse-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.activeTurnItemWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.collapsingItem {
+  animation: gb-ai-collapse-out 350ms ease-out forwards;
+  pointer-events: none;
+}
+
 .userBubble {
   color: white;
 
@@ -120,5 +141,19 @@
   ::selection {
     background: rgba(255, 255, 255, 0.35);
     color: #fff;
+  }
+}
+
+.collapsedToggle {
+  &:hover {
+    color: var(--gray-12);
+  }
+}
+
+.collapsedContent {
+  pre {
+    background: var(--gray-a3) !important;
+    width: fit-content;
+    max-width: 100%;
   }
 }
