@@ -579,6 +579,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
       "GeneralDashboardsFullAccess",
+      "FeaturesBypassApprovals",
       "ProjectAdminAccess",
     ],
   },

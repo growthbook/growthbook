@@ -54,7 +54,7 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
 
   const segmentData = {
     name: req.body.name,
-    owner: req.context.userId || "",
+    owner: req.body.owner || "",
     description: req.body.description || "",
     userIdType: req.body.identifierType,
     sql: req.body.query,

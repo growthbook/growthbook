@@ -7,7 +7,7 @@ import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: watchSchema,
-  pKey: ["userId", "organization"],
+  pKey: ["userId", "organization"] as const,
   collectionName: "watches",
   idPrefix: "watch_",
   readonlyFields: [],

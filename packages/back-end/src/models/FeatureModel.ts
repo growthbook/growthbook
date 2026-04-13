@@ -20,6 +20,7 @@ import {
   RevisionRampAction,
   RampStepAction,
 } from "shared/validators";
+import { UpdateProps } from "shared/types/base-model";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -1161,7 +1162,7 @@ const updateSafeRolloutStatuses = async (
 
   safeRollouts.forEach((safeRollout) => {
     // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+    const safeRolloutUpdates: UpdateProps<SafeRolloutInterface> = {
       status: safeRolloutStatusesMap[safeRollout.id].status,
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {

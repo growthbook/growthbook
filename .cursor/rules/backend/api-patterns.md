@@ -138,6 +138,78 @@ This auto-generates routes like:
 
 Add the model class to the `API_MODELS` array in `src/api/api.router.ts`.
 
+#### Step 4: Implement `toApiInterface`
+
+Any model that sets `apiConfig` **must** implement `toApiInterface` to convert internal documents to the API response shape. Without it, any changes to the internal model will immediately be exposed to the API, potentially breaking the API contract.
+
+```typescript
+export class MyResourceModel extends BaseClass {
+  // ... permission methods ...
+
+  protected toApiInterface(doc: MyResourceInterface): ApiMyResource {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      name: doc.name,
+      // ... map all fields required by ApiMyResource
+    };
+  }
+}
+```
+
+#### Overriding standard CRUD handlers
+
+The default `handleApiGet`, `handleApiCreate`, `handleApiList`, `handleApiDelete`, and `handleApiUpdate` implementations call `toApiInterface` and handle the basics. Override them when you need custom logic (e.g., a non-standard fetch, derived fields, or side effects).
+
+Use `override` and derive the `req` type from the base class so it stays in sync with the validator automatically:
+
+```typescript
+export class MyResourceModel extends BaseClass {
+  public override async handleApiGet(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiGet"]>[0],
+  ): Promise<ApiMyResource> {
+    // req.params.id is typed correctly from the validator
+    const doc = await this.getBySlug(req.params.id);
+    if (!doc) req.context.throwNotFoundError();
+    return this.toApiInterface(doc);
+  }
+}
+```
+
+#### Customizing validator schemas with `crudValidatorOverrides`
+
+Use `crudValidatorOverrides` in the spec when a standard CRUD action needs a non-default schema — most commonly to add query parameters to `delete` or `list`. Define the validator in the spec file so it's available for both doc generation and type inference in the model.
+
+```typescript
+// In src/api/specs/my-resource.spec.ts
+export const apiDeleteMyResourceValidator = {
+  paramsSchema: z.object({ id: z.string() }).strict(),
+  bodySchema: z.never(),
+  querySchema: z.strictObject({ permanent: z.boolean().optional() }),
+};
+
+export const myResourceApiSpec = {
+  // ...
+  crudValidatorOverrides: {
+    delete: apiDeleteMyResourceValidator,
+  },
+} satisfies OpenApiModelSpec;
+
+// In src/models/MyResourceModel.ts — req.query is now typed from the validator
+export class MyResourceModel extends BaseClass {
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
+  ): Promise<string> {
+    const permanent = req.query.permanent; // typed as boolean | undefined
+    await this.deleteResource(req.params.id, permanent);
+    return req.params.id;
+  }
+}
+```
+
+**How it works:** `MakeModelClass` infers the `crudValidatorOverrides` type from the spec and threads it through to `BaseModel`, where `handleApi*` method signatures automatically reflect the override schemas. The `Parameters<InstanceType<typeof BaseClass>["handleApi*"]>[0]` pattern in the override picks up these concrete types without requiring manual annotation.
+
 #### Custom endpoints
 
 For endpoints beyond standard CRUD, define endpoint specs in the spec file and handlers in the model:
