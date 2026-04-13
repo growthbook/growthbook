@@ -57,7 +57,7 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
+  const snapshot = await findSnapshotById(org.id, req.params.snapshot, context);
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
@@ -263,8 +263,11 @@ export async function getReportPublic(
 
   const snapshot =
     report.type === "experiment-snapshot"
-      ? (await findSnapshotById(report.organization, report.snapshot)) ||
-        undefined
+      ? (await findSnapshotById(
+          report.organization,
+          report.snapshot,
+          context,
+        )) || undefined
       : undefined;
 
   const _experiment = report.experimentId
@@ -352,7 +355,7 @@ export async function refreshReport(
     }
 
     const snapshot =
-      (await findSnapshotById(report.organization, report.snapshot)) ||
+      (await findSnapshotById(report.organization, report.snapshot, context)) ||
       undefined;
 
     try {

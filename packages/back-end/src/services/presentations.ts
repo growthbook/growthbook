@@ -41,6 +41,7 @@ export async function getPresentationSnapshots(
     const snapshot = await getLatestSnapshot({
       experiment: experiment.id,
       phase,
+      context,
     });
     withSnapshots.push({
       experiment,

@@ -1890,6 +1890,7 @@ export async function _getSnapshots(
     experimentPhaseMap,
     dimension,
     withResults,
+    context,
   );
 }
 
@@ -1962,6 +1963,7 @@ async function getSnapshotAnalyses(
           organization: organization.id,
           id: snapshot.id,
           analysis,
+          context,
         }),
       );
 
@@ -2031,7 +2033,7 @@ export async function createSnapshotAnalyses(
   );
 
   // parses results and writes to mongo
-  await writeSnapshotAnalyses(results, analysisParamsMap);
+  await writeSnapshotAnalyses(results, analysisParamsMap, context);
 }
 
 export async function createSnapshotAnalysis(
@@ -2063,6 +2065,7 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
+    context,
   });
 
   // Format data correctly
@@ -2084,6 +2087,7 @@ export async function createSnapshotAnalysis(
     organization: organization.id,
     id: snapshot.id,
     analysis,
+    context,
   });
 }
 

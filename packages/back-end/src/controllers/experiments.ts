@@ -247,6 +247,7 @@ export async function postAIExperimentAnalysis(
       experiment: experiment.id,
       phase,
       type: "standard",
+      context,
     })) || undefined;
 
   const allVariations = getAllVariations(experiment);
@@ -824,6 +825,7 @@ export async function getExperimentPublic(
       experiment: experiment.id,
       phase,
       type: "standard",
+      context,
     })) || undefined;
 
   const visualChangesets = await findVisualChangesetsByExperiment(
@@ -891,6 +893,7 @@ async function _getSnapshot({
     dimension,
     withResults,
     type,
+    context,
   });
 }
 
@@ -975,7 +978,7 @@ export async function getSnapshotById(
 
   const { id } = req.params;
 
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(org.id, id, context);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2810,7 +2813,7 @@ export async function cancelSnapshot(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(org.id, id, context);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2942,7 +2945,7 @@ export async function postSnapshotAnalysis(
   const { org } = context;
 
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await findSnapshotById(org.id, id, context);
   if (!snapshot) {
     res.status(404).json({
       status: 404,

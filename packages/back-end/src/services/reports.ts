@@ -463,6 +463,7 @@ export async function createReportSnapshot({
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
+        context,
       })) || undefined;
     if (!snapshotData)
       throw new Error("Unable to create snapshot for report: no data");

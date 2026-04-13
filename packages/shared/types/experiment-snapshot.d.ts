@@ -232,6 +232,7 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  hasChunkedResults?: boolean;
   banditResult?: BanditResult;
 
   health?: ExperimentSnapshotHealth;

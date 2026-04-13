@@ -20,6 +20,7 @@ export const getExperimentResults = createApiRequestHandler(
     phase,
     dimension: req.query.dimension,
     withResults: true,
+    context: req.context,
   });
 
   if (!snapshot) {
