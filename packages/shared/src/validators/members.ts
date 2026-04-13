@@ -19,21 +19,12 @@ export const apiMemberValidator = z
           role: z.string(),
           limitAccessByEnvironment: z.boolean(),
           environments: z.array(z.string()),
-        })
+        }),
       )
       .optional(),
-    lastLoginDate: z
-      .string()
-      .meta({ format: "date-time" })
-      .optional(),
-    dateCreated: z
-      .string()
-      .meta({ format: "date-time" })
-      .optional(),
-    dateUpdated: z
-      .string()
-      .meta({ format: "date-time" })
-      .optional(),
+    lastLoginDate: z.string().meta({ format: "date-time" }).optional(),
+    dateCreated: z.string().meta({ format: "date-time" }).optional(),
+    dateUpdated: z.string().meta({ format: "date-time" }).optional(),
   })
   .strict();
 
@@ -50,7 +41,7 @@ const updateMemberRoleBody = z
             role: z.string(),
             environments: z.array(z.string()),
             limitAccessByEnvironment: z.boolean().optional(),
-          })
+          }),
         )
         .optional(),
     }),
@@ -71,14 +62,16 @@ export const listMembersValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
-          "How many items to skip (use in conjunction with limit for pagination)"
+          "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
+        .optional()
+        .meta({ default: 0 }),
       userName: z.string().describe("Name of the user.").optional(),
       userEmail: z.string().describe("Email address of the user.").optional(),
       globalRole: z.string().describe("Name of the global role").optional(),
@@ -89,7 +82,7 @@ export const listMembersValidator = {
     z.object({
       members: z.array(apiMemberValidator),
     }),
-    apiPaginationFieldsValidator
+    apiPaginationFieldsValidator,
   ),
   summary: "Get all organization members",
   operationId: "listMembers",
@@ -121,23 +114,22 @@ export const updateMemberRoleValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      updatedMember: z
-        .object({
-          id: z.string(),
-          role: z.string(),
-          environments: z.array(z.string()),
-          limitAccessByEnvironment: z.boolean(),
-          projectRoles: z
-            .array(
-              z.object({
-                project: z.string(),
-                role: z.string(),
-                limitAccessByEnvironment: z.boolean(),
-                environments: z.array(z.string()),
-              })
-            )
-            .optional(),
-        }),
+      updatedMember: z.object({
+        id: z.string(),
+        role: z.string(),
+        environments: z.array(z.string()),
+        limitAccessByEnvironment: z.boolean(),
+        projectRoles: z
+          .array(
+            z.object({
+              project: z.string(),
+              role: z.string(),
+              limitAccessByEnvironment: z.boolean(),
+              environments: z.array(z.string()),
+            }),
+          )
+          .optional(),
+      }),
     })
     .strict(),
   summary:

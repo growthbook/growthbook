@@ -66,10 +66,7 @@ export const apiOrganizationValidator = z
       .meta({ format: "date-time" })
       .describe("The date the organization was created")
       .optional(),
-    name: z
-      .string()
-      .describe("The name of the organization")
-      .optional(),
+    name: z.string().describe("The name of the organization").optional(),
     ownerEmail: z
       .string()
       .describe("The email address of the organization owner")
@@ -93,10 +90,7 @@ const postOrganizationBody = z
 // Corresponds to payload-schemas/PutOrganizationPayload.yaml
 const putOrganizationBody = z
   .object({
-    name: z
-      .string()
-      .describe("The name of the organization")
-      .optional(),
+    name: z.string().describe("The name of the organization").optional(),
     externalId: z
       .string()
       .describe(
@@ -126,14 +120,16 @@ export const listOrganizationsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
+        .optional()
+        .meta({ default: 0 }),
     })
     .strict(),
   paramsSchema: z.never(),

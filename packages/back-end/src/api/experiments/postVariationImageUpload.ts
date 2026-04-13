@@ -25,11 +25,17 @@ const postVariationImageUploadValidator = {
     .strict(),
   bodySchema: z
     .object({
-      screenshot: z.string().meta({ contentEncoding: "base64" }).describe("Base64-encoded screenshot data"),
+      screenshot: z
+        .string()
+        .meta({ contentEncoding: "base64" })
+        .describe("Base64-encoded screenshot data"),
       contentType: z
         .enum(["image/png", "image/jpeg", "image/gif"])
         .describe("MIME type of the screenshot"),
-      description: z.string().describe("Optional description for the screenshot").optional(),
+      description: z
+        .string()
+        .describe("Optional description for the screenshot")
+        .optional(),
     })
     .strict(),
   querySchema: z.never(),

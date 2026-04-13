@@ -6,7 +6,7 @@ import {
   savedGroupTargeting,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerField } from "./owner-field";
+import { ownerField, ownerInputField } from "./owner-field";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -403,7 +403,6 @@ export type ExperimentInterfaceExcludingHoldouts = Omit<
 // ---------------------------------------------------------------------------
 
 import { apiPaginationFieldsValidator } from "./openapi";
-import { ownerInputField } from "./owner-field";
 
 // Corresponds to schemas/ExperimentMetric.yaml
 const apiExperimentMetricOverrides = z.object({
@@ -489,9 +488,7 @@ export const apiExperimentDecisionFrameworkSettingsValidator = z
     decisionFrameworkMetricOverrides: z
       .array(
         z.object({
-          id: z
-            .string()
-            .describe("ID of the metric to override settings for."),
+          id: z.string().describe("ID of the metric to override settings for."),
           targetMDE: z.coerce
             .number()
             .gt(0)
@@ -589,9 +586,7 @@ export const apiExperimentAnalysisSettingsValidator = z
     sequentialTestingTuningParameter: z.coerce.number().optional(),
     postStratificationEnabled: z
       .union([
-        z
-          .boolean()
-          .describe("When null, the organization default is used."),
+        z.boolean().describe("When null, the organization default is used."),
         z.null().describe("When null, the organization default is used."),
       ])
       .describe("When null, the organization default is used.")
@@ -733,46 +728,43 @@ export const apiExperimentValidator = z
   .strict();
 
 // Analysis settings variant for getExperiment (no deprecated meta on risk thresholds)
-const apiExperimentAnalysisSettingsNonDeprecated = z
-  .object({
-    datasourceId: z.string(),
-    assignmentQueryId: z.string(),
-    experimentId: z.string(),
-    segmentId: z.string(),
-    queryFilter: z.string(),
-    inProgressConversions: z.enum(["include", "exclude"]),
-    attributionModel: z
-      .enum(["firstExposure", "experimentDuration", "lookbackOverride"])
-      .describe(
-        'Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.',
-      ),
-    lookbackOverride: apiLookbackOverride.optional(),
-    statsEngine: z.enum(["bayesian", "frequentist"]),
-    regressionAdjustmentEnabled: z.boolean().optional(),
-    sequentialTestingEnabled: z.boolean().optional(),
-    sequentialTestingTuningParameter: z.coerce.number().optional(),
-    postStratificationEnabled: z
-      .union([
-        z
-          .boolean()
-          .describe("When null, the organization default is used."),
-        z.null().describe("When null, the organization default is used."),
-      ])
-      .describe("When null, the organization default is used.")
-      .optional(),
-    decisionFrameworkSettings:
-      apiExperimentDecisionFrameworkSettingsValidator.optional(),
-    metricOverrides: z
-      .array(apiExperimentMetricOverrideEntryValidator)
-      .describe(
-        "Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).",
-      )
-      .optional(),
-    goals: z.array(apiExperimentMetricNonDeprecated),
-    secondaryMetrics: z.array(apiExperimentMetricNonDeprecated),
-    guardrails: z.array(apiExperimentMetricNonDeprecated),
-    activationMetric: apiExperimentMetricNonDeprecated.optional(),
-  });
+const apiExperimentAnalysisSettingsNonDeprecated = z.object({
+  datasourceId: z.string(),
+  assignmentQueryId: z.string(),
+  experimentId: z.string(),
+  segmentId: z.string(),
+  queryFilter: z.string(),
+  inProgressConversions: z.enum(["include", "exclude"]),
+  attributionModel: z
+    .enum(["firstExposure", "experimentDuration", "lookbackOverride"])
+    .describe(
+      'Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. Setting it to `"lookbackOverride"` requires a `lookbackOverride` object to be provided.',
+    ),
+  lookbackOverride: apiLookbackOverride.optional(),
+  statsEngine: z.enum(["bayesian", "frequentist"]),
+  regressionAdjustmentEnabled: z.boolean().optional(),
+  sequentialTestingEnabled: z.boolean().optional(),
+  sequentialTestingTuningParameter: z.coerce.number().optional(),
+  postStratificationEnabled: z
+    .union([
+      z.boolean().describe("When null, the organization default is used."),
+      z.null().describe("When null, the organization default is used."),
+    ])
+    .describe("When null, the organization default is used.")
+    .optional(),
+  decisionFrameworkSettings:
+    apiExperimentDecisionFrameworkSettingsValidator.optional(),
+  metricOverrides: z
+    .array(apiExperimentMetricOverrideEntryValidator)
+    .describe(
+      "Per-metric analysis overrides; also reflected in goals/secondaryMetrics/guardrails overrides when applicable. On create/update, this replaces the entire stored array (it does not patch individual entries).",
+    )
+    .optional(),
+  goals: z.array(apiExperimentMetricNonDeprecated),
+  secondaryMetrics: z.array(apiExperimentMetricNonDeprecated),
+  guardrails: z.array(apiExperimentMetricNonDeprecated),
+  activationMetric: apiExperimentMetricNonDeprecated.optional(),
+});
 
 // Experiment object for getExperiment (with non-deprecated risk thresholds)
 const apiExperimentNonDeprecated = z.object({
@@ -906,9 +898,7 @@ const apiDecisionFrameworkSettingsInput = z
     decisionFrameworkMetricOverrides: z
       .array(
         z.object({
-          id: z
-            .string()
-            .describe("ID of the metric to override settings for."),
+          id: z.string().describe("ID of the metric to override settings for."),
           targetMDE: z
             .number()
             .gt(0)
@@ -1050,10 +1040,7 @@ const postExperimentBody = z
         "ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.",
       )
       .optional(),
-    hypothesis: z
-      .string()
-      .describe("Hypothesis of the experiment")
-      .optional(),
+    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
     description: z
       .string()
       .describe("Description of the experiment")
@@ -1064,9 +1051,7 @@ const postExperimentBody = z
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z
       .string()
-      .describe(
-        "Users must convert on this metric before being included",
-      )
+      .describe("Users must convert on this metric before being included")
       .optional(),
     segmentId: z
       .string()
@@ -1119,15 +1104,12 @@ const postExperimentBody = z
     banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
     postStratificationEnabled: z
       .union([
-        z
-          .boolean()
-          .describe("When null, the organization default is used."),
+        z.boolean().describe("When null, the organization default is used."),
         z.null().describe("When null, the organization default is used."),
       ])
       .describe("When null, the organization default is used.")
       .optional(),
-    decisionFrameworkSettings:
-      apiDecisionFrameworkSettingsInput.optional(),
+    decisionFrameworkSettings: apiDecisionFrameworkSettingsInput.optional(),
     metricOverrides: z
       .array(apiMetricOverrideEntryInput)
       .describe(
@@ -1166,10 +1148,7 @@ const updateExperimentBody = z
       .string()
       .describe("Project ID which the experiment belongs to")
       .optional(),
-    hypothesis: z
-      .string()
-      .describe("Hypothesis of the experiment")
-      .optional(),
+    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
     description: z
       .string()
       .describe("Description of the experiment")
@@ -1180,9 +1159,7 @@ const updateExperimentBody = z
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z
       .string()
-      .describe(
-        "Users must convert on this metric before being included",
-      )
+      .describe("Users must convert on this metric before being included")
       .optional(),
     segmentId: z
       .string()
@@ -1247,10 +1224,7 @@ const updateExperimentBody = z
         z.object({
           name: z.string(),
           dateStarted: z.string().meta({ format: "date-time" }),
-          dateEnded: z
-            .string()
-            .meta({ format: "date-time" })
-            .optional(),
+          dateEnded: z.string().meta({ format: "date-time" }).optional(),
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
           coverage: z.number().optional(),
@@ -1314,15 +1288,12 @@ const updateExperimentBody = z
     banditConversionWindowUnit: z.enum(["days", "hours"]).optional(),
     postStratificationEnabled: z
       .union([
-        z
-          .boolean()
-          .describe("When null, the organization default is used."),
+        z.boolean().describe("When null, the organization default is used."),
         z.null().describe("When null, the organization default is used."),
       ])
       .describe("When null, the organization default is used.")
       .optional(),
-    decisionFrameworkSettings:
-      apiDecisionFrameworkSettingsInput.optional(),
+    decisionFrameworkSettings: apiDecisionFrameworkSettingsInput.optional(),
     metricOverrides: z
       .array(apiMetricOverrideEntryInput)
       .describe(
@@ -1368,22 +1339,18 @@ export const listExperimentsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
-      datasourceId: z
-        .string()
-        .describe("Filter by Data Source")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      projectId: z.string().describe("Filter by project id").optional(),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
       experimentId: z
         .string()
         .describe(
@@ -1394,10 +1361,9 @@ export const listExperimentsValidator = {
     .strict(),
   paramsSchema: z.never(),
   responseSchema: z.intersection(
-    z
-      .object({
-        experiments: z.array(apiExperimentValidator),
-      }),
+    z.object({
+      experiments: z.array(apiExperimentValidator),
+    }),
     apiPaginationFieldsValidator,
   ),
   summary: "Get all experiments",
@@ -1427,10 +1393,7 @@ export const getExperimentNamesValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
+      projectId: z.string().describe("Filter by project id").optional(),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -1498,9 +1461,7 @@ export const postExperimentSnapshotValidator = {
   querySchema: z.never(),
   paramsSchema: z
     .object({
-      id: z
-        .string()
-        .describe("The experiment id of the experiment to update"),
+      id: z.string().describe("The experiment id of the experiment to update"),
     })
     .strict(),
   responseSchema: z
@@ -1537,12 +1498,8 @@ export const postVariationImageUploadValidator = {
   responseSchema: z
     .object({
       screenshot: z.object({
-        path: z
-          .string()
-          .describe("URL or path to the uploaded screenshot"),
-        description: z
-          .string()
-          .describe("Description of the screenshot"),
+        path: z.string().describe("URL or path to the uploaded screenshot"),
+        description: z.string().describe("Description of the screenshot"),
       }),
     })
     .strict(),
@@ -1564,9 +1521,7 @@ export const deleteVariationScreenshotValidator = {
     .object({
       path: z
         .string()
-        .describe(
-          "The screenshot path/URL to delete (from upload response)",
-        ),
+        .describe("The screenshot path/URL to delete (from upload response)"),
     })
     .strict(),
   querySchema: z.never(),

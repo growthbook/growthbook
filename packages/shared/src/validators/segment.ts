@@ -79,9 +79,7 @@ const postSegmentBody = z
       .describe("Type of identifier (user, anonymous, etc.)"),
     projects: z
       .array(z.string())
-      .describe(
-        "List of project IDs for projects that can access this segment",
-      )
+      .describe("List of project IDs for projects that can access this segment")
       .optional(),
     managedBy: z
       .enum(["", "api"])
@@ -132,26 +130,24 @@ export const listSegmentsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      datasourceId: z
-        .string()
-        .describe("Filter by Data Source")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
     })
     .strict(),
   paramsSchema: z.never(),
   responseSchema: z.intersection(
-    z
-      .object({
-        segments: z.array(apiSegmentValidator),
-      }),
+    z.object({
+      segments: z.array(apiSegmentValidator),
+    }),
     apiPaginationFieldsValidator,
   ),
   summary: "Get all segments",
@@ -229,9 +225,7 @@ export const deleteSegmentValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted segment"),
+      deletedId: z.string().describe("The ID of the deleted segment"),
     })
     .strict(),
   summary: "Deletes a single segment",

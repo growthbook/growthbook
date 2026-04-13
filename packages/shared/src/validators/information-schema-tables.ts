@@ -32,11 +32,11 @@ export const apiInformationSchemaValidator = z
                 numOfColumns: z.coerce.number(),
                 dateCreated: z.string().meta({ format: "date-time" }),
                 dateUpdated: z.string().meta({ format: "date-time" }),
-              })
+              }),
             ),
-          })
+          }),
         ),
-      })
+      }),
     ),
     dateCreated: z.string().meta({ format: "date-time" }),
     dateUpdated: z.string().meta({ format: "date-time" }),
@@ -56,7 +56,7 @@ export const apiInformationSchemaTableValidator = z
       z.object({
         columnName: z.string(),
         dataType: z.string(),
-      })
+      }),
     ),
     refreshMS: z.coerce.number(),
     dateCreated: z.string().meta({ format: "date-time" }),
@@ -66,17 +66,13 @@ export const apiInformationSchemaTableValidator = z
 
 const dataSourceIdParams = z
   .object({
-    dataSourceId: z
-      .string()
-      .describe("The id of the data source"),
+    dataSourceId: z.string().describe("The id of the data source"),
   })
   .strict();
 
 const tableIdParams = z
   .object({
-    tableId: z
-      .string()
-      .describe("The id of the information schema table"),
+    tableId: z.string().describe("The id of the information schema table"),
   })
   .strict();
 

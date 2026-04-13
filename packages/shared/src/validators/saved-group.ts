@@ -112,10 +112,7 @@ const postSavedGroupBody = z
 // Update body from updateSavedGroup.yaml requestBody
 const updateSavedGroupBody = z
   .object({
-    name: z
-      .string()
-      .describe("The display name of the Saved Group")
-      .optional(),
+    name: z.string().describe("The display name of the Saved Group").optional(),
     condition: z
       .string()
       .describe(
@@ -147,14 +144,16 @@ export const listSavedGroupsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
+        .optional()
+        .meta({ default: 0 }),
     })
     .strict(),
   paramsSchema: z.never(),

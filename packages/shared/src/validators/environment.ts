@@ -68,7 +68,7 @@ const postEnvironmentBody = z
     parent: z
       .string()
       .describe(
-        "An environment that the new environment should inherit feature rules from. Requires an enterprise license"
+        "An environment that the new environment should inherit feature rules from. Requires an enterprise license",
       )
       .optional(),
   })

@@ -26,7 +26,7 @@ type ApiShape = {
   tags: ApiTag[];
   paths: Record<string, ApiPaths>;
   components: {
-    schemas: Record<string, object>;
+    schemas?: Record<string, object>;
   };
   "x-tagGroups"?: Array<{
     name: string;
@@ -232,6 +232,7 @@ async function run() {
     );
     const schema = z.toJSONSchema(spec.apiInterface);
     schema.$skipValidatorGeneration = true;
+    api.components.schemas ||= {};
     api.components.schemas[singularCapitalized] = schema;
   });
 

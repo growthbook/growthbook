@@ -218,10 +218,6 @@ paths:
     get:
       operationId: listFeatures
       summary: Get all features
-      description: >-
-        Returns features with pagination. The skipPagination query parameter is
-        honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted
-        deployments).
       tags:
         - features
       parameters:
@@ -373,12 +369,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -455,12 +445,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -554,12 +538,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -648,12 +626,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -756,12 +728,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -838,12 +804,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -937,12 +897,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -1031,12 +985,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -1236,12 +1184,6 @@ paths:
                                                   this rule
                                                 type: array
                                                 items:
-                                                  description: >-
-                                                    An array of schedule rules to turn
-                                                    on/off a feature rule at specific times.
-                                                    The array must contain exactly 2
-                                                    elements (start rule and end rule). The
-                                                    first element is the start rule.
                                                   type: object
                                                   properties:
                                                     enabled:
@@ -1350,12 +1292,6 @@ paths:
                                                   this rule
                                                 type: array
                                                 items:
-                                                  description: >-
-                                                    An array of schedule rules to turn
-                                                    on/off a feature rule at specific times.
-                                                    The array must contain exactly 2
-                                                    elements (start rule and end rule). The
-                                                    first element is the start rule.
                                                   type: object
                                                   properties:
                                                     enabled:
@@ -1477,12 +1413,6 @@ paths:
                                                   this rule
                                                 type: array
                                                 items:
-                                                  description: >-
-                                                    An array of schedule rules to turn
-                                                    on/off a feature rule at specific times.
-                                                    The array must contain exactly 2
-                                                    elements (start rule and end rule). The
-                                                    first element is the start rule.
                                                   type: object
                                                   properties:
                                                     enabled:
@@ -1638,12 +1568,6 @@ paths:
                                                   this rule
                                                 type: array
                                                 items:
-                                                  description: >-
-                                                    An array of schedule rules to turn
-                                                    on/off a feature rule at specific times.
-                                                    The array must contain exactly 2
-                                                    elements (start rule and end rule). The
-                                                    first element is the start rule.
                                                   type: object
                                                   properties:
                                                     enabled:
@@ -1766,12 +1690,6 @@ paths:
                                                   this rule
                                                 type: array
                                                 items:
-                                                  description: >-
-                                                    An array of schedule rules to turn
-                                                    on/off a feature rule at specific times.
-                                                    The array must contain exactly 2
-                                                    elements (start rule and end rule). The
-                                                    first element is the start rule.
                                                   type: object
                                                   properties:
                                                     enabled:
@@ -1914,12 +1832,6 @@ paths:
                                                       this rule
                                                     type: array
                                                     items:
-                                                      description: >-
-                                                        An array of schedule rules to turn
-                                                        on/off a feature rule at specific times.
-                                                        The array must contain exactly 2
-                                                        elements (start rule and end rule). The
-                                                        first element is the start rule.
                                                       type: object
                                                       properties:
                                                         enabled:
@@ -2028,12 +1940,6 @@ paths:
                                                       this rule
                                                     type: array
                                                     items:
-                                                      description: >-
-                                                        An array of schedule rules to turn
-                                                        on/off a feature rule at specific times.
-                                                        The array must contain exactly 2
-                                                        elements (start rule and end rule). The
-                                                        first element is the start rule.
                                                       type: object
                                                       properties:
                                                         enabled:
@@ -2155,12 +2061,6 @@ paths:
                                                       this rule
                                                     type: array
                                                     items:
-                                                      description: >-
-                                                        An array of schedule rules to turn
-                                                        on/off a feature rule at specific times.
-                                                        The array must contain exactly 2
-                                                        elements (start rule and end rule). The
-                                                        first element is the start rule.
                                                       type: object
                                                       properties:
                                                         enabled:
@@ -2316,12 +2216,6 @@ paths:
                                                       this rule
                                                     type: array
                                                     items:
-                                                      description: >-
-                                                        An array of schedule rules to turn
-                                                        on/off a feature rule at specific times.
-                                                        The array must contain exactly 2
-                                                        elements (start rule and end rule). The
-                                                        first element is the start rule.
                                                       type: object
                                                       properties:
                                                         enabled:
@@ -2444,12 +2338,6 @@ paths:
                                                       this rule
                                                     type: array
                                                     items:
-                                                      description: >-
-                                                        An array of schedule rules to turn
-                                                        on/off a feature rule at specific times.
-                                                        The array must contain exactly 2
-                                                        elements (start rule and end rule). The
-                                                        first element is the start rule.
                                                       type: object
                                                       properties:
                                                         enabled:
@@ -2688,12 +2576,6 @@ paths:
                                                     this rule
                                                   type: array
                                                   items:
-                                                    description: >-
-                                                      An array of schedule rules to turn
-                                                      on/off a feature rule at specific times.
-                                                      The array must contain exactly 2
-                                                      elements (start rule and end rule). The
-                                                      first element is the start rule.
                                                     type: object
                                                     properties:
                                                       enabled:
@@ -2802,12 +2684,6 @@ paths:
                                                     this rule
                                                   type: array
                                                   items:
-                                                    description: >-
-                                                      An array of schedule rules to turn
-                                                      on/off a feature rule at specific times.
-                                                      The array must contain exactly 2
-                                                      elements (start rule and end rule). The
-                                                      first element is the start rule.
                                                     type: object
                                                     properties:
                                                       enabled:
@@ -2929,12 +2805,6 @@ paths:
                                                     this rule
                                                   type: array
                                                   items:
-                                                    description: >-
-                                                      An array of schedule rules to turn
-                                                      on/off a feature rule at specific times.
-                                                      The array must contain exactly 2
-                                                      elements (start rule and end rule). The
-                                                      first element is the start rule.
                                                     type: object
                                                     properties:
                                                       enabled:
@@ -3090,12 +2960,6 @@ paths:
                                                     this rule
                                                   type: array
                                                   items:
-                                                    description: >-
-                                                      An array of schedule rules to turn
-                                                      on/off a feature rule at specific times.
-                                                      The array must contain exactly 2
-                                                      elements (start rule and end rule). The
-                                                      first element is the start rule.
                                                     type: object
                                                     properties:
                                                       enabled:
@@ -3218,12 +3082,6 @@ paths:
                                                     this rule
                                                   type: array
                                                   items:
-                                                    description: >-
-                                                      An array of schedule rules to turn
-                                                      on/off a feature rule at specific times.
-                                                      The array must contain exactly 2
-                                                      elements (start rule and end rule). The
-                                                      first element is the start rule.
                                                     type: object
                                                     properties:
                                                       enabled:
@@ -3457,17 +3315,6 @@ paths:
     post:
       operationId: updateFeature
       summary: Partially update a feature
-      description: >-
-        Updates any combination of a feature's metadata (description, owner,
-        tags, project), default value, environment settings (rules, kill
-        switches, enabled state), prerequisites, holdout assignment, or JSON
-        schema validation. All provided fields are merged into the existing
-        feature and the result is immediately published as a new revision.
-
-
-        Returns 403 if the API key lacks permission or if approval rules are
-        enabled for an affected environment and the org setting "REST API always
-        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -3545,12 +3392,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -3627,12 +3468,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -3726,12 +3561,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -3820,12 +3649,6 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -3928,12 +3751,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -4010,12 +3827,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -4109,12 +3920,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -4203,12 +4008,6 @@ paths:
                                     scheduleRules:
                                       type: array
                                       items:
-                                        description: >-
-                                          An array of schedule rules to turn
-                                          on/off a feature rule at specific times.
-                                          The array must contain exactly 2
-                                          elements (start rule and end rule). The
-                                          first element is the start rule.
                                         type: object
                                         properties:
                                           enabled:
@@ -4337,14 +4136,6 @@ paths:
     delete:
       operationId: deleteFeature
       summary: Deletes a single feature
-      description: >-
-        Permanently deletes a feature and all of its revisions.
-
-
-        Archived features can be deleted freely. Deleting a live (non-archived)
-        feature returns 403 unless the org setting "REST API always bypasses
-        approval requirements" is enabled, or the API key lacks delete
-        permission.
       tags:
         - features
       parameters:
@@ -4358,10 +4149,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted feature
-                    example: feature-123
                     type: string
-                required:
-                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -4372,15 +4160,6 @@ paths:
     post:
       operationId: toggleFeature
       summary: Toggle a feature in one or more environments
-      description: >-
-        Enables or disables a feature in one or more environments
-        simultaneously. Accepts a map of environment name → boolean and
-        immediately publishes the change.
-
-
-        Returns 403 if the API key lacks permission or if approval rules are
-        enabled for an affected environment and the org setting "REST API always
-        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -4445,15 +4224,6 @@ paths:
     post:
       operationId: revertFeature
       summary: Revert a feature to a specific revision
-      description: >-
-        Creates a new revision whose rules and values match a
-        previously-published revision, then immediately publishes it. This
-        leaves a clear audit trail of the revert action in the revision history.
-
-
-        Returns 403 if the API key lacks permission or if approval rules are
-        enabled for an affected environment and the org setting "REST API always
-        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -5544,8 +5314,7 @@ paths:
                                       type: string
                                     range:
                                       type: array
-                                      items:
-                                        type: number
+                                      items: {}
                                   required:
                                     - namespaceId
                                     - range
@@ -5691,11 +5460,6 @@ paths:
                                       used.
                                     type: 'null'
                               decisionFrameworkSettings:
-                                description: >-
-                                  Controls the decision framework and metric
-                                  overrides for the experiment. Replaces the
-                                  entire stored object on update (does not patch
-                                  individual fields).
                                 type: object
                                 properties:
                                   decisionCriteriaId:
@@ -5731,10 +5495,6 @@ paths:
                                   patch individual entries).
                                 type: array
                                 items:
-                                  description: >-
-                                    Per-metric analysis overrides stored on the
-                                    experiment (matches internal
-                                    metricOverrides).
                                   type: object
                                   properties:
                                     id:
@@ -5800,10 +5560,8 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
-                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
-                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5845,10 +5603,8 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
-                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
-                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5890,10 +5646,8 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
-                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
-                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5933,10 +5687,8 @@ paths:
                                           - lookback
                                           - ''
                                       winRiskThreshold:
-                                        deprecated: true
                                         type: number
                                       loseRiskThreshold:
-                                        deprecated: true
                                         type: number
                                       properPriorOverride:
                                         type: boolean
@@ -6627,8 +6379,6 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/result'
-                required:
-                  - result
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -7853,14 +7603,6 @@ paths:
     get:
       operationId: getMetricUsage
       summary: Get metric usage across experiments
-      description: >-
-        Returns usage information for one or more legacy or fact metrics,
-        showing which experiments use each metric and some usage statistics. If
-        a metric is part of a metric group, then usage of that metric group
-        counts as usage of all metrics in the group. Warning: only includes
-        experiments that you have access to! If you do not have admin access or
-        read access to experiments across all projects, this endpoint may not
-        return the latest usage data across all experiments.
       tags:
         - usage
       parameters:
@@ -8088,15 +7830,15 @@ paths:
                 name:
                   description: Name of the segment
                   type: string
-                description:
-                  description: Description of the segment
-                  type: string
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
                     it will be validated as existing in the organization.
+                  type: string
+                description:
+                  description: Description of the segment
                   type: string
                 datasourceId:
                   description: ID of the datasource this segment belongs to
@@ -8181,7 +7923,6 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted segment
-                    example: seg_123abc
                     type: string
                 required:
                   - deletedId
@@ -8418,7 +8159,6 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted dimension
-                    example: dim_123abc
                     type: string
                 required:
                   - deletedId
@@ -8626,10 +8366,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted project
-                    example: prj__123abc
                     type: string
-                required:
-                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -8683,10 +8420,8 @@ paths:
                   type: string
                 toggleOnList:
                   description: Show toggle on feature list
-                  type: boolean
                 defaultState:
                   description: Default state for new features
-                  type: boolean
                 projects:
                   type: array
                   items:
@@ -9019,8 +8754,6 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/connections'
-                    required:
-                      - connections
                     additionalProperties: false
                   - type: object
                     properties:
@@ -9367,11 +9100,6 @@ paths:
     get:
       operationId: getInformationSchema
       summary: Get a Data Source's Information Schema
-      description: >-
-        Returns cached database schema metadata for a data source, including
-        databases, schemas, and tables. The information schema is automatically
-        created when a SQL-based data source is added. Not all data source types
-        support information schemas.
       tags:
         - data-sources
       parameters:
@@ -10234,9 +9962,6 @@ paths:
                     required:
                       - column
                       - datatype
-                      - alwaysInlineFilter
-                      - deleted
-                      - isAutoSliceColumn
                     additionalProperties: false
                 columnsError:
                   description: Error message if there was an issue parsing the SQL schema
@@ -10288,7 +10013,6 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact table
-                    example: ftb_123abc
                     type: string
                 required:
                   - deletedId
@@ -10375,7 +10099,6 @@ paths:
                   type: string
                 value:
                   description: The SQL expression for this filter.
-                  example: country = 'US'
                   type: string
                 managedBy:
                   description: >-
@@ -10460,7 +10183,6 @@ paths:
                   type: string
                 value:
                   description: The SQL expression for this filter.
-                  example: country = 'US'
                   type: string
                 managedBy:
                   description: >-
@@ -10510,7 +10232,6 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact filter
-                    example: flt_123abc
                     type: string
                 required:
                   - deletedId
@@ -10664,7 +10385,6 @@ paths:
                       items:
                         type: string
                     inlineFilters:
-                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -10772,7 +10492,6 @@ paths:
                       items:
                         type: string
                     inlineFilters:
-                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -11176,7 +10895,6 @@ paths:
                       items:
                         type: string
                     inlineFilters:
-                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -11284,7 +11002,6 @@ paths:
                       items:
                         type: string
                     inlineFilters:
-                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -11562,10 +11279,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact metric
-                    example: fact__123abc
                     type: string
-                required:
-                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -11768,7 +11482,6 @@ paths:
                             type: string
                           value:
                             description: The SQL expression for this filter.
-                            example: country = 'US'
                             type: string
                           managedBy:
                             description: >-
@@ -11865,7 +11578,6 @@ paths:
                                 items:
                                   type: string
                               inlineFilters:
-                                deprecated: true
                                 description: >-
                                   Inline filters to apply to the fact table.
                                   Keys are column names, values are arrays of
@@ -11977,7 +11689,6 @@ paths:
                                 items:
                                   type: string
                               inlineFilters:
-                                deprecated: true
                                 description: >-
                                   Inline filters to apply to the fact table.
                                   Keys are column names, values are arrays of
@@ -12662,10 +12373,6 @@ paths:
     get:
       operationId: getInformationSchemaTable
       summary: Get a single Information Schema Table by id
-      description: >-
-        Returns cached metadata for a specific table in the Data Source,
-        including columns and their data types. Not all data source types
-        support information schemas.
       tags:
         - data-sources
       parameters:
@@ -20802,8 +20509,6 @@ components:
         default: 10
         description: The number of items to return
         type: integer
-        minimum: 1
-        maximum: 100
     offset:
       name: offset
       in: query
@@ -20812,7 +20517,6 @@ components:
         default: 0
         description: How many items to skip (use in conjunction with limit for pagination)
         type: integer
-        minimum: 0
     projectId:
       name: projectId
       in: query
@@ -20830,21 +20534,19 @@ components:
     skipPagination:
       name: skipPagination
       in: query
-      description: >
+      required: true
+      description: >-
         If true, return all matching features and ignore limit/offset.
 
         Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is set
         to true or 1.
       schema:
-        default: false
-        description: >
+        description: >-
           If true, return all matching features and ignore limit/offset.
 
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
-        type: boolean
-      x-selfHostedOnly: true
-      x-requiresEnv: API_ALLOW_SKIP_PAGINATION
+        default: false
     id:
       name: id
       in: path
@@ -20987,7 +20689,6 @@ components:
         Whether to delete code references that are no longer present in the
         submitted data
       schema:
-        default: 'false'
         description: >-
           Whether to delete code references that are no longer present in the
           submitted data
@@ -21147,11 +20848,6 @@ components:
                               description: Simple time-based on/off schedule for this rule
                               type: array
                               items:
-                                description: >-
-                                  An array of schedule rules to turn on/off a
-                                  feature rule at specific times. The array must
-                                  contain exactly 2 elements (start rule and end
-                                  rule). The first element is the start rule.
                                 type: object
                                 properties:
                                   enabled:
@@ -21257,11 +20953,6 @@ components:
                               description: Simple time-based on/off schedule for this rule
                               type: array
                               items:
-                                description: >-
-                                  An array of schedule rules to turn on/off a
-                                  feature rule at specific times. The array must
-                                  contain exactly 2 elements (start rule and end
-                                  rule). The first element is the start rule.
                                 type: object
                                 properties:
                                   enabled:
@@ -21380,11 +21071,6 @@ components:
                               description: Simple time-based on/off schedule for this rule
                               type: array
                               items:
-                                description: >-
-                                  An array of schedule rules to turn on/off a
-                                  feature rule at specific times. The array must
-                                  contain exactly 2 elements (start rule and end
-                                  rule). The first element is the start rule.
                                 type: object
                                 properties:
                                   enabled:
@@ -21537,11 +21223,6 @@ components:
                               description: Simple time-based on/off schedule for this rule
                               type: array
                               items:
-                                description: >-
-                                  An array of schedule rules to turn on/off a
-                                  feature rule at specific times. The array must
-                                  contain exactly 2 elements (start rule and end
-                                  rule). The first element is the start rule.
                                 type: object
                                 properties:
                                   enabled:
@@ -21661,11 +21342,6 @@ components:
                               description: Simple time-based on/off schedule for this rule
                               type: array
                               items:
-                                description: >-
-                                  An array of schedule rules to turn on/off a
-                                  feature rule at specific times. The array must
-                                  contain exactly 2 elements (start rule and end
-                                  rule). The first element is the start rule.
                                 type: object
                                 properties:
                                   enabled:
@@ -21807,12 +21483,6 @@ components:
                                     rule
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -21920,12 +21590,6 @@ components:
                                     rule
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -22046,12 +21710,6 @@ components:
                                     rule
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -22206,12 +21864,6 @@ components:
                                     rule
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -22333,12 +21985,6 @@ components:
                                     rule
                                   type: array
                                   items:
-                                    description: >-
-                                      An array of schedule rules to turn on/off
-                                      a feature rule at specific times. The
-                                      array must contain exactly 2 elements
-                                      (start rule and end rule). The first
-                                      element is the start rule.
                                     type: object
                                     properties:
                                       enabled:
@@ -22568,11 +22214,6 @@ components:
                           description: Simple time-based on/off schedule for this rule
                           type: array
                           items:
-                            description: >-
-                              An array of schedule rules to turn on/off a
-                              feature rule at specific times. The array must
-                              contain exactly 2 elements (start rule and end
-                              rule). The first element is the start rule.
                             type: object
                             properties:
                               enabled:
@@ -22676,11 +22317,6 @@ components:
                           description: Simple time-based on/off schedule for this rule
                           type: array
                           items:
-                            description: >-
-                              An array of schedule rules to turn on/off a
-                              feature rule at specific times. The array must
-                              contain exactly 2 elements (start rule and end
-                              rule). The first element is the start rule.
                             type: object
                             properties:
                               enabled:
@@ -22797,11 +22433,6 @@ components:
                           description: Simple time-based on/off schedule for this rule
                           type: array
                           items:
-                            description: >-
-                              An array of schedule rules to turn on/off a
-                              feature rule at specific times. The array must
-                              contain exactly 2 elements (start rule and end
-                              rule). The first element is the start rule.
                             type: object
                             properties:
                               enabled:
@@ -22952,11 +22583,6 @@ components:
                           description: Simple time-based on/off schedule for this rule
                           type: array
                           items:
-                            description: >-
-                              An array of schedule rules to turn on/off a
-                              feature rule at specific times. The array must
-                              contain exactly 2 elements (start rule and end
-                              rule). The first element is the start rule.
                             type: object
                             properties:
                               enabled:
@@ -23074,11 +22700,6 @@ components:
                           description: Simple time-based on/off schedule for this rule
                           type: array
                           items:
-                            description: >-
-                              An array of schedule rules to turn on/off a
-                              feature rule at specific times. The array must
-                              contain exactly 2 elements (start rule and end
-                              rule). The first element is the start rule.
                             type: object
                             properties:
                               enabled:
@@ -23446,8 +23067,7 @@ components:
                     type: string
                   range:
                     type: array
-                    items:
-                      type: number
+                    items: {}
                 required:
                   - namespaceId
                   - range
@@ -23582,10 +23202,6 @@ components:
                 - description: When null, the organization default is used.
                   type: 'null'
             decisionFrameworkSettings:
-              description: >-
-                Controls the decision framework and metric overrides for the
-                experiment. Replaces the entire stored object on update (does
-                not patch individual fields).
               type: object
               properties:
                 decisionCriteriaId:
@@ -23617,9 +23233,6 @@ components:
                 not patch individual entries).
               type: array
               items:
-                description: >-
-                  Per-metric analysis overrides stored on the experiment
-                  (matches internal metricOverrides).
                 type: object
                 properties:
                   id:
@@ -24073,10 +23686,6 @@ components:
                 - description: When null, the organization default is used.
                   type: 'null'
             decisionFrameworkSettings:
-              description: >-
-                Controls the decision framework and metric overrides for the
-                experiment. Replaces the entire stored object on update (does
-                not patch individual fields).
               type: object
               properties:
                 decisionCriteriaId:
@@ -24108,9 +23717,6 @@ components:
                 not patch individual entries).
               type: array
               items:
-                description: >-
-                  Per-metric analysis overrides stored on the experiment
-                  (matches internal metricOverrides).
                 type: object
                 properties:
                   id:
@@ -25585,9 +25191,6 @@ components:
             required:
               - column
               - datatype
-              - alwaysInlineFilter
-              - deleted
-              - isAutoSliceColumn
             additionalProperties: false
         columnsError:
           description: Error message if there was an issue parsing the SQL schema
@@ -25712,7 +25315,6 @@ components:
               items:
                 type: string
             inlineFilters:
-              deprecated: true
               description: >-
                 Inline filters to apply to the fact table. Keys are column
                 names, values are arrays of values to filter by. Deprecated, use
@@ -25800,7 +25402,6 @@ components:
               items:
                 type: string
             inlineFilters:
-              deprecated: true
               description: >-
                 Inline filters to apply to the fact table. Keys are column
                 names, values are arrays of values to filter by. Deprecated, use

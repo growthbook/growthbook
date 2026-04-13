@@ -33,9 +33,7 @@ const apiRowFilterValidator = z.object({
     .optional(),
   column: z
     .string()
-    .describe(
-      "Required for all operators except sql_expr and saved_filter.",
-    )
+    .describe("Required for all operators except sql_expr and saved_filter.")
     .optional(),
 });
 
@@ -160,9 +158,7 @@ const apiRegressionAdjustmentSettings = z
   .object({
     override: z
       .boolean()
-      .describe(
-        "If false, the organization default settings will be used",
-      ),
+      .describe("If false, the organization default settings will be used"),
     enabled: z
       .boolean()
       .describe(
@@ -243,9 +239,7 @@ export const apiFactMetricValidator = z
 // Corresponds to schemas/MetricAnalysis.yaml
 export const apiMetricAnalysisValidator = z
   .object({
-    id: z
-      .string()
-      .describe("The ID of the created metric analysis"),
+    id: z.string().describe("The ID of the created metric analysis"),
     status: z
       .string()
       .describe(
@@ -441,9 +435,7 @@ const postRegressionAdjustmentSettings = z
   .object({
     override: z
       .boolean()
-      .describe(
-        "If false, the organization default settings will be used",
-      ),
+      .describe("If false, the organization default settings will be used"),
     enabled: z
       .boolean()
       .describe(
@@ -529,9 +521,7 @@ const postFactMetricBody = z
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI',
-      )
+      .describe('Set this to "api" to disable editing in the GrowthBook UI')
       .optional(),
     metricAutoSlices: z
       .array(z.string())
@@ -603,9 +593,7 @@ const updateFactMetricBody = z
     targetMDE: z.number().gte(0).optional(),
     managedBy: z
       .enum(["", "api", "admin"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI',
-      )
+      .describe('Set this to "api" to disable editing in the GrowthBook UI')
       .optional(),
     archived: z.boolean().optional(),
     metricAutoSlices: z
@@ -630,9 +618,7 @@ const postFactMetricAnalysisBody = z
       .number()
       .gte(1)
       .lte(999999)
-      .describe(
-        "Number of days to look back for the analysis. Defaults to 30.",
-      )
+      .describe("Number of days to look back for the analysis. Defaults to 30.")
       .optional(),
     populationType: z
       .enum(["factTable", "segment"])
@@ -688,22 +674,18 @@ export const listFactMetricsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      datasourceId: z
-        .string()
-        .describe("Filter by Data Source")
-        .optional(),
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
+      projectId: z.string().describe("Filter by project id").optional(),
       factTableId: z
         .string()
         .describe(

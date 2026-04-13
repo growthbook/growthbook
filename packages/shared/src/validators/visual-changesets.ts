@@ -17,7 +17,7 @@ export const apiVisualChangeValidator = z
           value: z.string().optional(),
           parentSelector: z.string().optional(),
           insertBeforeSelector: z.string().optional(),
-        })
+        }),
       )
       .optional(),
   })
@@ -32,7 +32,7 @@ export const apiVisualChangesetValidator = z
         include: z.boolean().optional(),
         type: z.enum(["simple", "regex"]),
         pattern: z.string(),
-      })
+      }),
     ),
     editorUrl: z.string(),
     experiment: z.string(),
@@ -50,9 +50,9 @@ export const apiVisualChangesetValidator = z
             value: z.string().optional(),
             parentSelector: z.string().optional(),
             insertBeforeSelector: z.string().optional(),
-          })
+          }),
         ),
-      })
+      }),
     ),
   })
   .strict();
@@ -63,7 +63,7 @@ const postVisualChangesetBody = z
     editorUrl: z
       .string()
       .describe(
-        "URL of the page opened in the visual editor when creating this changeset"
+        "URL of the page opened in the visual editor when creating this changeset",
       ),
     urlPatterns: z
       .array(
@@ -71,10 +71,10 @@ const postVisualChangesetBody = z
           include: z.boolean().optional(),
           type: z.enum(["simple", "regex"]),
           pattern: z.string(),
-        })
+        }),
       )
       .describe(
-        "URL patterns that determine which pages this visual changeset applies to"
+        "URL patterns that determine which pages this visual changeset applies to",
       ),
   })
   .strict();
@@ -92,9 +92,7 @@ export const listVisualChangesetsValidator = {
     .object({
       id: z
         .string()
-        .describe(
-          "The experiment id the visual changesets belong to"
-        ),
+        .describe("The experiment id the visual changesets belong to"),
     })
     .strict(),
   responseSchema: z
@@ -206,9 +204,7 @@ export const putVisualChangeValidator = {
   paramsSchema: z
     .object({
       id: z.string().describe("The id of the requested resource"),
-      visualChangeId: z
-        .string()
-        .describe("Specify a specific visual change"),
+      visualChangeId: z.string().describe("Specify a specific visual change"),
     })
     .strict(),
   responseSchema: z

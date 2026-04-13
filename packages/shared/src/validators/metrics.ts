@@ -26,8 +26,7 @@ export const apiMetricValidator = z
       cappingSettings: z
         .object({
           type: z.enum(["none", "absolute", "percentile"]),
-          value: z
-            .coerce
+          value: z.coerce
             .number()
             .describe(
               "When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).",
@@ -52,20 +51,15 @@ export const apiMetricValidator = z
       windowSettings: z
         .object({
           type: z.enum(["none", "conversion", "lookback"]),
-          delayValue: z
-            .coerce
+          delayValue: z.coerce
             .number()
             .describe(
               "Wait this long after experiment exposure before counting conversions",
             )
             .optional(),
-          delayUnit: z
-            .enum(["minutes", "hours", "days", "weeks"])
-            .optional(),
+          delayUnit: z.enum(["minutes", "hours", "days", "weeks"]).optional(),
           windowValue: z.coerce.number().optional(),
-          windowUnit: z
-            .enum(["minutes", "hours", "days", "weeks"])
-            .optional(),
+          windowUnit: z.enum(["minutes", "hours", "days", "weeks"]).optional(),
         })
         .describe("Controls the conversion window for the metric"),
       priorSettings: z
@@ -80,14 +74,12 @@ export const apiMetricValidator = z
             .describe(
               "If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.",
             ),
-          mean: z
-            .coerce
+          mean: z.coerce
             .number()
             .describe(
               "The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)",
             ),
-          stddev: z
-            .coerce
+          stddev: z.coerce
             .number()
             .describe(
               "Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.",
@@ -95,13 +87,11 @@ export const apiMetricValidator = z
         })
         .describe("Controls the bayesian prior for the metric.")
         .optional(),
-      conversionWindowStart: z
-        .coerce
+      conversionWindowStart: z.coerce
         .number()
         .optional()
         .meta({ deprecated: true }),
-      conversionWindowEnd: z
-        .coerce
+      conversionWindowEnd: z.coerce
         .number()
         .optional()
         .meta({ deprecated: true }),
@@ -219,9 +209,7 @@ const postMetricBody = z
     tags: z.array(z.string()).describe("List of tags").optional(),
     projects: z
       .array(z.string())
-      .describe(
-        "List of project IDs for projects that can access this metric",
-      )
+      .describe("List of project IDs for projects that can access this metric")
       .optional(),
     archived: z.boolean().optional(),
     behavior: z
@@ -306,7 +294,7 @@ const postMetricBody = z
         conversionWindowEnd: z
           .number()
           .describe(
-            'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.',
+            "The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.",
           )
           .optional()
           .meta({ deprecated: true }),
@@ -467,9 +455,7 @@ const putMetricBody = z
     tags: z.array(z.string()).describe("List of tags").optional(),
     projects: z
       .array(z.string())
-      .describe(
-        "List of project IDs for projects that can access this metric",
-      )
+      .describe("List of project IDs for projects that can access this metric")
       .optional(),
     archived: z.boolean().optional(),
     behavior: z
@@ -554,7 +540,7 @@ const putMetricBody = z
         conversionWindowEnd: z
           .number()
           .describe(
-            'The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.',
+            "The end of a [Conversion Window](/app/metrics/legacy/#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics/legacy/#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.",
           )
           .optional()
           .meta({ deprecated: true }),
@@ -706,28 +692,22 @@ export const listMetricsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z
-        .coerce
+      limit: z.coerce
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
-      offset: z
-        .coerce
+        .optional()
+        .meta({ default: 10 }),
+      offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
-      datasourceId: z
-        .string()
-        .describe("Filter by Data Source")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      projectId: z.string().describe("Filter by project id").optional(),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
     })
     .strict(),
   paramsSchema: z.never(),

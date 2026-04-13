@@ -36,7 +36,7 @@ export const apiProjectValidator = z
     publicId: z
       .string()
       .describe(
-        "URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided."
+        "URL-safe slug used in SDK payload metadata. Auto-generated from name if not provided.",
       )
       .optional(),
     settings: z
@@ -55,7 +55,7 @@ const postProjectBody = z
     publicId: z
       .string()
       .describe(
-        "URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided."
+        "URL-safe slug (lowercase letters, numbers, dashes). Auto-generated from name if not provided.",
       )
       .optional(),
     settings: z
@@ -97,14 +97,16 @@ const listQuerySchema = z
       .number()
       .int()
       .describe("The number of items to return")
-      .default(10),
+      .optional()
+      .meta({ default: 10 }),
     offset: z.coerce
       .number()
       .int()
       .describe(
-        "How many items to skip (use in conjunction with limit for pagination)"
+        "How many items to skip (use in conjunction with limit for pagination)",
       )
-      .default(0),
+      .optional()
+      .meta({ default: 0 }),
   })
   .strict();
 
@@ -123,7 +125,7 @@ export const listProjectsValidator = {
       total: z.coerce.number().int(),
       hasMore: z.boolean(),
       nextOffset: z.union([z.coerce.number().int(), z.null()]),
-    })
+    }),
   ),
   summary: "Get all projects",
   operationId: "listProjects",

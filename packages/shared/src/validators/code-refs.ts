@@ -21,17 +21,13 @@ export const apiCodeRefValidator = z
         filePath: z
           .string()
           .describe("Path to the file containing the reference"),
-        startingLineNumber: z
-          .coerce.number()
+        startingLineNumber: z.coerce
+          .number()
           .int()
           .describe("Line number where the reference starts"),
-        lines: z
-          .string()
-          .describe("The code lines containing the reference"),
-        flagKey: z
-          .string()
-          .describe("The feature flag key referenced"),
-      })
+        lines: z.string().describe("The code lines containing the reference"),
+        flagKey: z.string().describe("The feature flag key referenced"),
+      }),
     ),
   })
   .strict();
@@ -48,7 +44,7 @@ const postCodeRefsBody = z
         lines: z.string(),
         flagKey: z.string(),
         contentHash: z.string(),
-      })
+      }),
     ),
   })
   .strict();
@@ -63,18 +59,20 @@ export const listCodeRefsValidator = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      limit: z
-        .coerce.number()
+      limit: z.coerce
+        .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
-      offset: z
-        .coerce.number()
+        .optional()
+        .meta({ default: 10 }),
+      offset: z.coerce
+        .number()
         .int()
         .describe(
-          "How many items to skip (use in conjunction with limit for pagination)"
+          "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
+        .optional()
+        .meta({ default: 0 }),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -82,7 +80,7 @@ export const listCodeRefsValidator = {
     z.object({
       codeRefs: z.array(apiCodeRefValidator),
     }),
-    apiPaginationFieldsValidator
+    apiPaginationFieldsValidator,
   ),
   summary: "Get list of all code references for the current organization",
   operationId: "listCodeRefs",
@@ -98,7 +96,7 @@ export const postCodeRefsValidator = {
       deleteMissing: z
         .enum(["true", "false"])
         .describe(
-          "Whether to delete code references that are no longer present in the submitted data"
+          "Whether to delete code references that are no longer present in the submitted data",
         )
         .optional(),
     })

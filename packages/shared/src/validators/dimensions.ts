@@ -35,9 +35,7 @@ const postDimensionBody = z
     identifierType: z
       .string()
       .describe("Type of identifier (user, anonymous, etc.)"),
-    query: z
-      .string()
-      .describe("SQL query or equivalent for the dimension"),
+    query: z.string().describe("SQL query or equivalent for the dimension"),
     managedBy: z
       .enum(["", "api"])
       .describe(
@@ -64,26 +62,24 @@ export const listDimensionsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      datasourceId: z
-        .string()
-        .describe("Filter by Data Source")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
     })
     .strict(),
   paramsSchema: z.never(),
   responseSchema: z.intersection(
-    z
-      .object({
-        dimensions: z.array(apiDimensionValidator),
-      }),
+    z.object({
+      dimensions: z.array(apiDimensionValidator),
+    }),
     apiPaginationFieldsValidator,
   ),
   summary: "Get all dimensions",
@@ -160,9 +156,7 @@ export const deleteDimensionValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted dimension"),
+      deletedId: z.string().describe("The ID of the deleted dimension"),
     })
     .strict(),
   summary: "Deletes a single dimension",

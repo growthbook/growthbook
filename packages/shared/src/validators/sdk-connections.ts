@@ -15,7 +15,7 @@ export const apiSdkConnectionValidator = z
     project: z
       .string()
       .describe(
-        "Use 'projects' instead. This is only for backwards compatibility and contains the first project only."
+        "Use 'projects' instead. This is only for backwards compatibility and contains the first project only.",
       ),
     projects: z.array(z.string()).optional(),
     encryptPayload: z.boolean(),
@@ -83,18 +83,17 @@ export const listSdkConnectionsValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
-          "How many items to skip (use in conjunction with limit for pagination)"
+          "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      projectId: z.string().describe("Filter by project id").optional(),
       withProxy: z.string().optional(),
       multiOrg: z.string().optional(),
     })
@@ -104,7 +103,7 @@ export const listSdkConnectionsValidator = {
     z.object({
       connections: z.array(apiSdkConnectionValidator).optional(),
     }),
-    apiPaginationFieldsValidator
+    apiPaginationFieldsValidator,
   ),
   summary: "Get all sdk connections",
   operationId: "listSdkConnections",
@@ -184,9 +183,7 @@ export const lookupSdkConnectionByKeyValidator = {
   querySchema: z.never(),
   paramsSchema: z
     .object({
-      key: z
-        .string()
-        .describe("The key of the requested sdkConnection"),
+      key: z.string().describe("The key of the requested sdkConnection"),
     })
     .strict(),
   responseSchema: z

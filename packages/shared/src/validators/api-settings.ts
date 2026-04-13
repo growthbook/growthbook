@@ -67,7 +67,7 @@ export const apiSettingsValidator = z
         projects: z.array(z.string()).optional(),
         featureRequireEnvironmentReview: z.boolean().optional(),
         featureRequireMetadataReview: z.boolean().optional(),
-      })
+      }),
     ),
     restApiBypassesReviews: z.boolean().optional(),
     featureKeyExample: z.string(),

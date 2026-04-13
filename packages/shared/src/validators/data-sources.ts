@@ -16,7 +16,7 @@ export const apiDataSourceValidator = z
       z.object({
         id: z.string(),
         description: z.string(),
-      })
+      }),
     ),
     assignmentQueries: z.array(
       z.object({
@@ -27,13 +27,13 @@ export const apiDataSourceValidator = z
         sql: z.string(),
         includesNameColumns: z.boolean(),
         dimensionColumns: z.array(z.string()),
-      })
+      }),
     ),
     identifierJoinQueries: z.array(
       z.object({
         identifierTypes: z.array(z.string()),
         sql: z.string(),
-      })
+      }),
     ),
     mixpanelSettings: z
       .object({
@@ -60,18 +60,17 @@ export const listDataSourcesValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
-          "How many items to skip (use in conjunction with limit for pagination)"
+          "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      projectId: z.string().describe("Filter by project id").optional(),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -79,7 +78,7 @@ export const listDataSourcesValidator = {
     z.object({
       dataSources: z.array(apiDataSourceValidator),
     }),
-    apiPaginationFieldsValidator
+    apiPaginationFieldsValidator,
   ),
   summary: "Get all data sources",
   operationId: "listDataSources",

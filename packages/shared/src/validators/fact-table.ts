@@ -288,9 +288,23 @@ export const apiFactTableColumnValidator = z
     column: z
       .string()
       .describe("The actual column name in the database/SQL query"),
-    datatype: z.enum(["number", "string", "date", "boolean", "json", "other", ""]),
+    datatype: z.enum([
+      "number",
+      "string",
+      "date",
+      "boolean",
+      "json",
+      "other",
+      "",
+    ]),
     numberFormat: z
-      .enum(["", "currency", "time:seconds", "memory:bytes", "memory:kilobytes"])
+      .enum([
+        "",
+        "currency",
+        "time:seconds",
+        "memory:bytes",
+        "memory:kilobytes",
+      ])
       .optional(),
     jsonFields: z
       .record(
@@ -315,14 +329,16 @@ export const apiFactTableColumnValidator = z
       .describe(
         "Whether this column should always be included as an inline filter in queries",
       )
-      .default(false),
-    deleted: z.boolean().default(false),
+      .optional()
+      .meta({ default: false }),
+    deleted: z.boolean().optional().meta({ default: false }),
     isAutoSliceColumn: z
       .boolean()
       .describe(
         "Whether this column can be used for auto slice analysis. This is an enterprise feature.",
       )
-      .default(false),
+      .optional()
+      .meta({ default: false }),
     autoSlices: z
       .array(z.string())
       .describe("Specific slices to automatically analyze for this column.")
@@ -333,16 +349,8 @@ export const apiFactTableColumnValidator = z
         "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.",
       )
       .optional(),
-    dateCreated: z
-      .string()
-      .meta({ format: "date-time" })
-      .readonly()
-      .optional(),
-    dateUpdated: z
-      .string()
-      .meta({ format: "date-time" })
-      .readonly()
-      .optional(),
+    dateCreated: z.string().meta({ format: "date-time" }).readonly().optional(),
+    dateUpdated: z.string().meta({ format: "date-time" }).readonly().optional(),
   })
   .strict();
 
@@ -369,9 +377,7 @@ export const apiFactTableValidator = z
     columnsError: z
       .string()
       .nullable()
-      .describe(
-        "Error message if there was an issue parsing the SQL schema",
-      )
+      .describe("Error message if there was an issue parsing the SQL schema")
       .optional(),
     archived: z.boolean().optional(),
     managedBy: z
@@ -414,10 +420,7 @@ const postFactTableBody = z
       .array(z.string())
       .describe("List of associated project ids")
       .optional(),
-    tags: z
-      .array(z.string())
-      .describe("List of associated tags")
-      .optional(),
+    tags: z.array(z.string()).describe("List of associated tags").optional(),
     datasource: z.string().describe("The datasource id"),
     userIdTypes: z
       .array(z.string())
@@ -431,9 +434,7 @@ const postFactTableBody = z
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI',
-      )
+      .describe('Set this to "api" to disable editing in the GrowthBook UI')
       .optional(),
   })
   .strict();
@@ -451,20 +452,14 @@ const updateFactTableBody = z
       .array(z.string())
       .describe("List of associated project ids")
       .optional(),
-    tags: z
-      .array(z.string())
-      .describe("List of associated tags")
-      .optional(),
+    tags: z.array(z.string()).describe("List of associated tags").optional(),
     userIdTypes: z
       .array(z.string())
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       )
       .optional(),
-    sql: z
-      .string()
-      .describe("The SQL query for this fact table")
-      .optional(),
+    sql: z.string().describe("The SQL query for this fact table").optional(),
     eventName: z
       .string()
       .describe("The event name used in SQL template variables")
@@ -478,15 +473,11 @@ const updateFactTableBody = z
     columnsError: z
       .string()
       .nullable()
-      .describe(
-        "Error message if there was an issue parsing the SQL schema",
-      )
+      .describe("Error message if there was an issue parsing the SQL schema")
       .optional(),
     managedBy: z
       .enum(["", "api", "admin"])
-      .describe(
-        'Set this to "api" to disable editing in the GrowthBook UI',
-      )
+      .describe('Set this to "api" to disable editing in the GrowthBook UI')
       .optional(),
     archived: z.boolean().optional(),
   })
@@ -500,9 +491,7 @@ const postFactTableFilterBody = z
       .string()
       .describe("Description of the fact table filter")
       .optional(),
-    value: z
-      .string()
-      .describe("The SQL expression for this filter."),
+    value: z.string().describe("The SQL expression for this filter."),
     managedBy: z
       .enum(["", "api"])
       .describe(
@@ -541,17 +530,13 @@ const idParams = z
 
 const factTableIdParams = z
   .object({
-    factTableId: z
-      .string()
-      .describe("Specify a specific fact table"),
+    factTableId: z.string().describe("Specify a specific fact table"),
   })
   .strict();
 
 const factTableIdAndIdParams = z
   .object({
-    factTableId: z
-      .string()
-      .describe("Specify a specific fact table"),
+    factTableId: z.string().describe("Specify a specific fact table"),
     id: z.string().describe("The id of the requested resource"),
   })
   .strict();
@@ -564,22 +549,18 @@ export const listFactTablesValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
-      datasourceId: z
-        .string()
-        .describe("Filter by Data Source")
-        .optional(),
-      projectId: z
-        .string()
-        .describe("Filter by project id")
-        .optional(),
+        .optional()
+        .meta({ default: 0 }),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
+      projectId: z.string().describe("Filter by project id").optional(),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -663,9 +644,7 @@ export const deleteFactTableValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted fact table"),
+      deletedId: z.string().describe("The ID of the deleted fact table"),
     })
     .strict(),
   summary: "Deletes a single fact table",
@@ -684,14 +663,16 @@ export const listFactTableFiltersValidator = {
         .number()
         .int()
         .describe("The number of items to return")
-        .default(10),
+        .optional()
+        .meta({ default: 10 }),
       offset: z.coerce
         .number()
         .int()
         .describe(
           "How many items to skip (use in conjunction with limit for pagination)",
         )
-        .default(0),
+        .optional()
+        .meta({ default: 0 }),
     })
     .strict(),
   paramsSchema: factTableIdParams,
@@ -772,9 +753,7 @@ export const deleteFactTableFilterValidator = {
   paramsSchema: factTableIdAndIdParams,
   responseSchema: z
     .object({
-      deletedId: z
-        .string()
-        .describe("The ID of the deleted fact filter"),
+      deletedId: z.string().describe("The ID of the deleted fact filter"),
     })
     .strict(),
   summary: "Deletes a single fact table filter",
