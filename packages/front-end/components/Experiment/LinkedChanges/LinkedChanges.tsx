@@ -50,12 +50,7 @@ export default function LinkedChanges({
     { id: "redirects", count: urlRedirects.length },
   ];
 
-  // Don't display linked changes section if none have been added and experiment is no longer a draft
-  if (
-    (experiment.status !== "draft" && numLinkedChanges === 0) ||
-    numLinkedChanges === 0
-  )
-    return null;
+  if (numLinkedChanges === 0) return null;
 
   return (
     <Box className="appbox" px="5" py="4">

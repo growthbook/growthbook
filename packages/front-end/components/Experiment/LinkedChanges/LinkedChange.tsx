@@ -26,7 +26,7 @@ type Props = {
   heading: string;
   headingLink?: string;
   onEdit?: () => void;
-  onDelete?: () => void;
+  onDelete?: () => void | Promise<void>;
   canEdit?: boolean;
 };
 
@@ -119,9 +119,7 @@ export default function LinkedChange({
                   useRadix={true}
                   text="Remove"
                   stopPropagation={true}
-                  onClick={() => {
-                    onDelete();
-                  }}
+                  onClick={() => onDelete()}
                   displayName={CHANGE_TO_DELETE_DISPLAY_NAME[changeType]}
                 />
               )}
