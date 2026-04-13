@@ -14,7 +14,6 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import type { ReqContext } from "back-end/types/request";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { aiTool } from "back-end/src/enterprise/services/ai";
@@ -29,12 +28,6 @@ import {
   getAllFactTablesForOrganization,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
-import { getInformationSchemaTableById } from "back-end/src/models/InformationSchemaTablesModel";
-import {
-  getInformationSchemaWithPaths,
-  getTablePath,
-} from "back-end/src/services/informationSchema";
 import { runColumnsTopValuesQuery } from "back-end/src/jobs/refreshFactTableColumns";
 
 // =============================================================================
@@ -56,16 +49,14 @@ const PA_SYSTEM_INSTRUCTIONS =
   "runExploration returns the full exploration payload (including structured result data) plus resultCsv: use that return value for analysis, insights, and answering questions about the run you just executed.\n" +
   'Never use dateRange.predefined="last14Days". For 2 weeks use predefined="customLookback" with lookbackValue=14 and lookbackUnit="day".\n' +
   "Use getSnapshot only when you need rows or CSV for a snapshot whose tool result is no longer fully available in the conversation — e.g. older runs after prior tool outputs were compacted, or when the user references a specific snapshotId from history.\n" +
-  "Use the search tool to discover metrics, fact tables, and datasource tables — it searches across all three types simultaneously. " +
-  "Each result includes an 'explorerType' field ('metric', 'fact_table', or 'data_source') indicating which exploration type to use, and a 'kind' field with the specific result type.\n" +
+  "Use the search tool to discover metrics and fact tables. " +
+  "Each result includes an 'explorerType' field ('metric' or 'fact_table') indicating which exploration type to use, and a 'kind' field with the specific result type.\n" +
   "For fact_table explorations: use search to find a fact table, then getAvailableColumns({ source: 'fact_table', factTableId }) to discover valid columns and userIdTypes before building the config.\n" +
   "For metric explorations with filters, group-by dimensions, or before setting unit: use getAvailableColumns({ source: 'metric', metricIds }) to discover valid columns and which metrics need a unit.\n" +
-  "For data_source explorations: use search to find the right table (result kind='data_source_table'), then getAvailableColumns({ source: 'data_source', datasourceTableId }) to get column names and types — use the returned columns to build the columnTypes map and choose the timestampColumn in the config.\n" +
   "Unit field rules — always follow the unitNote returned by getAvailableColumns:\n" +
   '  - fact_table valueType "unit_count": set unit to userIdTypes[0] (e.g. "user_id") unless the user specifies otherwise.\n' +
   '  - fact_table valueType "count" or "sum": unit must be null.\n' +
   "  - metric: set unit for proportion, retention, dailyParticipation, and ratio-distinct metrics using userIdTypes[0]; null for all others.\n" +
-  "  - data_source: unit_count is not supported; unit is always null.\n" +
   "Dimension rules for breakdowns / group-by:\n" +
   "  - Only use dimensionType 'dynamic'. Never use 'static' or 'slice'.\n" +
   "  - 'dynamic' shows the top N values for a column — set maxValues (1-20, default 5).\n" +
@@ -82,53 +73,6 @@ const PA_SYSTEM_INSTRUCTIONS =
   "If you get the same or a very similar error 2 times in a row, stop retrying — explain briefly what went wrong and suggest what the user can do differently.\n" +
   "Keep responses brief and actionable.";
 
-async function buildDatasourceTablesPreview(
-  ctx: ReqContext,
-  datasourceId: string,
-): Promise<string> {
-  if (!datasourceId) return "No datasource configured.";
-  try {
-    const informationSchema = await getInformationSchemaByDatasourceId(
-      datasourceId,
-      ctx.org.id,
-    );
-    if (!informationSchema)
-      return "No information schema available. Build the schema in datasource settings to enable raw table exploration.";
-    const datasource = await getDataSourceById(ctx, datasourceId);
-    if (!datasource) return "Datasource not found.";
-    const withPaths = getInformationSchemaWithPaths(
-      informationSchema,
-      datasource.type,
-    );
-    const tables: { tableId: string; tableName: string; tablePath: string }[] =
-      [];
-    for (const db of withPaths.databases) {
-      for (const schema of db.schemas) {
-        for (const table of schema.tables) {
-          tables.push({
-            tableId: table.id,
-            tableName: table.tableName,
-            tablePath: table.path,
-          });
-        }
-      }
-    }
-    if (!tables.length) return "No tables found in the information schema.";
-    const preview = tables.slice(0, METRICS_PREVIEW_COUNT);
-    const lines = preview.map(
-      (t) => `- "${t.tableName}" (id: ${t.tableId}, path: ${t.tablePath})`,
-    );
-    if (tables.length > METRICS_PREVIEW_COUNT) {
-      lines.push(
-        `... and ${tables.length - METRICS_PREVIEW_COUNT} more. Use the search tool to find additional tables.`,
-      );
-    }
-    return lines.join("\n");
-  } catch {
-    return "Unable to load datasource tables.";
-  }
-}
-
 async function buildProductAnalyticsSystemPrompt(
   ctx: ReqContext,
   datasourceId: string,
@@ -144,10 +88,6 @@ async function buildProductAnalyticsSystemPrompt(
     : await getAllFactTablesForOrganization(ctx);
   const factTablesPreview = buildFactTablesPreview(allFactTables);
 
-  const datasourceTablesPreview = datasourceId
-    ? await buildDatasourceTablesPreview(ctx, datasourceId)
-    : "No datasource configured.";
-
   return (
     "You are an expert product analytics assistant for GrowthBook.\n" +
     "You help users understand and work with their metrics, fact tables, and exploration configuration.\n\n" +
@@ -160,9 +100,6 @@ async function buildProductAnalyticsSystemPrompt(
     "\n\n" +
     "Available fact tables (sample):\n" +
     factTablesPreview +
-    "\n\n" +
-    "Available datasource tables (sample):\n" +
-    datasourceTablesPreview +
     "\n\n" +
     buildConfigSchemaSummary() +
     "\n\n" +
@@ -194,7 +131,7 @@ function buildConfigSchemaSummary(): string {
   return [
     "Exploration config schema:",
     "- Top-level fields: type, datasource, chartType, dateRange, dimensions, dataset",
-    '- type: "metric" | "fact_table" | "data_source"',
+    '- type: "metric" | "fact_table"',
     '- chartType: "line" | "area" | "timeseries-table" | "table" | "bar" | "stackedBar" | "horizontalBar" | "stackedHorizontalBar" | "bigNumber"',
     '- dateRange.predefined: "today" | "last7Days" | "last30Days" | "last90Days" | "customLookback" | "customDateRange"',
     '- IMPORTANT: "last14Days" is not valid. For 14 days use { predefined: "customLookback", lookbackValue: 14, lookbackUnit: "day" }',
@@ -209,9 +146,6 @@ function buildConfigSchemaSummary(): string {
     '- dataset for type="fact_table": { type: "fact_table", factTableId, values: [{ type: "fact_table", name, valueType: "unit_count"|"count"|"sum", valueColumn, unit, rowFilters[] }] }',
     "  Use search to find factTableId (result kind=\"fact_table\"). Use getAvailableColumns({ source: 'fact_table', factTableId }) to discover valid columns and unit options.",
     '  unit: one of userIdTypes (e.g. "user_id") when valueType is "unit_count"; null for "count" or "sum".',
-    '- dataset for type="data_source": { type: "data_source", table, path, timestampColumn, columnTypes: Record<string, "string"|"number"|"date"|"boolean"|"other">, values: [{ type: "data_source", name, valueType: "count"|"sum", valueColumn, unit: null, rowFilters[] }] }',
-    "  Use search to find table (id) and path (result kind=\"data_source_table\"). Use getAvailableColumns({ source: 'data_source', datasourceTableId }) to build columnTypes and choose timestampColumn.",
-    "  unit_count is not supported for data_source; unit is always null.",
     "Always return a complete config object when calling runExploration.",
   ].join("\n");
 }
@@ -413,8 +347,6 @@ function explorationConfigFromLatestRun(
 async function executeSearch(
   getMetrics: () => Promise<FactMetricInterface[]>,
   getFactTables: () => Promise<FactTableInterface[]>,
-  ctx: ReqContext,
-  datasourceId: string,
   input: { query: string; limit: number },
 ): Promise<string> {
   const { query, limit } = input;
@@ -478,52 +410,6 @@ async function executeSearch(
           columnCount: (ft.columns ?? []).filter((c) => !c.deleted).length,
         },
       });
-    }
-  }
-
-  // Search datasource tables from the information schema
-  if (datasourceId) {
-    try {
-      const informationSchema = await getInformationSchemaByDatasourceId(
-        datasourceId,
-        ctx.org.id,
-      );
-      if (informationSchema) {
-        const datasource = await getDataSourceById(ctx, datasourceId);
-        if (datasource) {
-          const withPaths = getInformationSchemaWithPaths(
-            informationSchema,
-            datasource.type,
-          );
-          for (const db of withPaths.databases) {
-            for (const schema of db.schemas) {
-              for (const table of schema.tables) {
-                const haystack = [table.tableName, table.path]
-                  .join(" ")
-                  .toLowerCase();
-                const exact = table.tableName.toLowerCase() === q;
-                const includes = haystack.includes(q);
-                const score = exact ? 3 : includes ? 1 : 0;
-                if (score > 0) {
-                  all.push({
-                    score,
-                    name: table.tableName,
-                    result: {
-                      kind: "data_source_table",
-                      explorerType: "data_source",
-                      tableId: table.id,
-                      tableName: table.tableName,
-                      tablePath: table.path,
-                    },
-                  });
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch {
-      // ignore schema fetch errors
     }
   }
 
@@ -827,32 +713,6 @@ async function executeGetAvailableColumns(
         2,
       );
     }
-
-    case "data_source": {
-      const { datasourceTableId } = input;
-      if (!datasourceTableId)
-        return "datasourceTableId is required for data_source source.";
-      const table = await getInformationSchemaTableById(
-        ctx.org.id,
-        datasourceTableId,
-      );
-      if (!table) return `Table "${datasourceTableId}" not found.`;
-      const columns = table.columns.map((c) => ({
-        column: c.columnName,
-        name: c.columnName,
-        datatype: mapDatabaseTypeToEnum(c.dataType),
-      }));
-      return JSON.stringify(
-        {
-          columns,
-          userIdTypes: [],
-          unitNote:
-            'data_source explorations do not support valueType "unit_count". Use "count" or "sum" only; always set unit to null.',
-        },
-        null,
-        2,
-      );
-    }
   }
 }
 
@@ -899,32 +759,6 @@ async function executeGetColumnValues(
       availableColumns = (ft.columns ?? [])
         .filter((c) => !c.deleted)
         .map((c) => ({ column: c.column, datatype: c.datatype }));
-      break;
-    }
-
-    case "data_source": {
-      const { datasourceTableId } = input;
-      if (!datasourceTableId)
-        return "datasourceTableId is required for data_source source.";
-      const table = await getInformationSchemaTableById(
-        ctx.org.id,
-        datasourceTableId,
-      );
-      if (!table) return `Table "${datasourceTableId}" not found.`;
-      const ds = await getDataSourceById(ctx, table.datasourceId);
-      if (!ds) return `Datasource not found.`;
-      const tablePath = getTablePath(ds.type, {
-        catalog: table.databaseName,
-        schema: table.tableSchema,
-        tableName: table.tableName,
-      });
-      factTableSql = `SELECT * FROM ${tablePath}`;
-      factTableEventName = "";
-      datasourceId = table.datasourceId;
-      availableColumns = table.columns.map((c) => ({
-        column: c.columnName,
-        datatype: mapDatabaseTypeToEnum(c.dataType),
-      }));
       break;
     }
   }
@@ -1012,12 +846,12 @@ const searchInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Search term to match against metrics, fact tables, and datasource tables, e.g. 'revenue' or 'pageviews'",
+      "Search term to match against metrics and fact tables, e.g. 'revenue' or 'pageviews'",
     ),
   limit: z.number().int().min(1).max(20).default(10),
 });
 
-const columnSourceValues = ["fact_table", "metric", "data_source"] as const;
+const columnSourceValues = ["fact_table", "metric"] as const;
 
 const columnSourceFields = {
   source: z
@@ -1033,27 +867,18 @@ const columnSourceFields = {
     .describe(
       "Metric IDs — required when source is 'metric'. Returns the intersection of columns across all selected metrics' underlying fact tables",
     ),
-  datasourceTableId: z
-    .string()
-    .optional()
-    .describe(
-      "Information schema table ID (from search results where kind='data_source_table') — required when source is 'data_source'",
-    ),
 };
 
 function validateColumnSource(v: {
   source: string;
   factTableId?: string;
   metricIds?: string[];
-  datasourceTableId?: string;
 }): boolean {
   switch (v.source) {
     case "fact_table":
       return !!v.factTableId;
     case "metric":
       return !!v.metricIds?.length;
-    case "data_source":
-      return !!v.datasourceTableId;
     default:
       return false;
   }
@@ -1102,23 +927,22 @@ const getSnapshotInputSchema = z.object({
 });
 
 const SEARCH_DESCRIPTION =
-  "Search across metrics, fact tables, and datasource tables simultaneously by name, description, or ID. " +
-  "Each result includes a 'kind' field ('metric', 'fact_table', or 'data_source_table') and an 'explorerType' field " +
-  "('metric', 'fact_table', or 'data_source') indicating which exploration type to use. " +
-  "Use the 'id' field from metric/fact_table results as metricId/factTableId; use 'tableId' and 'tablePath' from data_source_table results.";
+  "Search across metrics and fact tables by name, description, or ID. " +
+  "Each result includes a 'kind' field ('metric' or 'fact_table') and an 'explorerType' field " +
+  "('metric' or 'fact_table') indicating which exploration type to use. " +
+  "Use the 'id' field from results as metricId or factTableId.";
 
 const GET_AVAILABLE_COLUMNS_DESCRIPTION =
   "Get the columns available for dimensions and filters based on the current selection. " +
   "Also returns userIdTypes and a unitNote that tells you exactly how to set the unit field for each value. " +
   "Set source to 'fact_table' and pass factTableId for fact table explorations. " +
-  "Set source to 'metric' and pass metricIds for metric explorations — returns the intersection of columns across selected metrics, plus per-metric needsUnit flags. " +
-  "Set source to 'data_source' and pass datasourceTableId (from the search tool results) for data source explorations — use the returned columns to populate columnTypes and pick timestampColumn in the config.";
+  "Set source to 'metric' and pass metricIds for metric explorations — returns the intersection of columns across selected metrics, plus per-metric needsUnit flags.";
 
 const GET_COLUMN_VALUES_DESCRIPTION =
   "Fetch the actual values stored in one or more string columns by running a lightweight GROUP BY query against the warehouse. " +
   "You MUST call this tool before using any specific column value — for row filters, static dimension values, or any other purpose. Never guess or assume what values a column contains. " +
   "Pass an optional searchTerm to narrow results when you have a partial guess (e.g. searchTerm='US' to find 'United States'). " +
-  "Set source to match the exploration type ('fact_table', 'metric', or 'data_source') and provide the corresponding ID field, same as getAvailableColumns.";
+  "Set source to match the exploration type ('fact_table' or 'metric') and provide the corresponding ID field, same as getAvailableColumns.";
 
 const GET_CURRENT_CONFIG_DESCRIPTION =
   "Get the current exploration config as JSON. Returns the latest executed config, or null if no exploration has been run yet.";
@@ -1176,8 +1000,7 @@ const productAnalyticsAgentConfig: AgentConfig<PAParams> = {
       search: aiTool({
         description: SEARCH_DESCRIPTION,
         inputSchema: searchInputSchema,
-        execute: (input) =>
-          executeSearch(getMetrics, getFactTables, ctx, datasourceId, input),
+        execute: (input) => executeSearch(getMetrics, getFactTables, input),
       }),
 
       getAvailableColumns: aiTool({
