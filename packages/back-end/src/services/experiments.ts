@@ -1449,6 +1449,7 @@ export async function createSnapshotFromPlan({
     }
 
     const snapshot = await createExperimentSnapshotModel({
+      context,
       data: plan.snapshot,
     });
     createdSnapshotId = snapshot.id;

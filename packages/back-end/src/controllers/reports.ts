@@ -151,7 +151,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot });
+  await createExperimentSnapshotModel({ context, data: snapshot });
 
   await req.audit({
     event: "experiment.analysis",

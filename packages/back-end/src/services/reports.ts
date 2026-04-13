@@ -595,6 +595,7 @@ export async function createReportSnapshot({
   }
 
   const snapshot = await createExperimentSnapshotModel({
+    context,
     data: snapshotData,
   });
 

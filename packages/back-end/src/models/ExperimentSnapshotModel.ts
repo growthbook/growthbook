@@ -773,12 +773,33 @@ export async function getLatestSnapshotMultipleExperiments(
 }
 
 export async function createExperimentSnapshotModel({
+  context,
   data,
 }: {
+  context: Context;
   data: ExperimentSnapshotInterface;
 }): Promise<ExperimentSnapshotInterface> {
-  const created = await ExperimentSnapshotModel.create(data);
-  return toInterface(created);
+  const analyses = data.analyses;
+  const overflow =
+    analyses.length > 0 &&
+    estimateJsonBytes(analyses) > SNAPSHOT_ANALYSES_OVERFLOW_THRESHOLD_BYTES;
+
+  const created = await ExperimentSnapshotModel.create({
+    ...data,
+    analyses: overflow ? [] : analyses,
+    hasOverflowAnalyses: overflow,
+  });
+  const snapshot = toInterface(created);
+
+  if (overflow) {
+    await context.models.snapshotAnalysisOverflow.replaceForSnapshot(
+      snapshot.id,
+      analyses,
+    );
+    snapshot.analyses = analyses;
+  }
+
+  return snapshot;
 }
 
 export const getDefaultAnalysisResults = (
