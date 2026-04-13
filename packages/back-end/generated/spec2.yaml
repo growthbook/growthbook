@@ -181,11 +181,47 @@ tags:
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
+  - name: sdk-connection
+    x-displayName: sdk-connection
+    description: ''
+  - name: Dashboards
+    x-displayName: Dashboards
+    description: ''
+  - name: CustomFields
+    x-displayName: Custom Fields
+    description: ''
+  - name: MetricGroups
+    x-displayName: Metric Groups
+    description: ''
+  - name: Teams
+    x-displayName: Teams
+    description: ''
+  - name: ExperimentTemplates
+    x-displayName: Experiment Templates
+    description: ''
+  - name: AnalyticsExplorations
+    x-displayName: Analytics Explorations
+    description: ''
+  - name: RampScheduleTemplates
+    x-displayName: Ramp Schedule Templates
+    description: Reusable step configurations for ramp schedules.
+  - name: RampSchedules
+    x-displayName: Ramp Schedules
+    description: >-
+      Multi-step rollout schedules that gradually ramp feature rule changes over
+      time.
+security:
+  - bearerAuth: []
+  - basicAuth: []
 paths:
   /features:
     get:
       operationId: listFeatures
       summary: Get all features
+      description: >-
+        Returns features with pagination. The skipPagination query parameter is
+        honored only when API_ALLOW_SKIP_PAGINATION is set (self-hosted
+        deployments).
       tags:
         - features
       parameters:
@@ -233,6 +269,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/features' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postFeature
       summary: Create a single feature
@@ -1100,6 +1141,11 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/features' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /features/{id}:
     get:
       operationId: getFeature
@@ -3411,6 +3457,17 @@ paths:
     post:
       operationId: updateFeature
       summary: Partially update a feature
+      description: >-
+        Updates any combination of a feature's metadata (description, owner,
+        tags, project), default value, environment settings (rules, kill
+        switches, enabled state), prerequisites, holdout assignment, or JSON
+        schema validation. All provided fields are merged into the existing
+        feature and the result is immediately published as a new revision.
+
+
+        Returns 403 if the API key lacks permission or if approval rules are
+        enabled for an affected environment and the org setting "REST API always
+        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -4272,9 +4329,22 @@ paths:
                 required:
                   - feature
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/features/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteFeature
       summary: Deletes a single feature
+      description: >-
+        Permanently deletes a feature and all of its revisions.
+
+
+        Archived features can be deleted freely. Deleting a live (non-archived)
+        feature returns 403 unless the org setting "REST API always bypasses
+        approval requirements" is enabled, or the API key lacks delete
+        permission.
       tags:
         - features
       parameters:
@@ -4288,7 +4358,10 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted feature
+                    example: feature-123
                     type: string
+                required:
+                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -4299,6 +4372,15 @@ paths:
     post:
       operationId: toggleFeature
       summary: Toggle a feature in one or more environments
+      description: >-
+        Enables or disables a feature in one or more environments
+        simultaneously. Accepts a map of environment name → boolean and
+        immediately publishes the change.
+
+
+        Returns 403 if the API key lacks permission or if approval rules are
+        enabled for an affected environment and the org setting "REST API always
+        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -4363,6 +4445,15 @@ paths:
     post:
       operationId: revertFeature
       summary: Revert a feature to a specific revision
+      description: >-
+        Creates a new revision whose rules and values match a
+        previously-published revision, then immediately publishes it. This
+        leaves a clear audit trail of the revert action in the revision history.
+
+
+        Returns 403 if the API key lacks permission or if approval rules are
+        enabled for an affected environment and the org setting "REST API always
+        bypasses approval requirements" is off.
       tags:
         - features
       parameters:
@@ -4472,6 +4563,11 @@ paths:
                 type: array
                 items:
                   type: string
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/feature-keys' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /stale-features:
     get:
       operationId: getFeatureStale
@@ -4586,6 +4682,11 @@ paths:
                 required:
                   - features
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/stale-features' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /archetypes:
     get:
       operationId: listArchetypes
@@ -4607,6 +4708,11 @@ paths:
                 required:
                   - archetypes
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/archetypes' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postArchetype
       summary: Create a single archetype
@@ -4655,6 +4761,11 @@ paths:
                 required:
                   - archetype
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/archetypes' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /archetypes/${id}:
     get:
       operationId: getArchetype
@@ -4809,6 +4920,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/experiments' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postExperiment
       summary: Create a single experiment
@@ -5289,6 +5405,11 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/experiments' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}:
     get:
       operationId: getExperiment
@@ -5423,7 +5544,8 @@ paths:
                                       type: string
                                     range:
                                       type: array
-                                      items: {}
+                                      items:
+                                        type: number
                                   required:
                                     - namespaceId
                                     - range
@@ -5678,8 +5800,10 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5721,8 +5845,10 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5764,8 +5890,10 @@ paths:
                                             - lookback
                                             - ''
                                         winRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         loseRiskThreshold:
+                                          deprecated: true
                                           type: number
                                         properPriorOverride:
                                           type: boolean
@@ -5805,8 +5933,10 @@ paths:
                                           - lookback
                                           - ''
                                       winRiskThreshold:
+                                        deprecated: true
                                         type: number
                                       loseRiskThreshold:
+                                        deprecated: true
                                         type: number
                                       properPriorOverride:
                                         type: boolean
@@ -6473,6 +6603,11 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}/results:
     get:
       operationId: getExperimentResults
@@ -6492,7 +6627,15 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/result'
+                required:
+                  - result
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/results' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}/snapshot:
     post:
       operationId: postExperimentSnapshot
@@ -6567,6 +6710,7 @@ paths:
               type: object
               properties:
                 screenshot:
+                  contentEncoding: base64
                   description: Base64-encoded screenshot data
                   type: string
                 contentType:
@@ -6577,6 +6721,7 @@ paths:
                     - image/jpeg
                     - image/gif
                 description:
+                  description: Optional description for the screenshot
                   type: string
               required:
                 - screenshot
@@ -6594,6 +6739,13 @@ paths:
                 required:
                   - screenshot
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation/{variationId}/screenshot/upload'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}/variation/{variationId}/screenshot:
     delete:
       operationId: deleteVariationScreenshot
@@ -6623,12 +6775,20 @@ paths:
               additionalProperties: false
       responses:
         '200':
+          description: Screenshot deleted successfully
           content:
             application/json:
               schema:
                 type: object
                 properties: {}
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/experiments/{id}/variation/{variationId}/screenshot'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiment-names:
     get:
       operationId: getExperimentNames
@@ -6660,6 +6820,11 @@ paths:
                 required:
                   - experiments
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/experiment-names' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiments/{id}/visual-changesets:
     get:
       operationId: listVisualChangesets
@@ -6788,6 +6953,11 @@ paths:
                 required:
                   - snapshot
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/snapshots/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /metrics:
     get:
       operationId: listMetrics
@@ -6838,6 +7008,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/metrics' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postMetric
       summary: Create a single metric
@@ -7232,6 +7407,11 @@ paths:
                 required:
                   - metric
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/metrics' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /metrics/{id}:
     get:
       operationId: getMetric
@@ -7673,6 +7853,14 @@ paths:
     get:
       operationId: getMetricUsage
       summary: Get metric usage across experiments
+      description: >-
+        Returns usage information for one or more legacy or fact metrics,
+        showing which experiments use each metric and some usage statistics. If
+        a metric is part of a metric group, then usage of that metric group
+        counts as usage of all metrics in the group. Warning: only includes
+        experiments that you have access to! If you do not have admin access or
+        read access to experiments across all projects, this endpoint may not
+        return the latest usage data across all experiments.
       tags:
         - usage
       parameters:
@@ -7701,6 +7889,11 @@ paths:
                 required:
                   - metricUsage
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/usage/metrics' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /segments:
     get:
       operationId: listSegments
@@ -7750,6 +7943,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/segments' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postSegment
       summary: Create a single segment
@@ -7841,6 +8039,13 @@ paths:
                 required:
                   - segment
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/segments' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"name":"Annual Subscribers","datasource":"ds_123abc","identifierType":"user_id","type":"SQL","query":"SELECT plan FROM subscribers WHERE plan = "}'
   /segments/{id}:
     get:
       operationId: getSegment
@@ -7976,6 +8181,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted segment
+                    example: seg_123abc
                     type: string
                 required:
                   - deletedId
@@ -8034,6 +8240,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/dimensions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postDimension
       summary: Create a single dimension
@@ -8207,6 +8418,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted dimension
+                    example: dim_123abc
                     type: string
                 required:
                   - deletedId
@@ -8265,6 +8477,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/projects' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postProject
       summary: Create a single project
@@ -8409,7 +8626,10 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted project
+                    example: prj__123abc
                     type: string
+                required:
+                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -8437,6 +8657,11 @@ paths:
                 required:
                   - environments
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/environments' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postEnvironment
       summary: Create a new environment
@@ -8458,8 +8683,10 @@ paths:
                   type: string
                 toggleOnList:
                   description: Show toggle on feature list
+                  type: boolean
                 defaultState:
                   description: Default state for new features
+                  type: boolean
                 projects:
                   type: array
                   items:
@@ -8586,6 +8813,11 @@ paths:
                 required:
                   - attributes
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/attributes' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postAttribute
       summary: Create a new attribute
@@ -8787,6 +9019,8 @@ paths:
                         type: array
                         items:
                           $ref: '#/components/schemas/connections'
+                    required:
+                      - connections
                     additionalProperties: false
                   - type: object
                     properties:
@@ -8812,6 +9046,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/sdk-connections' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postSdkConnection
       summary: Create a single sdk connection
@@ -8886,6 +9125,11 @@ paths:
                 required:
                   - sdkConnection
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/sdk-connections' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /sdk-connections/{id}:
     get:
       operationId: getSdkConnection
@@ -8983,6 +9227,12 @@ paths:
                 required:
                   - sdkConnection
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT 'https://api.growthbook.io/api/v1/sdk-connections/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
@@ -9083,6 +9333,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/data-sources' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /data-sources/{id}:
     get:
       operationId: getDataSource
@@ -9103,10 +9358,20 @@ paths:
                 required:
                   - dataSource
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/data-sources/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /data-sources/{dataSourceId}/information-schema:
     get:
       operationId: getInformationSchema
       summary: Get a Data Source's Information Schema
+      description: >-
+        Returns cached database schema metadata for a data source, including
+        databases, schemas, and tables. The information schema is automatically
+        created when a SQL-based data source is added. Not all data source types
+        support information schemas.
       tags:
         - data-sources
       parameters:
@@ -9123,6 +9388,13 @@ paths:
                 required:
                   - informationSchema
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/data-sources/{dataSourceId}/information-schema'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /visual-changesets/{id}:
     get:
       operationId: getVisualChangeset
@@ -9289,6 +9561,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/saved-groups' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postSavedGroup
       summary: Create a single saved group
@@ -9525,6 +9802,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/organizations' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postOrganization
       summary: >-
@@ -9632,6 +9914,11 @@ paths:
           content:
             application/json:
               schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/sdk-payload/{key}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /fact-tables:
     get:
       operationId: listFactTables
@@ -9682,6 +9969,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/fact-tables' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postFactTable
       summary: Create a single fact table
@@ -9996,6 +10288,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact table
+                    example: ftb_123abc
                     type: string
                 required:
                   - deletedId
@@ -10082,6 +10375,7 @@ paths:
                   type: string
                 value:
                   description: The SQL expression for this filter.
+                  example: country = 'US'
                   type: string
                 managedBy:
                   description: >-
@@ -10166,6 +10460,7 @@ paths:
                   type: string
                 value:
                   description: The SQL expression for this filter.
+                  example: country = 'US'
                   type: string
                 managedBy:
                   description: >-
@@ -10215,6 +10510,7 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact filter
+                    example: flt_123abc
                     type: string
                 required:
                   - deletedId
@@ -10239,7 +10535,6 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - name: factTableId
           in: query
-          required: false
           description: >-
             Filter by Fact Table Id (for ratio metrics, we only look at the
             numerator)
@@ -10287,6 +10582,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/fact-metrics' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     post:
       operationId: postFactMetric
       summary: Create a single fact metric
@@ -10364,6 +10664,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -10471,6 +10772,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -10874,6 +11176,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -10981,6 +11284,7 @@ paths:
                       items:
                         type: string
                     inlineFilters:
+                      deprecated: true
                       description: >-
                         Inline filters to apply to the fact table. Keys are
                         column names, values are arrays of values to filter by.
@@ -11258,7 +11562,10 @@ paths:
                 properties:
                   deletedId:
                     description: The ID of the deleted fact metric
+                    example: fact__123abc
                     type: string
+                required:
+                  - deletedId
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -11461,6 +11768,7 @@ paths:
                             type: string
                           value:
                             description: The SQL expression for this filter.
+                            example: country = 'US'
                             type: string
                           managedBy:
                             description: >-
@@ -11557,6 +11865,7 @@ paths:
                                 items:
                                   type: string
                               inlineFilters:
+                                deprecated: true
                                 description: >-
                                   Inline filters to apply to the fact table.
                                   Keys are column names, values are arrays of
@@ -11668,6 +11977,7 @@ paths:
                                 items:
                                   type: string
                               inlineFilters:
+                                deprecated: true
                                 description: >-
                                   Inline filters to apply to the fact table.
                                   Keys are column names, values are arrays of
@@ -12118,6 +12428,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/code-refs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /code-refs/{id}:
     get:
       operationId: getCodeRefs
@@ -12196,6 +12511,11 @@ paths:
                       - hasMore
                       - nextOffset
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/members' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /members/{id}/role:
     post:
       operationId: updateMemberRole
@@ -12259,6 +12579,11 @@ paths:
                 required:
                   - updatedMember
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/members/{id}/role' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /members/{id}:
     delete:
       operationId: deleteMember
@@ -12328,10 +12653,19 @@ paths:
                 required:
                   - settings
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/settings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /information-schema-tables/{tableId}:
     get:
       operationId: getInformationSchemaTable
       summary: Get a single Information Schema Table by id
+      description: >-
+        Returns cached metadata for a specific table in the Data Source,
+        including columns and their data types. Not all data source types
+        support information schemas.
       tags:
         - data-sources
       parameters:
@@ -12348,6 +12682,13 @@ paths:
                 required:
                   - informationSchemaTable
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/information-schema-tables/{tableId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/start:
     post:
       operationId: startRampSchedule
@@ -12381,6 +12722,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/start'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/pause:
     post:
       operationId: pauseRampSchedule
@@ -12414,6 +12762,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/pause'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/resume:
     post:
       operationId: resumeRampSchedule
@@ -12447,6 +12802,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/resume'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/rollback:
     post:
       operationId: rollbackRampSchedule
@@ -12480,6 +12842,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/rollback'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/jump:
     post:
       operationId: jumpRampSchedule
@@ -12518,6 +12887,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/jump'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/complete:
     post:
       operationId: completeRampSchedule
@@ -12551,6 +12927,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/complete'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/approve-step:
     post:
       operationId: approveStepRampSchedule
@@ -12584,6 +12967,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/approve-step'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/add-target:
     post:
       operationId: addTargetRampSchedule
@@ -12627,6 +13017,13 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/add-target'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}/actions/eject-target:
     post:
       operationId: ejectTargetRampSchedule
@@ -13025,6 +13422,13 @@ paths:
                       - deleted
                       - rampScheduleId
                     additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/eject-target'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /transform-copy:
     post:
       operationId: postCopyTransform
@@ -13056,10 +13460,17 @@ paths:
           content:
             application/json:
               schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /dashboards/{id}:
     get:
       operationId: getDashboard
       summary: Get a single dashboard
+      tags:
+        - Dashboards
       parameters:
         - name: id
           in: path
@@ -13079,9 +13490,16 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/dashboards/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteDashboard
       summary: Delete a single dashboard
+      tags:
+        - Dashboards
       parameters:
         - name: id
           in: path
@@ -13101,9 +13519,16 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/dashboards/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateDashboard
       summary: Update a single dashboard
+      tags:
+        - Dashboards
       parameters:
         - name: id
           in: path
@@ -14972,10 +15397,17 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/dashboards/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /dashboards:
     post:
       operationId: createDashboard
       summary: Create a single dashboard
+      tags:
+        - Dashboards
       parameters: []
       requestBody:
         required: true
@@ -15478,9 +15910,16 @@ paths:
                 required:
                   - dashboard
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/dashboards' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listDashboards
       summary: Get all dashboards
+      tags:
+        - Dashboards
       parameters: []
       responses:
         '200':
@@ -15496,10 +15935,17 @@ paths:
                 required:
                   - dashboards
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/dashboards' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /dashboards/by-experiment/{experimentId}:
     get:
       operationId: getDashboardsForExperiment
       summary: Get all dashboards for an experiment
+      tags:
+        - Dashboards
       parameters:
         - name: experimentId
           in: path
@@ -15521,10 +15967,19 @@ paths:
                 required:
                   - dashboards
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/dashboards/by-experiment/{experimentId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /custom-fields:
     post:
       operationId: createCustomField
       summary: Create a single customField
+      tags:
+        - CustomFields
       parameters: []
       requestBody:
         required: true
@@ -15629,13 +16084,19 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/custom-fields' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listCustomFields
       summary: Get all custom fields
+      tags:
+        - CustomFields
       parameters:
         - name: projectId
           in: query
-          required: false
           description: ''
           schema:
             type: string
@@ -15741,10 +16202,17 @@ paths:
                     - required
                     - sections
                   additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/custom-fields' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /custom-fields/{id}:
     delete:
       operationId: deleteCustomField
       summary: Delete a single customField
+      tags:
+        - CustomFields
       parameters:
         - name: id
           in: path
@@ -15765,9 +16233,17 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/custom-fields/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: getCustomField
       summary: Get a single customField
+      tags:
+        - CustomFields
       parameters:
         - name: id
           in: path
@@ -15787,9 +16263,16 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/custom-fields/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateCustomField
       summary: Update a single customField
+      tags:
+        - CustomFields
       parameters:
         - name: id
           in: path
@@ -15878,10 +16361,17 @@ paths:
                 required:
                   - customField
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/custom-fields/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /metric-groups/{id}:
     get:
       operationId: getMetricGroup
       summary: Get a single metricGroup
+      tags:
+        - MetricGroups
       parameters:
         - name: id
           in: path
@@ -15901,9 +16391,16 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/metric-groups/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteMetricGroup
       summary: Delete a single metricGroup
+      tags:
+        - MetricGroups
       parameters:
         - name: id
           in: path
@@ -15923,9 +16420,17 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/metric-groups/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateMetricGroup
       summary: Update a single metricGroup
+      tags:
+        - MetricGroups
       parameters:
         - name: id
           in: path
@@ -15980,10 +16485,17 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/metric-groups/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /metric-groups:
     post:
       operationId: createMetricGroup
       summary: Create a single metricGroup
+      tags:
+        - MetricGroups
       parameters: []
       requestBody:
         required: true
@@ -16038,9 +16550,16 @@ paths:
                 required:
                   - metricGroup
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/metric-groups' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listMetricGroups
       summary: Get all metricGroups
+      tags:
+        - MetricGroups
       parameters: []
       responses:
         '200':
@@ -16056,10 +16575,17 @@ paths:
                 required:
                   - metricGroups
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/metric-groups' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /teams/{id}:
     get:
       operationId: getTeam
       summary: Get a single team
+      tags:
+        - Teams
       parameters:
         - name: id
           in: path
@@ -16079,9 +16605,16 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/teams/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateTeam
       summary: Update a single team
+      tags:
+        - Teams
       parameters:
         - name: id
           in: path
@@ -16165,10 +16698,17 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/teams/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /teams:
     post:
       operationId: createTeam
       summary: Create a single team
+      tags:
+        - Teams
       parameters: []
       requestBody:
         required: true
@@ -16250,9 +16790,16 @@ paths:
                 required:
                   - team
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/teams' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listTeams
       summary: Get all teams
+      tags:
+        - Teams
       parameters: []
       responses:
         '200':
@@ -16268,10 +16815,17 @@ paths:
                 required:
                   - teams
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/teams' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /teams/{teamId}/members:
     post:
       operationId: addTeamMembers
       summary: Add members to team
+      tags:
+        - Teams
       parameters:
         - $ref: '#/components/parameters/teamId'
       requestBody:
@@ -16300,9 +16854,17 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/teams/{teamId}/members' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: removeTeamMember
       summary: Remove members from team
+      tags:
+        - Teams
       parameters:
         - $ref: '#/components/parameters/teamId'
       requestBody:
@@ -16331,10 +16893,18 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/teams/{teamId}/members' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /teams/{teamId}:
     delete:
       operationId: deleteTeam
       summary: Delete a single team
+      tags:
+        - Teams
       parameters:
         - $ref: '#/components/parameters/teamId'
         - $ref: '#/components/parameters/deleteMembers'
@@ -16350,10 +16920,17 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/teams/{teamId}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiment-templates/{id}:
     get:
       operationId: getExperimentTemplate
       summary: Get a single experimentTemplate
+      tags:
+        - ExperimentTemplates
       parameters:
         - name: id
           in: path
@@ -16373,9 +16950,17 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteExperimentTemplate
       summary: Delete a single experimentTemplate
+      tags:
+        - ExperimentTemplates
       parameters:
         - name: id
           in: path
@@ -16395,9 +16980,17 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateExperimentTemplate
       summary: Update a single experimentTemplate
+      tags:
+        - ExperimentTemplates
       parameters:
         - name: id
           in: path
@@ -16554,10 +17147,18 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/experiment-templates/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiment-templates:
     post:
       operationId: createExperimentTemplate
       summary: Create a single experimentTemplate
+      tags:
+        - ExperimentTemplates
       parameters: []
       requestBody:
         required: true
@@ -16715,13 +17316,20 @@ paths:
                 required:
                   - experimentTemplate
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/experiment-templates'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listExperimentTemplates
       summary: Get all experimentTemplates
+      tags:
+        - ExperimentTemplates
       parameters:
         - name: projectId
           in: query
-          required: false
           description: ''
           schema:
             type: string
@@ -16739,10 +17347,18 @@ paths:
                 required:
                   - experimentTemplates
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/experiment-templates'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /experiment-templates/bulk-import:
     post:
       operationId: bulkImportExperimentTemplates
       summary: Bulk create or update experiment templates
+      tags:
+        - ExperimentTemplates
       parameters: []
       requestBody:
         required: true
@@ -16920,10 +17536,19 @@ paths:
                   - added
                   - updated
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiment-templates/bulk-import'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /product-analytics/metric-exploration:
     post:
       operationId: postMetricExploration
       summary: Create a Metric based visualization
+      tags:
+        - AnalyticsExplorations
       parameters:
         - $ref: '#/components/parameters/cache'
       requestBody:
@@ -17599,10 +18224,19 @@ paths:
                   - exploration
                   - query
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/metric-exploration'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /product-analytics/fact-table-exploration:
     post:
       operationId: postFactTableExploration
       summary: Run a Fact Table based visualization
+      tags:
+        - AnalyticsExplorations
       parameters:
         - $ref: '#/components/parameters/cache'
       requestBody:
@@ -18296,10 +18930,19 @@ paths:
                   - exploration
                   - query
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/fact-table-exploration'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /product-analytics/data-source-exploration:
     post:
       operationId: postDataSourceExploration
       summary: Create a Data Source based visualization
+      tags:
+        - AnalyticsExplorations
       parameters:
         - $ref: '#/components/parameters/cache'
       requestBody:
@@ -19027,10 +19670,19 @@ paths:
                   - exploration
                   - query
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/product-analytics/data-source-exploration'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedule-templates/{id}:
     get:
       operationId: getRampScheduleTemplate
       summary: Get a single rampScheduleTemplate
+      tags:
+        - RampScheduleTemplates
       parameters:
         - name: id
           in: path
@@ -19050,9 +19702,17 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteRampScheduleTemplate
       summary: Delete a single rampScheduleTemplate
+      tags:
+        - RampScheduleTemplates
       parameters:
         - name: id
           in: path
@@ -19072,9 +19732,17 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateRampScheduleTemplate
       summary: Update a single rampScheduleTemplate
+      tags:
+        - RampScheduleTemplates
       parameters:
         - name: id
           in: path
@@ -19270,10 +19938,18 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/ramp-schedule-templates/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedule-templates:
     post:
       operationId: createRampScheduleTemplate
       summary: Create a single rampScheduleTemplate
+      tags:
+        - RampScheduleTemplates
       parameters: []
       requestBody:
         required: true
@@ -19466,9 +20142,17 @@ paths:
                 required:
                   - rampScheduleTemplate
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedule-templates' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listRampScheduleTemplates
       summary: Get all rampScheduleTemplates
+      tags:
+        - RampScheduleTemplates
       parameters: []
       responses:
         '200':
@@ -19484,10 +20168,18 @@ paths:
                 required:
                   - rampScheduleTemplates
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/ramp-schedule-templates' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules/{id}:
     get:
       operationId: getRampSchedule
       summary: Get a single rampSchedule
+      tags:
+        - RampSchedules
       parameters:
         - name: id
           in: path
@@ -19507,9 +20199,16 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     delete:
       operationId: deleteRampSchedule
       summary: Delete a single rampSchedule
+      tags:
+        - RampSchedules
       parameters:
         - name: id
           in: path
@@ -19529,9 +20228,17 @@ paths:
                 required:
                   - deletedId
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateRampSchedule
       summary: Update a single rampSchedule
+      tags:
+        - RampSchedules
       parameters:
         - name: id
           in: path
@@ -19782,10 +20489,17 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /ramp-schedules:
     post:
       operationId: createRampSchedule
       summary: Create a single rampSchedule
+      tags:
+        - RampSchedules
       parameters: []
       requestBody:
         required: true
@@ -20032,9 +20746,16 @@ paths:
                 required:
                   - rampSchedule
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/ramp-schedules' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
     get:
       operationId: listRampSchedules
       summary: Get all rampSchedules
+      tags:
+        - RampSchedules
       parameters:
         - $ref: '#/components/parameters/featureId'
         - $ref: '#/components/parameters/status'
@@ -20066,30 +20787,35 @@ paths:
                 required:
                   - rampSchedules
                 additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/ramp-schedules' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
       name: limit
       in: query
-      required: true
       description: The number of items to return
       schema:
         default: 10
         description: The number of items to return
         type: integer
+        minimum: 1
+        maximum: 100
     offset:
       name: offset
       in: query
-      required: true
       description: How many items to skip (use in conjunction with limit for pagination)
       schema:
         default: 0
         description: How many items to skip (use in conjunction with limit for pagination)
         type: integer
+        minimum: 0
     projectId:
       name: projectId
       in: query
-      required: false
       description: Filter by project id
       schema:
         description: Filter by project id
@@ -20097,7 +20823,6 @@ components:
     clientKey:
       name: clientKey
       in: query
-      required: false
       description: Filter by a SDK connection's client key
       schema:
         description: Filter by a SDK connection's client key
@@ -20105,7 +20830,6 @@ components:
     skipPagination:
       name: skipPagination
       in: query
-      required: true
       description: >
         If true, return all matching features and ignore limit/offset.
 
@@ -20118,6 +20842,9 @@ components:
 
           Self-hosted only. Has no effect unless API_ALLOW_SKIP_PAGINATION is
           set to true or 1.
+        type: boolean
+      x-selfHostedOnly: true
+      x-requiresEnv: API_ALLOW_SKIP_PAGINATION
     id:
       name: id
       in: path
@@ -20129,7 +20856,6 @@ components:
     withRevisions:
       name: withRevisions
       in: query
-      required: false
       description: Also return feature revisions (all, draft, or published statuses)
       schema:
         description: Also return feature revisions (all, draft, or published statuses)
@@ -20154,7 +20880,6 @@ components:
     datasourceId:
       name: datasourceId
       in: query
-      required: false
       description: Filter by Data Source
       schema:
         description: Filter by Data Source
@@ -20162,7 +20887,6 @@ components:
     experimentId:
       name: experimentId
       in: query
-      required: false
       description: Filter the returned list by the experiment tracking key (id)
       schema:
         description: Filter the returned list by the experiment tracking key (id)
@@ -20170,14 +20894,12 @@ components:
     phase:
       name: phase
       in: query
-      required: false
       description: ''
       schema:
         type: string
     dimension:
       name: dimension
       in: query
-      required: false
       description: ''
       schema:
         type: string
@@ -20199,14 +20921,12 @@ components:
     withProxy:
       name: withProxy
       in: query
-      required: false
       description: ''
       schema:
         type: string
     multiOrg:
       name: multiOrg
       in: query
-      required: false
       description: ''
       schema:
         type: string
@@ -20229,7 +20949,6 @@ components:
     includeExperiment:
       name: includeExperiment
       in: query
-      required: false
       description: Include the associated experiment in payload
       schema:
         description: Include the associated experiment in payload
@@ -20245,7 +20964,6 @@ components:
     search:
       name: search
       in: query
-      required: false
       description: >-
         Search string to search organization names, owner emails, and external
         ids by
@@ -20265,11 +20983,11 @@ components:
     deleteMissing:
       name: deleteMissing
       in: query
-      required: false
       description: >-
         Whether to delete code references that are no longer present in the
         submitted data
       schema:
+        default: 'false'
         description: >-
           Whether to delete code references that are no longer present in the
           submitted data
@@ -20280,7 +20998,6 @@ components:
     userName:
       name: userName
       in: query
-      required: false
       description: Name of the user.
       schema:
         description: Name of the user.
@@ -20288,7 +21005,6 @@ components:
     userEmail:
       name: userEmail
       in: query
-      required: false
       description: Email address of the user.
       schema:
         description: Email address of the user.
@@ -20296,7 +21012,6 @@ components:
     globalRole:
       name: globalRole
       in: query
-      required: false
       description: Name of the global role
       schema:
         description: Name of the global role
@@ -20312,7 +21027,6 @@ components:
     index:
       name: index
       in: query
-      required: false
       description: ''
       schema:
         type: string
@@ -20326,7 +21040,6 @@ components:
     deleteMembers:
       name: deleteMembers
       in: query
-      required: false
       description: When 'true', enables deleting a team that contains members
       schema:
         description: When 'true', enables deleting a team that contains members
@@ -20334,7 +21047,6 @@ components:
     cache:
       name: cache
       in: query
-      required: false
       description: >-
         Controls cache behavior for this exploration: `preferred` (default)
         returns a cached result if one exists, otherwise runs a new query;
@@ -20356,14 +21068,12 @@ components:
     featureId:
       name: featureId
       in: query
-      required: false
       description: ''
       schema:
         type: string
     status:
       name: status
       in: query
-      required: false
       description: ''
       schema:
         type: string
@@ -22736,7 +23446,8 @@ components:
                     type: string
                   range:
                     type: array
-                    items: {}
+                    items:
+                      type: number
                 required:
                   - namespaceId
                   - range
@@ -23752,8 +24463,10 @@ components:
       type: object
       properties:
         path:
+          description: URL or path to the uploaded screenshot
           type: string
         description:
+          description: Description of the screenshot
           type: string
       required:
         - path
@@ -24999,6 +25712,7 @@ components:
               items:
                 type: string
             inlineFilters:
+              deprecated: true
               description: >-
                 Inline filters to apply to the fact table. Keys are column
                 names, values are arrays of values to filter by. Deprecated, use
@@ -25086,6 +25800,7 @@ components:
               items:
                 type: string
             inlineFilters:
+              deprecated: true
               description: >-
                 Inline filters to apply to the fact table. Keys are column
                 names, values are arrays of values to filter by. Deprecated, use

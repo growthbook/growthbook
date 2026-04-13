@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
-import { allRoutes } from "back-end/src/api/api.router";
+import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 
 const openApiTags = [
   "projects",
@@ -269,6 +269,7 @@ type RequestBody = {
 };
 
 type Response = {
+  description?: string;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
@@ -279,10 +280,12 @@ type Response = {
 type Path = {
   operationId: string;
   summary?: string;
+  description?: string;
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
   responses: Record<string, Response>;
+  "x-codeSamples"?: CodeSample[];
 };
 
 type CodeSample = { lang: string; source: string };
@@ -305,6 +308,7 @@ async function run() {
       description: string;
       "x-displayName": string;
     }[];
+    security: Record<string, unknown[]>[];
     paths: Record<string, Record<string, Path>>;
     components: {
       parameters: Record<string, Parameter>;
@@ -385,6 +389,7 @@ The response body will be a JSON object with the following properties:
       "x-displayName": tags[id].display,
       description: tags[id].description,
     })),
+    security: [{ bearerAuth: [] }, { basicAuth: [] }],
     paths: {},
     components: {
       parameters: {},
@@ -429,6 +434,7 @@ curl https://api.growthbook.io/api/v1 \
     const {
       operationId,
       summary,
+      description,
       tags,
       schemas,
       method,
@@ -447,10 +453,11 @@ curl https://api.growthbook.io/api/v1 \
     if (isNonEmtySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
+        const isRequired = (jsonSchema.required ?? []).includes(name);
         const parameter: Parameter = {
           name,
           in: "path",
-          required: (jsonSchema.required ?? []).includes(name),
+          ...(isRequired && { required: true }),
           description:
             (schema as z.core.JSONSchema.BaseSchema).description || "",
           schema: schema as z.core.JSONSchema.BaseSchema,
@@ -480,13 +487,25 @@ curl https://api.growthbook.io/api/v1 \
     if (isNonEmtySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
+        const isRequired = (jsonSchema.required ?? []).includes(name);
+        // Hoist x- extension fields from schema to parameter level
+        const schemaObj = schema as Record<string, unknown>;
+        const extensions: Record<string, unknown> = {};
+        for (const key of Object.keys(schemaObj)) {
+          if (key.startsWith("x-")) {
+            extensions[key] = schemaObj[key];
+            delete schemaObj[key];
+          }
+        }
+
         const parameter: Parameter = {
           name,
           in: "query",
-          required: (jsonSchema.required ?? []).includes(name),
+          ...(isRequired && { required: true }),
           description:
             (schema as z.core.JSONSchema.BaseSchema).description || "",
           schema: schema as z.core.JSONSchema.BaseSchema,
+          ...extensions,
         };
 
         let useRef = false;
@@ -594,8 +613,14 @@ curl https://api.growthbook.io/api/v1 \
       });
     }
 
+    const responseDescription = responseSchema.description;
+    if (responseDescription) {
+      delete responseSchema.description;
+    }
+
     const responses: Record<string, Response> = {
       "200": {
+        ...(responseDescription && { description: responseDescription }),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -608,24 +633,47 @@ curl https://api.growthbook.io/api/v1 \
     const fullPath = path.replace(/:(\w+)/g, "{$1}");
 
     // Build code samples from example data
-    const codeSamples: CodeSample[] = [];
-    if (exampleRequest) {
-      codeSamples.push({
+    const codeSamples: CodeSample[] = [
+      {
         lang: "cURL",
-        source: buildCurlSample(method, fullPath, exampleRequest),
-      });
-    }
+        source: buildCurlSample(method, fullPath, exampleRequest || {}),
+      },
+    ];
 
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
     openapiSpec.paths[fullPath][method] = {
       operationId,
       summary,
+      ...(description !== undefined && { description }),
       tags,
       parameters,
       ...(requestBody !== undefined && { requestBody }),
       responses,
-      ...(codeSamples.length > 0 && { "x-codeSamples": codeSamples }),
+      "x-codeSamples": codeSamples,
     };
+  }
+
+  // Auto-discover tags from routes that aren't in the hardcoded openApiTags list
+  const knownTags = new Set<string>(openApiTags);
+  const discoveredTags = new Set<string>();
+  for (const route of allRoutes) {
+    if (route.excludeFromSpec || !route.tags) continue;
+    for (const tag of route.tags) {
+      if (!knownTags.has(tag)) {
+        discoveredTags.add(tag);
+      }
+    }
+  }
+  for (const tag of discoveredTags) {
+    const meta = apiModelTagMeta[tag];
+    // Split PascalCase into words for display name (e.g. "CustomFields" → "Custom Fields")
+    const displayName =
+      meta?.displayName || tag.replace(/([a-z])([A-Z])/g, "$1 $2");
+    openapiSpec.tags.push({
+      name: tag,
+      "x-displayName": displayName,
+      description: meta?.description ?? "",
+    });
   }
 
   Object.entries(parameterRefs).forEach(([name, parameter]) => {

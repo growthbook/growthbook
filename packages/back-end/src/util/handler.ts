@@ -50,6 +50,7 @@ export type ApiEndpointSpec<
   path: string;
   operationId: string;
   summary?: string;
+  description?: string;
   tags?: string[];
   middleware?: RequestHandler[];
   exampleRequest?: ExampleRequest<
@@ -118,6 +119,7 @@ export type OpenApiRoute<
   >;
   middleware?: RequestHandler[];
   summary?: string;
+  description?: string;
   tags?: string[];
   schemas: {
     params?: ParamsSchema;
@@ -148,6 +150,7 @@ export function createApiRequestHandler<
     querySchema,
     responseSchema,
     summary,
+    description,
     exampleRequest,
     tags,
     operationId,
@@ -235,6 +238,7 @@ export function createApiRequestHandler<
       path,
       operationId,
       summary,
+      description,
       tags,
       exampleRequest,
       middleware,

@@ -23,7 +23,7 @@ const deleteVariationScreenshotValidator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: z.object({}),
+  responseSchema: z.object({}).describe("Screenshot deleted successfully"),
   method: "delete" as const,
   path: "/experiments/{id}/variation/{variationId}/screenshot",
   operationId: "deleteVariationScreenshot",

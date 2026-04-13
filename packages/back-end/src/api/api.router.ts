@@ -160,11 +160,25 @@ export const allRoutes = [
   ...openaiRoutes,
 ];
 
+/** Tag metadata from BaseModel specs, keyed by PascalCase tag name */
+export const apiModelTagMeta: Record<
+  string,
+  { displayName?: string; description?: string }
+> = {};
+
 API_MODELS.forEach((modelClass) => {
   const apiConfig = modelClass.getModelConfig().apiConfig;
   if (!apiConfig) return;
   const routes = getOpenApiRoutesForApiConfig(apiConfig);
   allRoutes.push(...routes);
+
+  const spec = apiConfig.openApiSpec;
+  const tag =
+    spec.modelPlural.charAt(0).toUpperCase() + spec.modelPlural.slice(1);
+  apiModelTagMeta[tag] = {
+    displayName: spec.navDisplayName,
+    description: spec.navDescription ?? "",
+  };
 });
 
 allRoutes.forEach((route) => {

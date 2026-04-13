@@ -222,9 +222,19 @@ export function getOpenApiRoutesForApiConfig(
 ): OpenApiRoute[] {
   const routes: OpenApiRoute[] = [];
 
+  const tag = capitalizeFirstCharacter(apiConfig.openApiSpec.modelPlural);
+
   const crudConfig = getCrudConfig(apiConfig.openApiSpec);
   crudConfig.forEach(
-    ({ action, verb, pathFragment, validator, returnKey, returnSchema, plural }) => {
+    ({
+      action,
+      verb,
+      pathFragment,
+      validator,
+      returnKey,
+      returnSchema,
+      plural,
+    }) => {
       const singularCapitalized = capitalizeFirstCharacter(
         apiConfig.openApiSpec.modelSingular,
       );
@@ -241,6 +251,7 @@ export function getOpenApiRoutesForApiConfig(
           apiConfig.openApiSpec.modelSingular,
           apiConfig.openApiSpec.modelPlural,
         ),
+        tags: [tag],
         responseSchema: returnSchema,
       })(async (req) => {
         const modelInstance = req.context.models[
@@ -269,6 +280,7 @@ export function getOpenApiRoutesForApiConfig(
         path: getFullPath(apiConfig.openApiSpec.pathBase, pathFragment),
         operationId,
         summary,
+        tags: [tag],
         responseSchema: zodReturnObject,
       })(reqHandler);
       routes.push(route);
