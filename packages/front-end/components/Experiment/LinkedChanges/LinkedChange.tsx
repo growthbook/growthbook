@@ -80,16 +80,25 @@ export default function LinkedChange({
             <Avatar radius="small" color={radixColor} size="md" variant="soft">
               <Icon />
             </Avatar>
-            <Link
-              href={
-                changeType === "flag" ? `/features/${feature?.id}` : headingLink
-              }
-            >
+            {changeType === "flag" ? (
+              <Link href={`/features/${feature?.id}`}>
+                <Heading as="h4" size="small" weight="medium" mb="0">
+                  {heading}
+                  <PiArrowSquareOut className="ml-2" />
+                </Heading>
+              </Link>
+            ) : headingLink ? (
+              <Link href={headingLink}>
+                <Heading as="h4" size="small" weight="medium" mb="0">
+                  {heading}
+                  <PiArrowSquareOut className="ml-2" />
+                </Heading>
+              </Link>
+            ) : (
               <Heading as="h4" size="small" weight="medium" mb="0">
                 {heading}
-                <PiArrowSquareOut className="ml-2" />
               </Heading>
-            </Link>
+            )}
             {additionalBadge && <Box>{additionalBadge}</Box>}
             {changeType === "visual" && (
               <>

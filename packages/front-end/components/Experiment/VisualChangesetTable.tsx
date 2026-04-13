@@ -22,6 +22,16 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Linkbutton from "@/ui/LinkButton";
 
+/** Stored editor URLs often omit a protocol; Next.js Link treats those as app-relative paths. */
+function normalizeVisualEditorUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (!trimmed.match(/^http(s)?:/)) {
+    return `http://${trimmed}`;
+  }
+  return trimmed;
+}
+
 type Props = {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
@@ -79,10 +89,7 @@ function VisualChangesRows({
             }}
             renderActions={(j) => {
               const change = vc.visualChanges[j];
-              let editorUrl = vc.editorUrl.trim();
-              if (!editorUrl.match(/^http(s)?:/)) {
-                editorUrl = "http://" + editorUrl;
-              }
+              let editorUrl = normalizeVisualEditorUrl(vc.editorUrl);
               editorUrl = appendQueryParamsToURL(editorUrl, {
                 [experiment.trackingKey]: j,
               });
@@ -248,12 +255,14 @@ export const VisualChangesetTable: FC<Props> = ({
             visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b),
         );
 
+        const normalizedHeadingUrl = normalizeVisualEditorUrl(vc.editorUrl);
+
         return (
           <LinkedChange
             key={i}
             changeType={"visual"}
-            heading={vc.editorUrl}
-            headingLink={vc.editorUrl}
+            heading={vc.editorUrl.trim()}
+            headingLink={normalizedHeadingUrl || undefined}
             vc={vc}
             experiment={experiment}
             changes={visualChangeTypes}
