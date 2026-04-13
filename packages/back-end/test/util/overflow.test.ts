@@ -1,18 +1,4 @@
-import { chunkString, estimateJsonBytes } from "back-end/src/util/overflow";
-
-describe("estimateJsonBytes", () => {
-  it("returns byte length of JSON-serialized value", () => {
-    expect(estimateJsonBytes({})).toBe(2); // "{}"
-    expect(estimateJsonBytes([])).toBe(2); // "[]"
-    expect(estimateJsonBytes({ a: 1 })).toBe(7); // '{"a":1}'
-    expect(estimateJsonBytes("hello")).toBe(7); // '"hello"'
-  });
-
-  it("counts multi-byte UTF-8 characters correctly", () => {
-    // "é" is 2 bytes in UTF-8; serialized as '"é"' = 1 + 2 + 1 = 4 bytes
-    expect(estimateJsonBytes("é")).toBe(4);
-  });
-});
+import { chunkString } from "back-end/src/util/overflow";
 
 describe("chunkString", () => {
   it("returns empty array for empty string", () => {
@@ -33,6 +19,19 @@ describe("chunkString", () => {
     const chunks = chunkString(original, 300);
     expect(chunks.join("")).toBe(original);
     expect(chunks.length).toBe(5);
+  });
+
+  it("does not split surrogate pairs across chunks", () => {
+    // "🎉" is a surrogate pair (2 UTF-16 code units). chunkSize 3 forces
+    // boundaries that would land mid-pair under naive slicing.
+    const original = "🎉".repeat(50);
+    const chunks = chunkString(original, 3);
+    // Each chunk must survive a UTF-8 round-trip unchanged (no lone
+    // surrogates → no U+FFFD replacement).
+    for (const chunk of chunks) {
+      expect(Buffer.from(chunk, "utf8").toString("utf8")).toBe(chunk);
+    }
+    expect(chunks.join("")).toBe(original);
   });
 
   it("throws on non-positive chunk size", () => {

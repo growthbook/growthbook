@@ -59,16 +59,6 @@ export class SnapshotAnalysisOverflowModel extends BaseClass {
     return true;
   }
 
-  public async replaceForSnapshot(
-    snapshotId: string,
-    analyses: ExperimentSnapshotAnalysis[],
-  ): Promise<void> {
-    await this.replaceForSnapshotSerialized(
-      snapshotId,
-      JSON.stringify(analyses),
-    );
-  }
-
   public async replaceForSnapshotSerialized(
     snapshotId: string,
     serialized: string,
