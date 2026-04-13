@@ -233,7 +233,7 @@ export function getAISettingsForOrg(
     defaultAIModel:
       context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel ||
-      "gpt-4o-mini",
+      "gpt-5.4-mini",
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
   };
