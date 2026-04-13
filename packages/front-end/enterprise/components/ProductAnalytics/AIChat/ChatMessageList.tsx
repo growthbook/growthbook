@@ -71,10 +71,7 @@ function classifyAssistantBlockMessages(msgs: AIChatMessage[]): {
   let lastTextMsgIdx = -1;
   for (let i = msgs.length - 1; i >= 0; i--) {
     const m = msgs[i];
-    if (
-      m.role === "assistant" &&
-      getMessageText(m).trim()
-    ) {
+    if (m.role === "assistant" && getMessageText(m).trim()) {
       lastTextMsgIdx = i;
       break;
     }
@@ -526,8 +523,7 @@ export default function ChatMessageList({
       )}
 
       {visibleItems.map(({ item, phase }) => {
-        const key =
-          item.kind === "tool-status" ? item.toolCallId : item.id;
+        const key = item.kind === "tool-status" ? item.toolCallId : item.id;
         const rendered = renderActiveTurnItem(item);
         if (!rendered) return null;
         return (
