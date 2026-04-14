@@ -11,6 +11,10 @@ import {
   getAnalysisMetaFromSnapshot,
   AnalysisMetaEntry,
 } from "../src/snapshot-results";
+import {
+  snapshotResultChunkValidator,
+  validateSnapshotResultChunkColumnLengths,
+} from "../src/validators/snapshot-results";
 
 function makeMetric(overrides: Partial<SnapshotMetric> = {}): SnapshotMetric {
   return {
@@ -70,6 +74,100 @@ function decodeHelper(
     filterMetricIds,
   );
 }
+
+function makeSnapshotResultChunk(data: Record<string, unknown[]>) {
+  return {
+    organization: "org_1",
+    dateCreated: new Date("2025-01-01"),
+    dateUpdated: new Date("2025-01-01"),
+    id: "snpres_1",
+    snapshotId: "snp_1",
+    experimentId: "exp_1",
+    metricId: "met_1",
+    numRows: 2,
+    data,
+  };
+}
+
+describe("snapshotResultChunkValidator", () => {
+  it("accepts column data when all arrays match numRows", () => {
+    const result = snapshotResultChunkValidator.safeParse(
+      makeSnapshotResultChunk({
+        a: [0, 0],
+        d: ["All", "All"],
+        v: [0, 1],
+        value: [0.1, 0.2],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects column data when any array length differs from the other columns", () => {
+    const result = snapshotResultChunkValidator.safeParse(
+      makeSnapshotResultChunk({
+        a: [0, 0],
+        d: ["All"],
+        v: [0, 1],
+        value: [0.1, 0.2, 0.3],
+      }),
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Column "d" has 1 rows, expected 2',
+            path: ["data", "d"],
+          }),
+          expect.objectContaining({
+            message: 'Column "value" has 3 rows, expected 2',
+            path: ["data", "value"],
+          }),
+        ]),
+      );
+    }
+  });
+
+  it("rejects column data when numRows does not match the common array length", () => {
+    const result = snapshotResultChunkValidator.safeParse({
+      ...makeSnapshotResultChunk({
+        a: [0, 0],
+        d: ["All", "All"],
+        v: [0, 1],
+      }),
+      numRows: 3,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: "numRows has 3 rows, expected 2",
+            path: ["numRows"],
+          }),
+        ]),
+      );
+    }
+  });
+
+  it("throws from the model-layer helper when column lengths are invalid", () => {
+    expect(() =>
+      validateSnapshotResultChunkColumnLengths({
+        numRows: 2,
+        data: {
+          a: [0, 0],
+          d: ["All"],
+          v: [0, 1],
+        },
+      }),
+    ).toThrow(
+      "Snapshot result chunk columns must have the same length and match numRows",
+    );
+  });
+});
 
 describe("buildMetricOrdering", () => {
   it("should order goals, secondary, guardrails", () => {

@@ -8,6 +8,7 @@ import {
 import {
   snapshotResultChunkValidator,
   SnapshotResultChunkInterface,
+  validateSnapshotResultChunkColumnLengths,
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysis,
@@ -50,6 +51,10 @@ export class SnapshotResultChunkModel extends BaseClass {
   }
   protected canDelete() {
     return true;
+  }
+
+  protected async customValidation(doc: SnapshotResultChunkInterface) {
+    validateSnapshotResultChunkColumnLengths(doc);
   }
 
   /**
