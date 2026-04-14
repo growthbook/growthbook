@@ -766,7 +766,7 @@ export const getFactMetricValidator = {
   operationId: "getFactMetric",
   tags: ["fact-metrics"],
   method: "get" as const,
-  path: "/fact-metrics/{id}",
+  path: "/fact-metrics/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -783,7 +783,7 @@ export const updateFactMetricValidator = {
   operationId: "updateFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
-  path: "/fact-metrics/{id}",
+  path: "/fact-metrics/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { hasConversionWindow: false },
@@ -803,7 +803,7 @@ export const deleteFactMetricValidator = {
   operationId: "deleteFactMetric",
   tags: ["fact-metrics"],
   method: "delete" as const,
-  path: "/fact-metrics/{id}",
+  path: "/fact-metrics/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -820,6 +820,6 @@ export const postFactMetricAnalysisValidator = {
   operationId: "postFactMetricAnalysis",
   tags: ["fact-metrics"],
   method: "post" as const,
-  path: "/fact-metrics/{id}/analysis",
+  path: "/fact-metrics/:id/analysis",
   exampleRequest: { body: { lookbackDays: 90 } },
 };

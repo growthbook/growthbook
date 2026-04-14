@@ -113,7 +113,7 @@ export const getDimensionValidator = {
   operationId: "getDimension",
   tags: ["dimensions"],
   method: "get" as const,
-  path: "/dimensions/{id}",
+  path: "/dimensions/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -130,7 +130,7 @@ export const updateDimensionValidator = {
   operationId: "updateDimension",
   tags: ["dimensions"],
   method: "post" as const,
-  path: "/dimensions/{id}",
+  path: "/dimensions/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { name: "User Region" },
@@ -150,6 +150,6 @@ export const deleteDimensionValidator = {
   operationId: "deleteDimension",
   tags: ["dimensions"],
   method: "delete" as const,
-  path: "/dimensions/{id}",
+  path: "/dimensions/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

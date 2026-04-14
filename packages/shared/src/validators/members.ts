@@ -91,7 +91,7 @@ export const deleteMemberValidator = {
   operationId: "deleteMember",
   tags: ["members"],
   method: "delete" as const,
-  path: "/members/{id}",
+  path: "/members/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -124,5 +124,5 @@ export const updateMemberRoleValidator = {
   operationId: "updateMemberRole",
   tags: ["members"],
   method: "post" as const,
-  path: "/members/{id}/role",
+  path: "/members/:id/role",
 };

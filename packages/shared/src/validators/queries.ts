@@ -72,6 +72,6 @@ export const getQueryValidator = {
   operationId: "getQuery",
   tags: ["queries"],
   method: "get" as const,
-  path: "/queries/{id}",
+  path: "/queries/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

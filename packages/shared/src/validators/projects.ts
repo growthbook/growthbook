@@ -154,7 +154,7 @@ export const getProjectValidator = {
   operationId: "getProject",
   tags: ["projects"],
   method: "get" as const,
-  path: "/projects/{id}",
+  path: "/projects/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -171,7 +171,7 @@ export const putProjectValidator = {
   operationId: "putProject",
   tags: ["projects"],
   method: "put" as const,
-  path: "/projects/{id}",
+  path: "/projects/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { name: "My Subsidiary" },
@@ -191,6 +191,6 @@ export const deleteProjectValidator = {
   operationId: "deleteProject",
   tags: ["projects"],
   method: "delete" as const,
-  path: "/projects/{id}",
+  path: "/projects/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

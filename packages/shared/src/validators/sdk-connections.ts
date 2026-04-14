@@ -128,7 +128,7 @@ export const getSdkConnectionValidator = {
   operationId: "getSdkConnection",
   tags: ["sdk-connections"],
   method: "get" as const,
-  path: "/sdk-connections/{id}",
+  path: "/sdk-connections/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -145,7 +145,7 @@ export const putSdkConnectionValidator = {
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
-  path: "/sdk-connections/{id}",
+  path: "/sdk-connections/:id",
 };
 
 export const deleteSdkConnectionValidator = {
@@ -161,7 +161,7 @@ export const deleteSdkConnectionValidator = {
   operationId: "deleteSdkConnection",
   tags: ["sdk-connection"],
   method: "delete" as const,
-  path: "/sdk-connections/{id}",
+  path: "/sdk-connections/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -182,6 +182,6 @@ export const lookupSdkConnectionByKeyValidator = {
   operationId: "lookupSdkConnectionByKey",
   tags: ["sdk-connections"],
   method: "get" as const,
-  path: "/sdk-connections/lookup/{key}",
+  path: "/sdk-connections/lookup/:key",
   exampleRequest: { params: { key: "abc123" } },
 };

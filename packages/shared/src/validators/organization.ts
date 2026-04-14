@@ -174,7 +174,7 @@ export const putOrganizationValidator = {
   operationId: "putOrganization",
   tags: ["organizations"],
   method: "put" as const,
-  path: "/organizations/{id}",
+  path: "/organizations/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { name: "My Subsidiary", externalId: "subsidiary-123" },

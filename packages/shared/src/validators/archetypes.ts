@@ -90,7 +90,7 @@ export const getArchetypeValidator = {
   operationId: "getArchetype",
   tags: ["archetypes"],
   method: "get" as const,
-  path: "/archetypes/${id}",
+  path: "/archetypes/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -107,7 +107,7 @@ export const putArchetypeValidator = {
   operationId: "putArchetype",
   tags: ["archetypes"],
   method: "put" as const,
-  path: "/archetypes/${id}",
+  path: "/archetypes/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { description: "New description" },
@@ -127,6 +127,6 @@ export const deleteArchetypeValidator = {
   operationId: "deleteArchetype",
   tags: ["archetypes"],
   method: "delete" as const,
-  path: "/archetypes/${id}",
+  path: "/archetypes/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

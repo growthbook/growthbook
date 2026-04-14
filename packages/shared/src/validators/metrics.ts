@@ -740,7 +740,7 @@ export const getMetricValidator = {
   operationId: "getMetric",
   tags: ["metrics"],
   method: "get" as const,
-  path: "/metrics/{id}",
+  path: "/metrics/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -757,7 +757,7 @@ export const putMetricValidator = {
   operationId: "putMetric",
   tags: ["metrics"],
   method: "put" as const,
-  path: "/metrics/{id}",
+  path: "/metrics/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: {
@@ -780,7 +780,7 @@ export const deleteMetricValidator = {
   operationId: "deleteMetric",
   tags: ["metrics"],
   method: "delete" as const,
-  path: "/metrics/{id}",
+  path: "/metrics/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 

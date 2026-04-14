@@ -601,7 +601,7 @@ export const getFactTableValidator = {
   operationId: "getFactTable",
   tags: ["fact-tables"],
   method: "get" as const,
-  path: "/fact-tables/{id}",
+  path: "/fact-tables/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -618,7 +618,7 @@ export const updateFactTableValidator = {
   operationId: "updateFactTable",
   tags: ["fact-tables"],
   method: "post" as const,
-  path: "/fact-tables/{id}",
+  path: "/fact-tables/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { name: "New Fact Table Name" },
@@ -638,7 +638,7 @@ export const deleteFactTableValidator = {
   operationId: "deleteFactTable",
   tags: ["fact-tables"],
   method: "delete" as const,
-  path: "/fact-tables/{id}",
+  path: "/fact-tables/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -660,7 +660,7 @@ export const listFactTableFiltersValidator = {
   operationId: "listFactTableFilters",
   tags: ["fact-tables"],
   method: "get" as const,
-  path: "/fact-tables/{factTableId}/filters",
+  path: "/fact-tables/:factTableId/filters",
   exampleRequest: { params: { factTableId: "abc123" } },
 };
 
@@ -677,7 +677,7 @@ export const postFactTableFilterValidator = {
   operationId: "postFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
-  path: "/fact-tables/{factTableId}/filters",
+  path: "/fact-tables/:factTableId/filters",
   exampleRequest: {
     params: { factTableId: "abc123" },
     body: { name: "High Value Order", value: "amount>100" },
@@ -697,7 +697,7 @@ export const getFactTableFilterValidator = {
   operationId: "getFactTableFilter",
   tags: ["fact-tables"],
   method: "get" as const,
-  path: "/fact-tables/{factTableId}/filters/{id}",
+  path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
 };
 
@@ -714,7 +714,7 @@ export const updateFactTableFilterValidator = {
   operationId: "updateFactTableFilter",
   tags: ["fact-tables"],
   method: "post" as const,
-  path: "/fact-tables/{factTableId}/filters/{id}",
+  path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: {
     params: { factTableId: "abc123", id: "abc123" },
     body: { value: "amount > 50" },
@@ -734,6 +734,6 @@ export const deleteFactTableFilterValidator = {
   operationId: "deleteFactTableFilter",
   tags: ["fact-tables"],
   method: "delete" as const,
-  path: "/fact-tables/{factTableId}/filters/{id}",
+  path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
 };

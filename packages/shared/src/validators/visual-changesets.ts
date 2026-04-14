@@ -104,7 +104,7 @@ export const listVisualChangesetsValidator = {
   operationId: "listVisualChangesets",
   tags: ["visual-changesets"],
   method: "get" as const,
-  path: "/experiments/{id}/visual-changesets",
+  path: "/experiments/:id/visual-changesets",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -121,7 +121,7 @@ export const postVisualChangesetsValidator = {
   operationId: "postVisualChangesets",
   tags: ["visual-changesets"],
   method: "post" as const,
-  path: "/experiments/{id}/visual-changesets",
+  path: "/experiments/:id/visual-changesets",
   exampleRequest: {
     params: { id: "abc123" },
     body: {
@@ -153,7 +153,7 @@ export const getVisualChangesetValidator = {
   operationId: "getVisualChangeset",
   tags: ["visual-changesets"],
   method: "get" as const,
-  path: "/visual-changesets/{id}",
+  path: "/visual-changesets/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -171,7 +171,7 @@ export const putVisualChangesetValidator = {
   operationId: "putVisualChangeset",
   tags: ["visual-changesets"],
   method: "put" as const,
-  path: "/visual-changesets/{id}",
+  path: "/visual-changesets/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: {
@@ -194,7 +194,7 @@ export const postVisualChangeValidator = {
   operationId: "postVisualChange",
   tags: ["visual-changesets"],
   method: "post" as const,
-  path: "/visual-changesets/{id}/visual-change",
+  path: "/visual-changesets/:id/visual-change",
   exampleRequest: { body: { variation: "v_123abc", domMutations: "[]" } },
 };
 
@@ -216,6 +216,6 @@ export const putVisualChangeValidator = {
   operationId: "putVisualChange",
   tags: ["visual-changesets"],
   method: "put" as const,
-  path: "/visual-changesets/{id}/visual-change/{visualChangeId}",
+  path: "/visual-changesets/:id/visual-change/:visualChangeId",
   exampleRequest: { body: { variation: "v_123abc", domMutations: "[]" } },
 };

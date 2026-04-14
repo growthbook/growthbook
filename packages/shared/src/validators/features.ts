@@ -1095,7 +1095,7 @@ export const getFeatureValidator = {
   operationId: "getFeature",
   tags: ["features"],
   method: "get" as const,
-  path: "/features/{id}",
+  path: "/features/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -1108,7 +1108,7 @@ export const updateFeatureValidator = {
   operationId: "updateFeature",
   tags: ["features"],
   method: "post" as const,
-  path: "/features/{id}",
+  path: "/features/:id",
 };
 
 export const deleteFeatureValidator = {
@@ -1124,7 +1124,7 @@ export const deleteFeatureValidator = {
   operationId: "deleteFeature",
   tags: ["features"],
   method: "delete" as const,
-  path: "/features/{id}",
+  path: "/features/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -1155,7 +1155,7 @@ export const toggleFeatureValidator = {
   operationId: "toggleFeature",
   tags: ["features"],
   method: "post" as const,
-  path: "/features/{id}/toggle",
+  path: "/features/:id/toggle",
   exampleRequest: {
     body: {
       reason: "Kill switch activated",
@@ -1178,7 +1178,7 @@ export const revertFeatureValidator = {
   operationId: "revertFeature",
   tags: ["features"],
   method: "post" as const,
-  path: "/features/{id}/revert",
+  path: "/features/:id/revert",
   exampleRequest: { body: { revision: 3, comment: "Bug found" } },
 };
 
@@ -1200,7 +1200,7 @@ export const getFeatureRevisionsValidator = {
   operationId: "getFeatureRevisions",
   tags: ["features"],
   method: "get" as const,
-  path: "/features/{id}/revisions",
+  path: "/features/:id/revisions",
   exampleRequest: { params: { id: "abc123" } },
 };
 

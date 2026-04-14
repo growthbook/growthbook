@@ -117,6 +117,6 @@ export const getCodeRefsValidator = {
   operationId: "getCodeRefs",
   tags: ["code-references"],
   method: "get" as const,
-  path: "/code-refs/{id}",
+  path: "/code-refs/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

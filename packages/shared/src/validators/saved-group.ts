@@ -194,7 +194,7 @@ export const getSavedGroupValidator = {
   operationId: "getSavedGroup",
   tags: ["saved-groups"],
   method: "get" as const,
-  path: "/saved-groups/{id}",
+  path: "/saved-groups/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -211,7 +211,7 @@ export const updateSavedGroupValidator = {
   operationId: "updateSavedGroup",
   tags: ["saved-groups"],
   method: "post" as const,
-  path: "/saved-groups/{id}",
+  path: "/saved-groups/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { values: ["userId-123", "userId-345"] },
@@ -231,6 +231,6 @@ export const deleteSavedGroupValidator = {
   operationId: "deleteSavedGroup",
   tags: ["saved-groups"],
   method: "delete" as const,
-  path: "/saved-groups/{id}",
+  path: "/saved-groups/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

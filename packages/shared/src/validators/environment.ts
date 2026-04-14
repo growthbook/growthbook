@@ -153,7 +153,7 @@ export const putEnvironmentValidator = {
   operationId: "putEnvironment",
   tags: ["environments"],
   method: "put" as const,
-  path: "/environments/${id}",
+  path: "/environments/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { description: "My updated environment" },
@@ -173,6 +173,6 @@ export const deleteEnvironmentValidator = {
   operationId: "deleteEnvironment",
   tags: ["environments"],
   method: "delete" as const,
-  path: "/environments/${id}",
+  path: "/environments/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

@@ -152,7 +152,7 @@ export const putAttributeValidator = {
   operationId: "putAttribute",
   tags: ["attributes"],
   method: "put" as const,
-  path: "/attributes/${property}",
+  path: "/attributes/:property",
   exampleRequest: {
     params: { property: "abc123" },
     body: { description: "My updated attribute" },
@@ -172,6 +172,6 @@ export const deleteAttributeValidator = {
   operationId: "deleteAttribute",
   tags: ["attributes"],
   method: "delete" as const,
-  path: "/attributes/${property}",
+  path: "/attributes/:property",
   exampleRequest: { params: { property: "abc123" } },
 };

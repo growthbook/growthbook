@@ -89,7 +89,7 @@ export const getInformationSchemaValidator = {
   operationId: "getInformationSchema",
   tags: ["data-sources"],
   method: "get" as const,
-  path: "/data-sources/{dataSourceId}/information-schema",
+  path: "/data-sources/:dataSourceId/information-schema",
 };
 
 export const getInformationSchemaTableValidator = {
@@ -105,5 +105,5 @@ export const getInformationSchemaTableValidator = {
   operationId: "getInformationSchemaTable",
   tags: ["data-sources"],
   method: "get" as const,
-  path: "/information-schema-tables/{tableId}",
+  path: "/information-schema-tables/:tableId",
 };

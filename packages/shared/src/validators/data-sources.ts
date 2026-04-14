@@ -87,5 +87,5 @@ export const getDataSourceValidator = {
   operationId: "getDataSource",
   tags: ["data-sources"],
   method: "get" as const,
-  path: "/data-sources/{id}",
+  path: "/data-sources/:id",
 };

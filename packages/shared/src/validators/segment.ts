@@ -182,7 +182,7 @@ export const getSegmentValidator = {
   operationId: "getSegment",
   tags: ["segments"],
   method: "get" as const,
-  path: "/segments/{id}",
+  path: "/segments/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -199,7 +199,7 @@ export const updateSegmentValidator = {
   operationId: "updateSegment",
   tags: ["segments"],
   method: "post" as const,
-  path: "/segments/{id}",
+  path: "/segments/:id",
   exampleRequest: {
     params: { id: "abc123" },
     body: { name: "User Region" },
@@ -219,6 +219,6 @@ export const deleteSegmentValidator = {
   operationId: "deleteSegment",
   tags: ["segments"],
   method: "delete" as const,
-  path: "/segments/{id}",
+  path: "/segments/:id",
   exampleRequest: { params: { id: "abc123" } },
 };

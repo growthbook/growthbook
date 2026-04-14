@@ -1306,7 +1306,7 @@ export const getExperimentValidator = {
   operationId: "getExperiment",
   tags: ["experiments"],
   method: "get" as const,
-  path: "/experiments/{id}",
+  path: "/experiments/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
 
@@ -1323,7 +1323,7 @@ export const updateExperimentValidator = {
   operationId: "updateExperiment",
   tags: ["experiments"],
   method: "post" as const,
-  path: "/experiments/{id}",
+  path: "/experiments/:id",
 };
 
 export const postExperimentSnapshotValidator = {
@@ -1352,7 +1352,7 @@ export const postExperimentSnapshotValidator = {
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],
   method: "post" as const,
-  path: "/experiments/{id}/snapshot",
+  path: "/experiments/:id/snapshot",
   exampleRequest: { body: { triggeredBy: "schedule" } } as const,
 };
 
@@ -1386,7 +1386,7 @@ export const postVariationImageUploadValidator = {
   operationId: "postVariationImageUpload",
   tags: ["experiments"],
   method: "post" as const,
-  path: "/experiments/{id}/variation/{variationId}/screenshot/upload",
+  path: "/experiments/:id/variation/:variationId/screenshot/upload",
   exampleRequest: {
     body: {
       screenshot: "<base64-encoded-screenshot>",
@@ -1410,7 +1410,7 @@ export const deleteVariationScreenshotValidator = {
   operationId: "deleteVariationScreenshot",
   tags: ["experiments"],
   method: "delete" as const,
-  path: "/experiments/{id}/variation/{variationId}/screenshot",
+  path: "/experiments/:id/variation/:variationId/screenshot",
   exampleRequest: {
     params: { id: "abc123", variationId: "abc123" },
     body: { path: "/upload/org_xxx/2025-03/img_uuid.png" },
@@ -1435,7 +1435,7 @@ export const getExperimentResultsValidator = {
   operationId: "getExperimentResults",
   tags: ["experiments"],
   method: "get" as const,
-  path: "/experiments/{id}/results",
+  path: "/experiments/:id/results",
 };
 
 export const getExperimentSnapshotValidator = {
@@ -1459,5 +1459,5 @@ export const getExperimentSnapshotValidator = {
   operationId: "getExperimentSnapshot",
   tags: ["snapshots"],
   method: "get" as const,
-  path: "/snapshots/{id}",
+  path: "/snapshots/:id",
 };
