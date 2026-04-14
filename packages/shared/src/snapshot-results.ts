@@ -281,7 +281,7 @@ export function buildMetricOrdering(
 
 /**
  * Helper to extract analysisMeta and analysisMetadata from a snapshot,
- * used by populateSnapshots in the chunk model.
+ * used by populateChunkedResults in the chunk model.
  */
 export function getAnalysisMetaFromSnapshot(
   snapshot: ExperimentSnapshotInterface,

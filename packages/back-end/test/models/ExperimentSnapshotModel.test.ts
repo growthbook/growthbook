@@ -8,6 +8,9 @@ import {
   getLatestSnapshot,
   createExperimentSnapshotModel,
   updateSnapshot,
+  addOrUpdateSnapshotAnalysis,
+  updateSnapshotAnalysis,
+  findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -38,7 +41,7 @@ const snapshotTestContext = {
   org: { id: "org_1" },
   models: {
     experimentSnapshotResultChunks: {
-      populateSnapshots: jest.fn(),
+      populateChunkedResults: jest.fn(),
     },
   },
 } as unknown as Context;
@@ -60,6 +63,100 @@ function getSnapshotUpdateContext() {
     new ExperimentSnapshotResultChunkModel(context);
 
   return context;
+}
+
+function makeAnalysisSettings(
+  overrides: Partial<ExperimentSnapshotAnalysis["settings"]> = {},
+): ExperimentSnapshotAnalysis["settings"] {
+  return {
+    dimensions: [],
+    statsEngine: "bayesian",
+    regressionAdjusted: false,
+    sequentialTesting: false,
+    differenceType: "relative",
+    pValueCorrection: null,
+    baselineVariationIndex: 0,
+    numGoalMetrics: 1,
+    ...overrides,
+  };
+}
+
+function makeAnalysis({
+  settings,
+  value,
+  status = "success",
+}: {
+  settings: ExperimentSnapshotAnalysis["settings"];
+  value: number;
+  status?: ExperimentSnapshotAnalysis["status"];
+}): ExperimentSnapshotAnalysis {
+  return {
+    dateCreated: new Date("2025-01-01T00:00:00Z"),
+    status,
+    settings,
+    results: [
+      {
+        name: "",
+        srm: 0.95,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met_1: {
+                value,
+                cr: value / 100,
+                users: 100,
+              },
+            },
+          },
+          {
+            users: 120,
+            metrics: {
+              met_1: {
+                value: value + 5,
+                cr: (value + 5) / 120,
+                users: 120,
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function makeEmptyAnalysis({
+  settings,
+  status = "running",
+}: {
+  settings: ExperimentSnapshotAnalysis["settings"];
+  status?: ExperimentSnapshotAnalysis["status"];
+}): ExperimentSnapshotAnalysis {
+  return {
+    dateCreated: new Date("2025-01-02T00:00:00Z"),
+    status,
+    settings,
+    results: [],
+  };
+}
+
+function makeSnapshotWithMetric(id: string) {
+  const snapshot = snapshotFactory.build({
+    id,
+    experiment: `exp_${id}`,
+    type: "exploratory",
+    status: "running",
+  });
+  snapshot.settings = {
+    ...snapshot.settings,
+    experimentId: snapshot.experiment,
+    goalMetrics: ["met_1"],
+    variations: [
+      { id: "0", weight: 0.5 },
+      { id: "1", weight: 0.5 },
+    ],
+  };
+  return snapshot;
 }
 
 describe("ExperimentSnapshotModel", () => {
@@ -364,9 +461,9 @@ describe("ExperimentSnapshotModel", () => {
       );
       (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
       (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
-      const populateSnapshotsSpy = jest.spyOn(
+      const populateChunkedResultsSpy = jest.spyOn(
         context.models.experimentSnapshotResultChunks,
-        "populateSnapshots",
+        "populateChunkedResults",
       );
 
       const snapshot = snapshotFactory.build({
@@ -448,7 +545,176 @@ describe("ExperimentSnapshotModel", () => {
       expect(
         passedSnapshot.analyses[0].results[0].variations[1].metrics.met_1.value,
       ).toBe(15);
-      expect(populateSnapshotsSpy).not.toHaveBeenCalled();
+      expect(populateChunkedResultsSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("chunked snapshot analysis updates", () => {
+    it("preserves other analyses when updating one chunked analysis", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_update_one_analysis");
+      const relativeSettings = makeAnalysisSettings({
+        differenceType: "relative",
+      });
+      const absoluteSettings = makeAnalysisSettings({
+        differenceType: "absolute",
+      });
+      const relativeAnalysis = makeAnalysis({
+        settings: relativeSettings,
+        value: 10,
+      });
+      const absoluteAnalysis = makeAnalysis({
+        settings: absoluteSettings,
+        value: 20,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [relativeAnalysis, absoluteAnalysis],
+        },
+      });
+
+      const initialSnapshot = await findSnapshotById(context, snapshot.id);
+      const initialVersion = initialSnapshot?.resultChunkVersion;
+      const updatedRelativeAnalysis = makeAnalysis({
+        settings: relativeSettings,
+        value: 30,
+      });
+
+      await updateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: updatedRelativeAnalysis,
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.resultChunkVersion).toBeTruthy();
+      expect(result?.resultChunkVersion).not.toBe(initialVersion);
+      expect(
+        result?.analyses[0].results[0].variations[0].metrics.met_1.value,
+      ).toBe(30);
+      expect(
+        result?.analyses[1].results[0].variations[0].metrics.met_1.value,
+      ).toBe(20);
+
+      const chunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks.map((c) => c.resultChunkVersion)).toEqual([
+        result?.resultChunkVersion,
+      ]);
+    });
+
+    it("skips chunk rewrites for a new empty running analysis", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_new_empty_analysis");
+      const relativeSettings = makeAnalysisSettings({
+        differenceType: "relative",
+      });
+      const absoluteSettings = makeAnalysisSettings({
+        differenceType: "absolute",
+      });
+      const relativeAnalysis = makeAnalysis({
+        settings: relativeSettings,
+        value: 10,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [relativeAnalysis],
+        },
+      });
+
+      const initialSnapshot = await findSnapshotById(context, snapshot.id);
+      const initialChunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+
+      await addOrUpdateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeEmptyAnalysis({ settings: absoluteSettings }),
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      const chunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+
+      expect(result?.resultChunkVersion).toBe(
+        initialSnapshot?.resultChunkVersion,
+      );
+      expect(chunks.map((c) => c.id)).toEqual(initialChunks.map((c) => c.id));
+      expect(result?.analyses).toHaveLength(2);
+      expect(result?.analyses[0].results).toHaveLength(1);
+      expect(result?.analyses[1].results).toEqual([]);
+    });
+
+    it("clears old chunked results when an existing analysis is reset to running", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_clear_existing_analysis");
+      const relativeSettings = makeAnalysisSettings({
+        differenceType: "relative",
+      });
+      const absoluteSettings = makeAnalysisSettings({
+        differenceType: "absolute",
+      });
+      const relativeAnalysis = makeAnalysis({
+        settings: relativeSettings,
+        value: 10,
+      });
+      const absoluteAnalysis = makeAnalysis({
+        settings: absoluteSettings,
+        value: 20,
+      });
+
+      await createExperimentSnapshotModel({ data: snapshot });
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [relativeAnalysis, absoluteAnalysis],
+        },
+      });
+
+      const initialSnapshot = await findSnapshotById(context, snapshot.id);
+
+      await updateSnapshotAnalysis({
+        context,
+        id: snapshot.id,
+        analysis: makeEmptyAnalysis({ settings: relativeSettings }),
+      });
+
+      const result = await findSnapshotById(context, snapshot.id);
+      expect(result?.resultChunkVersion).toBeTruthy();
+      expect(result?.resultChunkVersion).not.toBe(
+        initialSnapshot?.resultChunkVersion,
+      );
+      expect(result?.analyses[0].status).toBe("running");
+      expect(result?.analyses[0].results).toEqual([]);
+      expect(
+        result?.analyses[1].results[0].variations[0].metrics.met_1.value,
+      ).toBe(20);
+
+      const chunks =
+        await context.models.experimentSnapshotResultChunks.getAllChunksForSnapshot(
+          snapshot.id,
+        );
+      expect(chunks.map((c) => c.resultChunkVersion)).toEqual([
+        result?.resultChunkVersion,
+      ]);
     });
   });
 });

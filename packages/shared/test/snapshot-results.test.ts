@@ -912,7 +912,7 @@ describe("decodeSnapshotResults", () => {
       analysisMeta,
     };
 
-    // 4. Decode: what populateSnapshots does via getAnalysisMetaFromSnapshot
+    // 4. Decode: what populateChunkedResults does via getAnalysisMetaFromSnapshot
     const { analysisMeta: decodeMeta, analysisMetadata } =
       getAnalysisMetaFromSnapshot(storedSnapshot);
     const chunks = Array.from(metricChunks.entries()).map(
