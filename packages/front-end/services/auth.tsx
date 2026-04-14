@@ -375,7 +375,10 @@ export const AuthProvider: React.FC<{
 
       if (response.status === 401) {
         try {
-          const errorData = await response.json().catch(() => null);
+          const errorData = await response
+            .clone()
+            .json()
+            .catch(() => null);
           if (errorData?.message === "jwt expired") {
             const resp = await refreshToken();
             if ("token" in resp) {
@@ -404,6 +407,7 @@ export const AuthProvider: React.FC<{
           if (e instanceof Error && e.message.includes("session has expired")) {
             throw e;
           }
+          console.error("Token refresh failed for 401 response:", e);
         }
       }
 
