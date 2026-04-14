@@ -691,7 +691,7 @@ curl https://api.growthbook.io/api/v1 \
   console.log(openapiSpec);
 
   fs.writeFileSync(
-    path.join(__dirname, "..", "..", "generated", "spec2.yaml"),
+    path.join(__dirname, "..", "..", "generated", "spec.yaml"),
     yaml.dump(openapiSpec),
   );
 }
