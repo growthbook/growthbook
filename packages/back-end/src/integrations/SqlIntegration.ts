@@ -4303,7 +4303,6 @@ export default abstract class SqlIntegration
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorNeedsPercentileCapJoin: needsDenomPercentileCapJoin,
           denominatorIsPercentileCapped,
-          denominatorIsLowerPercentileCapped,
         })
       : `
   -- One row per variation/dimension with aggregations
@@ -5197,26 +5196,27 @@ export default abstract class SqlIntegration
     columnRef?: ColumnRef | null;
   }): string {
     const cs = metric?.cappingSettings;
+    const upperThreshold = cs?.value;
+    const lowerThreshold = cs?.lowerValue;
     const hasUpperAbs =
       cs?.type === "absolute" &&
-      !!cs.value &&
-      cs.value > 0 &&
+      upperThreshold != null &&
       isCappableMetricType(metric);
     const hasUpperPct =
       cs?.type === "percentile" &&
-      !!cs.value &&
-      cs.value < 1 &&
+      upperThreshold != null &&
+      upperThreshold > 0 &&
+      upperThreshold < 1 &&
       isCappableMetricType(metric);
     const hasLowerAbs =
       cs?.lowerType === "absolute" &&
-      cs.lowerValue != null &&
-      cs.lowerValue > 0 &&
+      lowerThreshold != null &&
       isCappableMetricType(metric);
     const hasLowerPct =
       cs?.lowerType === "percentile" &&
-      cs.lowerValue != null &&
-      cs.lowerValue > 0 &&
-      cs.lowerValue < 1 &&
+      lowerThreshold != null &&
+      lowerThreshold > 0 &&
+      lowerThreshold < 1 &&
       isCappableMetricType(metric);
 
     const innerCol = wrapValueColumnWithAggregateUserFilter(
@@ -5227,12 +5227,12 @@ export default abstract class SqlIntegration
     if (hasUpperAbs || hasUpperPct || hasLowerAbs || hasLowerPct) {
       let expr = this.ensureFloat(`COALESCE(${innerCol}, 0)`);
       if (hasUpperAbs) {
-        expr = `LEAST(${expr}, ${cs!.value})`;
+        expr = `LEAST(${expr}, ${upperThreshold})`;
       } else if (hasUpperPct) {
         expr = `LEAST(${expr}, ${capTablePrefix}.${capValueCol})`;
       }
       if (hasLowerAbs) {
-        expr = `GREATEST(${expr}, ${cs!.lowerValue})`;
+        expr = `GREATEST(${expr}, ${lowerThreshold})`;
       } else if (hasLowerPct) {
         expr = `GREATEST(${expr}, ${capTablePrefix}.${lowerCapValueCol})`;
       }
