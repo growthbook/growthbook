@@ -788,7 +788,7 @@ function groupDiffs(diffs: Diff[]): GroupedDiffs {
   return groups;
 }
 
-const COLORS = {
+let COLORS = {
   red: (s: string) => `\x1b[31m${s}\x1b[0m`,
   green: (s: string) => `\x1b[32m${s}\x1b[0m`,
   yellow: (s: string) => `\x1b[33m${s}\x1b[0m`,
@@ -942,6 +942,7 @@ Options:
   --json           Output raw diffs as JSON
   --paths-only     Only show path/endpoint differences
   --help, -h       Show this help
+  --no-color       Don't color code the output
 `);
     process.exit(args.includes("--help") || args.includes("-h") ? 0 : 1);
   }
@@ -949,6 +950,17 @@ Options:
   const verbose = args.includes("--verbose") || args.includes("-v");
   const jsonOutput = args.includes("--json");
   const pathsOnly = args.includes("--paths-only");
+  const noColor = args.includes("--no-color");
+  if (noColor) {
+    COLORS = {
+      red: (s: string) => s,
+      green: (s: string) => s,
+      yellow: (s: string) => s,
+      cyan: (s: string) => s,
+      bold: (s: string) => s,
+      dim: (s: string) => s,
+    };
+  }
 
   const oldPath = args[0];
   const newPath = args[1];
