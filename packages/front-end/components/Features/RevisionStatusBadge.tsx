@@ -1,30 +1,75 @@
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
+
+export function isRampGenerated(
+  r: Pick<MinimalFeatureRevisionInterface, "createdBy">,
+): boolean {
+  return (
+    r.createdBy?.type === "system" && r.createdBy.subtype === "ramp-schedule"
+  );
+}
 
 export interface Props {
   revision: MinimalFeatureRevisionInterface | null | undefined;
   liveVersion: number;
 }
 
+export function revisionStatusColor(
+  status: MinimalFeatureRevisionInterface["status"] | "live",
+): RadixColor {
+  switch (status) {
+    case "live":
+      return "teal";
+    case "draft":
+      return "plum";
+
+    case "pending-review":
+      return "orange";
+    case "approved":
+      return "grass";
+    case "changes-requested":
+      return "amber";
+    case "discarded":
+      return "red";
+    case "published":
+    default:
+      return "gray";
+  }
+}
+
+export function revisionStatusLabel(
+  status: MinimalFeatureRevisionInterface["status"] | "live",
+): string {
+  switch (status) {
+    case "live":
+      return "Live";
+    case "draft":
+      return "Draft";
+
+    case "pending-review":
+      return "Pending review";
+    case "approved":
+      return "Approved";
+    case "changes-requested":
+      return "Changes requested";
+    case "discarded":
+      return "Discarded";
+    case "published":
+      return "Locked";
+    default:
+      return status;
+  }
+}
+
 export default function RevisionStatusBadge({ revision, liveVersion }: Props) {
   if (!revision) return null;
-  if (revision.version === liveVersion) {
-    return <Badge label="Live" radius="full" color="teal" />;
-  }
-  switch (revision.status) {
-    case "draft":
-      return <Badge label="Draft" radius="full" color="indigo" />;
-    case "published":
-      return <Badge label="Locked" radius="full" color="gray" />;
-    case "discarded":
-      return <Badge label="Discarded" radius="full" color="red" />;
-    case "pending-review":
-      return <Badge label="Pending review" radius="full" color="blue" />;
-    case "changes-requested":
-      return <Badge label="Changes requested" radius="full" color="amber" />;
-    case "approved":
-      return <Badge label="Approved" radius="full" color="gray" />;
-    default:
-      return null;
-  }
+  const status = revision.version === liveVersion ? "live" : revision.status;
+  return (
+    <Badge
+      label={revisionStatusLabel(status)}
+      radius="full"
+      color={revisionStatusColor(status)}
+    />
+  );
 }

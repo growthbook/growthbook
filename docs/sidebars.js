@@ -85,6 +85,16 @@ export default {
       collapsed: true,
       items: [
         {
+          type: "doc",
+          id: "experimentation-analysis/choose-your-data-path",
+          label: "Choose Your Data Path",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+        },
+        {
           type: "category",
           label: "Connecting to Your Data Warehouse",
           collapsed: true,
@@ -287,11 +297,6 @@ export default {
           type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/managed-warehouse",
-          label: "Managed Warehouse",
         },
         {
           type: "doc",
@@ -1016,6 +1021,7 @@ export default {
         },
       ],
     },
+    { type: "doc", id: "lib/open-feature", label: "OpenFeature Providers" },
     { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
   ],
 };

@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
   PiCaretDownFill,
@@ -9,7 +9,6 @@ import {
   PiLockOpenBold,
 } from "react-icons/pi";
 import { useState } from "react";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
@@ -23,13 +22,11 @@ import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
-import { AppFeatures } from "@/types/app-features";
-
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -78,10 +75,6 @@ export default function SafeRolloutFields({
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
-  const growthbook = useGrowthBook<AppFeatures>();
-  const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback",
-  );
   const unitMultipliers = {
     days: 24 * 60 * 60 * 1000,
     hours: 60 * 60 * 1000,
@@ -102,14 +95,14 @@ export default function SafeRolloutFields({
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
           project={feature.project || ""}
         />
-        <hr />
+        <Separator size="4" my="5" />
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
           onChange={(value) => form.setValue("condition", value)}
           key={conditionKey}
           project={feature.project || ""}
         />
-        <hr />
+        <Separator size="4" my="5" />
         <PrerequisiteInput
           value={form.watch("prerequisites") || []}
           setValue={(prerequisites) =>
@@ -469,18 +462,16 @@ export default function SafeRolloutFields({
         scheduleToggleEnabled={scheduleToggleEnabled}
         setScheduleToggleEnabled={setScheduleToggleEnabled}
       />
-      {isSafeRolloutAutoRollbackEnabled && (
-        <Checkbox
-          id="autoRollback"
-          value={form.watch("safeRolloutFields.autoRollback")}
-          setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
-          disabled={disableFields}
-          label="Auto Rollback"
-          weight="bold"
-          description="Automatically rollback when unhealthy or a guardrail fails"
-          mb="4"
-        />
-      )}
+      <Checkbox
+        id="autoRollback"
+        value={form.watch("safeRolloutFields.autoRollback")}
+        setValue={(v) => form.setValue("safeRolloutFields.autoRollback", v)}
+        disabled={disableFields}
+        label="Auto Rollback"
+        weight="bold"
+        description="Automatically rollback when unhealthy or a guardrail fails"
+        mb="4"
+      />
 
       <div className="mt-3">{renderTargeting()}</div>
     </>

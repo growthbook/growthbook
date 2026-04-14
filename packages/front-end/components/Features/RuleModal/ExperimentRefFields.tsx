@@ -17,7 +17,7 @@ import {
 } from "@/services/features";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useExperiments } from "@/hooks/useExperiments";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
+import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 

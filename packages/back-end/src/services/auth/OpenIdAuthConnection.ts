@@ -222,7 +222,12 @@ export class OpenIdAuthConnection implements AuthConnection {
               if (err) return reject(err);
               resolve(key);
             };
-            jwksClient(req, token?.header, token?.payload, callback);
+            jwksClient(
+              req,
+              token?.header,
+              token?.payload,
+              callback as (err: Error | null, secret?: unknown) => void,
+            );
           });
         };
 

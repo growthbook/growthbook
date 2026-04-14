@@ -1,24 +1,19 @@
-interface HierarchicalValue {
+export interface HierarchicalValue {
   key: string;
   changes?: ItemChanges;
   added?: Record<string, unknown>;
   removed?: Record<string, unknown>;
-  modified?: Array<{
-    key: string;
-    oldValue?: unknown;
-    newValue?: unknown;
-    values?: HierarchicalValue[];
-  }>;
+  modified?: ModificationItem[];
   values?: HierarchicalValue[];
 }
 
-interface SimpleModification {
+export interface SimpleModification {
   key: string;
   oldValue: unknown;
   newValue: unknown;
 }
 
-interface HierarchicalModification {
+export interface HierarchicalModification {
   key: string;
   values: HierarchicalValue[];
   added: Record<string, unknown>;
@@ -26,7 +21,7 @@ interface HierarchicalModification {
   modified: Array<SimpleModification | HierarchicalModification>;
 }
 
-type ModificationItem = SimpleModification | HierarchicalModification;
+export type ModificationItem = SimpleModification | HierarchicalModification;
 
 export interface DiffResult {
   added: Record<string, unknown>;

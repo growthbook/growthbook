@@ -58,6 +58,7 @@ import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
+import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
 import { metrics } from "back-end/src/util/metrics";
@@ -397,7 +398,7 @@ export function getMetricsAndQueryDataForStatsEngine(
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
         const metricIds: (string | null)[] = [];
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < MAX_METRICS_PER_QUERY; i++) {
           const prefix = `m${i}_`;
           if (!rows[0]?.[prefix + "id"]) break;
 

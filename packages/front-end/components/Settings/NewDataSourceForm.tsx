@@ -13,7 +13,6 @@ import {
 import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -81,7 +80,6 @@ const NewDataSourceForm: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
   const { license } = useUser();
-  const gb = useGrowthBook();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -112,8 +110,7 @@ const NewDataSourceForm: FC<{
   const showManagedWarehouse =
     isCloud() &&
     !datasources.some((d) => d.type === "growthbook_clickhouse") &&
-    (!license || !!license?.orbSubscription) &&
-    gb.isOn("inbuilt-data-warehouse");
+    (!license || !!license?.orbSubscription);
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
 

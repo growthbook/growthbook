@@ -27,7 +27,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -82,12 +82,12 @@ jobs:
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 

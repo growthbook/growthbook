@@ -120,7 +120,7 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
       try {
         await apiCall(`/feature/${featureId}/toggle`, {
           method: "POST",
-          body: JSON.stringify({ environment: envId, state }),
+          body: JSON.stringify({ environments: { [envId]: state } }),
         });
       } catch (e) {
         await doFetch([featureId]);

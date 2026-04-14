@@ -251,7 +251,7 @@ export default function TrafficCard({
         <div className="mt-2 mb-2">
           <ExperimentDateGraph
             yaxis="users"
-            variationNames={variations.map((v) => v.name)}
+            variations={variations}
             label="Units"
             datapoints={usersPerDate}
             formatter={formatNumber}

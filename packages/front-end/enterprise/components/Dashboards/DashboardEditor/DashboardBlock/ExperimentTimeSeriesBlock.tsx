@@ -152,7 +152,6 @@ export default function ExperimentTimeSeriesBlock({
               const showVariations = variations.map(
                 (v) => variationIds.length === 0 || variationIds.includes(v.id),
               );
-              const variationNames = variations.map(({ name }) => name);
 
               // Check if this metric has slices and if it's expanded
               const expandedKey = `${metric.id}:${resultGroup}`;
@@ -197,7 +196,7 @@ export default function ExperimentTimeSeriesBlock({
                           analysis?.settings.differenceType || "relative"
                         }
                         showVariations={showVariations}
-                        variationNames={variationNames}
+                        variations={variations}
                         statsEngine={statsEngine}
                         pValueAdjustmentEnabled={!!appliedPValueCorrection}
                         firstDateToRender={phaseStartDate}
@@ -242,7 +241,7 @@ export default function ExperimentTimeSeriesBlock({
                               analysis?.settings.differenceType || "relative"
                             }
                             showVariations={showVariations}
-                            variationNames={variationNames}
+                            variations={variations}
                             statsEngine={statsEngine}
                             pValueAdjustmentEnabled={!!appliedPValueCorrection}
                             firstDateToRender={phaseStartDate}

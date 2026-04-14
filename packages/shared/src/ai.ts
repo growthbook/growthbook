@@ -1,3 +1,5 @@
+import { parseOptionalInt } from "./util/numbers";
+
 // AI Provider types and configurations
 export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 
@@ -5,6 +7,8 @@ export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
     // GPT-5 series
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
     "gpt-5.2",
     "gpt-5.2-pro",
     "gpt-5.1-codex",
@@ -126,6 +130,7 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-energetic",
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
+  "product-analytics-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -158,13 +163,15 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
+  "product-analytics-chat": "",
 };
 
 // Prompt types that have default values and can be customized by users
 export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
-    key === "generate-sql-query",
+    key === "generate-sql-query" ||
+    key === "product-analytics-chat",
 ) as AIPromptType[];
 
 export interface AIUsageData {
@@ -194,4 +201,32 @@ export function computeAIUsageData({
     fieldExists: !!value,
     suggestionExists: !!aiSuggestionText,
   };
+}
+
+const AI_RATE_LIMIT_GENERIC =
+  "You have reached the AI request limit. Please try again later.";
+
+function pluralUnit(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/** Human-readable AI rate-limit message from optional `Retry-After` seconds */
+export function formatAIRateLimitRetryMessage(
+  retryAfterSeconds: unknown,
+): string {
+  const s = parseOptionalInt(retryAfterSeconds);
+  if (s === undefined) return AI_RATE_LIMIT_GENERIC;
+  if (s <= 0) return AI_RATE_LIMIT_GENERIC;
+  const hours = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  if (hours === 0 && minutes === 0) {
+    return `You have reached the AI request limit. Try again in less than a minute.`;
+  }
+  const hourPart = hours > 0 ? pluralUnit(hours, "hour", "hours") : "";
+  const minutePart =
+    minutes > 0 ? pluralUnit(minutes, "minute", "minutes") : "";
+  if (hourPart && minutePart) {
+    return `You have reached the AI request limit. Try again in ${hourPart} and ${minutePart}.`;
+  }
+  return `You have reached the AI request limit. Try again in ${hourPart || minutePart}.`;
 }

@@ -147,7 +147,7 @@ export const getSDKCapabilities = (
   const matches = versions.filter(
     (data) => paddedVersionString(data.version) <= paddedVersionString(version),
   );
-  const capabilities = matches.reduce(
+  const capabilities = matches.reduce<string[]>(
     (acc, data) => [...acc, ...(data?.capabilities ?? [])],
     [],
   );

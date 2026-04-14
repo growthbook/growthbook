@@ -1,10 +1,6 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import {
-  apiCreateMetricGroupBody,
-  apiMetricGroupValidator,
-  apiUpdateMetricGroupBody,
-  metricGroupValidator,
-} from "shared/validators";
+import { metricGroupValidator } from "shared/validators";
+import { metricGroupApiSpec } from "back-end/src/api/specs/metric-group.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -26,15 +22,7 @@ const BaseClass = MakeModelClass({
   },
   apiConfig: {
     modelKey: "metricGroups",
-    modelSingular: "metricGroup",
-    modelPlural: "metricGroups",
-    apiInterface: apiMetricGroupValidator,
-    schemas: {
-      createBody: apiCreateMetricGroupBody,
-      updateBody: apiUpdateMetricGroupBody,
-    },
-    pathBase: "/metric-groups",
-    includeDefaultCrud: true,
+    openApiSpec: metricGroupApiSpec,
   },
 });
 

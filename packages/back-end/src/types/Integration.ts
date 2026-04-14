@@ -57,7 +57,11 @@ import {
   DataSourceProperties,
   SchemaFormat,
 } from "shared/types/datasource";
-import { AdditionalQueryMetadata, QueryDocMetadata } from "shared/types/query";
+import {
+  AdditionalQueryMetadata,
+  QueryMetadata,
+  QueryType,
+} from "shared/types/query";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { DimensionInterface } from "shared/types/dimension";
 import { FactMetricInterface } from "shared/types/fact-table";
@@ -70,7 +74,6 @@ export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
   additionalQueryMetadata?: AdditionalQueryMetadata;
-  queryDocMetadata?: QueryDocMetadata;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -110,6 +113,7 @@ export interface SourceIntegrationInterface {
   runTestQuery?(
     sql: string,
     timestampCols?: string[],
+    queryType?: QueryType,
   ): Promise<TestQueryResult>;
   getMetricAnalysisQuery(
     metric: FactMetricInterface,
@@ -118,11 +122,13 @@ export interface SourceIntegrationInterface {
   runMetricAnalysisQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<MetricAnalysisQueryResponse>;
   getDropUnitsTableQuery(params: DropTableQueryParams): string;
   runDropTableQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getPopulationMetricQuery?(params: PopulationMetricQueryParams): string;
@@ -176,14 +182,17 @@ export interface SourceIntegrationInterface {
   runIncrementalWithNoOutputQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<IncrementalWithNoOutputQueryResponse>;
   runMaxTimestampQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<MaxTimestampQueryResponse>;
   runIncrementalRefreshStatisticsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse>;
   // Pipeline validation helpers
   getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
@@ -205,38 +214,47 @@ export interface SourceIntegrationInterface {
   runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<DimensionSlicesQueryResponse>;
   runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<MetricValueQueryResponse>;
   runPopulationMetricQuery?(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse>;
   runPopulationFactMetricsQuery?(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse>;
   runExperimentFactMetricsQuery?(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentAggregateUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
   runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<ExperimentUnitsQueryResponse>;
   runPastExperimentQuery(
     query: string,
     setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
   ): Promise<PastExperimentQueryResponse>;
   runColumnsTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
   getColumnsTopValuesQuery?: (params: ColumnTopValuesParams) => string;

@@ -20,6 +20,8 @@ import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
+import { useSessionStorage } from "@/hooks/useSessionStorage";
+import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
@@ -41,6 +43,7 @@ export interface AuthContextValue {
     options?: RequestInit,
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
+  fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -48,6 +51,8 @@ export interface AuthContextValue {
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
+  initialPlanSelection?: InitialPlanOptions;
+  setInitialPlanSelection?: (value: InitialPlanOptions) => void;
 }
 
 export const AuthContext = React.createContext<AuthContextValue>({
@@ -61,6 +66,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  fetchRaw: async () => new Response(),
   orgId: null,
 });
 
@@ -150,6 +156,8 @@ const addCloudRegisterParam = (uri: string) => {
   return url.toString();
 };
 
+export const INITIAL_PLAN_SELECTION_SESSION_KEY = "gb-initial-plan-selection";
+
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
   if (!isCloud()) {
@@ -211,12 +219,23 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
+  const [initialPlanSelection, setInitialPlanSelection] =
+    useSessionStorage<InitialPlanOptions>(
+      INITIAL_PLAN_SELECTION_SESSION_KEY,
+      "",
+    );
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
   const [, setProject] = useProject();
 
   async function init() {
+    if (typeof window !== "undefined") {
+      const plan = new URLSearchParams(window.location.search).get("plan");
+      if ((plan === "pro" || plan === "starter") && isCloud()) {
+        setInitialPlanSelection(plan);
+      }
+    }
     const resp = await refreshToken();
     if ("token" in resp) {
       setInitError("");
@@ -335,6 +354,26 @@ export const AuthProvider: React.FC<{
       return responseData;
     },
     [orgId],
+  );
+
+  const fetchRaw = useCallback(
+    async (url: string, options: RequestInit = {}): Promise<Response> => {
+      const init = { ...options };
+      init.headers = init.headers || {};
+      init.headers["Authorization"] = `Bearer ${token}`;
+      init.credentials = "include";
+
+      if (init.body && !init.headers["Content-Type"]) {
+        init.headers["Content-Type"] = "application/json";
+      }
+
+      if (orgId && !init.headers["X-Organization"]) {
+        init.headers["X-Organization"] = orgId;
+      }
+
+      return fetch(getApiHost() + url, init);
+    },
+    [orgId, token],
   );
 
   const apiCall = useCallback(
@@ -484,12 +523,14 @@ export const AuthProvider: React.FC<{
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          setInitialPlanSelection("");
           if (isSentryEnabled()) {
             sentrySetUser(null);
           }
           await redirectWithTimeout(res.redirectURI || window.location.origin);
         },
         apiCall,
+        fetchRaw,
         orgId,
         setOrgId,
         organizations: orgList,
@@ -508,6 +549,8 @@ export const AuthProvider: React.FC<{
         },
         specialOrg,
         setSpecialOrg,
+        initialPlanSelection,
+        setInitialPlanSelection,
       }}
     >
       <>

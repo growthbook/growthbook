@@ -6,9 +6,9 @@ import {
   ExperimentResultStatusData,
   ExperimentResultsType,
 } from "shared/types/experiment";
-import { computeAIUsageData } from "shared/ai";
+import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
-import { experimentHasLinkedChanges } from "shared/util";
+import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -49,47 +49,39 @@ const StopExperimentForm: FC<{
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestionRef = useRef<string | undefined>(undefined);
 
-  const aiSuggestFunction = gb.isOn(
-    "ai-suggestions-for-experiment-analysis-input",
-  )
-    ? async (): Promise<string> => {
-        // Only evaluate the feature flag if suggestion is requested
-        const aiTemperature =
-          gb.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
-        const response = await apiCall<{
-          status: number;
-          data: {
-            description: string;
-          };
-        }>(
-          `/experiment/${experiment.id}/analysis/ai-suggest`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              results: form.watch("results"),
-              winner: form.watch("winner"),
-              releasedVariationId: form.watch("releasedVariationId"),
-              temperature: aiTemperature,
-            }),
-          },
-          (responseData) => {
-            if (responseData.status === 429) {
-              const retryAfter = parseInt(responseData.retryAfter);
-              const hours = Math.floor(retryAfter / 3600);
-              const minutes = Math.floor((retryAfter % 3600) / 60);
-              throw new Error(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
-              );
-            } else if (responseData.message) {
-              throw new Error(responseData.message);
-            } else {
-              throw new Error("Error getting AI suggestion");
-            }
-          },
-        );
-        return response.data.description;
-      }
-    : undefined;
+  const aiSuggestFunction = async (): Promise<string> => {
+    const aiTemperature =
+      gb.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
+    const response = await apiCall<{
+      status: number;
+      data: {
+        description: string;
+      };
+    }>(
+      `/experiment/${experiment.id}/analysis/ai-suggest`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          results: form.watch("results"),
+          winner: form.watch("winner"),
+          releasedVariationId: form.watch("releasedVariationId"),
+          temperature: aiTemperature,
+        }),
+      },
+      (responseData) => {
+        if (responseData.status === 429) {
+          throw new Error(
+            formatAIRateLimitRetryMessage(responseData.retryAfter),
+          );
+        } else if (responseData.message) {
+          throw new Error(responseData.message);
+        } else {
+          throw new Error("Error getting AI suggestion");
+        }
+      },
+    );
+    return response.data.description;
+  };
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -288,11 +280,11 @@ const StopExperimentForm: FC<{
                 }
                 value={form.watch("winner") + ""}
                 onChange={(v) => {
-                  form.setValue("winner", parseInt(v) || 0);
+                  form.setValue("winner", parseIntWithDefault(v, 0));
 
                   form.setValue(
                     "releasedVariationId",
-                    variations[parseInt(v)]?.id ||
+                    variations[parseIntWithDefault(v, 0)]?.id ||
                       form.watch("releasedVariationId"),
                   );
                 }}

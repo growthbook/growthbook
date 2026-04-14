@@ -34,9 +34,11 @@ export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations?: DataPointVariation[]; // undefined === missing date
 }
+export type GraphVariation = { name: string; index: number };
+
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "effect";
-  variationNames: string[];
+  variations: GraphVariation[];
   label: string;
   datapoints: ExperimentDateGraphDataPoint[];
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
@@ -65,7 +67,7 @@ const margin = [15, 15, 30, 80];
 // Render the contents of a tooltip
 const getTooltipContents = (
   data: TooltipData,
-  variationNames: string[],
+  variations: GraphVariation[],
   showVariations: boolean[],
   statsEngine: StatsEngine,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
@@ -104,17 +106,17 @@ const getTooltipContents = (
           </tr>
         </thead>
         <tbody>
-          {variationNames.map((v, i) => {
+          {variations.map((v, i) => {
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
             const variation = d.variations[i];
             return (
-              <tr key={i}>
+              <tr key={v.index}>
                 <td
                   className="text-ellipsis"
-                  style={{ color: getVariationColor(i, true) }}
+                  style={{ color: getVariationColor(v.index, true) }}
                 >
-                  {v}
+                  {v.name}
                 </td>
                 {yaxis === "users" && <td>{d.variations[i].v_formatted}</td>}
                 {yaxis === "effect" && (
@@ -225,7 +227,7 @@ const getYVal = (
 const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   yaxis,
   datapoints: _datapoints,
-  variationNames,
+  variations,
   label,
   formatter,
   formatterOptions,
@@ -241,7 +243,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   });
 
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true),
+    variations.map(() => true),
   );
 
   const {
@@ -409,7 +411,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               >
                 {getTooltipContents(
                   tooltipData,
-                  variationNames,
+                  variations,
                   showVariations,
                   statsEngine,
                   formatter,
@@ -428,10 +430,10 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
                   onClick={() => {
                     if (!showVariations.every((sv) => sv)) {
-                      setShowVariations(variationNames.map(() => true));
+                      setShowVariations(variations.map(() => true));
                     } else {
                       setShowVariations(
-                        variationNames.map((_, i) => (i === 0 ? true : false)),
+                        variations.map((_, i) => (i === 0 ? true : false)),
                       );
                     }
                   }}
@@ -443,21 +445,21 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   )}
                   Show all
                 </div>
-                {variationNames.map((v, i) => {
+                {variations.map((v, i) => {
                   if (i === 0 && yaxis === "effect") return null;
                   return (
                     <div
-                      key={i}
+                      key={v.index}
                       className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
                       style={{
                         maxWidth: 200,
-                        color: getVariationColor(i, true),
+                        color: getVariationColor(v.index, true),
                       }}
                       onClick={() => {
                         let sv = [...showVariations];
                         sv[i] = !sv[i];
                         if (sv.every((v) => !v)) {
-                          sv = variationNames.map((_, j) => i !== j);
+                          sv = variations.map((_, j) => i !== j);
                         }
                         setShowVariations(sv);
                       }}
@@ -467,7 +469,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       ) : (
                         <BiCheckbox size={24} />
                       )}
-                      {v}
+                      {v.name}
                     </div>
                   );
                 })}
@@ -487,7 +489,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             >
               {tooltipOpen && (
                 <>
-                  {variationNames.map((v, i) => {
+                  {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return;
@@ -495,13 +497,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     // Render a dot at the current x location for each variation
                     return (
                       <div
-                        key={i}
+                        key={v.index}
                         className={styles.positionIndicator}
                         style={{
                           transform: `translate(${tooltipLeft}px, ${
                             tooltipData?.y?.[i] ?? 0
                           }px)`,
-                          background: getVariationColor(i, true),
+                          background: getVariationColor(v.index, true),
                         }}
                       />
                     );
@@ -540,7 +542,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 <Group clipPath="url(#experiment-date-graph-clip)">
-                  {variationNames.map((v, i) => {
+                  {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return <></>;
@@ -550,7 +552,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       typeof datapoints[0]?.variations?.[i]?.ci !==
                         "undefined" && (
                         <AreaClosed
-                          key={`ci_${i}`}
+                          key={`ci_${v.index}`}
                           yScale={yScale}
                           data={datapoints}
                           x={(d) => xScale(d.d) ?? 0}
@@ -560,7 +562,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                           y1={(d) =>
                             yScale(d?.variations?.[i]?.ci?.[1] ?? 0) ?? 0
                           }
-                          fill={getVariationColor(i, true)}
+                          fill={getVariationColor(v.index, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
                         />
@@ -568,7 +570,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     );
                   })}
 
-                  {variationNames.map((_, i) => {
+                  {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return null;
@@ -576,13 +578,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     // Render the actual line chart for each variation
                     return (
                       <LinePath
-                        key={`linepath_${i}`}
+                        key={`linepath_${v.index}`}
                         data={datapoints}
                         x={(d) => xScale(d.d)}
                         y={(d) =>
                           yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
                         }
-                        stroke={getVariationColor(i, true)}
+                        stroke={getVariationColor(v.index, true)}
                         strokeWidth={2}
                         curve={curveMonotoneX}
                         defined={(d) =>

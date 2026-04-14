@@ -28,6 +28,8 @@ export default defineConfig([
     "**/.next",
     "**/dist",
     "**/coverage",
+    "**/.venv",
+    "**/node_modules",
     "docs/.docusaurus",
     "docs/docusaurus.config.js",
     "docs/build",
@@ -341,6 +343,59 @@ export default defineConfig([
     },
   },
   {
+    files: [
+      "./packages/back-end/src/controllers/**/*.ts",
+      "./packages/back-end/src/routers/**/*.controller.ts",
+      "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+    ],
+
+    rules: {
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: "./packages/back-end/src/controllers/**/*.ts",
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: "./packages/back-end/src/controllers",
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+            {
+              target: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              from: [
+                "./packages/back-end/src/routers/**/*.controller.ts",
+                "./packages/back-end/src/enterprise/routers/**/*.controller.ts",
+              ],
+              message:
+                "Controllers must not import other controllers. Move shared logic into services/, models/, or util/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["./packages/shared/**/*"],
 
     rules: {
@@ -385,6 +440,12 @@ export default defineConfig([
             "CallExpression[callee.type='MemberExpression'][callee.property.name='default']",
           message:
             "Using .default() on Zod schemas is disallowed. Use the defaultValues option in the BaseModel config instead.",
+        },
+        {
+          selector:
+            "Property[key.name='owner'] CallExpression[callee.type='MemberExpression'][callee.object.name='z'][callee.property.name='string']",
+          message:
+            "Use ownerField or ownerInputField from 'shared/validators' instead of a bare z.string() for owner properties to ensure consistent API documentation.",
         },
       ],
     },
