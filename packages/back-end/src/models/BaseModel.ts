@@ -384,6 +384,25 @@ export abstract class BaseModel<
       keys.feature = feature;
     }
 
+    // Polymorphic entityType/entityId reference (e.g. ramp schedules)
+    const entityId = this.detectForeignKey(doc, ["entityId"]);
+    const entityType =
+      "entityType" in doc &&
+      typeof doc["entityType" as keyof z.infer<T>] === "string"
+        ? (doc["entityType" as keyof z.infer<T>] as string)
+        : undefined;
+    if (
+      entityId &&
+      entityType &&
+      (entityType === "experiment" ||
+        entityType === "datasource" ||
+        entityType === "metric" ||
+        entityType === "feature") &&
+      !keys[entityType]
+    ) {
+      keys[entityType] = entityId;
+    }
+
     return keys;
   }
 

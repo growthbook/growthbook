@@ -13,7 +13,9 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Box } from "@radix-ui/themes";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import {
   getAffectedRevisionEnvs,
   useEnvironments,
@@ -69,22 +71,28 @@ export function ExpandableDiff({
   if (a === b) return null;
 
   return (
-    <div className="diff-wrapper">
-      <div
-        className="list-group-item list-group-item-action d-flex"
+    <Box className="diff-wrapper appbox bg-light">
+      <Flex
+        align="center"
+        className=""
+        p="3"
+        style={{
+          cursor: "pointer",
+          borderBottom: open ? "1px solid var(--gray-5)" : undefined,
+        }}
         onClick={(e) => {
           e.preventDefault();
           setOpen(!open);
         }}
       >
-        <div className="text-muted mr-2">Changed:</div>
-        <strong>{title}</strong>
-        <div className="ml-auto">
+        <Text mr="2">Changed:</Text>
+        <Text weight="semibold">{title}</Text>
+        <Box style={{ marginLeft: "auto" }}>
           {open ? <FaAngleDown /> : <FaAngleRight />}
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {open && (
-        <div className="list-group-item list-group-item-light">
+        <Box p="3" className="">
           <ReactDiffViewer
             oldValue={a}
             newValue={b}
@@ -93,9 +101,9 @@ export function ExpandableDiff({
             leftTitle={leftTitle}
             rightTitle={rightTitle}
           />
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
@@ -399,17 +407,19 @@ export default function DraftModal({
       {mergeResult.success &&
         hasChanges &&
         (experimentsStep ? (
-          <div>
-            <h3>Review &amp; Publish</h3>
-            <p>
+          <Box>
+            <Heading as="h3" size="medium" mb="3">
+              Review &amp; Publish
+            </Heading>
+            <Text as="p" mb="3">
               Please review the <strong>Pre-Launch Checklists</strong> for the
               experiments that will be published along with this draft.
-            </p>
+            </Text>
             {experimentData.map(({ experiment, checklist }) => {
               if (!selectedExperiments.has(experiment.id)) return null;
 
               return (
-                <div key={experiment.id} className="mb-3">
+                <Box key={experiment.id} mb="3">
                   <PreLaunchChecklistFeatureExpRule
                     experiment={experiment}
                     mutateExperiment={mutate}
@@ -420,23 +430,27 @@ export default function DraftModal({
                       linkedFeatures: [],
                     })}
                   />
-                </div>
+                </Box>
               );
             })}
-          </div>
+          </Box>
         ) : (
-          <div>
-            <h3>Review &amp; Publish</h3>
-            <p>
+          <Box>
+            <Heading as="h3" size="medium" mb="3">
+              Review &amp; Publish
+            </Heading>
+            <Text as="p" mb="3">
               The changes below will go live when this draft revision is
               published. You will be able to revert later if needed.
-            </p>
+            </Text>
 
             {experimentData.length > 0 ? (
-              <div className="mb-3">
-                <h4>Start running experiments upon publishing:</h4>
+              <Box mb="3">
+                <Heading as="h4" size="small" mb="2">
+                  Start running experiments upon publishing:
+                </Heading>
                 {experimentData.map(({ experiment }) => (
-                  <div key={experiment.id}>
+                  <Box key={experiment.id}>
                     <Checkbox
                       value={selectedExperiments.has(experiment.id)}
                       setValue={(e) => {
@@ -450,17 +464,19 @@ export default function DraftModal({
                       }}
                       label={experiment.name}
                     />
-                  </div>
+                  </Box>
                 ))}
-              </div>
+              </Box>
             ) : null}
 
             {allDiffsWithChanges.length > 0 && (
               <>
-                <h4 className="mb-3">Summary of changes</h4>
+                <Heading as="h4" size="small" mb="3">
+                  Summary of changes
+                </Heading>
                 {allDiffsWithChanges.flatMap((d) => d.badges ?? []).length >
                   0 && (
-                  <Flex wrap="wrap" gap="2" className="mb-3">
+                  <Flex wrap="wrap" gap="2" mb="3">
                     {allDiffsWithChanges
                       .flatMap((d) => d.badges ?? [])
                       .map(({ label, action }) => (
@@ -474,24 +490,45 @@ export default function DraftModal({
                   </Flex>
                 )}
                 {allDiffsWithChanges.some((d) => d.customRender) && (
-                  <div className="list-group mb-4">
+                  <Box
+                    mb="4"
+                    className="appbox bg-light"
+                    style={{
+                      overflow: "hidden",
+                    }}
+                  >
                     {allDiffsWithChanges
                       .filter((d) => d.customRender)
-                      .map((d) => (
-                        <div
+                      .map((d, i, arr) => (
+                        <Box
                           key={d.title}
-                          className="list-group-item list-group-item-light pb-3"
+                          p="3"
+                          style={{
+                            borderBottom:
+                              i === arr.length - 1
+                                ? undefined
+                                : "1px solid var(--gray-5)",
+                          }}
                         >
-                          <strong className="d-block mb-2">{d.title}</strong>
+                          <Text as="div" weight="semibold" mb="2">
+                            {d.title}
+                          </Text>
                           {d.customRender}
-                        </div>
+                        </Box>
                       ))}
-                  </div>
+                  </Box>
                 )}
               </>
             )}
-            <h4 className="mb-3">Change details</h4>
-            <div className="list-group mb-4">
+            <Heading as="h4" size="medium" mb="3">
+              Change details
+            </Heading>
+            <Box
+              mb="4"
+              style={{
+                overflow: "hidden",
+              }}
+            >
               {allDiffsWithChanges.map((diff) => (
                 <ExpandableDiff
                   key={diff.title}
@@ -501,7 +538,7 @@ export default function DraftModal({
                   styles={COMPACT_DIFF_STYLES}
                 />
               ))}
-            </div>
+            </Box>
             {hasPermission ? (
               <Field
                 label="Notes (optional)"
@@ -517,7 +554,7 @@ export default function DraftModal({
                 You do not have permission to publish this draft.
               </Callout>
             )}
-          </div>
+          </Box>
         ))}
     </Modal>
   );
