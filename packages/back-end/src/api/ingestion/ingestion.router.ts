@@ -108,8 +108,21 @@ export const getDataEnrichment = createApiRequestHandler({
       ),
     ]),
   );
+  // build mock sdkData response
+  const mockSdkData: GetDataEnrichmentResponse = {
+    sdkData: {
+      "sdk-GY4wZrva0ItmRix": {
+        organization: "org_abc123",
+        client_key: "sdk-abc123",
+        datasource: "ds_abc123",
+        environment: "staging",
+        overLimit: false,
+      },
+    },
+  };
 
-  return { sdkData };
+  // return { sdkData };
+  return mockSdkData;
 });
 
 const router = Router();
