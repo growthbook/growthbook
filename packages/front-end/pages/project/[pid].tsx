@@ -16,6 +16,7 @@ import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -73,10 +74,13 @@ const ProjectPage: FC = () => {
 
   useEffect(() => {
     if (settings) {
-      const newVal = { ...form.getValues() };
-      Object.keys(settings).forEach((k) => {
-        newVal[k] = settings?.[k] || newVal[k];
-      });
+      const newVal = {
+        ...form.getValues(),
+        ...settings,
+      };
+      if (typeof settings.confidenceLevel !== "undefined") {
+        newVal.confidenceLevel = settings.confidenceLevel * 100;
+      }
       form.reset(newVal);
       setOriginalValue(newVal);
     }
@@ -85,10 +89,17 @@ const ProjectPage: FC = () => {
   const ctaEnabled = hasChanges(form.getValues(), originalValue);
 
   const saveSettings = form.handleSubmit(async (value) => {
+    const savedSettings = {
+      ...value,
+      confidenceLevel:
+        typeof value.confidenceLevel === "number"
+          ? value.confidenceLevel / 100
+          : undefined,
+    };
     await apiCall(`/projects/${pid}/settings`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: value,
+        settings: savedSettings,
       }),
     });
 
@@ -232,6 +243,21 @@ const ProjectPage: FC = () => {
                           }}
                           label="By default, experiments use your organization's default statistics engine, however, you can override this for experiments in this project."
                           parentSettings={parentSettings}
+                        />
+                        <Field
+                          label="Bayesian significance level"
+                          type="number"
+                          step="any"
+                          min="50"
+                          max="99"
+                          append="%"
+                          containerClassName="mt-3"
+                          helpText="Overrides organization default Bayesian confidence level in this project."
+                          {...form.register("confidenceLevel", {
+                            valueAsNumber: true,
+                            min: 50,
+                            max: 99,
+                          })}
                         />
                       </Box>
                     </Flex>
