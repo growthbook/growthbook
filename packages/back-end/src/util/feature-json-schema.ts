@@ -3,13 +3,15 @@ import { OrganizationInterface } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 
-const DEFAULT_JSON_SCHEMA: JSONSchemaDef = {
-  schemaType: "schema",
-  schema: "",
-  simple: { type: "object", fields: [] },
-  date: new Date(),
-  enabled: false,
-};
+function getDefaultJsonSchema(date: Date): JSONSchemaDef {
+  return {
+    schemaType: "schema",
+    schema: "",
+    simple: { type: "object", fields: [] },
+    date,
+    enabled: false,
+  };
+}
 
 /**
  * Creates the JSON schema payload for a newly-created feature.
@@ -24,12 +26,13 @@ export function getInitialFeatureJsonSchema(
       ? jsonSchema.schemaType
       : "schema";
 
+  const defaultSchema = getDefaultJsonSchema(new Date());
   return {
     schemaType,
-    simple: jsonSchema?.simple ?? DEFAULT_JSON_SCHEMA.simple,
-    schema: jsonSchema?.schema ?? DEFAULT_JSON_SCHEMA.schema,
-    date: new Date(),
-    enabled: jsonSchema?.enabled ?? DEFAULT_JSON_SCHEMA.enabled,
+    simple: jsonSchema?.simple ?? defaultSchema.simple,
+    schema: jsonSchema?.schema ?? defaultSchema.schema,
+    date: defaultSchema.date,
+    enabled: jsonSchema?.enabled ?? defaultSchema.enabled,
   };
 }
 
@@ -41,10 +44,7 @@ export function parseApiJsonSchema(
   org: OrganizationInterface,
   jsonSchema: string | undefined,
 ): JSONSchemaDef {
-  const jsonSchemaWrapper: JSONSchemaDef = {
-    ...DEFAULT_JSON_SCHEMA,
-    date: new Date(),
-  };
+  const jsonSchemaWrapper = getDefaultJsonSchema(new Date());
   if (!jsonSchema) return jsonSchemaWrapper;
   if (!orgHasPremiumFeature(org, "json-validation")) return jsonSchemaWrapper;
   try {
