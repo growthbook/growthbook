@@ -2401,6 +2401,7 @@ Triggered when an experiment is created
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -2642,6 +2643,7 @@ Triggered when an experiment is updated
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -2844,6 +2846,7 @@ Triggered when an experiment is updated
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
@@ -3090,6 +3093,7 @@ Triggered when an experiment is deleted
                 sequentialTestingTuningParameter?: number | undefined;
                 /** When null, the organization default is used. */
                 postStratificationEnabled?: (boolean | null) | undefined;
+                /** Controls the decision framework and metric overrides for the experiment. Replaces the entire stored object on update (does not patch individual fields). */
                 decisionFrameworkSettings?: {
                     decisionCriteriaId?: string | undefined;
                     decisionFrameworkMetricOverrides?: {
