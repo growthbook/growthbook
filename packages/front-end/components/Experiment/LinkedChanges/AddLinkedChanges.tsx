@@ -134,7 +134,7 @@ const AddLinkedChangeRow = ({
             body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
             tipPosition="top"
           >
-            <Button variant="ghost" disabled style={ctaButtonStyle}>
+            <Button variant="ghost" disabled>
               {cta}
             </Button>
           </Tooltip>
