@@ -50,12 +50,12 @@ export default function LinkedChangeVariationRows({
                 <Text weight="semibold">{v.name}</Text>
               </Box>
             </Flex>
-            <Box>
+            <Flex flexBasis="90px" flexShrink="0" justify="end">
               <Text>
                 {decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0)}%
                 Split
               </Text>
-            </Box>
+            </Flex>
             <Box flexGrow="1">{renderContent(j)}</Box>
             {renderActions && renderActions(j)}
           </Flex>
