@@ -1,4 +1,3 @@
-import { PostBulkImportFactsResponse } from "shared/types/openapi";
 import { postBulkImportFactsValidator } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -22,7 +21,7 @@ import { resolveOwnerToUserId } from "back-end/src/services/owner";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator,
-)(async (req): Promise<PostBulkImportFactsResponse> => {
+)(async (req) => {
   const numCreated = {
     factTables: 0,
     factTableFilters: 0,

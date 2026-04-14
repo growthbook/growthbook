@@ -136,7 +136,7 @@ export const postAttributeValidator = {
       datatype: "boolean",
       description: "My new attribute",
     },
-  },
+  } as const,
 };
 
 export const putAttributeValidator = {
@@ -156,7 +156,7 @@ export const putAttributeValidator = {
   exampleRequest: {
     params: { property: "abc123" },
     body: { description: "My updated attribute" },
-  },
+  } as const,
 };
 
 export const deleteAttributeValidator = {

@@ -579,6 +579,8 @@ export const apiFeatureRuleValidator = z.union([
   apiFeatureSafeRolloutRuleValidator,
 ]);
 
+export type ApiFeatureRule = z.infer<typeof apiFeatureRuleValidator>;
+
 // ---- FeatureDefinition (schemas/FeatureDefinition.yaml) ----
 export const apiFeatureDefinitionValidator = z
   .object({
@@ -655,6 +657,10 @@ export const apiFeatureEnvironmentValidator = z
       .optional(),
   })
   .strict();
+
+export type ApiFeatureEnvironment = z.infer<
+  typeof apiFeatureEnvironmentValidator
+>;
 
 // Holdout sub-object used in Feature
 const apiFeatureHoldout = z
@@ -785,6 +791,9 @@ export const apiFeatureWithRevisionsValidator = z.intersection(
 );
 
 export type ApiFeature = z.infer<typeof apiFeatureValidator>;
+export type ApiFeatureWithRevisions = z.infer<
+  typeof apiFeatureWithRevisionsValidator
+>;
 
 // ---- Payload-schema rule types for POST/PUT (postFeature/ directory) ----
 // These are DIFFERENT from the response schema rules -- they have different

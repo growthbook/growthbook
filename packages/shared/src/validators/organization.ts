@@ -75,6 +75,8 @@ export const apiOrganizationValidator = z
   })
   .strict();
 
+export type ApiOrganization = z.infer<typeof apiOrganizationValidator>;
+
 // Corresponds to payload-schemas/PostOrganizationPayload.yaml
 const postOrganizationBody = z
   .object({

@@ -264,6 +264,8 @@ export const apiFactMetricValidator = z
   })
   .strict();
 
+export type ApiFactMetric = z.infer<typeof apiFactMetricValidator>;
+
 // Corresponds to schemas/MetricAnalysis.yaml
 export const apiMetricAnalysisValidator = z
   .object({
@@ -503,7 +505,7 @@ const postFactMetricBody = z
     quantileSettings: postQuantileSettings.optional(),
     cappingSettings: postCappingSettings.optional(),
     windowSettings: postWindowSettings.optional(),
-    priorSettings: postPriorSettings,
+    priorSettings: postPriorSettings.optional(),
     regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
     riskThresholdSuccess: z
       .number()
@@ -743,11 +745,17 @@ export const postFactMetricValidator = {
   exampleRequest: {
     body: {
       name: "Purchased",
-      metricType: "proportion",
+      metricType: "proportion" as const,
       numerator: {
         factTableId: "ftb_abc123",
         column: "$$distinctUsers",
-        filters: [],
+        filters: [] as string[],
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.3,
       },
     },
   },
@@ -786,7 +794,7 @@ export const updateFactMetricValidator = {
   path: "/fact-metrics/:id",
   exampleRequest: {
     params: { id: "abc123" },
-    body: { hasConversionWindow: false },
+    body: { name: "Updated Metric Name" },
   },
 };
 

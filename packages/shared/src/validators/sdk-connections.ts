@@ -40,6 +40,8 @@ export const apiSdkConnectionValidator = z
   })
   .strict();
 
+export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
+
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
   .object({

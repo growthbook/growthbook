@@ -57,6 +57,8 @@ export const apiVisualChangesetValidator = z
   })
   .strict();
 
+export type ApiVisualChangeset = z.infer<typeof apiVisualChangesetValidator>;
+
 // Corresponds to payload-schemas/PostExperimentVisualChangesetPayload.yaml
 const postVisualChangesetBody = z
   .object({
@@ -126,7 +128,7 @@ export const postVisualChangesetsValidator = {
     params: { id: "abc123" },
     body: {
       editorUrl: "https://example.com/",
-      urlPatterns: [{ type: "simple", pattern: "/", include: true }],
+      urlPatterns: [{ type: "simple" as const, pattern: "/", include: true }],
     },
   },
 };
@@ -174,10 +176,6 @@ export const putVisualChangesetValidator = {
   path: "/visual-changesets/:id",
   exampleRequest: {
     params: { id: "abc123" },
-    body: {
-      editorUrl: "https://docs.growthbook.io",
-      urlPatterns: "[{ ... }]",
-    },
   },
 };
 
@@ -195,7 +193,7 @@ export const postVisualChangeValidator = {
   tags: ["visual-changesets"],
   method: "post" as const,
   path: "/visual-changesets/:id/visual-change",
-  exampleRequest: { body: { variation: "v_123abc", domMutations: "[]" } },
+  exampleRequest: {},
 };
 
 export const putVisualChangeValidator = {
@@ -217,5 +215,5 @@ export const putVisualChangeValidator = {
   tags: ["visual-changesets"],
   method: "put" as const,
   path: "/visual-changesets/:id/visual-change/:visualChangeId",
-  exampleRequest: { body: { variation: "v_123abc", domMutations: "[]" } },
+  exampleRequest: {},
 };

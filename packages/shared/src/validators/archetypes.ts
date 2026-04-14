@@ -18,6 +18,8 @@ export const apiArchetypeValidator = z
   })
   .strict();
 
+export type ApiArchetype = z.infer<typeof apiArchetypeValidator>;
+
 // Corresponds to payload-schemas/PostArchetypePayload.yaml
 const postArchetypeBody = z
   .object({

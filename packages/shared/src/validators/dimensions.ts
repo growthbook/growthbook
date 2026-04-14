@@ -23,6 +23,8 @@ export const apiDimensionValidator = z
   })
   .strict();
 
+export type ApiDimension = z.infer<typeof apiDimensionValidator>;
+
 // Corresponds to payload-schemas/PostDimensionPayload.yaml
 const postDimensionBody = z
   .object({

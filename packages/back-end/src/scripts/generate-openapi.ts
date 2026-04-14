@@ -139,7 +139,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   },
 };
 
-function isNonEmtySchema(schema: z.ZodType | undefined): schema is z.ZodType {
+function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
   return schema !== undefined && !(schema instanceof ZodNever);
 }
 
@@ -450,7 +450,7 @@ curl https://api.growthbook.io/api/v1 \
     const parameters: (Parameter | Ref)[] = [];
 
     // URL params
-    if (isNonEmtySchema(schemas?.params)) {
+    if (isNonEmptySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
@@ -484,7 +484,7 @@ curl https://api.growthbook.io/api/v1 \
     }
 
     // Query params
-    if (isNonEmtySchema(schemas?.query)) {
+    if (isNonEmptySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
@@ -529,7 +529,7 @@ curl https://api.growthbook.io/api/v1 \
     }
 
     let requestBody: RequestBody | undefined = undefined;
-    if (isNonEmtySchema(schemas?.body)) {
+    if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
       // Body is only required if it has required fields
       const hasRequiredFields =
@@ -687,8 +687,6 @@ curl https://api.growthbook.io/api/v1 \
   Object.entries(schemaRefs).forEach(([name, schema]) => {
     openapiSpec.components.schemas[name] = schema;
   });
-
-  console.log(openapiSpec);
 
   fs.writeFileSync(
     path.join(__dirname, "..", "..", "generated", "spec.yaml"),

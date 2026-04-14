@@ -35,6 +35,8 @@ export const apiPaginationFieldsValidator = z.object({
   nextOffset: z.union([z.number().int(), z.null()]),
 });
 
+export type ApiPaginationFields = z.infer<typeof apiPaginationFieldsValidator>;
+
 /** Reusable pagination query params for API list endpoints. */
 export const paginationQueryFields = {
   limit: z.coerce

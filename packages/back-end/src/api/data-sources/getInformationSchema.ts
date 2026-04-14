@@ -1,12 +1,12 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
-import { GetInformationSchemaResponse } from "shared/types/openapi";
-import { getInformationSchemaValidator } from "shared/validators";
+import {
+  getInformationSchemaValidator,
+  ApiInformationSchema,
+} from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
 import { getInformationSchemaWithPaths } from "back-end/src/services/informationSchema";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-
-type ApiInformationSchema = GetInformationSchemaResponse["informationSchema"];
 
 function toApiInformationSchema(
   schema: InformationSchemaInterfaceWithPaths,
@@ -43,7 +43,7 @@ function toApiInformationSchema(
 
 export const getInformationSchema = createApiRequestHandler(
   getInformationSchemaValidator,
-)(async (req): Promise<GetInformationSchemaResponse> => {
+)(async (req) => {
   const dataSource = await getDataSourceById(
     req.context,
     req.params.dataSourceId,

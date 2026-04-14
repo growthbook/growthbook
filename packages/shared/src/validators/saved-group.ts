@@ -76,6 +76,8 @@ export const apiSavedGroupValidator = z
   })
   .strict();
 
+export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
+
 // Post body from postSavedGroup.yaml requestBody
 const postSavedGroupBody = z
   .object({

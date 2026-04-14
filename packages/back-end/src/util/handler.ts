@@ -1,6 +1,6 @@
 import { Request, RequestHandler } from "express";
 import { z, ZodType, ZodNever, output } from "zod";
-import { ApiPaginationFields } from "shared/types/openapi";
+import { ApiPaginationFields } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import { HttpVerb } from "back-end/src/api/apiModelHandlers";

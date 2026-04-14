@@ -48,6 +48,8 @@ export const apiProjectValidator = z
   })
   .strict();
 
+export type ApiProject = z.infer<typeof apiProjectValidator>;
+
 // Corresponds to payload-schemas/PostProjectPayload.yaml
 const postProjectBody = z
   .object({

@@ -428,6 +428,8 @@ export const apiExperimentMetricValidator = z
   })
   .strict();
 
+export type ApiExperimentMetric = z.infer<typeof apiExperimentMetricValidator>;
+
 // Corresponds to schemas/ExperimentMetricOverrideEntry.yaml
 export const apiExperimentMetricOverrideEntryValidator = z
   .object({
@@ -703,6 +705,8 @@ const apiExperimentShape = z.object({
 });
 export const apiExperimentValidator = apiExperimentShape.strict();
 
+export type ApiExperiment = z.infer<typeof apiExperimentValidator>;
+
 // Corresponds to schemas/ExperimentWithEnhancedStatus.yaml (allOf Experiment + enhancedStatus)
 // Uses the non-strict shape so z.intersection can add enhancedStatus.
 const apiExperimentWithEnhancedStatus = z.intersection(
@@ -778,6 +782,10 @@ export const apiExperimentResultsValidator = z
     ),
   })
   .strict();
+
+export type ApiExperimentResults = z.infer<
+  typeof apiExperimentResultsValidator
+>;
 
 // ---------------------------------------------------------------------------
 // Shared sub-schemas for request payloads

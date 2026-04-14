@@ -47,14 +47,12 @@ import {
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
-  ApiFeatureWithRevisions,
-  ApiFeatureEnvironment,
-  ApiFeatureRule,
-} from "shared/types/openapi";
-import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
   apiFeatureRevisionValidator,
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
 } from "shared/validators";
 import {
   AttributeMap,

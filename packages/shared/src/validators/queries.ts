@@ -53,6 +53,8 @@ export const apiQueryValidator = z
   })
   .strict();
 
+export type ApiQuery = z.infer<typeof apiQueryValidator>;
+
 const idParams = z
   .object({
     id: z.string().describe("The id of the requested resource"),

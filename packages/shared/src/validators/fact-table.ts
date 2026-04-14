@@ -390,6 +390,8 @@ export const apiFactTableValidator = z
   })
   .strict();
 
+export type ApiFactTable = z.infer<typeof apiFactTableValidator>;
+
 // Corresponds to schemas/FactTableFilter.yaml
 export const apiFactTableFilterValidator = z
   .object({
@@ -406,6 +408,8 @@ export const apiFactTableFilterValidator = z
     dateUpdated: z.string().meta({ format: "date-time" }),
   })
   .strict();
+
+export type ApiFactTableFilter = z.infer<typeof apiFactTableFilterValidator>;
 
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
 const postFactTableBody = z

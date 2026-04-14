@@ -64,6 +64,7 @@ export async function getCreateMetricPropsFromBody(
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
+    priorSettings,
     numerator,
     denominator,
     riskThresholdSuccess,
@@ -133,7 +134,7 @@ export async function getCreateMetricPropsFromBody(
       type: "",
       value: 0,
     },
-    priorSettings: {
+    priorSettings: priorSettings ?? {
       override: false,
       proper: false,
       mean: 0,

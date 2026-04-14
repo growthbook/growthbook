@@ -65,6 +65,8 @@ export const apiSegmentValidator = z
   })
   .strict();
 
+export type ApiSegment = z.infer<typeof apiSegmentValidator>;
+
 // Corresponds to payload-schemas/PostSegmentPayload.yaml
 const postSegmentBody = z
   .object({
@@ -161,9 +163,9 @@ export const postSegmentValidator = {
   exampleRequest: {
     body: {
       name: "Annual Subscribers",
-      datasource: "ds_123abc",
+      datasourceId: "ds_123abc",
       identifierType: "user_id",
-      type: "SQL",
+      type: "SQL" as const,
       query: "SELECT plan FROM subscribers WHERE plan = ",
     },
   },
@@ -203,7 +205,7 @@ export const updateSegmentValidator = {
   exampleRequest: {
     params: { id: "abc123" },
     body: { name: "User Region" },
-  },
+  } as const,
 };
 
 export const deleteSegmentValidator = {

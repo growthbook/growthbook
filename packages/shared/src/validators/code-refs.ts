@@ -32,6 +32,8 @@ export const apiCodeRefValidator = z
   })
   .strict();
 
+export type ApiCodeRef = z.infer<typeof apiCodeRefValidator>;
+
 // Corresponds to payload-schemas/PostCodeRefsPayload.yaml
 const postCodeRefsBody = z
   .object({
@@ -100,7 +102,25 @@ export const postCodeRefsValidator = {
   method: "post" as const,
   path: "/code-refs",
   exampleRequest: {
-    body: { startingLineNumber: 16, lines: "...", flagKey: "..." },
+    body: {
+      branch: "main",
+      repoName: "my-repo",
+      refs: [
+        {
+          filePath: "src/app.ts",
+          startingLineNumber: 16,
+          lines: "...",
+          flagKey: "my-feature",
+          contentHash: "abc123",
+        },
+      ] as {
+        filePath: string;
+        startingLineNumber: number;
+        lines: string;
+        flagKey: string;
+        contentHash: string;
+      }[],
+    },
   },
 };
 

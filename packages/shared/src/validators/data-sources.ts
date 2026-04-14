@@ -46,6 +46,8 @@ export const apiDataSourceValidator = z
   })
   .strict();
 
+export type ApiDataSource = z.infer<typeof apiDataSourceValidator>;
+
 const idParams = z
   .object({
     id: z.string().describe("The id of the requested resource"),

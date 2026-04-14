@@ -42,6 +42,9 @@ export const apiInformationSchemaValidator = z
     dateUpdated: z.string().meta({ format: "date-time" }),
   })
   .strict();
+export type ApiInformationSchema = z.infer<
+  typeof apiInformationSchemaValidator
+>;
 
 // Corresponds to schemas/InformationSchemaTable.yaml
 export const apiInformationSchemaTableValidator = z

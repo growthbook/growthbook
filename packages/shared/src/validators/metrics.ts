@@ -147,6 +147,8 @@ export const apiMetricValidator = z
   })
   .strict();
 
+export type ApiMetric = z.infer<typeof apiMetricValidator>;
+
 // Corresponds to schemas/MetricUsage.yaml
 export const apiMetricUsageValidator = z
   .object({
@@ -185,6 +187,8 @@ export const apiMetricUsageValidator = z
       .optional(),
   })
   .strict();
+
+export type ApiMetricUsage = z.infer<typeof apiMetricUsageValidator>;
 
 // Corresponds to payload-schemas/PostMetricPayload.yaml
 const postMetricBody = z
