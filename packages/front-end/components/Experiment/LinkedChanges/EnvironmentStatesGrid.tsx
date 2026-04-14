@@ -1,4 +1,4 @@
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import {
   PiCaretDown,
   PiCaretRight,
@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 
 type EnvironmentState = {
   env: string;
@@ -30,23 +31,19 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
 
   return (
     <Box p="4" px="5">
-      <Flex align="center">
-        <Text color="text-low" weight="semibold" size="medium">
-          Environments
-        </Text>
-        <Text color="text-low" size="medium" ml="1">
-          ({activeCount}/{totalCount})
-        </Text>
-        <IconButton
-          type="button"
-          radius="full"
-          ml="2"
-          variant="ghost"
-          onClick={() => setEnvironmentsOpen((prev) => !prev)}
-        >
-          {environmentsOpen ? <PiCaretDown /> : <PiCaretRight />}
-        </IconButton>
-      </Flex>
+      <Link color="dark" onClick={() => setEnvironmentsOpen((prev) => !prev)}>
+        <Flex align="center">
+          <Text color="text-low" weight="semibold" size="medium">
+            Environments
+          </Text>
+          <Text color="text-low" size="medium" ml="1">
+            ({activeCount}/{totalCount})
+          </Text>
+          <Box ml="2">
+            {environmentsOpen ? <PiCaretDown /> : <PiCaretRight />}
+          </Box>
+        </Flex>
+      </Link>
       {environmentsOpen && (
         <Grid
           mt="3"
@@ -55,7 +52,7 @@ export default function EnvironmentStatesGrid({ environmentStates }: Props) {
           justify="between"
           flow="column"
           rows={totalCount >= 5 ? "5" : totalCount.toString()}
-          display="inline-grid"
+          display="grid"
         >
           {environmentStates.map(({ env, isActive, tooltip }) => (
             <Box key={env}>
