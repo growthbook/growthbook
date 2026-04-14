@@ -27,7 +27,7 @@
     "generate-api-models": "DISABLE_PYTHON_MONITOR=1 GB_STATS_ENGINE_MIN_POOL_SIZE=0 tsx src/scripts/generate-doc-models-for-openapi-schemas.ts",
     "generate-api-types": "pnpm generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs",
     "generate-openapi": "pnpm --filter shared build && DISABLE_PYTHON_MONITOR=1 GB_STATS_ENGINE_MIN_POOL_SIZE=0 tsx src/scripts/generate-openapi2.ts",
-    "diff-openapi": "ts-node src/scripts/diff-openapi.ts generated/spec.yaml generated/spec2.yaml"
+    "diff-openapi": "ts-node src/scripts/diff-openapi.ts generated/spec-original.yaml generated/spec2.yaml"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
