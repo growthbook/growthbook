@@ -3879,18 +3879,17 @@ export default abstract class SqlIntegration
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped = isPercentileCappedMetric(metric);
-    const isLowerPercentileCapped = isLowerPercentileCappedMetric(metric);
-    const needsMainPercentileCapJoin = needsPercentileCapSubquery(metric);
+    // Lower-tail percentile caps are fact-metric only; this query path is legacy metrics.
+    const isLowerPercentileCapped = false;
+    const needsMainPercentileCapJoin = isPercentileCappedMetric(metric);
     const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
     const denominatorIsPercentileCapped = denominator
       ? isPercentileCappedMetric(denominator)
       : false;
-    const denominatorIsLowerPercentileCapped = denominator
-      ? isLowerPercentileCappedMetric(denominator)
-      : false;
+    const denominatorIsLowerPercentileCapped = false;
     const needsDenomPercentileCapJoin = denominator
-      ? needsPercentileCapSubquery(denominator)
+      ? isPercentileCappedMetric(denominator)
       : false;
 
     const denominatorComputeUncappedMetric = denominator
@@ -4419,7 +4418,6 @@ export default abstract class SqlIntegration
     ignoreNulls,
     denominatorNeedsPercentileCapJoin,
     denominatorIsPercentileCapped,
-    denominatorIsLowerPercentileCapped,
   }: {
     baseIdType: string;
     metricData: BanditMetricData[];
@@ -4429,8 +4427,8 @@ export default abstract class SqlIntegration
     ignoreNulls?: boolean;
     denominatorNeedsPercentileCapJoin?: boolean;
     denominatorIsPercentileCapped?: boolean;
-    denominatorIsLowerPercentileCapped?: boolean;
   }): string {
+    const denominatorIsLowerPercentileCapped = false;
     return `-- One row per variation/dimension with aggregations
   , __banditPeriodStatistics AS (
     SELECT
@@ -5084,9 +5082,10 @@ export default abstract class SqlIntegration
       cs.value < 1
         ? { pct: cs.value }
         : undefined;
-    const lower = isLowerPercentileCappedMetric(m.metric)
-      ? { pct: cs.lowerValue as number }
-      : undefined;
+    const lower =
+      isLowerPercentileCappedMetric(m.metric) && cs.lowerValue !== null
+        ? { pct: cs.lowerValue }
+        : undefined;
     if (!upper && !lower) {
       return [];
     }
@@ -5118,29 +5117,19 @@ export default abstract class SqlIntegration
     return out;
   }
 
-  /** Legacy experiment metrics: one value column and `value_cap` / `value_cap_lower` outputs. */
+  /**
+   * Upper-tail percentile cap only for legacy experiment metrics.
+   * Lower-tail winsorization lives on the fact-metric query path only.
+   */
   private getLegacyMetricPercentileCapRows(
     metric: ExperimentMetricInterface,
     valueCol: string,
     outputCol: string,
   ): FactMetricPercentileData[] {
-    if (!needsPercentileCapSubquery(metric)) {
+    if (!isPercentileCappedMetric(metric)) {
       return [];
     }
     const cs = metric.cappingSettings;
-    const upper =
-      isPercentileCappedMetric(metric) &&
-      cs.value != null &&
-      cs.value > 0 &&
-      cs.value < 1
-        ? { pct: cs.value }
-        : undefined;
-    const lower = isLowerPercentileCappedMetric(metric)
-      ? { pct: cs.lowerValue as number }
-      : undefined;
-    if (!upper && !lower) {
-      return [];
-    }
     const percentileIgnoreZeros = cs.ignoreZeros ?? false;
     return [
       {
@@ -5148,8 +5137,7 @@ export default abstract class SqlIntegration
         outputCol,
         sourceIndex: 0,
         ignoreZeros: percentileIgnoreZeros,
-        ...(upper ? { upperPercentile: upper.pct } : {}),
-        ...(lower ? { lowerPercentile: lower.pct } : {}),
+        upperPercentile: cs.value,
       },
     ];
   }
