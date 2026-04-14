@@ -13236,6 +13236,7 @@ export interface operations {
         projectId?: string;
         datasourceId?: string;
         experimentId?: string;
+        archived?: "true" | "false";
       };
     };
     responses: {
